@@ -75,6 +75,9 @@ jobs:
 
   deploy:
     needs: build-push
+    # Skipped until the VPS exists: set the repository variable DEPLOY_ENABLED
+    # to 'true' (gh variable set DEPLOY_ENABLED --body true) to activate.
+    if: vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
