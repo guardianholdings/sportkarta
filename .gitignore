@@ -29,8 +29,16 @@ coverage/
 # Docker volumes / local data
 volumes/
 data/
+.data/
 pgdata/
 *.local
+
+# Claude Code machine-local settings
+.claude/settings.local.json
+
+# Playwright
+playwright-report/
+test-results/
 
 # Logs
 logs/
