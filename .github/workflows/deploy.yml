@@ -76,6 +76,9 @@ jobs:
   deploy:
     needs: build-push
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -108,6 +111,9 @@ jobs:
           RESTIC_REPOSITORY=${{ secrets.RESTIC_REPOSITORY }}
           RESTIC_PASSWORD=${{ secrets.RESTIC_PASSWORD }}
           EOF
+      - name: Log VPS into GHCR (private images)
+        run: |
+          ssh vps "echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin"
       - name: Pull images, migrate, start stack
         run: |
           ssh vps 'cd /opt/sportkarta \
