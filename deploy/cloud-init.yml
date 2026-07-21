@@ -1,0 +1,62 @@
+#cloud-config
+# SportKarta VPS bootstrap. Paste this file as "user data" / "cloud-init" in
+# the VPS provider's web console when creating the server (Ubuntu 24.04 LTS).
+# After first boot the server is ready for the GitHub Actions deploy workflow:
+# no SSH session by a human is ever required.
+
+timezone: Europe/Sofia
+package_update: true
+package_upgrade: true
+
+packages:
+  - ca-certificates
+  - curl
+  - ufw
+  - fail2ban
+
+users:
+  - name: deploy
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      # Public half of the GitHub Actions deploy key (scripts/gen-deploy-key).
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM86Qa5s/ApvcMrDH/oFDPbvl04dPO+CjodhcygZrZAr sportkarta-actions-deploy
+
+write_files:
+  # Placeholder only: the deploy workflow overwrites this file on every deploy,
+  # rendered from GitHub Actions secrets. Nothing is hand-edited on the server.
+  - path: /opt/sportkarta/.env
+    permissions: '0600'
+    content: |
+      # Rendered by .github/workflows/deploy.yml — do not edit by hand.
+      DOMAIN=
+      IMAGE_TAG=latest
+      POSTGRES_PASSWORD=
+      UMAMI_APP_SECRET=
+      GLITCHTIP_SECRET_KEY=
+      RESTIC_REPOSITORY=
+      RESTIC_PASSWORD=
+  - path: /etc/fail2ban/jail.local
+    content: |
+      [sshd]
+      enabled = true
+      maxretry = 5
+      bantime = 1h
+
+runcmd:
+  # Docker Engine + compose plugin
+  - curl -fsSL https://get.docker.com | sh
+  - systemctl enable --now docker
+  - groupadd -f docker
+  - usermod -aG docker deploy
+  # Deploy target directory (compose.prod.yml, Caddyfile, initdb/ arrive via scp)
+  - mkdir -p /opt/sportkarta
+  - chown -R deploy:deploy /opt/sportkarta
+  # Firewall: SSH + HTTP/HTTPS only
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow 22/tcp
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw --force enable
+  - systemctl enable --now fail2ban

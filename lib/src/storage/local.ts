@@ -1,7 +1,7 @@
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import type { StorageAdapter, StorageObject, StoragePutOptions } from './adapter.js';
+import type { StorageAdapter, StorageObject, StoragePutOptions } from './adapter';
 
 // Keys are validated before touching the filesystem: relative, ASCII-safe,
 // no dot-segments — user-influenced names must never traverse the volume.

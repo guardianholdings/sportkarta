@@ -1,0 +1,27 @@
+# Caddy v2 — automatic Let's Encrypt for all three hosts.
+# DOMAIN comes from /opt/sportkarta/.env via compose.
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Self-served Protomaps tiles (Stage 2). file_server handles HTTP range
+	# requests natively — required for .pmtiles.
+	handle_path /tiles/* {
+		root * /srv/tiles
+		file_server
+		header Cache-Control "public, max-age=86400"
+		header Access-Control-Allow-Origin "*"
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+}
+
+umami.{$DOMAIN} {
+	reverse_proxy umami:3000
+}
+
+glitchtip.{$DOMAIN} {
+	reverse_proxy glitchtip:8000
+}

@@ -11,9 +11,11 @@ browser) in a MANUAL STEPS list at the end of the session.
 
 - `pnpm dev` — Next.js dev server (apps/web)
 - `pnpm build` / `pnpm typecheck` / `pnpm lint` / `pnpm test` — fan out across the workspace
-- `pnpm test:e2e` — Playwright smoke tests (apps/web/e2e)
-- `pnpm db:generate` / `pnpm db:migrate` — drizzle-kit in db/
-- `docker compose -f compose.dev.yml up -d` — local Postgres+PostGIS, Umami, GlitchTip (arrives Session 0.3)
+- `pnpm test:e2e` — Playwright smoke tests (apps/web/e2e); needs the dev db up + migrated + seeded
+- `pnpm db:start` — dev Postgres+PostGIS via compose (host port **5433**, not 5432)
+- `pnpm db:generate` / `pnpm db:migrate` / `pnpm db:seed` — drizzle-kit + seed in db/
+- `pnpm db:reset` — destroy LOCAL dev db volume, re-init, migrate, seed
+- `docker compose -f compose.dev.yml up -d --wait` — full local stack (db, Umami :3001, GlitchTip :3002)
 
 ## Repository layout (pnpm workspace monorepo)
 
@@ -22,6 +24,7 @@ browser) in a MANUAL STEPS list at the end of the session.
 - `db` — Drizzle schema in `db/schema`; geospatial = raw SQL in `db/geo`; migrations in `db/migrations`
 - `lib` — shared code; storage adapter interface in `lib/src/storage` (local-volume impl; MinIO/S3 swap must stay trivial)
 - `scripts` — operational scripts (OSM import etc., Stage 1+)
+- `deploy/` — compose.prod.yml, Caddyfile, cloud-init.yml, backup sidecar; shipped to the VPS by deploy.yml (never hand-edited on the server)
 - `docs/ROADMAP.md` — the plan; read it at session start
 
 ## Architecture

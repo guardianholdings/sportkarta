@@ -1,0 +1,100 @@
+# Local dev stack: Postgres+PostGIS, Umami (analytics), GlitchTip (errors).
+# The web app and worker run on the host (pnpm dev) and connect via localhost.
+# Secrets here are dev-only throwaway values — real secrets never live in git.
+name: sportkarta
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    ports:
+      # Host 5433: 5432 is commonly taken (other projects / local Postgres).
+      - '5433:5432'
+    environment:
+      POSTGRES_USER: sportkarta
+      POSTGRES_PASSWORD: sportkarta
+      POSTGRES_DB: sportkarta
+    volumes:
+      - dev-pgdata:/var/lib/postgresql/data
+      - ./deploy/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U sportkarta -d sportkarta']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    ports:
+      - '3001:3000'
+    environment:
+      DATABASE_URL: postgresql://sportkarta:sportkarta@db:5432/umami
+      DATABASE_TYPE: postgresql
+      APP_SECRET: dev-only-umami-secret
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'node -e "fetch(''http://localhost:3000/api/heartbeat'').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 15s
+
+  glitchtip-migrate:
+    image: glitchtip/glitchtip
+    command: ./bin/run-migrate.sh
+    restart: 'no'
+    environment: &glitchtip-env
+      DATABASE_URL: postgres://sportkarta:sportkarta@db:5432/glitchtip
+      SECRET_KEY: dev-only-glitchtip-secret
+      REDIS_URL: redis://redis:6379/0
+      EMAIL_URL: consolemail://
+      GLITCHTIP_DOMAIN: http://localhost:3002
+      CELERY_WORKER_AUTOSCALE: '1,1'
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  glitchtip:
+    image: glitchtip/glitchtip
+    ports:
+      - '3002:8000'
+    environment: *glitchtip-env
+    depends_on:
+      glitchtip-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:8000/_health/'')"',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+
+  glitchtip-worker:
+    image: glitchtip/glitchtip
+    command: ./bin/run-celery-with-beat.sh
+    environment: *glitchtip-env
+    depends_on:
+      glitchtip-migrate:
+        condition: service_completed_successfully
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  dev-pgdata:

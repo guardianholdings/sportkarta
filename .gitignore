@@ -36,6 +36,9 @@ pgdata/
 # Claude Code machine-local settings
 .claude/settings.local.json
 
+# Deploy key material — never commit
+secrets-local/
+
 # Playwright
 playwright-report/
 test-results/

@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Generates the SSH keypair GitHub Actions uses to deploy to the VPS.
+# PUBLIC key: printed below — safe to commit (it goes into deploy/cloud-init.yml).
+# PRIVATE key: written to secrets-local/ (gitignored) — NEVER commit, never
+# paste into a Claude session; it goes into a GitHub Actions secret via the
+# browser only.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+key_dir="secrets-local"
+key_path="$key_dir/deploy_key_ed25519"
+mkdir -p "$key_dir"
+
+if [[ -e $key_path ]]; then
+  echo "Refusing to overwrite existing $key_path — delete it first to rotate the key." >&2
+  exit 1
+fi
+
+ssh-keygen -q -t ed25519 -C 'sportkarta-actions-deploy' -N '' -f "$key_path"
+
+echo "PUBLIC key (embedded in deploy/cloud-init.yml):"
+cat "$key_path.pub"
+cat <<'EOF'
+
+PRIVATE key written to: secrets-local/deploy_key_ed25519
+Operator browser/GUI steps to store it as a GitHub Actions secret:
+  1. Finder -> project folder -> secrets-local (press Cmd+Shift+. if the
+     folder is hidden) -> open deploy_key_ed25519 with TextEdit
+  2. Select All, Copy
+  3. github.com -> repo -> Settings -> Secrets and variables -> Actions ->
+     New repository secret -> Name: DEPLOY_SSH_KEY -> paste -> Add secret
+EOF

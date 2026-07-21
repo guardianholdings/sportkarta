@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4 # version from packageManager field
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm format:check
+      # DB-backed tests skip themselves here (no DATABASE_URL) and run in e2e.
+      - run: pnpm test
+
+  e2e:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgres://sportkarta:sportkarta@localhost:5433/sportkarta
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Start ephemeral database
+        run: docker compose -f compose.dev.yml up -d --wait db
+      - name: Migrate and seed
+        run: |
+          echo "DATABASE_URL=$DATABASE_URL" > .env
+          pnpm db:migrate
+          pnpm db:seed
+      - name: DB-backed unit tests (ST_DWithin smoke)
+        run: pnpm --filter @sportkarta/db test
+      - name: Install Playwright browsers
+        run: pnpm --filter @sportkarta/web exec playwright install --with-deps chromium
+      - name: Playwright e2e
+        run: pnpm test:e2e
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose -f compose.dev.yml logs --tail 100

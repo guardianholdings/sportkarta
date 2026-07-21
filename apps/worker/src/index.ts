@@ -1,4 +1,10 @@
+import { config } from 'dotenv';
 import PgBoss from 'pg-boss';
+
+// Dev only: repo-root .env (dist/ and src/ are both one level below the
+// package root, so ../../../ lands on the repo root either way). Absent in
+// production containers — no-op there.
+config({ path: new URL('../../../.env', import.meta.url).pathname });
 
 // Queue registry grows in Stage 1+ (imports, reminders, digests). Names are
 // dot-namespaced: <domain>.<action>.

@@ -4,16 +4,19 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/client.ts",
+    ".": "./src/index.ts",
     "./schema": "./schema/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx scripts/seed.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "dotenv": "^16.4.0",
     "drizzle-orm": "^0.44.0",
     "pg": "^8.13.0"
   },
@@ -21,6 +24,8 @@
     "@types/node": "^22.10.0",
     "@types/pg": "^8.11.0",
     "drizzle-kit": "^0.31.0",
-    "typescript": "^5.8.0"
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.0.0"
   }
 }
