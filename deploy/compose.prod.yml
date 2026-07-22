@@ -32,6 +32,14 @@ services:
       # Temporary /admin allowlist until Stage 3 better-auth (name:token pairs).
       # Empty default fails closed: no tokens, no admin access.
       ADMIN_TOKENS: ${ADMIN_TOKENS:-}
+      # Optional contact email on the privacy page (empty → report-form fallback).
+      CONTACT_EMAIL: ${CONTACT_EMAIL:-}
+      # Analytics & error monitoring — read at runtime, empty defaults = disabled.
+      # Self-hosted cookieless Umami (set both to enable the snippet).
+      UMAMI_SRC: ${UMAMI_SRC:-}
+      UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
+      # Self-hosted GlitchTip (Sentry-compatible) DSN for client error monitoring.
+      GLITCHTIP_DSN: ${GLITCHTIP_DSN:-}
     volumes:
       - uploads:/data/uploads
     depends_on:

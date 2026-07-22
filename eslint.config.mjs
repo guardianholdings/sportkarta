@@ -16,6 +16,9 @@ export default tseslint.config(
       '**/test-results/**',
       '**/next-env.d.ts',
       'db/migrations/**',
+      // Node asset-generation + service-worker scripts (own runtime, not app code).
+      'apps/web/scripts/**',
+      'apps/web/public/sw.js',
     ],
   },
   eslint.configs.recommended,

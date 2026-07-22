@@ -6,6 +6,10 @@ import { buildAlternates } from '@/lib/seo';
 
 type PageParams = Promise<{ locale: string }>;
 
+// Dynamic so the optional contact email (CONTACT_EMAIL) applies from the
+// container env without a rebuild; the page holds no user data.
+export const dynamic = 'force-dynamic';
+
 export async function generateMetadata({ params }: { params: PageParams }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'Privacy' });
@@ -17,7 +21,8 @@ export default async function PrivacyPage({ params }: { params: PageParams }) {
   setRequestLocale(locale);
   const t = await getTranslations('Privacy');
 
-  const sections = ['analytics', 'reports', 'photos', 'data'] as const;
+  const sections = ['store', 'analytics', 'reports', 'photos', 'data'] as const;
+  const contactEmail = process.env.CONTACT_EMAIL;
 
   return (
     <main className="mx-auto max-w-2xl space-y-6 p-4">
@@ -32,6 +37,19 @@ export default async function PrivacyPage({ params }: { params: PageParams }) {
           <p className="text-neutral-700">{t(`${s}Body`)}</p>
         </section>
       ))}
+      <section className="space-y-1">
+        <h2 className="text-lg font-semibold">{t('contactTitle')}</h2>
+        <p className="text-neutral-700">{t('contactIntro')}</p>
+        {contactEmail ? (
+          <p>
+            <a href={`mailto:${contactEmail}`} className="text-teal-700 underline">
+              {contactEmail}
+            </a>
+          </p>
+        ) : (
+          <p className="text-neutral-700">{t('contactFallback')}</p>
+        )}
+      </section>
     </main>
   );
 }

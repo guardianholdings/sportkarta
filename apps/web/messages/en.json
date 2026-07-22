@@ -3,6 +3,9 @@
     "title": "SportKarta — Play Outside",
     "description": "A national map of free public sports facilities in Bulgaria."
   },
+  "Manifest": {
+    "shortName": "SportKarta"
+  },
   "AdminNav": {
     "dashboard": "Home",
     "facilities": "Facilities",
@@ -336,6 +339,8 @@
     "back": "← Home",
     "title": "Privacy",
     "intro": "SportKarta is a non-profit project. We collect as little data as possible and do not track users.",
+    "storeTitle": "What we store",
+    "storeBody": "We store facility data (location, type, condition) and moderator-approved photos with metadata removed. We do not create user accounts and do not store names, emails, or other personal information.",
     "analyticsTitle": "Visit analytics",
     "analyticsBody": "We use self-hosted, cookieless analytics (Umami). We do not build profiles or track individuals across sites.",
     "reportsTitle": "Problem reports",
@@ -343,6 +348,9 @@
     "photosTitle": "Photos",
     "photosBody": "Photograph the facility, not people. All metadata, including EXIF GPS, is stripped server-side before storage, and photos are reviewed by a moderator before publication.",
     "dataTitle": "Data source",
-    "dataBody": "Facility data is based on OpenStreetMap (ODbL) and the basemap on Protomaps. Community contributions are published as part of the combined open dataset."
+    "dataBody": "Facility data is based on OpenStreetMap (ODbL) and the basemap on Protomaps. Community contributions are published as part of the combined open dataset.",
+    "contactTitle": "Contact",
+    "contactIntro": "Have a question about the data, or want a record corrected or removed?",
+    "contactFallback": "Use the “Report a problem” button on the relevant facility page."
   }
 }
