@@ -160,7 +160,10 @@
     "uploadedBy": "uploaded by {who}",
     "unknownUploader": "anonymous",
     "reportsTitle": "Visitor reports",
-    "reportsEmpty": "Reports arrive with the public map (Stage 2)."
+    "reportsEmpty": "No pending reports.",
+    "reportPhoto": "photo",
+    "markReviewed": "Reviewed",
+    "dismiss": "Dismiss"
   },
   "AdminImport": {
     "title": "OSM import",
@@ -244,8 +247,49 @@
     "lastVerified": "Last verified: {date}",
     "neverVerified": "Not yet verified",
     "dataSource": "Data source",
-    "reportProblem": "Report a problem",
-    "reportComingSoon": "The report form is coming soon (Stage 2.2).",
     "unnamed": "Sports facility"
+  },
+  "Report": {
+    "open": "Report a problem / suggest a correction",
+    "title": "Report a problem / suggest a correction",
+    "issueLabel": "What is the problem?",
+    "issue": {
+      "broken_equipment": "Broken equipment",
+      "no_lighting": "No lighting",
+      "bad_surface": "Poor surface",
+      "does_not_exist": "Does not exist",
+      "other": "Other"
+    },
+    "bodyLabel": "Description (optional)",
+    "bodyPlaceholder": "Briefly describe the problem…",
+    "charCount": "{n}/{max} characters",
+    "photoLabel": "Photo (optional)",
+    "photoHint": "Photograph the facility, not people.",
+    "submit": "Send report",
+    "submitting": "Sending…",
+    "cancel": "Cancel",
+    "success": "Thank you! Your report was sent and will be reviewed by a moderator.",
+    "privacyNote": "Reports are anonymous. Your IP is used only transiently for anti-spam and is not stored.",
+    "privacyLink": "How we handle your data",
+    "error": {
+      "tooFast": "The form was submitted too fast. Please try again.",
+      "rateLimited": "Too many reports. Please try again later.",
+      "invalid": "Please check your input and try again.",
+      "photoTooLarge": "The photo is too large (max 8 MB).",
+      "invalidPhoto": "Invalid photo file."
+    }
+  },
+  "Privacy": {
+    "back": "← Home",
+    "title": "Privacy",
+    "intro": "SportKarta is a non-profit project. We collect as little data as possible and do not track users.",
+    "analyticsTitle": "Visit analytics",
+    "analyticsBody": "We use self-hosted, cookieless analytics (Umami). We do not build profiles or track individuals across sites.",
+    "reportsTitle": "Problem reports",
+    "reportsBody": "Facility reports are anonymous — we neither ask for nor store a name, email, or account. For spam protection your IP address is used transiently, only to rate-limit requests, and is never stored together with the report.",
+    "photosTitle": "Photos",
+    "photosBody": "Photograph the facility, not people. All metadata, including EXIF GPS, is stripped server-side before storage, and photos are reviewed by a moderator before publication.",
+    "dataTitle": "Data source",
+    "dataBody": "Facility data is based on OpenStreetMap (ODbL) and the basemap on Protomaps. Community contributions are published as part of the combined open dataset."
   }
 }

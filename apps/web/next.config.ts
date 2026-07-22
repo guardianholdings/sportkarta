@@ -12,6 +12,12 @@ const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 const nextConfig: NextConfig = {
   output: 'standalone',
   transpilePackages: ['@sportkarta/lib', '@sportkarta/db'],
+  experimental: {
+    // Report photos are up to 8 MB (lib/image.ts MAX_PHOTO_BYTES); the default
+    // server-action body limit (1 MB) would reject real phone photos before our
+    // own size check runs. Headroom above 8 MB covers multipart form overhead.
+    serverActions: { bodySizeLimit: '10mb' },
+  },
   webpack: (config: { resolve: { extensionAlias?: Record<string, string[]> } }) => {
     // Workspace packages use ESM ".js" specifiers over TS sources (nodenext
     // compatibility for apps/worker); map them back to .ts for webpack.

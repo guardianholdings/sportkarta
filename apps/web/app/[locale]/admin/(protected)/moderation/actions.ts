@@ -26,3 +26,21 @@ export async function decidePhoto(photoId: string, decision: 'approved' | 'rejec
   `);
   revalidatePath('/admin/moderation');
 }
+
+/**
+ * Report triage (Stage 2.2): flip a pending anonymous report to reviewed or
+ * dismissed. Guarded on pending so repeat clicks are no-ops. The attached
+ * photo (if any) is moderated separately via decidePhoto.
+ */
+export async function resolveReport(reportId: string, decision: 'reviewed' | 'dismissed') {
+  await requireAdmin();
+  if (!isUuid(reportId)) return;
+  if (decision !== 'reviewed' && decision !== 'dismissed') return;
+
+  const db = getDb();
+  await db.execute(sql`
+    UPDATE facility_reports SET status = ${decision}::report_status
+    WHERE id = ${reportId} AND status = 'pending'
+  `);
+  revalidatePath('/admin/moderation');
+}

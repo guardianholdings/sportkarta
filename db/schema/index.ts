@@ -33,6 +33,16 @@ export const facilityAccess = pgEnum('facility_access', ['free', 'paid', 'restri
 export const facilityStatus = pgEnum('facility_status', ['active', 'needs_verification', 'gone']);
 export const facilitySource = pgEnum('facility_source', ['osm', 'municipal', 'crowd']);
 export const photoStatus = pgEnum('photo_status', ['pending', 'approved', 'rejected']);
+// Anonymous visitor problem-reports (Stage 2.2). Issue tags mirror the public
+// form's structured options; UI labels come from i18n, never these slugs.
+export const reportIssue = pgEnum('report_issue', [
+  'broken_equipment',
+  'no_lighting',
+  'bad_surface',
+  'does_not_exist',
+  'other',
+]);
+export const reportStatus = pgEnum('report_status', ['pending', 'reviewed', 'dismissed']);
 
 export const municipalities = pgTable(
   'municipalities',
@@ -193,6 +203,37 @@ export const facilityEdits = pgTable(
   ],
 );
 
+// Anonymous visitor problem-reports (Stage 2.2). No IP or other identifier is
+// stored: the request IP is used transiently for rate-limiting only and never
+// persisted here (see the privacy page). An optional photo goes through the
+// storage adapter into facility_photos (status=pending) and is referenced here.
+export const facilityReports = pgTable(
+  'facility_reports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    facilityId: uuid('facility_id')
+      .notNull()
+      .references(() => facilities.id, { onDelete: 'cascade' }),
+    issue: reportIssue('issue').notNull(),
+    // Free-text detail, capped to 500 chars (also enforced client + server-side).
+    body: text('body'),
+    photoId: uuid('photo_id').references(() => facilityPhotos.id, { onDelete: 'set null' }),
+    status: reportStatus('status').notNull().default('pending'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('facility_reports_pending_created_idx')
+      .on(t.createdAt)
+      .where(sql`${t.status} = 'pending'`),
+    index('facility_reports_facility_id_idx').on(t.facilityId),
+    // Covers the photo_id FK so ON DELETE SET NULL (photo reject/delete) never
+    // seq-scans this unbounded anonymous-input table.
+    index('facility_reports_photo_id_idx').on(t.photoId),
+    check('facility_reports_body_len', sql`${t.body} IS NULL OR char_length(${t.body}) <= 500`),
+    check('facility_reports_body_not_blank', sql`${t.body} IS NULL OR btrim(${t.body}) <> ''`),
+  ],
+);
+
 export type Municipality = typeof municipalities.$inferSelect;
 export type NewMunicipality = typeof municipalities.$inferInsert;
 export type Source = typeof sources.$inferSelect;
@@ -202,3 +243,5 @@ export type FacilityPhoto = typeof facilityPhotos.$inferSelect;
 export type NewFacilityPhoto = typeof facilityPhotos.$inferInsert;
 export type FacilityEdit = typeof facilityEdits.$inferSelect;
 export type NewFacilityEdit = typeof facilityEdits.$inferInsert;
+export type FacilityReport = typeof facilityReports.$inferSelect;
+export type NewFacilityReport = typeof facilityReports.$inferInsert;

@@ -308,6 +308,43 @@ export async function pendingPhotos(): Promise<PendingPhoto[]> {
   });
 }
 
+export interface PendingReport {
+  id: string;
+  facilityId: string;
+  facilityName: string | null;
+  issue: string;
+  body: string | null;
+  photoPath: string | null;
+  createdAt: string;
+}
+
+/** Anonymous visitor reports awaiting triage (Stage 2.2 moderation queue). */
+export async function pendingReports(): Promise<PendingReport[]> {
+  const db = getDb();
+  const result = await db.execute(sql`
+    SELECT r.id, r.facility_id, f.name AS facility_name, r.issue, r.body,
+           p.storage_path AS photo_path, r.created_at
+    FROM facility_reports r
+    JOIN facilities f ON f.id = r.facility_id
+    LEFT JOIN facility_photos p ON p.id = r.photo_id
+    WHERE r.status = 'pending'
+    ORDER BY r.created_at
+    LIMIT 100
+  `);
+  return result.rows.map((r) => {
+    const row = r as Record<string, unknown>;
+    return {
+      id: String(row.id),
+      facilityId: String(row.facility_id),
+      facilityName: (row.facility_name as string | null) ?? null,
+      issue: String(row.issue),
+      body: (row.body as string | null) ?? null,
+      photoPath: (row.photo_path as string | null) ?? null,
+      createdAt: String(row.created_at),
+    };
+  });
+}
+
 export interface ImportJobRow {
   id: string;
   state: string;

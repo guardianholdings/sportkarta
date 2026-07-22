@@ -1,9 +1,9 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
-import { pendingPhotos } from '@/lib/admin-data';
+import { pendingPhotos, pendingReports } from '@/lib/admin-data';
 
-import { decidePhoto } from './actions';
+import { decidePhoto, resolveReport } from './actions';
 
 export default async function AdminModerationPage({
   params,
@@ -12,10 +12,12 @@ export default async function AdminModerationPage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const [t, tFacilities, photos] = await Promise.all([
+  const [t, tFacilities, tIssue, photos, reports] = await Promise.all([
     getTranslations('AdminModeration'),
     getTranslations('AdminFacilities'),
+    getTranslations('Report'),
     pendingPhotos(),
+    pendingReports(),
   ]);
 
   return (
@@ -73,9 +75,63 @@ export default async function AdminModerationPage({
 
       <section className="space-y-3">
         <h2 className="font-medium">{t('reportsTitle')}</h2>
-        <p className="rounded border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500">
-          {t('reportsEmpty')}
-        </p>
+        {reports.length === 0 ? (
+          <p className="rounded border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500">
+            {t('reportsEmpty')}
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {reports.map((report) => {
+              const markReviewed = resolveReport.bind(null, report.id, 'reviewed' as const);
+              const dismiss = resolveReport.bind(null, report.id, 'dismissed' as const);
+              return (
+                <li
+                  key={report.id}
+                  className="flex flex-wrap items-start gap-3 rounded border border-neutral-200 p-3 text-sm"
+                >
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/admin/facilities/${report.facilityId}`}
+                        className="font-medium underline"
+                      >
+                        {report.facilityName ?? tFacilities('unnamed')}
+                      </Link>
+                      <span className="rounded bg-neutral-100 px-2 py-0.5 text-xs">
+                        {tIssue(`issue.${report.issue}`)}
+                      </span>
+                      <span className="text-xs text-neutral-500">
+                        {report.createdAt.slice(0, 10)}
+                      </span>
+                    </div>
+                    {report.body && <p className="text-neutral-700">{report.body}</p>}
+                    {report.photoPath && (
+                      <p className="truncate text-xs text-neutral-500">
+                        {t('reportPhoto')}: <code>{report.photoPath}</code>
+                      </p>
+                    )}
+                  </div>
+                  <form action={markReviewed}>
+                    <button
+                      type="submit"
+                      className="rounded bg-green-600 px-3 py-2 font-medium text-white"
+                    >
+                      {t('markReviewed')}
+                    </button>
+                  </form>
+                  <form action={dismiss}>
+                    <button
+                      type="submit"
+                      className="rounded bg-neutral-500 px-3 py-2 font-medium text-white"
+                    >
+                      {t('dismiss')}
+                    </button>
+                  </form>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
     </main>
   );

@@ -2,9 +2,10 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
-import { ReportProblemButton } from '@/components/facility/report-problem-button';
+import { ReportForm } from '@/components/facility/report-form';
 import { MiniMapLoader } from '@/components/map/mini-map-loader';
 import { Link } from '@/i18n/navigation';
+import { issueFormToken } from '@/lib/form-token';
 import { serializeJsonLd } from '@/lib/json-ld';
 import { getFacilityBySlug, type FacilityDetail } from '@/lib/public-data';
 
@@ -154,7 +155,7 @@ export default async function FacilityPage({ params }: { params: PageParams }) {
       </section>
 
       <section>
-        <ReportProblemButton />
+        <ReportForm slug={facility.slug} formToken={issueFormToken()} />
       </section>
     </main>
   );
