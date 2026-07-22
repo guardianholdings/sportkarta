@@ -77,7 +77,7 @@ export default async function AdminImportPage({
                     <span
                       className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATE_CLASSES[job.state] ?? 'bg-neutral-100 text-neutral-600'}`}
                     >
-                      {job.state}
+                      {t.has(`state.${job.state}`) ? t(`state.${job.state}`) : job.state}
                     </span>
                   </td>
                   <td className="py-2 pr-3">

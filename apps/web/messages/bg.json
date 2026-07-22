@@ -186,7 +186,15 @@
     "report": "Отчет",
     "reportTitle": "Отчет от импорт",
     "reportMissing": "Все още няма отчет за тази задача.",
-    "back": "← Всички изпълнения"
+    "back": "← Всички изпълнения",
+    "state": {
+      "created": "изчакваща",
+      "active": "изпълнява се",
+      "completed": "завършена",
+      "failed": "провалена",
+      "retry": "повторен опит",
+      "cancelled": "отказана"
+    }
   },
   "AdminMap": {
     "openInOsm": "Отвори в OpenStreetMap",

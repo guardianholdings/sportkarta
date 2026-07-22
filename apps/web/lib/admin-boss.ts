@@ -12,7 +12,8 @@ export function getBoss(): Promise<PgBoss> {
     if (!url) throw new Error('DATABASE_URL is required (see .env.example)');
     const boss = new PgBoss(url);
     boss.on('error', (error) => {
-      console.error('[admin pg-boss]', error);
+      // Message only: connection errors can embed the connection string.
+      console.error('[admin pg-boss]', error instanceof Error ? error.message : String(error));
     });
     await boss.start();
     return boss;

@@ -186,7 +186,15 @@
     "report": "Report",
     "reportTitle": "Import report",
     "reportMissing": "No report for this job yet.",
-    "back": "← All runs"
+    "back": "← All runs",
+    "state": {
+      "created": "queued",
+      "active": "running",
+      "completed": "completed",
+      "failed": "failed",
+      "retry": "retrying",
+      "cancelled": "cancelled"
+    }
   },
   "AdminMap": {
     "openInOsm": "Open in OpenStreetMap",

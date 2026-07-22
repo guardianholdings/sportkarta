@@ -21,7 +21,9 @@ export default async function AdminImportJobPage({
       </Link>
       <h1 className="text-xl font-semibold">
         {t('reportTitle')} — {job.dryRun ? t('modeDry') : t('modeLive')} ·{' '}
-        <span className="text-neutral-500">{job.state}</span>
+        <span className="text-neutral-500">
+          {t.has(`state.${job.state}`) ? t(`state.${job.state}`) : job.state}
+        </span>
       </h1>
       {job.report ? (
         <pre className="max-w-4xl overflow-x-auto rounded bg-neutral-50 p-4 text-xs whitespace-pre-wrap">

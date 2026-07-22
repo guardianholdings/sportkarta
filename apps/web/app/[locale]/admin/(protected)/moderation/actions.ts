@@ -11,6 +11,8 @@ import { requireAdmin } from '@/lib/admin-session';
  * Photo moderation v1: status flip on the photo row itself (facility_photos
  * has its own status lifecycle; facility_edits stays a facility-field audit).
  * Guarded on pending so double-clicks are no-ops.
+ * TODO(stage-2): attribute decisions (moderated_by/moderated_at columns)
+ * before photo moderation drives public content.
  */
 export async function decidePhoto(photoId: string, decision: 'approved' | 'rejected') {
   await requireAdmin();

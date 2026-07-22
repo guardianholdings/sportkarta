@@ -29,6 +29,9 @@ services:
       DATABASE_URL: postgres://sportkarta:${POSTGRES_PASSWORD}@db:5432/sportkarta
       NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
       STORAGE_DIR: /data/uploads
+      # Temporary /admin allowlist until Stage 3 better-auth (name:token pairs).
+      # Empty default fails closed: no tokens, no admin access.
+      ADMIN_TOKENS: ${ADMIN_TOKENS:-}
     volumes:
       - uploads:/data/uploads
     depends_on:

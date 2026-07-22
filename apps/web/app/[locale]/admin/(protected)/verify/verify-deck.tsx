@@ -17,6 +17,7 @@ import { decideFacility, type VerifyDecision } from './actions';
 export function VerifyDeck({ cards, remaining }: { cards: VerifyCard[]; remaining: number }) {
   const t = useTranslations('AdminVerify');
   const tSport = useTranslations('AdminSport');
+  const tSurface = useTranslations('AdminSurface');
   const tAccess = useTranslations('AdminAccess');
   const tEdit = useTranslations('AdminEdit');
   const tMap = useTranslations('AdminMap');
@@ -107,7 +108,8 @@ export function VerifyDeck({ cards, remaining }: { cards: VerifyCard[]; remainin
           {card.surface && (
             <>
               {' '}
-              · {tEdit('surface')}: {card.surface}
+              · {tEdit('surface')}:{' '}
+              {tSurface.has(card.surface) ? tSurface(card.surface) : card.surface}
             </>
           )}
           {' · '}
