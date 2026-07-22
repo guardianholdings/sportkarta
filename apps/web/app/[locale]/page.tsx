@@ -1,17 +1,68 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
-import { Button } from '@/components/ui/button';
+import { MapExplorer } from '@/components/map/map-explorer';
+import type { MapView } from '@/components/map/map-canvas';
+import { parsePublicFilters } from '@/lib/filters';
+import { listPublicFacilities } from '@/lib/public-data';
 
-export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
+// Filter- and viewport-dependent, DB-backed: rendered per request.
+export const dynamic = 'force-dynamic';
+
+type SearchParams = Record<string, string | string[] | undefined>;
+
+// Default to a whole-Bulgaria overview; a z/lat/lng in the URL (written as the
+// user pans) restores their last viewport. Bounds match the data's bbox.
+function parseView(sp: SearchParams): MapView {
+  const z = Number(sp.z);
+  const lat = Number(sp.lat);
+  const lng = Number(sp.lng);
+  if (
+    Number.isFinite(z) &&
+    z >= 0 &&
+    z <= 20 &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= 41 &&
+    lat <= 44.5 &&
+    lng >= 22 &&
+    lng <= 29
+  ) {
+    return { lng, lat, zoom: z };
+  }
+  return { lng: 25.3, lat: 42.72, zoom: 6.8 };
+}
+
+export default async function HomePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<SearchParams>;
+}) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const t = await getTranslations('HomePage');
+  const sp = await searchParams;
+
+  const filters = parsePublicFilters(sp);
+  const [t, facilities] = await Promise.all([
+    getTranslations('Map'),
+    listPublicFacilities(filters, 100),
+  ]);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
-      <h1 className="text-4xl font-bold tracking-tight">{t('title')}</h1>
-      <p className="text-muted-foreground max-w-prose text-center text-lg">{t('tagline')}</p>
-      <Button size="lg">{t('cta')}</Button>
+    <main>
+      <h1 className="sr-only">{t('title')}</h1>
+      <MapExplorer
+        filters={filters}
+        initialView={parseView(sp)}
+        initialFacilities={facilities.map((f) => ({
+          slug: f.slug,
+          name: f.name,
+          sports: f.sportTypes,
+          lon: f.lon,
+          lat: f.lat,
+        }))}
+      />
     </main>
   );
 }

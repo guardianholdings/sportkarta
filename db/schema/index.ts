@@ -74,6 +74,10 @@ export const facilities = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     geom: geomPoint4326('geom').notNull(),
     name: text('name'),
+    // Stable public URL slug (/obekt/[slug]); NULL until assigned. Official
+    // Bulgarian transliteration, collision-suffixed (lib/src/slug.ts). Assigned
+    // once at creation and never regenerated on rename, so links stay stable.
+    slug: text('slug'),
     sportTypes: text('sport_types')
       .array()
       .notNull()
@@ -105,10 +109,21 @@ export const facilities = pgTable(
     uniqueIndex('facilities_osm_ref_unique')
       .on(t.osmType, t.osmId)
       .where(sql`${t.osmType} IS NOT NULL`),
+    // Partial unique index: slugs are unique among assigned rows; NULLs are
+    // exempt (many rows may be unslugged before backfill).
+    uniqueIndex('facilities_slug_unique')
+      .on(t.slug)
+      .where(sql`${t.slug} IS NOT NULL`),
     index('facilities_municipality_id_idx').on(t.municipalityId),
     index('facilities_source_idx').on(t.source),
     index('facilities_sport_types_gin').using('gin', t.sportTypes),
     check('facilities_name_not_blank', sql`${t.name} IS NULL OR btrim(${t.name}) <> ''`),
+    // Slug format mirrors lib/src/slug.ts output: lowercase alnum words joined
+    // by single hyphens, no leading/trailing/double hyphens.
+    check(
+      'facilities_slug_format',
+      sql`${t.slug} IS NULL OR ${t.slug} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`,
+    ),
     check('facilities_surface_not_blank', sql`${t.surface} IS NULL OR btrim(${t.surface}) <> ''`),
     check('facilities_quarter_not_blank', sql`${t.quarter} IS NULL OR btrim(${t.quarter}) <> ''`),
     check(

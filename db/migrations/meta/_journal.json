@@ -15,6 +15,13 @@
       "when": 1784689688530,
       "tag": "0001_core-facilities",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784709338056,
+      "tag": "0002_facility_slugs",
+      "breakpoints": true
     }
   ]
 }

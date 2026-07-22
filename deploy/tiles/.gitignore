@@ -1,0 +1,3 @@
+# The basemap extract is regenerated (scripts/build-tiles) and shipped to the
+# VPS tiles volume — too large to track in git. Keep README.md + this file.
+*.pmtiles

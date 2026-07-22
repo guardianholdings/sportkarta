@@ -1,4 +1,4 @@
-import { mergeFields, type EditSource, type JsonValue } from '@sportkarta/lib';
+import { facilitySlug, mergeFields, type EditSource, type JsonValue } from '@sportkarta/lib';
 import type pg from 'pg';
 
 import type { FacilityCandidate } from './normalize.js';
@@ -128,6 +128,14 @@ async function loadExisting(client: pg.ClientBase): Promise<Map<string, Existing
   return map;
 }
 
+/** All assigned slugs — the collision set for newly inserted facilities. */
+async function loadTakenSlugs(client: pg.ClientBase): Promise<Set<string>> {
+  const result = await client.query<{ slug: string }>(
+    `SELECT slug FROM facilities WHERE slug IS NOT NULL`,
+  );
+  return new Set(result.rows.map((r) => r.slug));
+}
+
 /** Last audited edit source per (facility, field) — the merge-policy input. */
 export async function loadLastEditSources(
   client: pg.ClientBase,
@@ -175,6 +183,7 @@ export async function importCandidates(
   const existing = await loadExisting(client);
   const existingIds = [...existing.values()].map((f) => f.id);
   const lastEdits = await loadLastEditSources(client, existingIds);
+  const takenSlugs = await loadTakenSlugs(client);
 
   const seenKeys = new Set<string>();
 
@@ -190,25 +199,33 @@ export async function importCandidates(
     const found = existing.get(key);
 
     if (!found) {
+      // Stable slug at creation (never regenerated on rename). Fallback keys
+      // off the OSM ref so unnamed facilities still get a deterministic slug.
+      const slug = facilitySlug(
+        candidate.name,
+        `${candidate.osmType}-${String(candidate.osmId)}`,
+        (c) => takenSlugs.has(c),
+      );
       await client.query('SAVEPOINT import_row');
       try {
         const inserted = await client.query<{ id: string }>(
           `
           INSERT INTO facilities
-            (geom, name, sport_types, surface, lighting, covered, access, status,
+            (geom, name, slug, sport_types, surface, lighting, covered, access, status,
              municipality_id, source, osm_type, osm_id, attrs)
           VALUES
-            (ST_SetSRID(ST_MakePoint($1, $2), 4326), $3, $4::text[], $5, $6, $7, $8,
+            (ST_SetSRID(ST_MakePoint($1, $2), 4326), $3, $4, $5::text[], $6, $7, $8, $9,
              'needs_verification',
              (SELECT m.id FROM municipalities m
                WHERE ST_Contains(m.geom, ST_SetSRID(ST_MakePoint($1, $2), 4326)) LIMIT 1),
-             'osm', $9, $10, $11::jsonb)
+             'osm', $10, $11, $12::jsonb)
           RETURNING id
           `,
           [
             centroid.lon,
             centroid.lat,
             candidate.name,
+            slug,
             candidate.sportTypes,
             candidate.surface,
             candidate.lighting,
@@ -228,6 +245,9 @@ export async function importCandidates(
           );
         }
         await client.query('RELEASE SAVEPOINT import_row');
+        // Only reserve the slug once the row actually committed (a bbox-CHECK
+        // rollback below must not leak it out of the collision set).
+        takenSlugs.add(slug);
         counts.inserted += 1;
       } catch (error) {
         // Border noise can slip past the rough bbox screen and hit the

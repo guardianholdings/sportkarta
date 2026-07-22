@@ -72,8 +72,8 @@ export default async function AdminFacilitiesPage({
   const [t, tStatus, tSource, tSport, { rows, total }, municipalities] = await Promise.all([
     getTranslations('AdminFacilities'),
     getTranslations('AdminStatus'),
-    getTranslations('AdminSource'),
-    getTranslations('AdminSport'),
+    getTranslations('Source'),
+    getTranslations('Sport'),
     listFacilities(filters),
     municipalityOptions(),
   ]);

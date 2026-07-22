@@ -16,9 +16,9 @@ import { decideFacility, type VerifyDecision } from './actions';
  */
 export function VerifyDeck({ cards, remaining }: { cards: VerifyCard[]; remaining: number }) {
   const t = useTranslations('AdminVerify');
-  const tSport = useTranslations('AdminSport');
-  const tSurface = useTranslations('AdminSurface');
-  const tAccess = useTranslations('AdminAccess');
+  const tSport = useTranslations('Sport');
+  const tSurface = useTranslations('Surface');
+  const tAccess = useTranslations('Access');
   const tEdit = useTranslations('AdminEdit');
   const tMap = useTranslations('AdminMap');
   const router = useRouter();

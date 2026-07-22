@@ -5,6 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./slug": "./src/slug.ts",
+    "./sports": "./src/sports.ts",
     "./storage": "./src/storage/index.ts"
   },
   "scripts": {

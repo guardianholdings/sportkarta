@@ -3,11 +3,6 @@
     "title": "SportKarta — Play Outside",
     "description": "A national map of free public sports facilities in Bulgaria."
   },
-  "HomePage": {
-    "title": "Play Outside",
-    "tagline": "A national map of free public sports facilities in Bulgaria — find a court or playground near you.",
-    "cta": "Explore the map"
-  },
   "AdminNav": {
     "dashboard": "Home",
     "facilities": "Facilities",
@@ -61,18 +56,18 @@
     "needs_verification": "awaiting verification",
     "gone": "gone"
   },
-  "AdminSource": {
+  "Source": {
     "osm": "OSM",
     "municipal": "municipal",
     "crowd": "community"
   },
-  "AdminAccess": {
+  "Access": {
     "free": "free",
     "paid": "paid",
     "restricted": "restricted",
     "school": "school"
   },
-  "AdminSport": {
+  "Sport": {
     "archery": "archery",
     "athletics": "athletics",
     "badminton": "badminton",
@@ -102,7 +97,7 @@
     "tennis": "tennis",
     "volleyball": "volleyball"
   },
-  "AdminSurface": {
+  "Surface": {
     "acrylic": "acrylic",
     "artificial_turf": "artificial turf",
     "asphalt": "asphalt",
@@ -199,5 +194,58 @@
   "AdminMap": {
     "openInOsm": "Open in OpenStreetMap",
     "attribution": "© OpenStreetMap contributors"
+  },
+  "Map": {
+    "title": "Facilities map",
+    "intro": "Find free public sports facilities near you.",
+    "filters": "Filters",
+    "sport": "Sport",
+    "access": "Access",
+    "lighting": "Lighting",
+    "surface": "Surface",
+    "onlyLit": "Floodlit only",
+    "anySport": "All sports",
+    "anySurface": "All surfaces",
+    "apply": "Apply",
+    "reset": "Clear filters",
+    "locate": "Find me",
+    "locating": "Locating…",
+    "locateError": "Location unavailable.",
+    "results": "Facilities",
+    "resultsCount": "{count} facilities",
+    "empty": "No facilities match these filters.",
+    "distanceKm": "{km} km away",
+    "viewDetails": "View details",
+    "close": "Close",
+    "showList": "List",
+    "showMap": "Map",
+    "loading": "Loading the map…",
+    "myLocation": "Your location",
+    "skipToList": "Skip to the facilities list"
+  },
+  "Facility": {
+    "notFound": "No such facility.",
+    "backToMap": "← Back to the map",
+    "attributes": "Attributes",
+    "sports": "Sports",
+    "access": "Access",
+    "surface": "Surface",
+    "lighting": "Lighting",
+    "covered": "Covered",
+    "quarter": "Quarter",
+    "municipality": "Municipality",
+    "yes": "yes",
+    "no": "no",
+    "unknown": "unknown",
+    "location": "Location",
+    "photos": "Photos",
+    "noPhotos": "No approved photos yet.",
+    "photoAlt": "Photo of {name}",
+    "lastVerified": "Last verified: {date}",
+    "neverVerified": "Not yet verified",
+    "dataSource": "Data source",
+    "reportProblem": "Report a problem",
+    "reportComingSoon": "The report form is coming soon (Stage 2.2).",
+    "unnamed": "Sports facility"
   }
 }

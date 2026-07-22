@@ -23,10 +23,10 @@ export default async function AdminFacilityEditPage({
   const [t, tStatus, tAccess, tSport, tSurface, tSource, facility, history] = await Promise.all([
     getTranslations('AdminEdit'),
     getTranslations('AdminStatus'),
-    getTranslations('AdminAccess'),
-    getTranslations('AdminSport'),
-    getTranslations('AdminSurface'),
-    getTranslations('AdminSource'),
+    getTranslations('Access'),
+    getTranslations('Sport'),
+    getTranslations('Surface'),
+    getTranslations('Source'),
     getFacility(id),
     facilityHistory(id),
   ]);

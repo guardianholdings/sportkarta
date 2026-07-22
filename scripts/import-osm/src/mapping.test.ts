@@ -1,7 +1,15 @@
 import { CANONICAL_SPORTS, CANONICAL_SURFACES } from '@sportkarta/lib';
 import { describe, expect, it } from 'vitest';
 
-import { mapAccess, mapCovered, mapLighting, mapSports, mapSurface, SPORT_MAP, SURFACE_MAP } from './mapping.js';
+import {
+  mapAccess,
+  mapCovered,
+  mapLighting,
+  mapSports,
+  mapSurface,
+  SPORT_MAP,
+  SURFACE_MAP,
+} from './mapping.js';
 import { normalizeFeature, parseOsmRef, preferCandidate, type OsmFeature } from './normalize.js';
 
 function feature(

@@ -3,11 +3,6 @@
     "title": "СпортКарта — Играй Навън",
     "description": "Национална карта на безплатните обществени спортни съоръжения в България."
   },
-  "HomePage": {
-    "title": "Играй Навън",
-    "tagline": "Национална карта на безплатните обществени спортни съоръжения в България — открий игрище близо до теб.",
-    "cta": "Разгледай картата"
-  },
   "AdminNav": {
     "dashboard": "Начало",
     "facilities": "Съоръжения",
@@ -61,18 +56,18 @@
     "needs_verification": "чака проверка",
     "gone": "изчезнало"
   },
-  "AdminSource": {
+  "Source": {
     "osm": "OSM",
     "municipal": "общинско",
     "crowd": "общност"
   },
-  "AdminAccess": {
+  "Access": {
     "free": "свободен",
     "paid": "платен",
     "restricted": "ограничен",
     "school": "училищен"
   },
-  "AdminSport": {
+  "Sport": {
     "archery": "стрелба с лък",
     "athletics": "лека атлетика",
     "badminton": "бадминтон",
@@ -102,7 +97,7 @@
     "tennis": "тенис",
     "volleyball": "волейбол"
   },
-  "AdminSurface": {
+  "Surface": {
     "acrylic": "акрил",
     "artificial_turf": "изкуствена трева",
     "asphalt": "асфалт",
@@ -199,5 +194,58 @@
   "AdminMap": {
     "openInOsm": "Отвори в OpenStreetMap",
     "attribution": "© OpenStreetMap contributors"
+  },
+  "Map": {
+    "title": "Карта на съоръженията",
+    "intro": "Открий безплатни обществени спортни съоръжения близо до теб.",
+    "filters": "Филтри",
+    "sport": "Спорт",
+    "access": "Достъп",
+    "lighting": "Осветление",
+    "surface": "Настилка",
+    "onlyLit": "Само с осветление",
+    "anySport": "Всички спортове",
+    "anySurface": "Всички настилки",
+    "apply": "Приложи",
+    "reset": "Изчисти филтрите",
+    "locate": "Намери ме",
+    "locating": "Търсене…",
+    "locateError": "Локацията не е достъпна.",
+    "results": "Съоръжения",
+    "resultsCount": "{count} съоръжения",
+    "empty": "Няма съоръжения по тези филтри.",
+    "distanceKm": "на {km} км",
+    "viewDetails": "Виж детайли",
+    "close": "Затвори",
+    "showList": "Списък",
+    "showMap": "Карта",
+    "loading": "Зареждане на картата…",
+    "myLocation": "Твоето местоположение",
+    "skipToList": "Прескочи до списъка със съоръжения"
+  },
+  "Facility": {
+    "notFound": "Няма такова съоръжение.",
+    "backToMap": "← Към картата",
+    "attributes": "Характеристики",
+    "sports": "Спортове",
+    "access": "Достъп",
+    "surface": "Настилка",
+    "lighting": "Осветление",
+    "covered": "Покрито",
+    "quarter": "Квартал",
+    "municipality": "Община",
+    "yes": "да",
+    "no": "не",
+    "unknown": "неизвестно",
+    "location": "Местоположение",
+    "photos": "Снимки",
+    "noPhotos": "Все още няма одобрени снимки.",
+    "photoAlt": "Снимка на {name}",
+    "lastVerified": "Последна проверка: {date}",
+    "neverVerified": "Все още непроверено",
+    "dataSource": "Източник на данните",
+    "reportProblem": "Съобщи за проблем",
+    "reportComingSoon": "Формата за сигнали идва скоро (Етап 2.2).",
+    "unnamed": "Спортно съоръжение"
   }
 }

@@ -1,6 +1,8 @@
 import { config } from 'dotenv';
 import pg from 'pg';
 
+import { backfillSlugs } from './backfill-slugs.js';
+
 // Root .env (relative to this file: db/scripts/ -> repo root).
 config({ path: new URL('../../.env', import.meta.url).pathname });
 
@@ -115,6 +117,11 @@ async function main(): Promise<void> {
     console.log(
       `seed: ${String(inserted)} of ${String(SOFIA_FACILITIES.length)} Sofia facilities inserted (rest already present)`,
     );
+
+    // Assign public slugs to the seed rows (and any other unslugged rows) so
+    // the seeded DB is directly usable by the public map / facility pages.
+    const slugged = await backfillSlugs(client);
+    console.log(`seed: assigned ${String(slugged)} facility slug(s)`);
   } finally {
     await client.end();
   }
