@@ -154,13 +154,16 @@ Bulgaria extract (265 boundary relations matched, transaction rolled back).
 
 Deploy/worker follow-ups (tracked, not blocking this launch):
 
-- **OSM import cache dir** — `scripts/import-osm/src/run.ts` `DEFAULT_CACHE_DIR`
-  is `/app/var/cache/osm`, root-owned after `COPY` while the worker runs as
-  `node`, with no volume mounted there in `compose.prod.yml`. The first _real_
-  (non-dry-run) `import.osm` job will `EACCES` on the cache write; point it at a
-  `DATA_DIR`/`os.tmpdir()` or mount a writable volume. Import-only (Stage 1,
-  operator-triggered) — the worker itself, stats refresh, and reminders are
-  unaffected.
+- **OSM import cache dir** — ✅ fixed. The import/audit download cache now
+  defaults to `os.tmpdir()/sportkarta-osm-cache` (world-writable, so the `node`
+  user can write it) via a shared `resolveCacheDir` helper, overridable with
+  `OSM_CACHE_DIR`; `var/` is now dockerignored so the extract is no longer baked
+  into images. Verified end-to-end: a real ~90 MB download + osmium + dry-run
+  import ran as uid 1000 in the worker image.
+- **web `/data/uploads` uploads** — same root cause, still open: the volume is
+  root-owned while `web` runs as `node`, so public report-photo uploads would
+  `EACCES` in prod. Needs a node-writable persistent volume (can't use tmpdir).
+  Tracked separately.
 - **Image pinning/size** — the base tags float (`node:24-alpine`,
   `node:24-bookworm-slim`) and `osmium-tool` is unversioned; the worker copies
   the whole monorepo. Reproducibility (digest/version pins) and a pruned worker

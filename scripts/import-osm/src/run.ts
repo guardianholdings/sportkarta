@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import pg from 'pg';
 
+import { resolveCacheDir } from './cache-dir.js';
 import { ensureExtract } from './download.js';
 import { collectCandidates, runOsmium, runOsmiumBoundaries } from './extract.js';
 import { importCandidates, queryDistributions } from './importer.js';
@@ -30,9 +31,6 @@ export interface RunResult {
   stats: ImportStats;
 }
 
-/** src/ and dist/ sit at the same depth, so ../../.. is the repo root either way. */
-const DEFAULT_CACHE_DIR = new URL('../../../var/cache/osm', import.meta.url).pathname;
-
 /**
  * The one entry point: CLI and the pg-boss `import.osm` job both call this.
  * Stages: municipality boundaries (admin_level=5 ↔ EKATTE register) →
@@ -42,7 +40,7 @@ const DEFAULT_CACHE_DIR = new URL('../../../var/cache/osm', import.meta.url).pat
  */
 export async function runImport(options: RunOptions = {}): Promise<RunResult> {
   const dryRun = options.dryRun ?? true;
-  const cacheDir = options.cacheDir ?? DEFAULT_CACHE_DIR;
+  const cacheDir = resolveCacheDir(options.cacheDir);
   const databaseUrl = options.databaseUrl ?? process.env.DATABASE_URL;
   if (!databaseUrl) {
     throw new Error('DATABASE_URL is required (see .env.example)');

@@ -1,6 +1,7 @@
 import { jsonEquals, SOURCE_PRIORITY, type EditSource, type JsonValue } from '@sportkarta/lib';
 import pg from 'pg';
 
+import { resolveCacheDir } from './cache-dir.js';
 import { ensureExtract } from './download.js';
 import { collectCandidates, runOsmium } from './extract.js';
 import { candidateAttrs, computeCentroids, loadLastEditSources } from './importer.js';
@@ -56,13 +57,12 @@ interface SampledRow {
   expected_municipality_id: number | null;
 }
 
-const DEFAULT_CACHE_DIR = new URL('../../../var/cache/osm', import.meta.url).pathname;
 const GEOM_TOLERANCE_DEG = 1e-6; // ≈ 0.1 m — far below OSM precision
 
 export async function runAudit(options: AuditOptions = {}): Promise<AuditResult> {
   const sampleSize = options.sampleSize ?? 100;
   const thresholdPct = options.thresholdPct ?? 2;
-  const cacheDir = options.cacheDir ?? DEFAULT_CACHE_DIR;
+  const cacheDir = resolveCacheDir(options.cacheDir);
   const databaseUrl = options.databaseUrl ?? process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error('DATABASE_URL is required (see .env.example)');
 
