@@ -42,6 +42,7 @@ async function main(): Promise<void> {
   // the operator gates in docs/ROADMAP.md §3. The report goes to stdout (docker
   // logs); the reviewable artifact for gates is the CLI run's committed report.
   await boss.work(IMPORT_OSM_QUEUE, { batchSize: 1 }, async (jobs) => {
+    let lastReport = '';
     for (const job of jobs) {
       const data = (job.data ?? {}) as ImportOsmJobData;
       const dryRun = data.dryRun ?? true;
@@ -49,7 +50,10 @@ async function main(): Promise<void> {
       const { report } = await runImport({ dryRun });
       console.log(report);
       console.log(`[worker] ${IMPORT_OSM_QUEUE} job ${job.id} done`);
+      lastReport = report;
     }
+    // Returned value lands in pgboss.job.output — the admin report view reads it.
+    return { report: lastReport };
   });
 
   console.log('[worker] started, listening for jobs');

@@ -12,6 +12,17 @@ const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 const nextConfig: NextConfig = {
   output: 'standalone',
   transpilePackages: ['@sportkarta/lib', '@sportkarta/db'],
+  webpack: (config: {
+    resolve: { extensionAlias?: Record<string, string[]> };
+  }) => {
+    // Workspace packages use ESM ".js" specifiers over TS sources (nodenext
+    // compatibility for apps/worker); map them back to .ts for webpack.
+    config.resolve.extensionAlias = {
+      ...config.resolve.extensionAlias,
+      '.js': ['.ts', '.tsx', '.js'],
+    };
+    return config;
+  },
 };
 
 export default withNextIntl(nextConfig);

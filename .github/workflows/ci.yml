@@ -39,6 +39,7 @@ jobs:
       - name: Migrate and seed
         run: |
           echo "DATABASE_URL=$DATABASE_URL" > .env
+          echo "ADMIN_TOKENS=e2e:e2e-local-token-1234" >> .env
           pnpm db:migrate
           pnpm db:seed
       - name: DB-backed unit tests (ST_DWithin smoke)

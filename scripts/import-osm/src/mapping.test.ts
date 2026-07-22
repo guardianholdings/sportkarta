@@ -1,6 +1,7 @@
+import { CANONICAL_SPORTS, CANONICAL_SURFACES } from '@sportkarta/lib';
 import { describe, expect, it } from 'vitest';
 
-import { mapAccess, mapCovered, mapLighting, mapSports, mapSurface } from './mapping.js';
+import { mapAccess, mapCovered, mapLighting, mapSports, mapSurface, SPORT_MAP, SURFACE_MAP } from './mapping.js';
 import { normalizeFeature, parseOsmRef, preferCandidate, type OsmFeature } from './normalize.js';
 
 function feature(
@@ -164,5 +165,12 @@ describe('preferCandidate', () => {
   it('ties keep the first candidate seen', () => {
     const first = make('Point');
     expect(preferCandidate(first, make('Point'))).toBe(first);
+  });
+});
+
+describe('canonical vocabulary (lib is the single source)', () => {
+  it('every mapped sport and surface value is canonical', () => {
+    for (const v of Object.values(SPORT_MAP)) expect(CANONICAL_SPORTS).toContain(v);
+    for (const v of Object.values(SURFACE_MAP)) expect(CANONICAL_SURFACES).toContain(v);
   });
 });
