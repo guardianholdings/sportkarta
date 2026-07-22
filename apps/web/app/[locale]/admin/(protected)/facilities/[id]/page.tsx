@@ -165,7 +165,15 @@ export default async function AdminFacilityEditPage({
                 {history.map((edit) => (
                   <li key={edit.id} className="rounded border border-neutral-100 p-2">
                     <span className="text-neutral-500">{edit.createdAt.slice(0, 16)}</span> ·{' '}
-                    <span className="font-medium">{edit.actor ?? tSource(edit.source)}</span> ·{' '}
+                    <span className="font-medium">
+                      {edit.actor === null
+                        ? tSource(edit.source)
+                        : // An actor with no resolvable account: erased under
+                          // GDPR, or a pre-accounts Stage 1 name. Either way the
+                          // person is no longer identifiable from this row.
+                          (edit.actorName ?? t('formerUser'))}
+                    </span>{' '}
+                    ·{' '}
                     {edit.field === 'created' ? (
                       t('historyCreated')
                     ) : (

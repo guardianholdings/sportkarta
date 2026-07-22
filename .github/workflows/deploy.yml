@@ -113,7 +113,16 @@ jobs:
           GLITCHTIP_SECRET_KEY=${{ secrets.GLITCHTIP_SECRET_KEY }}
           RESTIC_REPOSITORY=${{ secrets.RESTIC_REPOSITORY }}
           RESTIC_PASSWORD=${{ secrets.RESTIC_PASSWORD }}
-          ADMIN_TOKENS=${{ secrets.ADMIN_TOKENS }}
+          AUTH_SECRET=${{ secrets.AUTH_SECRET }}
+          ADMIN_EMAILS=${{ secrets.ADMIN_EMAILS }}
+          AUTH_GOOGLE_ENABLED=${{ vars.AUTH_GOOGLE_ENABLED || 'false' }}
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+          SMTP_HOST=${{ secrets.SMTP_HOST }}
+          SMTP_PORT=${{ vars.SMTP_PORT || '587' }}
+          SMTP_USER=${{ secrets.SMTP_USER }}
+          SMTP_PASS=${{ secrets.SMTP_PASS }}
+          SMTP_FROM=${{ secrets.SMTP_FROM }}
           EOF
       - name: Log VPS into GHCR (private images)
         run: |

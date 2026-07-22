@@ -2,8 +2,7 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { getDb } from '@sportkarta/db';
-import { sql } from 'drizzle-orm';
+import { getDb, sql } from '@sportkarta/db';
 import { headers } from 'next/headers';
 
 import { verifyFormToken } from '@/lib/form-token';

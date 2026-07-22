@@ -29,9 +29,25 @@ services:
       DATABASE_URL: postgres://sportkarta:${POSTGRES_PASSWORD}@db:5432/sportkarta
       NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
       STORAGE_DIR: /data/uploads
-      # Temporary /admin allowlist until Stage 3 better-auth (name:token pairs).
-      # Empty default fails closed: no tokens, no admin access.
-      ADMIN_TOKENS: ${ADMIN_TOKENS:-}
+      # Auth (better-auth, self-hosted). Empty AUTH_SECRET fails closed: the
+      # public map keeps serving, sign-in and /admin return 503 until it is set.
+      AUTH_SECRET: ${AUTH_SECRET:-}
+      # Addresses promoted to admin on sign-in (empty = no promotions).
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      # Google login stays off unless the flag is "true" AND both keys are set.
+      AUTH_GOOGLE_ENABLED: ${AUTH_GOOGLE_ENABLED:-false}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # SMTP relay for sign-in codes. Unset = no mail is sent at all (never a
+      # fallback that would write one-time codes to logs or disk).
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      # Caddy sits in front on the compose network; trusting it lets the rate
+      # limiter resolve the real client IP (used in memory only, never stored).
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32}
       # Optional contact email on the privacy page (empty → report-form fallback).
       CONTACT_EMAIL: ${CONTACT_EMAIL:-}
       # Analytics & error monitoring — read at runtime, empty defaults = disabled.

@@ -1,5 +1,4 @@
-import { getDb } from '@sportkarta/db';
-import { sql } from 'drizzle-orm';
+import { getDb, sql } from '@sportkarta/db';
 
 // Read-side for /statistika + /api/stats. Reads the materialized views (0004),
 // refreshed by the pg-boss stats.refresh job. Every number here reconciles with

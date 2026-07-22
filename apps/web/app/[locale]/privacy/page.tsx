@@ -21,7 +21,7 @@ export default async function PrivacyPage({ params }: { params: PageParams }) {
   setRequestLocale(locale);
   const t = await getTranslations('Privacy');
 
-  const sections = ['store', 'analytics', 'reports', 'photos', 'data'] as const;
+  const sections = ['store', 'accounts', 'analytics', 'reports', 'photos', 'data'] as const;
   const contactEmail = process.env.CONTACT_EMAIL;
 
   return (

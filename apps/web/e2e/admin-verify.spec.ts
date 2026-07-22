@@ -1,12 +1,13 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { config } from 'dotenv';
 import pg from 'pg';
 
-// Repo-root .env: DATABASE_URL + ADMIN_TOKENS (e2e token; see ci.yml).
-// Playwright runs with cwd = apps/web, so ../../.env is the repo root.
-config({ path: '../../.env' });
+import { ADMIN_EMAIL, signIn } from './auth';
 
-const E2E_TOKEN = 'e2e-local-token-1234';
+// Repo-root .env: DATABASE_URL. The admin account is bootstrapped from
+// ADMIN_EMAILS (see ci.yml); Playwright runs with cwd = apps/web, so ../../.env
+// is the repo root.
+config({ path: '../../.env' });
 // Fixed UUID: idempotent re-seeding via ON CONFLICT; audit rows from previous
 // runs accumulate by design (facility_edits is append-only).
 const FACILITY_ID = '00000000-0000-4000-8000-00000000ad01';
@@ -37,30 +38,45 @@ async function seedFixture(): Promise<void> {
   }
 }
 
-async function login(page: Page): Promise<void> {
-  await page.goto('/admin/login');
-  await page.getByLabel(/токен|token/i).fill(E2E_TOKEN);
-  await page.getByRole('button', { name: /влез|sign in/i }).click();
-  await page.waitForURL(/\/admin$/);
+async function adminId(): Promise<string> {
+  const client = dbClient();
+  await client.connect();
+  try {
+    const result = await client.query<{ id: string }>(`SELECT id FROM users WHERE email = $1`, [
+      ADMIN_EMAIL,
+    ]);
+    return result.rows[0]?.id ?? '';
+  } finally {
+    await client.end();
+  }
 }
 
 test.describe('admin authz', () => {
-  test('unauthenticated /admin redirects to login', async ({ page }) => {
+  test('unauthenticated /admin redirects to sign-in', async ({ page }) => {
     await page.goto('/admin');
-    await expect(page).toHaveURL(/\/admin\/login/);
+    await expect(page).toHaveURL(/\/vhod/);
   });
 
-  test('unauthenticated deep link redirects to login', async ({ page }) => {
+  test('unauthenticated deep link redirects to sign-in', async ({ page }) => {
     await page.goto('/admin/facilities');
-    await expect(page).toHaveURL(/\/admin\/login/);
+    await expect(page).toHaveURL(/\/vhod/);
   });
 
-  test('wrong token is rejected', async ({ page }) => {
+  test('the retired token login now points at the shared sign-in', async ({ page }) => {
     await page.goto('/admin/login');
-    await page.getByLabel(/токен|token/i).fill('definitely-not-a-valid-token');
-    await page.getByRole('button', { name: /влез|sign in/i }).click();
+    await expect(page).toHaveURL(/\/vhod/);
+  });
+
+  test('a wrong code never creates a session', async ({ page }) => {
+    await page.goto('/vhod');
+    await page.getByLabel(/имейл|email/i).fill(ADMIN_EMAIL);
+    await page.getByRole('button', { name: /изпрати код|send code/i }).click();
+    await page.getByLabel(/код|code/i).fill('000000');
+    await page.getByRole('button', { name: /^(влез|sign in)$/i }).click();
+
     await expect(page.getByRole('alert')).toBeVisible();
-    await expect(page).toHaveURL(/\/admin\/login/);
+    await page.goto('/admin');
+    await expect(page).toHaveURL(/\/vhod/);
   });
 });
 
@@ -70,7 +86,7 @@ test.describe('verify flow', () => {
   });
 
   test('V keystroke verifies the facility and writes the audit row', async ({ page }) => {
-    await login(page);
+    await signIn(page, ADMIN_EMAIL, /\/profil/);
     // municipality=none: the fixture has no municipality; Latin name → first.
     await page.goto('/admin/verify?municipality=none');
     await expect(page.getByRole('heading', { name: FACILITY_NAME })).toBeVisible();
@@ -100,8 +116,10 @@ test.describe('verify flow', () => {
         `,
         [FACILITY_ID],
       );
+      // The audit actor is the signed-in account's opaque id — not a name,
+      // and not anything supplied by the form.
       expect(audit.rows[0]).toMatchObject({
-        actor: 'e2e',
+        actor: await adminId(),
         source: 'crowd',
         old_value: 'needs_verification',
         new_value: 'active',

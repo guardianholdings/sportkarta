@@ -1,7 +1,6 @@
-import { getDb } from '@sportkarta/db';
+import { getDb, sql, type SQL } from '@sportkarta/db';
 import { slugify } from '@sportkarta/lib';
 import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
-import { sql, type SQL } from 'drizzle-orm';
 
 // City display/slug overrides live in JSON (data, not translatable UI copy) so
 // place names like "Столична" → "София" stay out of scanned .ts source.

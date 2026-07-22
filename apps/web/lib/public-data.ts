@@ -1,5 +1,4 @@
-import { getDb } from '@sportkarta/db';
-import { sql, type SQL } from 'drizzle-orm';
+import { getDb, sql, type SQL } from '@sportkarta/db';
 
 import type { PublicFilters } from '@/lib/filters';
 

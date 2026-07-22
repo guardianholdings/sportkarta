@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 
 import { getBoss, IMPORT_QUEUE } from '@/lib/admin-boss';
-import { requireAdmin } from '@/lib/admin-session';
+import { requireRole } from '@/lib/auth-session';
 
 /**
  * Enqueue the OSM import as a pg-boss job — imports never need a terminal
@@ -11,7 +11,8 @@ import { requireAdmin } from '@/lib/admin-session';
  * import at a time; boss.send returns null on conflict.
  */
 export async function enqueueImport(formData: FormData): Promise<void> {
-  const { actor } = await requireAdmin();
+  // Imports rewrite national data — admin only, not moderators.
+  const { id: actor } = await requireRole('admin');
   const dryRun = formData.get('mode') !== 'live';
 
   const boss = await getBoss();

@@ -15,6 +15,10 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+import { users } from './auth.js';
+
+export * from './auth.js';
+
 // PostGIS columns via customType so the emitted DDL is exactly
 // geometry(...,4326). Driver-level values are WKB hex strings — all real
 // geospatial reads/writes happen in raw SQL (db/geo, CLAUDE.md), never in JS.
@@ -164,8 +168,10 @@ export const facilityPhotos = pgTable(
     // Storage-adapter key (lib/src/storage): relative forward-slash path.
     storagePath: text('storage_path').notNull().unique('facility_photos_storage_path_unique'),
     status: photoStatus('status').notNull().default('pending'),
-    // better-auth user id from Stage 3; FK added when the users table exists.
-    uploadedBy: text('uploaded_by'),
+    // Uploader, or NULL for anonymous/erased uploads. ON DELETE SET NULL is the
+    // GDPR mechanism: erasing an account anonymises their photos in the same
+    // statement, with no application code to forget to run.
+    uploadedBy: text('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
   },
   (t) => [
@@ -173,6 +179,12 @@ export const facilityPhotos = pgTable(
     index('facility_photos_pending_created_idx')
       .on(t.createdAt)
       .where(sql`${t.status} = 'pending'`),
+    // Covers the uploaded_by FK: without it, erasing an account seq-scans this
+    // table twice (once to count, once for ON DELETE SET NULL) inside the
+    // erasure transaction. Same reasoning as facility_reports_photo_id_idx.
+    index('facility_photos_uploaded_by_idx')
+      .on(t.uploadedBy)
+      .where(sql`${t.uploadedBy} IS NOT NULL`),
     check(
       'facility_photos_storage_path_sane',
       sql`${t.storagePath} <> '' AND ${t.storagePath} !~ '^/' AND ${t.storagePath} !~ '(^|/)\\.\\.(/|$)'`,
@@ -198,6 +210,12 @@ export const facilityEdits = pgTable(
   },
   (t) => [
     index('facility_edits_facility_created_idx').on(t.facilityId, t.createdAt),
+    // GDPR erasure counts a person's audit rows by actor, and this table grows
+    // without bound (every import writes one row per changed field). Indexing
+    // it keeps a legally time-bound operation from getting slower every import.
+    index('facility_edits_actor_idx')
+      .on(t.actor)
+      .where(sql`${t.actor} IS NOT NULL`),
     check('facility_edits_field_not_blank', sql`btrim(${t.field}) <> ''`),
     check('facility_edits_has_value', sql`${t.oldValue} IS NOT NULL OR ${t.newValue} IS NOT NULL`),
   ],

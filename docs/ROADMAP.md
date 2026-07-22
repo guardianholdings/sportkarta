@@ -121,6 +121,11 @@ Unchanged in substance: MapLibre map (self-served pmtiles) with clustering/filte
 
 better-auth (email OTP + optional Google); `is_minor` derived from DOB then DOB discarded (test proves it never persists); GDPR self-service deletion with contribution anonymization. Contribution flows (add/verify/condition-report) writing through `facility_edits`; idempotent `points_ledger`. Ambassador role, municipality-scoped moderation with authz proven in tests; moderation SLA dashboard; batch pre-screen runs as a recurring in-app session prompt (assistive flags only, human decides). Municipality accountability pages + embeddable aggregate-only widget.
 
+- [x] **3.1 Accounts, profiles, roles, erasure** — better-auth self-hosted in our Postgres (migration `0005_auth_profiles`); email OTP through the new `Mailer` abstraction (`lib/src/email`); Google behind `AUTH_GOOGLE_ENABLED`, shipped disabled. Minimal profile (display name, home city, `is_minor`); DOB derived then discarded, proven by `apps/web/tests/dob-not-persisted.test.ts`. Stage 1 `ADMIN_TOKENS` replaced by real roles (`user < ambassador < moderator < admin`, bootstrapped from `ADMIN_EMAILS`). GDPR erasure removes the profile, anonymises contributions to "бивш потребител", and leaves the append-only audit trail intact (`db/src/auth-erasure.test.ts`, `apps/web/e2e/auth-otp.spec.ts`).
+- [ ] 3.2 Contribution flows (add / verify / condition-report) through `facility_edits`; idempotent `points_ledger`
+- [ ] 3.3 Ambassador role in the UI; municipality-scoped moderation with authz proven in tests; moderation SLA dashboard
+- [ ] 3.4 Municipality accountability pages + embeddable aggregate-only widget
+
 ---
 
 ## 6. Stage 4 — Play layer (Weeks 9–14)

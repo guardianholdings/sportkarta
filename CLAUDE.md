@@ -30,7 +30,18 @@ browser) in a MANUAL STEPS list at the end of the session.
 ## Architecture
 
 - EPSG:4326 everywhere; `geometry(Point,4326)`; GIST indexes mandatory
-- better-auth for auth (Stage 3); pg-boss for jobs (apps/worker)
+- Query building goes through `sql` re-exported from `@sportkarta/db` — never
+  import `drizzle-orm` directly outside `db/`, or pnpm's peer resolution can
+  create a second drizzle instance whose types no longer match. Bind arrays with
+  `sql.param(...)`: a bare array expands to `($1, $2)`, which Postgres rejects
+- better-auth (self-hosted) in `apps/web/lib/auth.ts`: email OTP through the
+  mail abstraction, Google behind `AUTH_GOOGLE_ENABLED` (ships off). Roles are
+  `user < ambassador < moderator < admin` (`apps/web/lib/roles.ts`); the first
+  admin comes from `ADMIN_EMAILS`. Authorization reads the role from the
+  database, never from the session cookie cache. pg-boss for jobs (apps/worker)
+- Mail: `Mailer` interface in `lib/src/email` (smtp | file | console | memory).
+  Production without SMTP sends nothing — a one-time code must never fall back
+  to a log or a file. Locally, codes land in `apps/web/var/mail`
 - Tiles: self-served pmtiles at /tiles; MapLibre style lives in apps/web (Stage 2)
 - i18n: next-intl; NEVER hardcode UI strings; `apps/web/messages/bg.json` is the
   source of truth, en mirrors it (parity enforced by `apps/web/tests/i18n.test.ts`);
@@ -42,6 +53,12 @@ browser) in a MANUAL STEPS list at the end of the session.
   overwritten by imports (merge policy: crowd > municipal > osm)
 - OSM/Protomaps attribution on every map view and export
 - No PII in logs; no identifiable people in photos
+- Date of birth is derived to `is_minor` and discarded — never a column, never a
+  log line (`lib/src/age.ts`, proven by `apps/web/tests/dob-not-persisted.test.ts`)
+- Session IPs are never persisted (CHECK-enforced on `sessions.ip_address`)
+- GDPR erasure removes the profile and anonymises contributions, but
+  `facility_edits` is append-only and stays intact — erased actors render as the
+  "former user" label (`apps/web/lib/account-deletion.ts`)
 - Minors: no individual public leaderboards
 - Migrations forward-only, reviewed by db-migration-reviewer subagent
 - Deploys happen ONLY via GitHub Actions on main — never deploy from a session

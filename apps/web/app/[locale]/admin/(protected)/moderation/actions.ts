@@ -1,11 +1,10 @@
 'use server';
 
-import { getDb } from '@sportkarta/db';
-import { sql } from 'drizzle-orm';
+import { getDb, sql } from '@sportkarta/db';
 import { revalidatePath } from 'next/cache';
 
 import { isUuid } from '@/lib/admin-data';
-import { requireAdmin } from '@/lib/admin-session';
+import { requireAdmin } from '@/lib/auth-session';
 
 /**
  * Photo moderation v1: status flip on the photo row itself (facility_photos

@@ -1,11 +1,10 @@
 'use server';
 
-import { getDb } from '@sportkarta/db';
-import { sql } from 'drizzle-orm';
+import { getDb, sql } from '@sportkarta/db';
 import { revalidatePath } from 'next/cache';
 
 import { isUuid } from '@/lib/admin-data';
-import { requireAdmin } from '@/lib/admin-session';
+import { requireAdmin } from '@/lib/auth-session';
 
 export type VerifyDecision = 'active' | 'gone';
 
@@ -17,7 +16,7 @@ export async function decideFacility(
   facilityId: string,
   decision: VerifyDecision,
 ): Promise<{ ok: boolean }> {
-  const { actor } = await requireAdmin();
+  const { id: actor } = await requireAdmin();
   if (!isUuid(facilityId)) return { ok: false };
   if (decision !== 'active' && decision !== 'gone') return { ok: false };
 

@@ -2,6 +2,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
 import { listImportJobs } from '@/lib/admin-data';
+import { requireRole } from '@/lib/auth-session';
 
 import { enqueueImport } from './actions';
 import { ConfirmButton } from './confirm-button';
@@ -22,6 +23,9 @@ export default async function AdminImportPage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
+  // The layout only guarantees moderator; imports rewrite national data, so
+  // this page — not just the action behind it — is admin-only.
+  await requireRole('admin');
   const sp = await searchParams;
   const [t, jobs] = await Promise.all([getTranslations('AdminImport'), listImportJobs()]);
 

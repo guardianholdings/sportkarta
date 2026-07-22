@@ -39,7 +39,17 @@ jobs:
       - name: Migrate and seed
         run: |
           echo "DATABASE_URL=$DATABASE_URL" > .env
-          echo "ADMIN_TOKENS=e2e:e2e-local-token-1234" >> .env
+          # Sign-in codes go to a file outbox the e2e suite reads — no relay,
+          # and no test-only endpoint in the app (apps/web/e2e/auth.ts).
+          echo "MAIL_TRANSPORT=file" >> .env
+          echo "MAIL_OUTBOX_DIR=./var/mail" >> .env
+          # The e2e admin account, promoted on first sign-in.
+          echo "ADMIN_EMAILS=e2e@example.org" >> .env
+          # Every browser in the suite shares one IP; the production cap would
+          # throttle the run.
+          echo "OTP_RATE_LIMIT_IP=200" >> .env
+          echo "OTP_RATE_LIMIT_EMAIL=50" >> .env
+          echo "OTP_RATE_LIMIT_PER_MINUTE=100" >> .env
           pnpm db:migrate
           pnpm db:seed
       - name: DB-backed unit tests (ST_DWithin smoke)

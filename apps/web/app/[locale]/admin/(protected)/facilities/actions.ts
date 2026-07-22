@@ -1,13 +1,12 @@
 'use server';
 
-import { getDb } from '@sportkarta/db';
+import { getDb, sql, type SQL } from '@sportkarta/db';
 import { CANONICAL_SPORTS, CANONICAL_SURFACES, mergeFields, type JsonValue } from '@sportkarta/lib';
-import { sql, type SQL } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { ACCESS_VALUES, isUuid, STATUS_VALUES } from '@/lib/admin-data';
-import { requireAdmin } from '@/lib/admin-session';
+import { requireAdmin } from '@/lib/auth-session';
 
 function optionalText(value: FormDataEntryValue | null): string | null {
   const s = String(value ?? '').trim();
@@ -27,7 +26,7 @@ function oneOf<T extends string>(value: unknown, allowed: readonly T[]): T {
  * top merge-policy priority, so these fields freeze against OSM re-imports.
  */
 export async function saveFacility(facilityId: string, formData: FormData): Promise<void> {
-  const { actor } = await requireAdmin();
+  const { id: actor } = await requireAdmin();
   if (!isUuid(facilityId)) throw new Error('invalid facility id');
 
   const sports = formData
@@ -55,7 +54,10 @@ export async function saveFacility(facilityId: string, formData: FormData): Prom
   const setters: Record<string, (v: JsonValue) => SQL> = {
     name: (v) => sql`name = ${v}`,
     quarter: (v) => sql`quarter = ${v}`,
-    sport_types: (v) => sql`sport_types = ${v as string[]}::text[]`,
+    // sql.param binds the list as one array parameter. Without it drizzle
+    // expands the array to `($1, $2)::text[]`, which Postgres rejects — so
+    // saving a facility with two or more sports failed.
+    sport_types: (v) => sql`sport_types = ${sql.param(v as string[])}::text[]`,
     surface: (v) => sql`surface = ${v}`,
     lighting: (v) => sql`lighting = ${v}`,
     covered: (v) => sql`covered = ${v}`,

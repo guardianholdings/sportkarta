@@ -1,6 +1,5 @@
-import { getDb } from '@sportkarta/db';
+import { getDb, sql, type SQL } from '@sportkarta/db';
 import { facilityAccess, facilitySource, facilityStatus } from '@sportkarta/db/schema';
-import { sql, type SQL } from 'drizzle-orm';
 
 /** Read-side queries for the admin screens. Server-only; callers are gated. */
 
@@ -245,6 +244,12 @@ export async function getFacility(id: string): Promise<FacilityDetail | null> {
 export interface EditHistoryRow {
   id: number;
   actor: string | null;
+  /**
+   * Display name of the account behind `actor`, or null when nothing resolves
+   * it — an erased account (GDPR) or a Stage 1 shared-token name. The UI shows
+   * the "former user" label in both cases; the audit row itself is untouched.
+   */
+  actorName: string | null;
   source: FacilitySource;
   field: string;
   oldValue: unknown;
@@ -256,17 +261,20 @@ export async function facilityHistory(id: string): Promise<EditHistoryRow[]> {
   if (!isUuid(id)) return [];
   const db = getDb();
   const result = await db.execute(sql`
-    SELECT id, actor, source, field, old_value, new_value, created_at
-    FROM facility_edits
-    WHERE facility_id = ${id}
-    ORDER BY created_at DESC, id DESC
+    SELECT e.id, e.actor, u.display_name, e.source, e.field, e.old_value, e.new_value, e.created_at
+    FROM facility_edits e
+    LEFT JOIN users u ON u.id = e.actor
+    WHERE e.facility_id = ${id}
+    ORDER BY e.created_at DESC, e.id DESC
     LIMIT 50
   `);
   return result.rows.map((r) => {
     const row = r as Record<string, unknown>;
+    const displayName = (row.display_name as string | null) ?? null;
     return {
       id: Number(row.id),
       actor: (row.actor as string | null) ?? null,
+      actorName: displayName && displayName.trim() ? displayName : null,
       source: row.source as FacilitySource,
       field: String(row.field),
       oldValue: row.old_value,
