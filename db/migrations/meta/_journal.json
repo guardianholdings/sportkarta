@@ -8,6 +8,13 @@
       "when": 1784666087379,
       "tag": "0000_init-postgis-health",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784689688530,
+      "tag": "0001_core-facilities",
+      "breakpoints": true
     }
   ]
 }
