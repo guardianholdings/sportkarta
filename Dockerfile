@@ -12,11 +12,13 @@ COPY apps/web/package.json apps/web/
 COPY apps/worker/package.json apps/worker/
 COPY db/package.json db/
 COPY lib/package.json lib/
+COPY scripts/import-osm/package.json scripts/import-osm/
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 COPY . .
-RUN pnpm --filter @sportkarta/web build && pnpm --filter @sportkarta/worker build
+# "worker..." also builds its workspace dependencies (@sportkarta/import-osm).
+RUN pnpm --filter @sportkarta/web build && pnpm --filter "@sportkarta/worker..." build
 
 # ── web: slim Next.js standalone runtime ─────────────────────────────────────
 FROM node:24-alpine AS web
@@ -32,6 +34,8 @@ CMD ["node", "apps/web/server.js"]
 # ── worker: full workspace (simple + reliable; slim later if pull size hurts) ─
 FROM build AS worker
 ENV NODE_ENV=production
+# osmium-tool: OSM extract filtering for the import.osm job (scripts/import-osm).
+RUN apk add --no-cache osmium-tool
 USER node
 CMD ["node", "apps/worker/dist/index.js"]
 

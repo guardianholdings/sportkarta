@@ -2,6 +2,7 @@ packages:
   - apps/*
   - db
   - lib
+  - scripts/import-osm
 allowBuilds:
   '@parcel/watcher': true
   '@swc/core': true

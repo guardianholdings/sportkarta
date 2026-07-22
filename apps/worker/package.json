@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@sportkarta/import-osm": "workspace:*",
     "dotenv": "^16.4.0",
     "pg-boss": "^10.1.0"
   },

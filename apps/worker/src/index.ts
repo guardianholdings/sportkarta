@@ -1,3 +1,4 @@
+import { runImport } from '@sportkarta/import-osm';
 import { config } from 'dotenv';
 import PgBoss from 'pg-boss';
 
@@ -9,6 +10,11 @@ config({ path: new URL('../../../.env', import.meta.url).pathname });
 // Queue registry grows in Stage 1+ (imports, reminders, digests). Names are
 // dot-namespaced: <domain>.<action>.
 const HEALTH_QUEUE = 'health.ping';
+const IMPORT_OSM_QUEUE = 'import.osm';
+
+interface ImportOsmJobData {
+  dryRun?: boolean;
+}
 
 async function main(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
@@ -23,10 +29,26 @@ async function main(): Promise<void> {
 
   await boss.start();
   await boss.createQueue(HEALTH_QUEUE);
+  await boss.createQueue(IMPORT_OSM_QUEUE);
 
   await boss.work(HEALTH_QUEUE, async (jobs) => {
     for (const job of jobs) {
       console.log(`[worker] ${HEALTH_QUEUE} handled job ${job.id}`);
+    }
+  });
+
+  // Triggered from the admin UI (Stage 1+) via boss.send('import.osm', {dryRun}).
+  // dryRun defaults TRUE — a live import must be requested explicitly, matching
+  // the operator gates in docs/ROADMAP.md §3. The report goes to stdout (docker
+  // logs); the reviewable artifact for gates is the CLI run's committed report.
+  await boss.work(IMPORT_OSM_QUEUE, { batchSize: 1 }, async (jobs) => {
+    for (const job of jobs) {
+      const data = (job.data ?? {}) as ImportOsmJobData;
+      const dryRun = data.dryRun ?? true;
+      console.log(`[worker] ${IMPORT_OSM_QUEUE} job ${job.id} starting (dryRun=${String(dryRun)})`);
+      const { report } = await runImport({ dryRun });
+      console.log(report);
+      console.log(`[worker] ${IMPORT_OSM_QUEUE} job ${job.id} done`);
     }
   });
 
