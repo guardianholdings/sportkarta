@@ -84,7 +84,14 @@ export async function requireRole(minimum: Role): Promise<CurrentUser> {
   return user;
 }
 
-/** Gate for the admin panel and every admin server action. */
+/**
+ * Gate for the admin panel: ambassadors and admins.
+ *
+ * The name is historical — it does NOT mean "is an admin". Anything genuinely
+ * admin-only (imports, granting ambassadors) must call requireRole('admin'),
+ * and anything an ambassador may do must additionally be scoped by municipality
+ * in the SQL (lib/moderation.ts). Rank alone never authorises a decision.
+ */
 export function requireAdmin(): Promise<CurrentUser> {
   return requireRole(ADMIN_PANEL_MIN_ROLE);
 }

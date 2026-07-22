@@ -1,45 +1,54 @@
 'use server';
 
-import { getDb, sql } from '@sportkarta/db';
+import { getDb } from '@sportkarta/db';
 import { revalidatePath } from 'next/cache';
 
 import { isUuid } from '@/lib/admin-data';
 import { requireAdmin } from '@/lib/auth-session';
+import {
+  decidePhoto as decidePhotoScoped,
+  resolveReport as resolveReportScoped,
+  decideFacility as decideFacilityScoped,
+  type FacilityDecision,
+  type PhotoDecision,
+  type ReportDecision,
+} from '@/lib/moderation';
 
 /**
- * Photo moderation v1: status flip on the photo row itself (facility_photos
- * has its own status lifecycle; facility_edits stays a facility-field audit).
- * Guarded on pending so double-clicks are no-ops.
- * TODO(stage-2): attribute decisions (moderated_by/moderated_at columns)
- * before photo moderation drives public content.
+ * Moderation v2 (Stage 3.3). These actions no longer decide anything
+ * themselves: they establish who is calling and hand off to lib/moderation.ts,
+ * where the municipality scope is part of the statement. An ambassador acting
+ * outside their municipalities updates zero rows, and nothing is logged.
+ *
+ * requireAdmin here means "ambassador or admin" — the scope, not the rank, is
+ * what limits an ambassador.
  */
-export async function decidePhoto(photoId: string, decision: 'approved' | 'rejected') {
-  await requireAdmin();
+
+export async function decidePhoto(photoId: string, decision: PhotoDecision) {
+  const user = await requireAdmin();
   if (!isUuid(photoId)) return;
   if (decision !== 'approved' && decision !== 'rejected') return;
 
-  const db = getDb();
-  await db.execute(sql`
-    UPDATE facility_photos SET status = ${decision}::photo_status
-    WHERE id = ${photoId} AND status = 'pending'
-  `);
+  await decidePhotoScoped(getDb(), { id: user.id, role: user.role }, photoId, decision);
   revalidatePath('/admin/moderation');
 }
 
-/**
- * Report triage (Stage 2.2): flip a pending anonymous report to reviewed or
- * dismissed. Guarded on pending so repeat clicks are no-ops. The attached
- * photo (if any) is moderated separately via decidePhoto.
- */
-export async function resolveReport(reportId: string, decision: 'reviewed' | 'dismissed') {
-  await requireAdmin();
+export async function resolveReport(reportId: string, decision: ReportDecision) {
+  const user = await requireAdmin();
   if (!isUuid(reportId)) return;
   if (decision !== 'reviewed' && decision !== 'dismissed') return;
 
-  const db = getDb();
-  await db.execute(sql`
-    UPDATE facility_reports SET status = ${decision}::report_status
-    WHERE id = ${reportId} AND status = 'pending'
-  `);
+  await resolveReportScoped(getDb(), { id: user.id, role: user.role }, reportId, decision);
   revalidatePath('/admin/moderation');
+}
+
+/** Crowd-submitted facilities awaiting a second pair of eyes. */
+export async function decideFacility(facilityId: string, decision: FacilityDecision) {
+  const user = await requireAdmin();
+  if (!isUuid(facilityId)) return;
+  if (decision !== 'verified' && decision !== 'gone') return;
+
+  await decideFacilityScoped(getDb(), { id: user.id, role: user.role }, facilityId, decision);
+  revalidatePath('/admin/moderation');
+  revalidatePath('/admin/verify');
 }

@@ -9,6 +9,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -400,6 +401,151 @@ export const pointsLedger = pgTable(
 
 export type PointsLedgerEntry = typeof pointsLedger.$inferSelect;
 export type PointsEventValue = (typeof pointsEvent.enumValues)[number];
+
+/**
+ * Which municipalities an ambassador may moderate (Stage 3.3). One row per
+ * municipality, so an ambassador can hold several — a person covering Varna and
+ * Aksakovo is two rows, not a second account.
+ *
+ * This table IS the authorization boundary: every moderation statement joins
+ * against it (apps/web/lib/moderation.ts), so an out-of-scope decision updates
+ * zero rows even if an application check were bypassed.
+ */
+export const ambassadorMunicipalities = pgTable(
+  'ambassador_municipalities',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    municipalityId: integer('municipality_id')
+      .notNull()
+      .references(() => municipalities.id, { onDelete: 'cascade' }),
+    /** Admin who granted it; NULL once that admin erases their own account. */
+    grantedBy: text('granted_by').references(() => users.id, { onDelete: 'set null' }),
+    grantedAt: timestamptz('granted_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.municipalityId] }),
+    // "Who covers this municipality?" — the reverse lookup the admin UI needs.
+    index('ambassador_municipalities_municipality_idx').on(t.municipalityId),
+    index('ambassador_municipalities_granted_by_idx')
+      .on(t.grantedBy)
+      .where(sql`${t.grantedBy} IS NOT NULL`),
+  ],
+);
+
+export const moderationTarget = pgEnum('moderation_target', ['photo', 'report', 'facility']);
+export const moderationDecision = pgEnum('moderation_decision', [
+  'approved',
+  'rejected',
+  'reviewed',
+  'dismissed',
+  'verified',
+  'gone',
+]);
+
+/**
+ * Every moderation decision, append-only (Stage 3.3: "every decision logged").
+ *
+ * `actor_id` is an opaque users.id with NO foreign key, exactly like
+ * facility_edits.actor: the record of who decided what must survive the
+ * moderator erasing their own account, after which the UI shows the "former
+ * user" label. `municipality_id` is stored as it was AT DECISION TIME, so a
+ * later boundary fix or re-import cannot rewrite history — and so the SLA
+ * report can group by scope without joining facilities.
+ *
+ * `queued_at` is copied from the item's own created_at, which makes
+ * time-to-decision a subtraction on one row rather than a join.
+ */
+export const moderationDecisions = pgTable(
+  'moderation_decisions',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    actorId: text('actor_id').notNull(),
+    targetType: moderationTarget('target_type').notNull(),
+    targetId: uuid('target_id').notNull(),
+    facilityId: uuid('facility_id')
+      .notNull()
+      .references(() => facilities.id, { onDelete: 'restrict' }),
+    /**
+     * NULL when the facility had no municipality at the time.
+     *
+     * RESTRICT, not SET NULL: a SET NULL action is performed as an UPDATE on
+     * this table, which the append-only trigger refuses — so deleting a
+     * municipality would fail with a confusing error about a table nobody
+     * touched. RESTRICT fails honestly instead, and it also protects the
+     * invariant this column exists for: the scope recorded at decision time
+     * must never be rewritten.
+     */
+    municipalityId: integer('municipality_id').references(() => municipalities.id, {
+      onDelete: 'restrict',
+    }),
+    decision: moderationDecision('decision').notNull(),
+    queuedAt: timestamptz('queued_at').notNull(),
+    decidedAt: timestamptz('decided_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // Per-ambassador activity, and the SLA report's only scan.
+    index('moderation_decisions_actor_decided_idx').on(t.actorId, t.decidedAt),
+    index('moderation_decisions_decided_idx').on(t.decidedAt),
+    // Ordered to match the SLA query: municipality filter AND a time window.
+    index('moderation_decisions_municipality_decided_idx').on(t.municipalityId, t.decidedAt),
+    index('moderation_decisions_target_idx').on(t.targetType, t.targetId),
+    index('moderation_decisions_facility_idx').on(t.facilityId),
+    check('moderation_decisions_actor_not_blank', sql`btrim(${t.actorId}) <> ''`),
+    // A decision cannot predate the item it decided.
+    check('moderation_decisions_order', sql`${t.decidedAt} >= ${t.queuedAt}`),
+    // A decision must make sense for what it decided. The table is append-only,
+    // so a nonsensical pairing could never be corrected afterwards.
+    check(
+      'moderation_decisions_decision_matches_target',
+      sql`(${t.targetType} = 'photo' AND ${t.decision} IN ('approved', 'rejected'))
+          OR (${t.targetType} = 'report' AND ${t.decision} IN ('reviewed', 'dismissed'))
+          OR (${t.targetType} = 'facility' AND ${t.decision} IN ('verified', 'gone'))`,
+    ),
+    // A facility decision is about the facility itself.
+    check(
+      'moderation_decisions_facility_target',
+      sql`${t.targetType} <> 'facility' OR ${t.targetId} = ${t.facilityId}`,
+    ),
+  ],
+);
+
+/**
+ * Assistive pre-screen flags (docs/prompts/moderation-prescreen.md).
+ *
+ * Deliberately inert: there is no status, no decision and no link to one. A
+ * flag is a note that says "look at this, here is why" — a human decides
+ * everything. The unique constraint makes the weekly re-run idempotent instead
+ * of piling duplicates onto the same item.
+ */
+export const moderationFlags = pgTable(
+  'moderation_flags',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    targetType: moderationTarget('target_type').notNull(),
+    targetId: uuid('target_id').notNull(),
+    /** Machine-readable reason slug; the UI label comes from i18n. */
+    reason: text('reason').notNull(),
+    /** One line of human-readable justification shown next to the queue item. */
+    note: text('note'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // Covers both the queue's flag lookup and the flag writer's ON CONFLICT; a
+    // separate (target_type, target_id) index would be a strict prefix of this
+    // one and pure write amplification.
+    uniqueIndex('moderation_flags_target_reason_unique').on(t.targetType, t.targetId, t.reason),
+    check('moderation_flags_reason_format', sql`${t.reason} ~ '^[a-z][a-z0-9_]{2,39}$'`),
+    check('moderation_flags_note_len', sql`${t.note} IS NULL OR char_length(${t.note}) <= 300`),
+  ],
+);
+
+export type AmbassadorMunicipality = typeof ambassadorMunicipalities.$inferSelect;
+export type ModerationDecisionRow = typeof moderationDecisions.$inferSelect;
+export type ModerationFlag = typeof moderationFlags.$inferSelect;
+export type ModerationTargetType = (typeof moderationTarget.enumValues)[number];
+export type ModerationDecisionValue = (typeof moderationDecision.enumValues)[number];
 
 export type Municipality = typeof municipalities.$inferSelect;
 export type NewMunicipality = typeof municipalities.$inferInsert;

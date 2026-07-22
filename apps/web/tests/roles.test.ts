@@ -15,25 +15,32 @@ function recordingDb() {
 }
 
 describe('role ranks', () => {
-  it('orders user < ambassador < moderator < admin', () => {
-    expect(hasAtLeast('admin', 'moderator')).toBe(true);
-    expect(hasAtLeast('moderator', 'moderator')).toBe(true);
-    expect(hasAtLeast('ambassador', 'moderator')).toBe(false);
+  it('orders user < ambassador < admin', () => {
+    expect(hasAtLeast('admin', 'ambassador')).toBe(true);
+    expect(hasAtLeast('ambassador', 'ambassador')).toBe(true);
+    expect(hasAtLeast('ambassador', 'admin')).toBe(false);
     expect(hasAtLeast('user', 'ambassador')).toBe(false);
+  });
+
+  it('treats the retired moderator role as no privileges at all', () => {
+    // Stage 3.3 retired it. A stale row must fail closed rather than inherit
+    // whatever rank happens to sort next to it.
+    expect(toRole('moderator')).toBe('user');
+    expect(hasAtLeast('moderator', 'ambassador')).toBe(false);
+    expect(canAccessAdminPanel('moderator')).toBe(false);
   });
 
   it('fails closed on unknown, missing or spoofed role values', () => {
     for (const value of [undefined, null, '', 'superadmin', 'ADMIN', 42, {}]) {
       expect(toRole(value)).toBe('user');
-      expect(hasAtLeast(value, 'moderator')).toBe(false);
+      expect(hasAtLeast(value, 'ambassador')).toBe(false);
       expect(canAccessAdminPanel(value)).toBe(false);
     }
   });
 
-  it('lets moderators into the admin panel but not plain members', () => {
-    expect(canAccessAdminPanel('moderator')).toBe(true);
+  it('lets ambassadors into the admin panel but not plain members', () => {
     expect(canAccessAdminPanel('admin')).toBe(true);
-    expect(canAccessAdminPanel('ambassador')).toBe(false);
+    expect(canAccessAdminPanel('ambassador')).toBe(true);
     expect(canAccessAdminPanel('user')).toBe(false);
   });
 });
@@ -55,10 +62,11 @@ describe('syncAdminRole', () => {
     expect(promote?.sql).toMatch(/email_verified/);
     expect(promote?.params).toEqual(['user_1', ['pavel@example.org', 'maria@example.org']]);
     expect(demote?.sql).toMatch(/SET role = 'user'/);
-    // Demotion is scoped to the admin role only: ambassador and moderator
-    // grants are managed in-app and must survive an ADMIN_EMAILS change.
+    // Demotion is scoped to the admin role only: ambassador grants and their
+    // municipality scope are managed in-app and must survive an
+    // ADMIN_EMAILS change.
     expect(demote?.sql).toMatch(/role = 'admin'/);
-    expect(demote?.sql).not.toMatch(/ambassador|moderator/);
+    expect(demote?.sql).not.toMatch(/ambassador/);
   });
 
   it('does nothing at all when the allowlist is empty', async () => {

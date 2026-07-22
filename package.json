@@ -20,6 +20,8 @@
     "db:migrate": "pnpm --filter @sportkarta/db db:migrate",
     "db:seed": "pnpm --filter @sportkarta/db db:seed",
     "db:reset": "bash scripts/db-reset.sh",
+    "mod:queue": "pnpm --filter @sportkarta/db run mod:queue",
+    "mod:flag": "pnpm --filter @sportkarta/db run mod:flag",
     "import:osm": "pnpm --filter @sportkarta/import-osm run cli",
     "import:osm:audit": "pnpm --filter @sportkarta/import-osm run audit",
     "tiles:build": "bash scripts/build-tiles/build.sh",

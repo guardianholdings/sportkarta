@@ -16,6 +16,8 @@
     "db:backfill-slugs": "tsx scripts/backfill-slugs.ts",
     "db:load-population": "tsx scripts/load-population.ts",
     "db:refresh-stats": "tsx scripts/refresh-stats.ts",
+    "mod:queue": "tsx scripts/moderation-queue.ts",
+    "mod:flag": "tsx scripts/moderation-flag.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

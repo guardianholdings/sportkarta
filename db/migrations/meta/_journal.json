@@ -50,6 +50,13 @@
       "when": 1784749593325,
       "tag": "0006_contributions_points",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784753759805,
+      "tag": "0007_ambassadors_moderation",
+      "breakpoints": true
     }
   ]
 }

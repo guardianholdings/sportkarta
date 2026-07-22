@@ -1,6 +1,7 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { municipalityOptions, verifyQueue } from '@/lib/admin-data';
+import { requireAdmin } from '@/lib/auth-session';
 
 import { VerifyDeck } from './verify-deck';
 
@@ -22,9 +23,11 @@ export default async function AdminVerifyPage({
         ? Number(municipalityRaw)
         : undefined;
 
+  // The deck is scoped to what this account may actually decide.
+  const user = await requireAdmin();
   const [t, { cards, remaining }, municipalities] = await Promise.all([
     getTranslations('AdminVerify'),
-    verifyQueue(municipality),
+    verifyQueue({ id: user.id, role: user.role }, municipality),
     municipalityOptions(),
   ]);
 

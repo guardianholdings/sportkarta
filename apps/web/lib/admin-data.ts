@@ -1,4 +1,6 @@
 import { getDb, sql, type SQL } from '@sportkarta/db';
+
+import { scopeClause, type ModerationActor } from './moderation';
 import { facilityAccess, facilitySource, facilityStatus } from '@sportkarta/db/schema';
 
 /** Read-side queries for the admin screens. Server-only; callers are gated. */
@@ -54,10 +56,14 @@ function facilityConditions(filters: FacilityFilters): SQL {
 }
 
 export async function listFacilities(
+  actor: ModerationActor,
   filters: FacilityFilters,
 ): Promise<{ rows: FacilityListRow[]; total: number }> {
   const db = getDb();
-  const where = facilityConditions(filters);
+  // Same scope as the editor it links into: an ambassador browsing facilities
+  // they cannot touch would only be a way to discover contributor names
+  // nationwide (facilityHistory joins display_name).
+  const where = sql`${facilityConditions(filters)} AND ${scopeClause(actor)}`;
   const offset = (filters.page - 1) * FACILITIES_PAGE_SIZE;
 
   const rows = await db.execute(sql`
@@ -156,18 +162,25 @@ export interface VerifyCard {
 /**
  * Queue for the one-keystroke verify flow. Latin names sort before Cyrillic
  * under ORDER BY name, which also makes e2e fixtures deterministic.
+ *
+ * Scoped since Stage 3.3: an ambassador is only ever shown cards they could
+ * actually decide, because the same predicate guards the decision itself
+ * (lib/moderation.ts). Showing more would mean keystrokes that silently do
+ * nothing.
  */
 export async function verifyQueue(
+  actor: ModerationActor,
   municipality: number | 'none' | undefined,
   limit = 20,
 ): Promise<{ cards: VerifyCard[]; remaining: number }> {
   const db = getDb();
+  const scope = scopeClause(actor);
   const where =
     municipality === 'none'
-      ? sql`f.status = 'needs_verification' AND f.municipality_id IS NULL`
+      ? sql`f.status = 'needs_verification' AND f.municipality_id IS NULL AND ${scope}`
       : typeof municipality === 'number'
-        ? sql`f.status = 'needs_verification' AND f.municipality_id = ${municipality}`
-        : sql`f.status = 'needs_verification'`;
+        ? sql`f.status = 'needs_verification' AND f.municipality_id = ${municipality} AND ${scope}`
+        : sql`f.status = 'needs_verification' AND ${scope}`;
 
   const rows = await db.execute(sql`
     SELECT f.id, f.name, f.quarter, m.name_bg AS municipality_name, f.sport_types,
@@ -209,7 +222,18 @@ export interface FacilityDetail extends VerifyCard {
   status: FacilityStatus;
 }
 
-export async function getFacility(id: string): Promise<FacilityDetail | null> {
+/**
+ * Facility detail for the admin editor.
+ *
+ * Scoped since Stage 3.3: an ambassador may only open a facility inside their
+ * municipalities. Without this, the editor would be a way around the moderation
+ * boundary — it can set status and rewrite fields nationwide, and it does not
+ * go through the logged moderation path at all.
+ */
+export async function getFacility(
+  actor: ModerationActor,
+  id: string,
+): Promise<FacilityDetail | null> {
   if (!isUuid(id)) return null;
   const db = getDb();
   const result = await db.execute(sql`
@@ -219,7 +243,7 @@ export async function getFacility(id: string): Promise<FacilityDetail | null> {
            f.attrs -> 'osm' -> 'tags' AS osm_tags
     FROM facilities f
     LEFT JOIN municipalities m ON m.id = f.municipality_id
-    WHERE f.id = ${id}
+    WHERE f.id = ${id} AND ${scopeClause(actor)}
   `);
   const row = result.rows[0] as Record<string, unknown> | undefined;
   if (!row) return null;
@@ -293,29 +317,6 @@ export interface PendingPhoto {
   createdAt: string;
 }
 
-export async function pendingPhotos(): Promise<PendingPhoto[]> {
-  const db = getDb();
-  const result = await db.execute(sql`
-    SELECT p.id, p.facility_id, f.name AS facility_name, p.storage_path, p.uploaded_by, p.created_at
-    FROM facility_photos p
-    JOIN facilities f ON f.id = p.facility_id
-    WHERE p.status = 'pending'
-    ORDER BY p.created_at
-    LIMIT 100
-  `);
-  return result.rows.map((r) => {
-    const row = r as Record<string, unknown>;
-    return {
-      id: String(row.id),
-      facilityId: String(row.facility_id),
-      facilityName: (row.facility_name as string | null) ?? null,
-      storagePath: String(row.storage_path),
-      uploadedBy: (row.uploaded_by as string | null) ?? null,
-      createdAt: String(row.created_at),
-    };
-  });
-}
-
 export interface PendingReport {
   id: string;
   facilityId: string;
@@ -327,31 +328,6 @@ export interface PendingReport {
 }
 
 /** Anonymous visitor reports awaiting triage (Stage 2.2 moderation queue). */
-export async function pendingReports(): Promise<PendingReport[]> {
-  const db = getDb();
-  const result = await db.execute(sql`
-    SELECT r.id, r.facility_id, f.name AS facility_name, r.issue, r.body,
-           p.storage_path AS photo_path, r.created_at
-    FROM facility_reports r
-    JOIN facilities f ON f.id = r.facility_id
-    LEFT JOIN facility_photos p ON p.id = r.photo_id
-    WHERE r.status = 'pending'
-    ORDER BY r.created_at
-    LIMIT 100
-  `);
-  return result.rows.map((r) => {
-    const row = r as Record<string, unknown>;
-    return {
-      id: String(row.id),
-      facilityId: String(row.facility_id),
-      facilityName: (row.facility_name as string | null) ?? null,
-      issue: String(row.issue),
-      body: (row.body as string | null) ?? null,
-      photoPath: (row.photo_path as string | null) ?? null,
-      createdAt: String(row.created_at),
-    };
-  });
-}
 
 export interface ImportJobRow {
   id: string;

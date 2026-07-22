@@ -36,9 +36,16 @@ browser) in a MANUAL STEPS list at the end of the session.
   `sql.param(...)`: a bare array expands to `($1, $2)`, which Postgres rejects
 - better-auth (self-hosted) in `apps/web/lib/auth.ts`: email OTP through the
   mail abstraction, Google behind `AUTH_GOOGLE_ENABLED` (ships off). Roles are
-  `user < ambassador < moderator < admin` (`apps/web/lib/roles.ts`); the first
-  admin comes from `ADMIN_EMAILS`. Authorization reads the role from the
-  database, never from the session cookie cache. pg-boss for jobs (apps/worker)
+  `user < ambassador < admin` (`apps/web/lib/roles.ts`); the first admin comes
+  from `ADMIN_EMAILS`. Authorization reads the role from the database, never
+  from the session cookie cache. pg-boss for jobs (apps/worker)
+- Moderation is municipality-scoped: an ambassador's authority is the rows in
+  `ambassador_municipalities`, not their rank, and the scope is part of every
+  statement (`apps/web/lib/moderation.ts`) so an out-of-scope decision updates
+  zero rows. `requireAdmin()` means "ambassador or admin" — admin-only paths
+  use `requireRole('admin')`. Every decision is logged to the append-only
+  `moderation_decisions`; `moderation_flags` are assistive and never decide
+  anything (`docs/prompts/moderation-prescreen.md`)
 - Contributions (`apps/web/lib/contributions/*`): add / verify / condition-report
   all write through `facility_edits` with the account id as `actor` and
   `source='crowd'`. Points live in the append-only `points_ledger` — awards are

@@ -32,6 +32,8 @@ export interface DeletionSummary {
   conditionReportsAnonymized: number;
   /** points_ledger rows removed with the account (points are personal data). */
   pointsErased: number;
+  /** moderation_decisions rows left intact — accountability outlives the account. */
+  moderationDecisionsPreserved: number;
 }
 
 interface SqlRunner {
@@ -67,6 +69,13 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
     const pointsErased = countFrom(
       await tx.execute(sql`SELECT count(*)::int AS n FROM points_ledger WHERE user_id = ${userId}`),
     );
+    // Decisions stay (no FK, append-only): an erased ambassador's moderation
+    // record must survive them, carrying only an id that no longer resolves.
+    const moderationDecisionsPreserved = countFrom(
+      await tx.execute(
+        sql`SELECT count(*)::int AS n FROM moderation_decisions WHERE actor_id = ${userId}`,
+      ),
+    );
 
     // Pending one-time codes are keyed by email address, not by user id, so the
     // cascade does not reach them. Left behind they would be a short-lived
@@ -86,10 +95,10 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
     await tx.execute(sql`
       INSERT INTO account_deletions (
         user_id, audit_rows_preserved, photos_anonymized,
-        condition_reports_anonymized, points_erased
+        condition_reports_anonymized, points_erased, moderation_decisions_preserved
       )
       VALUES (${userId}, ${auditRowsPreserved}, ${photosAnonymized},
-              ${conditionReportsAnonymized}, ${pointsErased})
+              ${conditionReportsAnonymized}, ${pointsErased}, ${moderationDecisionsPreserved})
     `);
 
     // Cascades to sessions, accounts and the points ledger; nulls
@@ -102,6 +111,7 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
       photosAnonymized,
       conditionReportsAnonymized,
       pointsErased,
+      moderationDecisionsPreserved,
     };
   });
 }

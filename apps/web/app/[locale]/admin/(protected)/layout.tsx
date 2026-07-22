@@ -27,13 +27,14 @@ export default async function AdminLayout({
   const actor = user.displayName || user.email;
   const t = await getTranslations('AdminNav');
 
-  // Moderators get the review tools; imports rewrite national data and stay
-  // admin-only, so the link is hidden rather than leading to a 404.
+  // Ambassadors get the review tools (scoped to their municipalities); imports
+  // rewrite national data and stay admin-only, so that link is hidden instead.
   const items = [
-    { href: '/admin', label: t('dashboard'), minRole: 'moderator' },
-    { href: '/admin/facilities', label: t('facilities'), minRole: 'moderator' },
-    { href: '/admin/verify', label: t('verify'), minRole: 'moderator' },
-    { href: '/admin/moderation', label: t('moderation'), minRole: 'moderator' },
+    { href: '/admin', label: t('dashboard'), minRole: 'ambassador' },
+    { href: '/admin/facilities', label: t('facilities'), minRole: 'ambassador' },
+    { href: '/admin/verify', label: t('verify'), minRole: 'ambassador' },
+    { href: '/admin/moderation', label: t('moderation'), minRole: 'ambassador' },
+    { href: '/admin/ambasadori', label: t('ambassadors'), minRole: 'admin' },
     { href: '/admin/import', label: t('import'), minRole: 'admin' },
   ] as const satisfies readonly { href: string; label: string; minRole: Role }[];
   const visibleItems = items.filter((item) => hasAtLeast(user.role, item.minRole));

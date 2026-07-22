@@ -147,28 +147,36 @@ test.describe('role boundaries', () => {
     }
   });
 
-  test('an ambassador is still not an admin', async ({ page }, testInfo) => {
+  test('an ambassador gets the review tools but not admin-only screens', async ({
+    page,
+  }, testInfo) => {
+    // Since Stage 3.3 ambassadors ARE the moderators, so /admin admits them —
+    // but their power is bounded by municipality scope, not by rank, and the
+    // admin-only screens stay closed.
     const email = memberEmail(testInfo);
     await query(`DELETE FROM users WHERE email = $1`, [email]);
     await signIn(page, email, /\/profil/);
     await setRole(email, 'ambassador');
 
-    expect((await page.request.get('/admin')).status()).toBe(404);
+    expect((await page.request.get('/admin')).status()).toBe(200);
+    expect((await page.request.get('/admin/moderation')).status()).toBe(200);
+    // Imports rewrite national data; granting ambassadors would let one widen
+    // their own scope. Both are admin-only, page as well as action.
+    expect((await page.request.get('/admin/import')).status()).toBe(404);
+    expect((await page.request.get('/admin/ambasadori')).status()).toBe(404);
+    // And neither link is dangled in front of them.
+    await page.goto('/admin');
+    await expect(page.getByRole('link', { name: /импорт|import/i })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /амбасадори|ambassadors/i })).toHaveCount(0);
   });
 
-  test('a moderator gets the review tools but not imports', async ({ page }, testInfo) => {
+  test('the retired moderator role cannot be set at all', async ({ page }, testInfo) => {
     const email = memberEmail(testInfo);
     await query(`DELETE FROM users WHERE email = $1`, [email]);
     await signIn(page, email, /\/profil/);
-    await setRole(email, 'moderator');
 
-    expect((await page.request.get('/admin')).status()).toBe(200);
-    expect((await page.request.get('/admin/moderation')).status()).toBe(200);
-    // Imports rewrite national data — admin only, page as well as action.
-    expect((await page.request.get('/admin/import')).status()).toBe(404);
-    // And the link is not dangled in front of them.
-    await page.goto('/admin');
-    await expect(page.getByRole('link', { name: /импорт|import/i })).toHaveCount(0);
+    // Stage 3.3 retired it, and the database enforces that — not just the app.
+    await expect(setRole(email, 'moderator')).rejects.toThrow(/users_role_not_moderator/);
   });
 });
 

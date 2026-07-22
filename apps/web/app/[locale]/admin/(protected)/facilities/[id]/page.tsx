@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
 import { MapEmbed } from '@/components/admin/map-embed';
 import { ACCESS_VALUES, facilityHistory, getFacility, STATUS_VALUES } from '@/lib/admin-data';
+import { requireAdmin } from '@/lib/auth-session';
 
 import { saveFacility } from '../actions';
 
@@ -20,6 +21,8 @@ export default async function AdminFacilityEditPage({
   const savedRaw = (await searchParams).saved;
   const saved = typeof savedRaw === 'string' ? Number(savedRaw) : null;
 
+  // Scoped: an ambassador may only open facilities in their municipalities.
+  const user = await requireAdmin();
   const [t, tStatus, tAccess, tSport, tSurface, tSource, facility, history] = await Promise.all([
     getTranslations('AdminEdit'),
     getTranslations('AdminStatus'),
@@ -27,7 +30,7 @@ export default async function AdminFacilityEditPage({
     getTranslations('Sport'),
     getTranslations('Surface'),
     getTranslations('Source'),
-    getFacility(id),
+    getFacility({ id: user.id, role: user.role }, id),
     facilityHistory(id),
   ]);
   if (!facility) notFound();

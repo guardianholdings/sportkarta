@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation';
 
 import { ACCESS_VALUES, isUuid, STATUS_VALUES } from '@/lib/admin-data';
 import { requireAdmin } from '@/lib/auth-session';
+import { scopeClause } from '@/lib/moderation';
 
 function optionalText(value: FormDataEntryValue | null): string | null {
   const s = String(value ?? '').trim();
@@ -24,9 +25,17 @@ function oneOf<T extends string>(value: unknown, allowed: readonly T[]): T {
  * Operator edit: every applied change is one facility_edits audit row with
  * actor (from the verified session, never from the form) and source='crowd' —
  * top merge-policy priority, so these fields freeze against OSM re-imports.
+ *
+ * Municipality-scoped since Stage 3.3. This screen can set `status` and rewrite
+ * every field, and it does NOT go through the logged moderation path, so an
+ * unscoped version would let any ambassador mark a facility on the other side
+ * of the country `gone` — frozen against future imports, with nothing in the
+ * decision log. The scope is in the UPDATE itself, not only in this check.
  */
 export async function saveFacility(facilityId: string, formData: FormData): Promise<void> {
-  const { id: actor } = await requireAdmin();
+  const user = await requireAdmin();
+  const actor = user.id;
+  const scope = scopeClause({ id: user.id, role: user.role });
   if (!isUuid(facilityId)) throw new Error('invalid facility id');
 
   const sports = formData
@@ -69,9 +78,13 @@ export async function saveFacility(facilityId: string, formData: FormData): Prom
   let appliedCount = 0;
 
   await db.transaction(async (tx) => {
+    // The scope is part of the row lock: an out-of-scope facility simply is not
+    // found, so the edit never begins.
     const currentResult = await tx.execute(sql`
-      SELECT name, quarter, sport_types, surface, lighting, covered, access, status
-      FROM facilities WHERE id = ${facilityId} FOR UPDATE
+      SELECT f.name, f.quarter, f.sport_types, f.surface, f.lighting, f.covered,
+             f.access, f.status
+      FROM facilities f WHERE f.id = ${facilityId} AND ${scope}
+      FOR UPDATE
     `);
     const row = currentResult.rows[0] as Record<string, JsonValue> | undefined;
     if (!row) throw new Error('facility not found');
@@ -99,7 +112,8 @@ export async function saveFacility(facilityId: string, formData: FormData): Prom
       return setter(change.newValue);
     });
     await tx.execute(
-      sql`UPDATE facilities SET ${sql.join(fragments, sql`, `)} WHERE id = ${facilityId}`,
+      sql`UPDATE facilities f SET ${sql.join(fragments, sql`, `)}
+          WHERE f.id = ${facilityId} AND ${scope}`,
     );
 
     for (const change of merge.applied) {

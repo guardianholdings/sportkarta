@@ -4,20 +4,25 @@ import { sql, type SQL } from '@sportkarta/db';
  * Role model for Stage 3 (docs/ROADMAP.md §5). Replaces the Stage 1 shared
  * ADMIN_TOKENS allowlist: authorization is now a property of a real account.
  *
- * Ranks are ordered, so a check reads "at least moderator" rather than an
- * enumeration that silently forgets a role when a new one is added.
+ * Three roles only. `moderator` was retired in Stage 3.3 — its holders became
+ * ambassadors, and migration 0007 CHECK-constrains the value out of use (the
+ * enum member survives only because dropping one would rewrite the table).
+ *
+ * Rank is NOT the whole authorization story any more. An ambassador is not a
+ * weaker admin: their authority is a SET OF MUNICIPALITIES, so every moderation
+ * check is role plus scope, and the scope lives in the SQL (lib/moderation.ts).
+ * Rank answers only "is this an admin?" and "may this account see /admin?".
  */
 export const ROLE_RANK = {
   user: 0,
   ambassador: 1,
-  moderator: 2,
-  admin: 3,
+  admin: 2,
 } as const;
 
 export type Role = keyof typeof ROLE_RANK;
 
-/** Lowest role allowed into /admin. Moderators see moderation; imports are admin-only. */
-export const ADMIN_PANEL_MIN_ROLE: Role = 'moderator';
+/** Lowest role allowed into /admin. Ambassadors moderate; imports stay admin-only. */
+export const ADMIN_PANEL_MIN_ROLE: Role = 'ambassador';
 
 export function isRole(value: unknown): value is Role {
   return typeof value === 'string' && value in ROLE_RANK;
@@ -46,8 +51,8 @@ interface SqlRunner {
  * no manual UPDATE — and the revocation path: remove an address from the
  * environment and the next sign-in demotes it.
  *
- * Only the 'admin' role is environment-managed. ambassador/moderator are
- * granted in-app and are never touched here.
+ * Only the 'admin' role is environment-managed. The ambassador role and its
+ * municipality scope are granted in-app and are never touched here.
  *
  * An empty allowlist is treated as "not configured" and does nothing at all:
  * a dropped environment variable must not silently demote every admin and lock

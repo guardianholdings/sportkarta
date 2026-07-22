@@ -31,12 +31,16 @@ import {
 const timestamptz = (name: string) => timestamp(name, { withTimezone: true });
 
 /**
- * Authorization ranks, lowest to highest privilege:
+ * Authorization roles, lowest to highest privilege:
  *  - user        signed-in contributor
- *  - ambassador  trusted local contributor (Stage 3 contribution flows)
- *  - moderator   reviews photos/reports; municipality-scoped in a later session
- *  - admin       full admin panel, including imports
- * Extend via ALTER TYPE ... ADD VALUE in a later migration (no table lock).
+ *  - ambassador  moderates photos, reports and crowd edits, but ONLY inside the
+ *                municipalities listed in ambassador_municipalities
+ *  - admin       full admin panel, including imports and granting ambassadors
+ *
+ * 'moderator' is RETIRED (Stage 3.3): its holders became ambassadors and a CHECK
+ * constraint on users.role forbids the value. The enum member survives only
+ * because dropping one would recreate the type and rewrite every dependent
+ * column. Extend via ALTER TYPE ... ADD VALUE in a later migration (no lock).
  */
 export const userRole = pgEnum('user_role', ['user', 'ambassador', 'moderator', 'admin']);
 
@@ -60,6 +64,11 @@ export const users = pgTable(
   },
   (t) => [
     check('users_email_not_blank', sql`btrim(${t.email}) <> ''`),
+    // 'moderator' was retired in Stage 3.3. The constraint lives here as well
+    // as in the migration so drizzle knows about it — otherwise the next person
+    // to add it to the schema generates an ALTER that fails on production with
+    // "constraint already exists".
+    check('users_role_not_moderator', sql`${t.role} <> 'moderator'`),
     // better-auth normalises to lowercase; enforced so a case variant can never
     // become a second account for the same person.
     check('users_email_lowercase', sql`${t.email} = lower(${t.email})`),
@@ -172,6 +181,12 @@ export const accountDeletions = pgTable(
      * evidence that they did.
      */
     pointsErased: integer('points_erased').notNull().default(0),
+    /**
+     * moderation_decisions rows left intact. An erased ambassador's decisions
+     * stay — accountability outlives the account — carrying only an id that no
+     * longer resolves, so the tombstone must be able to evidence how many.
+     */
+    moderationDecisionsPreserved: integer('moderation_decisions_preserved').notNull().default(0),
   },
   (t) => [
     index('account_deletions_deleted_at_idx').on(t.deletedAt),
@@ -183,7 +198,8 @@ export const accountDeletions = pgTable(
     check(
       'account_deletions_counts_non_negative',
       sql`${t.auditRowsPreserved} >= 0 AND ${t.photosAnonymized} >= 0
-          AND ${t.conditionReportsAnonymized} >= 0 AND ${t.pointsErased} >= 0`,
+          AND ${t.conditionReportsAnonymized} >= 0 AND ${t.pointsErased} >= 0
+          AND ${t.moderationDecisionsPreserved} >= 0`,
     ),
   ],
 );

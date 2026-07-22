@@ -1,6 +1,7 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
+import { requireAdmin } from '@/lib/auth-session';
 import { MapEmbed } from '@/components/admin/map-embed';
 import { StatusBadge } from '@/components/admin/status-badge';
 import {
@@ -69,12 +70,15 @@ export default async function AdminFacilitiesPage({
   const sp = await searchParams;
   const filters = parseFilters(sp);
 
+  // Scoped: the list links into the editor, so it must not advertise
+  // facilities this account cannot open.
+  const user = await requireAdmin();
   const [t, tStatus, tSource, tSport, { rows, total }, municipalities] = await Promise.all([
     getTranslations('AdminFacilities'),
     getTranslations('AdminStatus'),
     getTranslations('Source'),
     getTranslations('Sport'),
-    listFacilities(filters),
+    listFacilities({ id: user.id, role: user.role }, filters),
     municipalityOptions(),
   ]);
   const pages = Math.max(1, Math.ceil(total / FACILITIES_PAGE_SIZE));
