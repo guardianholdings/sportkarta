@@ -7,6 +7,7 @@ import { MiniMapLoader } from '@/components/map/mini-map-loader';
 import { Link } from '@/i18n/navigation';
 import { issueFormToken } from '@/lib/form-token';
 import { serializeJsonLd } from '@/lib/json-ld';
+import { buildAlternates } from '@/lib/seo';
 import { getFacilityBySlug, type FacilityDetail } from '@/lib/public-data';
 
 type PageParams = Promise<{ locale: string; slug: string }>;
@@ -30,7 +31,7 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   const place = facility.municipalityName ?? facility.quarter ?? '';
   return {
     title: place ? `${name} — ${place}` : name,
-    alternates: { canonical: `/obekt/${facility.slug}` },
+    alternates: buildAlternates(`/obekt/${facility.slug}`, locale),
   };
 }
 

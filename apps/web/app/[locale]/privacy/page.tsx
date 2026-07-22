@@ -2,13 +2,14 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
+import { buildAlternates } from '@/lib/seo';
 
 type PageParams = Promise<{ locale: string }>;
 
 export async function generateMetadata({ params }: { params: PageParams }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'Privacy' });
-  return { title: t('title') };
+  return { title: t('title'), alternates: buildAlternates('/privacy', locale) };
 }
 
 export default async function PrivacyPage({ params }: { params: PageParams }) {

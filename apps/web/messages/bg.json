@@ -279,6 +279,28 @@
       "invalidPhoto": "Невалиден файл със снимка."
     }
   },
+  "Places": {
+    "cityH1": "Спортни съоръжения в {city}",
+    "cityIntro": "В {city} има {count} безплатни обществени спортни съоръжения. Разгледай ги на картата или в списъка по-долу.",
+    "cityMetaTitle": "Спортни съоръжения в {city} — СпортКарта",
+    "cityMetaDescription": "Карта и списък на {count} безплатни обществени спортни съоръжения в {city}.",
+    "sportH1": "{sport} в {city}",
+    "sportIntro": "В {city} има {count} места за {sport}. Виж ги на картата или в списъка.",
+    "sportMetaTitle": "{sport} в {city} — СпортКарта",
+    "sportMetaDescription": "{count} места за {sport} в {city} — безплатни обществени съоръжения.",
+    "quarterH1": "Спортни съоръжения в {quarter}, {city}",
+    "quarterIntro": "В квартал {quarter} ({city}) има {count} спортни съоръжения.",
+    "quarterMetaTitle": "Спортни съоръжения в {quarter}, {city} — СпортКарта",
+    "quarterMetaDescription": "{count} спортни съоръжения в {quarter}, {city}.",
+    "facilitiesHeading": "Съоръжения",
+    "bySportHeading": "По спорт",
+    "mapHeading": "Карта",
+    "otherSportsHeading": "Други спортове в {city}",
+    "sameSportOtherCitiesHeading": "{sport} в други градове",
+    "backToCity": "← Всички съоръжения в {city}",
+    "viewAllOnMap": "Виж всички на картата",
+    "showingLimited": "Показани са първите {shown} от {total}."
+  },
   "Privacy": {
     "back": "← Начало",
     "title": "Поверителност",

@@ -23,3 +23,37 @@ export function distanceKm(a: LngLat, b: LngLat): number {
 export function formatKm(km: number): string {
   return km < 10 ? km.toFixed(1) : String(Math.round(km));
 }
+
+export interface MapView {
+  lng: number;
+  lat: number;
+  zoom: number;
+}
+
+const BULGARIA_CENTER: MapView = { lng: 25.3, lat: 42.72, zoom: 6.8 };
+
+/**
+ * A center + zoom that frames a set of points (for the scoped place maps).
+ * Derives zoom from the bounding-box span; clamped to a sane range. Empty →
+ * whole-Bulgaria overview; a single point → close-in.
+ */
+export function viewFromPoints(points: LngLat[]): MapView {
+  if (points.length === 0) return BULGARIA_CENTER;
+  let minLon = Infinity;
+  let maxLon = -Infinity;
+  let minLat = Infinity;
+  let maxLat = -Infinity;
+  for (const p of points) {
+    minLon = Math.min(minLon, p.lon);
+    maxLon = Math.max(maxLon, p.lon);
+    minLat = Math.min(minLat, p.lat);
+    maxLat = Math.max(maxLat, p.lat);
+  }
+  const lng = (minLon + maxLon) / 2;
+  const lat = (minLat + maxLat) / 2;
+  const span = Math.max(maxLon - minLon, maxLat - minLat);
+  if (span <= 0) return { lng, lat, zoom: 14 };
+  // 360° of longitude ≈ zoom 0; halve the span per zoom level. −1 adds padding.
+  const zoom = Math.max(4, Math.min(15, Math.round(Math.log2(360 / span)) - 1));
+  return { lng, lat, zoom };
+}

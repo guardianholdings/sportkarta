@@ -279,6 +279,28 @@
       "invalidPhoto": "Invalid photo file."
     }
   },
+  "Places": {
+    "cityH1": "Sports facilities in {city}",
+    "cityIntro": "{city} has {count} free public sports facilities. Explore them on the map or in the list below.",
+    "cityMetaTitle": "Sports facilities in {city} — SportKarta",
+    "cityMetaDescription": "Map and list of {count} free public sports facilities in {city}.",
+    "sportH1": "{sport} in {city}",
+    "sportIntro": "{city} has {count} places for {sport}. See them on the map or in the list.",
+    "sportMetaTitle": "{sport} in {city} — SportKarta",
+    "sportMetaDescription": "{count} places for {sport} in {city} — free public facilities.",
+    "quarterH1": "Sports facilities in {quarter}, {city}",
+    "quarterIntro": "The {quarter} quarter ({city}) has {count} sports facilities.",
+    "quarterMetaTitle": "Sports facilities in {quarter}, {city} — SportKarta",
+    "quarterMetaDescription": "{count} sports facilities in {quarter}, {city}.",
+    "facilitiesHeading": "Facilities",
+    "bySportHeading": "By sport",
+    "mapHeading": "Map",
+    "otherSportsHeading": "Other sports in {city}",
+    "sameSportOtherCitiesHeading": "{sport} in other cities",
+    "backToCity": "← All facilities in {city}",
+    "viewAllOnMap": "View all on the map",
+    "showingLimited": "Showing the first {shown} of {total}."
+  },
   "Privacy": {
     "back": "← Home",
     "title": "Privacy",

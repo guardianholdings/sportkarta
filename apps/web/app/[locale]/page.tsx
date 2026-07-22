@@ -1,12 +1,23 @@
+import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { MapExplorer } from '@/components/map/map-explorer';
 import type { MapView } from '@/components/map/map-canvas';
 import { parsePublicFilters } from '@/lib/filters';
 import { listPublicFacilities } from '@/lib/public-data';
+import { buildAlternates } from '@/lib/seo';
 
 // Filter- and viewport-dependent, DB-backed: rendered per request.
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return { alternates: buildAlternates('/', locale) };
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
