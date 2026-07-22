@@ -31,13 +31,24 @@ USER node
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]
 
-# ── worker: full workspace (simple + reliable; slim later if pull size hurts) ─
-FROM build AS worker
+# ── worker: Debian runtime (osmium-tool is Debian-packaged; Alpine 3.24 dropped
+# it — only libosmium remains there). Full workspace copied from the Alpine build
+# stage: the worker's runtime deps are pure JS (pg, pg-boss, dotenv, drizzle,
+# esbuild-bundled import-osm), so the musl→glibc move is safe, and osmium is only
+# ever invoked as a runtime subprocess. Slim later if pull size hurts.
+FROM node:24-bookworm-slim AS worker
+WORKDIR /app
 ENV NODE_ENV=production
 # osmium-tool: OSM extract filtering for the import.osm job (scripts/import-osm).
-RUN apk add --no-cache osmium-tool
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends osmium-tool \
+  && rm -rf /var/lib/apt/lists/*
+COPY --from=build /app /app
 USER node
-CMD ["node", "apps/worker/dist/index.js"]
+# Run through tsx: @sportkarta/db is consumed as TS source (exports ./src/index.ts,
+# no build step) with .js import specifiers that plain `node` can't resolve — tsx
+# handles the .ts loading + .js→.ts remapping, matching the rest of the monorepo.
+CMD ["apps/worker/node_modules/.bin/tsx", "apps/worker/dist/index.js"]
 
 # ── migrate: one-shot drizzle-kit runner (docker compose --profile ops) ──────
 FROM build AS migrate

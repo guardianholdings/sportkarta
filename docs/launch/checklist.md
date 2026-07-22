@@ -127,6 +127,45 @@ map's above-the-fold cost a separate, later UX call.
 The public launch itself is still gated by the manual DNS cutover (see the
 session's MANUAL STEPS), so launch timing remains a deliberate operator action.
 
+## Deploy pipeline
+
+The GitHub Actions **Deploy** workflow had been failing on every push, so
+production was not receiving updates. Two independent causes, both fixed:
+
+1. **web image** — `Dockerfile` `COPY … /app/apps/web/public` failed because
+   `apps/web/public/` did not exist in the repo. Fixed by the PWA change (the SW,
+   offline page, and icons created that directory).
+2. **worker image build** — `apk add --no-cache osmium-tool` failed:
+   `node:24-alpine` now tracks Alpine 3.24, which dropped `osmium-tool` (only
+   `libosmium` remains). Fixed by moving the `worker` stage to a Debian base
+   (`node:24-bookworm-slim` + `apt-get install osmium-tool`); the worker's
+   runtime deps are pure JS, so the musl→glibc move is safe.
+3. **worker runtime crash** (found during verification; pre-existing, unrelated
+   to the base change) — the container crash-looped because `@sportkarta/db`
+   ships as un-built TS (`exports: "./src/index.ts"`) whose `.js` import
+   specifiers plain `node` can't resolve. Fixed by launching the worker through
+   `tsx` (already in the image), matching how the rest of the monorepo consumes
+   TS workspace source.
+
+Verified locally end-to-end: `docker build --target worker` builds; running the
+image against the dev DB, the worker connects to pg-boss, runs `stats.refresh`,
+and processes an `import.osm` **dry-run** that exercises `osmium` on the real
+Bulgaria extract (265 boundary relations matched, transaction rolled back).
+
+Deploy/worker follow-ups (tracked, not blocking this launch):
+
+- **OSM import cache dir** — `scripts/import-osm/src/run.ts` `DEFAULT_CACHE_DIR`
+  is `/app/var/cache/osm`, root-owned after `COPY` while the worker runs as
+  `node`, with no volume mounted there in `compose.prod.yml`. The first _real_
+  (non-dry-run) `import.osm` job will `EACCES` on the cache write; point it at a
+  `DATA_DIR`/`os.tmpdir()` or mount a writable volume. Import-only (Stage 1,
+  operator-triggered) — the worker itself, stats refresh, and reminders are
+  unaffected.
+- **Image pinning/size** — the base tags float (`node:24-alpine`,
+  `node:24-bookworm-slim`) and `osmium-tool` is unversioned; the worker copies
+  the whole monorepo. Reproducibility (digest/version pins) and a pruned worker
+  copy are worthwhile later passes.
+
 ## Follow-ups (non-blocking, from code review)
 
 Applied in this change: SW now caches only 206 range responses (no full-archive
