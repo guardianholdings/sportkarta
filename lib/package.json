@@ -6,6 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./age": "./src/age.ts",
+    "./condition": "./src/condition.ts",
+    "./points": "./src/points.ts",
     "./email": "./src/email/index.ts",
     "./slug": "./src/slug.ts",
     "./sports": "./src/sports.ts",

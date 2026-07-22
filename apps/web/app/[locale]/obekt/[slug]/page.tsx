@@ -3,9 +3,13 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
 import { ReportForm } from '@/components/facility/report-form';
+import { getCurrentUser } from '@/lib/auth-session';
 import { MiniMapLoader } from '@/components/map/mini-map-loader';
 import { Link } from '@/i18n/navigation';
 import { issueFormToken } from '@/lib/form-token';
+
+import { ConditionForm } from './condition-form';
+import { VerifyForm } from './verify-form';
 import { serializeJsonLd } from '@/lib/json-ld';
 import { buildAlternates } from '@/lib/seo';
 import { getFacilityBySlug, type FacilityDetail } from '@/lib/public-data';
@@ -39,14 +43,20 @@ export default async function FacilityPage({ params }: { params: PageParams }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
 
-  const [facility, t, tSport, tSurface, tAccess, tSource] = await Promise.all([
-    getFacilityBySlug(slug),
-    getTranslations('Facility'),
-    getTranslations('Sport'),
-    getTranslations('Surface'),
-    getTranslations('Access'),
-    getTranslations('Source'),
-  ]);
+  const [facility, currentUser, t, tSport, tSurface, tAccess, tSource, tCondition, tContribute] =
+    await Promise.all([
+      getFacilityBySlug(slug),
+      // Signed-in visitors get the contribution forms; everyone else keeps the
+      // anonymous problem-report form below them.
+      getCurrentUser(),
+      getTranslations('Facility'),
+      getTranslations('Sport'),
+      getTranslations('Surface'),
+      getTranslations('Access'),
+      getTranslations('Source'),
+      getTranslations('Condition'),
+      getTranslations('Contribute'),
+    ]);
   if (!facility) notFound();
 
   const name = displayName(facility, t('unnamed'));
@@ -120,6 +130,9 @@ export default async function FacilityPage({ params }: { params: PageParams }) {
           <dt className="font-medium text-neutral-500">{t('covered')}</dt>
           <dd>{facility.covered ? t('yes') : t('no')}</dd>
 
+          <dt className="font-medium text-neutral-500">{t('condition')}</dt>
+          <dd>{facility.condition ? tCondition(facility.condition) : t('conditionUnknown')}</dd>
+
           <dt className="font-medium text-neutral-500">{t('dataSource')}</dt>
           <dd>{tSource(facility.source)}</dd>
         </dl>
@@ -153,6 +166,40 @@ export default async function FacilityPage({ params }: { params: PageParams }) {
           {t('location')}
         </h2>
         <MiniMapLoader lon={facility.lon} lat={facility.lat} label={name} />
+      </section>
+
+      <section aria-labelledby="contribute-h" className="space-y-6">
+        <h2 id="contribute-h" className="text-lg font-semibold">
+          {tContribute('title')}
+        </h2>
+        {currentUser ? (
+          <div className="space-y-8">
+            <div className="rounded border border-neutral-200 p-4">
+              <h3 className="mb-3 font-medium">{tContribute('verifyHeading')}</h3>
+              <VerifyForm
+                slug={facility.slug}
+                access={facility.access}
+                surface={facility.surface}
+                lighting={facility.lighting}
+                covered={facility.covered}
+                sportTypes={facility.sportTypes}
+              />
+            </div>
+            <div className="rounded border border-neutral-200 p-4">
+              <h3 className="mb-3 font-medium">{tContribute('conditionHeading')}</h3>
+              <ConditionForm slug={facility.slug} />
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-neutral-600">
+            <Link
+              href={{ pathname: '/vhod', query: { next: `/obekt/${facility.slug}` } }}
+              className="underline"
+            >
+              {tContribute('signInToContribute')}
+            </Link>
+          </p>
+        )}
       </section>
 
       <section>

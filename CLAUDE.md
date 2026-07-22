@@ -39,6 +39,15 @@ browser) in a MANUAL STEPS list at the end of the session.
   `user < ambassador < moderator < admin` (`apps/web/lib/roles.ts`); the first
   admin comes from `ADMIN_EMAILS`. Authorization reads the role from the
   database, never from the session cookie cache. pg-boss for jobs (apps/worker)
+- Contributions (`apps/web/lib/contributions/*`): add / verify / condition-report
+  all write through `facility_edits` with the account id as `actor` and
+  `source='crowd'`. Points live in the append-only `points_ledger` — awards are
+  `INSERT ... ON CONFLICT (idempotency_key) DO NOTHING` inside the contribution's
+  own transaction, so retries cannot double-award. Earning only, and no
+  leaderboard (minors rule)
+- Client components must import `@sportkarta/lib/<subpath>`, never the barrel:
+  the barrel re-exports the mailer, which drags nodemailer and `node:fs` into
+  the browser bundle (`apps/web/tests/client-imports.test.ts` enforces this)
 - Mail: `Mailer` interface in `lib/src/email` (smtp | file | console | memory).
   Production without SMTP sends nothing — a one-time code must never fall back
   to a log or a file. Locally, codes land in `apps/web/var/mail`

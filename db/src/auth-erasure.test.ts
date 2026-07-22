@@ -14,6 +14,7 @@ const hasDb = Boolean(process.env.DATABASE_URL);
 
 const USER_ID = 'e2e_erasure_user';
 const OTHER_USER_ID = 'e2e_erasure_other';
+const CONDITION_REPORT_ID = '00000000-0000-4000-8000-0000000000c1';
 
 describe.skipIf(!hasDb)('account erasure (requires running database)', () => {
   let client: pg.Client;
@@ -74,6 +75,17 @@ describe.skipIf(!hasDb)('account erasure (requires running database)', () => {
        VALUES ($1::uuid, $2, 'crowd', 'status', '"needs_verification"'::jsonb, '"active"'::jsonb)`,
       [facilityId, USER_ID],
     );
+    // Stage 3.2 contributions: a condition report and an earned award.
+    await client.query(
+      `INSERT INTO facility_condition_reports (id, facility_id, reporter_id, state, tags)
+       VALUES ($1::uuid, $2::uuid, $3, 'poor', '{litter}')`,
+      [CONDITION_REPORT_ID, facilityId, USER_ID],
+    );
+    await client.query(
+      `INSERT INTO points_ledger (user_id, event, points, facility_id, idempotency_key)
+       VALUES ($1, 'condition_reported', 2, $2::uuid, $3)`,
+      [USER_ID, facilityId, `erasure-award-${USER_ID}`],
+    );
   }
 
   async function cleanup(): Promise<void> {
@@ -83,6 +95,11 @@ describe.skipIf(!hasDb)('account erasure (requires running database)', () => {
       `DELETE FROM facility_photos WHERE storage_path = 'photos/e2e-erasure.webp'`,
     );
     await client.query(`DELETE FROM verifications WHERE id = 'e2e_erasure_verification'`);
+    // Survives the erasure by design (anonymised, not deleted), so the fixture
+    // has to clear it explicitly before re-seeding.
+    await client.query(`DELETE FROM facility_condition_reports WHERE id = $1::uuid`, [
+      CONDITION_REPORT_ID,
+    ]);
     await client.query(`DELETE FROM account_deletions WHERE user_id = ANY($1::text[])`, [
       [USER_ID, OTHER_USER_ID],
     ]);
@@ -132,6 +149,23 @@ describe.skipIf(!hasDb)('account erasure (requires running database)', () => {
     // The photo is still on the map; the uploader reference is not.
     expect(photo.rowCount).toBe(1);
     expect(photo.rows[0]?.uploaded_by).toBeNull();
+
+    // Same for the condition report: the fact about the place is public-interest
+    // data and survives; the person behind it does not.
+    const report = await client.query<{ reporter_id: string | null; state: string }>(
+      `SELECT reporter_id, state FROM facility_condition_reports WHERE id = $1::uuid`,
+      [CONDITION_REPORT_ID],
+    );
+    expect(report.rowCount).toBe(1);
+    expect(report.rows[0]?.reporter_id).toBeNull();
+    expect(report.rows[0]?.state).toBe('poor');
+  });
+
+  it('takes the points with the account', async () => {
+    // Points are a score attached to a person, so unlike the audit trail they
+    // are erased rather than preserved.
+    const awards = await client.query(`SELECT 1 FROM points_ledger WHERE user_id = $1`, [USER_ID]);
+    expect(awards.rowCount).toBe(0);
   });
 
   it('preserves the audit trail exactly as written', async () => {

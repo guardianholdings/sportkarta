@@ -6,9 +6,11 @@ import { routing } from './i18n/routing';
 
 const intlMiddleware = createMiddleware(routing);
 
-// Routes that require a signed-in account: /admin and /profil, with or without
-// a locale prefix. /vhod (sign-in) is public by definition.
-const PROTECTED_PATH = /^\/(?:(?:bg|en)\/)?(?:admin|profil)(?:\/|$)/;
+// Routes that require a signed-in account: /admin, /profil and /dobavi (adding
+// a facility), with or without a locale prefix. /vhod (sign-in) is public by
+// definition, and so is every facility page — the verify and condition forms
+// on them gate themselves.
+const PROTECTED_PATH = /^\/(?:(?:bg|en)\/)?(?:admin|profil|dobavi)(?:\/|$)/;
 
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

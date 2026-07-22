@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { config } from 'dotenv';
 import pg from 'pg';
 
-import { ADMIN_EMAIL, clearOutbox, signIn } from './auth';
+import { ADMIN_EMAIL, signIn } from './auth';
 
 // Repo-root .env (Playwright runs with cwd = apps/web).
 config({ path: '../../.env' });
@@ -39,7 +39,6 @@ async function query<T extends Record<string, unknown>>(
 test.describe('email OTP sign-in', () => {
   // eslint-disable-next-line no-empty-pattern -- Playwright passes testInfo second
   test.beforeEach(async ({}, testInfo) => {
-    await clearOutbox();
     await query(`DELETE FROM users WHERE email = $1`, [memberEmail(testInfo)]);
   });
 
@@ -179,7 +178,6 @@ test.describe('GDPR self-service deletion', () => {
   }, testInfo) => {
     const MEMBER_EMAIL = memberEmail(testInfo);
     await query(`DELETE FROM users WHERE email = $1`, [MEMBER_EMAIL]);
-    await clearOutbox();
     await signIn(page, MEMBER_EMAIL, /\/profil/);
     const userId = (
       await query<{ id: string }>(`SELECT id FROM users WHERE email = $1`, [MEMBER_EMAIL])

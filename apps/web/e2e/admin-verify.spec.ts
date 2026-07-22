@@ -29,7 +29,8 @@ async function seedFixture(): Promise<void> {
       INSERT INTO facilities (id, geom, name, sport_types, access, status, source, quarter)
       VALUES ($1::uuid, ST_SetSRID(ST_MakePoint(23.3219, 42.6977), 4326), $2,
               '{basketball}', 'free', 'needs_verification', 'crowd', 'Тест')
-      ON CONFLICT (id) DO UPDATE SET status = 'needs_verification'
+      ON CONFLICT (id) DO UPDATE
+        SET status = 'needs_verification', municipality_id = NULL
       `,
       [FACILITY_ID, FACILITY_NAME],
     );
@@ -91,6 +92,10 @@ test.describe('verify flow', () => {
     await page.goto('/admin/verify?municipality=none');
     await expect(page.getByRole('heading', { name: FACILITY_NAME })).toBeVisible();
 
+    // The heading is server-rendered, so it is visible before React attaches the
+    // deck's keydown listener; pressing straight away can land in that gap and
+    // be swallowed. Wait for the page to settle first.
+    await page.waitForLoadState('networkidle');
     await page.keyboard.press('v');
 
     // Optimistic advance: the fixture card leaves the deck immediately.

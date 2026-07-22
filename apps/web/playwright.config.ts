@@ -20,5 +20,16 @@ export default defineConfig({
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    env: {
+      // The suite reads sign-in codes from the file outbox (e2e/auth.ts). Pinned
+      // here rather than left to .env: a developer with a real SMTP relay
+      // configured would otherwise send a dozen live emails per run.
+      MAIL_TRANSPORT: 'file',
+      MAIL_OUTBOX_DIR: process.env.MAIL_OUTBOX_DIR ?? './var/mail',
+      // Every browser in the suite shares one address and one IP.
+      OTP_RATE_LIMIT_IP: process.env.OTP_RATE_LIMIT_IP ?? '200',
+      OTP_RATE_LIMIT_EMAIL: process.env.OTP_RATE_LIMIT_EMAIL ?? '50',
+      OTP_RATE_LIMIT_PER_MINUTE: process.env.OTP_RATE_LIMIT_PER_MINUTE ?? '100',
+    },
   },
 });

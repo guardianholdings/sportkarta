@@ -131,6 +131,9 @@ export interface FacilityDetail {
   lat: number;
   /** Latest human (actor-attributed) audit entry; null = never verified. */
   lastVerifiedAt: string | null;
+  /** Latest crowd-reported condition; null = nobody has reported one yet. */
+  condition: string | null;
+  conditionReportedAt: string | null;
   photos: string[];
 }
 
@@ -140,7 +143,7 @@ export async function getFacilityBySlug(slug: string): Promise<FacilityDetail | 
   const db = getDb();
   const result = await db.execute(sql`
     SELECT f.id, f.slug, f.name, f.sport_types, f.surface, f.lighting, f.covered,
-           f.access, f.status, f.source, f.quarter,
+           f.access, f.status, f.source, f.quarter, f.condition, f.condition_reported_at,
            m.name_bg AS municipality_name,
            ST_X(f.geom) AS lon, ST_Y(f.geom) AS lat,
            (SELECT max(e.created_at) FROM facility_edits e
@@ -173,6 +176,8 @@ export async function getFacilityBySlug(slug: string): Promise<FacilityDetail | 
     lon: Number(row.lon),
     lat: Number(row.lat),
     lastVerifiedAt: row.last_verified_at ? String(row.last_verified_at) : null,
+    condition: (row.condition as string | null) ?? null,
+    conditionReportedAt: row.condition_reported_at ? String(row.condition_reported_at) : null,
     photos: (row.photos as string[] | null) ?? [],
   };
 }

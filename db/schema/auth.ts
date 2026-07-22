@@ -164,6 +164,14 @@ export const accountDeletions = pgTable(
     auditRowsPreserved: integer('audit_rows_preserved').notNull().default(0),
     /** facility_photos rows whose uploader reference was cleared. */
     photosAnonymized: integer('photos_anonymized').notNull().default(0),
+    /** facility_condition_reports rows whose reporter reference was cleared. */
+    conditionReportsAnonymized: integer('condition_reports_anonymized').notNull().default(0),
+    /**
+     * points_ledger rows removed with the account. Points are personal data, so
+     * unlike the audit trail they leave — and the tombstone has to be able to
+     * evidence that they did.
+     */
+    pointsErased: integer('points_erased').notNull().default(0),
   },
   (t) => [
     index('account_deletions_deleted_at_idx').on(t.deletedAt),
@@ -174,7 +182,8 @@ export const accountDeletions = pgTable(
     check('account_deletions_user_id_not_blank', sql`btrim(${t.userId}) <> ''`),
     check(
       'account_deletions_counts_non_negative',
-      sql`${t.auditRowsPreserved} >= 0 AND ${t.photosAnonymized} >= 0`,
+      sql`${t.auditRowsPreserved} >= 0 AND ${t.photosAnonymized} >= 0
+          AND ${t.conditionReportsAnonymized} >= 0 AND ${t.pointsErased} >= 0`,
     ),
   ],
 );

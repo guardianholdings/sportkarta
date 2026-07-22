@@ -28,6 +28,10 @@ export interface DeletionSummary {
   auditRowsPreserved: number;
   /** facility_photos rows whose uploader reference was cleared. */
   photosAnonymized: number;
+  /** facility_condition_reports rows whose reporter reference was cleared. */
+  conditionReportsAnonymized: number;
+  /** points_ledger rows removed with the account (points are personal data). */
+  pointsErased: number;
 }
 
 interface SqlRunner {
@@ -53,6 +57,16 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
         sql`SELECT count(*)::int AS n FROM facility_photos WHERE uploaded_by = ${userId}`,
       ),
     );
+    const conditionReportsAnonymized = countFrom(
+      await tx.execute(
+        sql`SELECT count(*)::int AS n FROM facility_condition_reports WHERE reporter_id = ${userId}`,
+      ),
+    );
+    // Points are personal data and leave with the account (unlike the audit
+    // trail), so the tombstone has to be able to evidence that they did.
+    const pointsErased = countFrom(
+      await tx.execute(sql`SELECT count(*)::int AS n FROM points_ledger WHERE user_id = ${userId}`),
+    );
 
     // Pending one-time codes are keyed by email address, not by user id, so the
     // cascade does not reach them. Left behind they would be a short-lived
@@ -70,13 +84,24 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
     `);
 
     await tx.execute(sql`
-      INSERT INTO account_deletions (user_id, audit_rows_preserved, photos_anonymized)
-      VALUES (${userId}, ${auditRowsPreserved}, ${photosAnonymized})
+      INSERT INTO account_deletions (
+        user_id, audit_rows_preserved, photos_anonymized,
+        condition_reports_anonymized, points_erased
+      )
+      VALUES (${userId}, ${auditRowsPreserved}, ${photosAnonymized},
+              ${conditionReportsAnonymized}, ${pointsErased})
     `);
 
-    // Cascades to sessions and accounts; nulls facility_photos.uploaded_by.
+    // Cascades to sessions, accounts and the points ledger; nulls
+    // facility_photos.uploaded_by and facility_condition_reports.reporter_id.
     await tx.execute(sql`DELETE FROM users WHERE id = ${userId}`);
 
-    return { userId, auditRowsPreserved, photosAnonymized };
+    return {
+      userId,
+      auditRowsPreserved,
+      photosAnonymized,
+      conditionReportsAnonymized,
+      pointsErased,
+    };
   });
 }

@@ -47,6 +47,14 @@ export const reportIssue = pgEnum('report_issue', [
   'other',
 ]);
 export const reportStatus = pgEnum('report_status', ['pending', 'reviewed', 'dismissed']);
+// Crowd condition layer (Stage 3.2). Slugs only — the Bulgarian labels
+// (отлично / добро / лошо / неизползваемо) live in messages/*.json.
+export const facilityCondition = pgEnum('facility_condition', [
+  'excellent',
+  'good',
+  'poor',
+  'unusable',
+]);
 
 export const municipalities = pgTable(
   'municipalities',
@@ -112,6 +120,11 @@ export const facilities = pgTable(
       .references(() => sources.code, { onDelete: 'restrict' }),
     osmType: text('osm_type'),
     osmId: bigint('osm_id', { mode: 'number' }),
+    // Latest crowd-reported condition, denormalised from
+    // facility_condition_reports so the map and facility page never scan
+    // history. NULL = nobody has reported yet (distinct from "excellent").
+    condition: facilityCondition('condition'),
+    conditionReportedAt: timestamptz('condition_reported_at'),
     attrs: jsonb('attrs')
       .notNull()
       .default(sql`'{}'::jsonb`),
@@ -155,6 +168,59 @@ export const facilities = pgTable(
     ),
     check('facilities_osm_source_has_ref', sql`${t.source} <> 'osm' OR ${t.osmId} IS NOT NULL`),
     check('facilities_attrs_is_object', sql`jsonb_typeof(${t.attrs}) = 'object'`),
+    // The condition and the time it was reported travel together or not at all.
+    check(
+      'facilities_condition_pair',
+      sql`(${t.condition} IS NULL) = (${t.conditionReportedAt} IS NULL)`,
+    ),
+  ],
+);
+
+/**
+ * One row per crowd condition report (Stage 3.2). The latest state is
+ * denormalised onto facilities.condition; this table is the history behind it,
+ * and what moderation looks at when a report is disputed.
+ */
+export const facilityConditionReports = pgTable(
+  'facility_condition_reports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    facilityId: uuid('facility_id')
+      .notNull()
+      .references(() => facilities.id, { onDelete: 'cascade' }),
+    // NULL after the reporter erases their account — the report itself stays
+    // (it is public-interest data about a place), the person does not.
+    reporterId: text('reporter_id').references(() => users.id, { onDelete: 'set null' }),
+    state: facilityCondition('state').notNull(),
+    // Closed vocabulary (lib/src/condition.ts). Free text is deliberately not
+    // accepted here: it cannot be aggregated nationally and invites PII.
+    tags: text('tags')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    photoId: uuid('photo_id').references(() => facilityPhotos.id, { onDelete: 'set null' }),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('facility_condition_reports_facility_created_idx').on(t.facilityId, t.createdAt),
+    index('facility_condition_reports_reporter_idx')
+      .on(t.reporterId)
+      .where(sql`${t.reporterId} IS NOT NULL`),
+    // Covers the photo FK so ON DELETE SET NULL never seq-scans this table.
+    index('facility_condition_reports_photo_id_idx')
+      .on(t.photoId)
+      .where(sql`${t.photoId} IS NOT NULL`),
+    // The closed vocabulary is enforced here, not just in the server action:
+    // any other path (an admin tool, a future import, a bug) would otherwise be
+    // able to persist free text into a public field — which is exactly the
+    // free-text PII this column is designed to exclude. Adding a tag needs a
+    // migration, the same policy the enums follow. The subset test also rules
+    // out NULL and blank members; coalesce keeps the empty array valid.
+    check(
+      'facility_condition_reports_tags_sane',
+      sql`${t.tags} <@ ARRAY['broken_equipment','damaged_surface','flooding','litter','missing_net','no_lighting','overgrown','vandalism']::text[]
+          AND coalesce(array_length(${t.tags}, 1), 0) <= 6`,
+    ),
   ],
 );
 
@@ -271,6 +337,69 @@ export const municipalityPopulation = pgTable(
     check('municipality_population_source_not_blank', sql`btrim(${t.source}) <> ''`),
   ],
 );
+
+// Lives here rather than in auth.ts because it references BOTH users and
+// facilities; auth.ts cannot import facilities without an import cycle.
+/** Contribution events that earn points (lib/src/points.ts prices them). */
+export const pointsEvent = pgEnum('points_event', [
+  'facility_added',
+  'facility_verified',
+  'condition_reported',
+]);
+
+/**
+ * Append-only points ledger (docs/ROADMAP.md §5). Earning only — there are no
+ * spending mechanics, so a balance is always `sum(points)`.
+ *
+ * `idempotency_key` is the whole safety story: it is UNIQUE, and every award is
+ * an INSERT ... ON CONFLICT DO NOTHING, so a retried server action, a
+ * double-submitted form or two concurrent tabs converge on exactly one row.
+ *
+ * Immutability is enforced by triggers in the migration: UPDATE and TRUNCATE
+ * are always refused, and DELETE only when the owning account is already gone —
+ * that is the GDPR cascade and nothing else. Points are personal data (a score
+ * attached to a person), so unlike facility_edits they leave with the account;
+ * the audit trail of facility changes is what must survive erasure, and does.
+ */
+export const pointsLedger = pgTable(
+  'points_ledger',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    event: pointsEvent('event').notNull(),
+    points: integer('points').notNull(),
+    /**
+     * The facility the contribution was about; audit rows live in
+     * facility_edits. RESTRICT matches facility_edits: an award must never be
+     * left pointing at nothing, and because this table is append-only an
+     * orphan could never be repaired or removed. CASCADE would be actively
+     * wrong here — it fires the BEFORE DELETE trigger while the owning account
+     * still exists, so deleting any facility with awarded points would abort.
+     */
+    facilityId: uuid('facility_id')
+      .notNull()
+      .references(() => facilities.id, { onDelete: 'restrict' }),
+    idempotencyKey: text('idempotency_key')
+      .notNull()
+      .unique('points_ledger_idempotency_key_unique'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // "My points" and "my recent contributions" — the only read patterns.
+    index('points_ledger_user_created_idx').on(t.userId, t.createdAt),
+    index('points_ledger_facility_idx').on(t.facilityId),
+    // Bounded, not just positive: rows can never be edited or deleted, so a
+    // pricing bug would otherwise write an unfixable number into a real
+    // member's balance. 100 is far above any single award (max is 10).
+    check('points_ledger_points_sane', sql`${t.points} BETWEEN 1 AND 100`),
+    check('points_ledger_key_not_blank', sql`btrim(${t.idempotencyKey}) <> ''`),
+  ],
+);
+
+export type PointsLedgerEntry = typeof pointsLedger.$inferSelect;
+export type PointsEventValue = (typeof pointsEvent.enumValues)[number];
 
 export type Municipality = typeof municipalities.$inferSelect;
 export type NewMunicipality = typeof municipalities.$inferInsert;

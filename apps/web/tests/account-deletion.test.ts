@@ -10,16 +10,19 @@ import { deleteAccount } from '@/lib/account-deletion';
  * Postgres constraints and triggers.
  */
 
-function fakeDb(counts: { audit: number; photos: number }) {
+function fakeDb(counts: { audit: number; photos: number; conditions?: number; points?: number }) {
   const statements: { sql: string; params: unknown[] }[] = [];
+  // Counts are answered in the order deleteAccount asks for them.
+  const answers = [counts.audit, counts.photos, counts.conditions ?? 0, counts.points ?? 0];
   let selects = 0;
   const runner = {
     execute(query: SQL) {
       const rendered = renderSql(query);
       statements.push(rendered);
       if (/SELECT count/i.test(rendered.sql)) {
+        const value = answers[selects] ?? 0;
         selects += 1;
-        return Promise.resolve({ rows: [{ n: selects === 1 ? counts.audit : counts.photos }] });
+        return Promise.resolve({ rows: [{ n: value }] });
       }
       return Promise.resolve({ rows: [] });
     },
@@ -35,10 +38,16 @@ function fakeDb(counts: { audit: number; photos: number }) {
 
 describe('deleteAccount', () => {
   it('deletes the profile and reports what it preserved', async () => {
-    const db = fakeDb({ audit: 7, photos: 2 });
+    const db = fakeDb({ audit: 7, photos: 2, conditions: 3, points: 5 });
     const summary = await deleteAccount(db, 'user_1');
 
-    expect(summary).toEqual({ userId: 'user_1', auditRowsPreserved: 7, photosAnonymized: 2 });
+    expect(summary).toEqual({
+      userId: 'user_1',
+      auditRowsPreserved: 7,
+      photosAnonymized: 2,
+      conditionReportsAnonymized: 3,
+      pointsErased: 5,
+    });
     const text = db.statements.map((s) => s.sql).join('\n');
     expect(text).toMatch(/DELETE FROM users/i);
     expect(text).toMatch(/INSERT INTO account_deletions/i);
@@ -60,13 +69,15 @@ describe('deleteAccount', () => {
   });
 
   it('writes a tombstone that contains no personal data', async () => {
-    const db = fakeDb({ audit: 1, photos: 0 });
+    const db = fakeDb({ audit: 1, photos: 0, conditions: 2, points: 4 });
     await deleteAccount(db, 'user_1');
 
     const insert = db.statements.find((s) => /INSERT INTO account_deletions/i.test(s.sql));
     expect(insert).toBeDefined();
-    // Only the opaque id and counts — no email, no display name.
-    expect(insert?.params).toEqual(['user_1', 1, 0]);
+    // Only the opaque id and counts — no email, no display name. Points and
+    // condition reports are evidenced too: both leave or are anonymised, so the
+    // tombstone would otherwise be silent about them.
+    expect(insert?.params).toEqual(['user_1', 1, 0, 2, 4]);
     expect(insert?.sql).not.toMatch(/email|display_name/i);
   });
 

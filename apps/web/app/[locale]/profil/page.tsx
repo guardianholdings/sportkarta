@@ -1,7 +1,10 @@
+import { getDb } from '@sportkarta/db';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
+import { PointsPanel } from '@/components/profile/points-panel';
 import { Button } from '@/components/ui/button';
 import { requireUser } from '@/lib/auth-session';
+import { pointsSummary } from '@/lib/points';
 import { canAccessAdminPanel } from '@/lib/roles';
 import { Link } from '@/i18n/navigation';
 
@@ -18,6 +21,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
   setRequestLocale(locale);
   const t = await getTranslations('Profile');
   const user = await requireUser();
+  const summary = await pointsSummary(getDb(), user.id);
 
   return (
     <main className="mx-auto max-w-xl space-y-10 p-4">
@@ -45,6 +49,8 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
           isMinor={user.isMinor}
         />
       </section>
+
+      <PointsPanel summary={summary} />
 
       <section className="space-y-4 rounded border border-red-200 p-4">
         <h2 className="text-lg font-semibold">{t('deleteTitle')}</h2>
