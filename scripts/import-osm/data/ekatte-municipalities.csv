@@ -1,0 +1,266 @@
+ekatte_code,name_bg,name_en
+BGS01,Айтос,Aytos
+BGS04,Бургас,Burgas
+BGS06,Средец,Sredets
+BGS08,Камено,Kameno
+BGS09,Карнобат,Karnobat
+BGS12,Малко Търново,Malko Tarnovo
+BGS13,Царево,Tsarevo
+BGS15,Несебър,Nesebar
+BGS17,Поморие,Pomorie
+BGS18,Руен,Ruen
+BGS21,Созопол,Sozopol
+BGS23,Сунгурларе,Sungurlare
+BGS27,Приморско,Primorsko
+BLG01,Банско,Bansko
+BLG02,Белица,Belitsa
+BLG03,Благоевград,Blagoevgrad
+BLG11,Гоце Делчев,Gotse Delchev
+BLG13,Гърмен,Garmen
+BLG28,Кресна,Kresna
+BLG33,Петрич,Petrich
+BLG37,Разлог,Razlog
+BLG40,Сандански,Sandanski
+BLG42,Сатовча,Satovcha
+BLG44,Симитли,Simitli
+BLG49,Струмяни,Strumyani
+BLG52,Хаджидимово,Hadzhidimovo
+BLG53,Якоруда,Yakoruda
+DOB03,Балчик,Balchik
+DOB12,Генерал Тошево,General Toshevo
+DOB15,Добрич-селска,Dobrich-selska
+DOB17,Каварна,Kavarna
+DOB20,Крушари,Krushari
+DOB27,Тервел,Tervel
+DOB28,Добрич,Dobrich
+DOB29,Шабла,Shabla
+GAB05,Габрово,Gabrovo
+GAB12,Дряново,Dryanovo
+GAB29,Севлиево,Sevlievo
+GAB35,Трявна,Tryavna
+HKV09,Димитровград,Dimitrovgrad
+HKV11,Ивайловград,Ivaylovgrad
+HKV17,Любимец,Lyubimets
+HKV18,Маджарово,Madzharovo
+HKV19,Минерални бани,Mineralni bani
+HKV28,Свиленград,Svilengrad
+HKV29,Симеоновград,Simeonovgrad
+HKV30,Стамболово,Stambolovo
+HKV32,Тополовград,Topolovgrad
+HKV33,Харманли,Harmanli
+HKV34,Хасково,Haskovo
+JAM03,Болярово,Bolyarovo
+JAM07,Елхово,Elhovo
+JAM22,Стралджа,Straldzha
+JAM25,Тунджа,Tundzha
+JAM26,Ямбол,Yambol
+KNL04,Бобов дол,Bobov dol
+KNL05,Бобошево,Boboshevo
+KNL27,Кочериново,Kocherinovo
+KNL29,Кюстендил,Kyustendil
+KNL31,Невестино,Nevestino
+KNL38,Рила,Rila
+KNL41,Сапарева баня,Sapareva banya
+KNL48,Дупница,Dupnitsa
+KNL50,Трекляно,Treklyano
+KRZ02,Ардино,Ardino
+KRZ08,Джебел,Dzhebel
+KRZ14,Кирково,Kirkovo
+KRZ15,Крумовград,Krumovgrad
+KRZ16,Кърджали,Kardzhali
+KRZ21,Момчилград,Momchilgrad
+KRZ35,Черноочене,Chernoochene
+LOV02,Априлци,Apriltsi
+LOV17,Летница,Letnitsa
+LOV18,Ловеч,Lovech
+LOV19,Луковит,Lukovit
+LOV33,Тетевен,Teteven
+LOV34,Троян,Troyan
+LOV36,Угърчин,Ugarchin
+LOV38,Ябланица,Yablanitsa
+MON02,Берковица,Berkovitsa
+MON04,Бойчиновци,Boychinovtsi
+MON07,Брусарци,Brusartsi
+MON11,Вълчедръм,Valchedram
+MON12,Вършец,Varshets
+MON14,Георги Дамяново,Georgi Damyanovo
+MON24,Лом,Lom
+MON26,Медковец,Medkovets
+MON29,Монтана,Montana
+MON36,Чипровци,Chiprovtsi
+MON38,Якимово,Yakimovo
+PAZ03,Батак,Batak
+PAZ04,Белово,Belovo
+PAZ06,Брацигово,Bratsigovo
+PAZ08,Велинград,Velingrad
+PAZ14,Лесичово,Lesichovo
+PAZ19,Пазарджик,Pazardzhik
+PAZ20,Панагюрище,Panagyurishte
+PAZ21,Пещера,Peshtera
+PAZ24,Ракитово,Rakitovo
+PAZ29,Септември,Septemvri
+PAZ32,Стрелча,Strelcha
+PAZ39,Сърница,Sarnitsa
+PDV01,Асеновград,Asenovgrad
+PDV07,Брезово,Brezovo
+PDV12,Калояново,Kaloyanovo
+PDV13,Карлово,Karlovo
+PDV15,Лъки,Laki
+PDV17,Марица,Maritsa
+PDV22,Пловдив,Plovdiv
+PDV23,Първомай,Parvomay
+PDV25,Раковски,Rakovski
+PDV26,Родопи,Rodopi
+PDV28,Садово,Sadovo
+PDV33,Съединение,Saedinenie
+PDV37,Хисаря,Hisarya
+PDV39,Кричим,Krichim
+PDV40,Перущица,Perushtitsa
+PDV41,Стамболийски,Stamboliyski
+PDV42,Куклен,Kuklen
+PDV43,Сопот,Sopot
+PER08,Брезник,Breznik
+PER19,Земен,Zemen
+PER22,Ковачевци,Kovachevtsi
+PER32,Перник,Pernik
+PER36,Радомир,Radomir
+PER51,Трън,Tran
+PVN03,Белене,Belene
+PVN08,Гулянци,Gulyantsi
+PVN10,Долна Митрополия,Dolna Mitropolia
+PVN11,Долни Дъбник,Dolni Dabnik
+PVN16,Левски,Levski
+PVN21,Никопол,Nikopol
+PVN23,Искър,Iskar
+PVN24,Плевен,Pleven
+PVN27,Пордим,Pordim
+PVN37,Червен бряг,Cherven bryag
+PVN39,Кнежа,Knezha
+RAZ11,Завет,Zavet
+RAZ14,Исперих,Isperih
+RAZ16,Кубрат,Kubrat
+RAZ17,Лозница,Loznitsa
+RAZ26,Разград,Razgrad
+RAZ29,Самуил,Samuil
+RAZ36,Цар Калоян,Tsar Kaloyan
+RSE03,Борово,Borovo
+RSE04,Бяла,Byala
+RSE05,Ветово,Vetovo
+RSE08,Две могили,Dve mogili
+RSE13,Иваново,Ivanovo
+RSE27,Русе,Ruse
+RSE33,Сливо поле,Slivo pole
+RSE37,Ценово,Tsenovo
+SFO06,Божурище,Bozhurishte
+SFO07,Ботевград,Botevgrad
+SFO09,Годеч,Godech
+SFO10,Горна Малина,Gorna Malina
+SFO16,Драгоман,Dragoman
+SFO17,Елин Пелин,Elin Pelin
+SFO18,Етрополе,Etropole
+SFO20,Ихтиман,Ihtiman
+SFO24,Копривщица,Koprivshtitsa
+SFO25,Костенец,Kostenets
+SFO26,Костинброд,Kostinbrod
+SFO34,Правец,Pravets
+SFO39,Самоков,Samokov
+SFO43,Своге,Svoge
+SFO45,Сливница,Slivnitsa
+SFO47,Златица,Zlatitsa
+SFO54,Антон,Anton
+SFO55,Пирдоп,Pirdop
+SFO56,Мирково,Mirkovo
+SFO57,Чавдар,Chavdar
+SFO58,Челопеч,Chelopech
+SFO59,Долна баня,Dolna banya
+SHU07,Венец,Venets
+SHU10,Върбица,Varbitsa
+SHU11,Хитрино,Hitrino
+SHU18,Каолиново,Kaolinovo
+SHU19,Каспичан,Kaspichan
+SHU21,Никола Козлево,Nikola Kozlevo
+SHU22,Нови пазар,Novi pazar
+SHU23,Велики Преслав,Veliki Preslav
+SHU25,Смядово,Smyadovo
+SHU30,Шумен,Shumen
+SLS01,Алфатар,Alfatar
+SLS07,Главиница,Glavinitsa
+SLS10,Дулово,Dulovo
+SLS15,Кайнарджа,Kaynardzha
+SLS31,Силистра,Silistra
+SLS32,Ситово,Sitovo
+SLS34,Тутракан,Tutrakan
+SLV11,Котел,Kotel
+SLV16,Нова Загора,Nova Zagora
+SLV20,Сливен,Sliven
+SLV24,Твърдица,Tvarditsa
+SML02,Баните,Banite
+SML05,Борино,Borino
+SML09,Девин,Devin
+SML10,Доспат,Dospat
+SML11,Златоград,Zlatograd
+SML16,Мадан,Madan
+SML18,Неделино,Nedelino
+SML27,Рудозем,Rudozem
+SML31,Смолян,Smolyan
+SML38,Чепеларе,Chepelare
+SOF46,Столична,Stolichna
+SZR04,Братя Даскалови,Bratya Daskalovi
+SZR07,Гълъбово,Galabovo
+SZR12,Казанлък,Kazanlak
+SZR22,Мъглиж,Maglizh
+SZR23,Опан,Opan
+SZR24,Павел баня,Pavel banya
+SZR27,Раднево,Radnevo
+SZR31,Стара Загора,Stara Zagora
+SZR36,Чирпан,Chirpan
+SZR37,Гурково,Gurkovo
+SZR38,Николаево,Nikolaevo
+TGV02,Антоново,Antonovo
+TGV22,Омуртаг,Omurtag
+TGV23,Опака,Opaka
+TGV24,Попово,Popovo
+TGV35,Търговище,Targovishte
+VAR01,Аврен,Avren
+VAR02,Аксаково,Aksakovo
+VAR04,Белослав,Beloslav
+VAR05,Бяла,Byala
+VAR06,Варна,Varna
+VAR08,Ветрино,Vetrino
+VAR09,Вълчи дол,Valchi dol
+VAR13,Долни чифлик,Dolni chiflik
+VAR14,Девня,Devnya
+VAR16,Дългопол,Dalgopol
+VAR24,Провадия,Provadia
+VAR26,Суворово,Suvorovo
+VID01,Белоградчик,Belogradchik
+VID03,Бойница,Boynitsa
+VID06,Брегово,Bregovo
+VID09,Видин,Vidin
+VID15,Грамада,Gramada
+VID16,Димово,Dimovo
+VID22,Кула,Kula
+VID25,Макреш,Makresh
+VID30,Ново село,Novo selo
+VID33,Ружинци,Ruzhintsi
+VID37,Чупрене,Chuprene
+VRC05,Борован,Borovan
+VRC08,Бяла Слатина,Byala Slatina
+VRC10,Враца,Vratsa
+VRC20,Козлодуй,Kozloduy
+VRC21,Криводол,Krivodol
+VRC27,Мездра,Mezdra
+VRC28,Мизия,Mizia
+VRC31,Оряхово,Oryahovo
+VRC32,Роман,Roman
+VRC35,Хайредин,Hayredin
+VTR04,Велико Търново,Veliko Tarnovo
+VTR06,Горна Оряховица,Gorna Oryahovitsa
+VTR13,Елена,Elena
+VTR14,Златарица,Zlataritsa
+VTR20,Лясковец,Lyaskovets
+VTR22,Павликени,Pavlikeni
+VTR26,Полски Тръмбеш,Polski Trambesh
+VTR28,Свищов,Svishtov
+VTR31,Стражица,Strazhitsa
+VTR32,Сухиндол,Suhindol

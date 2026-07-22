@@ -26,9 +26,9 @@ dist/
 # Testing
 coverage/
 
-# Docker volumes / local data
-volumes/
-data/
+# Docker volumes / local data (root-level only — package data/ dirs are code)
+/volumes/
+/data/
 .data/
 pgdata/
 *.local
