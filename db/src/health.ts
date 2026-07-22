@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 
-import { getDb } from './client';
+import { getDb } from './client.js';
 
 export interface DbHealth {
   postgisVersion: string;

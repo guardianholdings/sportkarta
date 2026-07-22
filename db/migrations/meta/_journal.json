@@ -29,6 +29,13 @@
       "when": 1784713673717,
       "tag": "0003_facility_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784725615555,
+      "tag": "0004_municipality_population",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,9 @@
 import { config } from 'dotenv';
 import pg from 'pg';
 
+import { refreshStats } from '../src/stats.js';
 import { backfillSlugs } from './backfill-slugs.js';
+import { loadPopulation } from './load-population.js';
 
 // Root .env (relative to this file: db/scripts/ -> repo root).
 config({ path: new URL('../../.env', import.meta.url).pathname });
@@ -122,6 +124,13 @@ async function main(): Promise<void> {
     // the seeded DB is directly usable by the public map / facility pages.
     const slugged = await backfillSlugs(client);
     console.log(`seed: assigned ${String(slugged)} facility slug(s)`);
+
+    // Load municipality population (per-10k) then refresh the statistics
+    // materialized views so /statistika reflects the seeded data.
+    const populated = await loadPopulation(client);
+    console.log(`seed: loaded ${String(populated)} municipality population row(s)`);
+    await refreshStats(client);
+    console.log('seed: refreshed statistics materialized views');
   } finally {
     await client.end();
   }

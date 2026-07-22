@@ -14,6 +14,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/seed.ts",
     "db:backfill-slugs": "tsx scripts/backfill-slugs.ts",
+    "db:load-population": "tsx scripts/load-population.ts",
+    "db:refresh-stats": "tsx scripts/refresh-stats.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

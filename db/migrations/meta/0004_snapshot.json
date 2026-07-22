@@ -1,0 +1,982 @@
+{
+  "id": "53e5b1e6-7fff-4ce2-8c21-15e4c0195a05",
+  "prevId": "04711e5e-ef9f-47e9-8f88-bf94fe409a6e",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.facilities": {
+      "name": "facilities",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "geom": {
+          "name": "geom",
+          "type": "geometry(Point,4326)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sport_types": {
+          "name": "sport_types",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "surface": {
+          "name": "surface",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lighting": {
+          "name": "lighting",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "covered": {
+          "name": "covered",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "access": {
+          "name": "access",
+          "type": "facility_access",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "facility_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "municipality_id": {
+          "name": "municipality_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quarter": {
+          "name": "quarter",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "facility_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "osm_type": {
+          "name": "osm_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "osm_id": {
+          "name": "osm_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attrs": {
+          "name": "attrs",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "facilities_geom_gist": {
+          "name": "facilities_geom_gist",
+          "columns": [
+            {
+              "expression": "geom",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gist",
+          "with": {}
+        },
+        "facilities_osm_ref_unique": {
+          "name": "facilities_osm_ref_unique",
+          "columns": [
+            {
+              "expression": "osm_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "osm_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"facilities\".\"osm_type\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "facilities_slug_unique": {
+          "name": "facilities_slug_unique",
+          "columns": [
+            {
+              "expression": "slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"facilities\".\"slug\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "facilities_municipality_id_idx": {
+          "name": "facilities_municipality_id_idx",
+          "columns": [
+            {
+              "expression": "municipality_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "facilities_source_idx": {
+          "name": "facilities_source_idx",
+          "columns": [
+            {
+              "expression": "source",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "facilities_sport_types_gin": {
+          "name": "facilities_sport_types_gin",
+          "columns": [
+            {
+              "expression": "sport_types",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gin",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "facilities_municipality_id_municipalities_id_fk": {
+          "name": "facilities_municipality_id_municipalities_id_fk",
+          "tableFrom": "facilities",
+          "tableTo": "municipalities",
+          "columnsFrom": [
+            "municipality_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "facilities_source_sources_code_fk": {
+          "name": "facilities_source_sources_code_fk",
+          "tableFrom": "facilities",
+          "tableTo": "sources",
+          "columnsFrom": [
+            "source"
+          ],
+          "columnsTo": [
+            "code"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "facilities_name_not_blank": {
+          "name": "facilities_name_not_blank",
+          "value": "\"facilities\".\"name\" IS NULL OR btrim(\"facilities\".\"name\") <> ''"
+        },
+        "facilities_slug_format": {
+          "name": "facilities_slug_format",
+          "value": "\"facilities\".\"slug\" IS NULL OR \"facilities\".\"slug\" ~ '^[a-z0-9]+(-[a-z0-9]+)*$'"
+        },
+        "facilities_surface_not_blank": {
+          "name": "facilities_surface_not_blank",
+          "value": "\"facilities\".\"surface\" IS NULL OR btrim(\"facilities\".\"surface\") <> ''"
+        },
+        "facilities_quarter_not_blank": {
+          "name": "facilities_quarter_not_blank",
+          "value": "\"facilities\".\"quarter\" IS NULL OR btrim(\"facilities\".\"quarter\") <> ''"
+        },
+        "facilities_sport_types_no_blanks": {
+          "name": "facilities_sport_types_no_blanks",
+          "value": "array_position(\"facilities\".\"sport_types\", NULL) IS NULL AND array_position(\"facilities\".\"sport_types\", '') IS NULL"
+        },
+        "facilities_geom_in_bulgaria": {
+          "name": "facilities_geom_in_bulgaria",
+          "value": "ST_X(\"facilities\".\"geom\") BETWEEN 22.0 AND 29.0 AND ST_Y(\"facilities\".\"geom\") BETWEEN 41.0 AND 44.5"
+        },
+        "facilities_osm_ref_pair": {
+          "name": "facilities_osm_ref_pair",
+          "value": "(\"facilities\".\"osm_type\" IS NULL) = (\"facilities\".\"osm_id\" IS NULL)"
+        },
+        "facilities_osm_type_valid": {
+          "name": "facilities_osm_type_valid",
+          "value": "\"facilities\".\"osm_type\" IS NULL OR \"facilities\".\"osm_type\" IN ('node', 'way', 'relation')"
+        },
+        "facilities_osm_source_has_ref": {
+          "name": "facilities_osm_source_has_ref",
+          "value": "\"facilities\".\"source\" <> 'osm' OR \"facilities\".\"osm_id\" IS NOT NULL"
+        },
+        "facilities_attrs_is_object": {
+          "name": "facilities_attrs_is_object",
+          "value": "jsonb_typeof(\"facilities\".\"attrs\") = 'object'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.facility_edits": {
+      "name": "facility_edits",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigint",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "facility_edits_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "9223372036854775807",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "facility_id": {
+          "name": "facility_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor": {
+          "name": "actor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "facility_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "field": {
+          "name": "field",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "old_value": {
+          "name": "old_value",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "new_value": {
+          "name": "new_value",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "facility_edits_facility_created_idx": {
+          "name": "facility_edits_facility_created_idx",
+          "columns": [
+            {
+              "expression": "facility_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "facility_edits_facility_id_facilities_id_fk": {
+          "name": "facility_edits_facility_id_facilities_id_fk",
+          "tableFrom": "facility_edits",
+          "tableTo": "facilities",
+          "columnsFrom": [
+            "facility_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "facility_edits_field_not_blank": {
+          "name": "facility_edits_field_not_blank",
+          "value": "btrim(\"facility_edits\".\"field\") <> ''"
+        },
+        "facility_edits_has_value": {
+          "name": "facility_edits_has_value",
+          "value": "\"facility_edits\".\"old_value\" IS NOT NULL OR \"facility_edits\".\"new_value\" IS NOT NULL"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.facility_photos": {
+      "name": "facility_photos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "facility_id": {
+          "name": "facility_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "storage_path": {
+          "name": "storage_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "photo_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "uploaded_by": {
+          "name": "uploaded_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "facility_photos_facility_id_idx": {
+          "name": "facility_photos_facility_id_idx",
+          "columns": [
+            {
+              "expression": "facility_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "facility_photos_pending_created_idx": {
+          "name": "facility_photos_pending_created_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"facility_photos\".\"status\" = 'pending'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "facility_photos_facility_id_facilities_id_fk": {
+          "name": "facility_photos_facility_id_facilities_id_fk",
+          "tableFrom": "facility_photos",
+          "tableTo": "facilities",
+          "columnsFrom": [
+            "facility_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "facility_photos_storage_path_unique": {
+          "name": "facility_photos_storage_path_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "storage_path"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "facility_photos_storage_path_sane": {
+          "name": "facility_photos_storage_path_sane",
+          "value": "\"facility_photos\".\"storage_path\" <> '' AND \"facility_photos\".\"storage_path\" !~ '^/' AND \"facility_photos\".\"storage_path\" !~ '(^|/)\\.\\.(/|$)'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.facility_reports": {
+      "name": "facility_reports",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "facility_id": {
+          "name": "facility_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "issue": {
+          "name": "issue",
+          "type": "report_issue",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "photo_id": {
+          "name": "photo_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "report_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "facility_reports_pending_created_idx": {
+          "name": "facility_reports_pending_created_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"facility_reports\".\"status\" = 'pending'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "facility_reports_facility_id_idx": {
+          "name": "facility_reports_facility_id_idx",
+          "columns": [
+            {
+              "expression": "facility_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "facility_reports_photo_id_idx": {
+          "name": "facility_reports_photo_id_idx",
+          "columns": [
+            {
+              "expression": "photo_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "facility_reports_facility_id_facilities_id_fk": {
+          "name": "facility_reports_facility_id_facilities_id_fk",
+          "tableFrom": "facility_reports",
+          "tableTo": "facilities",
+          "columnsFrom": [
+            "facility_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "facility_reports_photo_id_facility_photos_id_fk": {
+          "name": "facility_reports_photo_id_facility_photos_id_fk",
+          "tableFrom": "facility_reports",
+          "tableTo": "facility_photos",
+          "columnsFrom": [
+            "photo_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "facility_reports_body_len": {
+          "name": "facility_reports_body_len",
+          "value": "\"facility_reports\".\"body\" IS NULL OR char_length(\"facility_reports\".\"body\") <= 500"
+        },
+        "facility_reports_body_not_blank": {
+          "name": "facility_reports_body_not_blank",
+          "value": "\"facility_reports\".\"body\" IS NULL OR btrim(\"facility_reports\".\"body\") <> ''"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.municipalities": {
+      "name": "municipalities",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "municipalities_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "ekatte_code": {
+          "name": "ekatte_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name_bg": {
+          "name": "name_bg",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name_en": {
+          "name": "name_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "geom": {
+          "name": "geom",
+          "type": "geometry(MultiPolygon,4326)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "municipalities_geom_gist": {
+          "name": "municipalities_geom_gist",
+          "columns": [
+            {
+              "expression": "geom",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gist",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "municipalities_ekatte_code_unique": {
+          "name": "municipalities_ekatte_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "ekatte_code"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "municipalities_ekatte_code_not_blank": {
+          "name": "municipalities_ekatte_code_not_blank",
+          "value": "btrim(\"municipalities\".\"ekatte_code\") <> ''"
+        },
+        "municipalities_name_bg_not_blank": {
+          "name": "municipalities_name_bg_not_blank",
+          "value": "btrim(\"municipalities\".\"name_bg\") <> ''"
+        },
+        "municipalities_name_en_not_blank": {
+          "name": "municipalities_name_en_not_blank",
+          "value": "btrim(\"municipalities\".\"name_en\") <> ''"
+        },
+        "municipalities_geom_valid": {
+          "name": "municipalities_geom_valid",
+          "value": "ST_IsValid(\"municipalities\".\"geom\")"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.municipality_population": {
+      "name": "municipality_population",
+      "schema": "",
+      "columns": {
+        "ekatte_code": {
+          "name": "ekatte_code",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "population": {
+          "name": "population",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "municipality_population_ekatte_code_municipalities_ekatte_code_fk": {
+          "name": "municipality_population_ekatte_code_municipalities_ekatte_code_fk",
+          "tableFrom": "municipality_population",
+          "tableTo": "municipalities",
+          "columnsFrom": [
+            "ekatte_code"
+          ],
+          "columnsTo": [
+            "ekatte_code"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "municipality_population_positive": {
+          "name": "municipality_population_positive",
+          "value": "\"municipality_population\".\"population\" > 0"
+        },
+        "municipality_population_source_not_blank": {
+          "name": "municipality_population_source_not_blank",
+          "value": "btrim(\"municipality_population\".\"source\") <> ''"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.sources": {
+      "name": "sources",
+      "schema": "",
+      "columns": {
+        "code": {
+          "name": "code",
+          "type": "facility_source",
+          "typeSchema": "public",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "license": {
+          "name": "license",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attribution": {
+          "name": "attribution",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "sources_name_not_blank": {
+          "name": "sources_name_not_blank",
+          "value": "btrim(\"sources\".\"name\") <> ''"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.facility_access": {
+      "name": "facility_access",
+      "schema": "public",
+      "values": [
+        "free",
+        "paid",
+        "restricted",
+        "school"
+      ]
+    },
+    "public.facility_source": {
+      "name": "facility_source",
+      "schema": "public",
+      "values": [
+        "osm",
+        "municipal",
+        "crowd"
+      ]
+    },
+    "public.facility_status": {
+      "name": "facility_status",
+      "schema": "public",
+      "values": [
+        "active",
+        "needs_verification",
+        "gone"
+      ]
+    },
+    "public.photo_status": {
+      "name": "photo_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "approved",
+        "rejected"
+      ]
+    },
+    "public.report_issue": {
+      "name": "report_issue",
+      "schema": "public",
+      "values": [
+        "broken_equipment",
+        "no_lighting",
+        "bad_surface",
+        "does_not_exist",
+        "other"
+      ]
+    },
+    "public.report_status": {
+      "name": "report_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "reviewed",
+        "dismissed"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

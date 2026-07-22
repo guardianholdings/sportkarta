@@ -22,7 +22,8 @@
     "db:reset": "bash scripts/db-reset.sh",
     "import:osm": "pnpm --filter @sportkarta/import-osm run cli",
     "import:osm:audit": "pnpm --filter @sportkarta/import-osm run audit",
-    "tiles:build": "bash scripts/build-tiles/build.sh"
+    "tiles:build": "bash scripts/build-tiles/build.sh",
+    "stats:launch-report": "pnpm --filter @sportkarta/launch-report run report"
   },
   "devDependencies": {
     "@eslint/js": "^9.20.0",

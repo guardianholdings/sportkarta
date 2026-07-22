@@ -1,5 +1,7 @@
+import { refreshStats } from '@sportkarta/db';
 import { runImport } from '@sportkarta/import-osm';
 import { config } from 'dotenv';
+import pg from 'pg';
 import PgBoss from 'pg-boss';
 
 // Dev only: repo-root .env (dist/ and src/ are both one level below the
@@ -11,6 +13,7 @@ config({ path: new URL('../../../.env', import.meta.url).pathname });
 // dot-namespaced: <domain>.<action>.
 const HEALTH_QUEUE = 'health.ping';
 const IMPORT_OSM_QUEUE = 'import.osm';
+const STATS_REFRESH_QUEUE = 'stats.refresh';
 
 interface ImportOsmJobData {
   dryRun?: boolean;
@@ -27,9 +30,19 @@ async function main(): Promise<void> {
     console.error('[pg-boss]', error);
   });
 
+  // Separate pool for REFRESH MATERIALIZED VIEW CONCURRENTLY (pg-boss owns its
+  // own connections). CONCURRENTLY runs in autocommit, so a pool is fine. An
+  // idle-client error (DB restart/failover) must be handled or it crashes the
+  // whole worker as an uncaught exception.
+  const statsPool = new pg.Pool({ connectionString: databaseUrl });
+  statsPool.on('error', (error) => {
+    console.error('[stats-pool]', error);
+  });
+
   await boss.start();
   await boss.createQueue(HEALTH_QUEUE);
   await boss.createQueue(IMPORT_OSM_QUEUE);
+  await boss.createQueue(STATS_REFRESH_QUEUE);
 
   await boss.work(HEALTH_QUEUE, async (jobs) => {
     for (const job of jobs) {
@@ -56,14 +69,27 @@ async function main(): Promise<void> {
     return { report: lastReport };
   });
 
+  // Refresh the /statistika + /api/stats materialized views. Scheduled every 15
+  // minutes; also kicked once at startup so views are fresh right after deploy.
+  await boss.work(STATS_REFRESH_QUEUE, async () => {
+    console.log(`[worker] ${STATS_REFRESH_QUEUE} refreshing statistics views`);
+    await refreshStats(statsPool);
+    console.log(`[worker] ${STATS_REFRESH_QUEUE} done`);
+  });
+  await boss.schedule(STATS_REFRESH_QUEUE, '*/15 * * * *');
+  await boss.send(STATS_REFRESH_QUEUE, {});
+
   console.log('[worker] started, listening for jobs');
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.on(signal, () => {
       console.log(`[worker] ${signal} received, shutting down`);
-      void boss.stop({ graceful: true }).then(() => {
-        process.exit(0);
-      });
+      void boss
+        .stop({ graceful: true })
+        .then(() => statsPool.end())
+        .then(() => {
+          process.exit(0);
+        });
     });
   }
 }

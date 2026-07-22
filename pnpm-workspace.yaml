@@ -3,6 +3,7 @@ packages:
   - db
   - lib
   - scripts/import-osm
+  - scripts/launch-report
 allowBuilds:
   '@parcel/watcher': true
   '@swc/core': true

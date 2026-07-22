@@ -234,8 +234,29 @@ export const facilityReports = pgTable(
   ],
 );
 
+// Municipality permanent population (NSI census), loaded from db/data/population.csv
+// via db/scripts/load-population.ts. Feeds the "per 10k residents" metric on
+// /statistika. Partial by design — municipalities absent here show "n/a" (the
+// per-10k value is never estimated). See db/data/README.md for the source.
+export const municipalityPopulation = pgTable(
+  'municipality_population',
+  {
+    ekatteCode: text('ekatte_code')
+      .primaryKey()
+      .references(() => municipalities.ekatteCode, { onDelete: 'cascade' }),
+    population: integer('population').notNull(),
+    source: text('source').notNull(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    check('municipality_population_positive', sql`${t.population} > 0`),
+    check('municipality_population_source_not_blank', sql`btrim(${t.source}) <> ''`),
+  ],
+);
+
 export type Municipality = typeof municipalities.$inferSelect;
 export type NewMunicipality = typeof municipalities.$inferInsert;
+export type MunicipalityPopulation = typeof municipalityPopulation.$inferSelect;
 export type Source = typeof sources.$inferSelect;
 export type Facility = typeof facilities.$inferSelect;
 export type NewFacility = typeof facilities.$inferInsert;
