@@ -37,7 +37,7 @@ function centroidValue(lon: number, lat: number): JsonValue {
   return { lon: Number(lon.toFixed(7)), lat: Number(lat.toFixed(7)) };
 }
 
-function candidateAttrs(candidate: FacilityCandidate): JsonValue {
+export function candidateAttrs(candidate: FacilityCandidate): JsonValue {
   return {
     osm: {
       tags: candidate.tags,
@@ -64,7 +64,7 @@ function candidateFields(
 }
 
 /** Batch-compute candidate centroids in PostGIS (single round trip per chunk). */
-async function computeCentroids(
+export async function computeCentroids(
   client: pg.ClientBase,
   candidates: FacilityCandidate[],
 ): Promise<{ lon: number; lat: number }[]> {
@@ -129,7 +129,7 @@ async function loadExisting(client: pg.ClientBase): Promise<Map<string, Existing
 }
 
 /** Last audited edit source per (facility, field) — the merge-policy input. */
-async function loadLastEditSources(
+export async function loadLastEditSources(
   client: pg.ClientBase,
   facilityIds: string[],
 ): Promise<Map<string, Record<string, EditSource>>> {

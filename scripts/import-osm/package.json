@@ -13,7 +13,8 @@
     "build": "esbuild src/index.ts src/cli.ts --bundle --platform=node --target=node22 --format=esm --external:pg --external:dotenv --outdir=dist",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "cli": "tsx src/cli.ts"
+    "cli": "tsx src/cli.ts",
+    "audit": "tsx src/audit-cli.ts"
   },
   "dependencies": {
     "@sportkarta/lib": "workspace:*",

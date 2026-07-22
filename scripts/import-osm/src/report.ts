@@ -1,6 +1,21 @@
 import type { DistributionRow, ImportCounts } from './importer.js';
+import type {
+  AssignmentResult,
+  MunicipalityCounts,
+  RegisterRow,
+  UnmatchedBoundary,
+} from './municipalities.js';
+
+export interface MunicipalityStageStats {
+  boundariesFound: number;
+  counts: MunicipalityCounts;
+  unmatched: UnmatchedBoundary[];
+  missingFromOsm: RegisterRow[];
+}
 
 export interface ImportStats {
+  municipalities: MunicipalityStageStats;
+  assignment: AssignmentResult;
   mode: 'dry-run' | 'live';
   startedAt: Date;
   extractMd5: string;
@@ -52,12 +67,64 @@ export function buildReport(stats: ImportStats): string {
       ? `PASS — ${String(s.totalOsm)} ≥ ${String(NATIONAL_COUNT_EXPECTATION)}`
       : `REVIEW — ${String(s.totalOsm)} < ${String(NATIONAL_COUNT_EXPECTATION)} expected national facilities (ROADMAP §3: investigate the filter before trusting this run)`;
 
+  const m = s.municipalities;
+  const unmatchedRows =
+    m.unmatched.length === 0
+      ? '_None._\n'
+      : [
+          '| OSM relation | Name | Reason | Center | Register candidates |',
+          '|---|---|---|---|---|',
+          ...m.unmatched.map((u) => {
+            const c = u.boundary.center;
+            const center = c ? `${String(c.lon.toFixed(3))}, ${String(c.lat.toFixed(3))}` : '?';
+            return `| r${String(u.boundary.relationId)} | ${u.boundary.name} | ${u.reason} | ${center} | ${(u.candidates ?? []).join('; ') || '—'} |`;
+          }),
+          '',
+        ].join('\n');
+  const missingRows =
+    m.missingFromOsm.length === 0
+      ? '_None._\n'
+      : m.missingFromOsm.map((r) => `- ${r.ekatteCode} ${r.nameBg} (${r.nameEn})`).join('\n') +
+        '\n';
+  const outSamples =
+    s.assignment.outSamples.length === 0
+      ? ''
+      : '\nSample out-of-polygon facilities: ' +
+        s.assignment.outSamples
+          .map(
+            (o) =>
+              `${o.name ?? '(без име)'} @ ${String(o.lon.toFixed(4))},${String(o.lat.toFixed(4))}`,
+          )
+          .join(' · ') +
+        '\n';
+
   return `# OSM import report — ${s.startedAt.toISOString().slice(0, 10)} (${s.mode})
 
 - Run started: ${s.startedAt.toISOString()}
 - Extract: bulgaria-latest.osm.pbf, md5 \`${s.extractMd5}\`${s.extractDownloaded ? ' (freshly downloaded)' : ' (cache hit)'}
 - Mode: **${s.mode}**${s.mode === 'dry-run' ? ' — transaction rolled back, zero writes' : ''}
 
+## Municipality boundaries (admin_level=5 ↔ EKATTE register)
+
+| Metric | Count |
+|---|---|
+| OSM boundary relations found | ${String(m.boundariesFound)} |
+| Matched to register | ${String(m.counts.matched)} / 265 |
+| Inserted | ${String(m.counts.inserted)} |
+| Updated | ${String(m.counts.updated)} |
+| Unchanged | ${String(m.counts.unchanged)} |
+
+### Unmatched OSM boundaries — operator decision required, never guessed
+
+${unmatchedRows}
+### Register municipalities without an OSM boundary this run
+
+${missingRows}
+## Facility → municipality assignment (derived via ST_Contains)
+
+- Assignments changed this run: ${String(s.assignment.changed)}
+- Facilities outside every municipality polygon: ${String(s.assignment.outOfPolygon)}
+${outSamples}
 ## Totals
 
 | Metric | Count |

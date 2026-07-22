@@ -1,0 +1,45 @@
+# Weekly OSM data audit (docs/ROADMAP.md §3: <2% mismatch gate).
+#
+# Today this is a full-pipeline canary: fresh Geofabrik extract → migrate →
+# live import into an ephemeral CI database → 25-sample audit. It fails
+# loudly on download/checksum breakage, osmium changes, constraint
+# violations, import nondeterminism, or >2% field mismatch.
+#
+# TODO(prod): once the VPS database holds imported data, point the audit at
+# production via the deploy SSH path (run `pnpm import:osm:audit` inside the
+# worker container) so this becomes a true drift audit of live data.
+name: OSM audit
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  osm-audit:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgres://sportkarta:sportkarta@localhost:5433/sportkarta
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4 # version from packageManager field
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install osmium-tool
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends osmium-tool
+      - run: pnpm install --frozen-lockfile
+      - name: Start ephemeral database
+        run: docker compose -f compose.dev.yml up -d --wait db
+      - name: Migrate
+        run: |
+          echo "DATABASE_URL=$DATABASE_URL" > .env
+          pnpm db:migrate
+      - name: Live import from current Geofabrik extract
+        run: pnpm import:osm --live
+      - name: 25-sample audit (fails loudly on >2% mismatch)
+        run: pnpm import:osm:audit --sample 25 --threshold 2 --skip-download
+      - name: Database logs on failure
+        if: failure()
+        run: docker compose -f compose.dev.yml logs --tail 100 db

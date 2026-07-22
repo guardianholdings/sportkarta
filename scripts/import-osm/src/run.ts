@@ -1,19 +1,19 @@
-import { createInterface } from 'node:readline';
-import { createReadStream } from 'node:fs';
 import { mkdtemp } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import pg from 'pg';
 
 import { ensureExtract } from './download.js';
-import { runOsmium } from './extract.js';
+import { collectCandidates, runOsmium, runOsmiumBoundaries } from './extract.js';
 import { importCandidates, queryDistributions } from './importer.js';
 import {
-  normalizeFeature,
-  preferCandidate,
-  type FacilityCandidate,
-  type OsmFeature,
-} from './normalize.js';
+  assignMunicipalities,
+  importMunicipalities,
+  loadOverrides,
+  loadRegister,
+  matchBoundaries,
+  readBoundaries,
+} from './municipalities.js';
 import { buildReport, type ImportStats } from './report.js';
 
 export interface RunOptions {
@@ -33,27 +33,12 @@ export interface RunResult {
 /** src/ and dist/ sit at the same depth, so ../../.. is the repo root either way. */
 const DEFAULT_CACHE_DIR = new URL('../../../var/cache/osm', import.meta.url).pathname;
 
-function bump(record: Record<string, number>, key: string, by = 1): void {
-  record[key] = (record[key] ?? 0) + by;
-}
-
-async function* readFeatures(featuresPath: string): AsyncGenerator<OsmFeature> {
-  const rl = createInterface({
-    input: createReadStream(featuresPath),
-    crlfDelay: Infinity,
-  });
-  for await (const rawLine of rl) {
-    // RFC 8142: each record is RS (0x1e) + JSON + LF.
-    const line = (rawLine.charCodeAt(0) === 0x1e ? rawLine.slice(1) : rawLine).trim();
-    if (!line) continue;
-    yield JSON.parse(line) as OsmFeature;
-  }
-}
-
 /**
  * The one entry point: CLI and the pg-boss `import.osm` job both call this.
+ * Stages: municipality boundaries (admin_level=5 ↔ EKATTE register) →
+ * facilities (merge policy) → municipality assignment (derived ST_Contains).
  * Idempotent by construction — cached checksummed download, deterministic
- * normalization, merge policy that no-ops on equal values.
+ * normalization, change-detected upserts.
  */
 export async function runImport(options: RunOptions = {}): Promise<RunResult> {
   const dryRun = options.dryRun ?? true;
@@ -66,62 +51,51 @@ export async function runImport(options: RunOptions = {}): Promise<RunResult> {
   const startedAt = new Date();
   const extract = await ensureExtract(cacheDir, { skipDownload: options.skipDownload ?? false });
   const workDir = await mkdtemp(path.join(os.tmpdir(), 'sportkarta-osm-'));
+
+  // Stage 1 inputs: municipality boundaries matched against the register.
+  const boundariesPath = await runOsmiumBoundaries(extract.pbfPath, workDir);
+  const [boundaries, register, overrides] = await Promise.all([
+    readBoundaries(boundariesPath),
+    loadRegister(),
+    loadOverrides(),
+  ]);
+  const matchResult = matchBoundaries(boundaries, register, overrides);
+
+  // Stage 2 inputs: facility candidates.
   const featuresPath = await runOsmium(extract.pbfPath, workDir);
-
-  const skips: Record<string, number> = {};
-  const unmappedSports: Record<string, number> = {};
-  const unmappedSurfaces: Record<string, number> = {};
-  const unusualLit: Record<string, number> = {};
-  const noSportBuckets: Record<string, number> = {};
-  const byKey = new Map<string, FacilityCandidate>();
-  let featuresTotal = 0;
-  let geometryTwins = 0;
-
-  for await (const feature of readFeatures(featuresPath)) {
-    featuresTotal += 1;
-    const result = normalizeFeature(feature);
-    if (result.kind === 'skip') {
-      bump(skips, result.reason);
-      continue;
-    }
-    const c = result.candidate;
-    const key = `${c.osmType}:${String(c.osmId)}`;
-    const twin = byKey.get(key);
-    if (twin) {
-      // Closed ways export twice (area + perimeter ring) — count, prefer polygon.
-      geometryTwins += 1;
-      byKey.set(key, preferCandidate(twin, c));
-      continue;
-    }
-    byKey.set(key, c);
-    for (const token of c.unmappedSports) bump(unmappedSports, token);
-    if (c.unmappedSurface !== undefined) bump(unmappedSurfaces, c.unmappedSurface);
-    if (c.unusualLit !== undefined) bump(unusualLit, c.unusualLit);
-    if (c.noSportBucket !== undefined) bump(noSportBuckets, c.noSportBucket);
-  }
-  const candidates = [...byKey.values()];
+  const collection = await collectCandidates(featuresPath);
+  const candidates = [...collection.byKey.values()];
 
   const client = new pg.Client({ connectionString: databaseUrl });
   await client.connect();
   let stats: ImportStats;
   try {
     await client.query('BEGIN');
+    const municipalityCounts = await importMunicipalities(client, matchResult.matched);
     const counts = await importCandidates(client, candidates);
+    const assignment = await assignMunicipalities(client);
     const distributions = await queryDistributions(client);
     stats = {
       mode: dryRun ? 'dry-run' : 'live',
       startedAt,
       extractMd5: extract.md5,
       extractDownloaded: extract.downloaded,
-      featuresTotal,
-      skips,
-      geometryTwins,
+      municipalities: {
+        boundariesFound: boundaries.length,
+        counts: municipalityCounts,
+        unmatched: matchResult.unmatched,
+        missingFromOsm: matchResult.missingFromOsm,
+      },
+      assignment,
+      featuresTotal: collection.featuresTotal,
+      skips: collection.skips,
+      geometryTwins: collection.geometryTwins,
       candidates: candidates.length,
       counts,
-      unmappedSports,
-      unmappedSurfaces,
-      unusualLit,
-      noSportBuckets,
+      unmappedSports: collection.unmappedSports,
+      unmappedSurfaces: collection.unmappedSurfaces,
+      unusualLit: collection.unusualLit,
+      noSportBuckets: collection.noSportBuckets,
       bySport: distributions.bySport,
       byMunicipality: distributions.byMunicipality,
       totalOsm: distributions.totalOsm,
