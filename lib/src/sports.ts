@@ -21,6 +21,7 @@ export const CANONICAL_SPORTS = [
   'football',
   'gymnastics',
   'handball',
+  'hiking',
   'hockey',
   'ice_skating',
   'martial_arts',
