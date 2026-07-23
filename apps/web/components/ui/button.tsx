@@ -4,50 +4,80 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
+/**
+ * Button — the primary action control (seed contract:
+ * components/actions/Button.{d.ts,prompt.md}).
+ *
+ * Pill radius, Manrope 600, sentence-case verb-first labels. Sizes are the
+ * seed's 36/44/52 (md = 44, the touch floor). Hover darkens one step (~150ms),
+ * press is scale(0.97), focus ring is always visible (global :focus-visible;
+ * accent switches it to the clay ring). `asChild` is retained beyond the seed
+ * contract for text-link buttons that render an <a>/<Link>.
+ */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-pill font-semibold leading-none select-none transition-[background-color,color,box-shadow,transform] duration-150 ease-standard active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground shadow-xs hover:bg-primary/90',
-        destructive: 'bg-destructive text-white shadow-xs hover:bg-destructive/90',
-        outline: 'border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground',
-        secondary: 'bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80',
-        ghost: 'hover:bg-accent hover:text-accent-foreground',
-        link: 'text-primary underline-offset-4 hover:underline',
+        primary: 'bg-brand text-on-brand shadow-xs hover:bg-brand-hover active:bg-brand-active',
+        accent:
+          'bg-accent text-on-accent shadow-xs hover:bg-accent-hover active:bg-accent-active focus-visible:shadow-[var(--ring-accent)]',
+        secondary:
+          'bg-surface text-text-primary border border-line-strong shadow-xs hover:bg-surface-2 active:bg-surface-2',
+        ghost: 'bg-transparent text-brand hover:bg-brand-subtle active:bg-brand-subtle-hover',
+        danger:
+          'bg-danger text-on-brand shadow-xs hover:bg-[color-mix(in_oklab,var(--danger),black_12%)] active:bg-[color-mix(in_oklab,var(--danger),black_20%)]',
       },
       size: {
-        default: 'h-9 px-4 py-2 has-[>svg]:px-3',
-        sm: 'h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5',
-        lg: 'h-10 rounded-md px-6 has-[>svg]:px-4',
-        icon: 'size-9',
+        sm: 'h-9 gap-1.5 px-4 text-body-sm',
+        md: 'h-11 px-5 text-body-sm',
+        lg: 'h-13 px-6 text-body',
       },
+      block: { true: 'w-full', false: '' },
     },
-    defaultVariants: {
-      variant: 'default',
-      size: 'default',
-    },
+    defaultVariants: { variant: 'primary', size: 'md', block: false },
   },
 );
+
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
+  /** Icon node before the label (20px Lucide line icon, currentColor). */
+  iconLeft?: React.ReactNode;
+  /** Icon node after the label. */
+  iconRight?: React.ReactNode;
+  /** Render as the single child element (for <a>/<Link> buttons). */
+  asChild?: boolean;
+}
 
 function Button({
   className,
   variant,
   size,
+  block,
+  iconLeft,
+  iconRight,
   asChild = false,
+  children,
   ...props
-}: React.ComponentProps<'button'> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean;
-  }) {
-  const Comp = asChild ? Slot : 'button';
+}: ButtonProps) {
+  const classes = cn(buttonVariants({ variant, size, block }), className);
+
+  // Slot needs a single child, so skip icon slots when composing (asChild).
+  if (asChild) {
+    return (
+      <Slot data-slot="button" className={classes} {...props}>
+        {children}
+      </Slot>
+    );
+  }
 
   return (
-    <Comp
-      data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
-    />
+    <button data-slot="button" className={classes} {...props}>
+      {iconLeft}
+      {children}
+      {iconRight}
+    </button>
   );
 }
 

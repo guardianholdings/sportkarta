@@ -1,0 +1,32 @@
+<!-- @dsCard group="Brand" viewport="700x230" subtitle="Map graticule texture + GPS route line" name="Signature motifs" -->
+<!doctype html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  .wrap{padding:22px 26px;display:flex;gap:20px;align-items:stretch;}
+  .panel{flex:1;border-radius:var(--radius-lg);border:1px solid var(--border);overflow:hidden;position:relative;min-height:150px;background:var(--surface);}
+  .grat{background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:28px 28px;opacity:.5;position:absolute;inset:0;}
+  .cap{position:absolute;left:14px;bottom:12px;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);}
+  svg{position:absolute;inset:0;width:100%;height:100%;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="panel">
+    <div class="grat"></div>
+    <div class="cap">map graticule · faint --line grid</div>
+  </div>
+  <div class="panel">
+    <div class="grat"></div>
+    <svg viewBox="0 0 320 150" preserveAspectRatio="none">
+      <polyline points="18,120 60,86 96,100 150,54 200,70 250,36 302,50" fill="none" stroke="var(--brand)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="18" cy="120" r="6" fill="var(--surface)" stroke="var(--brand)" stroke-width="4"/>
+      <circle cx="302" cy="50" r="7" fill="var(--accent)" stroke="var(--surface)" stroke-width="3"/>
+    </svg>
+    <div class="cap">GPS route · pine track, clay summit</div>
+  </div>
+</div>
+</body>
+</html>

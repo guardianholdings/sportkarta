@@ -1,0 +1,17 @@
+/* ============================================================
+   RADIUS
+   Restrained corners read as premium; pills add the sporty,
+   community warmth. Buttons/chips = pill, inputs = md,
+   cards/sheets = lg/xl.
+   ============================================================ */
+
+:root {
+  --radius-xs:   6px;
+  --radius-sm:   8px;
+  --radius-md:   10px;
+  --radius-lg:   14px;
+  --radius-xl:   20px;
+  --radius-2xl:  28px;
+  --radius-pill: 999px;
+  --radius-circle: 50%;
+}

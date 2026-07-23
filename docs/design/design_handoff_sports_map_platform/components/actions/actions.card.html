@@ -1,0 +1,57 @@
+<!-- @dsCard group="Components" viewport="700x360" subtitle="Button variants, sizes, states · IconButton" name="Actions — Button & IconButton" -->
+<!doctype html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body{padding:26px 28px;}
+  .stack{display:flex;flex-direction:column;gap:20px;}
+  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+  .lbl{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);width:100%;margin-bottom:-6px;}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:var(--control-md);padding:0 22px;font-family:var(--font-sans);font-weight:600;font-size:15px;letter-spacing:-.01em;border-radius:var(--radius-pill);border:1px solid transparent;cursor:pointer;line-height:1;}
+  .primary{background:var(--brand);color:#fff;}
+  .accent{background:var(--accent);color:#fff;}
+  .secondary{background:var(--surface);color:var(--text-primary);border-color:var(--border-strong);}
+  .ghost{background:transparent;color:var(--brand);}
+  .danger{background:var(--danger);color:#fff;}
+  .sm{height:var(--control-sm);padding:0 16px;font-size:14px;}
+  .lg{height:var(--control-lg);padding:0 28px;font-size:16px;}
+  .disabled{background:var(--paper-sunk);color:var(--text-faint);border-color:var(--border);cursor:not-allowed;}
+  .ib{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:var(--radius-md);border:1px solid var(--border-strong);background:var(--surface);color:var(--text-primary);cursor:pointer;}
+  .ib.solid{background:var(--brand);color:#fff;border-color:transparent;}
+  .ib.floating{border-color:var(--border);box-shadow:var(--shadow-float);}
+  .ib.round{border-radius:var(--radius-circle);}
+  .ib svg,.btn svg{width:20px;height:20px;}
+</style>
+</head>
+<body>
+<div class="stack">
+  <div class="row">
+    <span class="lbl">Variants</span>
+    <button class="btn primary"><i data-lucide="map-pin"></i>Добави място</button>
+    <button class="btn accent">Join the challenge</button>
+    <button class="btn secondary">Отказ</button>
+    <button class="btn ghost">See all</button>
+    <button class="btn danger">Delete</button>
+    <button class="btn disabled">Disabled</button>
+  </div>
+  <div class="row">
+    <span class="lbl">Sizes</span>
+    <button class="btn primary sm">Small</button>
+    <button class="btn primary">Medium</button>
+    <button class="btn primary lg">Large</button>
+  </div>
+  <div class="row">
+    <span class="lbl">IconButton — surface · solid · floating · round</span>
+    <button class="ib" aria-label="Filters"><i data-lucide="sliders-horizontal"></i></button>
+    <button class="ib solid" aria-label="Add"><i data-lucide="plus"></i></button>
+    <button class="ib floating" aria-label="Locate"><i data-lucide="locate-fixed"></i></button>
+    <button class="ib round" aria-label="Like"><i data-lucide="heart"></i></button>
+    <button class="ib floating round" aria-label="Share"><i data-lucide="share-2"></i></button>
+  </div>
+</div>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

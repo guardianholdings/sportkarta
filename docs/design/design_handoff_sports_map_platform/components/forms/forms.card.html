@@ -1,0 +1,68 @@
+<!-- @dsCard group="Components" viewport="700x380" subtitle="Input, Select, Checkbox, Radio, Switch" name="Forms" -->
+<!doctype html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body{padding:26px 28px;}
+  .stack{display:flex;flex-direction:column;gap:18px;max-width:620px;}
+  .lbl{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);margin-bottom:8px;}
+  .field{display:flex;align-items:center;gap:9px;height:var(--control-md);padding:0 14px;background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--radius-md);}
+  .field.focus{border-color:var(--brand);box-shadow:var(--ring);}
+  .field input,.field select{flex:1;border:none;outline:none;background:transparent;font-family:var(--font-sans);font-size:15px;color:var(--text-primary);}
+  .field svg{width:18px;height:18px;color:var(--text-muted);}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .opt{display:inline-flex;align-items:center;gap:10px;font-size:15px;color:var(--text-primary);}
+  .box{width:20px;height:20px;border-radius:var(--radius-xs);border:1px solid var(--brand);background:var(--brand);display:inline-flex;align-items:center;justify-content:center;color:#fff;}
+  .box.off{background:var(--surface);border-color:var(--border-strong);}
+  .box svg{width:14px;height:14px;}
+  .rad{width:20px;height:20px;border-radius:50%;border:1px solid var(--brand);display:inline-flex;align-items:center;justify-content:center;}
+  .rad .dot{width:10px;height:10px;border-radius:50%;background:var(--brand);}
+  .rad.off{border-color:var(--border-strong);}
+  .sw{position:relative;width:46px;height:26px;border-radius:999px;background:var(--brand);flex:none;}
+  .sw.off{background:var(--border-strong);}
+  .sw .knob{position:absolute;top:3px;left:23px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:var(--shadow-sm);}
+  .sw.off .knob{left:3px;}
+  .row{display:flex;gap:24px;align-items:center;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+<div class="stack">
+  <div class="grid2">
+    <div>
+      <div class="lbl">Input · search</div>
+      <div class="field focus"><i data-lucide="search"></i><input value="Витоша" readonly><i data-lucide="x"></i></div>
+    </div>
+    <div>
+      <div class="lbl">Select</div>
+      <div class="field"><select><option>Всички дейности</option></select><i data-lucide="chevron-down"></i></div>
+    </div>
+  </div>
+  <div>
+    <div class="lbl">Checkbox</div>
+    <div class="row">
+      <span class="opt"><span class="box"><i data-lucide="check"></i></span>Кучета разрешени</span>
+      <span class="opt"><span class="box off"></span>Достъпно с кола</span>
+    </div>
+  </div>
+  <div>
+    <div class="lbl">Radio · difficulty</div>
+    <div class="row">
+      <span class="opt"><span class="rad"><span class="dot"></span></span>Лесно</span>
+      <span class="opt"><span class="rad off"></span>Умерено</span>
+      <span class="opt"><span class="rad off"></span>Трудно</span>
+    </div>
+  </div>
+  <div>
+    <div class="lbl">Switch</div>
+    <div class="row">
+      <span class="opt"><span class="sw"><span class="knob"></span></span>Отворени сега</span>
+      <span class="opt"><span class="sw off"><span class="knob"></span></span>Сателит</span>
+    </div>
+  </div>
+</div>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

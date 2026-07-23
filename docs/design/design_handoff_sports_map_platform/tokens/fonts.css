@@ -1,0 +1,24 @@
+/* ============================================================
+   FONTS — Повече от просто спорт
+   Bilingual (Latin + Cyrillic) type system.
+   - Manrope        : display, headings, UI, body
+   - JetBrains Mono : data, stats, coordinates, labels, tags
+   Both families ship full Cyrillic — required for the BG/EN UI.
+   Webfonts are pulled from Google Fonts. If you self-host for
+   production, replace this @import with local @font-face rules.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  --font-sans: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  /* Weights */
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --fw-extrabold: 800;
+}

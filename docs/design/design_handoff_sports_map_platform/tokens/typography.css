@@ -1,0 +1,53 @@
+/* ============================================================
+   TYPOGRAPHY SCALE
+   Display & headings: Manrope (extrabold/bold, tight tracking)
+   Body & UI:          Manrope (regular/medium)
+   Data & labels:      JetBrains Mono
+   Values are role tokens: font / size / line-height / weight / tracking.
+   ============================================================ */
+
+:root {
+  /* Font sizes (rem, 16px base) */
+  --fs-display-2xl: 4rem;      /* 64 */
+  --fs-display-xl:  3.25rem;   /* 52 */
+  --fs-display-lg:  2.5rem;    /* 40 */
+  --fs-h1:          2rem;      /* 32 */
+  --fs-h2:          1.625rem;  /* 26 */
+  --fs-h3:          1.3125rem; /* 21 */
+  --fs-h4:          1.125rem;  /* 18 */
+  --fs-body-lg:     1.125rem;  /* 18 */
+  --fs-body:        1rem;      /* 16 */
+  --fs-body-sm:     0.875rem;  /* 14 */
+  --fs-caption:     0.8125rem; /* 13 */
+  --fs-overline:    0.75rem;   /* 12 */
+
+  /* Line heights */
+  --lh-tight:   1.05;
+  --lh-snug:    1.18;
+  --lh-heading: 1.28;
+  --lh-normal:  1.55;
+  --lh-relaxed: 1.7;
+
+  /* Letter spacing */
+  --ls-tighter: -0.03em;
+  --ls-tight:   -0.02em;
+  --ls-snug:    -0.01em;
+  --ls-normal:  0;
+  --ls-wide:    0.04em;
+  --ls-overline: 0.14em; /* mono overlines / eyebrows */
+}
+
+/* ---- Optional utility classes (production may prefer role tokens) ---- */
+.t-display-2xl { font-family: var(--font-display); font-weight: 800; font-size: var(--fs-display-2xl); line-height: var(--lh-tight); letter-spacing: var(--ls-tighter); }
+.t-display-xl  { font-family: var(--font-display); font-weight: 800; font-size: var(--fs-display-xl);  line-height: var(--lh-tight); letter-spacing: var(--ls-tighter); }
+.t-display-lg  { font-family: var(--font-display); font-weight: 800; font-size: var(--fs-display-lg);  line-height: 1.08; letter-spacing: var(--ls-tight); }
+.t-h1 { font-family: var(--font-display); font-weight: 700; font-size: var(--fs-h1); line-height: var(--lh-snug); letter-spacing: var(--ls-tight); }
+.t-h2 { font-family: var(--font-display); font-weight: 700; font-size: var(--fs-h2); line-height: var(--lh-snug); letter-spacing: var(--ls-tight); }
+.t-h3 { font-family: var(--font-display); font-weight: 700; font-size: var(--fs-h3); line-height: var(--lh-heading); letter-spacing: var(--ls-snug); }
+.t-h4 { font-family: var(--font-sans); font-weight: 600; font-size: var(--fs-h4); line-height: var(--lh-heading); }
+.t-body-lg { font-family: var(--font-sans); font-weight: 400; font-size: var(--fs-body-lg); line-height: var(--lh-normal); }
+.t-body    { font-family: var(--font-sans); font-weight: 400; font-size: var(--fs-body); line-height: var(--lh-normal); }
+.t-body-sm { font-family: var(--font-sans); font-weight: 400; font-size: var(--fs-body-sm); line-height: var(--lh-normal); }
+.t-caption { font-family: var(--font-sans); font-weight: 500; font-size: var(--fs-caption); line-height: var(--lh-normal); color: var(--text-tertiary); }
+.t-overline { font-family: var(--font-mono); font-weight: 600; font-size: var(--fs-overline); line-height: 1; letter-spacing: var(--ls-overline); text-transform: uppercase; color: var(--text-tertiary); }
+.t-data { font-family: var(--font-mono); font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }

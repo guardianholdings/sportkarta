@@ -72,7 +72,7 @@ export function SignInForm({ googleEnabled, next }: { googleEnabled: boolean; ne
         <form action={googleSignInAction} className="space-y-2">
           <input type="hidden" name="next" value={next} />
           <div className="text-center text-xs text-neutral-500">{t('or')}</div>
-          <Button type="submit" variant="outline" className="w-full">
+          <Button type="submit" variant="secondary" className="w-full">
             {t('google')}
           </Button>
         </form>

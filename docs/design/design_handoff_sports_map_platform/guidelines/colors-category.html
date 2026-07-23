@@ -1,0 +1,26 @@
+<!-- @dsCard group="Colors" viewport="700x180" subtitle="Trail-blaze set · one color per activity" name="Activity categories" -->
+<!doctype html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:22px 26px;}
+  .cat{display:flex;align-items:center;gap:10px;}
+  .dot{width:26px;height:26px;border-radius:var(--radius-circle);flex:none;box-shadow:var(--shadow-xs);}
+  .nm{font-size:13px;font-weight:600;color:var(--ink);}
+  .vr{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);}
+</style>
+</head>
+<body>
+<div class="grid">
+  <div class="cat"><span class="dot" style="background:var(--cat-hike)"></span><span><span class="nm">Hiking</span><br><span class="vr">--cat-hike</span></span></div>
+  <div class="cat"><span class="dot" style="background:var(--cat-run)"></span><span><span class="nm">Running</span><br><span class="vr">--cat-run</span></span></div>
+  <div class="cat"><span class="dot" style="background:var(--cat-bike)"></span><span><span class="nm">MTB</span><br><span class="vr">--cat-bike</span></span></div>
+  <div class="cat"><span class="dot" style="background:var(--cat-climb)"></span><span><span class="nm">Climbing</span><br><span class="vr">--cat-climb</span></span></div>
+  <div class="cat"><span class="dot" style="background:var(--cat-swim)"></span><span><span class="nm">Swimming</span><br><span class="vr">--cat-swim</span></span></div>
+  <div class="cat"><span class="dot" style="background:var(--cat-team)"></span><span><span class="nm">Team sports</span><br><span class="vr">--cat-team</span></span></div>
+  <div class="cat"><span class="dot" style="background:var(--cat-calisthenics)"></span><span><span class="nm">Calisthenics</span><br><span class="vr">--cat-calisthenics</span></span></div>
+</div>
+</body>
+</html>

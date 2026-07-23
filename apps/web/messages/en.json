@@ -1383,4 +1383,118 @@
     "rowError_coordinates_required": "Coordinates are missing or invalid.",
     "rowError_outside_bulgaria": "The coordinates are outside Bulgaria."
   }
+,
+  "DesignSystem": {
+    "overline": "BG · Design system",
+    "title": "Design system",
+    "subtitle": "SportKarta's foundation — the tokens, type and primitives from the seed authority.",
+    "internalNote": "Internal reference: every component in every state.",
+    "sections": {
+      "color": "Colour",
+      "categories": "Category colours",
+      "type": "Typography",
+      "radiusElevation": "Radius & elevation",
+      "categoryMap": "Sports → family & icon"
+    },
+    "groups": {
+      "brand": "Brand (pine)",
+      "accent": "Accent (clay)",
+      "neutral": "Neutrals",
+      "text": "Text",
+      "semantic": "Semantic",
+      "radius": "Radius",
+      "elevation": "Elevation"
+    },
+    "categoriesNote": "Seven seed colours plus three derived. Colour carries the family; the icon and label carry the sport.",
+    "categoryMapNote": "All 29 canonical sports mapped onto the ten families.",
+    "chipNote": "Pick categories — filters compose.",
+    "labels": {
+      "derived": "derived"
+    },
+    "type": {
+      "display": "Discover, climb, meet people outside",
+      "heading": "A heading set in Manrope",
+      "body": "Body copy: warm, clear, human — never corporate or cold.",
+      "bodySmall": "Moderate · secondary text at a smaller size.",
+      "dataSample": "12.4 km · 640 m · 4 h 20 min · 42.6977, 23.3219",
+      "overline": "BG · Mountain · Sea"
+    },
+    "states": {
+      "variants": "Variants",
+      "sizes": "Sizes",
+      "icons": "Icons",
+      "disabled": "Disabled",
+      "default": "Default",
+      "invalid": "Invalid",
+      "fullWidth": "Full width",
+      "states": "States"
+    },
+    "seg": {
+      "map": "Map",
+      "list": "List",
+      "feed": "Feed",
+      "week": "Week",
+      "month": "Month",
+      "year": "Year"
+    },
+    "demo": {
+      "addSpot": "Add a spot",
+      "join": "Join the challenge",
+      "cancel": "Cancel",
+      "seeAll": "See all",
+      "delete": "Delete",
+      "save": "Save",
+      "filters": "Filters",
+      "locate": "Locate me",
+      "like": "Like",
+      "layers": "Layers",
+      "search": "Search a place or activity",
+      "invalidValue": "Vitosha",
+      "dogsAllowed": "Dogs allowed",
+      "parking": "Parking",
+      "disabled": "Disabled",
+      "easy": "Easy",
+      "moderate": "Moderate",
+      "hard": "Hard",
+      "satellite": "Satellite view",
+      "notifications": "Notifications",
+      "distance": "Distance",
+      "distanceValue": "12.4 km",
+      "distanceValueShort": "8.2 km",
+      "ascent": "Ascent",
+      "ascentValue": "640 m",
+      "thisMonth": "This month",
+      "rankValue": "3rd",
+      "open": "Open",
+      "new": "New",
+      "spotName": "Cherni Vrah",
+      "spotArea": "Vitosha · 8.2 km",
+      "plainCard": "Plain card",
+      "plainCardBody": "Content with no media or footer.",
+      "member": "You the Active",
+      "memberMeta": "1,240 km · 3rd",
+      "stack": "Stack",
+      "tones": {
+        "neutral": "Neutral",
+        "brand": "Brand",
+        "accent": "Accent",
+        "success": "Success",
+        "warning": "Warning",
+        "danger": "Danger",
+        "info": "Info"
+      },
+      "names": {
+        "you": "You the Active",
+        "ivana": "Ivana Petrova",
+        "georgi": "Georgi Kolev",
+        "maria": "Maria Stoeva",
+        "stack": {
+          "a": "Ana Borisova",
+          "b": "Boris Vasilev",
+          "c": "Viktor Georgiev",
+          "d": "Daria Dimitrova"
+        }
+      }
+    }
+  }
 }

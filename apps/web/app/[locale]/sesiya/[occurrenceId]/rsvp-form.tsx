@@ -40,7 +40,7 @@ export function RsvpForm({ occurrenceId, attending, labels }: Props) {
         <Button
           type="submit"
           disabled={joining || leaving}
-          variant={attending ? 'outline' : 'default'}
+          variant={attending ? 'secondary' : 'primary'}
         >
           {joining || leaving ? labels.pending : attending ? labels.leave : labels.join}
         </Button>

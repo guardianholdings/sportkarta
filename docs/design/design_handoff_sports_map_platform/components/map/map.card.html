@@ -1,0 +1,36 @@
+<!-- @dsCard group="Components" viewport="700x250" subtitle="Category pins, cluster, dot, active state" name="Map markers" -->
+<!doctype html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body{position:relative;padding:30px 28px;min-height:250px;}
+  .grat{position:absolute;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:32px 32px;opacity:.4;}
+  .row{position:relative;display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start;}
+  .item{display:flex;flex-direction:column;align-items:center;gap:12px;}
+  .cap{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);}
+  .pin{position:relative;width:40px;height:53px;}
+  .pin .drop{position:absolute;top:0;left:0;width:40px;height:40px;border-radius:50% 50% 50% 0;transform:rotate(45deg);border:2.5px solid var(--surface);box-shadow:var(--shadow-float);box-sizing:border-box;}
+  .pin .g{position:absolute;top:6px;left:6px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;color:#fff;}
+  .pin .g svg{width:18px;height:18px;}
+  .pin.active{transform:scale(1.16);transform-origin:bottom center;}
+  .cluster{width:44px;height:44px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;border:3px solid var(--surface);box-shadow:var(--shadow-float);font-family:var(--font-mono);font-weight:700;font-size:15px;}
+  .dot{width:24px;height:24px;border-radius:50%;border:2.5px solid var(--surface);box-shadow:var(--shadow-float);}
+</style>
+</head>
+<body>
+<div class="grat"></div>
+<div class="row">
+  <div class="item"><div class="pin"><div class="drop" style="background:var(--cat-hike)"></div><div class="g"><i data-lucide="mountain"></i></div></div><span class="cap">Hiking</span></div>
+  <div class="item"><div class="pin"><div class="drop" style="background:var(--cat-swim)"></div><div class="g"><i data-lucide="waves"></i></div></div><span class="cap">Swim</span></div>
+  <div class="item"><div class="pin"><div class="drop" style="background:var(--cat-bike)"></div><div class="g"><i data-lucide="bike"></i></div></div><span class="cap">MTB</span></div>
+  <div class="item"><div class="pin"><div class="drop" style="background:var(--cat-climb)"></div><div class="g"><i data-lucide="triangle"></i></div></div><span class="cap">Climb</span></div>
+  <div class="item"><div class="pin active"><div class="drop" style="background:var(--cat-team)"></div><div class="g"><i data-lucide="users"></i></div></div><span class="cap">active</span></div>
+  <div class="item"><div class="cluster">24</div><span class="cap">cluster</span></div>
+  <div class="item"><div class="dot" style="background:var(--cat-run)"></div><span class="cap">dot</span></div>
+</div>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

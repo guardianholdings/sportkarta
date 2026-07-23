@@ -72,7 +72,7 @@ export default async function AdminAmbassadorsPage({
                     </span>
                     <span className="text-xs text-neutral-500">{ambassador.email}</span>
                     <form action={revoke} className="ml-auto">
-                      <Button type="submit" variant="outline" size="sm">
+                      <Button type="submit" variant="secondary" size="sm">
                         {t('revoke')}
                       </Button>
                     </form>
@@ -141,7 +141,7 @@ export default async function AdminAmbassadorsPage({
                           </option>
                         ))}
                       </select>
-                      <Button type="submit" variant="outline" size="sm">
+                      <Button type="submit" variant="secondary" size="sm">
                         {t('addMunicipality')}
                       </Button>
                     </form>

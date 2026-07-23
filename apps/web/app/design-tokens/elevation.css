@@ -1,0 +1,21 @@
+/* ============================================================
+   ELEVATION — soft, layered, warm-tinted shadows
+   Shadows are tinted with the bark-green ink (never pure black)
+   so they sit naturally on warm paper. Use sparingly; borders
+   carry most separation.
+   ============================================================ */
+
+:root {
+  --shadow-xs: 0 1px 2px rgba(24, 32, 22, 0.06);
+  --shadow-sm: 0 1px 2px rgba(24, 32, 22, 0.05), 0 2px 6px rgba(24, 32, 22, 0.05);
+  --shadow-md: 0 2px 4px rgba(24, 32, 22, 0.05), 0 6px 16px rgba(24, 32, 22, 0.08);
+  --shadow-lg: 0 4px 8px rgba(24, 32, 22, 0.05), 0 16px 32px rgba(24, 32, 22, 0.10);
+  --shadow-xl: 0 8px 16px rgba(24, 32, 22, 0.06), 0 28px 56px rgba(24, 32, 22, 0.14);
+
+  /* Focus ring composed shadow (pair with outline:none) */
+  --ring: 0 0 0 3px var(--focus-ring);
+  --ring-accent: 0 0 0 3px var(--focus-ring-accent);
+
+  /* Map / floating controls sit above tiles */
+  --shadow-float: 0 2px 6px rgba(24, 32, 22, 0.10), 0 12px 28px rgba(24, 32, 22, 0.16);
+}

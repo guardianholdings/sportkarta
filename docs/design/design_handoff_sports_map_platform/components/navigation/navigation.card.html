@@ -1,0 +1,36 @@
+<!-- @dsCard group="Components" viewport="700x170" subtitle="SegmentedControl — view switcher" name="Navigation" -->
+<!doctype html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body{padding:26px 28px;display:flex;flex-direction:column;gap:18px;}
+  .lbl{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);margin-bottom:10px;}
+  .seg{display:inline-flex;padding:4px;gap:2px;background:var(--paper-sunk);border:1px solid var(--border);border-radius:999px;}
+  .seg button{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 16px;font-family:var(--font-sans);font-weight:600;font-size:14px;border:none;border-radius:999px;cursor:pointer;color:var(--text-secondary);background:transparent;}
+  .seg button.sel{color:var(--brand);background:var(--surface);box-shadow:var(--shadow-sm);}
+  .seg svg{width:18px;height:18px;}
+</style>
+</head>
+<body>
+<div>
+  <div class="lbl">Segmented control · primary view switcher</div>
+  <div class="seg">
+    <button class="sel"><i data-lucide="map"></i>Карта</button>
+    <button><i data-lucide="list"></i>Списък</button>
+    <button><i data-lucide="rss"></i>Емисия</button>
+  </div>
+</div>
+<div>
+  <div class="lbl">Small · leaderboard period</div>
+  <div class="seg" style="padding:3px">
+    <button class="sel" style="height:30px;font-size:13px">Седмица</button>
+    <button style="height:30px;font-size:13px">Месец</button>
+    <button style="height:30px;font-size:13px">Година</button>
+  </div>
+</div>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

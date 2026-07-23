@@ -1,0 +1,24 @@
+/* ============================================================
+   FONTS (token declarations) — SportKarta
+   ------------------------------------------------------------
+   The seed's tokens/fonts.css pulled Manrope + JetBrains Mono from
+   fonts.googleapis.com. Our stack takes no external runtime deps, so
+   the actual @font-face rules are self-hosted via @fontsource in
+   app/fonts.css (imported once in the root layout). This file keeps
+   ONLY the token declarations the seed's fonts.css also carried — the
+   family stacks and the weight scale — so `var(--font-sans)` etc.
+   resolve. No network @import here. See RECONCILIATION.md C14.
+   ============================================================ */
+
+:root {
+  --font-sans: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  /* Weights */
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --fw-extrabold: 800;
+}

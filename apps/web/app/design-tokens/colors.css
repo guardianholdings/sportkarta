@@ -1,0 +1,113 @@
+/* ============================================================
+   COLORS — "Trail & Summit"
+   Warm paper + deep pine ink + clay/amber activity accent.
+   Light mode only (per product spec).
+   Base palette first, then semantic aliases. Always consume the
+   SEMANTIC tokens in product code (--brand, --text-primary, …),
+   not the raw scale, so themes stay swappable.
+   ============================================================ */
+
+:root {
+  /* ---- Neutrals (warm, low-chroma green-grey) ---- */
+  --paper:          #FBF9F3; /* app background */
+  --paper-sunk:     #F4F1E8; /* recessed areas, wells */
+  --surface:        #FFFEFB; /* cards, sheets, menus */
+  --surface-2:      #F8F5EE; /* subtle raised fill */
+  --overlay-scrim:  rgba(24, 32, 22, 0.44); /* modal / sheet backdrop */
+
+  --border:         #E8E3D8; /* hairline dividers, card edges */
+  --border-strong:  #D6CFC0; /* inputs, emphasized edges */
+
+  --ink:            #1E241D; /* primary text (deep bark-green black) */
+  --ink-soft:       #3A4136; /* secondary text */
+  --text-muted:     #7C7668; /* tertiary / meta text */
+  --text-faint:     #A79F8E; /* placeholders, disabled text */
+
+  /* ---- Pine (primary / brand) ---- */
+  --pine-50:  #ECF4EE;
+  --pine-100: #D6EADD;
+  --pine-200: #AFD6BC;
+  --pine-300: #7FBE96;
+  --pine-400: #4E9E70;
+  --pine-500: #2E7D55;
+  --pine-600: #216543;
+  --pine-700: #1A5036;
+  --pine-800: #163E2B;
+  --pine-900: #132F22;
+
+  /* ---- Clay / Amber (accent / activity / energy) ---- */
+  --clay-50:  #FBF0E4;
+  --clay-100: #F7E1C9;
+  --clay-200: #F0C79A;
+  --clay-300: #E9A867;
+  --clay-400: #E28C3C;
+  --clay-500: #D5762A;
+  --clay-600: #BC6120;
+  --clay-700: #9C4E1B;
+
+  /* ---- Sky (water / info secondary) ---- */
+  --sky-100: #E1EFF9;
+  --sky-300: #90C2E6;
+  --sky-500: #3E8FC9;
+  --sky-700: #2A6698;
+
+  /* ---- Activity category colors (trail-blaze set) ---- */
+  --cat-hike:         #2E7D55; /* pine */
+  --cat-run:          #E15A4A; /* coral */
+  --cat-bike:         #E28C3C; /* clay/amber */
+  --cat-climb:        #BB5A2E; /* rust */
+  --cat-swim:         #3E8FC9; /* glacier blue */
+  --cat-team:         #6E5CC4; /* violet */
+  --cat-calisthenics: #2E9EA0; /* teal */
+
+  /* ---- DERIVED family members (SportKarta) ----
+     Our 29 canonical sports (lib/src/sports.ts) map onto the 7 seed blazes plus
+     these three; see docs/design/RECONCILIATION.md §3. Each derived hue sits in
+     the seed's mid-chroma band (S ≈ 40–55%, L ≈ 45–58%) so it reads as family. */
+  --cat-racket:    #BF638D; /* berry-rose  · tennis · table_tennis · badminton · squash */
+  --cat-precision: #5C738A; /* steel-slate · archery · shooting · petanque · chess (chroma dropped: reads "aim/still") */
+  --cat-multi:     #6E7268; /* warm neutral · multi-sport facilities — deliberately un-blazed */
+
+  /* ---- Semantic status ---- */
+  --success:     #2E7D55;  --success-bg: #ECF4EE;  --success-border: #AFD6BC;
+  --warning:     #C9891F;  --warning-bg: #FAF0D8;  --warning-border: #EBCB84;
+  --danger:      #CE4A38;  --danger-bg:  #FBEAE6;  --danger-border:  #F0B7AC;
+  --info:        #3E8FC9;  --info-bg:    #E7F1FA;  --info-border:    #AECFEA;
+
+  /* ============================================================
+     SEMANTIC ALIASES — use these in product code
+     ============================================================ */
+  --color-bg:            var(--paper);
+  --color-bg-sunk:       var(--paper-sunk);
+  --color-surface:       var(--surface);
+  --color-surface-2:     var(--surface-2);
+
+  --text-primary:        var(--ink);
+  --text-secondary:      var(--ink-soft);
+  --text-tertiary:       var(--text-muted);
+  --text-on-brand:       #FFFFFF;
+  --text-on-accent:      #FFFFFF;
+
+  --brand:               var(--pine-600);
+  --brand-hover:         var(--pine-700);
+  --brand-active:        var(--pine-800);
+  --brand-subtle:        var(--pine-50);
+  --brand-subtle-hover:  var(--pine-100);
+  --brand-border:        var(--pine-200);
+
+  --accent:              var(--clay-500);
+  --accent-hover:        var(--clay-600);
+  --accent-active:       var(--clay-700);
+  --accent-subtle:       var(--clay-50);
+  --accent-border:       var(--clay-200);
+
+  --line:                var(--border);
+  --line-strong:         var(--border-strong);
+
+  --focus-ring:          rgba(33, 101, 67, 0.32);   /* pine */
+  --focus-ring-accent:   rgba(213, 118, 42, 0.34);  /* clay */
+
+  /* Links */
+  --link:                var(--pine-600);
+  --link-hover:          var(--clay-600);
+}

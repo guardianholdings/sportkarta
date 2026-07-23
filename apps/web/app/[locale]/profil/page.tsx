@@ -82,7 +82,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
       </section>
 
       <p className="text-xs text-neutral-500">
-        <Button asChild variant="link" className="h-auto p-0 text-xs">
+        <Button asChild variant="ghost" className="h-auto p-0 text-xs">
           <Link href="/privacy">{t('privacyLink')}</Link>
         </Button>
       </p>

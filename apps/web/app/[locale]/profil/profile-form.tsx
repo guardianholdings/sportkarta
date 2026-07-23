@@ -120,7 +120,7 @@ export function DeleteAccountForm({ confirmationWord }: { confirmationWord: stri
           {t(`error_${state.error}`)}
         </p>
       )}
-      <Button type="submit" variant="destructive" disabled={pending}>
+      <Button type="submit" variant="danger" disabled={pending}>
         {t('deleteSubmit')}
       </Button>
     </form>

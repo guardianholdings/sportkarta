@@ -8,6 +8,7 @@ import { ErrorMonitor } from '@/components/monitoring/error-monitor';
 import { ServiceWorkerRegistrar } from '@/components/pwa/service-worker';
 import { routing } from '@/i18n/routing';
 
+import '../fonts.css';
 import '../globals.css';
 
 type LocaleParams = Promise<{ locale: string }>;
