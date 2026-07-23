@@ -19,6 +19,8 @@ function fakeDb(counts: {
   rsvps?: number;
   checkins?: number;
   sessions?: number;
+  digest?: number;
+  results?: number;
 }) {
   const statements: { sql: string; params: unknown[] }[] = [];
   // Counts are answered in the order deleteAccount asks for them.
@@ -31,6 +33,8 @@ function fakeDb(counts: {
     counts.rsvps ?? 0,
     counts.checkins ?? 0,
     counts.sessions ?? 0,
+    counts.digest ?? 0,
+    counts.results ?? 0,
   ];
   let selects = 0;
   const runner = {
@@ -65,6 +69,8 @@ describe('deleteAccount', () => {
       rsvps: 8,
       checkins: 9,
       sessions: 4,
+      digest: 2,
+      results: 11,
     });
     const summary = await deleteAccount(db, 'user_1');
 
@@ -78,6 +84,8 @@ describe('deleteAccount', () => {
       rsvpsErased: 8,
       checkinsErased: 9,
       sessionsCancelled: 4,
+      digestSubscriptionsErased: 2,
+      resultsAnonymized: 11,
     });
     const text = db.statements.map((s) => s.sql).join('\n');
     expect(text).toMatch(/DELETE FROM users/i);
@@ -109,6 +117,8 @@ describe('deleteAccount', () => {
       rsvps: 5,
       checkins: 6,
       sessions: 7,
+      digest: 8,
+      results: 9,
     });
     await deleteAccount(db, 'user_1');
 
@@ -118,7 +128,7 @@ describe('deleteAccount', () => {
     // condition reports and the play layer are evidenced too: each of them
     // leaves, is anonymised or is cancelled, so the tombstone would otherwise
     // be silent about them.
-    expect(insert?.params).toEqual(['user_1', 1, 0, 2, 4, 3, 7, 5, 6]);
+    expect(insert?.params).toEqual(['user_1', 1, 0, 2, 4, 3, 7, 5, 6, 8, 9]);
     expect(insert?.sql).not.toMatch(/email|display_name/i);
   });
 

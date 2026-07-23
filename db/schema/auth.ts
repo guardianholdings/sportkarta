@@ -196,6 +196,13 @@ export const accountDeletions = pgTable(
     sessionsCancelled: integer('sessions_cancelled').notNull().default(0),
     rsvpsErased: integer('rsvps_erased').notNull().default(0),
     checkinsErased: integer('checkins_erased').notNull().default(0),
+    /**
+     * Digest opt-ins removed (Stage 4.4) and results anonymised (Stage 4.6).
+     * Results are the two halves' story, not one person's, so they stay with
+     * the participant reference cleared — the tombstone evidences which.
+     */
+    digestSubscriptionsErased: integer('digest_subscriptions_erased').notNull().default(0),
+    resultsAnonymized: integer('results_anonymized').notNull().default(0),
   },
   (t) => [
     index('account_deletions_deleted_at_idx').on(t.deletedAt),
@@ -209,7 +216,8 @@ export const accountDeletions = pgTable(
       sql`${t.auditRowsPreserved} >= 0 AND ${t.photosAnonymized} >= 0
           AND ${t.conditionReportsAnonymized} >= 0 AND ${t.pointsErased} >= 0
           AND ${t.moderationDecisionsPreserved} >= 0 AND ${t.sessionsCancelled} >= 0
-          AND ${t.rsvpsErased} >= 0 AND ${t.checkinsErased} >= 0`,
+          AND ${t.rsvpsErased} >= 0 AND ${t.checkinsErased} >= 0
+          AND ${t.digestSubscriptionsErased} >= 0 AND ${t.resultsAnonymized} >= 0`,
     ),
   ],
 );

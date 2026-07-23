@@ -51,7 +51,17 @@ describe('client bundle hygiene', () => {
   it('keeps the mail module out of the barrel-free subpaths', () => {
     // The subpaths a client may use must not themselves reach the mailer.
     const libRoot = path.resolve(WEB_ROOT, '../../lib/src');
-    for (const entry of ['sports.ts', 'condition.ts', 'slug.ts', 'points.ts']) {
+    // cities.ts and csv.ts joined the list in Stage 4: both are advertised
+    // subpath exports, and lib/city-names.ts (reachable from client code)
+    // re-exports from cities.
+    for (const entry of [
+      'sports.ts',
+      'condition.ts',
+      'slug.ts',
+      'points.ts',
+      'cities.ts',
+      'csv.ts',
+    ]) {
       const source = readFileSync(path.join(libRoot, entry), 'utf8');
       expect(source, entry).not.toMatch(/from\s+['"]\.\/email/);
       expect(source, entry).not.toMatch(/nodemailer/);

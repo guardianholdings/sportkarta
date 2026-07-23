@@ -12,6 +12,7 @@
   "dependencies": {
     "@sportkarta/db": "workspace:*",
     "@sportkarta/import-osm": "workspace:*",
+    "@sportkarta/lib": "workspace:*",
     "dotenv": "^16.4.0",
     "pg": "^8.13.0",
     "pg-boss": "^10.1.0"

@@ -12,7 +12,9 @@
     "./recurrence": "./src/recurrence/index.ts",
     "./slug": "./src/slug.ts",
     "./sports": "./src/sports.ts",
-    "./storage": "./src/storage/index.ts"
+    "./storage": "./src/storage/index.ts",
+    "./csv": "./src/csv.ts",
+    "./cities": "./src/cities.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

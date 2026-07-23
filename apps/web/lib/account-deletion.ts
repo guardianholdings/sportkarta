@@ -40,6 +40,10 @@ export interface DeletionSummary {
   rsvpsErased: number;
   /** play_session_checkins removed with the account. */
   checkinsErased: number;
+  /** digest_subscriptions removed with the account. */
+  digestSubscriptionsErased: number;
+  /** play_session_results whose participant reference was cleared. */
+  resultsAnonymized: number;
 }
 
 interface SqlRunner {
@@ -107,6 +111,21 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
       ),
     );
 
+    // Digest opt-ins are consent and leave with the account (Stage 4.4).
+    // Results do NOT: a result is a fact about a game other people played in
+    // too, so the row stays with the participant reference cleared (Stage 4.6),
+    // which is why one counter says "erased" and the other "anonymized".
+    const digestSubscriptionsErased = countFrom(
+      await tx.execute(
+        sql`SELECT count(*)::int AS n FROM digest_subscriptions WHERE user_id = ${userId}`,
+      ),
+    );
+    const resultsAnonymized = countFrom(
+      await tx.execute(
+        sql`SELECT count(*)::int AS n FROM play_session_results WHERE participant_user_id = ${userId}`,
+      ),
+    );
+
     // Pending one-time codes are keyed by email address, not by user id, so the
     // cascade does not reach them. Left behind they would be a short-lived
     // record of the address that asked to be forgotten.
@@ -126,11 +145,13 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
       INSERT INTO account_deletions (
         user_id, audit_rows_preserved, photos_anonymized,
         condition_reports_anonymized, points_erased, moderation_decisions_preserved,
-        sessions_cancelled, rsvps_erased, checkins_erased
+        sessions_cancelled, rsvps_erased, checkins_erased,
+        digest_subscriptions_erased, results_anonymized
       )
       VALUES (${userId}, ${auditRowsPreserved}, ${photosAnonymized},
               ${conditionReportsAnonymized}, ${pointsErased}, ${moderationDecisionsPreserved},
-              ${sessionsCancelled}, ${rsvpsErased}, ${checkinsErased})
+              ${sessionsCancelled}, ${rsvpsErased}, ${checkinsErased},
+              ${digestSubscriptionsErased}, ${resultsAnonymized})
     `);
 
     // Cascades to sessions, accounts and the points ledger; nulls
@@ -147,6 +168,8 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
       sessionsCancelled,
       rsvpsErased,
       checkinsErased,
+      digestSubscriptionsErased,
+      resultsAnonymized,
     };
   });
 }

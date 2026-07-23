@@ -8,6 +8,7 @@ import { redirect } from 'next/navigation';
 import { routing } from '@/i18n/routing';
 import { deleteAccount } from '@/lib/account-deletion';
 import { getAuth } from '@/lib/auth';
+import { subscribe, unsubscribe } from '@/lib/digest';
 import { requireUser } from '@/lib/auth-session';
 import { buildProfileUpdate, ProfileValidationError, saveProfile } from '@/lib/profile';
 import { headers } from 'next/headers';
@@ -82,4 +83,24 @@ export async function deleteAccountAction(
   );
 
   redirect('/');
+}
+
+/**
+ * Weekly-digest opt-in (Stage 4.4). One toggle per city; the subscription
+ * carries its own unsubscribe token so the emails can be stopped without
+ * signing in. Both directions are idempotent, so a double-tapped toggle
+ * settles rather than flapping.
+ */
+export async function setDigestSubscriptionAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const municipalityId = Number(formData.get('municipalityId'));
+  // Number('') is 0, which is an integer and a foreign-key violation.
+  if (!Number.isInteger(municipalityId) || municipalityId <= 0) return;
+
+  if (String(formData.get('subscribed')) === 'true') {
+    await subscribe(getDb(), user.id, municipalityId);
+  } else {
+    await unsubscribe(getDb(), user.id, municipalityId);
+  }
+  revalidatePath('/profil');
 }

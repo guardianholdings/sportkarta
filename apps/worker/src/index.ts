@@ -1,5 +1,8 @@
 import { materializeSessions, refreshStats } from '@sportkarta/db';
+import { createMailer } from '@sportkarta/lib/email';
 import { runImport } from '@sportkarta/import-osm';
+
+import { runWeeklyDigest } from './digest-job.js';
 import { config } from 'dotenv';
 import pg from 'pg';
 import PgBoss from 'pg-boss';
@@ -17,6 +20,7 @@ const STATS_REFRESH_QUEUE = 'stats.refresh';
 const AUTH_CLEANUP_QUEUE = 'auth.cleanup';
 const SESSION_MATERIALIZE_QUEUE = 'session.materialize';
 const SESSION_NOTIFY_QUEUE = 'session.notify';
+const DIGEST_WEEKLY_QUEUE = 'digest.weekly';
 
 interface ImportOsmJobData {
   dryRun?: boolean;
@@ -66,6 +70,7 @@ async function main(): Promise<void> {
   await boss.createQueue(AUTH_CLEANUP_QUEUE);
   await boss.createQueue(SESSION_MATERIALIZE_QUEUE);
   await boss.createQueue(SESSION_NOTIFY_QUEUE);
+  await boss.createQueue(DIGEST_WEEKLY_QUEUE);
 
   await boss.work(HEALTH_QUEUE, async (jobs) => {
     for (const job of jobs) {
@@ -170,6 +175,30 @@ async function main(): Promise<void> {
       );
     }
   });
+
+  // Weekly city digest (Stage 4.4). Monday 08:00 EUROPE/SOFIA, not UTC: the
+  // send time is a wall-clock promise to a reader, so it must not drift by an
+  // hour twice a year. pg-boss passes tz to cron-parser, which is why luxon is
+  // in the lockfile at all.
+  //
+  // The job and /sedmitsata/[city] call the SAME query (weeklyDigest), and the
+  // send is idempotent per subscriber per week through digest_sends — so a
+  // manual re-run, a retry or a second worker cannot mail anyone twice.
+  await boss.work(DIGEST_WEEKLY_QUEUE, { batchSize: 1 }, async (jobs) => {
+    const mailer = createMailer(process.env);
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+    let last: Awaited<ReturnType<typeof runWeeklyDigest>> | undefined;
+    for (const job of jobs) {
+      last = await runWeeklyDigest({ mailer, siteUrl });
+      // Counts only — never an address (no PII in logs).
+      console.log(
+        `[worker] ${DIGEST_WEEKLY_QUEUE} job ${job.id}: ${String(last.subscribers)} subscriber(s), ` +
+          `${String(last.sent)} sent, ${String(last.skipped)} skipped, ${String(last.failed)} failed`,
+      );
+    }
+    return last;
+  });
+  await boss.schedule(DIGEST_WEEKLY_QUEUE, '0 8 * * 1', {}, { tz: 'Europe/Sofia' });
 
   console.log('[worker] started, listening for jobs');
 

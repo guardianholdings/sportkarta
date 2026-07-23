@@ -3,6 +3,20 @@ export { checkDbHealth } from './health.js';
 export type { DbHealth } from './health.js';
 export { refreshStats, STATS_MATVIEWS } from './stats.js';
 export { HORIZON_WEEKS, materializeSessions } from './sessions/materialize.js';
+export {
+  claimDigestSend,
+  digestRecipients,
+  formatWeekStart,
+  weeklyDigest,
+  weekStartFor,
+  weekWindow,
+} from './digest.js';
+export type {
+  DigestOccurrence,
+  DigestRecipient,
+  DigestWeek,
+  WeeklyDigestOptions,
+} from './digest.js';
 export type {
   MaterializeFailure,
   MaterializeOptions,

@@ -34,6 +34,8 @@ export default async function AdminLayout({
     { href: '/admin/facilities', label: t('facilities'), minRole: 'ambassador' },
     { href: '/admin/verify', label: t('verify'), minRole: 'ambassador' },
     { href: '/admin/moderation', label: t('moderation'), minRole: 'ambassador' },
+    { href: '/admin/sesii', label: t('bulkSessions'), minRole: 'admin' },
+    { href: '/admin/rezultati', label: t('results'), minRole: 'admin' },
     { href: '/admin/ambasadori', label: t('ambassadors'), minRole: 'admin' },
     { href: '/admin/import', label: t('import'), minRole: 'admin' },
   ] as const satisfies readonly { href: string; label: string; minRole: Role }[];

@@ -4,6 +4,7 @@ import {
   boolean,
   check,
   customType,
+  date,
   index,
   integer,
   jsonb,
@@ -873,6 +874,193 @@ export const playSessionCheckins = pgTable(
     ),
   ],
 );
+
+/**
+ * Per-occurrence results (docs/ROADMAP.md §6, Stage 4.6 — "results v1").
+ *
+ * One row per participant or side. A pickup football game is two rows with a
+ * team name, positions 1 and 2 and scores '3' and '1'; a 5 km run is one row
+ * per runner with a position and a typed time. One table and one CSV shape
+ * covers every sport in CANONICAL_SPORTS.
+ *
+ * NO TIMING HARDWARE (docs/ROADMAP.md §6, stated as a boundary rather than an
+ * omission). There is no device id, no chip/gun/net time, and no import path
+ * for a timing system. `score` is TEXT that an organiser typed — '3:1',
+ * '12:34', '21-19, 19-21, 15-12'. A numeric column would fit football and not
+ * tennis, and a duration column would invite exactly the integration this stage
+ * has decided not to build.
+ */
+export const playSessionResults = pgTable(
+  'play_session_results',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    occurrenceId: uuid('occurrence_id')
+      .notNull()
+      .references(() => playSessionOccurrences.id, { onDelete: 'cascade' }),
+    /**
+     * The member this result belongs to, or NULL for a guest and for anyone who
+     * has since erased their account. SET NULL, not CASCADE: a result is a fact
+     * about a game other people played in too, so it outlives the account and
+     * renders under the "former user" label like every other anonymised row.
+     */
+    participantUserId: text('participant_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    /** Display name for a non-member entry, or a side: 'Отбор А'. */
+    participantLabel: text('participant_label'),
+    team: text('team'),
+    position: integer('position'),
+    /** Free text on purpose — see the module note above. */
+    score: text('score'),
+    note: text('note'),
+    recordedBy: text('recorded_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // Per occurrence, ordered by position, unranked last (btree ASC is NULLS
+    // LAST) — the read pattern, served with no sort. Deliberately NOT unique:
+    // ties are real results, and a later migration must not "fix" this into a
+    // unique index.
+    index('play_session_results_occurrence_idx').on(t.occurrenceId, t.position),
+    index('play_session_results_participant_idx')
+      .on(t.participantUserId)
+      .where(sql`${t.participantUserId} IS NOT NULL`),
+    index('play_session_results_recorded_by_idx')
+      .on(t.recordedBy)
+      .where(sql`${t.recordedBy} IS NOT NULL`),
+    // One result per member per occurrence. Guests are not constrained: two
+    // people can genuinely both be entered as 'гост'. NOTE for upserts: this is
+    // a PARTIAL index, so ON CONFLICT must repeat the predicate
+    // (`ON CONFLICT (occurrence_id, participant_user_id) WHERE
+    // participant_user_id IS NOT NULL`) or inference fails.
+    uniqueIndex('play_session_results_occurrence_member_unique')
+      .on(t.occurrenceId, t.participantUserId)
+      .where(sql`${t.participantUserId} IS NOT NULL`),
+    /**
+     * "A row identifies somebody" is enforced by a BEFORE INSERT TRIGGER, not by
+     * a CHECK, and that is load-bearing.
+     *
+     * A CHECK here would be violated by the `ON DELETE SET NULL` this table's
+     * own foreign key performs: a member result is normally
+     * `participant_user_id = <id>, participant_label = NULL` (there is no reason
+     * to type a label for somebody the app can already name), so erasing that
+     * account would null the id, leave the label NULL, fail the CHECK, and abort
+     * `DELETE FROM users` — permanently, with no retry that could ever succeed.
+     * Erasure must never be blockable (CLAUDE.md), so the rule applies to
+     * INSERT only, where the row is being authored.
+     *
+     * The anonymised row is not ambiguous: the trigger guarantees a guest always
+     * has a label, so `participant_user_id IS NULL AND participant_label IS
+     * NULL` means exactly "an erased member", which renders as the same "former
+     * user" label the audit trail already uses.
+     */
+    // Content: a row that says nothing happened is not a result. Blank strings
+    // are impossible (see the text CHECK), so a plain NULL test suffices.
+    check(
+      'play_session_results_has_content',
+      sql`${t.position} IS NOT NULL OR ${t.score} IS NOT NULL OR ${t.note} IS NOT NULL`,
+    ),
+    check(
+      'play_session_results_position_positive',
+      sql`${t.position} IS NULL OR ${t.position} > 0`,
+    ),
+    // NULL or meaningful — never a blank string that renders as an empty cell.
+    // Same idiom as facilities_name_not_blank; it also removes the "NULL or
+    // empty?" ambiguity from the CSV import path.
+    check(
+      'play_session_results_text_sane',
+      sql`(${t.participantLabel} IS NULL OR (btrim(${t.participantLabel}) <> '' AND char_length(${t.participantLabel}) <= 80))
+          AND (${t.team} IS NULL OR (btrim(${t.team}) <> '' AND char_length(${t.team}) <= 80))
+          AND (${t.score} IS NULL OR (btrim(${t.score}) <> '' AND char_length(${t.score}) <= 40))
+          AND (${t.note} IS NULL OR (btrim(${t.note}) <> '' AND char_length(${t.note}) <= 300))`,
+    ),
+  ],
+);
+
+/**
+ * Opt-in to the weekly city digest (docs/ROADMAP.md §6, Stage 4.4).
+ *
+ * Signed-in members only, so the address is already verified by OTP sign-in and
+ * nobody can subscribe somebody else. The primary key makes a double-submitted
+ * toggle a no-op rather than a duplicate.
+ *
+ * `unsubscribe_token` is what makes one-click unsubscribe work WITHOUT a
+ * session: someone who has lost interest must not have to sign in to make the
+ * mail stop. It is random and per-subscription, so it reveals nothing and
+ * cancels exactly one city.
+ */
+export const digestSubscriptions = pgTable(
+  'digest_subscriptions',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    municipalityId: integer('municipality_id')
+      .notNull()
+      .references(() => municipalities.id, { onDelete: 'cascade' }),
+    unsubscribeToken: text('unsubscribe_token')
+      .notNull()
+      .unique('digest_subscriptions_unsubscribe_token_unique'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.municipalityId] }),
+    // The job's scan: everyone subscribed to this city.
+    index('digest_subscriptions_municipality_idx').on(t.municipalityId),
+    // Shape, not just length: the token is a bearer credential that travels in
+    // an email URL, so a truncated or predictable generator should fail closed
+    // rather than store something guessable. (The blast radius is one
+    // unsubscribe, which is why this is a shape check and not a hash.)
+    check('digest_subscriptions_token_shape', sql`${t.unsubscribeToken} ~ '^[A-Za-z0-9_-]{22,}$'`),
+  ],
+);
+
+/**
+ * The digest idempotency ledger — the same argument as points_ledger, for the
+ * same reason: a retried job, an overlapping schedule or a second worker must
+ * not mail anyone twice.
+ *
+ * The insert happens in the SAME transaction as the send attempt and BEFORE it,
+ * so the worst case is a crash that skips one week's mail, never one that sends
+ * it twice. Deliberately holds no subject, no body and no address: it records
+ * THAT a send happened, not what was in it.
+ */
+export const digestSends = pgTable(
+  'digest_sends',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    municipalityId: integer('municipality_id')
+      .notNull()
+      .references(() => municipalities.id, { onDelete: 'cascade' }),
+    /** The Sofia Monday the digest covered. A date, not an instant. */
+    weekStart: date('week_start').notNull(),
+    sentAt: timestamptz('sent_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('digest_sends_user_week_unique').on(t.userId, t.municipalityId, t.weekStart),
+    index('digest_sends_week_idx').on(t.weekStart),
+    index('digest_sends_municipality_idx').on(t.municipalityId),
+    /**
+     * The whole idempotency argument rests on both writers agreeing what "this
+     * week" is, and a `date` is only unambiguous if it is written as one.
+     * node-postgres serialises a JS Date using the PROCESS offset, so a Sofia
+     * Monday 00:00 sent from a `TZ=UTC` worker arrives as the previous SUNDAY —
+     * two rows for one logical week, both inserting, subscriber mailed twice.
+     * This turns that entire class of slip into a loud insert failure, and
+     * because the ledger row goes in before the send, a failure means no mail
+     * rather than a duplicate. The job passes a 'YYYY-MM-DD' string.
+     */
+    check('digest_sends_week_start_is_monday', sql`EXTRACT(isodow FROM ${t.weekStart}) = 1`),
+  ],
+);
+
+export type PlaySessionResult = typeof playSessionResults.$inferSelect;
+export type NewPlaySessionResult = typeof playSessionResults.$inferInsert;
+export type DigestSubscription = typeof digestSubscriptions.$inferSelect;
+export type DigestSend = typeof digestSends.$inferSelect;
 
 export type PlaySession = typeof playSessions.$inferSelect;
 export type NewPlaySession = typeof playSessions.$inferInsert;

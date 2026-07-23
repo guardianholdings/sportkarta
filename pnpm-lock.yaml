@@ -129,6 +129,9 @@ importers:
       '@sportkarta/import-osm':
         specifier: workspace:*
         version: link:../../scripts/import-osm
+      '@sportkarta/lib':
+        specifier: workspace:*
+        version: link:../../lib
       dotenv:
         specifier: ^16.4.0
         version: 16.6.1

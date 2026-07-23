@@ -64,6 +64,13 @@
       "when": 1784758208876,
       "tag": "0008_play_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784785553156,
+      "tag": "0009_digest_results",
+      "breakpoints": true
     }
   ]
 }

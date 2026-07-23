@@ -1,16 +1,19 @@
 import { getDb, sql, type SQL } from '@sportkarta/db';
-import { slugify } from '@sportkarta/lib';
+import { assignCitySlugs, type City, type MunicipalityRow } from '@sportkarta/lib/cities';
+import { slugify } from '@sportkarta/lib/slug';
 import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
-
-// City display/slug overrides live in JSON (data, not translatable UI copy) so
-// place names like "Столична" → "София" stay out of scanned .ts source.
-import cityOverridesJson from './city-overrides.json';
 
 // Only canonical sports get their own /igrishta/[city]/[sport] page (the
 // [segment] route allowlists them). Any stray non-canonical value in
 // sport_types must NOT be emitted as a sitemap URL or cross-link, or it would
 // point at a page that 404s.
 const CANONICAL_SPORT_SET = new Set<string>(CANONICAL_SPORTS);
+
+// City identity (slugs, display names) lives in @sportkarta/lib/cities: the
+// worker needs the same slugs for the digest email, and two implementations of
+// the collision rule would drift.
+export { assignCitySlugs, cityDisplayName } from '@sportkarta/lib/cities';
+export type { City, MunicipalityRow } from '@sportkarta/lib/cities';
 
 /**
  * Data layer for the programmatic "places" pages (/igrishta/[city]/...).
@@ -20,18 +23,6 @@ const CANONICAL_SPORT_SET = new Set<string>(CANONICAL_SPORTS);
  * "Столична" municipality reads `sofia` / "София" rather than `stolichna`.
  */
 
-export interface City {
-  id: number;
-  slug: string;
-  nameBg: string;
-  nameEn: string;
-}
-
-const CITY_OVERRIDES = cityOverridesJson as Record<
-  string,
-  { slug: string; nameBg: string; nameEn: string }
->;
-
 interface CityCatalog {
   bySlug: Map<string, City>;
   byId: Map<number, City>;
@@ -39,39 +30,6 @@ interface CityCatalog {
 }
 
 let catalogCache: CityCatalog | null = null;
-
-export interface MunicipalityRow {
-  id: number;
-  name_bg: string;
-  name_en: string;
-}
-
-/**
- * Pure slug assignment (unit-tested): transliterate each municipality's name,
- * apply overrides, and resolve collisions deterministically by input order.
- */
-export function assignCitySlugs(rows: MunicipalityRow[]): City[] {
-  const taken = new Set<string>();
-  const out: City[] = [];
-  for (const row of rows) {
-    const override = CITY_OVERRIDES[row.name_bg];
-    let slug = override?.slug ?? (slugify(row.name_bg) || `obshtina-${String(row.id)}`);
-    // Deterministic collision suffix (two "Бяла" municipalities exist).
-    if (taken.has(slug)) {
-      let n = 2;
-      while (taken.has(`${slug}-${String(n)}`)) n++;
-      slug = `${slug}-${String(n)}`;
-    }
-    taken.add(slug);
-    out.push({
-      id: Number(row.id),
-      slug,
-      nameBg: override?.nameBg ?? row.name_bg,
-      nameEn: override?.nameEn ?? row.name_en,
-    });
-  }
-  return out;
-}
 
 /** Load + cache the city catalog. Municipalities are static after import. */
 export async function loadCityCatalog(): Promise<CityCatalog> {
