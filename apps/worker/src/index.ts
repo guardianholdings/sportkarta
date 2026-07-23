@@ -3,6 +3,7 @@ import { createMailer } from '@sportkarta/lib/email';
 import { runImport } from '@sportkarta/import-osm';
 
 import { runWeeklyDigest } from './digest-job.js';
+import { runOpenDataDump } from './opendata-dump-job.js';
 import {
   NOTIFY_REASONS,
   runSessionNotify,
@@ -28,6 +29,7 @@ const SESSION_MATERIALIZE_QUEUE = 'session.materialize';
 const SESSION_NOTIFY_QUEUE = 'session.notify';
 const SESSION_REMINDERS_QUEUE = 'session.reminders';
 const DIGEST_WEEKLY_QUEUE = 'digest.weekly';
+const OPENDATA_DUMP_QUEUE = 'opendata.dump';
 
 interface ImportOsmJobData {
   dryRun?: boolean;
@@ -67,6 +69,7 @@ async function main(): Promise<void> {
   await boss.createQueue(SESSION_NOTIFY_QUEUE);
   await boss.createQueue(SESSION_REMINDERS_QUEUE);
   await boss.createQueue(DIGEST_WEEKLY_QUEUE);
+  await boss.createQueue(OPENDATA_DUMP_QUEUE);
 
   await boss.work(HEALTH_QUEUE, async (jobs) => {
     for (const job of jobs) {
@@ -228,6 +231,31 @@ async function main(): Promise<void> {
     return last;
   });
   await boss.schedule(DIGEST_WEEKLY_QUEUE, '0 8 * * 1', {}, { tz: 'Europe/Sofia' });
+
+  // Nightly open-data bulk dump (Stage 6.1). 03:40 EUROPE/SOFIA — deliberately
+  // clear of the backup sidecar's 03:30 pg_dump, so the two are not competing
+  // for the same disk, and in civil time so the version in the path is the day
+  // a person in Sofia would call it.
+  //
+  // Idempotent by construction: every dataset's ORDER BY is total, so a re-run
+  // on the same day rewrites byte-identical files under the same version. The
+  // job is safe to trigger by hand from the admin screen when something looks
+  // wrong, which is the point of making it boring.
+  await boss.work(OPENDATA_DUMP_QUEUE, { batchSize: 1 }, async (jobs) => {
+    let last: Awaited<ReturnType<typeof runOpenDataDump>> | undefined;
+    for (const job of jobs) {
+      last = await runOpenDataDump();
+      // Counts, a version and a byte total — a dump is a public artifact and
+      // names nobody, so there is nothing here to withhold.
+      console.log(
+        `[worker] ${OPENDATA_DUMP_QUEUE} job ${job.id}: version ${last.version}, ` +
+          `${String(last.written)} file(s) written, ${String(last.failed)} failed, ` +
+          `${String(last.bytes)} bytes, ${String(last.prunedVersions)} old version(s) pruned`,
+      );
+    }
+    return last;
+  });
+  await boss.schedule(OPENDATA_DUMP_QUEUE, '40 3 * * *', {}, { tz: 'Europe/Sofia' });
 
   console.log('[worker] started, listening for jobs');
 

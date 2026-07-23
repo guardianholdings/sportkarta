@@ -87,6 +87,22 @@ export type {
   PublicPassportOwner,
 } from './passport.js';
 
+export { exportQuery, runExport, assertDatasetSafe } from './opendata/export.js';
+export type { ExportQueryOptions } from './opendata/export.js';
+export { publicFacilityVisible } from './opendata/visibility.js';
+export {
+  dumpEntry,
+  dumpGeneratedAt,
+  dumpManifest,
+  dumpStoragePath,
+  dumpVersionFor,
+  dumpVersions,
+  latestDumpVersion,
+  pruneDumps,
+  recordDump,
+} from './opendata/dumps.js';
+export type { DumpEntry, DumpManifest } from './opendata/dumps.js';
+
 // Single drizzle instance for the whole workspace. Callers MUST build queries
 // with this `sql` rather than importing drizzle-orm directly: pnpm keys package
 // instances by their resolved peer deps, so a dependency that drags in one of

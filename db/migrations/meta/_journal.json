@@ -106,6 +106,13 @@
       "when": 1784812550858,
       "tag": "0014_qr_checkin",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1784819309278,
+      "tag": "0015_open_data",
+      "breakpoints": true
     }
   ]
 }

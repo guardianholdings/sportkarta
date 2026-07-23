@@ -56,6 +56,12 @@ services:
       UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
       # Self-hosted GlitchTip (Sentry-compatible) DSN for client error monitoring.
       GLITCHTIP_DSN: ${GLITCHTIP_DSN:-}
+      # Open-data soft limits (Stage 6.1), per minute. Empty = the defaults in
+      # apps/web/lib/opendata/limits.ts (30 anonymous, 300 with a key).
+      OPENDATA_RATE_LIMIT_ANON: ${OPENDATA_RATE_LIMIT_ANON:-}
+      OPENDATA_RATE_LIMIT_KEYED: ${OPENDATA_RATE_LIMIT_KEYED:-}
+      # Shown on /danni so a reuser knows how long a cited version survives.
+      OPENDATA_DUMP_RETENTION: ${OPENDATA_DUMP_RETENTION:-30}
     volumes:
       - uploads:/data/uploads
     depends_on:
@@ -77,6 +83,17 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://sportkarta:${POSTGRES_PASSWORD}@db:5432/sportkarta
+      # Stage 6.1: the nightly opendata.dump job WRITES the bulk dumps that the
+      # web container SERVES, so both mount the same volume at the same path.
+      # Without this the job would write into the container's own filesystem and
+      # every dump would vanish on the next deploy — silently, since the job
+      # would report success and only the download route would 404.
+      STORAGE_DIR: /data/uploads
+      # Retention and API limits are read by the job and the web app; both
+      # default sensibly, so they are only set here when overridden.
+      OPENDATA_DUMP_RETENTION: ${OPENDATA_DUMP_RETENTION:-30}
+    volumes:
+      - uploads:/data/uploads
     depends_on:
       db:
         condition: service_healthy

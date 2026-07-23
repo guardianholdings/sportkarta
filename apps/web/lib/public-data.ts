@@ -1,4 +1,4 @@
-import { getDb, sql, type SQL } from '@sportkarta/db';
+import { getDb, publicFacilityVisible, sql, type SQL } from '@sportkarta/db';
 
 import type { PublicFilters } from '@/lib/filters';
 
@@ -26,8 +26,20 @@ function textArray(values: string[]): SQL {
   )}]::text[]`;
 }
 
+/**
+ * Every public facility query starts from `publicFacilityVisible` (Stage 6.1),
+ * which is compiled from the single predicate string the open-data catalogue
+ * declares and the PII test reads.
+ *
+ * Before Stage 6 this was two literals here, which was fine while the map was
+ * the only reader. It stopped being fine when the same corpus started leaving
+ * as a nightly file anyone can download: two copies of "which facilities are
+ * public" would agree on the day they were written and diverge the first time
+ * one was edited, and a facility withdrawn from the map that stayed in the CSV
+ * is not a rendering bug — it is publishing something we decided not to.
+ */
 function publicConditions(f: PublicFilters): SQL {
-  const conditions: SQL[] = [sql`f.status <> 'gone'`, sql`f.slug IS NOT NULL`];
+  const conditions: SQL[] = [publicFacilityVisible];
   if (f.sports.length) conditions.push(sql`f.sport_types && ${textArray(f.sports)}`);
   if (f.access.length) conditions.push(sql`f.access::text = ANY(${textArray(f.access)})`);
   if (f.onlyLit) conditions.push(sql`f.lighting IS TRUE`);

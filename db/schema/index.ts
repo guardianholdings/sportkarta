@@ -14,6 +14,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
@@ -1572,6 +1573,141 @@ export const campaignResults = pgTable(
     ),
   ],
 );
+
+/**
+ * Free API keys for the documented open-data API (Stage 6.1, migration 0015).
+ *
+ * THE COLUMN CANNOT HOLD A TOKEN, and that is the point. `key_hash` is
+ * CHECK-constrained to exactly 64 lowercase hex characters — a SHA-256 digest.
+ * An issued key is 43 characters of base64url with `-` and `_` in it, so the
+ * shape rule makes storing the plaintext a constraint violation rather than a
+ * code review someone has to remember to do. "We only store the hash" is the
+ * kind of claim that is true until the day somebody adds a debugging column.
+ *
+ * `prefix` is the `skbg_` marker plus six characters of the secret, stored
+ * deliberately: a member with three keys needs to tell them apart to revoke the
+ * right one, and six characters of a 256-bit secret is not a head start.
+ *
+ * ON DELETE CASCADE, not SET NULL. A key is a live credential, not an audit
+ * record: erasure must revoke it, and an ownerless key that still authenticates
+ * is the worst of both worlds. It is placed in apps/web/lib/account-deletion.ts
+ * in the lock order 0012 and 0013 established — every FK on `users` that the
+ * erasure path touches has to keep that order or a deploy overlapping a GDPR
+ * erasure deadlocks, and `deadlock_timeout` fires before `lock_timeout`.
+ *
+ * THERE IS NO REQUEST LOG, here or anywhere in this feature. `last_used_at` is
+ * rounded to the minute by the writer and is the only trace a request leaves.
+ * An access log for an open-data API is a record of which municipality's data
+ * an identified account keeps asking about — a far more sensitive table than
+ * the one it would be protecting. Rate limiting is in-memory and per-process
+ * (apps/web/lib/opendata/limits.ts), which is why it is allowed to forget.
+ */
+export const apiKeys = pgTable(
+  'api_keys',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** Member-supplied name, so a person can tell their own keys apart. */
+    label: text('label').notNull(),
+    /** SHA-256 of the issued key. The key itself is shown once, then gone. */
+    keyHash: text('key_hash').notNull(),
+    prefix: text('prefix').notNull(),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    /** Minute-rounded. NULL = never used. */
+    lastUsedAt: timestamptz('last_used_at'),
+    /** Set instead of deleting, so a revoked key can never be re-issued. */
+    revokedAt: timestamptz('revoked_at'),
+  },
+  (t) => [
+    // The lookup on every authenticated request: hash → key. Unique because two
+    // rows with one hash would make "which key was this?" ambiguous, and the
+    // birthday odds on SHA-256 say a collision here is a bug, not chance.
+    uniqueIndex('api_keys_key_hash_unique').on(t.keyHash),
+    index('api_keys_user_idx').on(t.userId),
+    check('api_keys_hash_is_sha256_hex', sql`${t.keyHash} ~ '^[0-9a-f]{64}$'`),
+    check('api_keys_prefix_shape', sql`${t.prefix} ~ '^skbg_[A-Za-z0-9_-]{6}$'`),
+    check('api_keys_label_not_blank', sql`btrim(${t.label}) <> ''`),
+    check('api_keys_label_len', sql`char_length(${t.label}) <= 60`),
+    /**
+     * The free-text column may not contain a key either — found in review, and
+     * the reason the header's claim is about the TABLE rather than one column.
+     * A label allows 60 characters and an issued key is 48, so somebody pasting
+     * their key into the label box would have stored it in cleartext, seen it
+     * rendered back on the keys page, and shipped it into every backup, while
+     * the hash carried on authenticating it.
+     */
+    check('api_keys_label_no_key', sql`position('skbg_' in ${t.label}) = 0`),
+  ],
+);
+
+/**
+ * The index of published bulk dumps (Stage 6.1, migration 0015).
+ *
+ * THE TABLE IS THE INDEX; THE FILE IS THE ARTIFACT. The manifest endpoint reads
+ * these rows rather than listing a directory, because a directory listing is
+ * whatever happens to be on the volume — a half-written file during a dump, a
+ * leftover from a version that was pruned, a name somebody typo'd. A row is
+ * written only after its file is fully written and hashed.
+ *
+ * The consequence is stated rather than hidden: if the volume is wiped and the
+ * database is not, a row can outlive its file. The download route 404s in that
+ * case instead of serving a truncated file, and says so.
+ *
+ * `version` is a CIVIL Sofia date, not a timestamp: "the 23 July 2026 dump" is
+ * what a citation in a report says, and a UTC timestamp would put the dump for
+ * a Sofia morning under the previous day for four months of the year.
+ *
+ * `sha256` is what makes a dump CITABLE. A report that says "computed from the
+ * 2026-07-23 extract" can be checked by anybody who still has the file, which
+ * is the difference between an open dataset and a published number.
+ */
+export const opendataDumps = pgTable(
+  'opendata_dumps',
+  {
+    /** Civil Sofia date, `YYYY-MM-DD`. */
+    version: date('version').notNull(),
+    /** Catalogue dataset id (lib/src/opendata/schema.ts). */
+    dataset: text('dataset').notNull(),
+    format: text('format').notNull(),
+    storagePath: text('storage_path').notNull(),
+    bytes: bigint('bytes', { mode: 'number' }).notNull(),
+    rowCount: integer('row_count').notNull(),
+    sha256: text('sha256').notNull(),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({
+      name: 'opendata_dumps_pkey',
+      columns: [t.version, t.dataset, t.format],
+    }),
+    /**
+     * NO separate index on `version`: it already leads the primary key, so a
+     * backward scan of the PK serves "newest versions first". A first draft
+     * added one as `DESC NULLS LAST`, which matches neither `ORDER BY version`
+     * nor `ORDER BY version DESC` — that is DESC NULLS FIRST, and the planner
+     * compares the nulls flag — so it was a write cost that could not serve the
+     * one query it existed for.
+     *
+     * `storage_path` IS unique: the premise of this table is "the row is the
+     * index, the file is the artifact", and two rows claiming one path with
+     * different checksums would let the retention pruner delete a file a live
+     * row still advertises.
+     */
+    unique('opendata_dumps_storage_path_unique').on(t.storagePath),
+    check('opendata_dumps_sha256_hex', sql`${t.sha256} ~ '^[0-9a-f]{64}$'`),
+    check('opendata_dumps_bytes_positive', sql`${t.bytes} > 0`),
+    check('opendata_dumps_row_count_non_negative', sql`${t.rowCount} >= 0`),
+    check('opendata_dumps_format_known', sql`${t.format} IN ('geojson', 'csv', 'json')`),
+    check('opendata_dumps_dataset_not_blank', sql`btrim(${t.dataset}) <> ''`),
+  ],
+);
+
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type NewApiKey = typeof apiKeys.$inferInsert;
+export type OpendataDump = typeof opendataDumps.$inferSelect;
+export type NewOpendataDump = typeof opendataDumps.$inferInsert;
 
 export type Campaign = typeof campaigns.$inferSelect;
 export type NewCampaign = typeof campaigns.$inferInsert;

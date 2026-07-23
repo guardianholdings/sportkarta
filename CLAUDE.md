@@ -83,6 +83,25 @@ browser) in a MANUAL STEPS list at the end of the session.
   browser's coordinates live for one statement and only `distance_m` is stored —
   never a latitude or longitude. Nothing in the anti-abuse layer REFUSES a
   check-in; attendance is always recorded and only the payment stops
+- Open data (Stage 6.1) is a CATALOGUE, not endpoints: `lib/src/opendata/schema.ts`
+  declares every dataset and every field, and the API, the nightly dumps, the
+  `/danni` docs page and the PII denylist all read that one array. A column
+  cannot leave the building without being declared, documented and scanned —
+  the SELECT list is GENERATED from the fields, so `SELECT *` is
+  unconstructible. Guards, weakest to strongest: a person-bearing token
+  denylist on names and on SQL, an ALLOWLIST of readable relations (the strong
+  one — it catches tables that do not exist yet), no `jsonb` field ever
+  (`facilities.attrs` is OSM tags, which include `contact:phone`), and a
+  live-DB test that the returned columns are exactly the declared ones. The
+  facility export carries the public map's own visibility predicate
+  (`PUBLIC_FACILITY_PREDICATE` → `publicFacilityVisible`), so a download can
+  never contain a row the site would not show. API keys raise the rate limit
+  and never gate access; `api_keys.key_hash` is CHECK-pinned to 64 hex chars,
+  so the column cannot hold a key. There is deliberately NO request log. Dumps
+  are versioned by civil Sofia date in the path, stamped with the VERSION
+  rather than the wall clock (so a re-run is byte-identical and the `immutable`
+  cache header is honest), and the `opendata_dumps` row is written only after
+  the file is hashed
 - i18n keys must be NESTED, never dotted: next-intl reads `.` as nesting and
   rejects the catalogue at request time, and the parity test cannot see it
   (`apps/web/tests/i18n.test.ts` has a separate guard)
