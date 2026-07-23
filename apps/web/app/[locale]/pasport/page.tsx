@@ -46,9 +46,14 @@ export default async function PassportPage({ params }: { params: Promise<{ local
     <main className="mx-auto max-w-2xl space-y-10 p-4">
       <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-neutral-200 pb-3">
         <h1 className="text-xl font-semibold">{t('title')}</h1>
-        <Link href="/profil" className="ml-auto text-xs underline">
-          {t('profileLink')}
-        </Link>
+        <div className="ml-auto flex items-center gap-3 text-xs">
+          <Link href="/klasirane" className="underline">
+            {t('leaderboardLink')}
+          </Link>
+          <Link href="/profil" className="underline">
+            {t('profileLink')}
+          </Link>
+        </div>
       </header>
 
       <section aria-labelledby="totals-h" className="space-y-3">

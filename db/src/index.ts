@@ -22,6 +22,14 @@ export type {
   MaterializeOptions,
   MaterializeReport,
 } from './sessions/materialize.js';
+export { leaderboard, leaderboardCities, memberStanding, monthStart } from './leaderboard.js';
+export type {
+  LeaderboardEntry,
+  LeaderboardOptions,
+  LeaderboardPeriod,
+  LeaderboardScope,
+  MemberStanding,
+} from './leaderboard.js';
 export {
   markBadgesSeen,
   passportEvents,

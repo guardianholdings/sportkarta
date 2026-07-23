@@ -50,8 +50,16 @@ browser) in a MANUAL STEPS list at the end of the session.
   all write through `facility_edits` with the account id as `actor` and
   `source='crowd'`. Points live in the append-only `points_ledger` — awards are
   `INSERT ... ON CONFLICT (idempotency_key) DO NOTHING` inside the contribution's
-  own transaction, so retries cannot double-award. Earning only, and no
-  leaderboard (minors rule)
+  own transaction, so retries cannot double-award. Earning only — there are no
+  spending mechanics
+- Passport + leaderboards (Stage 5): badges are DERIVED by folding
+  `points_ledger` + `play_session_checkins` through the catalogue in
+  `lib/src/badges` — a new badge is config plus two i18n keys, never a
+  migration, and is awarded retroactively with its true date. Streaks are
+  civil Sofia days/weeks (never elapsed ms). Who may appear on a public
+  leaderboard is defined ONCE, in the `leaderboard_eligible_members` view:
+  never a minor, and only members who opted their passport public. Every
+  ranking joins that view instead of `users`, so a new slice inherits the rule
 - Client components must import `@sportkarta/lib/<subpath>`, never the barrel:
   the barrel re-exports the mailer, which drags nodemailer and `node:fs` into
   the browser bundle (`apps/web/tests/client-imports.test.ts` enforces this)
@@ -75,7 +83,10 @@ browser) in a MANUAL STEPS list at the end of the session.
 - GDPR erasure removes the profile and anonymises contributions, but
   `facility_edits` is append-only and stays intact — erased actors render as the
   "former user" label (`apps/web/lib/account-deletion.ts`)
-- Minors: no individual public leaderboards
+- Minors: no individual public leaderboards. Leaderboards exist (Stage 5.2) and
+  minors are excluded from them at the QUERY layer, by the
+  `leaderboard_eligible_members` view — never by a UI check. That view must
+  never be widened; adding a board means a new query against it
 - Migrations forward-only, reviewed by db-migration-reviewer subagent
 - Deploys happen ONLY via GitHub Actions on main — never deploy from a session
 - Secrets: real values live only in `.env` (gitignored), GitHub Actions

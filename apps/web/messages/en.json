@@ -738,6 +738,7 @@
   "Passport": {
     "title": "My sports passport",
     "profileLink": "Profile",
+    "leaderboardLink": "Leaderboard",
     "totalsTitle": "Totals",
     "total_points": "Points",
     "total_facilitiesAdded": "Facilities added",
@@ -818,5 +819,29 @@
       "name": "A month in motion",
       "description": "Played every week for 4 weeks."
     }
+  },
+  "Leaderboard": {
+    "metaTitle": "Leaderboard — SportKarta",
+    "headingNational": "National leaderboard",
+    "headingCity": "Leaderboard for {city}",
+    "headingSport": "Leaderboard: {sport}",
+    "intro": "Ranked by points from contributions to the map — facilities added, verified and checked.",
+    "filtersLabel": "Leaderboard filters",
+    "scopeNational": "Whole country",
+    "periodAllTime": "All time",
+    "periodMonth": "This month",
+    "tableCaption": "Ranking by points",
+    "columnRank": "Rank",
+    "columnMember": "Member",
+    "columnPoints": "Points",
+    "columnContributions": "Contributions",
+    "empty": "Nobody is on this leaderboard yet.",
+    "yourStandingTitle": "Your standing",
+    "standingRanked": "You are ranked {rank} of {total} members, with {points} points.",
+    "standingSignedOut": "Sign in to see your standing.",
+    "standingMinor": "Members under 18 are never included in public leaderboards. Your points are still recorded and shown on your own passport.",
+    "standingNotPublic": "To take part in the leaderboard, make your sports passport public.",
+    "standingPassportLink": "Go to my passport",
+    "eligibilityNote": "Only adult members with a public sports passport appear here. Members under 18 are never included."
   }
 }
