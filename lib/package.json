@@ -9,6 +9,7 @@
     "./condition": "./src/condition.ts",
     "./points": "./src/points.ts",
     "./email": "./src/email/index.ts",
+    "./recurrence": "./src/recurrence/index.ts",
     "./slug": "./src/slug.ts",
     "./sports": "./src/sports.ts",
     "./storage": "./src/storage/index.ts"

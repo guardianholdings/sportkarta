@@ -187,6 +187,15 @@ export const accountDeletions = pgTable(
      * longer resolves, so the tombstone must be able to evidence how many.
      */
     moderationDecisionsPreserved: integer('moderation_decisions_preserved').notNull().default(0),
+    /**
+     * Play-layer counters (Stage 4.1). Sessions the person organised are
+     * cancelled rather than deleted — other people's past attendance is their
+     * data, not the organiser's — while RSVPs and check-ins are the person's own
+     * and leave with the account, so the tombstone evidences both halves.
+     */
+    sessionsCancelled: integer('sessions_cancelled').notNull().default(0),
+    rsvpsErased: integer('rsvps_erased').notNull().default(0),
+    checkinsErased: integer('checkins_erased').notNull().default(0),
   },
   (t) => [
     index('account_deletions_deleted_at_idx').on(t.deletedAt),
@@ -199,7 +208,8 @@ export const accountDeletions = pgTable(
       'account_deletions_counts_non_negative',
       sql`${t.auditRowsPreserved} >= 0 AND ${t.photosAnonymized} >= 0
           AND ${t.conditionReportsAnonymized} >= 0 AND ${t.pointsErased} >= 0
-          AND ${t.moderationDecisionsPreserved} >= 0`,
+          AND ${t.moderationDecisionsPreserved} >= 0 AND ${t.sessionsCancelled} >= 0
+          AND ${t.rsvpsErased} >= 0 AND ${t.checkinsErased} >= 0`,
     ),
   ],
 );

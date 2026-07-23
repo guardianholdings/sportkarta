@@ -57,6 +57,13 @@
       "when": 1784753759805,
       "tag": "0007_ambassadors_moderation",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784758208876,
+      "tag": "0008_play_sessions",
+      "breakpoints": true
     }
   ]
 }

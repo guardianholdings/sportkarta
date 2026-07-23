@@ -34,6 +34,12 @@ export interface DeletionSummary {
   pointsErased: number;
   /** moderation_decisions rows left intact — accountability outlives the account. */
   moderationDecisionsPreserved: number;
+  /** play_sessions this person organised, cancelled rather than deleted. */
+  sessionsCancelled: number;
+  /** play_session_rsvps removed with the account. */
+  rsvpsErased: number;
+  /** play_session_checkins removed with the account. */
+  checkinsErased: number;
 }
 
 interface SqlRunner {
@@ -77,6 +83,30 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
       ),
     );
 
+    // Play layer (Stage 4.1). RSVPs and check-ins are the person's OWN data and
+    // leave with the account through the cascade, so they are counted like
+    // points. Sessions they organised are a different case: other people's past
+    // attendance is not the organiser's data to destroy, so organizer_id is
+    // ON DELETE SET NULL and the play_sessions_orphan_cancel trigger cancels the
+    // series — future occurrences with it. Nothing is done here to make that
+    // happen; the count is taken so the tombstone can evidence that it did.
+    const rsvpsErased = countFrom(
+      await tx.execute(
+        sql`SELECT count(*)::int AS n FROM play_session_rsvps WHERE user_id = ${userId}`,
+      ),
+    );
+    const checkinsErased = countFrom(
+      await tx.execute(
+        sql`SELECT count(*)::int AS n FROM play_session_checkins WHERE user_id = ${userId}`,
+      ),
+    );
+    const sessionsCancelled = countFrom(
+      await tx.execute(
+        sql`SELECT count(*)::int AS n FROM play_sessions
+             WHERE organizer_id = ${userId} AND status = 'scheduled'`,
+      ),
+    );
+
     // Pending one-time codes are keyed by email address, not by user id, so the
     // cascade does not reach them. Left behind they would be a short-lived
     // record of the address that asked to be forgotten.
@@ -95,10 +125,12 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
     await tx.execute(sql`
       INSERT INTO account_deletions (
         user_id, audit_rows_preserved, photos_anonymized,
-        condition_reports_anonymized, points_erased, moderation_decisions_preserved
+        condition_reports_anonymized, points_erased, moderation_decisions_preserved,
+        sessions_cancelled, rsvps_erased, checkins_erased
       )
       VALUES (${userId}, ${auditRowsPreserved}, ${photosAnonymized},
-              ${conditionReportsAnonymized}, ${pointsErased}, ${moderationDecisionsPreserved})
+              ${conditionReportsAnonymized}, ${pointsErased}, ${moderationDecisionsPreserved},
+              ${sessionsCancelled}, ${rsvpsErased}, ${checkinsErased})
     `);
 
     // Cascades to sessions, accounts and the points ledger; nulls
@@ -112,6 +144,9 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
       conditionReportsAnonymized,
       pointsErased,
       moderationDecisionsPreserved,
+      sessionsCancelled,
+      rsvpsErased,
+      checkinsErased,
     };
   });
 }

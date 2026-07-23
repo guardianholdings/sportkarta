@@ -3,6 +3,7 @@ export * from './condition.js';
 export * from './email/index.js';
 export * from './merge-policy.js';
 export * from './points.js';
+export * from './recurrence/index.js';
 export * from './slug.js';
 export * from './sports.js';
 export * from './storage/index.js';

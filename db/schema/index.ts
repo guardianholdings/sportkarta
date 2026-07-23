@@ -8,6 +8,7 @@ import {
   integer,
   jsonb,
   pgEnum,
+  pgSequence,
   pgTable,
   primaryKey,
   text,
@@ -540,6 +541,348 @@ export const moderationFlags = pgTable(
     check('moderation_flags_note_len', sql`${t.note} IS NULL OR char_length(${t.note}) <= 300`),
   ],
 );
+
+/* ------------------------------------------------------------------------ *
+ * Play layer — pickup sessions (docs/ROADMAP.md §6, Stage 4.1)
+ *
+ * These live here for the same reason points_ledger does: they reference BOTH
+ * users and facilities, and a separate module importing this one while this one
+ * re-exports it is an import cycle that would bite at table-construction time.
+ *
+ * NAMING: `sessions` is already better-auth's table (schema/auth.ts), so every
+ * table below is prefixed `play_session*`. The Bulgarian product word is
+ * "тренировка"; slugs stay English like every other identifier and the UI labels
+ * come from i18n.
+ *
+ * THE TIME MODEL, which everything else follows from: a session is scheduled in
+ * WALL CLOCK time. `starts_at_local` is a `timestamp` WITHOUT time zone — a
+ * reading on a Sofia clock — and `rrule` is expanded against it in pure civil
+ * arithmetic (lib/src/recurrence). Only the finished candidates become instants.
+ * A weekly 18:00 session is 18:00 in January and 18:00 in July even though those
+ * are different UTC instants, and no implementation that adds 7 × 86 400 000 ms
+ * to an instant can produce that.
+ * ------------------------------------------------------------------------ */
+
+/**
+ * A wall clock reading, kept as a STRING end to end. node-postgres parses
+ * `timestamp without time zone` into a JS Date using the host's system
+ * timezone — on a CI box in UTC and a laptop in Sofia that is two different
+ * instants for the same row. mode:'string' means no conversion ever happens
+ * where it is not written down.
+ */
+const wallClock = (name: string) => timestamp(name, { withTimezone: false, mode: 'string' });
+
+/** Series and occurrence lifecycle. Completion is derivable from the clock. */
+export const playSessionStatus = pgEnum('play_session_status', ['scheduled', 'cancelled']);
+export const playSessionSkill = pgEnum('play_session_skill', [
+  'any',
+  'beginner',
+  'intermediate',
+  'advanced',
+]);
+/** `unlisted` = reachable by link, absent from listings and sitemaps. */
+export const playSessionVisibility = pgEnum('play_session_visibility', ['public', 'unlisted']);
+export const playSessionRsvpState = pgEnum('play_session_rsvp_state', ['active', 'withdrawn']);
+/** Whether one occurrence was called off, or the whole series was. */
+export const playSessionCancelScope = pgEnum('play_session_cancel_scope', ['occurrence', 'series']);
+/** `qr` is Stage 4.3's signed expiring token; the vocabulary is reserved now. */
+export const playSessionCheckinMethod = pgEnum('play_session_checkin_method', [
+  'self',
+  'organizer',
+  'qr',
+]);
+/**
+ * How the wall clock resolved to an instant (lib/src/recurrence/zoned.ts).
+ * Recorded per occurrence rather than left invisible: when someone asks why
+ * their 03:30 session on the last Sunday of March happened at 04:30, the row
+ * itself answers.
+ */
+export const playSessionDstResolution = pgEnum('play_session_dst_resolution', [
+  'exact',
+  'gap_shifted',
+  'fold_first',
+]);
+
+/**
+ * The arrival-ticket sequence behind waitlist ordering. A dedicated SEQUENCE
+ * rather than the identity primary key because re-joining after withdrawing
+ * must take a FRESH ticket and go to the back of the queue — an identity column
+ * is GENERATED ALWAYS and cannot be re-drawn.
+ */
+export const playSessionRsvpSeq = pgSequence('play_session_rsvp_seq');
+
+/** The series. One row per "every Tuesday at 18:00", not per Tuesday. */
+export const playSessions = pgTable(
+  'play_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    facilityId: uuid('facility_id')
+      .notNull()
+      .references(() => facilities.id, { onDelete: 'restrict' }),
+    /**
+     * One sport per session — "what is being played", not the facility's list.
+     * The closed vocabulary is CANONICAL_SPORTS (lib/src/sports.ts), validated
+     * in the application exactly as facilities.sport_types is: adding a sport
+     * must not require a migration. The CHECK here is format only.
+     */
+    sport: text('sport').notNull(),
+    /**
+     * NULL only once the organiser erases their account, which the triggers in
+     * the migration turn into a cancelled series — a live session always has
+     * someone answerable for it (see the CHECK below).
+     */
+    organizerId: text('organizer_id').references(() => users.id, { onDelete: 'set null' }),
+    title: text('title').notNull(),
+    description: text('description'),
+    /** DTSTART as a wall clock reading. See the time model above. */
+    startsAtLocal: wallClock('starts_at_local').notNull(),
+    /**
+     * Pinned to Europe/Sofia by a CHECK for now. The column exists so the
+     * wall-clock semantics are explicit instead of implied; going multi-timezone
+     * is then a CHECK edit rather than a data migration.
+     */
+    timezone: text('timezone').notNull().default('Europe/Sofia'),
+    /**
+     * NULL = a one-off session. The accepted grammar is a deliberate subset of
+     * RFC 5545 (lib/src/recurrence/rrule.ts) and the CHECKs below are that
+     * subset written out in SQL, so no other writer — an admin tool, a future
+     * import, a bug — can store a rule the engine cannot expand.
+     */
+    rrule: text('rrule'),
+    durationMinutes: integer('duration_minutes').notNull(),
+    /** NULL = unlimited. Effective capacity for every occurrence of the series. */
+    capacity: integer('capacity'),
+    skillLevel: playSessionSkill('skill_level').notNull().default('any'),
+    visibility: playSessionVisibility('visibility').notNull().default('public'),
+    status: playSessionStatus('status').notNull().default('scheduled'),
+    /** How far the materializer has expanded this series; NULL = never / redo. */
+    materializedThrough: timestamptz('materialized_through'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('play_sessions_facility_status_idx').on(t.facilityId, t.status),
+    // The materializer's only scan: scheduled series, oldest horizon first.
+    // NULLS FIRST because NULL means "never materialized, do this one first",
+    // and a default ASC btree stores NULLs last — the index would then be
+    // unusable for the ordering the job actually asks for.
+    index('play_sessions_materialize_idx')
+      .on(sql`${t.materializedThrough} NULLS FIRST`)
+      .where(sql`${t.status} = 'scheduled'`),
+    index('play_sessions_organizer_idx')
+      .on(t.organizerId)
+      .where(sql`${t.organizerId} IS NOT NULL`),
+    // A live series always has an organiser. The triggers in the migration keep
+    // this true when the foreign key nulls the column out from under us.
+    check(
+      'play_sessions_live_has_organizer',
+      sql`${t.status} = 'cancelled' OR ${t.organizerId} IS NOT NULL`,
+    ),
+    check('play_sessions_title_not_blank', sql`btrim(${t.title}) <> ''`),
+    check('play_sessions_title_len', sql`char_length(${t.title}) <= 120`),
+    check(
+      'play_sessions_description_sane',
+      sql`${t.description} IS NULL OR (btrim(${t.description}) <> '' AND char_length(${t.description}) <= 2000)`,
+    ),
+    check('play_sessions_sport_format', sql`${t.sport} ~ '^[a-z][a-z0-9_]{1,29}$'`),
+    check('play_sessions_timezone_supported', sql`${t.timezone} = 'Europe/Sofia'`),
+    // 15 minutes to 8 hours. Bounded above so a typo cannot create a session
+    // that swallows a week of the calendar.
+    check('play_sessions_duration_sane', sql`${t.durationMinutes} BETWEEN 15 AND 480`),
+    check(
+      'play_sessions_capacity_sane',
+      sql`${t.capacity} IS NULL OR ${t.capacity} BETWEEN 1 AND 500`,
+    ),
+    // The supported RRULE subset, in SQL. Parts may appear in any order, which
+    // is why this is a whole-string match against a permutation-tolerant
+    // pattern plus the cross-part rules below it.
+    check(
+      'play_sessions_rrule_supported',
+      sql`${t.rrule} IS NULL OR ${t.rrule} ~ '^FREQ=(DAILY|WEEKLY)(;(INTERVAL=[1-9][0-9]{0,2}|COUNT=[1-9][0-9]{0,2}|UNTIL=[0-9]{4}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3])[0-5][0-9][0-5][0-9]Z|BYDAY=(MO|TU|WE|TH|FR|SA|SU)(,(MO|TU|WE|TH|FR|SA|SU))*|WKST=MO))*$'`,
+    ),
+    check(
+      'play_sessions_rrule_count_xor_until',
+      sql`${t.rrule} IS NULL OR NOT (${t.rrule} LIKE '%COUNT=%' AND ${t.rrule} LIKE '%UNTIL=%')`,
+    ),
+    check(
+      'play_sessions_rrule_byday_weekly_only',
+      sql`${t.rrule} IS NULL OR ${t.rrule} NOT LIKE '%BYDAY=%' OR ${t.rrule} LIKE 'FREQ=WEEKLY%'`,
+    ),
+    // No part may repeat: the engine rejects duplicates, and a row the engine
+    // cannot expand would silently stop materializing.
+    check(
+      'play_sessions_rrule_no_repeats',
+      sql`${t.rrule} IS NULL OR (
+            (char_length(${t.rrule}) - char_length(replace(${t.rrule}, 'INTERVAL=', ''))) <= 9
+        AND (char_length(${t.rrule}) - char_length(replace(${t.rrule}, 'BYDAY=', ''))) <= 6
+        AND (char_length(${t.rrule}) - char_length(replace(${t.rrule}, 'WKST=', ''))) <= 5
+        AND (char_length(${t.rrule}) - char_length(replace(${t.rrule}, 'COUNT=', ''))) <= 6
+        AND (char_length(${t.rrule}) - char_length(replace(${t.rrule}, 'UNTIL=', ''))) <= 6)`,
+    ),
+  ],
+);
+
+/**
+ * Materialized instances of a series, written ONLY by the pg-boss job
+ * `session.materialize` (db/src/sessions/materialize.ts) over a rolling 8-week
+ * window.
+ *
+ * UNIQUE (session_id, starts_at) is what makes that job an
+ * `INSERT … ON CONFLICT DO NOTHING` — the same idempotency argument as
+ * points_ledger: re-running it, at any cadence, from any number of workers,
+ * converges on exactly one row per occurrence. It is also why a cancelled
+ * occurrence is never resurrected by the next run.
+ */
+export const playSessionOccurrences = pgTable(
+  'play_session_occurrences',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sessionId: uuid('session_id')
+      .notNull()
+      .references(() => playSessions.id, { onDelete: 'cascade' }),
+    startsAt: timestamptz('starts_at').notNull(),
+    /** starts_at + play_sessions.duration_minutes of ELAPSED time. */
+    endsAt: timestamptz('ends_at').notNull(),
+    /**
+     * The wall clock `starts_at` reads as. Denormalised so listings and iCal
+     * exports never recompute it — and verified against PostgreSQL's own tz
+     * database by a trigger, which is what turns "Node's ICU and Postgres
+     * disagree about Bulgarian time" from a silent scheduling bug into a failed
+     * job in the logs.
+     */
+    startsAtLocal: wallClock('starts_at_local').notNull(),
+    dstResolution: playSessionDstResolution('dst_resolution').notNull().default('exact'),
+    status: playSessionStatus('status').notNull().default('scheduled'),
+    cancelledAt: timestamptz('cancelled_at'),
+    cancellationScope: playSessionCancelScope('cancellation_scope'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('play_session_occurrences_session_start_unique').on(t.sessionId, t.startsAt),
+    // "What is on this week?" — the public listing's only scan.
+    index('play_session_occurrences_upcoming_idx')
+      .on(t.startsAt)
+      .where(sql`${t.status} = 'scheduled'`),
+    check('play_session_occurrences_ends_after_start', sql`${t.endsAt} > ${t.startsAt}`),
+    // The three cancellation facts travel together or not at all.
+    check(
+      'play_session_occurrences_cancel_fields',
+      sql`(${t.status} = 'cancelled') = (${t.cancelledAt} IS NOT NULL)
+          AND (${t.status} = 'cancelled') = (${t.cancellationScope} IS NOT NULL)`,
+    ),
+  ],
+);
+
+/**
+ * RSVPs, with the waitlist ORDER — and only the order — stored.
+ *
+ * There is deliberately no `going`/`waitlisted` column and no promotion logic.
+ * Every RSVP draws an arrival ticket (`seq`); position is
+ * `row_number() OVER (PARTITION BY occurrence_id ORDER BY seq)` across the
+ * active rows, and someone is going when their position is within the series'
+ * capacity. The view `play_session_rsvp_positions` (created in the migration)
+ * is the one place that is written down.
+ *
+ * Two consequences are worth the design. Over-booking is impossible: there is
+ * no counter to race on — everyone gets a ticket and the ordering decides — so
+ * concurrent RSVPs cannot both take the last place. And a withdrawal promotes
+ * the next person with no code running at all: nothing to forget, retry, or get
+ * wrong at 22:00 the night before.
+ *
+ * An RSVP is personal data and leaves with the account (ON DELETE CASCADE),
+ * unlike facility_edits — the audit trail of facility changes is what must
+ * survive erasure, and does.
+ */
+export const playSessionRsvps = pgTable(
+  'play_session_rsvps',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    occurrenceId: uuid('occurrence_id')
+      .notNull()
+      .references(() => playSessionOccurrences.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** Arrival ticket. Re-joining after withdrawing draws a fresh one. */
+    seq: bigint('seq', { mode: 'number' })
+      .notNull()
+      .default(sql`nextval('play_session_rsvp_seq')`),
+    state: playSessionRsvpState('state').notNull().default('active'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+    withdrawnAt: timestamptz('withdrawn_at'),
+  },
+  (t) => [
+    // One row per person per occurrence: re-joining updates the ticket rather
+    // than stacking a second claim on the same seat.
+    uniqueIndex('play_session_rsvps_occurrence_user_unique').on(t.occurrenceId, t.userId),
+    // The exact ordering the position view scans — and UNIQUE, because the view
+    // orders by `seq` and a tie would make two people swap places between query
+    // plans: "going" on one page load and "waitlisted" on the next. `nextval`
+    // never repeating is a property of the DEFAULT, not of the column; this
+    // makes it a property of the column.
+    uniqueIndex('play_session_rsvps_queue_idx')
+      .on(t.occurrenceId, t.seq)
+      .where(sql`${t.state} = 'active'`),
+    // "My upcoming sessions", and the erasure count.
+    index('play_session_rsvps_user_idx').on(t.userId),
+    check(
+      'play_session_rsvps_withdrawn_pair',
+      sql`(${t.state} = 'withdrawn') = (${t.withdrawnAt} IS NOT NULL)`,
+    ),
+    check('play_session_rsvps_seq_positive', sql`${t.seq} > 0`),
+  ],
+);
+
+/**
+ * Attendance. One row per person per occurrence, so a double scan or a
+ * double-tapped button is a no-op rather than two attendances.
+ *
+ * No points are awarded here: points_ledger is contribution-scoped (it requires
+ * a facility_id and prices facility work), and attendance scoring is the Stage 5
+ * passport. Wiring it here would put unfixable append-only rows behind a feature
+ * that does not exist yet.
+ */
+export const playSessionCheckins = pgTable(
+  'play_session_checkins',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    occurrenceId: uuid('occurrence_id')
+      .notNull()
+      .references(() => playSessionOccurrences.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    method: playSessionCheckinMethod('method').notNull(),
+    /** The organiser who marked it; NULL for self check-in. */
+    recordedBy: text('recorded_by').references(() => users.id, { onDelete: 'set null' }),
+    checkedInAt: timestamptz('checked_in_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('play_session_checkins_occurrence_user_unique').on(t.occurrenceId, t.userId),
+    index('play_session_checkins_user_idx').on(t.userId),
+    // Covers the recorded_by FK so erasing an organiser's account does not
+    // seq-scan this table inside the erasure transaction.
+    index('play_session_checkins_recorded_by_idx')
+      .on(t.recordedBy)
+      .where(sql`${t.recordedBy} IS NOT NULL`),
+    // Self check-in is by definition not recorded by someone else.
+    check(
+      'play_session_checkins_self_has_no_recorder',
+      sql`${t.method} <> 'self' OR ${t.recordedBy} IS NULL`,
+    ),
+  ],
+);
+
+export type PlaySession = typeof playSessions.$inferSelect;
+export type NewPlaySession = typeof playSessions.$inferInsert;
+export type PlaySessionOccurrence = typeof playSessionOccurrences.$inferSelect;
+export type PlaySessionRsvp = typeof playSessionRsvps.$inferSelect;
+export type PlaySessionCheckin = typeof playSessionCheckins.$inferSelect;
+export type PlaySessionStatusValue = (typeof playSessionStatus.enumValues)[number];
+export type PlaySessionSkillValue = (typeof playSessionSkill.enumValues)[number];
+export type PlaySessionVisibilityValue = (typeof playSessionVisibility.enumValues)[number];
+export type PlaySessionCheckinMethodValue = (typeof playSessionCheckinMethod.enumValues)[number];
 
 export type AmbassadorMunicipality = typeof ambassadorMunicipalities.$inferSelect;
 export type ModerationDecisionRow = typeof moderationDecisions.$inferSelect;

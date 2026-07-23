@@ -16,6 +16,9 @@ function fakeDb(counts: {
   conditions?: number;
   points?: number;
   decisions?: number;
+  rsvps?: number;
+  checkins?: number;
+  sessions?: number;
 }) {
   const statements: { sql: string; params: unknown[] }[] = [];
   // Counts are answered in the order deleteAccount asks for them.
@@ -25,6 +28,9 @@ function fakeDb(counts: {
     counts.conditions ?? 0,
     counts.points ?? 0,
     counts.decisions ?? 0,
+    counts.rsvps ?? 0,
+    counts.checkins ?? 0,
+    counts.sessions ?? 0,
   ];
   let selects = 0;
   const runner = {
@@ -50,7 +56,16 @@ function fakeDb(counts: {
 
 describe('deleteAccount', () => {
   it('deletes the profile and reports what it preserved', async () => {
-    const db = fakeDb({ audit: 7, photos: 2, conditions: 3, points: 5, decisions: 6 });
+    const db = fakeDb({
+      audit: 7,
+      photos: 2,
+      conditions: 3,
+      points: 5,
+      decisions: 6,
+      rsvps: 8,
+      checkins: 9,
+      sessions: 4,
+    });
     const summary = await deleteAccount(db, 'user_1');
 
     expect(summary).toEqual({
@@ -60,6 +75,9 @@ describe('deleteAccount', () => {
       conditionReportsAnonymized: 3,
       pointsErased: 5,
       moderationDecisionsPreserved: 6,
+      rsvpsErased: 8,
+      checkinsErased: 9,
+      sessionsCancelled: 4,
     });
     const text = db.statements.map((s) => s.sql).join('\n');
     expect(text).toMatch(/DELETE FROM users/i);
@@ -82,15 +100,25 @@ describe('deleteAccount', () => {
   });
 
   it('writes a tombstone that contains no personal data', async () => {
-    const db = fakeDb({ audit: 1, photos: 0, conditions: 2, points: 4, decisions: 3 });
+    const db = fakeDb({
+      audit: 1,
+      photos: 0,
+      conditions: 2,
+      points: 4,
+      decisions: 3,
+      rsvps: 5,
+      checkins: 6,
+      sessions: 7,
+    });
     await deleteAccount(db, 'user_1');
 
     const insert = db.statements.find((s) => /INSERT INTO account_deletions/i.test(s.sql));
     expect(insert).toBeDefined();
-    // Only the opaque id and counts — no email, no display name. Points and
-    // condition reports are evidenced too: both leave or are anonymised, so the
-    // tombstone would otherwise be silent about them.
-    expect(insert?.params).toEqual(['user_1', 1, 0, 2, 4, 3]);
+    // Only the opaque id and counts — no email, no display name. Points,
+    // condition reports and the play layer are evidenced too: each of them
+    // leaves, is anonymised or is cancelled, so the tombstone would otherwise
+    // be silent about them.
+    expect(insert?.params).toEqual(['user_1', 1, 0, 2, 4, 3, 7, 5, 6]);
     expect(insert?.sql).not.toMatch(/email|display_name/i);
   });
 

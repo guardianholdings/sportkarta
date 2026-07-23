@@ -2,6 +2,12 @@ export { getDb } from './client.js';
 export { checkDbHealth } from './health.js';
 export type { DbHealth } from './health.js';
 export { refreshStats, STATS_MATVIEWS } from './stats.js';
+export { HORIZON_WEEKS, materializeSessions } from './sessions/materialize.js';
+export type {
+  MaterializeFailure,
+  MaterializeOptions,
+  MaterializeReport,
+} from './sessions/materialize.js';
 
 // Single drizzle instance for the whole workspace. Callers MUST build queries
 // with this `sql` rather than importing drizzle-orm directly: pnpm keys package

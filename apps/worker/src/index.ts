@@ -1,4 +1,4 @@
-import { refreshStats } from '@sportkarta/db';
+import { materializeSessions, refreshStats } from '@sportkarta/db';
 import { runImport } from '@sportkarta/import-osm';
 import { config } from 'dotenv';
 import pg from 'pg';
@@ -15,10 +15,29 @@ const HEALTH_QUEUE = 'health.ping';
 const IMPORT_OSM_QUEUE = 'import.osm';
 const STATS_REFRESH_QUEUE = 'stats.refresh';
 const AUTH_CLEANUP_QUEUE = 'auth.cleanup';
+const SESSION_MATERIALIZE_QUEUE = 'session.materialize';
+const SESSION_NOTIFY_QUEUE = 'session.notify';
 
 interface ImportOsmJobData {
   dryRun?: boolean;
 }
+
+/** Materialize one series (after create/edit), or all of them (the schedule). */
+interface SessionMaterializeJobData {
+  sessionId?: string;
+}
+
+/** See the SESSION_NOTIFY_QUEUE handler — this is Stage 4.2's contract, stubbed. */
+interface SessionNotifyJobData {
+  reason?: string;
+  recipientCount?: number;
+}
+
+/**
+ * Pinned vocabulary. Job data is arbitrary JSON from whoever enqueued it, and
+ * an unbounded string interpolated into a log line is how a log gets forged.
+ */
+const NOTIFY_REASONS = new Set(['series_cancelled', 'occurrence_cancelled']);
 
 async function main(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
@@ -45,6 +64,8 @@ async function main(): Promise<void> {
   await boss.createQueue(IMPORT_OSM_QUEUE);
   await boss.createQueue(STATS_REFRESH_QUEUE);
   await boss.createQueue(AUTH_CLEANUP_QUEUE);
+  await boss.createQueue(SESSION_MATERIALIZE_QUEUE);
+  await boss.createQueue(SESSION_NOTIFY_QUEUE);
 
   await boss.work(HEALTH_QUEUE, async (jobs) => {
     for (const job of jobs) {
@@ -97,6 +118,58 @@ async function main(): Promise<void> {
     );
   });
   await boss.schedule(AUTH_CLEANUP_QUEUE, '17 3 * * *');
+
+  // Rolling 8-week occurrence window (Stage 4.1). Hourly, so the horizon moves
+  // on its own; the job is idempotent (INSERT ... ON CONFLICT DO NOTHING against
+  // a UNIQUE index), so an extra run costs a scan and creates nothing. Also sent
+  // with a sessionId right after a series is created or edited, so a member does
+  // not wait up to an hour to see their own session.
+  await boss.work(SESSION_MATERIALIZE_QUEUE, { batchSize: 1 }, async (jobs) => {
+    let last: Awaited<ReturnType<typeof materializeSessions>> | undefined;
+    for (const job of jobs) {
+      const data = (job.data ?? {}) as SessionMaterializeJobData;
+      last = await materializeSessions(statsPool, { sessionId: data.sessionId });
+      // Counts and slugs only — a title is user text and a session id is not
+      // needed to act on this (no PII in logs).
+      console.log(
+        `[worker] ${SESSION_MATERIALIZE_QUEUE} job ${job.id}: ${String(last.seriesProcessed)} series, ` +
+          `+${String(last.occurrencesCreated)} created, ${String(last.occurrencesCancelled)} cancelled, ` +
+          `${String(last.occurrencesRemoved)} removed, ${String(last.failures.length)} failed`,
+      );
+      for (const failure of last.failures) {
+        // The session id is included deliberately: a session is a public object,
+        // not personal data, and without it an operator cannot find the broken
+        // series. The code is a slug; the underlying message never appears.
+        console.error(
+          `[worker] ${SESSION_MATERIALIZE_QUEUE} series ${failure.sessionId} failed: ${failure.code}`,
+        );
+      }
+    }
+    return last;
+  });
+  await boss.schedule(SESSION_MATERIALIZE_QUEUE, '7 * * * *');
+  await boss.send(SESSION_MATERIALIZE_QUEUE, {});
+
+  // STUB — Stage 4.2 replaces this handler body with the real mail.
+  //
+  // Cancelling an occurrence or a series enqueues here with the number of people
+  // who had RSVP'd (apps/web/lib/sessions/cancel.ts). Enqueuing now rather than
+  // later means the call sites are already correct and 4.2 changes one function,
+  // not five. The payload deliberately carries a COUNT and not a recipient list:
+  // addresses belong in the query 4.2 will run against the live table at send
+  // time, not in a job row that outlives the account it names.
+  await boss.work(SESSION_NOTIFY_QUEUE, async (jobs) => {
+    for (const job of jobs) {
+      const data = (job.data ?? {}) as SessionNotifyJobData;
+      const reason = NOTIFY_REASONS.has(data.reason ?? '') ? data.reason : 'unknown';
+      const recipients = Number.isFinite(data.recipientCount) ? Number(data.recipientCount) : 0;
+      console.log(
+        `[worker] ${SESSION_NOTIFY_QUEUE} job ${job.id}: would notify ` +
+          `${String(recipients)} member(s) — reason=${String(reason)} ` +
+          `(delivery lands in Stage 4.2)`,
+      );
+    }
+  });
 
   console.log('[worker] started, listening for jobs');
 
