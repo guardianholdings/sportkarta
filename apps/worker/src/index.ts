@@ -3,6 +3,12 @@ import { createMailer } from '@sportkarta/lib/email';
 import { runImport } from '@sportkarta/import-osm';
 
 import { runWeeklyDigest } from './digest-job.js';
+import {
+  NOTIFY_REASONS,
+  runSessionNotify,
+  runSessionReminders,
+  type SessionNotifyJobData,
+} from './session-mail-job.js';
 import { config } from 'dotenv';
 import pg from 'pg';
 import PgBoss from 'pg-boss';
@@ -20,6 +26,7 @@ const STATS_REFRESH_QUEUE = 'stats.refresh';
 const AUTH_CLEANUP_QUEUE = 'auth.cleanup';
 const SESSION_MATERIALIZE_QUEUE = 'session.materialize';
 const SESSION_NOTIFY_QUEUE = 'session.notify';
+const SESSION_REMINDERS_QUEUE = 'session.reminders';
 const DIGEST_WEEKLY_QUEUE = 'digest.weekly';
 
 interface ImportOsmJobData {
@@ -30,18 +37,6 @@ interface ImportOsmJobData {
 interface SessionMaterializeJobData {
   sessionId?: string;
 }
-
-/** See the SESSION_NOTIFY_QUEUE handler — this is Stage 4.2's contract, stubbed. */
-interface SessionNotifyJobData {
-  reason?: string;
-  recipientCount?: number;
-}
-
-/**
- * Pinned vocabulary. Job data is arbitrary JSON from whoever enqueued it, and
- * an unbounded string interpolated into a log line is how a log gets forged.
- */
-const NOTIFY_REASONS = new Set(['series_cancelled', 'occurrence_cancelled']);
 
 async function main(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
@@ -70,6 +65,7 @@ async function main(): Promise<void> {
   await boss.createQueue(AUTH_CLEANUP_QUEUE);
   await boss.createQueue(SESSION_MATERIALIZE_QUEUE);
   await boss.createQueue(SESSION_NOTIFY_QUEUE);
+  await boss.createQueue(SESSION_REMINDERS_QUEUE);
   await boss.createQueue(DIGEST_WEEKLY_QUEUE);
 
   await boss.work(HEALTH_QUEUE, async (jobs) => {
@@ -155,26 +151,59 @@ async function main(): Promise<void> {
   await boss.schedule(SESSION_MATERIALIZE_QUEUE, '7 * * * *');
   await boss.send(SESSION_MATERIALIZE_QUEUE, {});
 
-  // STUB — Stage 4.2 replaces this handler body with the real mail.
+  // Session mail (Stage 4.2). The web app enqueues here on RSVP, withdrawal
+  // (which promotes somebody) and cancellation; the sending itself lives in
+  // session-mail-job.ts. The payload carries occurrence ids and ACCOUNT ids,
+  // never an address — addresses are read from the live table at send time, so
+  // no mailing list is ever left sitting in an archived queue row.
   //
-  // Cancelling an occurrence or a series enqueues here with the number of people
-  // who had RSVP'd (apps/web/lib/sessions/cancel.ts). Enqueuing now rather than
-  // later means the call sites are already correct and 4.2 changes one function,
-  // not five. The payload deliberately carries a COUNT and not a recipient list:
-  // addresses belong in the query 4.2 will run against the live table at send
-  // time, not in a job row that outlives the account it names.
-  await boss.work(SESSION_NOTIFY_QUEUE, async (jobs) => {
+  // Idempotency is play_session_notifications': the claim goes in before the
+  // send, in the same transaction, so a retry cannot mail anyone twice.
+  await boss.work(SESSION_NOTIFY_QUEUE, { batchSize: 1 }, async (jobs) => {
+    const mailer = createMailer(process.env);
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+    let last: Awaited<ReturnType<typeof runSessionNotify>> | undefined;
     for (const job of jobs) {
       const data = (job.data ?? {}) as SessionNotifyJobData;
-      const reason = NOTIFY_REASONS.has(data.reason ?? '') ? data.reason : 'unknown';
-      const recipients = Number.isFinite(data.recipientCount) ? Number(data.recipientCount) : 0;
+      last = await runSessionNotify(data, { mailer, siteUrl });
+      // Counts and the pinned reason only. `reason` is validated against the
+      // vocabulary before it is logged: an unbounded string from a job payload
+      // interpolated into a log line is how a log gets forged.
+      const reason = data.reason && data.reason in NOTIFY_REASONS ? data.reason : 'unknown';
       console.log(
-        `[worker] ${SESSION_NOTIFY_QUEUE} job ${job.id}: would notify ` +
-          `${String(recipients)} member(s) — reason=${String(reason)} ` +
-          `(delivery lands in Stage 4.2)`,
+        `[worker] ${SESSION_NOTIFY_QUEUE} job ${job.id}: reason=${reason} ` +
+          `${String(last.candidates)} candidate(s), ${String(last.sent)} sent, ` +
+          `${String(last.skipped)} already told, ${String(last.failed)} failed`,
       );
     }
+    return last;
   });
+
+  // T-24h and T-2h reminders (Stage 4.2). Every ten minutes — but the query is
+  // "starting within the lead time and NOT YET TOLD", not "starting in 24 h ± 5
+  // min", so the schedule is a heartbeat rather than a window that can be
+  // missed. A worker that was down all afternoon catches up on its next tick
+  // instead of silently skipping everyone whose window it slept through.
+  await boss.work(SESSION_REMINDERS_QUEUE, { batchSize: 1 }, async (jobs) => {
+    const mailer = createMailer(process.env);
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+    let last: Awaited<ReturnType<typeof runSessionReminders>> | undefined;
+    for (const job of jobs) {
+      last = await runSessionReminders({ mailer, siteUrl });
+      for (const [kind, report] of Object.entries(last)) {
+        // Quiet ticks are the common case; only say something when there was
+        // something to say, or the log becomes 144 empty lines a day.
+        if (report.candidates === 0) continue;
+        console.log(
+          `[worker] ${SESSION_REMINDERS_QUEUE} job ${job.id} ${kind}: ` +
+            `${String(report.sent)} sent, ${String(report.skipped)} already told, ` +
+            `${String(report.failed)} failed`,
+        );
+      }
+    }
+    return last;
+  });
+  await boss.schedule(SESSION_REMINDERS_QUEUE, '*/10 * * * *');
 
   // Weekly city digest (Stage 4.4). Monday 08:00 EUROPE/SOFIA, not UTC: the
   // send time is a wall-clock promise to a reader, so it must not drift by an

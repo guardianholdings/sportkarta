@@ -69,6 +69,15 @@ export default async function CityPage({ params }: { params: PageParams }) {
       <header className="space-y-2">
         <h1 className="text-2xl font-bold tracking-tight">{t('cityH1', { city: name })}</h1>
         <p className="text-neutral-700">{t('cityIntro', { city: name, count })}</p>
+        {/* Stage 3.4: the accountability figures for this municipality. Linked
+            from here rather than only from the sitemap — the person looking at
+            a city's facilities is exactly the person who wants to know how it
+            compares per resident. */}
+        <p>
+          <Link href={`/obshtina/${city.slug}`} className="text-sm underline">
+            {t('accountabilityLink', { city: name })}
+          </Link>
+        </p>
       </header>
 
       {crossSports.length > 0 && (

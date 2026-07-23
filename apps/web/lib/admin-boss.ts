@@ -1,6 +1,12 @@
 import PgBoss from 'pg-boss';
 
 export const IMPORT_QUEUE = 'import.osm';
+/**
+ * Session mail (Stage 4.2). The web app only ever ENQUEUES here — resolving
+ * account ids to addresses and claiming the notification ledger both happen in
+ * the worker, at send time, so no mailing list is ever left in a queue row.
+ */
+export const SESSION_NOTIFY_QUEUE = 'session.notify';
 
 // Enqueue-only pg-boss instance (the worker owns job execution). Cached on
 // globalThis so Next dev HMR doesn't leak connections.

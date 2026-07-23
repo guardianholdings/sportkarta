@@ -10,6 +10,7 @@ import { SmtpMailer } from './smtp.js';
 
 export * from './mailer.js';
 export * from './weekly-digest.js';
+export * from './session-mail.js';
 export { FileMailer, ConsoleMailer } from './file.js';
 export { SmtpMailer } from './smtp.js';
 

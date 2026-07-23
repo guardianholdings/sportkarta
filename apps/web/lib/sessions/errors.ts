@@ -31,6 +31,13 @@ export type SessionErrorCode =
   | 'checkin_window_closed'
   | 'invalid_checkin_method'
   /**
+   * Stage 5.4. Deliberately ONE code for every way a QR token can fail —
+   * forged, expired, for another session, or arriving while no secret is
+   * configured. The distinctions are useful in a test and are exactly the
+   * oracle an attacker wants in a response body.
+   */
+  | 'invalid_checkin_token'
+  /**
    * The recurrence engine's own slugs, spelled out rather than written as a
    * `rrule_${string}` template: a template makes the union unenumerable, and
    * apps/web/tests/i18n.test.ts could then no longer prove that every code an

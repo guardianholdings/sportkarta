@@ -1,6 +1,7 @@
-import { getDb } from '@sportkarta/db';
+import { calendarToken, getDb } from '@sportkarta/db';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
+import { CalendarPanel } from '@/components/profile/calendar-panel';
 import { DigestPanel } from '@/components/profile/digest-panel';
 import { PointsPanel } from '@/components/profile/points-panel';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { requireUser } from '@/lib/auth-session';
 import { digestCities, subscriptionsFor } from '@/lib/digest';
 import { loadCityCatalog } from '@/lib/places';
 import { pointsSummary } from '@/lib/points';
+import { siteUrl } from '@/lib/seo';
 import { canAccessAdminPanel } from '@/lib/roles';
 import { Link } from '@/i18n/navigation';
 
@@ -24,11 +26,12 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
   setRequestLocale(locale);
   const t = await getTranslations('Profile');
   const user = await requireUser();
-  const [summary, digestOptions, subscriptions, catalog] = await Promise.all([
+  const [summary, digestOptions, subscriptions, catalog, feedToken] = await Promise.all([
     pointsSummary(getDb(), user.id),
     digestCities(getDb(), user.id),
     subscriptionsFor(getDb(), user.id),
     loadCityCatalog(),
+    calendarToken(getDb(), user.id),
   ]);
   // digestCities knows which municipalities are worth offering; the catalog is
   // what turns them into the slugs /sedmitsata links use.
@@ -70,6 +73,8 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
       <PointsPanel summary={summary} />
 
       <DigestPanel locale={locale} cities={digestCityList} subscribedIds={subscribedIds} />
+
+      <CalendarPanel token={feedToken} siteUrl={siteUrl()} />
 
       <section className="space-y-4 rounded border border-red-200 p-4">
         <h2 className="text-lg font-semibold">{t('deleteTitle')}</h2>

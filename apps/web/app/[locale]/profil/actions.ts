@@ -1,6 +1,6 @@
 'use server';
 
-import { getDb } from '@sportkarta/db';
+import { ensureCalendarToken, getDb, rotateCalendarToken } from '@sportkarta/db';
 import { getTranslations } from 'next-intl/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -102,5 +102,25 @@ export async function setDigestSubscriptionAction(formData: FormData): Promise<v
   } else {
     await unsubscribe(getDb(), user.id, municipalityId);
   }
+  revalidatePath('/profil');
+}
+
+/**
+ * Mint the member's calendar feed URL, or rotate it (Stage 4.2).
+ *
+ * Minting is explicit rather than automatic on sign-up: the token IS a
+ * credential — anyone holding the URL can read where this person plays — so it
+ * exists only once somebody has asked for it.
+ *
+ * Rotation is the ONLY recovery available once a feed URL has leaked into a
+ * shared calendar or a browser history, so it is one button and it takes effect
+ * immediately: the row is updated in place, and every copy of the old URL stops
+ * resolving on the next poll.
+ */
+export async function calendarTokenAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const rotate = formData.get('rotate') === 'true';
+  if (rotate) await rotateCalendarToken(getDb(), user.id);
+  else await ensureCalendarToken(getDb(), user.id);
   revalidatePath('/profil');
 }
