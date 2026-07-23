@@ -1057,6 +1057,74 @@ export const digestSends = pgTable(
   ],
 );
 
+/**
+ * Badge NOTIFICATION ledger (docs/ROADMAP.md §7, Stage 5.1) — emphatically not
+ * the badge state itself.
+ *
+ * Badges are DERIVED by folding a member's event stream through the catalogue
+ * in lib/src/badges. That is what makes "a new badge is config, not schema"
+ * true: adding one touches no table, and it is awarded retroactively with the
+ * real date it would have been earned. Nothing reads this table to decide
+ * whether a badge is held.
+ *
+ * What it is for: knowing whether we have already TOLD the member. Without it,
+ * "you earned a badge" would either fire on every page load or need a column
+ * per badge. One row per (member, badge), inserted ON CONFLICT DO NOTHING the
+ * first time the engine reports it earned.
+ *
+ * badge_slug is TEXT and there is no foreign key to a badges table, because
+ * there is no badges table — the catalogue is a TypeScript array. An enum here
+ * would make every new badge a migration, which is the exact coupling this
+ * design exists to break. The cost, stated honestly: a slug renamed in config
+ * orphans its row here, and the member is told about the "new" badge once more.
+ * That is the cheapest failure mode available.
+ */
+export const userBadges = pgTable(
+  'user_badges',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    badgeSlug: text('badge_slug').notNull(),
+    /**
+     * When the engine says it was earned — the instant of the event that
+     * crossed the threshold, not when we noticed. Recomputed values may differ
+     * from this row after a threshold change; the engine wins, always.
+     */
+    earnedAt: timestamptz('earned_at').notNull(),
+    /** When we first observed it, i.e. when the member could have been told. */
+    firstSeenAt: timestamptz('first_seen_at').notNull().defaultNow(),
+    /** Set once the member has actually seen it; NULL means "still new". */
+    seenAt: timestamptz('seen_at'),
+  },
+  (t) => [
+    // The idempotency guarantee, in the database rather than in a check-then-
+    // insert: two concurrent page loads both observing a new badge produce one
+    // row, so nobody is congratulated twice.
+    uniqueIndex('user_badges_user_slug_unique').on(t.userId, t.badgeSlug),
+    // "What is new for this member" — the only read path.
+    index('user_badges_user_unseen_idx').on(t.userId).where(sql`${t.seenAt} IS NULL`),
+    // The ONLY bound on this column — no enum, no FK — so it constrains length
+    // as well as alphabet, like moderation_flags.reason and play_sessions.sport.
+    // Without a ceiling a slug-construction bug surfaces as "index row size
+    // exceeds maximum" from the unique index above, not a clean violation.
+    check('user_badges_slug_shape', sql`${t.badgeSlug} ~ '^[a-z][a-z0-9_]{2,39}$'`),
+    // Ordering invariants the design already guarantees (the fold walks
+    // history, so a badge cannot be observed before it was earned), stated so a
+    // future writer that breaks them fails loudly instead of rendering a
+    // year-3000 date on a public page.
+    check('user_badges_earned_before_seen', sql`${t.earnedAt} <= ${t.firstSeenAt}`),
+    check(
+      'user_badges_seen_order',
+      sql`${t.seenAt} IS NULL OR ${t.seenAt} >= ${t.firstSeenAt}`,
+    ),
+  ],
+);
+
+export type UserBadge = typeof userBadges.$inferSelect;
+export type NewUserBadge = typeof userBadges.$inferInsert;
+
 export type PlaySessionResult = typeof playSessionResults.$inferSelect;
 export type NewPlaySessionResult = typeof playSessionResults.$inferInsert;
 export type DigestSubscription = typeof digestSubscriptions.$inferSelect;

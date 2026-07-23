@@ -413,6 +413,7 @@
     "saved": "Промените са запазени.",
     "signOut": "Изход",
     "adminLink": "Админ панел",
+    "passportLink": "Спортен паспорт",
     "privacyLink": "Как обработваме данните ви",
     "deleteTitle": "Изтриване на профила",
     "deleteExplainer": "Изтриването е окончателно и незабавно.",
@@ -733,5 +734,89 @@
     "anonymisedPreserved": "{count} анонимизирани реда (изтрити профили) се запазват и не се показват тук.",
     "error_csv_truncated": "Файлът има незатворена кавичка — редовете след нея не могат да бъдат прочетени. Поправи файла и опитай пак.",
     "error_too_many_rows": "Файлът има твърде много редове (максимум 2000)."
+  },
+  "Passport": {
+    "title": "Моят спортен паспорт",
+    "profileLink": "Профил",
+    "totalsTitle": "Общо",
+    "total_points": "Точки",
+    "total_facilitiesAdded": "Добавени съоръжения",
+    "total_facilitiesVerified": "Потвърдени съоръжения",
+    "total_conditionsReported": "Съобщени състояния",
+    "total_checkins": "Посетени тренировки",
+    "total_contributions": "Приноси",
+    "streaksTitle": "Серии",
+    "streak_currentDays": "Дни поред сега",
+    "streak_longestDays": "Най-дълга серия дни",
+    "streak_currentWeeks": "Седмици поред сега",
+    "streak_longestWeeks": "Най-дълга серия седмици",
+    "badgesTitle": "Отличия",
+    "acknowledgeBadges": "Разбрах",
+    "historyTitle": "История",
+    "historyEmpty": "Още няма записана активност.",
+    "event_facility_added": "добавено съоръжение",
+    "event_facility_verified": "потвърдено съоръжение",
+    "event_condition_reported": "съобщено състояние",
+    "event_session_checkin": "участие в тренировка",
+    "activityTitle": "Активност по месеци",
+    "monthlyContributions": "{count, plural, one {# принос} other {# приноса}}",
+    "monthlyCheckins": "{count, plural, one {# тренировка} other {# тренировки}}",
+    "visibilityTitle": "Кой вижда паспорта ми",
+    "visibilityPrivateExplainer": "Паспортът ви е личен. Никой друг не го вижда.",
+    "visibilityPublicExplainer": "Паспортът ви е публичен на този адрес. Показват се само отличия, общи числа и серии — никога кога и къде сте играли.",
+    "visibilityMinor": "Публичен паспорт е достъпен само за пълнолетни. Вашият паспорт остава личен.",
+    "makePublic": "Направи публичен",
+    "makePrivate": "Направи личен",
+    "activityExplainer": "По желание може да покажете и активността си по месеци — само брой приноси и тренировки, без места и дати.",
+    "showActivity": "Покажи активността по месеци",
+    "hideActivity": "Скрий активността по месеци",
+    "publicMetaTitle": "Спортен паспорт на {name} — СпортКарта",
+    "publicSubtitle": "В СпортКарта от {since}",
+    "publicSubtitleWithCity": "{city} · в СпортКарта от {since}"
+  },
+  "Badge": {
+    "new": "ново",
+    "noneYet": "Още няма спечелени отличия.",
+    "progress": "{have} от {need}",
+    "first_contribution": {
+      "name": "Първа крачка",
+      "description": "Първият ви принос към картата."
+    },
+    "mapper_5": {
+      "name": "Картограф",
+      "description": "Добавили сте 5 съоръжения."
+    },
+    "verifier_10": {
+      "name": "Проверяващ",
+      "description": "Потвърдили сте 10 съоръжения."
+    },
+    "condition_reporter_15": {
+      "name": "Пазител",
+      "description": "Съобщили сте състоянието на 15 места."
+    },
+    "three_municipalities": {
+      "name": "Отвъд моя град",
+      "description": "Приноси в 3 различни общини."
+    },
+    "five_sports": {
+      "name": "Многоборец",
+      "description": "Приноси за места за 5 различни спорта."
+    },
+    "first_game": {
+      "name": "Първа игра",
+      "description": "Участвали сте в първата си тренировка."
+    },
+    "regular_10": {
+      "name": "Редовен",
+      "description": "Участвали сте в 10 тренировки."
+    },
+    "streak_days_7": {
+      "name": "Седем поред",
+      "description": "Активни седем дни един след друг."
+    },
+    "streak_weeks_4": {
+      "name": "Месец в движение",
+      "description": "Игра всяка седмица в продължение на 4 седмици."
+    }
   }
 }

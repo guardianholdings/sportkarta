@@ -44,6 +44,13 @@ const timestamptz = (name: string) => timestamp(name, { withTimezone: true });
  */
 export const userRole = pgEnum('user_role', ['user', 'ambassador', 'moderator', 'admin']);
 
+/**
+ * Who may read a member's sports passport (Stage 5.1). `private` is the
+ * default and the only value anyone starts with — a public passport is an
+ * act, not a setting somebody forgot to turn off.
+ */
+export const profileVisibility = pgEnum('profile_visibility', ['private', 'public']);
+
 export const users = pgTable(
   'users',
   {
@@ -59,6 +66,28 @@ export const users = pgTable(
     // (no individual public leaderboards — CLAUDE.md rules).
     isMinor: boolean('is_minor').notNull().default(false),
     role: userRole('role').notNull().default('user'),
+    /**
+     * Passport visibility (Stage 5.1). Opt-in: DEFAULT 'private', and there is
+     * no code path that sets 'public' other than the member's own toggle.
+     */
+    profileVisibility: profileVisibility('profile_visibility').notNull().default('private'),
+    /**
+     * The public passport's URL segment — random, and NOT the account id. The
+     * id is the session subject better-auth signs; putting it in a shareable
+     * URL would publish it to every recipient of a shared link and to every
+     * Referer header on the way out of the page.
+     *
+     * Minted on first opt-in and then stable, so a link a member has shared
+     * keeps working. NULL until then.
+     */
+    publicHandle: text('public_handle').unique('users_public_handle_unique'),
+    /**
+     * Whether the public passport shows a coarse activity history (badge dates
+     * and per-month contribution counts) in addition to badges and totals.
+     * Default off, and even when on it never carries a facility name or a
+     * timestamp — see apps/web/lib/passport.ts for why that line is where it is.
+     */
+    publicShowActivity: boolean('public_show_activity').notNull().default(false),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
     updatedAt: timestamptz('updated_at').notNull().defaultNow(),
   },
@@ -82,6 +111,40 @@ export const users = pgTable(
       'users_home_city_sane',
       sql`${t.homeCity} IS NULL OR (btrim(${t.homeCity}) <> '' AND char_length(${t.homeCity}) <= 80)`,
     ),
+    /**
+     * THE MINOR BOUNDARY, IN THE DATABASE. "Minors: no individual public
+     * leaderboards" (CLAUDE.md) — a publicly readable page of one named child's
+     * sporting habits is the same exposure by another route, so a minor's
+     * passport cannot be public even with the application bypassed.
+     *
+     * The application demotes to 'private' in the same UPDATE that newly
+     * derives is_minor (apps/web/lib/profile.ts), so a member correcting their
+     * age gets a demotion rather than a failed save. This constraint is the
+     * backstop for every path that forgets to.
+     *
+     * ALLOWLIST, not `NOT (is_minor AND visibility = 'public')`. The two are
+     * equivalent today and diverge the moment somebody adds an enum value —
+     * and this schema adds enum values via ALTER TYPE … ADD VALUE, a change
+     * nobody reviews against year-old CHECKs. (play_session_visibility is
+     * already ('public','unlisted'); an 'unlisted' passport would be legal for
+     * a minor under a denylist.) This form forbids every value that has not
+     * been deliberately permitted.
+     */
+    check(
+      'users_minor_profile_not_public',
+      sql`${t.profileVisibility} = 'private' OR NOT ${t.isMinor}`,
+    ),
+    // A public passport with no handle has no URL — it would be "public" and
+    // unreachable, which is a confusing state to debug and a trivial one to
+    // forbid. Opting in mints the handle in the same statement.
+    check(
+      'users_public_needs_handle',
+      sql`${t.profileVisibility} = 'private' OR ${t.publicHandle} IS NOT NULL`,
+    ),
+    // Shape, not just presence: this is the only thing standing between opting
+    // in and being enumerable by a scraper, so a truncated or predictable
+    // generator must fail closed rather than store something guessable.
+    check('users_public_handle_shape', sql`${t.publicHandle} ~ '^[0-9a-f]{24}$'`),
   ],
 );
 
@@ -203,6 +266,13 @@ export const accountDeletions = pgTable(
      */
     digestSubscriptionsErased: integer('digest_subscriptions_erased').notNull().default(0),
     resultsAnonymized: integer('results_anonymized').notNull().default(0),
+    /**
+     * user_badges rows removed with the account (Stage 5.1). Badges are the
+     * member's own record and hold no one else's data, so they leave — and
+     * they were only ever a notification cache anyway: the badges themselves
+     * are derived from the ledger, which is erased in the same transaction.
+     */
+    badgesErased: integer('badges_erased').notNull().default(0),
   },
   (t) => [
     index('account_deletions_deleted_at_idx').on(t.deletedAt),
@@ -217,7 +287,8 @@ export const accountDeletions = pgTable(
           AND ${t.conditionReportsAnonymized} >= 0 AND ${t.pointsErased} >= 0
           AND ${t.moderationDecisionsPreserved} >= 0 AND ${t.sessionsCancelled} >= 0
           AND ${t.rsvpsErased} >= 0 AND ${t.checkinsErased} >= 0
-          AND ${t.digestSubscriptionsErased} >= 0 AND ${t.resultsAnonymized} >= 0`,
+          AND ${t.digestSubscriptionsErased} >= 0 AND ${t.resultsAnonymized} >= 0
+          AND ${t.badgesErased} >= 0`,
     ),
   ],
 );

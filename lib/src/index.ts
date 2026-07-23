@@ -1,4 +1,5 @@
 export * from './age.js';
+export * from './badges/index.js';
 export * from './cities.js';
 export * from './condition.js';
 export * from './csv.js';

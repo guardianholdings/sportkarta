@@ -71,6 +71,13 @@
       "when": 1784785553156,
       "tag": "0009_digest_results",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784790737878,
+      "tag": "0010_passport",
+      "breakpoints": true
     }
   ]
 }

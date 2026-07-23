@@ -42,6 +42,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
       <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-neutral-200 pb-3">
         <h1 className="text-xl font-semibold">{t('title')}</h1>
         <div className="ml-auto flex items-center gap-3 text-xs text-neutral-500">
+          <Link href="/pasport" className="underline">
+            {t('passportLink')}
+          </Link>
           {canAccessAdminPanel(user.role) && (
             <Link href="/admin" className="underline">
               {t('adminLink')}

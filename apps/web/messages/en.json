@@ -413,6 +413,7 @@
     "saved": "Changes saved.",
     "signOut": "Sign out",
     "adminLink": "Admin panel",
+    "passportLink": "Sports passport",
     "privacyLink": "How we handle your data",
     "deleteTitle": "Delete account",
     "deleteExplainer": "Deletion is permanent and immediate.",
@@ -733,5 +734,89 @@
     "anonymisedPreserved": "{count} anonymised rows (erased accounts) are preserved and not shown here.",
     "error_csv_truncated": "The file has an unclosed quote — the rows after it cannot be read. Fix the file and try again.",
     "error_too_many_rows": "The file has too many rows (2000 maximum)."
+  },
+  "Passport": {
+    "title": "My sports passport",
+    "profileLink": "Profile",
+    "totalsTitle": "Totals",
+    "total_points": "Points",
+    "total_facilitiesAdded": "Facilities added",
+    "total_facilitiesVerified": "Facilities verified",
+    "total_conditionsReported": "Condition reports",
+    "total_checkins": "Sessions attended",
+    "total_contributions": "Contributions",
+    "streaksTitle": "Streaks",
+    "streak_currentDays": "Current day streak",
+    "streak_longestDays": "Longest day streak",
+    "streak_currentWeeks": "Current week streak",
+    "streak_longestWeeks": "Longest week streak",
+    "badgesTitle": "Badges",
+    "acknowledgeBadges": "Got it",
+    "historyTitle": "History",
+    "historyEmpty": "No activity recorded yet.",
+    "event_facility_added": "facility added",
+    "event_facility_verified": "facility verified",
+    "event_condition_reported": "condition reported",
+    "event_session_checkin": "attended a session",
+    "activityTitle": "Activity by month",
+    "monthlyContributions": "{count, plural, one {# contribution} other {# contributions}}",
+    "monthlyCheckins": "{count, plural, one {# session} other {# sessions}}",
+    "visibilityTitle": "Who can see my passport",
+    "visibilityPrivateExplainer": "Your passport is private. Nobody else can see it.",
+    "visibilityPublicExplainer": "Your passport is public at this address. It shows only badges, totals and streaks — never when or where you played.",
+    "visibilityMinor": "Public passports are for adults only. Yours stays private.",
+    "makePublic": "Make it public",
+    "makePrivate": "Make it private",
+    "activityExplainer": "Optionally show your activity by month too — counts of contributions and sessions only, with no places or dates.",
+    "showActivity": "Show activity by month",
+    "hideActivity": "Hide activity by month",
+    "publicMetaTitle": "{name}’s sports passport — SportKarta",
+    "publicSubtitle": "On SportKarta since {since}",
+    "publicSubtitleWithCity": "{city} · on SportKarta since {since}"
+  },
+  "Badge": {
+    "new": "new",
+    "noneYet": "No badges earned yet.",
+    "progress": "{have} of {need}",
+    "first_contribution": {
+      "name": "First step",
+      "description": "Your first contribution to the map."
+    },
+    "mapper_5": {
+      "name": "Mapper",
+      "description": "You added 5 facilities."
+    },
+    "verifier_10": {
+      "name": "Verifier",
+      "description": "You verified 10 facilities."
+    },
+    "condition_reporter_15": {
+      "name": "Guardian",
+      "description": "You reported the condition of 15 places."
+    },
+    "three_municipalities": {
+      "name": "Beyond my town",
+      "description": "Contributions in 3 different municipalities."
+    },
+    "five_sports": {
+      "name": "All-rounder",
+      "description": "Contributions to places for 5 different sports."
+    },
+    "first_game": {
+      "name": "First game",
+      "description": "You attended your first session."
+    },
+    "regular_10": {
+      "name": "Regular",
+      "description": "You attended 10 sessions."
+    },
+    "streak_days_7": {
+      "name": "Seven in a row",
+      "description": "Active seven days running."
+    },
+    "streak_weeks_4": {
+      "name": "A month in motion",
+      "description": "Played every week for 4 weeks."
+    }
   }
 }

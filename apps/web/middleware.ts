@@ -10,7 +10,14 @@ const intlMiddleware = createMiddleware(routing);
 // a facility), with or without a locale prefix. /vhod (sign-in) is public by
 // definition, and so is every facility page — the verify and condition forms
 // on them gate themselves.
-const PROTECTED_PATH = /^\/(?:(?:bg|en)\/)?(?:admin|profil|dobavi)(?:\/|$)/;
+//
+// `/pasport` is the member's OWN passport and is protected — but only exactly
+// that path. `/pasport/<handle>` is somebody's opt-in public passport and must
+// stay reachable signed out, which is why this alternation is anchored with
+// `$` instead of joining the group above: `(?:admin|profil|dobavi|pasport)`
+// would have matched the public URL too and made the feature dead on arrival
+// for exactly the people it is shared with.
+const PROTECTED_PATH = /^\/(?:(?:bg|en)\/)?(?:(?:admin|profil|dobavi)(?:\/|$)|pasport\/?$)/;
 
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

@@ -22,6 +22,22 @@ export type {
   MaterializeOptions,
   MaterializeReport,
 } from './sessions/materialize.js';
+export {
+  markBadgesSeen,
+  passportEvents,
+  passportHistory,
+  passportTotals,
+  publicMonthlyActivity,
+  publicPassportOwner,
+  recordEarnedBadges,
+  unseenBadges,
+} from './passport.js';
+export type {
+  MonthlyActivity,
+  PassportHistoryEntry,
+  PassportTotals,
+  PublicPassportOwner,
+} from './passport.js';
 
 // Single drizzle instance for the whole workspace. Callers MUST build queries
 // with this `sql` rather than importing drizzle-orm directly: pnpm keys package

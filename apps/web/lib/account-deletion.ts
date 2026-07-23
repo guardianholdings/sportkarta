@@ -44,6 +44,8 @@ export interface DeletionSummary {
   digestSubscriptionsErased: number;
   /** play_session_results whose participant reference was cleared. */
   resultsAnonymized: number;
+  /** user_badges rows removed with the account. */
+  badgesErased: number;
 }
 
 interface SqlRunner {
@@ -125,6 +127,13 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
         sql`SELECT count(*)::int AS n FROM play_session_results WHERE participant_user_id = ${userId}`,
       ),
     );
+    // Badges are the member's own record and hold nobody else's data, so they
+    // leave with the account (Stage 5.1). They were only ever a notification
+    // cache in any case: the badges themselves are derived from points_ledger,
+    // which is erased in this same transaction.
+    const badgesErased = countFrom(
+      await tx.execute(sql`SELECT count(*)::int AS n FROM user_badges WHERE user_id = ${userId}`),
+    );
 
     // Pending one-time codes are keyed by email address, not by user id, so the
     // cascade does not reach them. Left behind they would be a short-lived
@@ -146,15 +155,15 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
         user_id, audit_rows_preserved, photos_anonymized,
         condition_reports_anonymized, points_erased, moderation_decisions_preserved,
         sessions_cancelled, rsvps_erased, checkins_erased,
-        digest_subscriptions_erased, results_anonymized
+        digest_subscriptions_erased, results_anonymized, badges_erased
       )
       VALUES (${userId}, ${auditRowsPreserved}, ${photosAnonymized},
               ${conditionReportsAnonymized}, ${pointsErased}, ${moderationDecisionsPreserved},
               ${sessionsCancelled}, ${rsvpsErased}, ${checkinsErased},
-              ${digestSubscriptionsErased}, ${resultsAnonymized})
+              ${digestSubscriptionsErased}, ${resultsAnonymized}, ${badgesErased})
     `);
 
-    // Cascades to sessions, accounts and the points ledger; nulls
+    // Cascades to sessions, accounts, the points ledger and user_badges; nulls
     // facility_photos.uploaded_by and facility_condition_reports.reporter_id.
     await tx.execute(sql`DELETE FROM users WHERE id = ${userId}`);
 
@@ -170,6 +179,7 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
       checkinsErased,
       digestSubscriptionsErased,
       resultsAnonymized,
+      badgesErased,
     };
   });
 }
