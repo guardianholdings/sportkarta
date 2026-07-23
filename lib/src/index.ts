@@ -7,6 +7,7 @@ export * from './condition.js';
 export * from './csv.js';
 export * from './email/index.js';
 export * from './ical/index.js';
+export * from './import-municipal/index.js';
 export * from './merge-policy.js';
 export * from './opendata/index.js';
 export * from './points.js';

@@ -94,6 +94,17 @@ export {
   runReport,
 } from './reports/run.js';
 export type { RunScope } from './reports/run.js';
+export {
+  commitMunicipalImport,
+  previewMunicipalRows,
+} from './import/municipal.js';
+export type {
+  CommitCounts,
+  CommitInput,
+  Resolution,
+  RowOutcome,
+  RowPreview,
+} from './import/municipal.js';
 export { exportQuery, runExport, assertDatasetSafe } from './opendata/export.js';
 export type { ExportQueryOptions } from './opendata/export.js';
 export { publicFacilityVisible } from './opendata/visibility.js';

@@ -102,6 +102,26 @@ browser) in a MANUAL STEPS list at the end of the session.
   rather than the wall clock (so a re-run is byte-identical and the `immutable`
   cache header is honest), and the `opendata_dumps` row is written only after
   the file is hashed
+- Municipal CSV inbox (Stage 6.3, `/admin/obshtini`, `requireRole('admin')`) is
+  the first writer to sit in the MIDDLE of the merge policy — it overwrites
+  osm-set fields and is frozen by crowd-set ones, so a registry can correct
+  stale map data but never clobber a resident's on-the-ground fix. No migration:
+  `source='municipal'`, the sources row and jsonb `attrs` already exist. Pure
+  core in `lib/src/import-municipal` (row normalize + `classify` new/match/
+  conflict); DB core in `db/src/import/municipal.ts` (PostGIS distance dedupe +
+  `mergeFields` + `facility_edits` writes, takes a `pg` client like the OSM
+  importer); thin web adapter in `apps/web/lib/import/municipal.ts`. Dedupe is
+  distance+name, biased so a false CONFLICT (human reviews) beats a false MATCH
+  (silent wrong rewrite): auto-match only ≤40 m with a matching name, everything
+  ambiguous is a conflict the operator resolves per-row (skip/link/new),
+  re-validated at commit — the posted preview is never an authorization. New
+  rows insert `source='municipal'`, `needs_verification`, municipality derived
+  by `ST_Contains`, provenance in `attrs.municipal`; `actor=NULL` (institutional,
+  like OSM); an updated OSM-origin row keeps `facilities.source='osm'` (row
+  origin; per-field provenance lives in `facility_edits.source`). Re-importing an
+  unchanged registry writes nothing (mergeFields → unchanged). The policy tests
+  in `lib/src/merge-policy.test.ts` were EXTENDED with the municipal-in-the-middle
+  scenarios
 - Reports (Stage 6.2) are a CATALOGUE like open data: `lib/src/reports/`
   declares each figure as a Bulgarian label, a definition, a unit, an SQL query
   and two flags (`additive`, `personDerived`), and the admin annex, the PDF

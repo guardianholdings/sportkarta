@@ -126,6 +126,104 @@ describe('mergeFields properties', () => {
   });
 });
 
+/**
+ * The MUNICIPAL source in the middle of the policy (docs/ROADMAP.md §8, Stage
+ * 6.3). The municipal CSV inbox is the first writer that both overwrites and is
+ * overwritten — it sits above osm and below crowd — so it is the one that
+ * exercises the ordering in both directions at once. These are the scenarios
+ * that feature relies on being true; a change to SOURCE_PRIORITY that broke any
+ * of them would let a registry import either clobber a resident's correction or
+ * be silently ignored over stale OSM data.
+ */
+describe('municipal source: the writer in the middle', () => {
+  it('municipal overwrites an osm-last field', () => {
+    const r = mergeFields({
+      incomingSource: 'municipal',
+      current: { surface: 'grass' },
+      incoming: { surface: 'artificial' },
+      lastEditSources: { surface: 'osm' },
+    });
+    expect(r.applied).toEqual([{ field: 'surface', oldValue: 'grass', newValue: 'artificial' }]);
+    expect(r.frozen).toEqual([]);
+  });
+
+  it('municipal is frozen by a crowd-last field, however different the value', () => {
+    // A resident's on-the-ground correction outranks a municipal registry that
+    // may be years stale — this is the case that protects the person who
+    // actually went and looked.
+    fc.assert(
+      fc.property(jsonArb, jsonArb, (crowdValue, municipalValue) => {
+        fc.pre(!jsonEquals(crowdValue, municipalValue));
+        const r = mergeFields({
+          incomingSource: 'municipal',
+          current: { name: crowdValue },
+          incoming: { name: municipalValue },
+          lastEditSources: { name: 'crowd' },
+        });
+        expect(r.applied).toEqual([]);
+        expect(r.frozen).toEqual(['name']);
+      }),
+    );
+  });
+
+  it('municipal may revise its own earlier value (equal priority overwrites)', () => {
+    const r = mergeFields({
+      incomingSource: 'municipal',
+      current: { access: 'free' },
+      incoming: { access: 'paid' },
+      lastEditSources: { access: 'municipal' },
+    });
+    expect(r.applied).toEqual([{ field: 'access', oldValue: 'free', newValue: 'paid' }]);
+  });
+
+  it('municipal writes a never-edited field', () => {
+    const r = mergeFields({
+      incomingSource: 'municipal',
+      current: { lighting: null },
+      incoming: { lighting: true },
+      lastEditSources: {},
+    });
+    expect(r.applied).toEqual([{ field: 'lighting', oldValue: null, newValue: true }]);
+  });
+
+  it('a municipal re-import of an unchanged registry writes nothing', () => {
+    // Re-uploading last quarter's file must be a no-op, whichever source last
+    // touched each field — an identical value is unchanged before it is frozen.
+    fc.assert(
+      fc.property(
+        fc.dictionary(fc.constantFrom(...FIELDS), jsonArb, { minKeys: 1 }),
+        maybeSourceArb,
+        (fields, last) => {
+          const lastEditSources = Object.fromEntries(Object.keys(fields).map((f) => [f, last]));
+          const r = mergeFields({
+            incomingSource: 'municipal',
+            current: fields,
+            incoming: fields,
+            lastEditSources,
+          });
+          expect(r.applied).toEqual([]);
+          expect(r.frozen).toEqual([]);
+          expect(r.unchanged.sort()).toEqual(Object.keys(fields).sort());
+        },
+      ),
+    );
+  });
+
+  it('within one import, only the crowd-frozen fields are held back', () => {
+    // The realistic mixed case: a registry row touching a facility whose name a
+    // resident fixed, whose surface OSM set, and whose access nobody has
+    // touched. Name freezes; surface and access apply.
+    const r = mergeFields({
+      incomingSource: 'municipal',
+      current: { name: 'Стар център', surface: 'grass', access: 'free' },
+      incoming: { name: 'Спортен център', surface: 'artificial', access: 'paid' },
+      lastEditSources: { name: 'crowd', surface: 'osm' },
+    });
+    expect(r.frozen).toEqual(['name']);
+    expect(r.applied.map((c) => c.field).sort()).toEqual(['access', 'surface']);
+  });
+});
+
 describe('jsonEquals', () => {
   it('is reflexive for arbitrary JSON', () => {
     fc.assert(
