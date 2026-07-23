@@ -153,9 +153,7 @@ export async function listCampaigns(
  * global points economy the passport reports.
  */
 function weightExpression(rules: CampaignRules): SQL {
-  const branches = rules.events.map(
-    (event) => sql`WHEN ${event.kind} THEN ${event.weight}::int`,
-  );
+  const branches = rules.events.map((event) => sql`WHEN ${event.kind} THEN ${event.weight}::int`);
   return sql`CASE e.kind ${sql.join(branches, sql` `)} ELSE 0 END`;
 }
 
@@ -217,6 +215,14 @@ function eventStream(campaign: CampaignRow, timeZone: string): SQL {
       JOIN facilities f               ON f.id = s.facility_id
       WHERE c.checked_in_at >= ${from.toISOString()}::timestamptz
         AND c.checked_in_at <  ${to.toISOString()}::timestamptz
+        -- VERIFIED ATTENDANCE ONLY (Stage 5.4). A campaign is the one place
+        -- where gaming this wins a real PRIZE, so a self-attested tap — a
+        -- button somebody pressed at home — must not count towards one.
+        -- Filtered on the METHOD rather than on the scored flag, deliberately:
+        -- an attendance that hit the daily points cap, or came from a member
+        -- who declined the location prompt, is still a VERIFIED attendance,
+        -- and a campaign should count turning up rather than being paid.
+        AND c.method = 'qr'
         ${scopeFilter(campaign.scope)}
         ${sportsFilter(campaign.rules)}
     `
@@ -280,9 +286,7 @@ function mapStanding(row: Record<string, unknown>): StandingRow {
     events: Number(row.events ?? 0),
     handle: row.handle === null || row.handle === undefined ? null : String(row.handle),
     displayName:
-      row.display_name === null || row.display_name === undefined
-        ? null
-        : String(row.display_name),
+      row.display_name === null || row.display_name === undefined ? null : String(row.display_name),
     userId: row.user_id === null || row.user_id === undefined ? null : String(row.user_id),
     municipalityId:
       row.municipality_id === null || row.municipality_id === undefined
@@ -539,9 +543,7 @@ export async function frozenResults(
     memberCount: Number(row.member_count ?? 1),
     handle: row.handle === null || row.handle === undefined ? null : String(row.handle),
     displayName:
-      row.display_name === null || row.display_name === undefined
-        ? null
-        : String(row.display_name),
+      row.display_name === null || row.display_name === undefined ? null : String(row.display_name),
     municipalityId: row.municipality_id === null ? null : Number(row.municipality_id),
     withheld: row.municipality_id === null && row.handle === null,
   }));

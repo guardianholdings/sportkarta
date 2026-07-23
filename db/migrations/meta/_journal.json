@@ -92,6 +92,20 @@
       "when": 1784798251634,
       "tag": "0012_campaigns",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1784809382435,
+      "tag": "0013_session_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1784812550858,
+      "tag": "0014_qr_checkin",
+      "breakpoints": true
     }
   ]
 }

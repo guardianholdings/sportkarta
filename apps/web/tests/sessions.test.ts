@@ -1,6 +1,9 @@
 import { renderSql, type SQL } from '@sportkarta/db';
 import { describe, expect, it } from 'vitest';
 
+import { issueCheckinToken } from '@sportkarta/lib/checkin-token';
+import { ATTENDANCE_AWARDS_PER_DAY } from '@sportkarta/lib/points';
+
 import { checkIn } from '@/lib/sessions/checkin';
 import { SessionError } from '@/lib/sessions/errors';
 import { attendanceCounts, rsvp, withdraw } from '@/lib/sessions/rsvp';
@@ -12,6 +15,10 @@ import { cancelOccurrence, cancelSeries, createSession } from '@/lib/sessions/se
  * DB-backed companions live in db/src/sessions-*.test.ts, which prove the same
  * rules against real Postgres constraints and triggers.
  */
+
+/** Stage 5.4 fixtures: a QR secret and the occurrence its tokens name. */
+const SECRET = 'a-test-check-in-secret-value-here';
+const OCC = '11111111-1111-4111-8111-111111111111';
 
 function fakeDb(rows: Record<string, unknown>[][] = []) {
   const statements: { sql: string; params: unknown[] }[] = [];
@@ -281,15 +288,26 @@ describe('checkIn authorization', () => {
     status: 'scheduled',
     within_window: true,
     actor_is_organizer: false,
+    facility_id: '00000000-0000-4000-8000-000000000001',
+    distance_m: null,
   };
 
   it('lets a member check themselves in', async () => {
     const db = fakeDb([[open], [{ id: 'checkin_1' }]]);
     await expect(
       checkIn(db, { occurrenceId: 'occ_1', userId: 'user_1', actorId: 'user_1' }),
-    ).resolves.toEqual({ checkinId: 'checkin_1', created: true });
+    ).resolves.toEqual({
+      checkinId: 'checkin_1',
+      created: true,
+      // Stage 5.4: a self check-in is recorded and never paid.
+      outcome: 'unscored_method',
+      distanceM: null,
+      pointsAwarded: 0,
+    });
     // A self check-in is not "recorded by" anybody else.
     expect(db.statements[1]?.params).toContain(null);
+    // And it writes no ledger row at all.
+    expect(db.statements.map((st) => st.sql).join('\n')).not.toMatch(/points_ledger/i);
   });
 
   it('refuses to let one member check ANOTHER in as `self`', async () => {
@@ -326,20 +344,193 @@ describe('checkIn authorization', () => {
         actorId: 'organizer_1',
         method: 'organizer',
       }),
-    ).resolves.toEqual({ checkinId: 'checkin_2', created: true });
+    ).resolves.toEqual({
+      checkinId: 'checkin_2',
+      created: true,
+      // Vouching is not evidence: it records attendance and pays nothing.
+      outcome: 'unscored_method',
+      distanceM: null,
+      pointsAwarded: 0,
+    });
     expect(db.statements[1]?.params).toContain('organizer_1');
   });
 
-  it('refuses the reserved qr method until there is a token to verify', async () => {
+  it('refuses a qr check-in with no token', async () => {
     const db = fakeDb([[open]]);
     await expect(
       checkIn(db, {
         occurrenceId: 'occ_1',
         userId: 'user_1',
         actorId: 'user_1',
-        method: 'qr' as 'self',
+        method: 'qr',
+        secret: SECRET,
       }),
-    ).rejects.toThrowError('invalid_checkin_method');
+    ).rejects.toThrowError('invalid_checkin_token');
+    // Rejected before any statement runs.
+    expect(db.statements).toHaveLength(0);
+  });
+
+  it('refuses a qr check-in when no secret is configured — fail closed', async () => {
+    const db = fakeDb([[open]]);
+    const token = issueCheckinToken({ occurrenceId: OCC, secret: SECRET });
+    await expect(
+      checkIn(db, {
+        occurrenceId: OCC,
+        userId: 'user_1',
+        actorId: 'user_1',
+        method: 'qr',
+        token,
+        secret: undefined,
+      }),
+    ).rejects.toThrowError('invalid_checkin_token');
+  });
+
+  it('refuses a token issued for a DIFFERENT occurrence', async () => {
+    const db = fakeDb([[open]]);
+    const token = issueCheckinToken({
+      occurrenceId: '99999999-9999-4999-8999-999999999999',
+      secret: SECRET,
+    });
+    await expect(
+      checkIn(db, {
+        occurrenceId: OCC,
+        userId: 'user_1',
+        actorId: 'user_1',
+        method: 'qr',
+        token,
+        secret: SECRET,
+      }),
+    ).rejects.toThrowError('invalid_checkin_token');
+  });
+
+  it('refuses to let one member redeem a QR on behalf of another', async () => {
+    // The QR is displayed to everybody in the park; who is checked in is the
+    // session cookie on the request, never a field in the form.
+    const db = fakeDb([[open]]);
+    await expect(
+      checkIn(db, {
+        occurrenceId: OCC,
+        userId: 'victim',
+        actorId: 'attacker',
+        method: 'qr',
+        token: issueCheckinToken({ occurrenceId: OCC, secret: SECRET }),
+        secret: SECRET,
+      }),
+    ).rejects.toThrowError('not_organizer');
+    expect(db.statements).toHaveLength(0);
+  });
+
+  it('scores a QR check-in inside the geofence, and awards once', async () => {
+    const db = fakeDb([
+      [{ ...open, distance_m: 40 }],
+      [{ n: 0 }], // no awards yet today
+      [{ id: 'checkin_qr' }],
+      [{ points: 2 }],
+    ]);
+    await expect(
+      checkIn(db, {
+        occurrenceId: OCC,
+        userId: 'user_1',
+        actorId: 'user_1',
+        method: 'qr',
+        token: issueCheckinToken({ occurrenceId: OCC, secret: SECRET }),
+        secret: SECRET,
+        lat: 42.68,
+        lon: 23.34,
+      }),
+    ).resolves.toMatchObject({ outcome: 'scored', distanceM: 40, pointsAwarded: 2 });
+
+    const text = db.statements.map((st) => st.sql).join('\n');
+    expect(text).toMatch(/INSERT INTO points_ledger/i);
+    // The award is keyed by occurrence, so a weekly regular is paid every week
+    // and a retry is paid once.
+    expect(db.statements.at(-1)?.params).toContain(`session_attended:${OCC}:user_1`);
+  });
+
+  it('records but does not pay a QR check-in outside the geofence', async () => {
+    const db = fakeDb([[{ ...open, distance_m: 5000 }], [{ id: 'checkin_far' }]]);
+    await expect(
+      checkIn(db, {
+        occurrenceId: OCC,
+        userId: 'user_1',
+        actorId: 'user_1',
+        method: 'qr',
+        token: issueCheckinToken({ occurrenceId: OCC, secret: SECRET }),
+        secret: SECRET,
+        lat: 43.2,
+        lon: 24.5,
+      }),
+    ).resolves.toMatchObject({
+      outcome: 'unscored_out_of_range',
+      distanceM: 5000,
+      pointsAwarded: 0,
+    });
+    // Attendance is a fact and is always recorded; only the payment stops.
+    expect(db.statements[1]?.sql).toMatch(/INSERT INTO play_session_checkins/i);
+    expect(db.statements.map((st) => st.sql).join('\n')).not.toMatch(/points_ledger/i);
+  });
+
+  it('records but does not pay when no location was offered', async () => {
+    const db = fakeDb([[{ ...open, distance_m: null }], [{ id: 'checkin_nogeo' }]]);
+    await expect(
+      checkIn(db, {
+        occurrenceId: OCC,
+        userId: 'user_1',
+        actorId: 'user_1',
+        method: 'qr',
+        token: issueCheckinToken({ occurrenceId: OCC, secret: SECRET }),
+        secret: SECRET,
+      }),
+    ).resolves.toMatchObject({ outcome: 'unscored_no_location', pointsAwarded: 0 });
+  });
+
+  it('stops paying at the daily cap without refusing the check-in', async () => {
+    const db = fakeDb([
+      [{ ...open, distance_m: 20 }],
+      [{ n: ATTENDANCE_AWARDS_PER_DAY }],
+      [{ id: 'checkin_capped' }],
+    ]);
+    await expect(
+      checkIn(db, {
+        occurrenceId: OCC,
+        userId: 'user_1',
+        actorId: 'user_1',
+        method: 'qr',
+        token: issueCheckinToken({ occurrenceId: OCC, secret: SECRET }),
+        secret: SECRET,
+        lat: 42.68,
+        lon: 23.34,
+      }),
+    ).resolves.toMatchObject({ outcome: 'unscored_daily_cap', pointsAwarded: 0 });
+    // The attendance still landed.
+    expect(db.statements[2]?.sql).toMatch(/INSERT INTO play_session_checkins/i);
+  });
+
+  it('never sends the raw coordinates anywhere but the distance query', async () => {
+    const db = fakeDb([
+      [{ ...open, distance_m: 40 }],
+      [{ n: 0 }],
+      [{ id: 'checkin_qr' }],
+      [{ points: 2 }],
+    ]);
+    await checkIn(db, {
+      occurrenceId: OCC,
+      userId: 'user_1',
+      actorId: 'user_1',
+      method: 'qr',
+      token: issueCheckinToken({ occurrenceId: OCC, secret: SECRET }),
+      secret: SECRET,
+      lat: 42.681234,
+      lon: 23.341234,
+    });
+    // Where a named person stands on a Tuesday evening is the most sensitive
+    // record this project could keep. The coordinates may appear ONLY in the
+    // statement that turns them into a distance.
+    const writes = db.statements.filter((st) => /INSERT|UPDATE/i.test(st.sql));
+    for (const write of writes) {
+      expect(write.params).not.toContain(42.681234);
+      expect(write.params).not.toContain(23.341234);
+    }
   });
 
   it('evaluates the time window in SQL, not against the app clock', async () => {
@@ -362,7 +553,13 @@ describe('checkIn authorization', () => {
     const repeat = fakeDb([[open], [], [{ id: 'checkin_1' }]]);
     await expect(
       checkIn(repeat, { occurrenceId: 'occ_1', userId: 'user_1', actorId: 'user_1' }),
-    ).resolves.toEqual({ checkinId: 'checkin_1', created: false });
+    ).resolves.toMatchObject({
+      checkinId: 'checkin_1',
+      created: false,
+      // Reporting a repeat as freshly scored would be a lie to the UI.
+      outcome: 'unscored_already',
+      pointsAwarded: 0,
+    });
   });
 });
 
@@ -370,21 +567,54 @@ describe('rsvp', () => {
   it('redraws the arrival ticket only for a re-join', async () => {
     const db = fakeDb([
       [{ status: 'scheduled', started: false }],
+      // No prior row: this is a first join.
+      [],
       [{ id: 'rsvp_1' }],
-      [{ position: 3, rsvp_status: 'waitlisted' }],
+      [{ position: 3, rsvp_status: 'waitlisted', seq: 7 }],
     ]);
     await expect(rsvp(db, 'user_1', 'occ_1')).resolves.toEqual({
       rsvpId: 'rsvp_1',
       position: 3,
       status: 'waitlisted',
+      seq: 7,
+      joined: true,
     });
-    const insert = db.statements[1]?.sql ?? '';
+    const insert = db.statements[2]?.sql ?? '';
     // A double-submitted form keeps its place; only a withdrawal sends someone
     // to the back of the queue.
     expect(insert).toMatch(/WHEN play_session_rsvps\.state = 'withdrawn'/i);
     expect(insert).toMatch(/nextval\('play_session_rsvp_seq'\)/i);
     // Joining a full session is a waitlist place, not an error.
     expect(insert).not.toMatch(/capacity/i);
+  });
+
+  it('reports joined:false for an idempotent repeat, so no second mail goes', async () => {
+    const db = fakeDb([
+      [{ status: 'scheduled', started: false }],
+      // Already active — a double-submitted form, not a new sign-up.
+      [{ state: 'active' }],
+      [{ id: 'rsvp_1' }],
+      [{ position: 1, rsvp_status: 'going', seq: 7 }],
+    ]);
+    await expect(rsvp(db, 'user_1', 'occ_1')).resolves.toMatchObject({ joined: false });
+    // The prior state is read under a row lock, which also serialises the two
+    // halves of a double submit.
+    expect(db.statements[1]?.sql ?? '').toMatch(/FOR UPDATE/i);
+  });
+
+  it('treats a re-join after withdrawing as a new sign-up', async () => {
+    const db = fakeDb([
+      [{ status: 'scheduled', started: false }],
+      [{ state: 'withdrawn' }],
+      [{ id: 'rsvp_1' }],
+      [{ position: 4, rsvp_status: 'waitlisted', seq: 12 }],
+    ]);
+    // A fresh ticket means a fresh confirmation: the notification ledger is
+    // keyed by seq precisely so this is not swallowed.
+    await expect(rsvp(db, 'user_1', 'occ_1')).resolves.toMatchObject({
+      joined: true,
+      seq: 12,
+    });
   });
 
   it('refuses a cancelled or already-started occurrence', async () => {
@@ -401,8 +631,10 @@ describe('rsvp', () => {
   it('reports withdrawing from something you are not attending', async () => {
     const db = fakeDb([[]]);
     await expect(withdraw(db, 'user_1', 'occ_1')).rejects.toThrowError('not_attending');
-    // Withdrawal only ever touches the caller's own row.
-    expect(db.statements[0]?.sql).toMatch(/user_id = \$\d+ AND state = 'active'/i);
+    // Withdrawal only ever touches the caller's own row. Statement 0 is the
+    // "who is going" read taken before the update, so the UPDATE is next.
+    const update = db.statements.find((st) => /UPDATE play_session_rsvps/i.test(st.sql));
+    expect(update?.sql).toMatch(/user_id = \$\d+ AND state = 'active'/i);
   });
 });
 

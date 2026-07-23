@@ -48,6 +48,8 @@ export interface DeletionSummary {
   badgesErased: number;
   /** campaign_results rows whose member reference was cleared. */
   campaignResultsAnonymized: number;
+  /** play_session_notifications rows removed with the account. */
+  sessionNotificationsErased: number;
 }
 
 interface SqlRunner {
@@ -146,6 +148,17 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
       ),
     );
 
+    // "We emailed this person about this session on this evening" (Stage 4.2)
+    // is the member's own data and nobody else's, so it leaves with the account
+    // — a tombstone that kept it would be a small archive of their week. The
+    // calendar token goes the same way through the cascade, uncounted: it is
+    // one credential row, not a record of anything the member did.
+    const sessionNotificationsErased = countFrom(
+      await tx.execute(
+        sql`SELECT count(*)::int AS n FROM play_session_notifications WHERE user_id = ${userId}`,
+      ),
+    );
+
     // Pending one-time codes are keyed by email address, not by user id, so the
     // cascade does not reach them. Left behind they would be a short-lived
     // record of the address that asked to be forgotten.
@@ -167,16 +180,17 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
         condition_reports_anonymized, points_erased, moderation_decisions_preserved,
         sessions_cancelled, rsvps_erased, checkins_erased,
         digest_subscriptions_erased, results_anonymized, badges_erased,
-        campaign_results_anonymized
+        campaign_results_anonymized, session_notifications_erased
       )
       VALUES (${userId}, ${auditRowsPreserved}, ${photosAnonymized},
               ${conditionReportsAnonymized}, ${pointsErased}, ${moderationDecisionsPreserved},
               ${sessionsCancelled}, ${rsvpsErased}, ${checkinsErased},
               ${digestSubscriptionsErased}, ${resultsAnonymized}, ${badgesErased},
-              ${campaignResultsAnonymized})
+              ${campaignResultsAnonymized}, ${sessionNotificationsErased})
     `);
 
-    // Cascades to sessions, accounts, the points ledger and user_badges; nulls
+    // Cascades to sessions, accounts, the points ledger, user_badges, the
+    // session-notification ledger and the calendar token; nulls
     // facility_photos.uploaded_by and facility_condition_reports.reporter_id.
     await tx.execute(sql`DELETE FROM users WHERE id = ${userId}`);
 
@@ -194,6 +208,7 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
       resultsAnonymized,
       badgesErased,
       campaignResultsAnonymized,
+      sessionNotificationsErased,
     };
   });
 }

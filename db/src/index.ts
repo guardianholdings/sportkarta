@@ -23,6 +23,30 @@ export type {
   MaterializeReport,
 } from './sessions/materialize.js';
 export {
+  cancellationRecipients,
+  claimNotification,
+  dueReminders,
+  goingUserIds,
+  recipientsFor,
+  REMINDER_LEAD_HOURS,
+  seriesCancellationRecipients,
+} from './sessions/notifications.js';
+export type {
+  ReminderKind,
+  SessionMailRecipient,
+  SessionNotificationKind,
+} from './sessions/notifications.js';
+export {
+  calendarFeed,
+  calendarOccurrence,
+  calendarToken,
+  ensureCalendarToken,
+  FEED_PAST_DAYS,
+  generateCalendarToken,
+  rotateCalendarToken,
+} from './sessions/calendar.js';
+export type { CalendarFeed, CalendarOccurrence } from './sessions/calendar.js';
+export {
   adminStandings,
   campaignById,
   campaignBySlug,

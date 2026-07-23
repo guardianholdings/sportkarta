@@ -122,13 +122,15 @@ describe.skipIf(!hasDb)('campaign scoring (requires running database)', () => {
   const WINDOW_START = '2019-03-01';
   const WINDOW_END = '2019-03-10';
 
-  async function makeCampaign(overrides: {
-    scopeKind?: string;
-    municipalityId?: number | null;
-    quarter?: string | null;
-    leaderboardType?: string;
-    rules?: unknown;
-  } = {}): Promise<CampaignRow> {
+  async function makeCampaign(
+    overrides: {
+      scopeKind?: string;
+      municipalityId?: number | null;
+      quarter?: string | null;
+      leaderboardType?: string;
+      rules?: unknown;
+    } = {},
+  ): Promise<CampaignRow> {
     await client.query(`DELETE FROM campaigns WHERE slug = $1`, [SLUG]);
     await client.query(
       `INSERT INTO campaigns (slug, status, scope_kind, municipality_id, quarter,
@@ -188,14 +190,7 @@ describe.skipIf(!hasDb)('campaign scoring (requires running database)', () => {
       await client.query(
         `INSERT INTO users (id, display_name, email, is_minor, profile_visibility, public_handle)
          VALUES ($1, $2, $3, $4, $5::profile_visibility, $6)`,
-        [
-          id,
-          `Тест ${id}`,
-          `${id}@example.org`,
-          isMinor,
-          handle ? 'public' : 'private',
-          handle,
-        ],
+        [id, `Тест ${id}`, `${id}@example.org`, isMinor, handle ? 'public' : 'private', handle],
       );
     }
   });
@@ -279,7 +274,13 @@ describe.skipIf(!hasDb)('campaign scoring (requires running database)', () => {
     expect(rows.find((r) => r.handle === HANDLES[ADULT_PUBLIC])?.score).toBe(10);
     if (other) {
       // A facility not carrying the campaign sport contributes nothing.
-      await award(ADULT_PRIVATE, facilities.indexOf(other), 'facility_added', '2019-03-02', 'other');
+      await award(
+        ADULT_PRIVATE,
+        facilities.indexOf(other),
+        'facility_added',
+        '2019-03-02',
+        'other',
+      );
       const admin = await adminStandings(db as never, campaign);
       expect(admin.find((r) => r.userId === ADULT_PRIVATE)).toBeUndefined();
     }
@@ -449,5 +450,61 @@ describe.skipIf(!hasDb)('campaign scoring (requires running database)', () => {
       expect(after[0]?.score).toBe(10);
       expect(after[0]?.displayName).toBeNull();
     });
+  });
+});
+
+describe('campaign scoring counts VERIFIED attendance only (Stage 5.4)', () => {
+  /**
+   * A campaign is the one place in the product where gaming attendance wins a
+   * real PRIZE, so a self-attested tap — a button somebody pressed at home —
+   * must not count towards one. Stage 5.4's `only_qr_scores` CHECK governs
+   * points_ledger; campaign scoring reads play_session_checkins DIRECTLY and so
+   * needs its own filter, which is exactly the kind of second reader that gets
+   * forgotten.
+   *
+   * Asserted on the compiled SQL rather than end-to-end: the surrounding suite
+   * already runs these queries against real Postgres, so what is at risk is not
+   * whether the SQL is valid but whether the predicate is still in it.
+   */
+  function compiledFor(kinds: { kind: string; weight: number }[]): string {
+    const captured: string[] = [];
+    const recorder = {
+      execute: (query: never) => {
+        captured.push(renderSql(query).sql);
+        return Promise.resolve({ rows: [] });
+      },
+    };
+    const campaign: CampaignRow = {
+      id: '00000000-0000-4000-8000-0000000000c1',
+      slug: 'test',
+      status: 'published',
+      scope: { kind: 'national' },
+      window: { startsOn: '2026-07-01', endsOn: '2026-07-31' },
+      leaderboardType: 'individual',
+      template: 'standard',
+      rules: { events: kinds } as CampaignRow['rules'],
+      titleBg: 'Тест',
+      titleEn: null,
+      blurbBg: null,
+      blurbEn: null,
+      prizeBg: null,
+      prizeEn: null,
+      closedAt: null,
+    };
+    void campaignStanding(recorder as never, campaign, 'member_1');
+    return captured.join('\n');
+  }
+
+  it('filters check-ins to the QR method', () => {
+    const sqlText = compiledFor([{ kind: 'session_checkin', weight: 3 }]);
+    expect(sqlText).toContain('play_session_checkins');
+    expect(sqlText).toMatch(/c\.method\s*=\s*'qr'/);
+  });
+
+  it('does not filter on the scored flag — a capped attendance still counts', () => {
+    // Someone who hit the daily points cap, or declined the location prompt,
+    // still turned up. A campaign counts turning up, not being paid.
+    const sqlText = compiledFor([{ kind: 'session_checkin', weight: 3 }]);
+    expect(sqlText).not.toMatch(/c\.scored/);
   });
 });

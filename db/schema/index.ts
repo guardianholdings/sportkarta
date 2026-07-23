@@ -348,6 +348,10 @@ export const pointsEvent = pgEnum('points_event', [
   'facility_added',
   'facility_verified',
   'condition_reported',
+  // Stage 5.4. Written ONLY for a QR-verified check-in — see
+  // play_session_checkins_only_qr_scores. The facility_id is the session's
+  // facility, which is why this fits the existing NOT NULL column.
+  'session_attended',
 ]);
 
 /**
@@ -857,6 +861,30 @@ export const playSessionCheckins = pgTable(
     method: playSessionCheckinMethod('method').notNull(),
     /** The organiser who marked it; NULL for self check-in. */
     recordedBy: text('recorded_by').references(() => users.id, { onDelete: 'set null' }),
+    /**
+     * How far the member was from the facility when they checked in, in metres
+     * — and DELIBERATELY NOT WHERE THEY WERE (Stage 5.4).
+     *
+     * The browser hands us a latitude and a longitude. We could store them.
+     * Storing them would create a table of where named children stand on
+     * Tuesday evenings, which is the single most sensitive record this project
+     * could hold and is not needed for anything: the question is only "were
+     * they at the pitch?", and a distance answers it. The coordinates exist for
+     * the life of one SQL statement — ST_Distance against a facility whose
+     * location we already publish — and are never written down.
+     *
+     * NULL means no location was offered. That is allowed: a member who
+     * declines the permission prompt still gets checked in, they just do not
+     * get points (see `scored`).
+     */
+    distanceM: integer('distance_m'),
+    /**
+     * Whether this attendance earned points (Stage 5.4). The points themselves
+     * live in points_ledger, keyed per occurrence per member; this records the
+     * OUTCOME so "why did I not get points for this?" is answerable from the
+     * row, and so the rule below can be a constraint rather than a convention.
+     */
+    scored: boolean('scored').notNull().default(false),
     checkedInAt: timestamptz('checked_in_at').notNull().defaultNow(),
   },
   (t) => [
@@ -871,6 +899,42 @@ export const playSessionCheckins = pgTable(
     check(
       'play_session_checkins_self_has_no_recorder',
       sql`${t.method} <> 'self' OR ${t.recordedBy} IS NULL`,
+    ),
+    // Nor is a QR scan: the member redeemed a token themselves.
+    check(
+      'play_session_checkins_qr_has_no_recorder',
+      sql`${t.method} <> 'qr' OR ${t.recordedBy} IS NULL`,
+    ),
+    /**
+     * ONLY A QR-VERIFIED CHECK-IN MAY SCORE. Stage 5.2 promised that check-ins
+     * would not be ranked while they were self-attested; this is that promise
+     * as a constraint rather than as a line of application code somebody can
+     * later "simplify". `self` means the member tapped a button, and `organizer`
+     * means somebody vouched — both are worth recording and neither is worth
+     * points, because neither is evidence.
+     */
+    check('play_session_checkins_only_qr_scores', sql`NOT ${t.scored} OR ${t.method} = 'qr'`),
+    /**
+     * A negative distance is meaningless and a 1 000 km one is a broken client.
+     * THE WRITER CLAMPS to this bound rather than letting a wild reading raise
+     * a constraint violation — a desktop browser falling back to an IP-derived
+     * fix can be a continent away, and a CHECK must never be the thing that
+     * decides whether an attendance is recorded (apps/web/lib/sessions/checkin.ts).
+     */
+    check(
+      'play_session_checkins_distance_sane',
+      sql`${t.distanceM} IS NULL OR ${t.distanceM} BETWEEN 0 AND 1000000`,
+    ),
+    /**
+     * We only measure where somebody was standing when they redeemed a token.
+     * A distance on a `self` or `organizer` row would mean we had located a
+     * member for a check-in that could never score — collecting a position for
+     * no purpose, which is the thing migration 0014's header argues against.
+     * Structural, like only_qr_scores, rather than an application habit.
+     */
+    check(
+      'play_session_checkins_distance_only_for_qr',
+      sql`${t.distanceM} IS NULL OR ${t.method} = 'qr'`,
     ),
   ],
 );
@@ -890,6 +954,157 @@ export const playSessionCheckins = pgTable(
  * tennis, and a duration column would invite exactly the integration this stage
  * has decided not to build.
  */
+
+/**
+ * What a member has already been told about an occurrence (Stage 4.2).
+ *
+ * The kinds are notification EVENTS, not states: `promoted` records that we
+ * told somebody a spot opened, and says nothing about whether they are still
+ * going. Attendance is derived from play_session_rsvp_positions and only from
+ * there — one definition of "am I going?", exactly as Stage 4.1 arranged.
+ */
+export const playSessionNotificationKind = pgEnum('play_session_notification_kind', [
+  'rsvp_confirmed',
+  'rsvp_waitlisted',
+  'promoted',
+  'reminder_24h',
+  'reminder_2h',
+  'occurrence_cancelled',
+]);
+
+/**
+ * The idempotency ledger for session mail (Stage 4.2), and the same argument as
+ * digest_sends and points_ledger before it: THE UNIQUE INDEX IS THE GUARANTEE,
+ * not application logic.
+ *
+ * WHY THE REMINDER JOB NEEDS THIS AND A TIME WINDOW WOULD NOT DO. The obvious
+ * design is "every ten minutes, mail everyone whose session starts in 24h ± 5
+ * minutes". That job mails nobody at all for any session whose window it slept
+ * through — a deploy, a restart, a slow queue — and there is no evidence
+ * afterwards that it happened. With this table the query becomes "starting
+ * within 24 hours and not yet told", which is idempotent, self-healing after
+ * downtime, and cannot double-send however often it runs.
+ *
+ * The row is written in the SAME TRANSACTION AS, AND BEFORE, the send. A crash
+ * between the SMTP handoff and COMMIT re-sends — the honest trade and the right
+ * way round, since send-then-record loses mail silently instead.
+ *
+ * TWO KEYS, BECAUSE THREE OF THE SIX KINDS ARE RE-ENTRANT. Migration 0008
+ * supports withdrawing and re-joining, which draws a FRESH arrival ticket. A
+ * flat UNIQUE (occurrence, member, kind) would therefore silently suppress the
+ * second confirmation — and, far worse, the second `promoted` mail: somebody
+ * who withdrew, re-joined the waitlist and was let in again would never be
+ * told, would believe they were still queued, and would not turn up. So the
+ * three RSVP-scoped kinds are keyed by the arrival ticket that caused them,
+ * while the three facts-about-the-occurrence kinds (both reminders and the
+ * cancellation) stay once-per-occurrence, with rsvp_seq NULL. The CHECK binds
+ * the two halves so no writer can file a row under the wrong rule.
+ *
+ * It holds no subject, no body and no address: it records THAT a member was
+ * told, not what was said. Everything here is the member's own data and leaves
+ * with the account (CASCADE) — a "we emailed this person about this session"
+ * row that outlived them would be a small, pointless archive of their evenings.
+ */
+export const playSessionNotifications = pgTable(
+  'play_session_notifications',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    occurrenceId: uuid('occurrence_id')
+      .notNull()
+      .references(() => playSessionOccurrences.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: playSessionNotificationKind('kind').notNull(),
+    /**
+     * The play_session_rsvps arrival ticket this notification was about, for
+     * the RSVP-scoped kinds; NULL for the ones that are facts about the
+     * occurrence rather than about one sign-up. Deliberately NOT a foreign key:
+     * the ledger must survive the RSVP row it describes, or withdrawing would
+     * erase the evidence that we already wrote to somebody.
+     */
+    rsvpSeq: bigint('rsvp_seq', { mode: 'number' }),
+    sentAt: timestamptz('sent_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // Facts about the occurrence: told once, whatever the member does after.
+    uniqueIndex('play_session_notifications_once_unique')
+      .on(t.occurrenceId, t.userId, t.kind)
+      .where(sql`${t.rsvpSeq} IS NULL`),
+    // Facts about one sign-up: told once per arrival ticket, so re-joining
+    // after a withdrawal is confirmed again and can be promoted again.
+    uniqueIndex('play_session_notifications_attempt_unique')
+      .on(t.occurrenceId, t.userId, t.kind, t.rsvpSeq)
+      .where(sql`${t.rsvpSeq} IS NOT NULL`),
+    // Covers the user_id FK: erasure counts and cascades by user_id, and this
+    // is the fastest-growing table in the schema. Without it, a legally
+    // time-bound operation seq-scans it and gets slower every week. NOT for the
+    // reminder anti-join, which the unique indexes above already satisfy.
+    index('play_session_notifications_user_idx').on(t.userId),
+    /**
+     * Which key applies is decided by the kind, in the database. Both sides are
+     * total (kind is NOT NULL, `IS NOT NULL` is never NULL), so this equality
+     * can never evaluate to NULL — the trap that made campaigns_rules_shaped in
+     * 0012 need a CASE. Adding a seventh kind means editing this list, which is
+     * the point: the author has to decide which rule it follows.
+     */
+    check(
+      'play_session_notifications_seq_matches_kind',
+      sql`(${t.kind} IN ('rsvp_confirmed', 'rsvp_waitlisted', 'promoted')) = (${t.rsvpSeq} IS NOT NULL)`,
+    ),
+  ],
+);
+
+/**
+ * The private calendar subscription token (Stage 4.2).
+ *
+ * A calendar client cannot sign in. It fetches one URL, forever, unauthenticated
+ * — so the URL IS the credential, and that shapes every decision here:
+ *
+ *  - One row per member, so revoking is an UPDATE that mints a new token and
+ *    instantly kills every copy of the old URL. That is the only recovery
+ *    available once a URL has leaked into a shared calendar or a browser
+ *    history, so it must be one click and not a support request.
+ *  - Random and long (the shape CHECK refuses anything under 22 base64url
+ *    characters, ~128 bits), because this URL is guessable-until-proven-
+ *    otherwise and sits in server logs at the other end.
+ *  - NOT the account id, and not derived from it. The account id is the
+ *    better-auth session subject; a feed URL containing it would put a live
+ *    identifier into every calendar server that ever polls us.
+ *
+ * What the feed exposes is deliberately limited to the member's OWN sessions —
+ * see db/src/sessions/calendar.ts. A leaked token reveals where one person
+ * plays football, which is bad enough; it must not also become a directory.
+ */
+export const calendarTokens = pgTable(
+  'calendar_tokens',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    token: text('token').notNull().unique('calendar_tokens_token_unique'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    /** Moves on every regeneration, so "when did I last revoke?" is answerable. */
+    rotatedAt: timestamptz('rotated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // Same shape rule as digest_subscriptions.unsubscribe_token, bounded at
+    // both ends: a truncated or predictable generator fails closed at the
+    // database rather than quietly issuing a four-character calendar URL, and
+    // a runaway one cannot put a multi-kilobyte token into a URL.
+    check('calendar_tokens_token_shape', sql`${t.token} ~ '^[A-Za-z0-9_-]{22,64}$'`),
+    /**
+     * "The token is not the account id", in SQL rather than in a comment.
+     * better-auth ids satisfy the shape rule too, so without this a regression
+     * setting `token = user_id` would pass — and hand a live session subject to
+     * the logs of every third-party calendar server that polls the feed. The FK
+     * is CASCADE, so there is no SET NULL update to re-evaluate this CHECK and
+     * it cannot block an erasure (the 0009 trap does not apply here).
+     */
+    check('calendar_tokens_token_is_not_the_account_id', sql`${t.token} <> ${t.userId}`),
+  ],
+);
+
 export const playSessionResults = pgTable(
   'play_session_results',
   {
@@ -1104,7 +1319,9 @@ export const userBadges = pgTable(
     // row, so nobody is congratulated twice.
     uniqueIndex('user_badges_user_slug_unique').on(t.userId, t.badgeSlug),
     // "What is new for this member" — the only read path.
-    index('user_badges_user_unseen_idx').on(t.userId).where(sql`${t.seenAt} IS NULL`),
+    index('user_badges_user_unseen_idx')
+      .on(t.userId)
+      .where(sql`${t.seenAt} IS NULL`),
     // The ONLY bound on this column — no enum, no FK — so it constrains length
     // as well as alphabet, like moderation_flags.reason and play_sessions.sport.
     // Without a ceiling a slug-construction bug surfaces as "index row size
@@ -1115,10 +1332,7 @@ export const userBadges = pgTable(
     // future writer that breaks them fails loudly instead of rendering a
     // year-3000 date on a public page.
     check('user_badges_earned_before_seen', sql`${t.earnedAt} <= ${t.firstSeenAt}`),
-    check(
-      'user_badges_seen_order',
-      sql`${t.seenAt} IS NULL OR ${t.seenAt} >= ${t.firstSeenAt}`,
-    ),
+    check('user_badges_seen_order', sql`${t.seenAt} IS NULL OR ${t.seenAt} >= ${t.firstSeenAt}`),
   ],
 );
 
@@ -1208,7 +1422,10 @@ export const campaigns = pgTable(
     // a 366-day INCLUSIVE span, i.e. one leap year. Spelled out because "+ 366"
     // reads like "366 days allowed" and the two differ by the day that matters.
     check('campaigns_window_bounded', sql`${t.endsOn} < ${t.startsOn} + 366`),
-    check('campaigns_slug_shape', sql`${t.slug} ~ '^[a-z0-9]+(-[a-z0-9]+)*$' AND char_length(${t.slug}) <= 60`),
+    check(
+      'campaigns_slug_shape',
+      sql`${t.slug} ~ '^[a-z0-9]+(-[a-z0-9]+)*$' AND char_length(${t.slug}) <= 60`,
+    ),
     // Ceilings live on the column, as they do for users_display_name_len and
     // user_badges_slug_shape: a bug then fails as a clean violation instead of
     // storing megabytes that render on a public page.
@@ -1296,7 +1513,9 @@ export const campaignResults = pgTable(
     // orders by rank then id, so including it lets the LIMIT stop inside the
     // index instead of sorting the tiebreak.
     index('campaign_results_campaign_rank_idx').on(t.campaignId, t.rank, t.id),
-    index('campaign_results_user_idx').on(t.userId).where(sql`${t.userId} IS NOT NULL`),
+    index('campaign_results_user_idx')
+      .on(t.userId)
+      .where(sql`${t.userId} IS NOT NULL`),
     // The municipality FK is RESTRICT, so every delete or key-update on
     // municipalities checks this table. Unindexed it would seq-scan under lock,
     // and every closed city campaign makes that worse — the same index every

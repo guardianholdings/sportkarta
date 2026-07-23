@@ -60,8 +60,11 @@ describe('awardKey', () => {
         fc.string({ minLength: 1, maxLength: 20 }),
         fc.string({ minLength: 1, maxLength: 20 }),
         (eventA, eventB, facilityId, userId) => {
-          const a = awardKey({ event: eventA, facilityId, userId });
-          const b = awardKey({ event: eventB, facilityId, userId });
+          // session_attended is keyed by occurrence, so it needs one; the value
+          // is fixed here because the property under test is about the EVENT.
+          const occurrenceId = '00000000-0000-4000-8000-00000000abcd';
+          const a = awardKey({ event: eventA, facilityId, userId, occurrenceId });
+          const b = awardKey({ event: eventB, facilityId, userId, occurrenceId });
           if (eventA !== eventB) expect(a).not.toBe(b);
           else expect(a).toBe(b);
         },
@@ -79,7 +82,13 @@ describe('awardKey', () => {
         (event, facilityId, userId, retries) => {
           const now = new Date('2026-07-22T09:00:00Z');
           const keys = Array.from({ length: retries }, () =>
-            awardKey({ event, facilityId, userId, now }),
+            awardKey({
+              event,
+              facilityId,
+              userId,
+              now,
+              occurrenceId: '00000000-0000-4000-8000-00000000abcd',
+            }),
           );
           // However many times the action is retried, it is one key — and the
           // ledger's UNIQUE index turns that into exactly one award.
@@ -87,5 +96,39 @@ describe('awardKey', () => {
         },
       ),
     );
+  });
+});
+
+describe('session_attended keying (Stage 5.4)', () => {
+  const base = {
+    event: 'session_attended' as const,
+    facilityId: '00000000-0000-4000-8000-000000000001',
+    userId: 'member_1',
+  };
+
+  it('is keyed by the occurrence, not the facility', () => {
+    // Keyed by facility, a weekly regular would be paid for their first Tuesday
+    // and never again — the exact bug the thrown error below guards.
+    const week1 = awardKey({ ...base, occurrenceId: '11111111-1111-4111-8111-111111111111' });
+    const week2 = awardKey({ ...base, occurrenceId: '22222222-2222-4222-8222-222222222222' });
+    expect(week1).not.toBe(week2);
+  });
+
+  it('is one award per member per occurrence, whoever else attends', () => {
+    const occurrenceId = '11111111-1111-4111-8111-111111111111';
+    expect(awardKey({ ...base, occurrenceId })).not.toBe(
+      awardKey({ ...base, userId: 'member_2', occurrenceId }),
+    );
+  });
+
+  it('does not depend on the clock — attendance is bounded by the occurrence', () => {
+    const occurrenceId = '11111111-1111-4111-8111-111111111111';
+    expect(awardKey({ ...base, occurrenceId, now: new Date('2026-01-01T00:00:00Z') })).toBe(
+      awardKey({ ...base, occurrenceId, now: new Date('2026-12-31T23:59:59Z') }),
+    );
+  });
+
+  it('refuses to fall back to the facility when the occurrence is missing', () => {
+    expect(() => awardKey(base)).toThrow(/occurrenceId/);
   });
 });

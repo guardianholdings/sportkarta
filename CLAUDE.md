@@ -68,6 +68,24 @@ browser) in a MANUAL STEPS list at the end of the session.
   prize without appearing on a public individual board. Closing freezes the
   standings into `campaign_results`, which deliberately stores no display name —
   the placing is frozen, the identity resolves live
+- Session mail (Stage 4.2) is sent ONLY from the worker. The web app enqueues
+  `session.notify` with occurrence ids and ACCOUNT ids — never an address, since
+  a job row outlives the account it names — and the worker resolves the inbox at
+  send time. Idempotency is `play_session_notifications`, whose TWO partial keys
+  matter: the RSVP-scoped kinds key on the arrival ticket (`rsvp_seq`) so a
+  member who re-joined after withdrawing can be confirmed and promoted again,
+  while reminders and cancellations key on NULL. Promotion has no event to hook
+  (4.1 promotes by arithmetic), so `withdraw` diffs who was going either side of
+  the update; concurrent withdrawals may overlap and that is fine, because the
+  ledger dedupes the send
+- Attendance scoring (Stage 5.4): only a `qr` check-in may score, and that is a
+  CHECK (`play_session_checkins_only_qr_scores`), not application code. The
+  browser's coordinates live for one statement and only `distance_m` is stored —
+  never a latitude or longitude. Nothing in the anti-abuse layer REFUSES a
+  check-in; attendance is always recorded and only the payment stops
+- i18n keys must be NESTED, never dotted: next-intl reads `.` as nesting and
+  rejects the catalogue at request time, and the parity test cannot see it
+  (`apps/web/tests/i18n.test.ts` has a separate guard)
 - Client components must import `@sportkarta/lib/<subpath>`, never the barrel:
   the barrel re-exports the mailer, which drags nodemailer and `node:fs` into
   the browser bundle (`apps/web/tests/client-imports.test.ts` enforces this)

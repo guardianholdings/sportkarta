@@ -1,0 +1,152 @@
+-- 0014_qr_checkin: QR-verified attendance scoring (docs/ROADMAP.md §7, Stage
+-- 5.4). One new enum value, two new columns and four CHECKs on an existing
+-- table. No new table, no data rewritten, nothing destroyed.
+--
+-- WHAT `distance_m` IS, AND WHAT IT DELIBERATELY IS NOT. Verifying a check-in
+-- means asking "were they at the pitch?", and the browser hands us a latitude
+-- and a longitude to answer it with. We could store those. Storing them would
+-- build a table of where named people — including children — stand on Tuesday
+-- evenings: the single most sensitive record this project could hold, and one
+-- nothing in the product needs. So the coordinates live for the length of ONE
+-- SQL statement, are compared against a facility location we already publish,
+-- and only the resulting DISTANCE IN METRES is written down. NULL means no
+-- location was offered, which is allowed — declining the permission prompt
+-- still records the attendance, it just does not pay. That claim is structural
+-- in both directions: play_session_checkins_distance_only_for_qr means we never
+-- hold a position for a check-in that could not have scored, and
+-- db/src/checkin-scoring.test.ts asserts against information_schema that no
+-- column here could hold a coordinate at all.
+--
+-- THE WRITER CLAMPS; THE CHECK DOES NOT DECIDE. distance_m is bounded at
+-- 1 000 km, and apps/web/lib/sessions/checkin.ts wraps the ST_Distance in
+-- `least(..., 1000000)` for a specific reason: wild readings are ROUTINE — a
+-- desktop browser falling back to an IP-derived fix lands a continent away, and
+-- a spoofed coordinate can be 20 000 km out. Unclamped, such a reading raises
+-- SQLSTATE 23514, aborts the check-in transaction and records NO ATTENDANCE AT
+-- ALL. A constraint must never be the thing that decides whether somebody's
+-- attendance exists; see the invariant below.
+--
+-- ONLY A QR-VERIFIED CHECK-IN MAY SCORE, and that is a CONSTRAINT here rather
+-- than a line of application code. Stage 5.2 shipped leaderboards that
+-- deliberately rank points_ledger and NOT check-ins, on the grounds that a
+-- check-in was self-attested until a signed token existed. 5.4 is that token —
+-- and `play_session_checkins_only_qr_scores` is the promise made structural, so
+-- that a future refactor that "simplifies" the award path cannot quietly start
+-- paying for a button somebody tapped at home. `self` means the member said so;
+-- `organizer` means somebody vouched. Both are worth recording. Neither is
+-- evidence. NOTE that this constraint governs points_ledger only: campaign
+-- scoring reads play_session_checkins directly, so db/src/campaigns.ts filters
+-- `method = 'qr'` itself — a campaign is the one place where gaming this wins a
+-- real PRIZE, and that filter is what keeps a self-attested tap out of it.
+--
+-- THE INVARIANT THIS FILE SERVES: nothing in the anti-abuse layer REFUSES a
+-- check-in. Attendance is a fact and is always recorded; only the payment
+-- stops. An anti-abuse rule that can wrongly erase a child's attendance is
+-- worse than one that can wrongly decline to pay them two points, and only the
+-- second has an appeal path.
+--
+-- The new points event reuses points_ledger unchanged: facility_id is the
+-- session's facility, so the NOT NULL column is satisfied honestly, and the
+-- idempotency key is `session_attended:<occurrence>:<member>` — one award per
+-- person per occurrence, ever. That bound is not a rule somebody has to
+-- enforce: occurrences are written ONLY by the session.materialize job from a
+-- validated RRULE (migration 0008), so a member cannot mint one to be paid for.
+--
+-- ENUM EXTENSION, AND THE RULE THAT ACTUALLY APPLIES. `ALTER TYPE ... ADD
+-- VALUE` runs inside drizzle's transaction, but the new value cannot be USED in
+-- that same transaction. Nothing here uses it: the CHECKs below name
+-- play_session_checkin_method values, which already exist, and 'session_attended'
+-- appears only inside a COMMENT string, which is not a use. The first INSERT
+-- carrying it happens at runtime, in a later transaction.
+--   CORRECTION TO 0013's HEADER, which said a follow-up needs a second
+--   MIGRATION FILE: that is not enough. `drizzle-kit migrate` wraps the loop
+--   over ALL PENDING migrations in ONE transaction, so two files applied by one
+--   `pnpm db:migrate` are still one transaction, and the follow-up would abort
+--   with "unsafe use of new value". Worse, it would pass CI and `pnpm db:reset`,
+--   because on a from-scratch database the type is CREATEd in the same
+--   transaction and PostgreSQL then permits the new value — green everywhere
+--   except production. The real rule is a separate `db:migrate` INVOCATION,
+--   i.e. a separate deploy.
+--
+-- GDPR — AND THE CORRECT ARGUMENT, NOT THE COMFORTABLE ONE. It is NOT true
+-- that no CHECK here names a user column: play_session_checkins_qr_has_no_recorder
+-- names `recorded_by`, which is ON DELETE SET NULL to `users` (0008). Erasing
+-- an ORGANISER therefore issues `UPDATE play_session_checkins SET recorded_by =
+-- NULL`, and PostgreSQL re-evaluates ALL FOUR of these CHECKs on every affected
+-- row — the 0009 trap is REACHED, not avoided. It is harmless for one reason
+-- only: the predicate is MONOTONE under that update. Setting recorded_by to
+-- NULL makes the disjunct `recorded_by IS NULL` true, so a row that satisfied
+-- the constraint before still satisfies it after, and the other three do not
+-- mention the column.
+--   THE TRAP THIS LEAVES: tightening this into the obvious equivalence
+--   `(method = 'organizer') = (recorded_by IS NOT NULL)` would NOT be monotone,
+--   and would permanently abort `DELETE FROM users` for any organiser who ever
+--   recorded a check-in, with no retry that could ever succeed. Do not.
+-- Both new columns are the member's own data and leave with the account through
+-- the existing user_id CASCADE.
+--
+-- LOCKING — likewise corrected. The four ADD CONSTRAINT each take ACCESS
+-- EXCLUSIVE on play_session_checkins and validate every existing row, and that
+-- lock IS contended by GDPR erasure: apps/web/lib/account-deletion.ts both
+-- counts this table (ACCESS SHARE, held to COMMIT) and cascades into it from
+-- `DELETE FROM users` (ROW EXCLUSIVE). An erasure in flight makes this
+-- migration queue and fail at lock_timeout — fail-fast, which is the intent —
+-- and while the migration holds the lock, check-ins and erasures both block.
+--   ORDERING: this file takes the play_session_checkins lock FIRST and touches
+--   account_deletions not at all, so there is no cycle today. A later migration
+--   that adds a tombstone counter AND touches this table must put the
+--   account_deletions work first, as 0013 does, or it will deadlock against
+--   account-deletion.ts, which holds account_deletions and then wants this
+--   table.
+-- PRE-FLIGHT (dev, 2026-07-23): play_session_checkins holds 0 rows; 0 with
+-- `method = 'qr' AND recorded_by IS NOT NULL`; 0 with a distance on a non-qr
+-- row. Run those three counts against production before deploying — the 'qr'
+-- enum value has existed since 0008 with no constraint excluding a recorder, so
+-- a single such row aborts the deploy.
+--
+-- rollback (compensating SQL, reverse order; DESTRUCTIVE where noted).
+-- PRECONDITION: roll the APPLICATION back first — the current build writes
+-- 'session_attended' rows and reads `scored`.
+--   ALTER TABLE "play_session_checkins" DROP CONSTRAINT "play_session_checkins_distance_only_for_qr";
+--   ALTER TABLE "play_session_checkins" DROP CONSTRAINT "play_session_checkins_distance_sane";
+--   ALTER TABLE "play_session_checkins" DROP CONSTRAINT "play_session_checkins_only_qr_scores";
+--   ALTER TABLE "play_session_checkins" DROP CONSTRAINT "play_session_checkins_qr_has_no_recorder";
+--   ALTER TABLE "play_session_checkins" DROP COLUMN "scored";      -- DESTRUCTIVE:
+--   ALTER TABLE "play_session_checkins" DROP COLUMN "distance_m";  -- loses the
+--       record of which attendances were verified and paid. Recoverable in part
+--       from points_ledger (a session_attended row means it scored), but the
+--       distances are gone for good.
+--   COMMENT ON TYPE "public"."points_event" IS NULL;  -- the type survives the
+--       rollback, so its comment would otherwise describe a column and a stage
+--       that no longer exist.
+--   -- The enum value CANNOT be removed: PostgreSQL has no DROP VALUE. That is
+--   -- why the ADD VALUE below carries IF NOT EXISTS — without it, re-applying
+--   -- after a rollback aborts on a label that is already there. Rolling back
+--   -- leaves 'session_attended' in the type, which is harmless, and any
+--   -- points_ledger rows already written under it MUST NOT be deleted — they are
+--   -- append-only and are somebody's real balance. They therefore keep counting
+--   -- in every balance, badge fold and public leaderboard while the feature is
+--   -- off. That is correct; do not "tidy up".
+SET lock_timeout = '3s';--> statement-breakpoint
+SET statement_timeout = '30s';--> statement-breakpoint
+-- IF NOT EXISTS, and not merely for tidiness: the rollback block below records
+-- that this value CANNOT be removed (PostgreSQL has no DROP VALUE), so a
+-- rolled-back-then-re-applied deploy would hit an already-present label and
+-- abort the whole migration transaction on a statement that has nothing left to
+-- do. Drizzle does not generate the guard; it is added by hand here.
+ALTER TYPE "public"."points_event" ADD VALUE IF NOT EXISTS 'session_attended';--> statement-breakpoint
+ALTER TABLE "play_session_checkins" ADD COLUMN "distance_m" integer;--> statement-breakpoint
+ALTER TABLE "play_session_checkins" ADD COLUMN "scored" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+-- A QR scan is redeemed by the member, so nobody else recorded it. MONOTONE
+-- under the recorded_by SET NULL that GDPR erasure performs — see the header
+-- before tightening this into an equivalence.
+ALTER TABLE "play_session_checkins" ADD CONSTRAINT "play_session_checkins_qr_has_no_recorder" CHECK ("play_session_checkins"."method" <> 'qr' OR "play_session_checkins"."recorded_by" IS NULL);--> statement-breakpoint
+-- Stage 5.2's promise, as a constraint. See the header.
+ALTER TABLE "play_session_checkins" ADD CONSTRAINT "play_session_checkins_only_qr_scores" CHECK (NOT "play_session_checkins"."scored" OR "play_session_checkins"."method" = 'qr');--> statement-breakpoint
+-- The writer CLAMPS to this bound; it must never be what refuses a check-in.
+ALTER TABLE "play_session_checkins" ADD CONSTRAINT "play_session_checkins_distance_sane" CHECK ("play_session_checkins"."distance_m" IS NULL OR "play_session_checkins"."distance_m" BETWEEN 0 AND 1000000);--> statement-breakpoint
+-- We only ever measure where somebody stood when they redeemed a token.
+ALTER TABLE "play_session_checkins" ADD CONSTRAINT "play_session_checkins_distance_only_for_qr" CHECK ("play_session_checkins"."distance_m" IS NULL OR "play_session_checkins"."method" = 'qr');--> statement-breakpoint
+COMMENT ON COLUMN "play_session_checkins"."distance_m" IS 'How far the member was from the facility, in metres — deliberately NOT where they were. The coordinates the browser supplies live for one statement and are never stored: the question is "were they at the pitch?", and a distance answers it without building a record of where named people stand on Tuesday evenings. NULL = no location offered, which is allowed and simply does not pay. The writer clamps to the CHECK bound, so a wild reading never refuses the check-in.';--> statement-breakpoint
+COMMENT ON COLUMN "play_session_checkins"."scored" IS 'Whether this attendance earned points. Constrained to method=qr: Stage 5.2 shipped leaderboards that rank points and not check-ins precisely because check-ins were self-attested, and this keeps that true now that some of them are not. `self` is a button somebody tapped and `organizer` is somebody vouching; both are recorded, neither is evidence. Campaign scoring reads the METHOD rather than this flag — a capped or location-less attendance is still verified.';--> statement-breakpoint
+COMMENT ON TYPE "public"."points_event" IS 'Contribution and participation events priced in lib/src/points.ts. session_attended (Stage 5.4) is written ONLY for a QR-verified check-in, keyed session_attended:<occurrence>:<member> — one award per person per occurrence, and occurrences are minted only by the materialize job, so the bound cannot be farmed.';

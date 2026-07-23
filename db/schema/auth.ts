@@ -280,6 +280,13 @@ export const accountDeletions = pgTable(
      * "anonymized" and points_erased says "erased".
      */
     campaignResultsAnonymized: integer('campaign_results_anonymized').notNull().default(0),
+    /**
+     * play_session_notifications rows removed with the account (Stage 4.2).
+     * "We emailed this person about this session on this evening" is the
+     * member's own data and nobody else's, so it leaves — a tombstone that kept
+     * it would be a small, pointless archive of their week.
+     */
+    sessionNotificationsErased: integer('session_notifications_erased').notNull().default(0),
   },
   (t) => [
     index('account_deletions_deleted_at_idx').on(t.deletedAt),
@@ -295,7 +302,8 @@ export const accountDeletions = pgTable(
           AND ${t.moderationDecisionsPreserved} >= 0 AND ${t.sessionsCancelled} >= 0
           AND ${t.rsvpsErased} >= 0 AND ${t.checkinsErased} >= 0
           AND ${t.digestSubscriptionsErased} >= 0 AND ${t.resultsAnonymized} >= 0
-          AND ${t.badgesErased} >= 0 AND ${t.campaignResultsAnonymized} >= 0`,
+          AND ${t.badgesErased} >= 0 AND ${t.campaignResultsAnonymized} >= 0
+          AND ${t.sessionNotificationsErased} >= 0`,
     ),
   ],
 );

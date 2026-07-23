@@ -44,12 +44,24 @@ import {
  * hundred, without this file knowing anything about it.
  */
 
-/** Every kind of thing that can count towards a badge. */
+/**
+ * Every kind of thing that can count towards a badge.
+ *
+ * `session_checkin` is the ATTENDANCE FACT; `session_attended` (Stage 5.4) is
+ * the points_ledger row that sometimes accompanies it. One QR check-in produces
+ * BOTH, so a badge rule naming both would count one evening twice. It is listed
+ * here so the event stream is typed honestly rather than cast from an unknown
+ * string — but participation badges count the fact, never the payment, and
+ * rules.test.ts refuses any catalogue rule that reaches for `session_attended`.
+ * (A check-in that hit the daily cap is still attendance; it simply did not
+ * pay, and a badge for turning up should not care.)
+ */
 export const PASSPORT_EVENT_KINDS = [
   'facility_added',
   'facility_verified',
   'condition_reported',
   'session_checkin',
+  'session_attended',
 ] as const;
 
 export type PassportEventKind = (typeof PASSPORT_EVENT_KINDS)[number];

@@ -37,7 +37,11 @@ interface EventOptions {
  * because an explicit null is a case under test (an event with no place) and
  * `??` would quietly substitute the default for it.
  */
-function event(kind: PassportEventKind, dayOffset: number, options: EventOptions = {}): PassportEvent {
+function event(
+  kind: PassportEventKind,
+  dayOffset: number,
+  options: EventOptions = {},
+): PassportEvent {
   return {
     kind,
     at: new Date(T0 + dayOffset * DAY_MS),
@@ -372,7 +376,11 @@ describe('assertValidCatalog', () => {
   it('rejects a badge that can never be earned', () => {
     expect(() =>
       assertValidCatalog([
-        { slug: 'nothing', group: 'contribution', rule: { kind: 'count', events: [], threshold: 1 } },
+        {
+          slug: 'nothing',
+          group: 'contribution',
+          rule: { kind: 'count', events: [], threshold: 1 },
+        },
       ]),
     ).toThrow(/never be earned/);
   });
@@ -402,5 +410,22 @@ describe('assertValidCatalog', () => {
     expect(() =>
       assertValidCatalog([{ ...countBadge('session_checkin', 1), slug: 'Първа крачка' }]),
     ).toThrow(/stable identifier/);
+  });
+});
+
+describe('attendance is counted once (Stage 5.4)', () => {
+  it('no catalogue rule scores the PAYMENT for attending, only the fact', () => {
+    // A QR check-in writes both a play_session_checkins row (`session_checkin`)
+    // and a points_ledger row (`session_attended`). A rule naming both would
+    // count one evening twice; a rule naming only `session_attended` would
+    // silently stop counting the attendances that hit the daily cap or came
+    // from a member who declined the location prompt. Participation badges
+    // count turning up.
+    const offenders = LAUNCH_BADGES.filter((badge) =>
+      'events' in badge.rule
+        ? (badge.rule.events as readonly string[]).includes('session_attended')
+        : false,
+    ).map((badge) => badge.slug);
+    expect(offenders).toEqual([]);
   });
 });
