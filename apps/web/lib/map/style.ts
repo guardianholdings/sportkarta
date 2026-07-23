@@ -84,6 +84,8 @@ export function buildMapStyle({ tilesUrl, glyphsUrl }: MapStyleOptions): StyleSp
         type: 'line',
         source: 'protomaps',
         'source-layer': 'roads',
+        // Paths are drawn by the dedicated `trails` layer below, not as roads.
+        filter: ['!=', ['get', 'kind'], 'path'],
         minzoom: 8,
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
@@ -96,11 +98,35 @@ export function buildMapStyle({ tilesUrl, glyphsUrl }: MapStyleOptions): StyleSp
         type: 'line',
         source: 'protomaps',
         'source-layer': 'roads',
+        filter: ['!=', ['get', 'kind'], 'path'],
         minzoom: 8,
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-color': '#ffffff',
           'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.5, 16, 5],
+        },
+      },
+      // Trails: the mountain and park paths of OpenStreetMap, rendered verbatim
+      // from the basemap tiles (no import). Restricted to highway=path and
+      // highway=track — the tags nature trails use — and deliberately NOT
+      // footway/sidewalk/crossing/steps, which are the city's pedestrian
+      // network. Empirically that keeps Vitosha and the parks dense while
+      // clearing urban streets, since green areas are path/track and cities are
+      // footway/sidewalk. A dashed warm line, from z11, below the facility
+      // clusters (added later) so the spots always sit on top.
+      {
+        id: 'trails',
+        type: 'line',
+        source: 'protomaps',
+        'source-layer': 'roads',
+        filter: ['in', ['get', 'kind_detail'], ['literal', ['path', 'track']]],
+        minzoom: 11,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#9a5b26',
+          'line-dasharray': [1.5, 1.5],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 0.8, 14, 1.6, 17, 3],
+          'line-opacity': ['interpolate', ['linear'], ['zoom'], 11, 0.55, 13, 0.9],
         },
       },
       {
@@ -135,6 +161,55 @@ export function buildMapStyle({ tilesUrl, glyphsUrl }: MapStyleOptions): StyleSp
         },
         paint: {
           'text-color': '#3a3a3a',
+          'text-halo-color': '#f6f5f2',
+          'text-halo-width': 1.4,
+        },
+      },
+      // Street names along the road line — the layer the map was missing.
+      // Named roads only, paths excluded (those get trail-labels below). From
+      // z13 so a city does not fill with labels at a glance. Renders with the
+      // self-hosted Noto Sans glyphs (public/fonts); without them MapLibre
+      // cannot draw a line label at all, which is why streets were blank.
+      {
+        id: 'road-labels',
+        type: 'symbol',
+        source: 'protomaps',
+        'source-layer': 'roads',
+        filter: ['all', ['has', 'name'], ['!=', ['get', 'kind'], 'path']],
+        minzoom: 13,
+        layout: {
+          'symbol-placement': 'line',
+          'text-field': LABEL_FIELD as [string, ...unknown[]],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 13, 10, 16, 12.5],
+          'text-max-angle': 40,
+          'symbol-spacing': 260,
+        },
+        paint: {
+          'text-color': '#5a5a5a',
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 1.6,
+        },
+      },
+      // Trail names along the line (e.g. "Драгалевци – х. Алеко – Черни връх").
+      // After `places`, so a city label wins the collision over a trail label.
+      {
+        id: 'trail-labels',
+        type: 'symbol',
+        source: 'protomaps',
+        'source-layer': 'roads',
+        filter: ['all', ['==', ['get', 'kind'], 'path'], ['has', 'name']],
+        minzoom: 13,
+        layout: {
+          'symbol-placement': 'line',
+          'text-field': LABEL_FIELD as [string, ...unknown[]],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 13, 10, 16, 12],
+          'text-max-angle': 40,
+          'symbol-spacing': 350,
+        },
+        paint: {
+          'text-color': '#7a4413',
           'text-halo-color': '#f6f5f2',
           'text-halo-width': 1.4,
         },

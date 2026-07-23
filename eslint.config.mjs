@@ -9,6 +9,10 @@ export default tseslint.config(
   {
     ignores: [
       '**/node_modules/**',
+      // Git worktrees created for background/spawned tasks live here; they are
+      // separate checkouts with their own state and must not be linted as part
+      // of this repo.
+      '.claude/**',
       '**/.next/**',
       '**/dist/**',
       '**/coverage/**',
