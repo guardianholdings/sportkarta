@@ -4,6 +4,7 @@ packages:
   - lib
   - scripts/import-osm
   - scripts/launch-report
+  - scripts/quarterly-report
 allowBuilds:
   '@parcel/watcher': true
   '@swc/core': true

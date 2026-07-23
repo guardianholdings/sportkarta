@@ -1,0 +1,14 @@
+# Generated report artifacts (Stage 6.2).
+#
+# `pnpm report:quarterly` and `pnpm report:grant` write here. Runs against a
+# DEVELOPMENT database produce figures that are partial or seeded, and a
+# half-real report sitting in the repository is one somebody eventually cites.
+#
+# A report generated against PRODUCTION and actually published is a different
+# thing and should be kept: add it deliberately with `git add -f`, so that a
+# figure quoted in a grant file can still be found a year later.
+*.html
+*.pdf
+*.csv
+!.gitignore
+!README.md

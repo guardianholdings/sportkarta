@@ -25,7 +25,9 @@
     "import:osm": "pnpm --filter @sportkarta/import-osm run cli",
     "import:osm:audit": "pnpm --filter @sportkarta/import-osm run audit",
     "tiles:build": "bash scripts/build-tiles/build.sh",
-    "stats:launch-report": "pnpm --filter @sportkarta/launch-report run report"
+    "stats:launch-report": "pnpm --filter @sportkarta/launch-report run report",
+    "report:quarterly": "pnpm --filter @sportkarta/quarterly-report run report",
+    "report:grant": "pnpm --filter @sportkarta/quarterly-report run report -- --grant"
   },
   "devDependencies": {
     "@eslint/js": "^9.20.0",

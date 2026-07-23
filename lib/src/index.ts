@@ -11,6 +11,7 @@ export * from './merge-policy.js';
 export * from './opendata/index.js';
 export * from './points.js';
 export * from './recurrence/index.js';
+export * from './reports/index.js';
 export * from './slug.js';
 export * from './sports.js';
 export * from './storage/index.js';

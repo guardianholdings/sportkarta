@@ -102,6 +102,28 @@ browser) in a MANUAL STEPS list at the end of the session.
   rather than the wall clock (so a re-run is byte-identical and the `immutable`
   cache header is honest), and the `opendata_dumps` row is written only after
   the file is hashed
+- Reports (Stage 6.2) are a CATALOGUE like open data: `lib/src/reports/`
+  declares each figure as a Bulgarian label, a definition, a unit, an SQL query
+  and two flags (`additive`, `personDerived`), and the admin annex, the PDF
+  script, the printed methodology and the reconciliation tests all read it. The
+  methodology section prints each figure's SQL verbatim — a figure is traceable
+  by design. Three rules are structural: attendance is reported by check-in
+  METHOD (never summed, because 0014's CHECK says only `qr` is evidence);
+  distinct-person metrics are `additive: false` and the reconciliation test
+  proves additive ones sum across municipalities to the national figure while
+  non-additive ones do not; suppression is a property of the REPORT (public
+  quarterly suppresses person-derived counts below 5, the ММС annex does not,
+  zero is never suppressed, a missing figure is an em dash not 0). Bulgarian
+  field names live in the catalogue, NOT in `messages/*.json`: an annex is a
+  ministry-specified document format that must read identically in any UI
+  locale, and keeping it out of i18n leaves the hardcoded-Cyrillic gate's
+  allowlist empty. Reporting periods are civil Sofia, half-open, resolved
+  through the recurrence engine — the renderer prints the inclusive last day.
+  Coverage figures EQUAL `mv_national_stats` (same reconciliation standard as
+  /statistika). No server-side PDF (Chromium in the prod image is too heavy for
+  the VPS); `scripts/quarterly-report` renders HTML→PDF via Playwright, the
+  admin screen serves print-ready HTML. `getPool()` in `@sportkarta/db` exists
+  for the report runner's positional-parameter binding
 - i18n keys must be NESTED, never dotted: next-intl reads `.` as nesting and
   rejects the catalogue at request time, and the parity test cannot see it
   (`apps/web/tests/i18n.test.ts` has a separate guard)

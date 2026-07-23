@@ -17,7 +17,8 @@
     "ambassadors": "Ambassadors",
     "bulkSessions": "Sessions",
     "results": "Results",
-    "campaigns": "Campaigns"
+    "campaigns": "Campaigns",
+    "reports": "Reports"
   },
   "AdminDashboard": {
     "title": "Administration",
@@ -1294,5 +1295,23 @@
     "keysUsageTitle": "How to use it",
     "keysHeaderOnly": "In the Authorization header only. A key in the query string ends up in every log along the way, so the API does not accept it as a parameter.",
     "keysLabelLooksLikeKey": "That looks like the key itself. Give it a name you could show someone — the key must not be stored here."
+  },
+  "AdminReports": {
+    "title": "Programme reports",
+    "intro": "Aggregate figures for a chosen period and scope, prepared as an annex to a programme report. The document contains counts only — no names, no rows for individuals, and no age data. Every figure is accompanied by the query that produced it.",
+    "from": "From date",
+    "toInclusive": "To date (inclusive)",
+    "municipality": "Municipality",
+    "allMunicipalities": "All (national scope)",
+    "generate": "Generate",
+    "downloadCsv": "Download CSV",
+    "openHtml": "Open for printing (HTML)",
+    "printHint": "The HTML version is laid out for A4 printing. For a PDF, use the browser's Print dialog and choose “Save as PDF”.",
+    "notAdditive": "(not summable across municipalities)",
+    "metricCount": "The report contains {count} figures. Full definitions and the query behind each one are in the “Methodology” section of the HTML version.",
+    "errorMissingPeriod": "Give a start and an end date.",
+    "errorInvalidPeriod": "Check the dates: the format is YYYY-MM-DD and the end date cannot precede the start.",
+    "errorPeriodTooLong": "That period is too long — at most {max} days.",
+    "errorInvalidMunicipality": "Unknown municipality."
   }
 }

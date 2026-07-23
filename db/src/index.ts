@@ -1,4 +1,4 @@
-export { getDb } from './client.js';
+export { getDb, getPool } from './client.js';
 export { checkDbHealth } from './health.js';
 export type { DbHealth } from './health.js';
 export { refreshStats, STATS_MATVIEWS } from './stats.js';
@@ -87,6 +87,13 @@ export type {
   PublicPassportOwner,
 } from './passport.js';
 
+export {
+  asQueryable,
+  assertReportSafe,
+  compileMetric,
+  runReport,
+} from './reports/run.js';
+export type { RunScope } from './reports/run.js';
 export { exportQuery, runExport, assertDatasetSafe } from './opendata/export.js';
 export type { ExportQueryOptions } from './opendata/export.js';
 export { publicFacilityVisible } from './opendata/visibility.js';

@@ -15,6 +15,7 @@
     "./ical": "./src/ical/index.ts",
     "./opendata": "./src/opendata/index.ts",
     "./recurrence": "./src/recurrence/index.ts",
+    "./reports": "./src/reports/index.ts",
     "./slug": "./src/slug.ts",
     "./sports": "./src/sports.ts",
     "./storage": "./src/storage/index.ts",
