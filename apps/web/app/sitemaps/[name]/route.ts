@@ -1,4 +1,9 @@
-import { sitemapCities, sitemapCitySports, sitemapFacilities } from '@/lib/places';
+import {
+  sitemapCities,
+  sitemapCitySports,
+  sitemapFacilities,
+  sitemapMunicipalities,
+} from '@/lib/places';
 import { renderUrlset, XML_HEADERS, type UrlEntry } from '@/lib/sitemap-xml';
 
 // Segmented child sitemaps (auto-updating from the DB):
@@ -14,8 +19,12 @@ async function entriesFor(name: string): Promise<UrlEntry[] | null> {
     case 'facilities.xml':
       return sitemapFacilities();
     case 'places.xml': {
-      const [cities, sports] = await Promise.all([sitemapCities(), sitemapCitySports()]);
-      return [...cities, ...sports];
+      const [cities, sports, municipalities] = await Promise.all([
+        sitemapCities(),
+        sitemapCitySports(),
+        sitemapMunicipalities(),
+      ]);
+      return [...cities, ...sports, ...municipalities];
     }
     case 'static.xml': {
       const now = new Date().toISOString();

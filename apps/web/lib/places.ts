@@ -219,6 +219,23 @@ export async function sitemapCities(min = 3): Promise<SitemapEntry[]> {
   return entries;
 }
 
+/**
+ * Municipality accountability pages (/obshtina/[city]).
+ *
+ * Same ≥min thin-content guard as the city pages, and for the same reason: a
+ * municipality with two facilities produces a page of near-zeros that is
+ * honest but not worth indexing. The URL still exists and still resolves — it
+ * is linked from the city page and pasted into embed snippets — it is simply
+ * not advertised to crawlers until there is something to read.
+ */
+export async function sitemapMunicipalities(min = 3): Promise<SitemapEntry[]> {
+  const cities = await sitemapCities(min);
+  return cities.map((entry) => ({
+    path: entry.path.replace('/igrishta/', '/obshtina/'),
+    lastmod: entry.lastmod,
+  }));
+}
+
 /** City × sport pages with ≥min facilities. */
 export async function sitemapCitySports(min = 3): Promise<SitemapEntry[]> {
   const db = getDb();

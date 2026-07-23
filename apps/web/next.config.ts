@@ -18,6 +18,26 @@ const nextConfig: NextConfig = {
     // own size check runs. Headroom above 8 MB covers multipart form overhead.
     serverActions: { bodySizeLimit: '10mb' },
   },
+  // Framing policy (Stage 3.4). The municipality widget under /api/widget is
+  // the ONE surface meant to be embedded on other people's sites, and it sets
+  // `frame-ancestors *` on its own response. Everything else — the admin shell,
+  // the moderation queue, the profile and passport pages — is denied here, so
+  // adding the widget did not quietly make the whole app frameable.
+  //
+  // The negative lookahead is deliberate rather than relying on rule ordering:
+  // two overlapping `source` entries both match, and which Content-Security-
+  // Policy survives is not something to leave to precedence rules.
+  async headers() {
+    return [
+      {
+        source: '/:path((?!api/widget).*)',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+        ],
+      },
+    ];
+  },
   webpack: (config: { resolve: { extensionAlias?: Record<string, string[]> } }) => {
     // Workspace packages use ESM ".js" specifiers over TS sources (nodenext
     // compatibility for apps/worker); map them back to .ts for webpack.
