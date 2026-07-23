@@ -60,6 +60,14 @@ browser) in a MANUAL STEPS list at the end of the session.
   leaderboard is defined ONCE, in the `leaderboard_eligible_members` view:
   never a minor, and only members who opted their passport public. Every
   ranking joins that view instead of `users`, so a new slice inherits the rule
+- Campaigns (Stage 5.3) are ROWS, but their scoring is a validated `rules` JSONB
+  document (`lib/src/campaigns`) compiled to SQL in `db/src/campaigns.ts` —
+  creating a campaign is a form, inventing a new kind of scoring is a grammar
+  change. Windows are civil Sofia dates, `ends_on` inclusive. Scoring counts
+  EVERYONE; only display is gated, so a minor or an unpublished member can win a
+  prize without appearing on a public individual board. Closing freezes the
+  standings into `campaign_results`, which deliberately stores no display name —
+  the placing is frozen, the identity resolves live
 - Client components must import `@sportkarta/lib/<subpath>`, never the barrel:
   the barrel re-exports the mailer, which drags nodemailer and `node:fs` into
   the browser bundle (`apps/web/tests/client-imports.test.ts` enforces this)

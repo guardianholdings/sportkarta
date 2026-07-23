@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./age": "./src/age.ts",
     "./badges": "./src/badges/index.ts",
+    "./campaigns": "./src/campaigns/index.ts",
     "./condition": "./src/condition.ts",
     "./points": "./src/points.ts",
     "./email": "./src/email/index.ts",

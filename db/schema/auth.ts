@@ -273,6 +273,13 @@ export const accountDeletions = pgTable(
      * are derived from the ledger, which is erased in the same transaction.
      */
     badgesErased: integer('badges_erased').notNull().default(0),
+    /**
+     * campaign_results rows whose member reference was cleared (Stage 5.3).
+     * A frozen placing is a fact about a competition other people entered, so
+     * the row stays and the person leaves — which is why this counter says
+     * "anonymized" and points_erased says "erased".
+     */
+    campaignResultsAnonymized: integer('campaign_results_anonymized').notNull().default(0),
   },
   (t) => [
     index('account_deletions_deleted_at_idx').on(t.deletedAt),
@@ -288,7 +295,7 @@ export const accountDeletions = pgTable(
           AND ${t.moderationDecisionsPreserved} >= 0 AND ${t.sessionsCancelled} >= 0
           AND ${t.rsvpsErased} >= 0 AND ${t.checkinsErased} >= 0
           AND ${t.digestSubscriptionsErased} >= 0 AND ${t.resultsAnonymized} >= 0
-          AND ${t.badgesErased} >= 0`,
+          AND ${t.badgesErased} >= 0 AND ${t.campaignResultsAnonymized} >= 0`,
     ),
   ],
 );

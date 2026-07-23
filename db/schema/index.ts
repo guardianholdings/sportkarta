@@ -1125,6 +1125,241 @@ export const userBadges = pgTable(
 export type UserBadge = typeof userBadges.$inferSelect;
 export type NewUserBadge = typeof userBadges.$inferInsert;
 
+export const campaignStatus = pgEnum('campaign_status', [
+  'draft',
+  'published',
+  'closed',
+  'cancelled',
+]);
+export const campaignScopeKind = pgEnum('campaign_scope_kind', ['national', 'city', 'quarter']);
+export const campaignLeaderboardType = pgEnum('campaign_leaderboard_type', ['individual', 'city']);
+export const campaignTemplate = pgEnum('campaign_template', ['standard', 'sprint', 'city_race']);
+
+/**
+ * Campaigns (docs/ROADMAP.md §7, Stage 5.3).
+ *
+ * A campaign is a ROW, not config — an admin creates one from a browser
+ * without a deploy, which badges (5.1) never needed. What stays config is
+ * `rules`: a JSONB document validated against the closed grammar in
+ * lib/src/campaigns and compiled to one SQL aggregate in db/src/campaigns.ts.
+ * So creating a campaign is a form; inventing a new KIND of scoring is a
+ * grammar change with a deploy and a test. Do not turn `rules` into columns —
+ * that makes every campaign idea a migration.
+ *
+ * The window is CIVIL: `date` columns, expanded to instants in Europe/Sofia at
+ * query time, so "ends 31 August" means midnight Sofia and not whatever UTC
+ * instant the server thinks. `ends_on` is inclusive as authored and exclusive
+ * as compiled; the off-by-one there silently discards the busiest day of every
+ * campaign.
+ */
+export const campaigns = pgTable(
+  'campaigns',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** Shareable URL segment. Latin kebab-case; it goes on printed flyers. */
+    slug: text('slug').notNull().unique('campaigns_slug_unique'),
+    status: campaignStatus('status').notNull().default('draft'),
+    scopeKind: campaignScopeKind('scope_kind').notNull().default('national'),
+    municipalityId: integer('municipality_id').references(() => municipalities.id, {
+      onDelete: 'restrict',
+    }),
+    /** Free text matching facilities.quarter; only for scope_kind='quarter'. */
+    quarter: text('quarter'),
+    startsOn: date('starts_on').notNull(),
+    /** INCLUSIVE. The compiler adds one civil day to get the exclusive bound. */
+    endsOn: date('ends_on').notNull(),
+    leaderboardType: campaignLeaderboardType('leaderboard_type').notNull().default('individual'),
+    template: campaignTemplate('template').notNull().default('standard'),
+    /** Validated scoring document. See lib/src/campaigns/rules.ts. */
+    rules: jsonb('rules').notNull(),
+    /**
+     * Admin-authored CONTENT, not UI strings — which is why it lives in columns
+     * and not in messages/*.json. bg is required and en is optional: the
+     * product is Bulgarian-first and an untranslated campaign should still run,
+     * falling back to bg rather than rendering a key.
+     */
+    titleBg: text('title_bg').notNull(),
+    titleEn: text('title_en'),
+    blurbBg: text('blurb_bg'),
+    blurbEn: text('blurb_en'),
+    prizeBg: text('prize_bg'),
+    prizeEn: text('prize_en'),
+    /** When an admin froze the standings. NULL until then; set with status='closed'. */
+    closedAt: timestamptz('closed_at'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('campaigns_status_idx').on(t.status, t.startsOn),
+    index('campaigns_municipality_idx')
+      .on(t.municipalityId)
+      .where(sql`${t.municipalityId} IS NOT NULL`),
+    // Scope coherence in the database, not in a form: a quarter campaign
+    // without a municipality would compile to a predicate that silently matches
+    // every quarter of that name in the country.
+    check(
+      'campaigns_scope_coherent',
+      sql`(${t.scopeKind} = 'national' AND ${t.municipalityId} IS NULL AND ${t.quarter} IS NULL)
+          OR (${t.scopeKind} = 'city' AND ${t.municipalityId} IS NOT NULL AND ${t.quarter} IS NULL)
+          OR (${t.scopeKind} = 'quarter' AND ${t.municipalityId} IS NOT NULL AND ${t.quarter} IS NOT NULL)`,
+    ),
+    check('campaigns_window_order', sql`${t.endsOn} >= ${t.startsOn}`),
+    // With campaigns_window_order, this permits starts_on … starts_on + 365 —
+    // a 366-day INCLUSIVE span, i.e. one leap year. Spelled out because "+ 366"
+    // reads like "366 days allowed" and the two differ by the day that matters.
+    check('campaigns_window_bounded', sql`${t.endsOn} < ${t.startsOn} + 366`),
+    check('campaigns_slug_shape', sql`${t.slug} ~ '^[a-z0-9]+(-[a-z0-9]+)*$' AND char_length(${t.slug}) <= 60`),
+    // Ceilings live on the column, as they do for users_display_name_len and
+    // user_badges_slug_shape: a bug then fails as a clean violation instead of
+    // storing megabytes that render on a public page.
+    check(
+      'campaigns_title_sane',
+      sql`btrim(${t.titleBg}) <> '' AND char_length(${t.titleBg}) <= 120
+          AND (${t.titleEn} IS NULL OR char_length(${t.titleEn}) <= 120)`,
+    ),
+    check(
+      'campaigns_body_sane',
+      sql`(${t.blurbBg} IS NULL OR char_length(${t.blurbBg}) <= 2000)
+          AND (${t.blurbEn} IS NULL OR char_length(${t.blurbEn}) <= 2000)
+          AND (${t.prizeBg} IS NULL OR char_length(${t.prizeBg}) <= 2000)
+          AND (${t.prizeEn} IS NULL OR char_length(${t.prizeEn}) <= 2000)`,
+    ),
+    check(
+      'campaigns_quarter_sane',
+      sql`${t.quarter} IS NULL OR (btrim(${t.quarter}) <> '' AND char_length(${t.quarter}) <= 120)`,
+    ),
+    /**
+     * The rules document must be an object with a non-empty events array.
+     *
+     * WRITTEN WITH `CASE`, NOT `AND`, AND THAT IS THE WHOLE POINT. `'{}'::jsonb
+     * -> 'events'` is SQL NULL, and jsonb_typeof/jsonb_array_length are strict,
+     * so `TRUE AND NULL AND NULL` is NULL — and a CHECK PASSES on NULL. The
+     * obvious conjunction therefore accepts `{}` and `{"evnets": [...]}`, which
+     * is exactly the unreadable campaign this constraint exists to prevent.
+     * CASE also stops jsonb_array_length raising on `{"events": 5}`, and does
+     * not rely on AND's evaluation order, which Postgres does not guarantee.
+     *
+     * The upper bound matters as much as the lower one: there are four event
+     * kinds, so anything past a handful is a generator bug, not a campaign.
+     */
+    check(
+      'campaigns_rules_shaped',
+      sql`jsonb_typeof(${t.rules}) = 'object'
+          AND CASE WHEN jsonb_typeof(${t.rules} -> 'events') = 'array'
+                   THEN jsonb_array_length(${t.rules} -> 'events') BETWEEN 1 AND 10
+                   ELSE false END`,
+    ),
+    // closed_at and status='closed' are one fact; letting them disagree would
+    // make "is this frozen?" have two answers.
+    check('campaigns_closed_pair', sql`(${t.status} = 'closed') = (${t.closedAt} IS NOT NULL)`),
+  ],
+);
+
+/**
+ * FROZEN final standings, written once when an admin closes a campaign.
+ *
+ * A results page that recomputes live changes after prizes are announced — a
+ * late moderation reversal, an erasure, a corrected ledger row — and a winner
+ * who changes after the fact is the worst failure this feature can have. So
+ * closing snapshots rank and score here, and the results page reads THIS.
+ *
+ * WHAT IS NOT FROZEN IS THE IDENTITY. There is no display name column: the row
+ * holds the opaque user id (ON DELETE SET NULL) and the numbers, and the name
+ * is resolved at render time through leaderboard_eligible_members. So the FACT
+ * (who placed where) survives, while the PERSONAL DATA does not outlive the
+ * account or the consent — an erased member renders as the "former user" label
+ * and one who has since gone private renders anonymously, both keeping their
+ * rank. Freezing the name instead would be retaining personal data in a table
+ * nothing can erase it from.
+ */
+export const campaignResults = pgTable(
+  'campaign_results',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    campaignId: uuid('campaign_id')
+      .notNull()
+      .references(() => campaigns.id, { onDelete: 'cascade' }),
+    /** NULL after erasure — the placing stays, the person does not. */
+    userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
+    /** Set for a city-type board; NULL for an individual one. */
+    municipalityId: integer('municipality_id').references(() => municipalities.id, {
+      onDelete: 'restrict',
+    }),
+    rank: integer('rank').notNull(),
+    score: integer('score').notNull(),
+    /** Contributing members behind an aggregate row; 1 for an individual one. */
+    memberCount: integer('member_count').notNull().default(1),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // (campaign_id, rank, id) rather than (campaign_id, rank): the results read
+    // orders by rank then id, so including it lets the LIMIT stop inside the
+    // index instead of sorting the tiebreak.
+    index('campaign_results_campaign_rank_idx').on(t.campaignId, t.rank, t.id),
+    index('campaign_results_user_idx').on(t.userId).where(sql`${t.userId} IS NOT NULL`),
+    // The municipality FK is RESTRICT, so every delete or key-update on
+    // municipalities checks this table. Unindexed it would seq-scan under lock,
+    // and every closed city campaign makes that worse — the same index every
+    // other municipality FK in this schema carries.
+    index('campaign_results_municipality_idx')
+      .on(t.municipalityId)
+      .where(sql`${t.municipalityId} IS NOT NULL`),
+    /**
+     * One frozen placing per subject per campaign.
+     *
+     * "Written once at close" is otherwise enforced only in application code,
+     * which leaves a re-opened-then-re-closed campaign, or a direct INSERT,
+     * free to stack a second set of standings on the first.
+     *
+     * BOTH ARE PARTIAL, DELIBERATELY. A plain UNIQUE with NULLS NOT DISTINCT
+     * would abort DELETE FROM users the second time a member of the same
+     * campaign is erased — two rows would collide on (campaign_id, NULL). That
+     * is the 0009 trap arriving by a new route, and the WHERE clause is what
+     * keeps erasure unblockable.
+     */
+    uniqueIndex('campaign_results_campaign_user_unique')
+      .on(t.campaignId, t.userId)
+      .where(sql`${t.userId} IS NOT NULL`),
+    uniqueIndex('campaign_results_campaign_municipality_unique')
+      .on(t.campaignId, t.municipalityId)
+      .where(sql`${t.municipalityId} IS NOT NULL`),
+    check('campaign_results_rank_positive', sql`${t.rank} >= 1`),
+    check('campaign_results_score_non_negative', sql`${t.score} >= 0`),
+    check('campaign_results_member_count_positive', sql`${t.memberCount} >= 1`),
+    /**
+     * At most one subject per row: a member, or a municipality. A row with
+     * both would be double-counted by any sum over the snapshot.
+     *
+     * BOTH-NULL IS DELIBERATELY ALLOWED, and this is the 0009 lesson applied:
+     * `user_id` is ON DELETE SET NULL, which Postgres performs as an UPDATE
+     * that re-validates every CHECK on the row. A constraint demanding "exactly
+     * one" would therefore abort DELETE FROM users forever, with no retry that
+     * could ever succeed. A both-NULL row is an erased member's placing — the
+     * rank and score of somebody the system can no longer name — which is
+     * exactly what should survive.
+     *
+     * THAT READING DEPENDS ON `municipality_id` STAYING RESTRICT. Relax it to
+     * SET NULL and a city row that loses its municipality also becomes
+     * both-NULL, passes this check, and renders as an anonymous former member
+     * (frozenResults infers "there was a member here" from user_id being the
+     * only nullable subject). If municipalities ever need to be deletable,
+     * this constraint and that inference must change together.
+     */
+    check(
+      'campaign_results_one_subject',
+      sql`(${t.userId} IS NOT NULL AND ${t.municipalityId} IS NULL)
+          OR (${t.userId} IS NULL AND ${t.municipalityId} IS NOT NULL)
+          OR (${t.userId} IS NULL AND ${t.municipalityId} IS NULL)`,
+    ),
+  ],
+);
+
+export type Campaign = typeof campaigns.$inferSelect;
+export type NewCampaign = typeof campaigns.$inferInsert;
+export type CampaignResult = typeof campaignResults.$inferSelect;
+export type CampaignStatusValue = (typeof campaignStatus.enumValues)[number];
+export type CampaignScopeKindValue = (typeof campaignScopeKind.enumValues)[number];
+
 export type PlaySessionResult = typeof playSessionResults.$inferSelect;
 export type NewPlaySessionResult = typeof playSessionResults.$inferInsert;
 export type DigestSubscription = typeof digestSubscriptions.$inferSelect;

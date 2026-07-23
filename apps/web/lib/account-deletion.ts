@@ -46,6 +46,8 @@ export interface DeletionSummary {
   resultsAnonymized: number;
   /** user_badges rows removed with the account. */
   badgesErased: number;
+  /** campaign_results rows whose member reference was cleared. */
+  campaignResultsAnonymized: number;
 }
 
 interface SqlRunner {
@@ -134,6 +136,15 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
     const badgesErased = countFrom(
       await tx.execute(sql`SELECT count(*)::int AS n FROM user_badges WHERE user_id = ${userId}`),
     );
+    // A frozen campaign placing is a fact about a competition other people
+    // entered, so the row STAYS with its member reference cleared (Stage 5.3) —
+    // the rank and score survive, the person does not. Hence "anonymized"
+    // rather than "erased", like play_session_results.
+    const campaignResultsAnonymized = countFrom(
+      await tx.execute(
+        sql`SELECT count(*)::int AS n FROM campaign_results WHERE user_id = ${userId}`,
+      ),
+    );
 
     // Pending one-time codes are keyed by email address, not by user id, so the
     // cascade does not reach them. Left behind they would be a short-lived
@@ -155,12 +166,14 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
         user_id, audit_rows_preserved, photos_anonymized,
         condition_reports_anonymized, points_erased, moderation_decisions_preserved,
         sessions_cancelled, rsvps_erased, checkins_erased,
-        digest_subscriptions_erased, results_anonymized, badges_erased
+        digest_subscriptions_erased, results_anonymized, badges_erased,
+        campaign_results_anonymized
       )
       VALUES (${userId}, ${auditRowsPreserved}, ${photosAnonymized},
               ${conditionReportsAnonymized}, ${pointsErased}, ${moderationDecisionsPreserved},
               ${sessionsCancelled}, ${rsvpsErased}, ${checkinsErased},
-              ${digestSubscriptionsErased}, ${resultsAnonymized}, ${badgesErased})
+              ${digestSubscriptionsErased}, ${resultsAnonymized}, ${badgesErased},
+              ${campaignResultsAnonymized})
     `);
 
     // Cascades to sessions, accounts, the points ledger and user_badges; nulls
@@ -180,6 +193,7 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
       digestSubscriptionsErased,
       resultsAnonymized,
       badgesErased,
+      campaignResultsAnonymized,
     };
   });
 }

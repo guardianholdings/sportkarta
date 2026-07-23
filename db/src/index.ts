@@ -22,6 +22,22 @@ export type {
   MaterializeOptions,
   MaterializeReport,
 } from './sessions/materialize.js';
+export {
+  adminStandings,
+  campaignById,
+  campaignBySlug,
+  campaignStanding,
+  closeCampaign,
+  frozenResults,
+  listCampaigns,
+  publicStandings,
+} from './campaigns.js';
+export type {
+  CampaignRow,
+  CloseReport,
+  FrozenResultRow,
+  StandingRow,
+} from './campaigns.js';
 export { leaderboard, leaderboardCities, memberStanding, monthStart } from './leaderboard.js';
 export type {
   LeaderboardEntry,
