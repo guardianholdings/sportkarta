@@ -5,7 +5,7 @@ import { listImportJobs } from '@/lib/admin-data';
 import { requireRole } from '@/lib/auth-session';
 
 import { enqueueImport } from './actions';
-import { ConfirmButton } from './confirm-button';
+import { ConfirmButton } from '@/components/ui/confirm-button';
 
 const STATE_CLASSES: Record<string, string> = {
   completed: 'bg-green-100 text-green-800',

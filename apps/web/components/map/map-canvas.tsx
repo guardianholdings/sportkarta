@@ -55,7 +55,10 @@ function toFeatureCollection(points: MapPoint[]): FeatureCollection<Point> {
     features: points.map((p) => ({
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
-      properties: { slug: p.slug, name: p.name },
+      // sports rides along so an unclustered point can be drawn in its family
+      // colour + glyph; joined to a string because queryRenderedFeatures does not
+      // round-trip array-valued properties reliably.
+      properties: { slug: p.slug, name: p.name, sports: p.sports.join(',') },
     })),
   };
 }
@@ -158,7 +161,12 @@ export default function MapCanvas({
         });
       } else {
         const slug = String(props.slug);
-        el = createTeardrop({ slug, name: (props.name as string | null) ?? unnamedRef.current, sports: [] });
+        const sports = typeof props.sports === 'string' && props.sports ? props.sports.split(',') : [];
+        el = createTeardrop({
+          slug,
+          name: (props.name as string | null) ?? unnamedRef.current,
+          sports,
+        });
         el.addEventListener('click', () => onSelectRef.current(slug));
         el.addEventListener('mouseenter', () => onHoverRef.current(slug));
         el.addEventListener('mouseleave', () => onHoverRef.current(null));
@@ -175,10 +183,20 @@ export default function MapCanvas({
       markersRef.current.set(id, marker);
     }
 
-    for (const [id, marker] of markersRef.current) {
-      if (!next.has(id)) {
-        marker.remove();
-        markersRef.current.delete(id);
+    // Prune stale markers ONLY once the source has settled. During a zoom/pan the
+    // clustered source re-tiles in a worker, and queryRenderedFeatures then
+    // briefly returns an incomplete (often empty) set; pruning against that would
+    // remove every marker mid-gesture — the "facilities vanish when I zoom in"
+    // symptom — and re-add them a frame later. Markers are geographically
+    // anchored, so holding the stale ones for the frame or two the reload takes
+    // keeps the map populated; the next settled sync (moveend / sourcedata / idle)
+    // reconciles to the correct set.
+    if (map.isSourceLoaded(SOURCE_ID)) {
+      for (const [id, marker] of markersRef.current) {
+        if (!next.has(id)) {
+          marker.remove();
+          markersRef.current.delete(id);
+        }
       }
     }
     applyStates();
@@ -261,6 +279,10 @@ export default function MapCanvas({
       scheduleSync();
     });
     map.on('move', scheduleSync);
+    // `idle` fires once the map has fully settled and every tile is loaded — the
+    // moment isSourceLoaded is reliably true, so the pruning pass runs against a
+    // complete feature set and the final markers are always correct.
+    map.on('idle', scheduleSync);
     map.on('sourcedata', (e) => {
       if (e.sourceId === SOURCE_ID && e.isSourceLoaded) scheduleSync();
     });

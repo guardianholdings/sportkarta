@@ -4,6 +4,7 @@ import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
+import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Link } from '@/i18n/navigation';
 import { requireRole } from '@/lib/auth-session';
 import { localizedText } from '@/lib/campaigns';
@@ -82,9 +83,12 @@ export default async function EditCampaignPage({
         {!isClosed && campaign.status !== 'cancelled' && (
           <form action={cancelCampaignAction}>
             <input type="hidden" name="id" value={campaign.id} />
-            <button type="submit" className="rounded border border-neutral-300 px-3 py-1.5 text-sm">
+            <ConfirmButton
+              className="rounded border border-neutral-300 px-3 py-1.5 text-sm"
+              message={t('cancelConfirm')}
+            >
               {t('cancel')}
-            </button>
+            </ConfirmButton>
           </form>
         )}
         {!isClosed && (

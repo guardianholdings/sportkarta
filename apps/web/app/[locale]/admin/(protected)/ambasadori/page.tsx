@@ -1,6 +1,7 @@
 import { getLocale, getTranslations, setRequestLocale } from 'next-intl/server';
 
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { ConfirmButton } from '@/components/ui/confirm-button';
 import { municipalityOptions } from '@/lib/admin-data';
 import { requireRole } from '@/lib/auth-session';
 import { ambassadorActivity } from '@/lib/moderation-data';
@@ -61,6 +62,7 @@ export default async function AdminAmbassadorsPage({
           <ul className="space-y-3">
             {ambassadors.map((ambassador) => {
               const revoke = revokeAmbassadorAction.bind(null, ambassador.userId);
+              const ambassadorName = ambassador.displayName || ambassador.email;
               return (
                 <li
                   key={ambassador.userId}
@@ -72,9 +74,12 @@ export default async function AdminAmbassadorsPage({
                     </span>
                     <span className="text-xs text-neutral-500">{ambassador.email}</span>
                     <form action={revoke} className="ml-auto">
-                      <Button type="submit" variant="secondary" size="sm">
+                      <ConfirmButton
+                        className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+                        message={t('revokeConfirm', { name: ambassadorName })}
+                      >
                         {t('revoke')}
-                      </Button>
+                      </ConfirmButton>
                     </form>
                   </div>
 
@@ -112,15 +117,17 @@ export default async function AdminAmbassadorsPage({
                           return (
                             <li key={municipality.id}>
                               <form action={remove}>
-                                <button
-                                  type="submit"
+                                <ConfirmButton
                                   className="rounded-full border border-neutral-300 px-3 py-1 text-xs hover:bg-neutral-50"
                                   aria-label={t('removeMunicipality', {
                                     municipality: municipality.name,
                                   })}
+                                  message={t('removeMunicipalityConfirm', {
+                                    municipality: municipality.name,
+                                  })}
                                 >
                                   {municipality.name} ×
-                                </button>
+                                </ConfirmButton>
                               </form>
                             </li>
                           );

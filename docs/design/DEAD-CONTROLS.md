@@ -1,71 +1,104 @@
 # Dead / broken controls
 
-Every interactive element checked by driving the running app plus a source sweep.
-Severity by user impact. Screenshots in `docs/design/audit/`.
+Direction B of the bidirectional audit. Every interactive element inventoried
+from source, then **driven per role** (anonymous / member / admin) by the
+Playwright crawler (`e2e/crawl.spec.ts`, all three green) plus targeted manual
+driving. Reflects the current state after the `00707c1` fixes and this pass's
+control fixes (below). Severity by user impact.
 
-## P1 — broken, misleading, or fires with no feedback
+## Corrections to the first audit (verified this pass)
 
-1. **Locate — *Намери ме* — occluded by the bottom sheet (mobile).** The floating
-   control at `bottom-[168px]` is covered by the sheet at the half/full snaps; the top
-   element at its centre is a result-card `<span>`. Tapping it (ref-reachable) produced
-   **no visible change and no locating/error state**. So on a phone it both can't be hit
-   and gives no feedback when it is. — `components/map/map-explorer.tsx`, the floating
-   `IconButton` "Намери ме". *(also UX Flow 1)*
-2. **"Жив импорт" — destructive, no confirmation.** `/admin/import` fires `enqueueImport`
-   for a live OSM re-import (overwrites osm-set fields across thousands of rows) on a
-   single tap, no confirm. — `app/[locale]/admin/(protected)/import/*`.
-3. **Import — silent no-op when the worker is down.** The button enqueues a pg-boss job;
-   if the worker isn't running the job never executes and nothing is surfaced
-   ("Последни изпълнения" stays empty). A control that "fires with no feedback." —
-   same file. *Fix:* worker/queue-health indicator + job state polling.
-4. **"Сесии" tab → `/kampanii`.** Not a 404, but the control's label (Sessions) doesn't
-   match its destination (Campaigns — currently empty). A member tapping *Сесии* lands on
-   an empty *Кампании* page. — `map-explorer.tsx` `NAV[navSessions].href`.
-5. **"предложи своя тренировка" — invitation with no affordance.** The weekly page's copy
-   invites a member to propose a session, but there is no control to do it (member
-   organizer tools are Stage 4.3, unbuilt). Dead-end promise. —
-   `app/[locale]/sedmitsata/[city]/page.tsx`.
+The first pass made two wrong calls on `/admin/import`, both fixed here by
+reading the code and driving:
 
-## P2 — safe but rough
+- **"Жив импорт" (live import) DOES confirm** — it is a `ConfirmButton`
+  (`window.confirm(t('liveConfirm'))` → `preventDefault` on cancel). The prior
+  "no confirmation" was wrong.
+- **Import DOES give feedback** — after enqueue the page shows *`?enqueued`* (a
+  green "queued" message) or *`?conflict`* ("already queued"). The prior "silent
+  no-op" was wrong; the real gap is worker-health visibility (below, P2).
 
-6. **"Няма го" (moderation → mark facility `gone`) — no confirmation or undo.** A
-   consequential decision on one tap, in a fast-clearing UI. Prefer an **undo** toast over
-   silent commit. — `app/[locale]/admin/(protected)/moderation/*`.
-7. **Some map list/chip buttons surface with no accessible name.** In the a11y snapshot of
-   `/`, 5 buttons (result cards / off-screen chips) appeared nameless. The `ResultCard`
-   `<button>` should expose its text as the accessible name — **investigate** whether the
-   thumb/`min-w-0 truncate` structure or the icon-only chips are suppressing it, and add
-   an `aria-label` where needed. — `map-explorer.tsx` `ResultCard`, `components/ui/chip.tsx`.
-8. **SEO facility-card link text concatenates name + sport** ("Спортно съоръжениетенис")
-   into one screen-reader token. — `app/[locale]/igrishta/[city]/*`. *Fix:* visually-hidden
-   separator or `aria-label`.
-9. **`components/admin/map-embed.tsx` contains a TODO** — confirm it isn't a stubbed
-   control before shipping the admin surfaces.
-10. **Native file inputs render "Choose File" (English)** on add-facility, condition and
-    report. Browser-native, not localizable in place. — `add-facility-form.tsx`,
-    `condition-form.tsx`, `report-form.tsx`. *Fix (optional):* proxy button → hidden input.
-11. **Campaigns empty-state has no CTA** ("В момента няма обявени кампании.") — no broken
-    control, but a screen with no forward path. — `app/[locale]/kampanii/page.tsx`.
+Also already fixed in `00707c1`: the occluded locate control (repositioned
+top-right, verified un-occluded), the *Сесии* → empty-Campaigns mislabel (now
+`/sesii`), and the dead "предложи тренировка" weekly copy (reworded).
 
-## Checked — clean
+## Fixed this pass
 
-- **No `onClick` on non-button elements.** The seed prototype's habit of putting handlers
-  on `div`/`span`/`li` is **not inherited** — grep across `app` + `components` finds none.
+1. **Campaign create/edit form crashed on render (P1, was undetected).**
+   `campaign-form.tsx` built its scoring checkboxes from `PASSPORT_EVENT_KINDS`,
+   which includes `session_attended` — a kind that exists only to type the badge
+   event stream and has no `event_session_attended` label. Rendering
+   `/admin/kampanii/nova` (or any campaign edit) threw `MISSING_MESSAGE`; being a
+   client-component throw, the form never drew. The key is absent in **both**
+   locales, so the i18n parity test could not catch it. *Fix:* a new
+   `CAMPAIGN_EVENT_KINDS` (`lib/src/campaigns/rules.ts`) = the passport kinds
+   minus `session_attended`; the form renders it and `validateCampaignRules` now
+   refuses it — the same call badges already make (a QR check-in scores once as
+   `session_checkin`; counting the ledger payment too would count one evening
+   twice). Verified: the form draws with its four valid event boxes, no console
+   error.
+2. **Destructive-confirmation policy — now one policy.** The four one-click ops
+   below share a single `ConfirmButton` (`components/ui/confirm-button.tsx`,
+   promoted out of the import page): `window.confirm` on click, `preventDefault`
+   on cancel, re-authorized server-side regardless.
+   - **Revoke ambassador** (`ambasadori/page.tsx`) — the message names them.
+   - **Remove a municipality from an ambassador** (`ambasadori/page.tsx`).
+   - **Cancel a campaign** (`kampanii/[slug]/page.tsx`).
+   - **"Няма го"** (moderation → mark facility `gone`) (`moderation/page.tsx`).
+   Type-to-confirm (campaign close, account delete) is unchanged — it stays the
+   guard for the irreversible ones. Verified by driving: cancelling the revoke
+   dialog leaves the row untouched and fires no action.
+3. **SEO facility-card accessible name.** `components/places/facility-list.tsx`
+   now gives each `/obekt/[slug]` link an explicit `aria-label`
+   (`<name> — <sport, sport>`), so a screen reader hears name and sports as
+   distinct tokens instead of the flattened "Спортно съоръжениетенис". Verified
+   on `/igrishta/sofia`.
+
+## Still open
+
+- **Import — no worker-health / job-processing signal.** Enqueue feedback and
+  the live confirm exist, but nothing shows the worker is up; a job queued with
+  the worker down never runs and the only tell is the empty "Последни
+  изпълнения" list. — `/admin/import`. A worker/queue-health surface plus
+  per-job state (queued/running/failed) — a feature, not a one-line fix.
+- **Native file inputs read "Choose File" (English)** on add-facility,
+  condition and report; the surrounding label/hint are Bulgarian. Cosmetic
+  i18n. *Fix (optional):* a button proxying a hidden `<input type=file>`.
+- **"Направи публичен" (passport visibility)** publishes a member's activity on
+  one tap, no confirm — left as-is deliberately: it is reversible and the state
+  flip is its own feedback, so a confirm would only add friction to a safe
+  toggle. Reconsider only if publishing proves to surprise members. — `/pasport`.
+
+## Checked — clean (driven per role)
+
+- **No `onclick` on non-button/link elements.** The seed prototype's habit of
+  handlers on `div`/`span` is **not inherited** — the crawler's `[onclick]`
+  probe found zero across every page for every role, and a source grep agrees.
   All interactive elements are `<button>` / `<a>` / form controls.
-- **No links to non-existent routes.** Every internal `href` resolves (`/admin`, `/danni`,
-  `/profil`, `/privacy`, `/pasport`, `/dobavi`, `/vhod`, `/klasirane`, `/kampanii`). The
-  index-less routes (`/sedmitsata`, `/sesiya`, `/igrishta`, `/kalendar`, `/obekt`,
-  `/obshtina`) are never linked without a required param → no 404s from in-app navigation.
-- **No orphan-disabled buttons.** Every `disabled` is tied to `pending` / validity with a
-  clear path to enabling.
-- **No authorization leak.** The `/profil → /admin` link is wrapped in
-  `canAccessAdminPanel(user.role)` (hidden from plain users); admin pages `requireRole`
-  server-side. No control visible to a role not authorized to use it was found.
-- **Destructive account delete is gated.** `/profil` *Изтрий профила ми* requires a typed
-  `confirmation` input.
+- **No dead links / 404s.** The per-role crawler follows every internal link
+  **with that role's session** and found zero 404/5xx across anonymous, member
+  and admin.
+- **No links that navigate nowhere.** No `<a>` with empty / `#` / `javascript:`
+  href (skip-to-content anchors carry a target and are legitimate).
+- **No authorization leak.** The crawler's authz probe drove an anonymous
+  visitor (denied every member + admin route) and a plain member (denied every
+  admin route) — each protected route redirected to sign-in, none rendered. The
+  `/profil → /admin` link is `canAccessAdminPanel(user.role)`-gated (hidden from
+  plain members); admin actions `requireRole('admin')` / `requireAdmin()`
+  server-side.
+- **Mutations give feedback.** Member/admin forms use `useActionState` and render
+  success/error (add-facility, condition, verify, check-in, profile, RSVP,
+  sign-in, grant-ambassador, campaign, results, municipal import, bulk sessions).
+  Moderation decisions feed back by the item leaving the queue (revalidation).
+- **No orphan-disabled buttons.** Every `disabled` is tied to `pending` /
+  validity, with a path to enabling.
 
-## Note
+## Regression suite
 
-`/profil` and the whole `/admin/*` console are still on the pre-seed (neutral) styling —
-out of the PART B scope but relevant here: their controls work, but they don't share the
-redesigned app's tokens/affordances (raw green/red moderation buttons, wrapping text-nav).
+`e2e/crawl.spec.ts` — three role crawls (anonymous / member / admin) that fail on
+404 pages, dead internal links, links that navigate nowhere, `onclick` on
+non-button/link elements, **and authorization leaks** (a role reaching a route
+above its privilege). It fetches with each role's session, and is resilient to
+Next dev's on-demand compilation (retries transient errors, trusts only a
+definitive HTTP status). Runs under `pnpm test:e2e`, already in CI. Currently
+green for all three roles.

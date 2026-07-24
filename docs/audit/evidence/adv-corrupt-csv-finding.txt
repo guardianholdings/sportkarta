@@ -1,0 +1,10 @@
+AUDIT-F4 (P2, PLAUSIBLE — needs 30s manual check) — malformed CSV feedback, /admin/obshtini:
+An unterminated-quote CSV is correctly REFUSED (parseCsv → truncated:true; parseCsvAction returns
+error 'csv_truncated'; the wizard does NOT advance to mapping and NOTHING is imported — the safety
+invariant HOLDS, confirmed by driving twice). BUT in automated driving the form reset to an empty
+textarea with no visible red error alert (only Next's empty route-announcer). The code path
+(import-form.tsx:56 renders state.error) says the "Файлът има незатворена кавичка" message SHOULD
+show, so this is likely a test-harness artifact of the uncontrolled <textarea defaultValue> +
+server-action re-render + programmatic fill — but the error presentation could not be reproduced
+under automation. Verdict: safe-refusal CONFIRMED; user-visible feedback UNVERIFIED. Manually paste
+a broken-quote CSV and confirm the red error renders.

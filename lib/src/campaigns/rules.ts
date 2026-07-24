@@ -53,6 +53,23 @@ export interface CampaignEventWeight {
   weight: number;
 }
 
+/**
+ * The event kinds a CAMPAIGN may score on — PASSPORT_EVENT_KINDS minus
+ * `session_attended`. A QR check-in produces BOTH the attendance FACT
+ * (`session_checkin`) and a points_ledger PAYMENT row (`session_attended`);
+ * a campaign scores the fact — "turning up rather than being paid", the same
+ * call badges make (lib/src/badges/rules.ts) and the reason db/src/campaigns.ts
+ * `eventStream` reads QR check-ins for `session_checkin`. Offering the payment
+ * too would let one campaign count a single evening twice and drag the daily
+ * points cap — a payment concept — into what is meant to reward participation.
+ * So `session_attended` exists for the badge event stream's typing but is never
+ * a campaign knob: the form does not render it and validation refuses it.
+ */
+export const CAMPAIGN_EVENT_KINDS = PASSPORT_EVENT_KINDS.filter(
+  (kind): kind is Exclude<PassportEventKind, 'session_attended'> => kind !== 'session_attended',
+);
+export type CampaignEventKind = (typeof CAMPAIGN_EVENT_KINDS)[number];
+
 export interface CampaignRules {
   events: CampaignEventWeight[];
   /** Restrict to facilities carrying one of these sports. Absent = any sport. */
@@ -121,7 +138,7 @@ export function validateCampaignRules(input: unknown): CampaignRules {
   for (const entry of rawEvents) {
     if (!isRecord(entry)) throw new CampaignRuleError('rules_bad_event');
     const kind = entry.kind;
-    if (typeof kind !== 'string' || !(PASSPORT_EVENT_KINDS as readonly string[]).includes(kind)) {
+    if (typeof kind !== 'string' || !(CAMPAIGN_EVENT_KINDS as readonly string[]).includes(kind)) {
       throw new CampaignRuleError('rules_unknown_event');
     }
     const weight = positiveInteger(entry.weight);
@@ -135,7 +152,7 @@ export function validateCampaignRules(input: unknown): CampaignRules {
     byKind.set(kind as PassportEventKind, weight);
   }
 
-  const events: CampaignEventWeight[] = PASSPORT_EVENT_KINDS.filter((kind) =>
+  const events: CampaignEventWeight[] = CAMPAIGN_EVENT_KINDS.filter((kind) =>
     byKind.has(kind),
   ).map((kind) => ({ kind, weight: byKind.get(kind) as number }));
 

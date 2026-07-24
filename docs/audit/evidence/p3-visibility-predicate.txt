@@ -1,0 +1,17 @@
+P3.3 / P14 / P19 — public visibility predicate, tested against live /api/facilities (6052 default features)
+Predicate = status <> 'gone' AND slug IS NOT NULL ; access is a SEPARATE user filter (default: free).
+
+default /api/facilities:
+  audit-active-crowd      PRESENT   (active free)          ✓
+  audit-active-municipal  PRESENT   (active free)          ✓
+  audit-active-osm        PRESENT   (active free)          ✓
+  audit-active-paid       absent    (active PAID)          — default free filter, NOT predicate
+  audit-needs-verification-osm  PRESENT (needs_verification) ✓ public by design
+  audit-gone-crowd        absent    (gone)                 ✓ excluded
+  audit-gone-sofia        absent    (gone, in Столична)    ✓ excluded
+
+/api/facilities?access=paid:
+  audit-active-paid       PRESENT                          ✓ access filter is orthogonal
+  audit-active-crowd      absent    (free hidden when paid-only requested) ✓
+
+VERDICT: predicate PASS. Access filtering PASS. needs_verification-is-public is by design.

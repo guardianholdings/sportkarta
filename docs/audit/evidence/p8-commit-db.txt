@@ -1,0 +1,18 @@
+           slug            |       status       |  source   | municipality_id | provenance 
+---------------------------+--------------------+-----------+-----------------+------------
+ odit-nov-obshtinski-obekt | needs_verification | municipal |             169 | 
+(1 row)
+
+         name          | sport_types  
+-----------------------+--------------
+ Одит active municipal | {basketball}
+ Одит active osm       | {football}
+(2 rows)
+
+  source   |  field   |             new_value              
+-----------+----------+------------------------------------
+ municipal | geom     | {"lat": 42.1697, "lon": 22.808067}
+ crowd     | verified | true
+ crowd     | verified | true
+(3 rows)
+

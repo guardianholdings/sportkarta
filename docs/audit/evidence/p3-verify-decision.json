@@ -1,0 +1,12 @@
+{
+  "facility": {
+    "id": "9dcf28fa-3abe-4926-a572-d781b8e41875",
+    "slug": "audit-needs-verification-crowd"
+  },
+  "statusAfter": "active",
+  "decision": {
+    "target_type": "facility",
+    "decision": "verified",
+    "municipality_id": 169
+  }
+}

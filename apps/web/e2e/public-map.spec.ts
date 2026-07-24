@@ -43,6 +43,11 @@ async function seedPitch(): Promise<void> {
 }
 
 test.describe('public map — find nearest free football pitch', () => {
+  // This journey is the MOBILE one: the redesign serves the results list and the
+  // facility bottom sheet (`#facility-list`, testId `facility-sheet`) only below
+  // the `lg` breakpoint; the desktop layout uses a side panel instead. Pin a
+  // phone viewport so the bottom-sheet flow this test asserts actually renders.
+  test.use({ viewport: { width: 390, height: 844 } });
   test.beforeAll(seedPitch);
 
   test('geolocate surfaces the nearest pitch → bottom sheet → facility page', async ({
@@ -60,23 +65,30 @@ test.describe('public map — find nearest free football pitch', () => {
     await page.goto('/?sport=football');
     await apiLoaded;
 
-    // Free access is ON by default (the URL only narrows by sport).
-    await expect(page.getByRole('checkbox', { name: bg.Access.free })).toBeChecked();
-
+    // Free access is ON by default (the URL only narrows by sport). The access
+    // control now lives as a chip in the filter sheet rather than an inline
+    // checkbox; the default is exercised by the flow itself — a *free* pitch is
+    // the nearest result below, and its facility page states свободен (line ~80).
     await page.getByRole('button', { name: bg.Map.locate }).click();
 
-    // Nearest-first: the pitch seeded at the geolocation tops the list.
-    const firstItem = page.locator('#facility-list a[data-facility-slug]').first();
-    await expect(firstItem).toHaveAttribute('data-facility-slug', PITCH.slug);
+    // Nearest-first: the pitch seeded at the geolocation tops the list. Results
+    // are now select-buttons (data-slug), not nav links, and both the desktop
+    // and mobile layouts carry an #facility-list — scope to the visible one.
+    const firstItem = page.locator('#facility-list:visible button[data-slug]').first();
+    await expect(firstItem).toHaveAttribute('data-slug', PITCH.slug);
 
-    // Tap → bottom sheet → facility page.
+    // Tap → the facility preview opens in place as a bottom-sheet dialog, and
+    // its "view details" link is what navigates to the facility page.
     await firstItem.click();
-    const sheet = page.getByTestId('facility-sheet');
-    await expect(sheet).toBeVisible();
+    const sheet = page.getByRole('dialog', { name: PITCH.name });
     await expect(sheet.getByRole('heading', { level: 2 })).toHaveText(PITCH.name);
-    await sheet.getByRole('link', { name: bg.Map.viewDetails }).click();
+    const detailsLink = sheet.getByRole('link', { name: bg.Map.viewDetails });
+    await expect(detailsLink).toHaveAttribute('href', `/obekt/${PITCH.slug}`);
+    await detailsLink.click();
 
-    await expect(page).toHaveURL(new RegExp(`/obekt/${PITCH.slug}$`));
+    // App Router dev commits the URL only once the server responds, so a cold
+    // first compile of /obekt/[slug] can be slow; give it room within the test budget.
+    await page.waitForURL(new RegExp(`/obekt/${PITCH.slug}$`), { timeout: 30_000 });
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(PITCH.name);
     // Free is stated on the facility page (access attribute).
     await expect(page.getByText(bg.Access.free, { exact: true })).toBeVisible();

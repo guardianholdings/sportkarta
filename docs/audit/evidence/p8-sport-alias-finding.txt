@@ -1,0 +1,9 @@
+AUDIT-F3 (P1) — municipal CSV rejects Bulgarian sport names, found by driving /admin/obshtini
+2026-07-24: rows with спорт=футбол/баскетбол → "невалиден ред: Непознат спорт" (all 3 audit
+rows invalid). lib/src/import-municipal/normalize.ts: ACCESS_ALIASES maps свободен/платен/
+училищен etc., but splitSports() only lowercases — no Bulgarian→canonical sport mapping
+exists, and CANONICAL_SPORTS are English tokens. Stage 6.3's own description ("the forgiving
+normaliser reads Bulgarian or English enum values") is true for access/lighting and false for
+sports — the one column every real registry will write in Bulgarian. Errors are at least
+surfaced per-row with reasons (PRESENTED ok); the capability is functionally blocked for
+Bulgarian-language files. Fix direction: SPORT_ALIASES table like ACCESS_ALIASES.

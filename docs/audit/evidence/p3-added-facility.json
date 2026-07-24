@@ -1,0 +1,24 @@
+{
+  "row": {
+    "id": "3f87a0c4-2923-4c4e-9bb7-3dcaeac77546",
+    "slug": "odit-novo-igrishte-1784897342164",
+    "status": "needs_verification",
+    "source": "crowd",
+    "municipality_id": 169
+  },
+  "photos": [
+    {
+      "status": "pending"
+    }
+  ],
+  "edits": [
+    {
+      "field": "created"
+    }
+  ],
+  "points": [
+    {
+      "event": "facility_added"
+    }
+  ]
+}

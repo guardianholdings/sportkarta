@@ -1,0 +1,28 @@
+=== INTEGRITY: append-only facility_edits (no UPDATE/DELETE trigger guard) ===
+           tgname           | tgenabled 
+----------------------------+-----------
+ facility_edits_no_delete   | O
+ facility_edits_no_truncate | O
+ facility_edits_no_update   | O
+(3 rows)
+
+--- attempt a DELETE on facility_edits (must be refused) ---
+ERROR:  facility_edits is append-only (audit log)
+CONTEXT:  PL/pgSQL function forbid_facility_edits_mutation() line 3 at RAISE
+=== INTEGRITY: points_ledger idempotency key is UNIQUE ===
+ ledger_rows | distinct_keys 
+-------------+---------------
+           9 |             9
+(1 row)
+
+--- attempt to duplicate an award (ON CONFLICT / UNIQUE must stop it) ---
+ERROR:  null value in column "facility_id" of relation "points_ledger" violates not-null constraint
+DETAIL:  Failing row contains (5617, AecaPIrc3sf4omfEGvJm1N385ySaU0iY, facility_added, 10, null, facility_added:e4f8f114-114d-43d9-a058-786fd7968fd4, 2026-07-24 15:43:56.657631+00).
+ERROR:  duplicate key value violates unique constraint "points_ledger_idempotency_key_unique"
+DETAIL:  Key (idempotency_key)=(facility_added:e4f8f114-114d-43d9-a058-786fd7968fd4) already exists.
+=== RECONCILIATION: additive sums, non-additive does not (live) ===
+ national_distinct | sum_of_parts 
+-------------------+--------------
+                 1 |            1
+(1 row)
+

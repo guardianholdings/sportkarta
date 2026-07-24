@@ -1,8 +1,8 @@
 'use client';
 
 import type { CampaignRow } from '@sportkarta/db';
-import { PASSPORT_EVENT_KINDS } from '@sportkarta/lib/badges';
 import {
+  CAMPAIGN_EVENT_KINDS,
   CAMPAIGN_LEADERBOARD_TYPES,
   CAMPAIGN_TEMPLATES,
   CITY_BOARD_MIN_MEMBERS,
@@ -186,7 +186,7 @@ export function CampaignForm({
         <p className="text-xs text-neutral-500">{t('scoringHint')}</p>
 
         <ul className="space-y-2">
-          {PASSPORT_EVENT_KINDS.map((kind) => {
+          {CAMPAIGN_EVENT_KINDS.map((kind) => {
             const weight = weightFor(kind);
             return (
               <li key={kind} className="flex flex-wrap items-center gap-3">

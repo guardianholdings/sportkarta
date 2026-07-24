@@ -1,0 +1,8 @@
+{
+  "firstMail": {
+    "subject": "Напомняне: Одит тренировка 827435",
+    "file": "2026-07-24T13-37-44-505Z-ukdkxz.json"
+  },
+  "ledgerAfterTwoRuns": "1",
+  "outboxUnchangedOnReplay": true
+}

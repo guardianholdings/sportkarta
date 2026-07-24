@@ -1,0 +1,9 @@
+AUDIT-F2 (P2) — stats/map reconciliation gap, found live 2026-07-24:
+mv_national_stats counts WHERE status <> 'gone' (no slug condition); the map/API/export
+predicate is status <> 'gone' AND slug IS NOT NULL. A NULL-slug active row ("E2E verify
+fixture", id 00000000-0000-4000-8000-00000000ad01, left by the e2e suite) makes
+/api/stats national.total = 6672 while the map/exports show 6671. The docs' own standard:
+"a municipality can count the pins and get the same number." With production data every
+writer slugs its rows, so this only bites when a slugless row exists — but the predicate
+exists because they can. Fix direction: align the mv WHERE with PUBLIC_FACILITY_PREDICATE.
+Also: the e2e suite leaks fixture rows into the dev DB (separate hygiene note).

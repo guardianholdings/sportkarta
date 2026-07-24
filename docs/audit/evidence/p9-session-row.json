@@ -1,0 +1,5 @@
+{
+  "id": "dfd699e7-f60c-4551-bf56-f71dde1b8372",
+  "capacity": 1,
+  "rrule": "FREQ=WEEKLY;BYDAY=SA"
+}

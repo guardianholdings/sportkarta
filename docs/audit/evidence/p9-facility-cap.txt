@@ -1,0 +1,7 @@
+AUDIT-F1 (P1) — found by driving the real form 2026-07-24:
+/admin/sesii facility picker: LIMIT 2000 (page.tsx FACILITY_LIMIT), ordered by municipality
+name; 6,672 non-gone facilities exist. audit-active-osm (municipality Невестино) ranks 2402
+→ NOT in the list; no truncation indicator anywhere in the UI. An admin cannot create a
+session at ~70% of facilities (every municipality alphabetically after ~2000th row).
+Reproduced live: search "Одит active osm" in the picker matches nothing while the facility
+is active and public on the map.

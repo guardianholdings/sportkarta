@@ -1,0 +1,32 @@
+[
+  {
+    "email": "audit-adult@example.org",
+    "role": "user",
+    "is_minor": false,
+    "display_name": "Одит Възрастен"
+  },
+  {
+    "email": "audit-amb@example.org",
+    "role": "user",
+    "is_minor": false,
+    "display_name": "Одит Амбасадор"
+  },
+  {
+    "email": "audit-minor@example.org",
+    "role": "user",
+    "is_minor": true,
+    "display_name": "Одит Дете"
+  },
+  {
+    "email": "audit-org@example.org",
+    "role": "user",
+    "is_minor": false,
+    "display_name": "Одит Организатор"
+  },
+  {
+    "email": "e2e@example.org",
+    "role": "admin",
+    "is_minor": false,
+    "display_name": "Одит Админ"
+  }
+]

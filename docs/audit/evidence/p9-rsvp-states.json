@@ -1,0 +1,10 @@
+[
+  {
+    "email": "audit-adult@example.org",
+    "state": "withdrawn"
+  },
+  {
+    "email": "audit-minor@example.org",
+    "state": "active"
+  }
+]

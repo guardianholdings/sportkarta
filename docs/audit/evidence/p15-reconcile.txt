@@ -1,0 +1,1 @@
+direct-query visible facilities: 6671 ; /api/stats national facilities: {"national":{"total":6672,"active":89,"needsVerification":6583,"free":6054,"paid

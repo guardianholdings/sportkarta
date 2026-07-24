@@ -1,0 +1,24 @@
+=== P18 mod:queue (read-only) ===
+      "signals": {
+        "hasName": true,
+        "hasPhoto": false,
+        "sportTypes": [
+          "basketball"
+        ],
+        "municipalityMissing": true,
+        "neighboursWithin100m": 13
+      }
+    }
+  ]
+}
+=== P18 flags before ===
+0
+$ pnpm --filter @sportkarta/db run mod:flag -- --target facility:adee9dd1-1c76-4fe7-a516-e648a81c9015 --reason suspicious_location --note 'Одит прескрийн тест'
+$ tsx scripts/moderation-flag.ts -- --target facility:adee9dd1-1c76-4fe7-a516-e648a81c9015 --reason suspicious_location --note 'Одит прескрийн тест'
+flagged facility adee9dd1-1c76-4fe7-a516-e648a81c9015: suspicious_location
+ target_type |       reason        |        note         
+-------------+---------------------+---------------------
+ facility    | suspicious_location | Одит прескрийн тест
+(1 row)
+
+needs_verification

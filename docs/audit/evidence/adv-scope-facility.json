@@ -1,0 +1,16 @@
+{
+  "outOfScopeEditStatus": 404,
+  "outOfScopeFormRendered": false,
+  "dbBefore": {
+    "name": "E2E тестово игрище 1784812940992",
+    "status": "active"
+  },
+  "dbAfter": {
+    "name": "E2E тестово игрище 1784812940992",
+    "status": "active"
+  },
+  "attempted": {
+    "note": "form-forge not attempted; scope proven by no-form + DB no-op",
+    "id": "312e9df5-ca87-4052-a275-4d870f3b4a67"
+  }
+}

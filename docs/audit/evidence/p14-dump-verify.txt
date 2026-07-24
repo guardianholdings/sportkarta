@@ -1,0 +1,8 @@
+sha match: YES
+cache-control: public, max-age=31536000, immutable
+link: <http://localhost:3000/danni/litsenz>; rel="license"; title="Open Database License v1.0"
+x-attribution: (c) OpenStreetMap contributors + SportKarta community
+x-license: ODbL-1.0
+gone rows in dump (must be 0): 0
+active audit rows present: 4
+landmark rows: 3

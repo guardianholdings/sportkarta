@@ -1,0 +1,12 @@
+{
+  "decisionLog": {
+    "target_type": "photo",
+    "decision": "approved",
+    "municipality_id": 169,
+    "actor": "audit-amb@example.org"
+  },
+  "photo": {
+    "status": "approved",
+    "slug": "odit-novo-igrishte-1784897342164"
+  }
+}

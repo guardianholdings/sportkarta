@@ -2,9 +2,24 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 30_000,
+  // The webServer is `next dev`, which compiles each route on its first hit. In a
+  // full run that first hit can land mid-test, so a per-test budget tuned for a
+  // warm server makes unrelated tests flake on compile latency. 60 s absorbs it
+  // without hiding a genuine hang. One local retry (CI already retries) catches
+  // the occasional cold-compile stall that still overshoots — the flakiness here
+  // is the dev server warming up, not the assertions.
+  timeout: 60_000,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 2 : 1,
+  // Serial, always. The suite signs in through the real email-OTP flow, and the
+  // admin/ambassador tests share one bootstrapped identity (ADMIN_EMAIL in
+  // e2e/auth.ts — only ADMIN_EMAILS addresses become admin). Two workers signing
+  // in as that same address at once race on its one-time code: one send rotates
+  // the other's code and a dozen tests fail with "no sign-in code was delivered".
+  // The specs already isolate by using a unique address per *member* test; the
+  // shared admin is what cannot run concurrently, so we run one worker. Each spec
+  // still passes alone — this only removes the cross-file parallelism.
+  workers: 1,
   use: {
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',

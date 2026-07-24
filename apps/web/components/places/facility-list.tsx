@@ -12,21 +12,28 @@ export async function FacilityList({ facilities }: { facilities: ScopedFacility[
 
   return (
     <ul className="divide-y divide-neutral-100 rounded-lg border border-neutral-200">
-      {facilities.map((f) => (
-        <li key={f.slug}>
-          <Link href={`/obekt/${f.slug}`} className="block px-4 py-3 hover:bg-neutral-50">
-            <span className="font-medium">{f.name ?? tFacility('unnamed')}</span>
-            {f.sportTypes.length > 0 && (
-              <span className="block text-xs text-neutral-500">
-                {f.sportTypes
-                  .slice(0, 3)
-                  .map((s) => tSport(s))
-                  .join(' · ')}
-              </span>
-            )}
-          </Link>
-        </li>
-      ))}
+      {facilities.map((f) => {
+        const name = f.name ?? tFacility('unnamed');
+        const sports = f.sportTypes.slice(0, 3).map((s) => tSport(s));
+        // The link's accessible name is otherwise the flattened text of both
+        // spans with no separator ("Спортно съоръжениетенис"); an explicit label
+        // keeps name and sports as distinct, readable tokens for a screen reader.
+        const label = sports.length > 0 ? `${name} — ${sports.join(', ')}` : name;
+        return (
+          <li key={f.slug}>
+            <Link
+              href={`/obekt/${f.slug}`}
+              aria-label={label}
+              className="block px-4 py-3 hover:bg-neutral-50"
+            >
+              <span className="font-medium">{name}</span>
+              {sports.length > 0 && (
+                <span className="block text-xs text-neutral-500">{sports.join(' · ')}</span>
+              )}
+            </Link>
+          </li>
+        );
+      })}
     </ul>
   );
 }

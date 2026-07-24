@@ -39,13 +39,18 @@ export interface TeardropOptions {
 export function createTeardrop({ slug, name, sports }: TeardropOptions): HTMLDivElement {
   const family = facilityFamily(sports);
   const el = document.createElement('div');
-  el.className = 'sk-marker sk-marker--drop';
+  el.className = 'sk-marker';
   el.dataset.slug = slug;
   el.style.setProperty('--mk', FAMILY_COLOR[family]);
   el.setAttribute('role', 'button');
   el.setAttribute('tabindex', '0');
   el.setAttribute('aria-label', name);
-  el.innerHTML = `<span class="sk-marker__pin"></span><span class="sk-marker__glyph">${glyphSvg(family)}</span>`;
+  // MapLibre positions the marker by writing `transform` on the ROOT element, so
+  // every transform of our own (the drop-in, the hover/select scale) must live on
+  // inner wrappers — animating the root parks the pin at 0,0. `__drop` carries the
+  // entrance animation, `__body` the interactive scale; they are separate elements
+  // because an animation with `fill: both` would otherwise win over the scale.
+  el.innerHTML = `<span class="sk-marker__drop"><span class="sk-marker__body"><span class="sk-marker__pin"></span><span class="sk-marker__glyph">${glyphSvg(family)}</span></span></span>`;
   return el;
 }
 

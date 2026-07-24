@@ -1,0 +1,10 @@
+{
+  "/admin/ambasadori": 404,
+  "/admin/import": 404,
+  "/admin/obshtini": 404,
+  "/admin/otcheti": 404,
+  "/admin/kampanii": 404,
+  "/admin/rezultati": 404,
+  "/admin/sesii": 404,
+  "/api/admin/otcheti?format=csv": 404
+}

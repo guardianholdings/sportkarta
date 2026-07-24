@@ -1,0 +1,11 @@
+{
+  "before": "1",
+  "after": "0",
+  "decision": {
+    "target_type": "report",
+    "decision": "reviewed",
+    "municipality_id": 169,
+    "has_actor": true,
+    "has_queued": true
+  }
+}

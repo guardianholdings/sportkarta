@@ -38,10 +38,10 @@ const PUBLIC_ROUTES = [
   '/vhod',
 ];
 
-const MEMBER_ROUTES = [...PUBLIC_ROUTES, '/profil', '/pasport', '/dobavi'];
+const MEMBER_ONLY = ['/profil', '/pasport', '/dobavi'];
+const MEMBER_ROUTES = [...PUBLIC_ROUTES, ...MEMBER_ONLY];
 
-const ADMIN_ROUTES = [
-  ...MEMBER_ROUTES,
+const ADMIN_ONLY = [
   '/admin',
   '/admin/facilities',
   '/admin/verify',
@@ -54,6 +54,7 @@ const ADMIN_ROUTES = [
   '/admin/obshtini',
   '/admin/import',
 ];
+const ADMIN_ROUTES = [...MEMBER_ROUTES, ...ADMIN_ONLY];
 
 interface CrawlResult {
   badPages: string[];
@@ -139,16 +140,52 @@ function assertClean(res: CrawlResult): void {
   expect(res.antiPatterns, 'onclick on non-button/link elements').toEqual([]);
 }
 
+/**
+ * Authorization probe: a role must NOT be able to reach a route above its
+ * privilege. A protected route redirects the under-privileged caller to sign-in
+ * (or 4xx), so "reached" = the final path is still the requested route with a
+ * 2xx. Any leak fails — a control visible to a role that cannot use it is both a
+ * UX and an authz bug.
+ */
+async function assertDenied(page: Page, routes: string[], label: string): Promise<void> {
+  const leaks: string[] = [];
+  for (const route of routes) {
+    let status = 0;
+    let finalPath = '';
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        const r = await page.request.get(route, { maxRedirects: 5, timeout: 30_000 });
+        status = r.status();
+        finalPath = new URL(r.url()).pathname.replace(/^\/(bg|en)(?=\/|$)/, '') || '/';
+        break;
+      } catch {
+        await new Promise((res) => setTimeout(res, 500 * (attempt + 1)));
+      }
+    }
+    if (status >= 200 && status < 400 && finalPath === route) {
+      leaks.push(`${route} (reached: ${String(status)})`);
+    }
+  }
+  expect(leaks, `${label} must not reach protected routes`).toEqual([]);
+}
+
 test.describe('link crawler', () => {
-  test.describe.configure({ timeout: 180_000 });
+  // Each crawl visits every route for a role; against `next dev` a cold full run
+  // compiles them all on demand, which pushed this past 180 s. 240 s keeps the
+  // heaviest role crawl inside its budget even when the server starts cold.
+  test.describe.configure({ timeout: 240_000 });
 
   test('anonymous', async ({ page }) => {
     assertClean(await crawl(page, PUBLIC_ROUTES));
+    // Auth-gating: an anonymous visitor reaches no member/admin surface.
+    await assertDenied(page, [...MEMBER_ONLY, ...ADMIN_ONLY], 'anonymous');
   });
 
   test('member', async ({ page }) => {
     await signIn(page, `crawl-member-${String(Date.now())}@example.org`, /\/profil/);
     assertClean(await crawl(page, MEMBER_ROUTES));
+    // A plain member reaches no admin/ambassador surface.
+    await assertDenied(page, ADMIN_ONLY, 'member');
   });
 
   test('admin', async ({ page }) => {

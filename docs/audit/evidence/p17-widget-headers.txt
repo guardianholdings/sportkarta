@@ -1,0 +1,5 @@
+HTTP/1.1 200 OK
+content-security-policy: default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors *
+script tags in widget (must be 0): 0
+X-Frame-Options: DENY
+Content-Security-Policy: frame-ancestors 'none'

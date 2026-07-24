@@ -1,0 +1,10 @@
+{
+  "status": {
+    "status": "active"
+  },
+  "points": [
+    {
+      "event": "facility_verified"
+    }
+  ]
+}

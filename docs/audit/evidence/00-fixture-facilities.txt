@@ -1,0 +1,20 @@
+INSERT 0 9
+INSERT 0 1
+INSERT 0 1
+INSERT 0 11
+COMMIT
+                slug                |       status       |  source   | access | municipality_id 
+------------------------------------+--------------------+-----------+--------+-----------------
+ audit-active-crowd                 | active             | crowd     | free   |             169
+ audit-active-municipal             | active             | municipal | free   |             169
+ audit-active-osm                   | active             | osm       | free   |             169
+ audit-active-paid                  | active             | crowd     | paid   |             169
+ audit-gone-crowd                   | gone               | crowd     | free   |             169
+ audit-gone-municipal               | gone               | municipal | free   |             169
+ audit-gone-osm                     | gone               | osm       | free   |             169
+ audit-gone-sofia                   | gone               | crowd     | free   |             239
+ audit-needs-verification-crowd     | needs_verification | crowd     | free   |             169
+ audit-needs-verification-municipal | needs_verification | municipal | free   |             169
+ audit-needs-verification-osm       | needs_verification | osm       | free   |             169
+(11 rows)
+

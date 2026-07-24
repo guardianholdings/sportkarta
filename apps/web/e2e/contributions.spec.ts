@@ -102,7 +102,8 @@ test.describe('authenticated contributions', () => {
       mimeType: 'image/jpeg',
       buffer: PIXEL_JPEG,
     });
-    await page.getByRole('checkbox', { name: /баскетбол|basketball/i }).check();
+    // Sports are selectable toggle chips (role=button, aria-pressed), not native checkboxes.
+    await page.getByRole('button', { name: /баскетбол|basketball/i }).click();
     await page.getByLabel(/име|name/i).fill(facilityName);
     await page.getByRole('button', { name: /добави съоръжението|add facility/i }).click();
 
@@ -151,7 +152,8 @@ test.describe('authenticated contributions', () => {
       mimeType: 'image/jpeg',
       buffer: PIXEL_JPEG,
     });
-    await page.getByRole('checkbox', { name: /баскетбол|basketball/i }).check();
+    // Sports are selectable toggle chips (role=button, aria-pressed), not native checkboxes.
+    await page.getByRole('button', { name: /баскетбол|basketball/i }).click();
     await page.getByRole('button', { name: /добави съоръжението|add facility/i }).click();
 
     // Scope past Next's route announcer, which is also role=alert.
@@ -212,8 +214,11 @@ test.describe('authenticated contributions', () => {
     )[0];
 
     await page.goto(`/obekt/${facility?.slug ?? ''}`);
-    await page.getByRole('radio', { name: /^(лошо|poor)$/i }).check();
-    await page.getByRole('checkbox', { name: /замърсено|litter/i }).check();
+    // State/tag controls are label-wrapped sr-only inputs with a styled proxy
+    // span, so the real user clicks the label — `force` checks the hidden input
+    // directly instead of the span that intercepts the pointer.
+    await page.getByRole('radio', { name: /^(лошо|poor)$/i }).check({ force: true });
+    await page.getByRole('checkbox', { name: /замърсено|litter/i }).check({ force: true });
     await page.getByRole('button', { name: /^(изпрати|send)$/i }).click();
     await expect(page.getByRole('status')).toBeVisible();
 
@@ -232,7 +237,7 @@ test.describe('authenticated contributions', () => {
 
     // Report again the same day: recorded again, but paid only once.
     await page.reload();
-    await page.getByRole('radio', { name: /^(добро|good)$/i }).check();
+    await page.getByRole('radio', { name: /^(добро|good)$/i }).check({ force: true });
     await page.getByRole('button', { name: /^(изпрати|send)$/i }).click();
     await expect(page.getByRole('status')).toBeVisible();
 

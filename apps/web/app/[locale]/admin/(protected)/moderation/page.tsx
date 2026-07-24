@@ -1,5 +1,6 @@
 import { getLocale, getTranslations, setRequestLocale } from 'next-intl/server';
 
+import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Link } from '@/i18n/navigation';
 import { requireAdmin } from '@/lib/auth-session';
 import {
@@ -160,12 +161,12 @@ export default async function AdminModerationPage({
                     </button>
                   </form>
                   <form action={gone}>
-                    <button
-                      type="submit"
+                    <ConfirmButton
                       className="rounded bg-red-600 px-3 py-2 font-medium text-white"
+                      message={t('markGoneConfirm')}
                     >
                       {t('markGone')}
-                    </button>
+                    </ConfirmButton>
                   </form>
                 </li>
               );

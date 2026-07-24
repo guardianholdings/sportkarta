@@ -253,11 +253,26 @@
    and coloured per-marker via the --mk custom property. Default 36 → hover 40
    (scale 1.11) → selected 44 (scale 1.22). The tip is anchored to the coordinate
    (MapLibre anchor "bottom"); scaling grows upward from it. */
+/* The ROOT owns nothing but its box — MapLibre writes `transform` here to place
+   the marker, so any transform of ours (drop-in, hover/select scale) must live on
+   the inner wrappers below, or the pin is torn off its coordinate and parked at
+   0,0. `__drop` = entrance animation, `__body` = interactive scale (kept separate
+   so the `fill: both` drop doesn't override the scale). */
 .sk-marker {
   position: relative;
   width: 36px;
   height: 36px;
   cursor: pointer;
+}
+.sk-marker__drop {
+  position: absolute;
+  inset: 0;
+  transform-origin: center bottom;
+  animation: marker-drop var(--dur-base) var(--ease-trail) both;
+}
+.sk-marker__body {
+  position: absolute;
+  inset: 0;
   transform-origin: center bottom;
   transition: transform var(--dur-fast) var(--ease-standard);
 }
@@ -280,12 +295,13 @@
 }
 .sk-marker:focus-visible { outline: none; }
 .sk-marker:focus-visible .sk-marker__pin { box-shadow: var(--ring); }
-.sk-marker.is-hover { transform: scale(1.11); z-index: 2; }
-.sk-marker.is-selected { transform: scale(1.22); z-index: 3; }
+.sk-marker.is-hover { z-index: 2; }
+.sk-marker.is-hover .sk-marker__body { transform: scale(1.11); }
+.sk-marker.is-selected { z-index: 3; }
+.sk-marker.is-selected .sk-marker__body { transform: scale(1.22); }
 .sk-marker.is-selected .sk-marker__pin {
   box-shadow: 0 0 0 5px color-mix(in srgb, var(--mk) 26%, transparent), var(--shadow-lg);
 }
-.sk-marker--drop { animation: marker-drop var(--dur-base) var(--ease-trail) both; }
 
 .sk-cluster {
   display: flex;

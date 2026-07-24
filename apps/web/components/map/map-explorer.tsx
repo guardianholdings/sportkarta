@@ -462,7 +462,7 @@ export function MapExplorer({
           className="pointer-events-auto flex w-[384px] shrink-0 flex-col border-r border-line bg-paper"
         >
           <div className="border-b border-line bg-surface px-4 py-3">
-            <h1 className="text-h4 font-bold text-ink">{t('discoverTitle')}</h1>
+            <h2 className="text-h4 font-bold text-ink">{t('discoverTitle')}</h2>
             <div className="mt-3 flex items-center gap-2">
               <Input
                 iconLeft={<Search size={18} />}

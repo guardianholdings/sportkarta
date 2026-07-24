@@ -1,0 +1,16 @@
+{
+  "slug": "odit-kampania-662710",
+  "status": "published",
+  "rules": {
+    "events": [
+      {
+        "kind": "facility_added",
+        "weight": 1
+      },
+      {
+        "kind": "session_checkin",
+        "weight": 1
+      }
+    ]
+  }
+}

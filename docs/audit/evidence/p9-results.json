@@ -1,0 +1,5 @@
+{
+  "note": "P9.12 executed via live browser after Playwright fill artifact; DB row is the evidence",
+  "row": { "participant_label": "Одит отбор А", "score": "3:2" },
+  "occurrence": "b85ab8d4-c5a4-45b7-999c-44a35682f8e4"
+}
