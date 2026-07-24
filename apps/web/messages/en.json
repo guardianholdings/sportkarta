@@ -276,6 +276,7 @@
     "skipToList": "Skip to the facilities list"
   },
   "Facility": {
+    "directions": "Directions",
     "notFound": "No such facility.",
     "backToMap": "← Back to the map",
     "attributes": "Attributes",

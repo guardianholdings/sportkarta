@@ -2,22 +2,21 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
+import { FacilityDetailView } from '@/components/facility/facility-detail-view';
 import { ReportForm } from '@/components/facility/report-form';
-import { getCurrentUser } from '@/lib/auth-session';
 import { MiniMapLoader } from '@/components/map/mini-map-loader';
-import { Link } from '@/i18n/navigation';
+import { getCurrentUser } from '@/lib/auth-session';
 import { issueFormToken } from '@/lib/form-token';
-
-import { ConditionForm } from './condition-form';
-import { VerifyForm } from './verify-form';
 import { serializeJsonLd } from '@/lib/json-ld';
 import { buildAlternates } from '@/lib/seo';
 import { getFacilityBySlug, type FacilityDetail } from '@/lib/public-data';
+import { Link } from '@/i18n/navigation';
+
+import { ConditionForm } from './condition-form';
+import { VerifyForm } from './verify-form';
 
 type PageParams = Promise<{ locale: string; slug: string }>;
 
-// Facility photos are served from the storage volume under this prefix
-// (lib/src/storage default). Stage 2 has none yet; Stage 3 adds uploads.
 const UPLOADS_PREFIX = '/uploads';
 
 function displayName(facility: FacilityDetail, fallback: string): string {
@@ -39,42 +38,31 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   };
 }
 
+function SectionCard({ title, children }: { title?: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-card border border-line bg-surface p-4 shadow-sm sm:p-5">
+      {title && <h2 className="mb-3 text-h4 font-bold text-ink">{title}</h2>}
+      {children}
+    </section>
+  );
+}
+
 export default async function FacilityPage({ params }: { params: PageParams }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
 
-  const [facility, currentUser, t, tSport, tSurface, tAccess, tSource, tCondition, tContribute] =
-    await Promise.all([
-      getFacilityBySlug(slug),
-      // Signed-in visitors get the contribution forms; everyone else keeps the
-      // anonymous problem-report form below them.
-      getCurrentUser(),
-      getTranslations('Facility'),
-      getTranslations('Sport'),
-      getTranslations('Surface'),
-      getTranslations('Access'),
-      getTranslations('Source'),
-      getTranslations('Condition'),
-      getTranslations('Contribute'),
-    ]);
+  const [facility, currentUser, t, tSport, tContribute] = await Promise.all([
+    getFacilityBySlug(slug),
+    getCurrentUser(),
+    getTranslations('Facility'),
+    getTranslations('Sport'),
+    getTranslations('Contribute'),
+  ]);
   if (!facility) notFound();
 
   const name = displayName(facility, t('unnamed'));
   const sportLabels = facility.sportTypes.map((s) => tSport(s));
 
-  // Lighting is tri-state: false is a definite "no", null is "unknown" — the
-  // two must read differently (CLAUDE.md: distinguish unknown vs no).
-  const lightingText =
-    facility.lighting === null ? t('unknown') : facility.lighting ? t('yes') : t('no');
-  const surfaceText = facility.surface ? tSurface(facility.surface) : t('unknown');
-
-  const lastVerified = facility.lastVerifiedAt
-    ? new Intl.DateTimeFormat(locale, { dateStyle: 'long' }).format(
-        new Date(facility.lastVerifiedAt),
-      )
-    : null;
-
-  // schema.org SportsActivityLocation — sport names in the current locale.
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'SportsActivityLocation',
@@ -91,120 +79,86 @@ export default async function FacilityPage({ params }: { params: PageParams }) {
   };
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 p-4">
+    <main className="mx-auto max-w-2xl px-4 py-5">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
 
-      <Link href="/" className="text-sm underline">
+      <Link
+        href="/"
+        className="mb-4 inline-flex items-center gap-1.5 text-body-sm font-medium text-ink-soft hover:text-brand"
+      >
         {t('backToMap')}
       </Link>
 
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{name}</h1>
-        {(facility.quarter || facility.municipalityName) && (
-          <p className="text-neutral-600">
-            {[facility.quarter, facility.municipalityName].filter(Boolean).join(', ')}
-          </p>
-        )}
-      </header>
+      <div className="flex flex-col gap-4">
+        <div className="overflow-hidden rounded-card border border-line bg-surface shadow-sm">
+          <FacilityDetailView facility={facility} />
+        </div>
 
-      <section aria-labelledby="attrs-h">
-        <h2 id="attrs-h" className="mb-2 text-lg font-semibold">
-          {t('attributes')}
-        </h2>
-        <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
-          <dt className="font-medium text-neutral-500">{t('access')}</dt>
-          <dd>{tAccess(facility.access)}</dd>
-
-          <dt className="font-medium text-neutral-500">{t('sports')}</dt>
-          <dd>{sportLabels.length > 0 ? sportLabels.join(', ') : '—'}</dd>
-
-          <dt className="font-medium text-neutral-500">{t('surface')}</dt>
-          <dd>{surfaceText}</dd>
-
-          <dt className="font-medium text-neutral-500">{t('lighting')}</dt>
-          <dd>{lightingText}</dd>
-
-          <dt className="font-medium text-neutral-500">{t('covered')}</dt>
-          <dd>{facility.covered ? t('yes') : t('no')}</dd>
-
-          <dt className="font-medium text-neutral-500">{t('condition')}</dt>
-          <dd>{facility.condition ? tCondition(facility.condition) : t('conditionUnknown')}</dd>
-
-          <dt className="font-medium text-neutral-500">{t('dataSource')}</dt>
-          <dd>{tSource(facility.source)}</dd>
-        </dl>
-        <p className="mt-3 text-sm text-neutral-500">
-          {lastVerified ? t('lastVerified', { date: lastVerified }) : t('neverVerified')}
-        </p>
-      </section>
-
-      {facility.photos.length > 0 && (
-        <section aria-labelledby="photos-h">
-          <h2 id="photos-h" className="mb-2 text-lg font-semibold">
-            {t('photos')}
-          </h2>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {facility.photos.map((path) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={path}
-                src={`${UPLOADS_PREFIX}/${path}`}
-                alt={t('photoAlt', { name })}
-                loading="lazy"
-                className="aspect-square w-full rounded-lg object-cover"
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section aria-labelledby="loc-h">
-        <h2 id="loc-h" className="mb-2 text-lg font-semibold">
-          {t('location')}
-        </h2>
-        <MiniMapLoader lon={facility.lon} lat={facility.lat} label={name} />
-      </section>
-
-      <section aria-labelledby="contribute-h" className="space-y-6">
-        <h2 id="contribute-h" className="text-lg font-semibold">
-          {tContribute('title')}
-        </h2>
-        {currentUser ? (
-          <div className="space-y-8">
-            <div className="rounded border border-neutral-200 p-4">
-              <h3 className="mb-3 font-medium">{tContribute('verifyHeading')}</h3>
-              <VerifyForm
-                slug={facility.slug}
-                access={facility.access}
-                surface={facility.surface}
-                lighting={facility.lighting}
-                covered={facility.covered}
-                sportTypes={facility.sportTypes}
-              />
+        {facility.photos.length > 1 && (
+          <SectionCard title={t('photos')}>
+            <div className="grid grid-cols-3 gap-2">
+              {facility.photos.slice(1).map((path) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={path}
+                  src={`${UPLOADS_PREFIX}/${path}`}
+                  alt={t('photoAlt', { name })}
+                  loading="lazy"
+                  className="aspect-square w-full rounded-md object-cover"
+                />
+              ))}
             </div>
-            <div className="rounded border border-neutral-200 p-4">
-              <h3 className="mb-3 font-medium">{tContribute('conditionHeading')}</h3>
-              <ConditionForm slug={facility.slug} />
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-neutral-600">
-            <Link
-              href={{ pathname: '/vhod', query: { next: `/obekt/${facility.slug}` } }}
-              className="underline"
-            >
-              {tContribute('signInToContribute')}
-            </Link>
-          </p>
+          </SectionCard>
         )}
-      </section>
 
-      <section>
-        <ReportForm slug={facility.slug} formToken={issueFormToken()} />
-      </section>
+        <SectionCard title={t('location')}>
+          <div className="overflow-hidden rounded-md">
+            <MiniMapLoader lon={facility.lon} lat={facility.lat} label={name} />
+          </div>
+        </SectionCard>
+
+        <SectionCard title={tContribute('title')}>
+          {currentUser ? (
+            <div className="flex flex-col gap-6">
+              <div>
+                <h3 className="mb-3 text-body-sm font-bold text-ink">
+                  {tContribute('verifyHeading')}
+                </h3>
+                <VerifyForm
+                  slug={facility.slug}
+                  access={facility.access}
+                  surface={facility.surface}
+                  lighting={facility.lighting}
+                  covered={facility.covered}
+                  sportTypes={facility.sportTypes}
+                />
+              </div>
+              <div className="border-t border-line pt-6">
+                <h3 className="mb-3 text-body-sm font-bold text-ink">
+                  {tContribute('conditionHeading')}
+                </h3>
+                <ConditionForm slug={facility.slug} />
+              </div>
+            </div>
+          ) : (
+            <p className="text-body-sm text-ink-soft">
+              <Link
+                href={{ pathname: '/vhod', query: { next: `/obekt/${facility.slug}` } }}
+                className="font-medium text-brand hover:text-brand-hover"
+              >
+                {tContribute('signInToContribute')}
+              </Link>
+            </p>
+          )}
+        </SectionCard>
+
+        <SectionCard>
+          <ReportForm slug={facility.slug} formToken={issueFormToken()} />
+        </SectionCard>
+      </div>
     </main>
   );
 }

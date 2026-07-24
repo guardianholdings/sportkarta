@@ -5,6 +5,9 @@ import { useTranslations } from 'next-intl';
 import { useActionState, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Radio } from '@/components/ui/radio';
+import { Select } from '@/components/ui/select';
 
 import { verifyFacilityAction, type ContributionState } from './contribution-actions';
 
@@ -19,6 +22,9 @@ export interface VerifyFormProps {
   covered: boolean;
   sportTypes: string[];
 }
+
+const LEGEND = 'mb-1 font-mono text-overline uppercase tracking-overline text-text-muted';
+const FIELD_LABEL = 'font-mono text-overline uppercase tracking-overline text-text-muted';
 
 /**
  * The verification checklist: prefilled with what the record currently says, so
@@ -37,111 +43,88 @@ export function VerifyForm(props: VerifyFormProps) {
   const [exists, setExists] = useState(true);
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} className="flex flex-col gap-5">
       <input type="hidden" name="slug" value={props.slug} />
-      {/* Declares which checklist fields this form presented; the action
-          ignores anything not listed, so an omitted field can never be read as
-          an assertion (and then frozen against imports). */}
+      {/* Declares which checklist fields this form presented; the action ignores
+          anything not listed, so an omitted field can never be read as an
+          assertion (and then frozen against imports). */}
       <input type="hidden" name="fields" value="access,surface,lighting,covered,sportTypes" />
 
-      <fieldset className="space-y-1">
-        <legend className="text-sm font-medium">{t('existsLegend')}</legend>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="radio"
-            name="exists"
-            value="yes"
-            defaultChecked
-            onChange={() => {
-              setExists(true);
-            }}
-          />
-          {t('existsYes')}
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="radio"
-            name="exists"
-            value="no"
-            onChange={() => {
-              setExists(false);
-            }}
-          />
-          {t('existsNo')}
-        </label>
-        {!exists && <p className="text-xs text-neutral-500">{t('existsNoHint')}</p>}
+      <fieldset className="flex flex-col gap-2">
+        <legend className={LEGEND}>{t('existsLegend')}</legend>
+        <Radio
+          name="exists"
+          value="yes"
+          label={t('existsYes')}
+          defaultChecked
+          onChange={() => setExists(true)}
+        />
+        <Radio
+          name="exists"
+          value="no"
+          label={t('existsNo')}
+          onChange={() => setExists(false)}
+        />
+        {!exists && <p className="text-caption text-text-muted">{t('existsNoHint')}</p>}
       </fieldset>
 
       {exists && (
         <>
-          <label className="block space-y-1">
-            <span className="text-sm font-medium">{t('accessLabel')}</span>
-            <select
-              name="access"
-              defaultValue={props.access}
-              className="w-full rounded border border-neutral-300 px-3 py-2"
-            >
+          <label className="flex flex-col gap-1.5">
+            <span className={FIELD_LABEL}>{t('accessLabel')}</span>
+            <Select name="access" defaultValue={props.access}>
               {ACCESS_VALUES.map((value) => (
                 <option key={value} value={value}>
                   {tAccess(value)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
 
-          <label className="block space-y-1">
-            <span className="text-sm font-medium">{t('surfaceLabel')}</span>
-            <select
-              name="surface"
-              defaultValue={props.surface ?? ''}
-              className="w-full rounded border border-neutral-300 px-3 py-2"
-            >
+          <label className="flex flex-col gap-1.5">
+            <span className={FIELD_LABEL}>{t('surfaceLabel')}</span>
+            <Select name="surface" defaultValue={props.surface ?? ''}>
               <option value="">{t('surfaceUnknown')}</option>
               {CANONICAL_SURFACES.map((value) => (
                 <option key={value} value={value}>
                   {tSurface(value)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
 
-          <fieldset className="space-y-1">
-            <legend className="text-sm font-medium">{t('lightingLabel')}</legend>
-            {(['yes', 'no', 'unknown'] as const).map((value) => (
-              <label key={value} className="mr-4 inline-flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
+          <fieldset className="flex flex-col gap-2">
+            <legend className={LEGEND}>{t('lightingLabel')}</legend>
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
+              {(['yes', 'no', 'unknown'] as const).map((value) => (
+                <Radio
+                  key={value}
                   name="lighting"
                   value={value}
+                  label={t(`lighting_${value}`)}
                   defaultChecked={
                     (props.lighting === true && value === 'yes') ||
                     (props.lighting === false && value === 'no') ||
                     (props.lighting === null && value === 'unknown')
                   }
                 />
-                {t(`lighting_${value}`)}
-              </label>
-            ))}
+              ))}
+            </div>
           </fieldset>
 
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="covered" defaultChecked={props.covered} />
-            {t('coveredLabel')}
-          </label>
+          <Checkbox name="covered" label={t('coveredLabel')} defaultChecked={props.covered} />
 
-          <fieldset className="space-y-1">
-            <legend className="text-sm font-medium">{t('sportsLegend')}</legend>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
+          <fieldset className="flex flex-col gap-2">
+            <legend className={LEGEND}>{t('sportsLegend')}</legend>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {CANONICAL_SPORTS.map((sport) => (
-                <label key={sport} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    name="sportTypes"
-                    value={sport}
-                    defaultChecked={props.sportTypes.includes(sport)}
-                  />
-                  {tSport(sport)}
-                </label>
+                <Checkbox
+                  key={sport}
+                  name="sportTypes"
+                  value={sport}
+                  label={tSport(sport)}
+                  defaultChecked={props.sportTypes.includes(sport)}
+                />
               ))}
             </div>
           </fieldset>
@@ -149,12 +132,12 @@ export function VerifyForm(props: VerifyFormProps) {
       )}
 
       {state.status === 'error' && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-body-sm text-danger">
           {t(`error_${state.error ?? 'unknown'}`)}
         </p>
       )}
       {state.status === 'ok' && (
-        <p role="status" className="text-sm text-green-700">
+        <p role="status" className="text-body-sm text-success">
           {state.awarded ? t('thanksWithPoints', { points: state.awarded }) : t('thanksNoPoints')}
         </p>
       )}

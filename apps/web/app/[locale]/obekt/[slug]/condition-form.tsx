@@ -5,6 +5,8 @@ import { useTranslations } from 'next-intl';
 import { useActionState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Radio } from '@/components/ui/radio';
 
 import { reportConditionAction, type ContributionState } from './contribution-actions';
 
@@ -25,50 +27,52 @@ export function ConditionForm({ slug }: { slug: string }) {
   );
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} className="flex flex-col gap-5">
       <input type="hidden" name="slug" value={slug} />
 
-      <fieldset className="space-y-1">
-        <legend className="text-sm font-medium">{t('stateLegend')}</legend>
-        {CONDITION_STATES.map((value) => (
-          <label key={value} className="mr-4 inline-flex items-center gap-2 text-sm">
-            <input type="radio" name="state" value={value} required />
-            {tState(value)}
-          </label>
-        ))}
-      </fieldset>
-
-      <fieldset className="space-y-1">
-        <legend className="text-sm font-medium">{t('tagsLegend')}</legend>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-          {CANONICAL_CONDITION_TAGS.map((tag) => (
-            <label key={tag} className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="tags" value={tag} />
-              {tTag(tag)}
-            </label>
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-1 font-mono text-overline uppercase tracking-overline text-text-muted">
+          {t('stateLegend')}
+        </legend>
+        <div className="flex flex-wrap gap-x-5 gap-y-2">
+          {CONDITION_STATES.map((value) => (
+            <Radio key={value} name="state" value={value} label={tState(value)} required />
           ))}
         </div>
       </fieldset>
 
-      <label className="block space-y-1">
-        <span className="text-sm font-medium">{t('photoOptionalLabel')}</span>
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-1 font-mono text-overline uppercase tracking-overline text-text-muted">
+          {t('tagsLegend')}
+        </legend>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {CANONICAL_CONDITION_TAGS.map((tag) => (
+            <Checkbox key={tag} name="tags" value={tag} label={tTag(tag)} />
+          ))}
+        </div>
+      </fieldset>
+
+      <label className="flex flex-col gap-1.5">
+        <span className="font-mono text-overline uppercase tracking-overline text-text-muted">
+          {t('photoOptionalLabel')}
+        </span>
         <input
           type="file"
           name="photo"
           accept="image/jpeg,image/png,image/webp"
           capture="environment"
-          className="w-full rounded border border-neutral-300 px-3 py-2"
+          className="w-full rounded-input border border-line-strong bg-surface px-3 py-2 text-body-sm file:mr-3 file:rounded-pill file:border-0 file:bg-brand-subtle file:px-3 file:py-1 file:text-brand"
         />
-        <span className="block text-xs text-neutral-500">{t('photoOptionalHint')}</span>
+        <span className="text-caption text-text-muted">{t('photoOptionalHint')}</span>
       </label>
 
       {state.status === 'error' && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-body-sm text-danger">
           {t(`error_${state.error ?? 'unknown'}`)}
         </p>
       )}
       {state.status === 'ok' && (
-        <p role="status" className="text-sm text-green-700">
+        <p role="status" className="text-body-sm text-success">
           {state.awarded ? t('thanksWithPoints', { points: state.awarded }) : t('thanksNoPoints')}
         </p>
       )}
