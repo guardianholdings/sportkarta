@@ -1528,6 +1528,17 @@
       }
     }
   },
+  "DevMail": {
+    "title": "Local outbox (development only)",
+    "intro": "Every email the app sends locally is written here instead of being delivered. Request a code from the sign-in page and it will appear at the top.",
+    "empty": "No messages yet — request a sign-in code and reload.",
+    "codeLabel": "Sign-in code",
+    "noCode": "no code",
+    "toLabel": "To",
+    "sentLabel": "Sent",
+    "fullMessage": "Full text",
+    "refreshHint": "The list refreshes itself every few seconds."
+  },
   "Footer": {
     "stats": "Statistics",
     "openData": "Open data",
