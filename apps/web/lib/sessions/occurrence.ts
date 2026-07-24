@@ -40,6 +40,58 @@ export interface OccurrenceView {
   viewerIsOrganizer: boolean;
 }
 
+export interface SessionSummary {
+  occurrenceId: string;
+  title: string;
+  sport: string;
+  /** Sofia wall clock `YYYY-MM-DDTHH:MM:SS`, formatted in SQL. */
+  startsAtLocal: string;
+  facilityName: string | null;
+  facilitySlug: string | null;
+  capacity: number | null;
+  going: number;
+}
+
+/**
+ * Upcoming PUBLIC session occurrences, soonest first — the read behind the
+ * `/sesii` index (the discovery surface the audit found missing). Same
+ * visibility + cancellation rules as the single-occurrence page: `public`
+ * sessions only, non-cancelled occurrences, in the future. No attendee names —
+ * a count only, exactly as the occurrence view is careful to.
+ */
+export async function listUpcomingSessions(limit = 40): Promise<SessionSummary[]> {
+  const result = await getDb().execute(sql`
+    SELECT
+      o.id AS occurrence_id,
+      to_char(o.starts_at_local, 'YYYY-MM-DD"T"HH24:MI:SS') AS starts_at_local,
+      s.title, s.sport, s.capacity::int AS capacity,
+      f.name AS facility_name, f.slug AS facility_slug,
+      (SELECT count(*)::int FROM play_session_rsvp_positions p
+        WHERE p.occurrence_id = o.id AND p.rsvp_status = 'going') AS going
+    FROM play_session_occurrences o
+    JOIN play_sessions s ON s.id = o.session_id
+    JOIN facilities f ON f.id = s.facility_id
+    WHERE s.visibility = 'public'
+      AND o.status <> 'cancelled'
+      AND o.starts_at > now()
+    ORDER BY o.starts_at
+    LIMIT ${limit}
+  `);
+  return result.rows.map((r) => {
+    const row = r as Record<string, unknown>;
+    return {
+      occurrenceId: String(row.occurrence_id),
+      title: String(row.title),
+      sport: String(row.sport),
+      startsAtLocal: String(row.starts_at_local),
+      facilityName: (row.facility_name as string | null) ?? null,
+      facilitySlug: (row.facility_slug as string | null) ?? null,
+      capacity: row.capacity === null || row.capacity === undefined ? null : Number(row.capacity),
+      going: Number(row.going ?? 0),
+    };
+  });
+}
+
 export async function occurrenceView(
   occurrenceId: string,
   viewerId: string | null,

@@ -432,8 +432,9 @@ export function MapExplorer({
         />
       </div>
 
-      {/* ── Floating map controls (right edge) ── */}
-      <div className="absolute right-3 z-20 flex flex-col gap-2 bottom-[168px] lg:bottom-6">
+      {/* Floating map controls — top-right on mobile so the bottom sheet can
+          never occlude them (audit P1); bottom-right on desktop, no sheet there. */}
+      <div className="absolute right-3 top-3 z-20 flex flex-col gap-2 lg:top-auto lg:bottom-6">
         <IconButton
           aria-label={locating ? t('locating') : t('locate')}
           variant="floating"
@@ -587,9 +588,7 @@ export function MapExplorer({
 
 const NAV = [
   { key: 'navMap', href: '/', icon: MapIcon },
-  // A dedicated public sessions index is a Stage-4 follow-up; until then the tab
-  // points at campaigns/challenges, the nearest existing community-play surface.
-  { key: 'navSessions', href: '/kampanii', icon: CalendarDays },
+  { key: 'navSessions', href: '/sesii', icon: CalendarDays },
   { key: 'navLeaderboards', href: '/klasirane', icon: Trophy },
   { key: 'navProfile', href: '/profil', icon: User },
 ] as const;

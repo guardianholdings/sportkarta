@@ -594,7 +594,7 @@
     "metaTitle": "Спортна програма за седмицата в {city} — СпортКарта",
     "metaDescription": "Какво се играе тази седмица в {city}: свободни тренировки и места по дни.",
     "empty": "Тази седмица няма насрочени тренировки в {city}.",
-    "emptyHint": "Виж всички съоръжения на картата или предложи своя тренировка.",
+    "emptyHint": "Виж всички съоръжения на картата.",
     "spots": "{going} от {capacity} места",
     "spotsUnlimited": "{going} записани",
     "at": "в {facility}",
@@ -1126,7 +1126,12 @@
       "occurrence_cancelled": "Тренировката е отменена.",
       "occurrence_started": "Тренировката вече е започнала.",
       "occurrence_not_found": "Тренировката не е намерена."
-    }
+    },
+    "indexTitle": "Тренировки",
+    "indexIntro": "Предстоящи публични тренировки. Запиши се и се появи.",
+    "indexEmptyTitle": "Няма предстоящи тренировки",
+    "indexEmptyBody": "Върни се скоро или разгледай съоръженията на картата.",
+    "indexViewMap": "Виж картата"
   },
   "SessionSkill": {
     "any": "за всички",
@@ -1404,8 +1409,7 @@
     "rowError_invalid_covered": "Непозната стойност за покрита.",
     "rowError_coordinates_required": "Липсват или са невалидни координатите.",
     "rowError_outside_bulgaria": "Координатите са извън България."
-  }
-,
+  },
   "DesignSystem": {
     "overline": "BG · Дизайн система",
     "title": "Дизайн система",
@@ -1518,5 +1522,11 @@
         }
       }
     }
+  },
+  "Footer": {
+    "stats": "Статистика",
+    "openData": "Отворени данни",
+    "privacy": "Поверителност",
+    "attribution": "Картни данни © OpenStreetMap · ODbL"
   }
 }

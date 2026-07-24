@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation';
 import { UmamiAnalytics } from '@/components/analytics/umami';
 import { ErrorMonitor } from '@/components/monitoring/error-monitor';
 import { ServiceWorkerRegistrar } from '@/components/pwa/service-worker';
+import { SiteFooter } from '@/components/shell/site-footer';
 import { routing } from '@/i18n/routing';
 
 import '../fonts.css';
@@ -53,7 +54,10 @@ export default async function LocaleLayout({
   return (
     <html lang={locale}>
       <body className="antialiased">
-        <NextIntlClientProvider>{children}</NextIntlClientProvider>
+        <NextIntlClientProvider>
+          {children}
+          <SiteFooter />
+        </NextIntlClientProvider>
         <ServiceWorkerRegistrar />
         {umamiSrc && umamiWebsiteId ? (
           <UmamiAnalytics src={umamiSrc} websiteId={umamiWebsiteId} />

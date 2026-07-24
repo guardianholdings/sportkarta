@@ -594,7 +594,7 @@
     "metaTitle": "This week's sessions in {city} — SportKarta",
     "metaDescription": "What is being played in {city} this week: free sessions and places, by day.",
     "empty": "No sessions are scheduled in {city} this week.",
-    "emptyHint": "See every facility on the map, or propose a session of your own.",
+    "emptyHint": "See all facilities on the map.",
     "spots": "{going} of {capacity} places",
     "spotsUnlimited": "{going} going",
     "at": "at {facility}",
@@ -1126,7 +1126,12 @@
       "occurrence_cancelled": "This session has been cancelled.",
       "occurrence_started": "This session has already started.",
       "occurrence_not_found": "Session not found."
-    }
+    },
+    "indexTitle": "Sessions",
+    "indexIntro": "Upcoming public sessions. Sign up and show up.",
+    "indexEmptyTitle": "No upcoming sessions",
+    "indexEmptyBody": "Check back soon, or explore facilities on the map.",
+    "indexViewMap": "View the map"
   },
   "SessionSkill": {
     "any": "all levels",
@@ -1404,8 +1409,7 @@
     "rowError_invalid_covered": "Unknown covered value.",
     "rowError_coordinates_required": "Coordinates are missing or invalid.",
     "rowError_outside_bulgaria": "The coordinates are outside Bulgaria."
-  }
-,
+  },
   "DesignSystem": {
     "overline": "BG · Design system",
     "title": "Design system",
@@ -1518,5 +1522,11 @@
         }
       }
     }
+  },
+  "Footer": {
+    "stats": "Statistics",
+    "openData": "Open data",
+    "privacy": "Privacy",
+    "attribution": "Map data © OpenStreetMap · ODbL"
   }
 }
