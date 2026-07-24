@@ -24,44 +24,22 @@ import {
 
 import { type CanonicalSport } from '@sportkarta/lib/sports';
 
+import { FAMILY_COLOR, SPORT_FAMILY as FAMILY, type SportFamily } from './families';
 import { HockeyGlyph, RacketGlyph, SkateboardGlyph } from './glyphs';
 
 /**
  * Sport → colour family + glyph. Realises GATE 1 of docs/design/RECONCILIATION.md.
  *
- * COLOUR encodes the broad activity family (a `--cat-*` token); the GLYPH + the
- * always-present text label encode the specific sport. Ten families: the seven
- * seed blazes plus three derived (racket, precision, multi). Colours are CSS-var
- * strings so this file holds NO hex — the token gate scans it.
+ * COLOUR encodes the broad activity family (a `--cat-*` token, from ./families);
+ * the GLYPH + the always-present text label encode the specific sport. Ten
+ * families: the seven seed blazes plus three derived (racket, precision, multi).
+ * Colours are CSS-var strings so this file holds NO hex — the token gate scans it.
  */
 
-export type SportFamily =
-  | 'trail'
-  | 'run'
-  | 'wheels'
-  | 'climb'
-  | 'water'
-  | 'team'
-  | 'body'
-  | 'racket'
-  | 'precision'
-  | 'multi';
+export { FAMILY_COLOR, type SportFamily };
 
 /** Icon components accept Lucide's shape; custom glyphs implement the same subset. */
 export type SportIconComponent = LucideIcon | typeof RacketGlyph;
-
-export const FAMILY_COLOR: Record<SportFamily, string> = {
-  trail: 'var(--cat-hike)',
-  run: 'var(--cat-run)',
-  wheels: 'var(--cat-bike)',
-  climb: 'var(--cat-climb)',
-  water: 'var(--cat-swim)',
-  team: 'var(--cat-team)',
-  body: 'var(--cat-calisthenics)',
-  racket: 'var(--cat-racket)',
-  precision: 'var(--cat-precision)',
-  multi: 'var(--cat-multi)',
-};
 
 export interface SportVisual {
   family: SportFamily;
@@ -69,38 +47,6 @@ export interface SportVisual {
   color: string;
   Icon: SportIconComponent;
 }
-
-const FAMILY: Record<CanonicalSport, SportFamily> = {
-  hiking: 'trail',
-  equestrian: 'trail',
-  running: 'run',
-  athletics: 'run',
-  cycling: 'wheels',
-  bmx: 'wheels',
-  skateboard: 'wheels',
-  climbing: 'climb',
-  swimming: 'water',
-  ice_skating: 'water',
-  football: 'team',
-  basketball: 'team',
-  volleyball: 'team',
-  beach_volleyball: 'team',
-  handball: 'team',
-  hockey: 'team',
-  calisthenics: 'body',
-  fitness: 'body',
-  gymnastics: 'body',
-  martial_arts: 'body',
-  tennis: 'racket',
-  table_tennis: 'racket',
-  badminton: 'racket',
-  squash: 'racket',
-  archery: 'precision',
-  shooting: 'precision',
-  petanque: 'precision',
-  chess: 'precision',
-  multi: 'multi',
-};
 
 const ICON: Record<CanonicalSport, SportIconComponent> = {
   hiking: Mountain,

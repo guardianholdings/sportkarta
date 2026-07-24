@@ -66,6 +66,7 @@ export default async function HomePage({
       <MapExplorer
         filters={filters}
         initialView={parseView(sp)}
+        initialSelected={typeof sp.selected === 'string' ? sp.selected : null}
         initialFacilities={facilities.map((f) => ({
           slug: f.slug,
           name: f.name,

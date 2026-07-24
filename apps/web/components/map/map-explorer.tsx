@@ -1,10 +1,32 @@
 'use client';
 
+import {
+  ArrowLeft,
+  CalendarDays,
+  LocateFixed,
+  Map as MapIcon,
+  MapPin,
+  Navigation,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Trophy,
+  User,
+  WifiOff,
+  X,
+} from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { Link, usePathname, useRouter } from '@/i18n/navigation';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Chip } from '@/components/ui/chip';
+import { IconButton } from '@/components/ui/icon-button';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { facilityFamily, FAMILY_COLOR } from '@/lib/design/families';
+import { SPORT_VISUALS } from '@/lib/design/sport-visuals';
 import {
   ACCESS_OPTIONS,
   filtersToSearchParams,
@@ -12,52 +34,102 @@ import {
   type PublicFilters,
 } from '@/lib/filters';
 import { distanceKm, formatKm } from '@/lib/geo';
-// ./sports subpath (not the barrel) — keeps the storage adapter's node:fs out
-// of the client bundle.
-import { CANONICAL_SPORTS, CANONICAL_SURFACES } from '@sportkarta/lib/sports';
+import { Link, usePathname, useRouter } from '@/i18n/navigation';
+import { CANONICAL_SPORTS, CANONICAL_SURFACES, type CanonicalSport } from '@sportkarta/lib/sports';
 
 import type { FacilityFeatureCollection } from '@/lib/public-data';
 
-import type { MapPoint, MapView } from './map-canvas';
+import type { MapPoint, MapView, NearMe } from './map-canvas';
 
-// MapLibre touches `window`, so the canvas is client-only. Everything else in
-// this component (filters, list, sheet) still server-renders for SEO / no-JS.
 const MapCanvas = dynamic(() => import('./map-canvas'), {
   ssr: false,
-  loading: () => <div className="h-full w-full animate-pulse bg-neutral-100" />,
+  loading: () => <div className="h-full w-full bg-paper-sunk" />,
 });
+
+// Quick chips shown inline; the full 29 live in the filter sheet.
+const QUICK_SPORTS: CanonicalSport[] = [
+  'football',
+  'basketball',
+  'volleyball',
+  'tennis',
+  'swimming',
+  'running',
+  'fitness',
+];
+
+type Snap = 'peek' | 'half' | 'full';
+const SNAP_H: Record<Snap, string> = {
+  peek: 'h-[128px]',
+  half: 'h-[52dvh]',
+  full: 'h-[calc(100dvh-3.5rem)]',
+};
+const SNAP_ORDER: Snap[] = ['peek', 'half', 'full'];
 
 interface MapExplorerProps {
   filters: PublicFilters;
   initialFacilities: MapPoint[];
   initialView: MapView;
+  initialSelected: string | null;
 }
 
 function toggle(list: string[], value: string): string[] {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 }
 
-export function MapExplorer({ filters, initialFacilities, initialView }: MapExplorerProps) {
+function primaryVisual(sports: string[]) {
+  const s = sports.find((x): x is CanonicalSport => x in SPORT_VISUALS);
+  if (s) return SPORT_VISUALS[s];
+  const family = facilityFamily(sports);
+  return { color: FAMILY_COLOR[family], Icon: SPORT_VISUALS.multi.Icon, family };
+}
+
+export function MapExplorer({
+  filters,
+  initialFacilities,
+  initialView,
+  initialSelected,
+}: MapExplorerProps) {
   const t = useTranslations('Map');
   const tSport = useTranslations('Sport');
-  const tSurface = useTranslations('Surface');
-  const tAccess = useTranslations('Access');
   const tFacility = useTranslations('Facility');
   const router = useRouter();
   const pathname = usePathname();
 
   const [points, setPoints] = useState<MapPoint[]>(initialFacilities);
   const [userLocation, setUserLocation] = useState<{ lon: number; lat: number } | null>(null);
-  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(initialSelected);
+  const [hoveredSlug, setHoveredSlug] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [offline, setOffline] = useState(false);
+  const [nearMeOn, setNearMeOn] = useState(false);
+  const [radiusKm, setRadiusKm] = useState(8);
+  const [query, setQuery] = useState('');
+  const [snap, setSnap] = useState<Snap>('half');
+  const [filterOpen, setFilterOpen] = useState(false);
 
+  const listRef = useRef<HTMLDivElement>(null);
   const filterKey = filtersToSearchParams(filters).toString();
 
-  // Fetch the full filtered set for the map whenever filters change. The SSR
-  // list (initialFacilities) covers the first paint until this resolves.
+  // Offline awareness for the "your connection dropped" state.
+  useEffect(() => {
+    const on = () => setOffline(!navigator.onLine);
+    on();
+    window.addEventListener('online', on);
+    window.addEventListener('offline', on);
+    return () => {
+      window.removeEventListener('online', on);
+      window.removeEventListener('offline', on);
+    };
+  }, []);
+
+  // Full filtered set for the map + list whenever the structured filters change.
   useEffect(() => {
     const controller = new AbortController();
+    setLoading(true);
+    setLoadError(false);
     fetch(`/api/facilities?${filterKey}`, { signal: controller.signal })
       .then((r) => r.json() as Promise<FacilityFeatureCollection>)
       .then((fc) => {
@@ -70,14 +142,16 @@ export function MapExplorer({ filters, initialFacilities, initialView }: MapExpl
             lat: f.geometry.coordinates[1],
           })),
         );
+        setLoading(false);
       })
-      .catch(() => {
-        /* aborted or offline — keep the current points */
+      .catch((e: unknown) => {
+        if (e instanceof DOMException && e.name === 'AbortError') return;
+        setLoadError(true);
+        setLoading(false);
       });
     return () => controller.abort();
   }, [filterKey]);
 
-  // Preserve viewport params (written by onMoveEnd) across filter navigations.
   function viewportParams(): [string, string][] {
     if (typeof window === 'undefined') return [];
     const sp = new URLSearchParams(window.location.search);
@@ -89,20 +163,24 @@ export function MapExplorer({ filters, initialFacilities, initialView }: MapExpl
   function applyFilters(next: PublicFilters) {
     const params = filtersToSearchParams(next);
     for (const [k, v] of viewportParams()) params.set(k, v);
+    if (selectedSlug) params.set('selected', selectedSlug);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }
 
-  // While a facility sheet is open the user is about to navigate; suppress
-  // viewport URL writes so a late map moveend (e.g. the geolocate flyTo ending)
-  // can't clobber that client-side navigation with a replaceState.
-  const suppressViewportUrl = useRef(false);
-  useEffect(() => {
-    suppressViewportUrl.current = selectedSlug !== null;
-  }, [selectedSlug]);
+  // Keep the map mounted: selection rides a search param, not a route change.
+  function select(slug: string | null) {
+    setSelectedSlug(slug);
+    const params = filtersToSearchParams(filters);
+    for (const [k, v] of viewportParams()) params.set(k, v);
+    if (slug) params.set('selected', slug);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    if (slug) setSnap((s) => (s === 'peek' ? 'half' : s));
+  }
 
   const onMoveEndRef = useRef((view: MapView) => {
-    if (typeof window === 'undefined' || suppressViewportUrl.current) return;
+    if (typeof window === 'undefined') return;
     const sp = new URLSearchParams(window.location.search);
     sp.set('z', view.zoom.toFixed(2));
     sp.set('lat', view.lat.toFixed(5));
@@ -130,21 +208,54 @@ export function MapExplorer({ filters, initialFacilities, initialView }: MapExpl
     );
   }
 
-  // Distance-sorted nearest set once located; otherwise the SSR list order.
-  const listItems = useMemo(() => {
-    if (userLocation) {
-      return points
-        .map((p) => ({ point: p, km: distanceKm(userLocation, { lon: p.lon, lat: p.lat }) }))
-        .sort((a, b) => a.km - b.km)
-        .slice(0, 50);
+  function toggleNearMe() {
+    if (!nearMeOn && !userLocation) {
+      locate();
     }
-    return initialFacilities.slice(0, 50).map((p) => ({ point: p, km: null as number | null }));
-  }, [userLocation, points, initialFacilities]);
+    setNearMeOn((v) => !v);
+  }
+
+  const nearMe = useMemo<NearMe | null>(
+    () => (nearMeOn && userLocation ? { center: userLocation, radiusKm } : null),
+    [nearMeOn, userLocation, radiusKm],
+  );
+
+  // Distance-sort + near-me radius + name search, all composing.
+  const listItems = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let rows = points.map((p) => ({
+      point: p,
+      km: userLocation ? distanceKm(userLocation, { lon: p.lon, lat: p.lat }) : null,
+    }));
+    if (q) rows = rows.filter((r) => (r.point.name ?? '').toLowerCase().includes(q));
+    if (nearMe) rows = rows.filter((r) => r.km !== null && r.km <= radiusKm);
+    if (userLocation) rows.sort((a, b) => (a.km ?? 0) - (b.km ?? 0));
+    return rows.slice(0, 60);
+  }, [points, userLocation, nearMe, radiusKm, query]);
 
   const selected = useMemo(
     () => (selectedSlug ? (points.find((p) => p.slug === selectedSlug) ?? null) : null),
     [selectedSlug, points],
   );
+
+  // Marker hover → highlight the card AND scroll it into view by computed
+  // scrollTop (the seed explicitly rejects scrollIntoView).
+  function onHoverMarker(slug: string | null) {
+    setHoveredSlug(slug);
+    if (!slug) return;
+    const box = listRef.current;
+    const el = box?.querySelector<HTMLElement>(`[data-slug="${slug}"]`);
+    if (box && el) {
+      box.scrollTo({ top: el.offsetTop - box.offsetTop - 12, behavior: 'smooth' });
+    }
+  }
+
+  const activeCount =
+    filters.sports.length +
+    filters.surfaces.length +
+    (filters.onlyLit ? 1 : 0) +
+    (isDefaultAccess(filters.access) ? 0 : 1) +
+    (nearMeOn ? 1 : 0);
 
   function sportLabels(sports: string[]): string {
     return sports
@@ -153,197 +264,643 @@ export function MapExplorer({ filters, initialFacilities, initialView }: MapExpl
       .join(' · ');
   }
 
+  // ── shared building blocks ────────────────────────────────────────────────
+
+  const chipRow = (
+    <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {QUICK_SPORTS.map((s) => {
+        const v = SPORT_VISUALS[s];
+        const on = filters.sports.includes(s);
+        return (
+          <Chip
+            key={s}
+            color={v.color}
+            selected={on}
+            icon={<v.Icon size={16} />}
+            onClick={() => applyFilters({ ...filters, sports: toggle(filters.sports, s) })}
+            className="shrink-0"
+          >
+            {tSport(s)}
+          </Chip>
+        );
+      })}
+    </div>
+  );
+
+  const countLine = (
+    <span className="font-mono text-caption text-ink-soft">
+      {t('resultsCount', { count: points.length })}
+    </span>
+  );
+
+  function ResultCard({ point, km }: { point: MapPoint; km: number | null }) {
+    const v = primaryVisual(point.sports);
+    const isSel = point.slug === selectedSlug;
+    return (
+      <button
+        type="button"
+        data-slug={point.slug}
+        onMouseEnter={() => setHoveredSlug(point.slug)}
+        onMouseLeave={() => setHoveredSlug((h) => (h === point.slug ? null : h))}
+        onClick={() => select(point.slug)}
+        className={`flex w-full items-center gap-3 rounded-card border bg-surface p-2.5 text-left transition-[box-shadow,border-color,transform] duration-150 ease-standard ${
+          isSel
+            ? 'border-brand shadow-md -translate-y-px'
+            : hoveredSlug === point.slug
+              ? 'border-brand-border shadow-lg -translate-y-0.5'
+              : 'border-line shadow-sm hover:border-brand-border'
+        }`}
+      >
+        <span
+          className="grid size-12 shrink-0 place-items-center rounded-md text-on-brand"
+          style={{ background: `color-mix(in srgb, ${v.color} 16%, var(--surface))`, color: v.color }}
+        >
+          <v.Icon size={22} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-body-sm font-bold text-ink">
+            {point.name ?? tFacility('unnamed')}
+          </span>
+          {point.sports.length > 0 && (
+            <span className="block truncate text-caption text-text-muted">
+              {sportLabels(point.sports)}
+            </span>
+          )}
+        </span>
+        {km !== null && (
+          <span className="shrink-0 font-mono text-caption text-ink-soft">{formatKm(km)}</span>
+        )}
+      </button>
+    );
+  }
+
+  const resultsBody = (
+    <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-4 pb-24 lg:pb-4">
+      {loadError ? (
+        <EmptyState
+          icon={<WifiOff size={22} />}
+          title={t('loadErrorTitle')}
+          body={t('loadErrorBody')}
+          action={
+            <Button size="sm" variant="secondary" onClick={() => applyFilters({ ...filters })}>
+              {t('retry')}
+            </Button>
+          }
+        />
+      ) : loading && points.length === 0 ? (
+        <ul className="space-y-2.5 pt-1">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <li key={i} className="h-16 animate-pulse rounded-card bg-paper-sunk" />
+          ))}
+        </ul>
+      ) : listItems.length === 0 ? (
+        <EmptyState
+          icon={<Search size={22} />}
+          title={t('emptyTitle')}
+          body={query || activeCount > 0 ? t('emptyFiltered') : t('emptyArea')}
+          action={
+            activeCount > 0 || query ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  setQuery('');
+                  setNearMeOn(false);
+                  applyFilters({ sports: [], access: ['free'], onlyLit: false, surfaces: [] });
+                }}
+              >
+                {t('reset')}
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <ul className="space-y-2.5 pt-1">
+          {listItems.map(({ point, km }) => (
+            <li key={point.slug}>
+              <ResultCard point={point} km={km} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+
+  const detailPanel = selected && (
+    <FacilityPreview
+      point={selected}
+      onClose={() => select(null)}
+      labels={{
+        unnamed: tFacility('unnamed'),
+        directions: t('directions'),
+        viewDetails: t('viewDetails'),
+        close: t('close'),
+      }}
+      sportLabels={sportLabels}
+    />
+  );
+
   return (
-    <div className="flex h-[100dvh] flex-col">
+    <div className="relative h-[100dvh] w-full overflow-hidden bg-paper">
       <a
         href="#facility-list"
-        className="sr-only focus:not-sr-only focus:block focus:bg-neutral-900 focus:p-2 focus:text-white"
+        className="sr-only rounded-pill bg-brand px-3 py-2 text-on-brand focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50"
       >
         {t('skipToList')}
       </a>
 
-      {/* Filters */}
-      <div className="border-b border-neutral-200 bg-white">
-        <div className="flex flex-wrap items-center gap-2 p-2 text-sm">
-          <button
-            type="button"
-            onClick={locate}
-            className="rounded-md bg-neutral-900 px-3 py-1.5 font-medium text-white"
-          >
-            {locating ? t('locating') : t('locate')}
-          </button>
-          {locateError && <span className="text-red-600">{t('locateError')}</span>}
-
-          <fieldset className="flex flex-wrap items-center gap-2">
-            <legend className="sr-only">{t('access')}</legend>
-            {ACCESS_OPTIONS.map((a) => (
-              <label key={a} className="flex items-center gap-1">
-                <input
-                  type="checkbox"
-                  checked={filters.access.includes(a)}
-                  onChange={() => {
-                    applyFilters({ ...filters, access: toggle(filters.access, a) });
-                  }}
-                />
-                {tAccess(a)}
-              </label>
-            ))}
-          </fieldset>
-
-          <label className="flex items-center gap-1">
-            <input
-              type="checkbox"
-              checked={filters.onlyLit}
-              onChange={() => {
-                applyFilters({ ...filters, onlyLit: !filters.onlyLit });
-              }}
-            />
-            {t('onlyLit')}
-          </label>
-
-          <details className="relative">
-            <summary className="cursor-pointer rounded-md border border-neutral-300 px-3 py-1.5">
-              {t('sport')}
-              {filters.sports.length > 0 ? ` (${String(filters.sports.length)})` : ''}
-            </summary>
-            <div className="absolute z-10 mt-1 grid max-h-72 w-64 grid-cols-2 gap-1 overflow-auto rounded-md border border-neutral-200 bg-white p-2 shadow-lg">
-              {CANONICAL_SPORTS.map((s) => (
-                <label key={s} className="flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    checked={filters.sports.includes(s)}
-                    onChange={() => {
-                      applyFilters({ ...filters, sports: toggle(filters.sports, s) });
-                    }}
-                  />
-                  {tSport(s)}
-                </label>
-              ))}
-            </div>
-          </details>
-
-          <details className="relative">
-            <summary className="cursor-pointer rounded-md border border-neutral-300 px-3 py-1.5">
-              {t('surface')}
-              {filters.surfaces.length > 0 ? ` (${String(filters.surfaces.length)})` : ''}
-            </summary>
-            <div className="absolute z-10 mt-1 grid max-h-72 w-56 grid-cols-2 gap-1 overflow-auto rounded-md border border-neutral-200 bg-white p-2 shadow-lg">
-              {CANONICAL_SURFACES.map((s) => (
-                <label key={s} className="flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    checked={filters.surfaces.includes(s)}
-                    onChange={() => {
-                      applyFilters({ ...filters, surfaces: toggle(filters.surfaces, s) });
-                    }}
-                  />
-                  {tSurface(s)}
-                </label>
-              ))}
-            </div>
-          </details>
-
-          {(filters.sports.length > 0 ||
-            filters.surfaces.length > 0 ||
-            filters.onlyLit ||
-            !isDefaultAccess(filters.access)) && (
-            <button
-              type="button"
-              onClick={() => {
-                applyFilters({ sports: [], access: ['free'], onlyLit: false, surfaces: [] });
-              }}
-              className="text-neutral-600 underline"
-            >
-              {t('reset')}
-            </button>
-          )}
+      {offline && (
+        <div className="absolute inset-x-0 top-0 z-40 flex items-center justify-center gap-2 bg-warning-bg py-1.5 text-caption font-medium text-warning">
+          <WifiOff size={14} /> {t('offline')}
         </div>
+      )}
+
+      {/* ── Map (fills the screen; behind the panels) ── */}
+      <div className="absolute inset-0">
+        <MapCanvas
+          points={points}
+          userLocation={userLocation}
+          selectedSlug={selectedSlug}
+          hoveredSlug={hoveredSlug}
+          nearMe={nearMe}
+          initialView={initialView}
+          myLocationLabel={t('myLocation')}
+          unnamedLabel={tFacility('unnamed')}
+          onSelect={select}
+          onHoverMarker={onHoverMarker}
+          onMoveEnd={(v) => onMoveEndRef.current(v)}
+        />
       </div>
 
-      {/* Map + list */}
-      <div className="relative flex min-h-0 flex-1 flex-col md:flex-row">
-        <div className="relative h-[55vh] w-full md:h-auto md:flex-1">
-          <MapCanvas
-            points={points}
-            userLocation={userLocation}
-            selectedSlug={selectedSlug}
-            initialView={initialView}
-            myLocationLabel={t('myLocation')}
-            onSelect={setSelectedSlug}
-            onMoveEnd={(v) => onMoveEndRef.current(v)}
-          />
+      {/* ── Floating map controls (right edge) ── */}
+      <div className="absolute right-3 z-20 flex flex-col gap-2 bottom-[168px] lg:bottom-6">
+        <IconButton
+          aria-label={locating ? t('locating') : t('locate')}
+          variant="floating"
+          round
+          onClick={locate}
+          className={locating ? 'animate-pulse' : ''}
+        >
+          <LocateFixed size={20} className={userLocation ? 'text-brand' : ''} />
+        </IconButton>
+      </div>
 
-          {selected && (
-            <div
-              role="dialog"
-              aria-label={selected.name ?? tFacility('unnamed')}
-              className="absolute inset-x-2 bottom-2 z-20 rounded-xl border border-neutral-200 bg-white p-4 shadow-xl md:inset-x-auto md:right-4 md:w-80"
-              data-testid="facility-sheet"
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedSlug(null);
-                }}
-                aria-label={t('close')}
-                className="absolute right-3 top-3 text-neutral-400 hover:text-neutral-700"
-              >
-                ✕
-              </button>
-              <h2 className="pr-6 font-semibold">{selected.name ?? tFacility('unnamed')}</h2>
-              {selected.sports.length > 0 && (
-                <p className="mt-1 text-sm text-neutral-600">{sportLabels(selected.sports)}</p>
-              )}
-              <Link
-                href={`/obekt/${selected.slug}`}
-                className="mt-3 inline-block rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white"
-              >
-                {t('viewDetails')}
-              </Link>
-            </div>
-          )}
-        </div>
+      {/* ═══ DESKTOP: left rail + list panel + right detail ═══ */}
+      <div className="pointer-events-none absolute inset-0 z-20 hidden lg:flex">
+        <nav className="pointer-events-auto flex w-[76px] shrink-0 flex-col items-center gap-1 border-r border-line bg-surface py-4">
+          <BrandMark />
+          <div className="mt-4 flex flex-1 flex-col gap-1">
+            {NAV.map((n) => (
+              <NavRailItem key={n.key} item={n} active={n.href === '/'} label={t(n.key)} />
+            ))}
+          </div>
+        </nav>
 
         <aside
           id="facility-list"
-          className="min-h-0 w-full overflow-auto border-t border-neutral-200 md:w-96 md:border-l md:border-t-0"
+          className="pointer-events-auto flex w-[384px] shrink-0 flex-col border-r border-line bg-paper"
         >
-          <h2 className="sticky top-0 border-b border-neutral-100 bg-white px-4 py-2 text-sm font-medium">
-            {t('results')} · {t('resultsCount', { count: points.length })}
-          </h2>
-          {listItems.length === 0 ? (
-            <p className="p-4 text-sm text-neutral-500">{t('empty')}</p>
-          ) : (
-            <ul>
-              {listItems.map(({ point, km }) => (
-                <li key={point.slug} className="border-b border-neutral-100">
-                  <Link
-                    href={`/obekt/${point.slug}`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setSelectedSlug(point.slug);
-                    }}
-                    className="block px-4 py-3 hover:bg-neutral-50"
-                    data-facility-slug={point.slug}
-                  >
-                    <span className="font-medium">{point.name ?? tFacility('unnamed')}</span>
-                    {km !== null && (
-                      <span className="ml-2 text-xs text-neutral-500">
-                        {t('distanceKm', { km: formatKm(km) })}
-                      </span>
-                    )}
-                    {point.sports.length > 0 && (
-                      <span className="block text-xs text-neutral-500">
-                        {sportLabels(point.sports)}
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="border-b border-line bg-surface px-4 py-3">
+            <h1 className="text-h4 font-bold text-ink">{t('discoverTitle')}</h1>
+            <div className="mt-3 flex items-center gap-2">
+              <Input
+                iconLeft={<Search size={18} />}
+                placeholder={t('searchPlaceholder')}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                aria-label={t('searchPlaceholder')}
+              />
+              <Button
+                variant="secondary"
+                iconLeft={<SlidersHorizontal size={18} />}
+                onClick={() => setFilterOpen(true)}
+                className="shrink-0"
+              >
+                {activeCount > 0 ? String(activeCount) : t('filters')}
+              </Button>
+            </div>
+            <div className="mt-3">{chipRow}</div>
+            <div className="mt-3 flex items-center justify-between">
+              {countLine}
+              <Button variant="ghost" size="sm" onClick={() => applyFilters({ ...filters })}>
+                {t('sort')}
+              </Button>
+            </div>
+          </div>
+          {resultsBody}
         </aside>
+
+        {selected && (
+          <aside className="pointer-events-auto absolute right-4 top-4 w-[380px] rounded-sheet border border-line bg-surface shadow-float">
+            {detailPanel}
+          </aside>
+        )}
       </div>
+
+      {/* ═══ MOBILE: bottom sheet + tab bar + FAB ═══ */}
+      <div className="lg:hidden">
+        {selected ? (
+          <div
+            className="absolute inset-x-0 bottom-14 z-30 flex h-[calc(100dvh-3.5rem)] flex-col rounded-t-[20px] border-t border-line-strong bg-surface shadow-float"
+            role="dialog"
+            aria-label={selected.name ?? tFacility('unnamed')}
+          >
+            {detailPanel}
+          </div>
+        ) : (
+          <section
+            id="facility-list"
+            className={`absolute inset-x-0 bottom-14 z-30 flex flex-col rounded-t-[20px] border-t border-line-strong bg-surface shadow-float transition-[height] duration-200 ease-standard ${SNAP_H[snap]}`}
+          >
+            <button
+              type="button"
+              aria-label={t('resize')}
+              onClick={() => setSnap((s) => SNAP_ORDER[(SNAP_ORDER.indexOf(s) + 1) % 3] ?? 'half')}
+              className="flex justify-center pt-2.5 pb-1.5"
+            >
+              <span className="h-1 w-10 rounded-full bg-line-strong" />
+            </button>
+            <div className="flex items-center justify-between px-4 pb-2">
+              {countLine}
+              <button
+                type="button"
+                onClick={() => setFilterOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-pill bg-paper-sunk px-3 py-1.5 text-caption font-medium text-ink-soft"
+              >
+                <SlidersHorizontal size={15} />
+                {t('filters')}
+                {activeCount > 0 && (
+                  <Badge tone="brand" variant="solid" className="ml-0.5">
+                    {activeCount}
+                  </Badge>
+                )}
+              </button>
+            </div>
+            <div className="px-4 pb-3">
+              <Input
+                iconLeft={<Search size={18} />}
+                placeholder={t('searchPlaceholder')}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                aria-label={t('searchPlaceholder')}
+              />
+            </div>
+            <div className="px-4 pb-3">{chipRow}</div>
+            {resultsBody}
+          </section>
+        )}
+
+        <BottomNav labelFor={(k) => t(k)} />
+      </div>
+
+      {/* ── Filter sheet (shared) ── */}
+      {filterOpen && (
+        <FilterSheet
+          filters={filters}
+          nearMeOn={nearMeOn}
+          radiusKm={radiusKm}
+          count={points.length}
+          onApply={applyFilters}
+          onToggleNearMe={toggleNearMe}
+          onRadius={setRadiusKm}
+          onClose={() => setFilterOpen(false)}
+          onReset={() => {
+            setNearMeOn(false);
+            applyFilters({ sports: [], access: ['free'], onlyLit: false, surfaces: [] });
+          }}
+        />
+      )}
+
+      {locateError && (
+        <div
+          role="alert"
+          className="absolute inset-x-4 bottom-20 z-40 rounded-md bg-danger-bg px-3 py-2 text-caption text-danger lg:inset-x-auto lg:left-24 lg:bottom-6"
+        >
+          {t('locateError')}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Nav ─────────────────────────────────────────────────────────────────────
+
+const NAV = [
+  { key: 'navMap', href: '/', icon: MapIcon },
+  // A dedicated public sessions index is a Stage-4 follow-up; until then the tab
+  // points at campaigns/challenges, the nearest existing community-play surface.
+  { key: 'navSessions', href: '/kampanii', icon: CalendarDays },
+  { key: 'navLeaderboards', href: '/klasirane', icon: Trophy },
+  { key: 'navProfile', href: '/profil', icon: User },
+] as const;
+
+function BrandMark() {
+  return (
+    <span className="grid size-9 place-items-center rounded-md bg-brand text-on-brand">
+      <MapPin size={20} />
+    </span>
+  );
+}
+
+function NavRailItem({
+  item,
+  active,
+  label,
+}: {
+  item: (typeof NAV)[number];
+  active: boolean;
+  label: string;
+}) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      className={`flex flex-col items-center gap-1 rounded-md px-2 py-2 text-[11px] font-semibold ${
+        active ? 'bg-brand-subtle text-brand' : 'text-ink-soft hover:bg-surface-2'
+      }`}
+    >
+      <Icon size={22} />
+      {label}
+    </Link>
+  );
+}
+
+function BottomNav({ labelFor }: { labelFor: (k: string) => string }) {
+  return (
+    <div className="absolute inset-x-0 bottom-0 z-40 flex h-14 items-center border-t border-line bg-surface">
+      {NAV.slice(0, 2).map((n) => (
+        <TabItem key={n.key} item={n} active={n.href === '/'} label={labelFor(n.key)} />
+      ))}
+      <div className="w-14" />
+      {NAV.slice(2).map((n) => (
+        <TabItem key={n.key} item={n} active={false} label={labelFor(n.key)} />
+      ))}
+      <Link
+        href="/dobavi"
+        aria-label={labelFor('navAdd')}
+        className="absolute left-1/2 top-[-22px] grid size-[54px] -translate-x-1/2 place-items-center rounded-full border-[3px] border-surface bg-accent text-on-accent shadow-lg active:scale-[0.97]"
+      >
+        <Plus size={26} />
+      </Link>
+    </div>
+  );
+}
+
+function TabItem({
+  item,
+  active,
+  label,
+}: {
+  item: (typeof NAV)[number];
+  active: boolean;
+  label: string;
+}) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      className={`flex flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${
+        active ? 'text-brand' : 'text-text-muted'
+      }`}
+    >
+      <Icon size={23} />
+      {label}
+    </Link>
+  );
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────
+
+function EmptyState({
+  icon,
+  title,
+  body,
+  action,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
+      <span className="grid size-12 place-items-center rounded-full bg-paper-sunk text-text-muted">
+        {icon}
+      </span>
+      <div>
+        <p className="text-body-sm font-bold text-ink">{title}</p>
+        <p className="mx-auto mt-1 max-w-xs text-caption text-text-muted">{body}</p>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+// ── Facility preview (map selection) ──────────────────────────────────────
+
+function FacilityPreview({
+  point,
+  onClose,
+  labels,
+  sportLabels,
+}: {
+  point: MapPoint;
+  onClose: () => void;
+  labels: { unnamed: string; directions: string; viewDetails: string; close: string };
+  sportLabels: (s: string[]) => string;
+}) {
+  const v = primaryVisual(point.sports);
+  return (
+    <div className="flex h-full flex-col overflow-hidden rounded-t-[20px] lg:rounded-sheet">
+      <div
+        className="relative flex h-36 items-center justify-center"
+        style={{
+          background: `radial-gradient(circle at 50% 42%, color-mix(in srgb, ${v.color} 18%, var(--surface)), var(--surface) 72%)`,
+          color: v.color,
+        }}
+      >
+        <v.Icon size={64} className="opacity-25" />
+        <div className="absolute left-3 top-3 flex gap-2">
+          <IconButton aria-label={labels.close} variant="floating" round onClick={onClose}>
+            <ArrowLeft size={19} />
+          </IconButton>
+        </div>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4">
+        <h2 className="text-h3 font-extrabold tracking-tight text-ink">
+          {point.name ?? labels.unnamed}
+        </h2>
+        {point.sports.length > 0 && (
+          <p className="mt-1 text-body-sm text-text-muted">{sportLabels(point.sports)}</p>
+        )}
+      </div>
+      <div className="flex items-center gap-2.5 border-t border-line p-3">
+        <Button
+          block
+          iconLeft={<Navigation size={19} />}
+          onClick={() => {
+            window.open(
+              `https://www.openstreetmap.org/directions?to=${String(point.lat)},${String(point.lon)}`,
+              '_blank',
+              'noopener',
+            );
+          }}
+        >
+          {labels.directions}
+        </Button>
+        <Button variant="secondary" asChild className="shrink-0">
+          <Link href={`/obekt/${point.slug}`}>{labels.viewDetails}</Link>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Filter sheet ──────────────────────────────────────────────────────────
+
+function FilterSheet({
+  filters,
+  nearMeOn,
+  radiusKm,
+  count,
+  onApply,
+  onToggleNearMe,
+  onRadius,
+  onClose,
+  onReset,
+}: {
+  filters: PublicFilters;
+  nearMeOn: boolean;
+  radiusKm: number;
+  count: number;
+  onApply: (f: PublicFilters) => void;
+  onToggleNearMe: () => void;
+  onRadius: (km: number) => void;
+  onClose: () => void;
+  onReset: () => void;
+}) {
+  const t = useTranslations('Map');
+  const tSport = useTranslations('Sport');
+  const tSurface = useTranslations('Surface');
+  const tAccess = useTranslations('Access');
+
+  return (
+    <div className="absolute inset-0 z-50 flex items-end justify-center lg:items-center">
+      <button
+        type="button"
+        aria-label={t('close')}
+        onClick={onClose}
+        className="absolute inset-0 bg-overlay-scrim"
+      />
+      <div className="relative flex max-h-[86dvh] w-full flex-col rounded-t-[20px] bg-surface shadow-float lg:max-w-md lg:rounded-sheet">
+        <div className="flex items-center justify-between px-5 pt-4 pb-2">
+          <h2 className="text-h3 font-extrabold tracking-tight text-ink">{t('filters')}</h2>
+          <IconButton aria-label={t('close')} variant="surface" round onClick={onClose}>
+            <X size={18} />
+          </IconButton>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5">
+          <FilterGroup label={t('sport')}>
+            <div className="flex flex-wrap gap-2">
+              {CANONICAL_SPORTS.map((s) => {
+                const v = SPORT_VISUALS[s];
+                return (
+                  <Chip
+                    key={s}
+                    color={v.color}
+                    selected={filters.sports.includes(s)}
+                    icon={<v.Icon size={15} />}
+                    onClick={() => onApply({ ...filters, sports: toggle(filters.sports, s) })}
+                  >
+                    {tSport(s)}
+                  </Chip>
+                );
+              })}
+            </div>
+          </FilterGroup>
+
+          <FilterGroup label={t('nearby')}>
+            <div className="flex items-center gap-3">
+              <Chip color="var(--accent)" selected={nearMeOn} icon={<MapPin size={15} />} onClick={onToggleNearMe}>
+                {t('nearMe')}
+              </Chip>
+              <span className="font-mono text-caption text-ink-soft">
+                {t('radiusKm', { km: radiusKm })}
+              </span>
+              <input
+                type="range"
+                min={3}
+                max={30}
+                step={1}
+                value={radiusKm}
+                onChange={(e) => onRadius(Number(e.target.value))}
+                aria-label={t('nearby')}
+                className="flex-1 accent-[var(--accent)]"
+              />
+            </div>
+          </FilterGroup>
+
+          <FilterGroup label={t('access')}>
+            <div className="flex flex-wrap gap-2">
+              {ACCESS_OPTIONS.map((a) => (
+                <Chip
+                  key={a}
+                  selected={filters.access.includes(a)}
+                  onClick={() => {
+                    const next = toggle(filters.access, a);
+                    onApply({ ...filters, access: next.length ? next : ['free'] });
+                  }}
+                >
+                  {tAccess(a)}
+                </Chip>
+              ))}
+            </div>
+          </FilterGroup>
+
+          <FilterGroup label={t('lighting')}>
+            <Switch
+              checked={filters.onlyLit}
+              onChange={() => onApply({ ...filters, onlyLit: !filters.onlyLit })}
+              label={t('onlyLit')}
+            />
+          </FilterGroup>
+
+          <FilterGroup label={t('surface')}>
+            <div className="flex flex-wrap gap-2">
+              {CANONICAL_SURFACES.map((s) => (
+                <Chip
+                  key={s}
+                  selected={filters.surfaces.includes(s)}
+                  onClick={() => onApply({ ...filters, surfaces: toggle(filters.surfaces, s) })}
+                >
+                  {tSurface(s)}
+                </Chip>
+              ))}
+            </div>
+          </FilterGroup>
+        </div>
+
+        <div className="flex items-center gap-2.5 border-t border-line px-5 py-3">
+          <Button block onClick={onClose}>
+            {t('showCount', { count })}
+          </Button>
+          <Button variant="secondary" onClick={onReset} className="shrink-0">
+            {t('reset')}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="border-b border-line py-4 last:border-0">
+      <p className="mb-2.5 font-mono text-overline uppercase tracking-overline text-text-muted">
+        {label}
+      </p>
+      {children}
     </div>
   );
 }

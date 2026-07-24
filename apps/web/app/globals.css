@@ -249,6 +249,59 @@
   animation: marker-drop var(--dur-base) var(--ease-trail) both;
 }
 
+/* Map markers — the seed teardrop, built imperatively by components/map/markers.ts
+   and coloured per-marker via the --mk custom property. Default 36 → hover 40
+   (scale 1.11) → selected 44 (scale 1.22). The tip is anchored to the coordinate
+   (MapLibre anchor "bottom"); scaling grows upward from it. */
+.sk-marker {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  transform-origin: center bottom;
+  transition: transform var(--dur-fast) var(--ease-standard);
+}
+.sk-marker__pin {
+  position: absolute;
+  inset: 0;
+  background: var(--mk);
+  border: 3px solid var(--surface);
+  border-radius: 50% 50% 50% 4px;
+  transform: rotate(45deg);
+  box-shadow: var(--shadow-md);
+}
+.sk-marker__glyph {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-on-brand);
+}
+.sk-marker:focus-visible { outline: none; }
+.sk-marker:focus-visible .sk-marker__pin { box-shadow: var(--ring); }
+.sk-marker.is-hover { transform: scale(1.11); z-index: 2; }
+.sk-marker.is-selected { transform: scale(1.22); z-index: 3; }
+.sk-marker.is-selected .sk-marker__pin {
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--mk) 26%, transparent), var(--shadow-lg);
+}
+.sk-marker--drop { animation: marker-drop var(--dur-base) var(--ease-trail) both; }
+
+.sk-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--brand);
+  color: var(--text-on-brand);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+  border: 3px solid var(--surface);
+  box-shadow: var(--shadow-float);
+  cursor: pointer;
+}
+
 /* Neutral striped placeholder — stands in for photography (seed motif). Real,
    warm photography of Bulgarian landscapes replaces this in production. */
 @utility stripe-placeholder {
