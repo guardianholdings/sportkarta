@@ -1,6 +1,7 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { requireUser } from '@/lib/auth-session';
+import { Link } from '@/i18n/navigation';
 
 import { AddFacilityForm } from './add-facility-form';
 
@@ -31,7 +32,10 @@ export default async function AddFacilityPage({
   // Contributions require an account: an anonymous visitor is sent to sign in
   // and comes back here (the middleware carries the path through).
   await requireUser();
-  const t = await getTranslations('AddFacility');
+  const [t, tFacility] = await Promise.all([
+    getTranslations('AddFacility'),
+    getTranslations('Facility'),
+  ]);
 
   // ?lon=&lat= starts the pin somewhere specific — used by "add a facility
   // here" links from the map. Only the starting view; the value posted is
@@ -41,10 +45,18 @@ export default async function AddFacilityPage({
   const lat = coordinate(sp.lat, 90) ?? DEFAULT_CENTRE.lat;
 
   return (
-    <main className="mx-auto max-w-xl space-y-6 p-4">
-      <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-      <p className="text-sm text-neutral-600">{t('intro')}</p>
-      <AddFacilityForm initialLon={lon} initialLat={lat} />
+    <main className="mx-auto max-w-xl px-4 py-5">
+      <Link
+        href="/"
+        className="mb-4 inline-flex text-body-sm font-medium text-ink-soft hover:text-brand"
+      >
+        {tFacility('backToMap')}
+      </Link>
+      <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
+      <p className="mt-1.5 text-body-sm text-ink-soft">{t('intro')}</p>
+      <div className="mt-5 rounded-card border border-line bg-surface p-4 shadow-sm sm:p-5">
+        <AddFacilityForm initialLon={lon} initialLat={lat} />
+      </div>
     </main>
   );
 }
