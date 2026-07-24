@@ -41,11 +41,14 @@ function labelOf(labels: Labels, key: string): string {
 
 export function BulkCreateTabs({
   facilities,
+  facilityTotal,
   sports,
   labels,
   fieldLabels,
 }: {
   facilities: FacilityOption[];
+  /** Named non-gone facilities in the DB — more than shipped means truncation. */
+  facilityTotal: number;
   sports: string[];
   labels: Labels;
   fieldLabels: Labels;
@@ -76,6 +79,7 @@ export function BulkCreateTabs({
       {tab === 'grid' ? (
         <GridForm
           facilities={facilities}
+          facilityTotal={facilityTotal}
           sports={sports}
           labels={labels}
           fieldLabels={fieldLabels}
@@ -91,11 +95,13 @@ const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7];
 
 function GridForm({
   facilities,
+  facilityTotal,
   sports,
   labels,
   fieldLabels,
 }: {
   facilities: FacilityOption[];
+  facilityTotal: number;
   sports: string[];
   labels: Labels;
   fieldLabels: Labels;
@@ -282,6 +288,17 @@ function GridForm({
         <p className="text-sm text-neutral-600">
           {L('selectedCount').replace('{count}', String(selected.size))}
         </p>
+
+        {/* The filters above act on the SHIPPED list, so if the server capped it
+            the missing facilities are unfindable, not merely unlisted — say so
+            instead of letting the list look complete (AUDIT-F1). */}
+        {facilities.length < facilityTotal && (
+          <p className="rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            {L('facilityListTruncated')
+              .replace('{shown}', String(facilities.length))
+              .replace('{total}', String(facilityTotal))}
+          </p>
+        )}
 
         <ul className="max-h-80 divide-y divide-neutral-100 overflow-y-auto rounded border border-neutral-200">
           {visible.map((facility) => (

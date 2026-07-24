@@ -338,7 +338,12 @@ describe.skipIf(!url)('report figures against the real database', () => {
     } finally {
       await client.query('ROLLBACK');
     }
-  });
+    // This runs the whole grant report once PER municipality (the seed has the
+    // full national list), so it is legitimately heavier than the 5 s default —
+    // and a timeout here is not just its own failure: it aborts before the
+    // ROLLBACK, leaving the shared client's transaction open so the next test
+    // sees these fixtures too. Give it real headroom.
+  }, 60_000);
 
   it('non-additive figures must NOT be summed — the national total is smaller', async () => {
     await client.query('BEGIN');
@@ -392,8 +397,8 @@ describe.skipIf(!url)('report figures against the real database', () => {
       await client.query<{ total: number; covered: number; unusable: number }>(`
         SELECT count(*)::int AS total,
                count(DISTINCT municipality_id) FILTER (WHERE municipality_id IS NOT NULL)::int AS covered,
-               count(*) FILTER (WHERE condition = 'unusable' AND slug IS NOT NULL)::int AS unusable
-        FROM facilities WHERE status <> 'gone'
+               count(*) FILTER (WHERE condition = 'unusable')::int AS unusable
+        FROM facilities WHERE status <> 'gone' AND slug IS NOT NULL
       `)
     ).rows[0];
     if (!direct) throw new Error('direct query returned no row');

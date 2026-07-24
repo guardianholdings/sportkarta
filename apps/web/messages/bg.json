@@ -650,6 +650,7 @@
     "filterName": "Търси по име",
     "facilities": "Обекти",
     "selectedCount": "{count} избрани",
+    "facilityListTruncated": "Списъкът показва само първите {shown} от {total} обекта — обект извън него не може да бъде избран оттук.",
     "selectAll": "Избери всички",
     "clearAll": "Изчисти",
     "create": "Създай",

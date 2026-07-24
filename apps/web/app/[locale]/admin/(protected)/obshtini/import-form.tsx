@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 
 import {
   commitCsvAction,
@@ -12,8 +12,6 @@ import {
 // Subpath, never the barrel: the barrel re-exports the mailer, which drags
 // nodemailer and node:fs into the browser bundle (client-imports.test.ts).
 import { MUNICIPAL_FIELDS } from '@sportkarta/lib/import-municipal';
-
-import { Link } from '@/i18n/navigation';
 
 /**
  * The municipal CSV inbox screens (docs/ROADMAP.md §8, Stage 6.3).
@@ -33,15 +31,39 @@ function L(labels: Labels, key: string): string {
 
 const EMPTY: MunicipalState = { step: 'input', error: null };
 
-export function MunicipalImport({
-  labels,
-  fieldLabels,
-  sampleCsv,
-}: {
+export function MunicipalImport(props: {
   labels: Labels;
   /** Bulgarian display name per mappable field. */
   fieldLabels: Labels;
   sampleCsv: string;
+}) {
+  // "Import another" cannot be a navigation: a Link to the SAME URL is a soft
+  // navigation, React keeps this component mounted and commitState stays
+  // {step:'done'} — the link visibly does nothing (proven by driving). There
+  // is also no reset API on useActionState, so the wizard is remounted
+  // wholesale by bumping a key, which returns all three action states to EMPTY.
+  const [epoch, setEpoch] = useState(0);
+  return (
+    <MunicipalImportWizard
+      key={epoch}
+      {...props}
+      onReset={() => {
+        setEpoch((current) => current + 1);
+      }}
+    />
+  );
+}
+
+function MunicipalImportWizard({
+  labels,
+  fieldLabels,
+  sampleCsv,
+  onReset,
+}: {
+  labels: Labels;
+  fieldLabels: Labels;
+  sampleCsv: string;
+  onReset: () => void;
 }) {
   const [parseState, parse] = useActionState(parseCsvAction, EMPTY);
   const [previewState, preview] = useActionState(previewCsvAction, EMPTY);
@@ -248,9 +270,13 @@ export function MunicipalImport({
               {L(labels, 'doneSkipped')}: {state.committed.skipped + state.committed.invalid}
             </li>
           </ul>
-          <Link href="/admin/obshtini" className="inline-block text-teal-700 underline">
+          <button
+            type="button"
+            onClick={onReset}
+            className="inline-block cursor-pointer text-teal-700 underline"
+          >
             {L(labels, 'importAnother')}
-          </Link>
+          </button>
         </div>
       )}
     </div>
@@ -279,11 +305,23 @@ function Badge({
   );
 }
 
-/** The furthest-along non-empty state wins; ties break toward later steps. */
+/**
+ * The furthest-along state wins; ties break toward the LATER action in
+ * argument order (a commit that re-renders the preview step with an error must
+ * beat the preview state it came from). An action that has never run is still
+ * the initial EMPTY object — useActionState keeps that identity until the
+ * first dispatch, and a server action's result is deserialized so it can never
+ * BE that object — and must be skipped entirely: letting it tie meant a failed
+ * parse ({step:'input', error}) was displaced by the untouched preview/commit
+ * EMPTYs, so the error never rendered and React 19's post-action form reset
+ * restored `defaultValue={state.csv ?? ''}` from the EMPTY state, silently
+ * wiping the operator's pasted CSV (AUDIT-F4).
+ */
 function pickState(...states: MunicipalState[]): MunicipalState {
   const order: MunicipalState['step'][] = ['input', 'map', 'preview', 'done'];
-  let best = states[0] ?? EMPTY;
+  let best = EMPTY;
   for (const state of states) {
+    if (state === EMPTY) continue;
     if (order.indexOf(state.step) >= order.indexOf(best.step)) best = state;
   }
   return best;

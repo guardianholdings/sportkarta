@@ -1,4 +1,4 @@
-import { CANONICAL_SPORTS, CANONICAL_SURFACES } from '../sports.js';
+import { CANONICAL_SPORTS, CANONICAL_SURFACES, type CanonicalSport } from '../sports.js';
 
 /**
  * Normalising one row of a municipal registry CSV (docs/ROADMAP.md §8, Stage
@@ -36,6 +36,63 @@ const ACCESS_ALIASES: Record<string, AccessValue> = {
   school: 'school',
   училищен: 'school',
   училище: 'school',
+};
+
+/**
+ * Bulgarian names for each canonical sport — the Sport display catalogue's
+ * values plus the spellings a municipal registry actually writes. The access
+ * and lighting columns already read Bulgarian; the sports column was the one
+ * a Bulgarian registry will ALWAYS write in Bulgarian and the only one that
+ * refused it. Aliases are deliberately unambiguous: a word that could mean
+ * two sports (or none) is left out, because an unknown token errors visibly
+ * per row while a wrong alias rewrites the map silently.
+ */
+const SPORT_ALIASES: Record<string, CanonicalSport> = {
+  'стрелба с лък': 'archery',
+  'лека атлетика': 'athletics',
+  атлетика: 'athletics',
+  бадминтон: 'badminton',
+  баскетбол: 'basketball',
+  'плажен волейбол': 'beach_volleyball',
+  бмх: 'bmx',
+  'стрийт фитнес': 'calisthenics',
+  калистеника: 'calisthenics',
+  шахмат: 'chess',
+  шах: 'chess',
+  катерене: 'climbing',
+  колоездене: 'cycling',
+  'конен спорт': 'equestrian',
+  езда: 'equestrian',
+  фитнес: 'fitness',
+  футбол: 'football',
+  'мини футбол': 'football',
+  гимнастика: 'gymnastics',
+  хандбал: 'handball',
+  'пешеходен туризъм': 'hiking',
+  туризъм: 'hiking',
+  хокей: 'hockey',
+  кънки: 'ice_skating',
+  'ледена пързалка': 'ice_skating',
+  'бойни изкуства': 'martial_arts',
+  мултиспорт: 'multi',
+  многофункционална: 'multi',
+  многофункционално: 'multi',
+  петанк: 'petanque',
+  бягане: 'running',
+  'спортна стрелба': 'shooting',
+  стрелба: 'shooting',
+  скейтборд: 'skateboard',
+  скейт: 'skateboard',
+  скейтпарк: 'skateboard',
+  'скейт парк': 'skateboard',
+  скуош: 'squash',
+  плуване: 'swimming',
+  басейн: 'swimming',
+  'тенис на маса': 'table_tennis',
+  'пинг понг': 'table_tennis',
+  'пинг-понг': 'table_tennis',
+  тенис: 'tennis',
+  волейбол: 'volleyball',
 };
 
 const NAME_MAX = 200;
@@ -94,12 +151,20 @@ function cleanText(value: string | undefined): string {
   return (value ?? '').trim().replace(/\s+/g, ' ');
 }
 
-/** Split a sports cell on commas, semicolons or slashes. */
+/**
+ * Split a sports cell on commas, semicolons or slashes, then canonicalise each
+ * token through SPORT_ALIASES. A token that is neither an alias nor already
+ * canonical passes through unchanged so normalizeRow can reject it with the
+ * row's own error.
+ */
 function splitSports(value: string | undefined): string[] {
   return (value ?? '')
     .split(/[,;/]+/)
     .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
+    .filter(Boolean)
+    // hasOwn, not plain indexing: a cell token like "__proto__" or "toString"
+    // must fall through to invalid_sport, not resolve an inherited property.
+    .map((s) => (Object.hasOwn(SPORT_ALIASES, s) ? (SPORT_ALIASES[s] ?? s) : s));
 }
 
 const TRUE_WORDS = new Set(['да', 'yes', 'true', '1', 'y', 'истина', 'има']);

@@ -120,6 +120,13 @@
       "when": 1784839045958,
       "tag": "0016_hiking_landmarks",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1784908774687,
+      "tag": "0017_stats_public_predicate",
+      "breakpoints": true
     }
   ]
 }

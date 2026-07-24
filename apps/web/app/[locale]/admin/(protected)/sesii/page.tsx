@@ -23,6 +23,7 @@ interface FacilityRow {
   sport_types: string[] | null;
   name_bg: string | null;
   name_en: string | null;
+  total: number;
 }
 
 export default async function AdminBulkSessionsPage({
@@ -40,24 +41,32 @@ export default async function AdminBulkSessionsPage({
   ]);
 
   // Everything selectable in one read: the point of this screen is that the
-  // operator filters and ticks without a round trip per keystroke.
+  // operator filters and ticks without a round trip per keystroke. Only NAMED
+  // facilities are pickable (an unnamed OSM point is not a session venue an
+  // operator can recognise), and that predicate must live HERE: fetching all
+  // rows and dropping unnamed ones client-side let the LIMIT swallow named
+  // facilities in municipalities past the cap while the list looked complete
+  // (AUDIT-F1 — an operator in Шумен could not find their own pitch). The
+  // window count rides along so the rare over-cap day is VISIBLE in the UI
+  // instead of silently truncated.
   const result = await getDb().execute(sql`
-    SELECT f.id, f.name, f.sport_types, m.name_bg, m.name_en
+    SELECT f.id, f.name, f.sport_types, m.name_bg, m.name_en,
+           count(*) OVER ()::int AS total
       FROM facilities f
       LEFT JOIN municipalities m ON m.id = f.municipality_id
-     WHERE f.status <> 'gone'
-     ORDER BY m.name_bg NULLS LAST, f.name NULLS LAST
+     WHERE f.status <> 'gone' AND f.name IS NOT NULL
+     ORDER BY m.name_bg NULLS LAST, f.name
      LIMIT ${FACILITY_LIMIT}
   `);
 
-  const facilities: FacilityOption[] = (result.rows as unknown as FacilityRow[])
-    .filter((row) => row.name)
-    .map((row) => ({
-      id: row.id,
-      name: row.name ?? '',
-      cityName: row.name_bg ? cityDisplayName(row.name_bg, row.name_en ?? '', locale) : '',
-      sports: row.sport_types ?? [],
-    }));
+  const rows = result.rows as unknown as FacilityRow[];
+  const facilityTotal = rows[0]?.total ?? 0;
+  const facilities: FacilityOption[] = rows.map((row) => ({
+    id: row.id,
+    name: row.name ?? '',
+    cityName: row.name_bg ? cityDisplayName(row.name_bg, row.name_en ?? '', locale) : '',
+    sports: row.sport_types ?? [],
+  }));
 
   // Flat label bags: the page owns i18n, the client component owns interaction.
   const labelKeys = [
@@ -77,6 +86,7 @@ export default async function AdminBulkSessionsPage({
     'filterSport',
     'filterName',
     'facilities',
+    'facilityListTruncated',
     'selectedCount',
     'selectAll',
     'clearAll',
@@ -166,6 +176,7 @@ export default async function AdminBulkSessionsPage({
       <p className="max-w-prose text-sm text-neutral-600">{t('intro')}</p>
       <BulkCreateTabs
         facilities={facilities}
+        facilityTotal={facilityTotal}
         sports={[...CANONICAL_SPORTS]}
         labels={labels}
         fieldLabels={fieldLabels}

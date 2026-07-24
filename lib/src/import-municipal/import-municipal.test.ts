@@ -103,6 +103,41 @@ describe('normalizeRow', () => {
     });
   });
 
+  it('reads sports in Bulgarian or English, mixed in one cell (AUDIT-F3)', () => {
+    // The one column a Bulgarian registry will always write in Bulgarian.
+    const out = normalizeRow(row({ sport: 'футбол; баскетбол, tennis' }));
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.row.sportTypes).toEqual(['basketball', 'football', 'tennis']); // canonical order
+  });
+
+  it('canonicalises multi-word Bulgarian sport names', () => {
+    for (const [cell, value] of [
+      ['тенис на маса', 'table_tennis'],
+      ['Лека атлетика', 'athletics'],
+      ['плажен волейбол', 'beach_volleyball'],
+      ['стрелба с лък', 'archery'],
+      ['басейн', 'swimming'],
+    ] as const) {
+      const out = normalizeRow(row({ sport: cell }));
+      expect(out.ok && out.row.sportTypes, cell).toEqual([value]);
+    }
+  });
+
+  it('dedupes when an alias and its canonical name appear together', () => {
+    const out = normalizeRow(row({ sport: 'футбол, football' }));
+    expect(out.ok && out.row.sportTypes).toEqual(['football']);
+  });
+
+  it('still rejects a Bulgarian word that is not an alias', () => {
+    // Ambiguous words are deliberately absent from the alias table: a visible
+    // per-row error beats a silent wrong sport on the map.
+    expect(normalizeRow(row({ sport: 'крикет' }))).toMatchObject({
+      ok: false,
+      error: { code: 'invalid_sport' },
+    });
+  });
+
   it('allows an empty sports list (a multi-use ground)', () => {
     const out = normalizeRow(row({ sport: '' }));
     expect(out.ok && out.row.sportTypes).toEqual([]);

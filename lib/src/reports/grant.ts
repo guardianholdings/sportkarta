@@ -251,15 +251,18 @@ export const GRANT_REPORT: ReportDefinition = {
         {
           id: 'facilities_added',
           labelBg: 'Новодобавени площадки в периода',
-          definitionBg: 'Площадки, създадени в системата в рамките на периода.',
+          definitionBg: 'Публично видими площадки, създадени в системата в рамките на периода.',
           unit: 'count',
           additive: true,
           personDerived: false,
+          // The same public-visibility predicate as the map and mv_national_stats
+          // (status <> 'gone' AND slug IS NOT NULL): a report must not count a
+          // row the public register does not show.
           sql: `
             SELECT count(*)::int AS value
             FROM facilities f
             WHERE f.created_at >= :from AND f.created_at < :to
-              AND f.status <> 'gone'
+              AND f.status <> 'gone' AND f.slug IS NOT NULL
               AND ${SCOPE_FACILITY}
           `,
         },

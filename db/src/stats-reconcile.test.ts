@@ -7,8 +7,11 @@ const url = process.env.DATABASE_URL;
 
 // The accuracy guarantee for /statistika + /api/stats: every number the public
 // sees comes from the materialized views, and here we prove each view aggregate
-// EQUALS a direct query on the base `facilities` table. Requires the running
-// dev/CI database (skips otherwise). Read-only apart from refreshing the views.
+// EQUALS a direct query on the base `facilities` table under the platform's
+// public-visibility predicate — status <> 'gone' AND slug IS NOT NULL, the same
+// rule as the map, the API and the export (0017; audit AUDIT-F2: "count the
+// pins and get the same number"). Requires the running dev/CI database (skips
+// otherwise). Read-only apart from refreshing the views.
 describe.skipIf(!url)('statistics reconciliation (requires running database)', () => {
   let client: pg.Client;
 
@@ -40,7 +43,7 @@ describe.skipIf(!url)('statistics reconciliation (requires running database)', (
         count(*) FILTER (WHERE lighting IS NOT NULL)::int AS lit_known,
         count(*) FILTER (WHERE lighting IS NULL)::int AS lit_unknown,
         count(DISTINCT municipality_id)::int AS municipalities_covered
-      FROM facilities WHERE status <> 'gone'
+      FROM facilities WHERE status <> 'gone' AND slug IS NOT NULL
     `)
     ).rows[0] as Record<string, number>;
 
@@ -58,7 +61,7 @@ describe.skipIf(!url)('statistics reconciliation (requires running database)', (
       await client.query(`
       SELECT count(DISTINCT s.sport)::int AS n
       FROM facilities f, LATERAL unnest(f.sport_types) AS s(sport)
-      WHERE f.status <> 'gone'
+      WHERE f.status <> 'gone' AND f.slug IS NOT NULL
     `)
     ).rows[0] as { n: number };
     expect(mv.n).toBe(direct.n);
@@ -70,7 +73,7 @@ describe.skipIf(!url)('statistics reconciliation (requires running database)', (
     ).rows[0] as { s: number };
     const nullMuni = (
       await client.query(
-        "SELECT count(*)::int AS n FROM facilities WHERE status <> 'gone' AND municipality_id IS NULL",
+        "SELECT count(*)::int AS n FROM facilities WHERE status <> 'gone' AND slug IS NOT NULL AND municipality_id IS NULL",
       )
     ).rows[0] as { n: number };
     const national = (await client.query('SELECT total::int AS n FROM mv_national_stats'))
@@ -98,7 +101,7 @@ describe.skipIf(!url)('statistics reconciliation (requires running database)', (
         count(*) FILTER (WHERE lighting IS TRUE)::int AS lit_true,
         count(*) FILTER (WHERE lighting IS NOT NULL)::int AS lit_known
       FROM facilities
-      WHERE status <> 'gone' AND municipality_id IS NOT NULL
+      WHERE status <> 'gone' AND slug IS NOT NULL AND municipality_id IS NOT NULL
       GROUP BY municipality_id ORDER BY municipality_id
     `)
     ).rows;
@@ -112,11 +115,34 @@ describe.skipIf(!url)('statistics reconciliation (requires running database)', (
       await client.query(`
       SELECT s.sport, count(*)::int AS total
       FROM facilities f, LATERAL unnest(f.sport_types) AS s(sport)
-      WHERE f.status <> 'gone'
+      WHERE f.status <> 'gone' AND f.slug IS NOT NULL
       GROUP BY s.sport ORDER BY s.sport
     `)
     ).rows;
     expect(mv).toEqual(direct);
+  });
+
+  it('an active null-slug row is NOT counted (AUDIT-F2 regression)', async () => {
+    // The audit's exact failure: one active facility without a slug made
+    // /api/stats count a pin the map does not show. A slugless row has no
+    // public page, so the stats must not see it either. Non-concurrent refresh
+    // is transactional, so the ROLLBACK restores the view's contents.
+    await client.query('BEGIN');
+    try {
+      const before = (await client.query('SELECT total::int AS n FROM mv_national_stats'))
+        .rows[0] as { n: number };
+      await client.query(`
+        INSERT INTO facilities (geom, name, slug, sport_types, access, source, status)
+        VALUES (ST_SetSRID(ST_MakePoint(23.5, 42.5), 4326), 'Одит без слъг', NULL,
+                '{football}', 'free', 'crowd', 'active')
+      `);
+      await refreshStats(client, { concurrently: false });
+      const after = (await client.query('SELECT total::int AS n FROM mv_national_stats'))
+        .rows[0] as { n: number };
+      expect(after.n).toBe(before.n);
+    } finally {
+      await client.query('ROLLBACK');
+    }
   });
 
   it('per-10k is NULL exactly when population is absent, and computes correctly otherwise', async () => {

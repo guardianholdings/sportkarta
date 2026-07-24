@@ -6,8 +6,11 @@ import pg from 'pg';
 
 // Reproducible launch press statistics. Each headline figure is produced by the
 // exact SQL shown next to it, run against the live database — so any journalist
-// or municipality can re-run and verify. The numbers reconcile with /statistika
-// (the materialized views derive from the same base data). Run:
+// or municipality can re-run and verify. The numbers reconcile with /statistika,
+// which requires every query here to carry the SAME public-visibility predicate
+// as the materialized views and the map: status <> 'gone' AND slug IS NOT NULL
+// (0017). One slugless row counted here and not there is exactly the
+// credibility failure this script exists to prevent. Run:
 //   pnpm stats:launch-report
 config({ path: new URL('../../.env', import.meta.url).pathname });
 
@@ -25,32 +28,32 @@ const scalar =
 const METRICS: Metric[] = [
   {
     heading: 'Public sports facilities on the map',
-    sql: "SELECT count(*) AS n FROM facilities WHERE status <> 'gone';",
+    sql: "SELECT count(*) AS n FROM facilities WHERE status <> 'gone' AND slug IS NOT NULL;",
     format: scalar('n'),
   },
   {
     heading: 'Facilities with free public access (%)',
-    sql: "SELECT round(100.0 * count(*) FILTER (WHERE access = 'free') / count(*), 1) AS pct\nFROM facilities WHERE status <> 'gone';",
+    sql: "SELECT round(100.0 * count(*) FILTER (WHERE access = 'free') / count(*), 1) AS pct\nFROM facilities WHERE status <> 'gone' AND slug IS NOT NULL;",
     format: scalar('pct', '%'),
   },
   {
     heading: 'Municipalities with at least one facility',
-    sql: "SELECT count(DISTINCT municipality_id) AS n\nFROM facilities WHERE status <> 'gone' AND municipality_id IS NOT NULL;",
+    sql: "SELECT count(DISTINCT municipality_id) AS n\nFROM facilities WHERE status <> 'gone' AND slug IS NOT NULL AND municipality_id IS NOT NULL;",
     format: scalar('n'),
   },
   {
     heading: 'Distinct sports represented',
-    sql: "SELECT count(DISTINCT s.sport) AS n\nFROM facilities f, LATERAL unnest(f.sport_types) AS s(sport)\nWHERE f.status <> 'gone';",
+    sql: "SELECT count(DISTINCT s.sport) AS n\nFROM facilities f, LATERAL unnest(f.sport_types) AS s(sport)\nWHERE f.status <> 'gone' AND f.slug IS NOT NULL;",
     format: scalar('n'),
   },
   {
     heading: 'Awaiting community verification (%)',
-    sql: "SELECT round(100.0 * count(*) FILTER (WHERE status = 'needs_verification') / count(*), 1) AS pct\nFROM facilities WHERE status <> 'gone';",
+    sql: "SELECT round(100.0 * count(*) FILTER (WHERE status = 'needs_verification') / count(*), 1) AS pct\nFROM facilities WHERE status <> 'gone' AND slug IS NOT NULL;",
     format: scalar('pct', '%'),
   },
   {
     heading: 'Top 5 municipalities by facility count',
-    sql: "SELECT m.name_bg, count(*) AS n\nFROM facilities f JOIN municipalities m ON m.id = f.municipality_id\nWHERE f.status <> 'gone'\nGROUP BY m.id, m.name_bg ORDER BY n DESC, m.name_bg LIMIT 5;",
+    sql: "SELECT m.name_bg, count(*) AS n\nFROM facilities f JOIN municipalities m ON m.id = f.municipality_id\nWHERE f.status <> 'gone' AND f.slug IS NOT NULL\nGROUP BY m.id, m.name_bg ORDER BY n DESC, m.name_bg LIMIT 5;",
     format: (rows) => rows.map((r) => `${String(r.name_bg)} (${String(r.n)})`).join(', '),
   },
   {

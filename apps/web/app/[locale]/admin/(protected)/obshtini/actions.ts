@@ -9,6 +9,7 @@ import { requireRole } from '@/lib/auth-session';
 import {
   commitMunicipal,
   guessMunicipalMapping,
+  MAX_MUNICIPAL_ROWS,
   MunicipalFileError,
   previewMunicipal,
   rowsFromCsv,
@@ -117,9 +118,15 @@ export async function parseCsvAction(
 
   const parsed = parseCsv(csv, detectDelimiter(csv));
   // Refused here too, so the operator learns at the first step rather than
-  // after mapping nine columns.
+  // after mapping nine columns. ALL THREE of rowsFromCsv's file-level refusals
+  // must be mirrored: one that first surfaces in previewCsvAction returns
+  // {step:'input'}, which pickState ranks below the already-reached 'map'
+  // state — the operator would click "Преглед" and see nothing, forever.
   if (parsed.truncated) return { step: 'input', error: 'csv_truncated', csv, registryLabel };
   if (parsed.rows.length === 0) return { step: 'input', error: 'no_rows', csv, registryLabel };
+  if (parsed.rows.length > MAX_MUNICIPAL_ROWS) {
+    return { step: 'input', error: 'too_many_rows', csv, registryLabel };
+  }
 
   return {
     step: 'map',

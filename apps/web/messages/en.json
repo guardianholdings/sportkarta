@@ -650,6 +650,7 @@
     "filterName": "Search by name",
     "facilities": "Facilities",
     "selectedCount": "{count} selected",
+    "facilityListTruncated": "The list shows only the first {shown} of {total} facilities — a facility beyond them cannot be selected here.",
     "selectAll": "Select all",
     "clearAll": "Clear",
     "create": "Create",

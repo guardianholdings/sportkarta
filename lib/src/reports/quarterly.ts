@@ -87,13 +87,18 @@ export const QUARTERLY_REPORT: ReportDefinition = {
         {
           id: 'facilities_added_quarter',
           labelBg: 'Новодобавени площадки през тримесечието',
-          definitionBg: 'Площадки, създадени в системата в рамките на отчетното тримесечие.',
+          definitionBg:
+            'Публично видими площадки, създадени в системата в рамките на отчетното тримесечие.',
           unit: 'count',
           additive: true,
           personDerived: false,
+          // The same public-visibility predicate as the map and mv_national_stats
+          // (status <> 'gone' AND slug IS NOT NULL): a report must not count a
+          // row the public register does not show.
           sql: `
             SELECT count(*)::int AS value FROM facilities f
-            WHERE f.created_at >= :from AND f.created_at < :to AND f.status <> 'gone'
+            WHERE f.created_at >= :from AND f.created_at < :to
+              AND f.status <> 'gone' AND f.slug IS NOT NULL
           `,
         },
       ],
@@ -196,12 +201,21 @@ export const QUARTERLY_REPORT: ReportDefinition = {
           columnsBg: ['Община', 'Новодобавени', 'Проверени', 'Общо'],
           columns: ['name_bg', 'added', 'verified', 'total_change'],
           personDerived: false,
+          // `added` carries the same public-visibility predicate as
+          // facilities_added_quarter above — the methodology prints both SQLs,
+          // so the per-municipality column must sum to the national figure in
+          // the same document. `verified` deliberately does NOT: it counts
+          // verification WORK done in the period (an activity on the
+          // append-only edit log, same definition as the grant annex's
+          // facilities_verified), and a facility that went gone after being
+          // verified was still verified that quarter.
           sql: `
             WITH added AS (
               SELECT f.municipality_id, count(*)::int AS n
               FROM facilities f
               WHERE f.created_at >= :from AND f.created_at < :to
-                AND f.status <> 'gone' AND f.municipality_id IS NOT NULL
+                AND f.status <> 'gone' AND f.slug IS NOT NULL
+                AND f.municipality_id IS NOT NULL
               GROUP BY f.municipality_id
             ), verified AS (
               SELECT f.municipality_id, count(DISTINCT e.facility_id)::int AS n
