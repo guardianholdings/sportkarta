@@ -72,12 +72,43 @@ export function buildMapStyle({ tilesUrl, glyphsUrl }: MapStyleOptions): StyleSp
         filter: ['in', ['get', 'kind'], ['literal', PARK_KINDS]],
         paint: { 'fill-color': '#d6e8cc' },
       },
+      // The Protomaps `water` source-layer mixes POLYGONS (lakes, riverbanks,
+      // pools) with LINESTRINGS (river/stream/canal centerlines, in tiles from
+      // each feature's min_zoom). A fill layer given a LineString implicitly
+      // closes it into a ring and fills it — every mountain stream became a
+      // large false blue blob the moment its centerline entered the tiles
+      // (z14+). Polygons fill; lines get the dedicated layer below.
       {
         id: 'water',
         type: 'fill',
         source: 'protomaps',
         'source-layer': 'water',
+        filter: ['==', ['geometry-type'], 'Polygon'],
         paint: { 'fill-color': '#a9d1e0' },
+      },
+      {
+        id: 'water-lines',
+        type: 'line',
+        source: 'protomaps',
+        'source-layer': 'water',
+        filter: ['==', ['geometry-type'], 'LineString'],
+        minzoom: 9,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#8ec4d8',
+          // Rivers read as rivers, streams stay hairlines; both grow with zoom.
+          'line-width': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            9,
+            ['match', ['get', 'kind'], 'river', 1.2, 0.5],
+            14,
+            ['match', ['get', 'kind'], 'river', 2.4, 1],
+            17,
+            ['match', ['get', 'kind'], 'river', 5, 2],
+          ],
+        },
       },
       {
         id: 'roads-casing',
