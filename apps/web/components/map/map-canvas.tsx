@@ -1,5 +1,9 @@
 'use client';
 
+// The SUBPATH, never the barrel: this is a client component, and the barrel
+// re-exports the mailer, which drags nodemailer and node:fs into the browser
+// bundle (tests/client-imports.test.ts fails the build on it).
+import { BULGARIA_BOUNDS } from '@sportkarta/lib/geo';
 import type { Feature, FeatureCollection, Point, Polygon } from 'geojson';
 import maplibregl, { type GeoJSONSource } from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
@@ -64,12 +68,18 @@ interface MapCanvasProps {
 const SOURCE_ID = 'facilities';
 const NEARME_ID = 'nearme';
 
-// Bulgaria's bbox, matching the URL-view validation in app/[locale]/page.tsx —
-// the furthest permitted zoom-out is the camera that fits exactly this box.
-const BG_BOUNDS: maplibregl.LngLatBoundsLike = [
-  [22.0, 41.0],
-  [29.0, 44.5],
-];
+/**
+ * Bulgaria, from the ONE place it is defined (`@sportkarta/lib/geo`), which in
+ * turn matches the `facilities_geom_in_bulgaria` CHECK the database enforces.
+ * This used to be a local literal — one of five identical copies that agreed
+ * only by coincidence.
+ *
+ * It does two jobs here, and they are different: it is the furthest permitted
+ * ZOOM-OUT (the camera that fits this box), and it is the PAN limit
+ * (`maxBounds`). Without the second, a member at the zoom floor could still drag
+ * the country off screen and sit looking at Greece.
+ */
+const BG_BOUNDS: maplibregl.LngLatBoundsLike = BULGARIA_BOUNDS as unknown as maplibregl.LngLatBoundsLike;
 
 function toFeatureCollection(points: MapPoint[]): FeatureCollection<Point> {
   return {
@@ -283,6 +293,16 @@ export default function MapCanvas({
         }),
         center: [initialView.lng, initialView.lat],
         zoom: initialView.zoom,
+        // THE PAN LIMIT. This platform is a national map of Bulgarian public
+        // facilities: there is nothing to see outside the country, the basemap
+        // tiles stop at the border, and panning into Greece shows an empty grey
+        // field that reads as a broken map rather than as "no data here".
+        //
+        // maxBounds constrains the VIEWPORT rather than the centre, so at the
+        // zoom floor — where the viewport is already larger than the box — the
+        // map simply cannot be dragged at all, which is the behaviour asked
+        // for. Zoomed in, panning stays free inside the box.
+        maxBounds: BG_BOUNDS,
         attributionControl: { compact: true },
       });
     } catch (error) {

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { BULGARIA_CENTER, insideBulgaria } from '@sportkarta/lib/geo';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { adSlotProps } from '@/components/ads/ad-slot';
@@ -33,16 +34,11 @@ function parseView(sp: SearchParams): MapView {
     Number.isFinite(z) &&
     z >= 0 &&
     z <= 20 &&
-    Number.isFinite(lat) &&
-    Number.isFinite(lng) &&
-    lat >= 41 &&
-    lat <= 44.5 &&
-    lng >= 22 &&
-    lng <= 29
+    insideBulgaria({ lon: lng, lat })
   ) {
     return { lng, lat, zoom: z };
   }
-  return { lng: 25.3, lat: 42.72, zoom: 6.8 };
+  return { ...BULGARIA_CENTER };
 }
 
 export default async function HomePage({

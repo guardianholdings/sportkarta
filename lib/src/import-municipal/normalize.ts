@@ -1,3 +1,4 @@
+import { BULGARIA_BBOX, insideBulgaria } from '../geo/index.js';
 import { CANONICAL_SPORTS, CANONICAL_SURFACES, type CanonicalSport } from '../sports.js';
 
 /**
@@ -99,7 +100,9 @@ const NAME_MAX = 200;
 const QUARTER_MAX = 120;
 
 /** Matches the facilities_geom_in_bulgaria CHECK, so a pass here never aborts. */
-export const BULGARIA_BBOX = { minLon: 22.0, maxLon: 29.0, minLat: 41.0, maxLat: 44.5 };
+// Re-exported from lib/src/geo so this module keeps its public name while
+// there stays exactly ONE definition of where Bulgaria is.
+export { BULGARIA_BBOX };
 
 /** The fields a municipal CSV column can be mapped to. */
 export const MUNICIPAL_FIELDS = [
@@ -241,14 +244,7 @@ export function normalizeRow(raw: RawRow): NormalizeOutcome {
   const lon = parseCoordinate(raw.lon);
   const lat = parseCoordinate(raw.lat);
   if (lon === null || lat === null) return fail('coordinates_required');
-  if (
-    lon < BULGARIA_BBOX.minLon ||
-    lon > BULGARIA_BBOX.maxLon ||
-    lat < BULGARIA_BBOX.minLat ||
-    lat > BULGARIA_BBOX.maxLat
-  ) {
-    return fail('outside_bulgaria');
-  }
+  if (!insideBulgaria({ lon, lat })) return fail('outside_bulgaria');
 
   return {
     ok: true,

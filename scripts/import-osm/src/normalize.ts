@@ -9,9 +9,11 @@ import {
   type Access,
   type OsmTags,
 } from './mapping.js';
+import { BULGARIA_BBOX } from '@sportkarta/lib/geo';
 
 /** Matches the facilities_geom_in_bulgaria CHECK constraint (migration 0001). */
-export const BULGARIA_BBOX = { minLon: 22.0, maxLon: 29.0, minLat: 41.0, maxLat: 44.5 };
+// One definition of Bulgaria, shared with the app and the municipal importer.
+export { BULGARIA_BBOX };
 
 export type OsmType = 'node' | 'way' | 'relation';
 

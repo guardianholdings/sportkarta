@@ -1,5 +1,6 @@
 'use client';
 
+import { BULGARIA_BOUNDS } from '@sportkarta/lib/geo';
 import maplibregl from 'maplibre-gl';
 import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
@@ -46,6 +47,14 @@ export function PinPicker({ initialLon, initialLat }: PinPickerProps) {
         style: buildMapStyle(mapAssetUrls(window.location.origin)),
         center: [initialLon, initialLat],
         zoom: 16,
+        // The pan limit matters MORE here than on the explorer. `addFacility`
+        // rejects any coordinate outside this same box with `outside_bulgaria`,
+        // so without it a member can pan into Greece, drop a pin, fill in the
+        // whole form and only then be told no. Constraining the picker makes
+        // that rejection unreachable rather than a trap — the validator stays,
+        // because a form field is not a guarantee, but nobody should ever meet
+        // it. Both now read the box from the same constant.
+        maxBounds: BULGARIA_BOUNDS as unknown as maplibregl.LngLatBoundsLike,
         attributionControl: { compact: true },
       });
     } catch (error) {

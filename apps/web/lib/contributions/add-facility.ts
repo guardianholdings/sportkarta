@@ -1,5 +1,6 @@
 import { sql, type SQL } from '@sportkarta/db';
 import { CANONICAL_SPORTS, facilitySlug, slugify } from '@sportkarta/lib';
+import { BULGARIA_BBOX, insideBulgaria } from '@sportkarta/lib/geo';
 
 import { awardPoints } from '../points';
 
@@ -26,7 +27,9 @@ export const QUARTER_MAX = 80;
  * Checked here too so a mis-dragged pin gets an explanation instead of a
  * constraint violation.
  */
-export const BULGARIA_BBOX = { minLon: 22, maxLon: 29, minLat: 41, maxLat: 44.5 } as const;
+// One definition, in @sportkarta/lib/geo — re-exported so existing importers
+// of this name keep working.
+export { BULGARIA_BBOX };
 
 /** Two pins closer than this, sharing a sport, are treated as the same place. */
 export const DUPLICATE_RADIUS_METRES = 30;
@@ -72,12 +75,7 @@ export function normalizeAddFacility(input: AddFacilityInput): NormalizedFacilit
   if (!Number.isFinite(input.lon) || !Number.isFinite(input.lat)) {
     throw new ContributionError('invalid_coordinates');
   }
-  if (
-    input.lon < BULGARIA_BBOX.minLon ||
-    input.lon > BULGARIA_BBOX.maxLon ||
-    input.lat < BULGARIA_BBOX.minLat ||
-    input.lat > BULGARIA_BBOX.maxLat
-  ) {
+  if (!insideBulgaria({ lon: input.lon, lat: input.lat })) {
     throw new ContributionError('outside_bulgaria');
   }
 

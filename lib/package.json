@@ -11,6 +11,7 @@
     "./checkin-token": "./src/checkin-token/index.ts",
     "./condition": "./src/condition.ts",
     "./divisions": "./src/divisions/index.ts",
+    "./geo": "./src/geo/index.ts",
     "./points": "./src/points.ts",
     "./email": "./src/email/index.ts",
     "./ical": "./src/ical/index.ts",
