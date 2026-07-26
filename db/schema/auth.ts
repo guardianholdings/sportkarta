@@ -99,6 +99,29 @@ export const users = pgTable(
      * timestamp — see apps/web/lib/passport.ts for why that line is where it is.
      */
     publicShowActivity: boolean('public_show_activity').notNull().default(false),
+    /**
+     * When the member explicitly consented to GPS routes being stored with
+     * their imported trainings (0027). NULL means no consent — the default, and
+     * the state after withdrawal.
+     *
+     * A TIMESTAMP RATHER THAN A BOOLEAN, because the obligation is to be able to
+     * DEMONSTRATE consent, not merely to hold it: "consented" with no date
+     * answers none of the questions a regulator or the member themselves would
+     * ask. Withdrawal sets it back to NULL and deletes every `training_routes`
+     * row for that member, so the flag and the data can never disagree.
+     */
+    trainingRouteConsentAt: timestamptz('training_route_consent_at'),
+    /**
+     * The same, for heart rate and calories (0027) — which are SPECIAL-CATEGORY
+     * health data under GDPR Art. 9 and therefore need EXPLICIT consent under a
+     * different lawful basis from everything else on this row.
+     *
+     * Deliberately a SECOND flag rather than one "connected apps" toggle: a
+     * member may reasonably want their route and not their heart rate, and
+     * bundling two Art. 9 questions into one control is precisely the pattern
+     * that makes consent non-specific and therefore invalid.
+     */
+    trainingHealthConsentAt: timestamptz('training_health_consent_at'),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
     updatedAt: timestamptz('updated_at').notNull().defaultNow(),
   },

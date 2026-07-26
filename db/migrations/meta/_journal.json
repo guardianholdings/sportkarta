@@ -190,6 +190,13 @@
       "when": 1785091200000,
       "tag": "0026_weekly_divisions",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1785094800000,
+      "tag": "0027_training_logs",
+      "breakpoints": true
     }
   ]
 }

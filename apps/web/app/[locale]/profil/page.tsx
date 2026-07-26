@@ -1,5 +1,5 @@
 import { calendarToken, getDb } from '@sportkarta/db';
-import { BookOpenCheck, ShieldCheck } from 'lucide-react';
+import { Activity, BookOpenCheck, ShieldCheck } from 'lucide-react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { CalendarPanel } from '@/components/profile/calendar-panel';
@@ -55,6 +55,16 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
             <Link href="/pasport" className={pillLink}>
               <BookOpenCheck size={15} />
               {t('passportLink')}
+            </Link>
+            {/*
+              /trenirovki has no nav tab — the bar is already four items plus the
+              add FAB — so this and the prompt under the participation board are
+              its only entry points. Both are load-bearing rather than decorative:
+              a page nothing links to is the defect A6 was written to fix.
+            */}
+            <Link href="/trenirovki" className={pillLink}>
+              <Activity size={15} />
+              {t('trainingLink')}
             </Link>
             {canAccessAdminPanel(user.role) && (
               <Link href="/admin" className={pillLink}>

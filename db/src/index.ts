@@ -73,6 +73,28 @@ export type {
 export { facilityLegend, LEGEND_MIN_DAYS, LEGEND_WINDOW_DAYS } from './legend.js';
 export type { FacilityLegend } from './legend.js';
 export {
+  attachMetrics,
+  attachRoute,
+  dayKeyBefore,
+  dayStart,
+  deleteTraining,
+  facilityParticipation,
+  memberParticipation,
+  memberTrainings,
+  participationSports,
+  recordTraining,
+  setTrainingConsent,
+  sportParticipationBoard,
+  trainingConsents,
+  TrainingConsentError,
+} from './training.js';
+export type {
+  DayKey,
+  ParticipationEntry,
+  ParticipationOptions,
+  TrainingRow,
+} from './training.js';
+export {
   divisionCandidates,
   divisionsExist,
   memberDivision,

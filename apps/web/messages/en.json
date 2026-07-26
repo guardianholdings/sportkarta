@@ -470,7 +470,8 @@
     "error_display_name_too_long": "That name is too long (60 characters max).",
     "error_home_city_too_long": "That city is too long (80 characters max).",
     "error_invalid_date_of_birth": "Check the date of birth.",
-    "error_confirmation_mismatch": "The confirmation does not match."
+    "error_confirmation_mismatch": "The confirmation does not match.",
+    "trainingLink": "Training"
   },
   "Condition": {
     "excellent": "excellent",
@@ -893,7 +894,7 @@
     "headingNational": "National leaderboard",
     "headingCity": "Leaderboard for {city}",
     "headingSport": "Leaderboard: {sport}",
-    "intro": "Ranked by points from contributions to the map — facilities added, verified and checked.",
+    "intro": "Two boards: who is training, and who is building the map. Both list only members with a public sports passport.",
     "filtersLabel": "Leaderboard filters",
     "scopeNational": "Whole country",
     "periodAllTime": "All time",
@@ -910,7 +911,9 @@
     "standingNotPublic": "To take part in the leaderboard, make your sports passport public.",
     "standingPassportLink": "Go to my passport",
     "eligibilityNote": "Only members who have made their sports passport public appear here. Age is not a condition.",
-    "nationalSectionTitle": "Overall board"
+    "nationalSectionTitle": "Overall board",
+    "contributionsSectionTitle": "Who is building the map",
+    "contributionsSectionBody": "Points from added, verified and checked facilities."
   },
   "Campaign": {
     "listMetaTitle": "Campaigns — SportKarta",
@@ -1813,6 +1816,65 @@
     "days": "{count, plural, one {# day on the pitch} other {# days on the pitch}}",
     "window": "in the last 90 days",
     "yours": "That is you, right now."
+  },
+  "Participation": {
+    "sectionTitle": "Who is training",
+    "intro": "Number of trainings in the last 90 days. It counts turning up, not performance.",
+    "tableCaption": "Ranking by number of trainings",
+    "columnRank": "Rank",
+    "columnMember": "Member",
+    "columnSessions": "Trainings",
+    "columnMinutes": "Minutes",
+    "empty": "Nobody has logged a training here yet.",
+    "logPrompt": "Are you logging your own training?",
+    "logLink": "Open your log"
+  },
+  "Training": {
+    "metaTitle": "My training — SportKarta",
+    "title": "My training",
+    "intro": "Log a training even when it is not part of an organised session. This log is yours alone.",
+    "statSessions": "trainings (30 days)",
+    "statMinutes": "minutes",
+    "statSports": "sports",
+    "addTitle": "New training",
+    "fieldSport": "Sport",
+    "fieldStartedAt": "Start",
+    "fieldDuration": "Duration",
+    "fieldDurationHint": "In minutes (45) or as a clock (1:30).",
+    "fieldDistance": "Distance (km)",
+    "fieldElevation": "Elevation gain (m)",
+    "fieldFacility": "Facility",
+    "fieldFacilityNone": "Not at a facility from the map",
+    "fieldNote": "Note",
+    "optional": "(optional)",
+    "submit": "Save",
+    "saved": "Training saved.",
+    "listTitle": "Logged trainings",
+    "listEmpty": "You have not logged any training yet.",
+    "durationMinutes": "{minutes} min",
+    "distanceKm": "{km} km",
+    "delete": "Delete",
+    "problems": {
+      "sportUnknown": "Choose a sport from the list.",
+      "duration": "Duration must be between 1 minute and 24 hours.",
+      "distance": "That distance looks impossible.",
+      "elevation": "That elevation gain looks impossible.",
+      "startedAtInvalid": "Enter a date and time.",
+      "startedAtFuture": "You cannot log a training in the future.",
+      "startedAtTooOld": "That date is too far in the past.",
+      "note": "The note is too long.",
+      "external": "Problem with the connected-app link."
+    },
+    "consentTitle": "Data from connected apps",
+    "consentIntro": "Strava, Garmin and Apple Health connections are coming. Choose what we store — the two permissions are separate and you can withdraw either at any time.",
+    "consentRoute": "GPS routes",
+    "consentRouteBody": "The line of your route. Never shown publicly anywhere.",
+    "consentHealth": "Heart rate and calories",
+    "consentHealthBody": "Health data. Requires its own explicit consent, and nothing is ranked on it.",
+    "consentGrant": "Allow",
+    "consentWithdraw": "Withdraw",
+    "consentGrantedAt": "Allowed on {date}",
+    "consentWithdrawNote": "Withdrawing deletes data of that kind already stored. The training records themselves remain."
   },
   "Division": {
     "tier": {

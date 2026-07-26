@@ -33,6 +33,12 @@ const geomPoint4326 = customType<{ data: string }>({
 const geomMultiPolygon4326 = customType<{ data: string }>({
   dataType: () => 'geometry(MultiPolygon,4326)',
 });
+// Training routes (0027). A LineString rather than a point: the whole value of a
+// route is its shape, and storing it as points would need a second table and an
+// ordering column to say the same thing.
+const geomLineString4326 = customType<{ data: string }>({
+  dataType: () => 'geometry(LineString,4326)',
+});
 
 const timestamptz = (name: string) => timestamp(name, { withTimezone: true });
 
@@ -2216,6 +2222,339 @@ export const divisionMembers = pgTable(
     }).onDelete('cascade'),
   ],
 );
+
+/** Where a training log came from. `manual` is a person typing; the rest are imports. */
+export const trainingSource = pgEnum('training_source', [
+  'manual',
+  'strava',
+  'garmin',
+  'apple_health',
+  'google_fit',
+  'polar',
+  'suunto',
+  'other',
+]);
+
+/**
+ * How far a training log can be trusted — the same tiering migration 0014 made
+ * structural for check-ins, carried here so a future competition can require a
+ * tier rather than trusting whoever wrote the query.
+ *
+ * TWO TIERS, NOT THREE. A `qr_verified` label was drafted and removed before
+ * 0027 shipped: nothing could produce it — there is no source for the check-in
+ * path and `evidenceFor` never returns it — so it would have been a permanent
+ * enum value (Postgres has no DROP VALUE) that silently returned an empty board
+ * to any prize surface asking for it. It comes back when something can actually
+ * grant it, together with the source that does.
+ */
+export const trainingEvidence = pgEnum('training_evidence', ['self_reported', 'connected_app']);
+
+/**
+ * Personal training logs — somebody doing sport, whether or not anyone
+ * organised it (operator request 2026-07-26).
+ *
+ * THE GAP THIS FILLS. Everything the product could previously say about a member
+ * came from contributions to the map or attendance at an organised session.
+ * Neither is participation: a member who runs four times a week and never edits
+ * the map is invisible, and `/klasirane?sport=football` — which reads like "who
+ * plays football" — actually ranks who EDITED football pitches.
+ *
+ * IT AWARDS NO POINTS, by operator decision of 2026-07-26. `points_ledger` is
+ * contribution-scoped and was hardened against farming before anything ranked
+ * it; a self-reported number cannot be given that standing without handing the
+ * strongest incentive in the product to whoever will type the largest figure.
+ * There is deliberately no FK from here to `points_ledger` and no new
+ * `points_event` value — which also means `CAMPAIGN_EVENT_KINDS` (a SUBTRACTIVE
+ * filter, blocker 19 of the engagement plan) is untouched and no campaign can
+ * silently score zero.
+ *
+ * THIS TABLE IS THE HOT PATH and is deliberately narrow. Heart rate, calories
+ * and GPS routes are real requirements (operator decision 2026-07-26) but live
+ * in `training_metrics` and `training_routes`, one row each, keyed here. Three
+ * consequences, all of them the point: every board, division and campaign reads
+ * only this table and therefore cannot expose them; withdrawing consent deletes
+ * those rows without destroying a member's training history; and the open-data
+ * layer cannot reach them even by accident, because a column that is not on this
+ * table cannot be declared on a dataset that reads it.
+ */
+export const trainingLogs = pgTable(
+  'training_logs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /**
+     * A slug from `CANONICAL_SPORTS`. Text rather than an enum, matching
+     * `facilities.sport_types`: the vocabulary lives in lib/src/sports.ts and
+     * grows, and a new sport must not require a migration. Validated by
+     * `normalizeTraining` and pinned by a test.
+     */
+    sport: text('sport').notNull(),
+    startedAt: timestamptz('started_at').notNull(),
+    /**
+     * The civil Sofia DAY, computed in TypeScript by `bucketKeyFor` and stored.
+     *
+     * Not derived in SQL, and this is the load-bearing reason:
+     * `timezone('Europe/Sofia', started_at)` is STABLE rather than IMMUTABLE, so
+     * Postgres will not index it, and every per-day board would degrade into a
+     * sequential scan. It also guarantees a training day, a streak day and a
+     * division week agree, because all three come from the same function.
+     */
+    sofiaDay: date('sofia_day').notNull(),
+    durationS: integer('duration_s').notNull(),
+    /** Null for sports where distance is meaningless — climbing, football, gym. */
+    distanceM: integer('distance_m'),
+    /** Terrain, not health data: elevation gain is a property of the route. */
+    elevationM: integer('elevation_m'),
+    /**
+     * The mapped place, when there is one. SET NULL rather than RESTRICT: a
+     * member's own history must not be what blocks an admin from removing a
+     * facility that turned out not to exist, and `municipality_id` survives to
+     * keep the row useful to a city board.
+     */
+    facilityId: uuid('facility_id').references(() => facilities.id, { onDelete: 'set null' }),
+    municipalityId: integer('municipality_id').references(() => municipalities.id, {
+      onDelete: 'set null',
+    }),
+    source: trainingSource('source').notNull().default('manual'),
+    /** The provider's own id, for import dedupe. Null for a manual entry. */
+    externalId: text('external_id'),
+    evidence: trainingEvidence('evidence').notNull().default('self_reported'),
+    note: text('note'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // Every streak or per-day fold over one member.
+    index('training_logs_user_day_idx').on(t.userId, t.sofiaDay),
+    // "My training", which sorts by INSTANT rather than by day: `(user_id,
+    // sofia_day)` cannot answer `ORDER BY started_at DESC LIMIT 50`, so without
+    // this Postgres fetches a member's entire history and sorts it on every
+    // page load. Both indexes are needed; neither is redundant.
+    index('training_logs_user_started_idx').on(t.userId, t.startedAt.desc()),
+    // The participation board for ONE sport.
+    index('training_logs_sport_day_idx').on(t.sport, t.sofiaDay),
+    // The ALL-SPORTS board and the board's own filter menu, both of which filter
+    // on the day alone. `(sport, sofia_day)` cannot serve a range with no
+    // leading-column predicate, so without this the default view of a public
+    // page sequential-scans the fastest-growing table in the schema, forever.
+    index('training_logs_day_sport_idx').on(t.sofiaDay, t.sport),
+    // City boards and "who participates where".
+    index('training_logs_municipality_day_idx').on(t.municipalityId, t.sofiaDay),
+    // `facilityParticipation` filters facility AND day; the day belongs in the
+    // index or every candidate row is a heap fetch. Still a valid prefix for the
+    // ON DELETE SET NULL cascade lookup from `facilities`.
+    index('training_logs_facility_day_idx').on(t.facilityId, t.sofiaDay),
+    /**
+     * IMPORT IDEMPOTENCY, SCOPED TO THE MEMBER.
+     *
+     * `user_id` leads for a reason that is a data-corruption bug without it.
+     * External ids are provider-local and frequently device-local — Apple Health
+     * and Google Fit hand out per-device ordinals, so two members can genuinely
+     * present the same `(source, external_id)`. Keyed on the pair alone, member
+     * B's import would take the ON CONFLICT path against member A's row and
+     * overwrite A's sport, time, duration and place while leaving `user_id` as
+     * A: silent cross-account corruption of a training history that feeds public
+     * boards. B would then be handed A's row id and their route and metrics
+     * writes would match zero rows and vanish without an error.
+     *
+     * PARTIAL, because every manual row has a NULL external_id and NULLs do not
+     * collide — but two syncs of the same activity must. Same discipline as
+     * `points_ledger.idempotency_key`: without it, a member who reconnects their
+     * watch doubles their entire history and every board they appear on.
+     */
+    uniqueIndex('training_logs_user_source_external_unique')
+      .on(t.userId, t.source, t.externalId)
+      .where(sql`${t.externalId} IS NOT NULL`),
+    check(
+      'training_logs_duration_sane',
+      sql`${t.durationS} BETWEEN 60 AND 86400`,
+    ),
+    /**
+     * `sport` is free text on a PUBLIC surface — `participationSports` returns
+     * it raw as the board's own filter menu. It is text rather than an enum so
+     * the vocabulary can grow without a migration, but "not an enum" is not a
+     * reason to be unbounded: `note` is capped at 500 for exactly this reason.
+     */
+    check('training_logs_sport_shape', sql`${t.sport} ~ '^[a-z_]{2,40}$'`),
+    check(
+      'training_logs_distance_sane',
+      sql`${t.distanceM} IS NULL OR ${t.distanceM} BETWEEN 0 AND 1000000`,
+    ),
+    check(
+      'training_logs_elevation_sane',
+      sql`${t.elevationM} IS NULL OR ${t.elevationM} BETWEEN 0 AND 30000`,
+    ),
+    check('training_logs_note_len', sql`${t.note} IS NULL OR char_length(${t.note}) <= 500`),
+    /**
+     * Both time columns bounded at BOTH ends, not merely finite.
+     *
+     * `'infinity'::timestamptz` is legal: such a row would pin itself to the top
+     * of `ORDER BY started_at DESC` forever, and `-infinity` would win the
+     * board's `min(started_at)` tie-break permanently. `sofia_day` needs an
+     * upper bound for the same reason — every board window is `sofia_day >= X`
+     * with no upper bound, so a far-future row sits inside every rolling window
+     * for good. `normalizeTraining` bounds both in TypeScript; that is the
+     * layer 0014 exists to say is not sufficient on its own.
+     */
+    check('training_logs_started_finite', sql`isfinite(${t.startedAt})`),
+    check(
+      'training_logs_day_sane',
+      sql`isfinite(${t.sofiaDay}) AND ${t.sofiaDay} BETWEEN DATE '2020-01-01' AND DATE '2100-01-01'`,
+    ),
+    /**
+     * THE EVIDENCE RULE, structural rather than advisory — the same shape
+     * `play_session_checkins_only_qr_scores` gives check-ins.
+     *
+     * A manual entry is `self_reported` and can be nothing else; an import is
+     * `connected_app` and can be nothing else. The first draft of this CHECK
+     * said `evidence IN ('connected_app', 'qr_verified')` for a non-manual
+     * source, which permitted precisely the thing the comment beside it claimed
+     * to prevent: any importer could assert the top tier by passing a nicer
+     * string, and a prize surface filtering on that tier would have been
+     * filtering on an assertion. The tier is now pinned exactly.
+     */
+    check(
+      'training_logs_evidence_matches_source',
+      sql`(${t.source} = 'manual' AND ${t.evidence} = 'self_reported')
+          OR (${t.source} <> 'manual' AND ${t.evidence} = 'connected_app')`,
+    ),
+    /** The dedupe key and the source must agree, or a re-sync cannot be idempotent. */
+    check(
+      'training_logs_external_id_matches_source',
+      sql`(${t.source} = 'manual' AND ${t.externalId} IS NULL)
+          OR (${t.source} <> 'manual' AND ${t.externalId} IS NOT NULL)`,
+    ),
+  ],
+);
+
+/**
+ * GPS routes, imported from a connected app (operator decision 2026-07-26).
+ *
+ * A SEPARATE TABLE, AND THAT IS THE WHOLE DESIGN. A route is the most sensitive
+ * thing this product has ever stored: a line that starts at somebody's home most
+ * mornings is a home address plus a schedule. Keeping it out of `training_logs`
+ * means the participation board, the divisions, the campaigns and the open-data
+ * layer read a table that physically does not contain it — protection by
+ * structure rather than by every future author remembering.
+ *
+ * WRITING HERE REQUIRES `users.training_route_consent_at` to be set. That is
+ * enforced by the writer in db/src/training.ts and asserted by a test; it is not
+ * a CHECK only because a CHECK cannot reach another table without a trigger, and
+ * this schema's standing preference is an application rule with a test over a
+ * trigger that fires inside an erasure cascade.
+ *
+ * WITHDRAWING CONSENT DELETES THESE ROWS and leaves the training history intact
+ * — the member keeps their record of having trained, and the route is gone.
+ *
+ * NEVER PUBLIC. There is no public read path, no heatmap and no export; adding
+ * one is a new operator decision, not a new query.
+ */
+export const trainingRoutes = pgTable(
+  'training_routes',
+  {
+    trainingLogId: uuid('training_log_id')
+      .primaryKey()
+      .references(() => trainingLogs.id, { onDelete: 'cascade' }),
+    /** EPSG:4326, like everything geospatial here. GIST index is mandatory. */
+    geom: geomLineString4326('geom').notNull(),
+    pointCount: integer('point_count').notNull(),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    /**
+     * NO GIST INDEX, and that is deliberate rather than forgotten.
+     *
+     * Nothing issues a spatial predicate against this table: the only reads are
+     * by primary key and the consent-withdrawal DELETE. A GIST index would
+     * therefore be pure write amplification on every import — and it is
+     * precisely the index that would make a public heatmap cheap, which is the
+     * one feature this table's header says needs a new operator decision. Not
+     * having it keeps the cost of that decision visible.
+     */
+    // `point_count` must describe the geometry rather than merely accompany it;
+    // ST_NumPoints is IMMUTABLE, so the claim can be checked rather than trusted.
+    check(
+      'training_routes_point_count_matches',
+      sql`${t.pointCount} BETWEEN 2 AND 100000 AND ST_NumPoints(${t.geom}) = ${t.pointCount}`,
+    ),
+    // The typmod pins the SRID but not the coordinate range: 4326 happily stores
+    // a longitude of 5000.
+    check(
+      'training_routes_coords_sane',
+      sql`ST_XMin(${t.geom}) >= -180 AND ST_XMax(${t.geom}) <= 180
+          AND ST_YMin(${t.geom}) >= -90 AND ST_YMax(${t.geom}) <= 90`,
+    ),
+  ],
+);
+
+/**
+ * Heart rate and calories from a connected app (operator decision 2026-07-26).
+ *
+ * SPECIAL-CATEGORY DATA. Heart rate and derived calorie burn are health data
+ * under GDPR Art. 9, which needs a different lawful basis from everything else
+ * in this schema: EXPLICIT consent, demonstrable, and withdrawable. That is why
+ * it is a separate table gated on `users.training_health_consent_at` rather than
+ * four more nullable columns on `training_logs` — those columns would travel
+ * into every SELECT that ever touches a training, and the consent question would
+ * have to be re-asked by every author forever.
+ *
+ * Elevation gain is deliberately NOT here: it describes the terrain, not the
+ * body, so it sits on `training_logs` where boards can use it.
+ *
+ * NOTHING SCORES ON THIS. No board, division or campaign reads this table, and
+ * effort-adjusted scoring would be a new operator decision — one that would also
+ * make a prize depend on health data, which is a materially different promise.
+ */
+export const trainingMetrics = pgTable(
+  'training_metrics',
+  {
+    trainingLogId: uuid('training_log_id')
+      .primaryKey()
+      .references(() => trainingLogs.id, { onDelete: 'cascade' }),
+    avgHeartRate: integer('avg_heart_rate'),
+    maxHeartRate: integer('max_heart_rate'),
+    caloriesKcal: integer('calories_kcal'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      'training_metrics_avg_hr_sane',
+      sql`${t.avgHeartRate} IS NULL OR ${t.avgHeartRate} BETWEEN 20 AND 260`,
+    ),
+    check(
+      'training_metrics_max_hr_sane',
+      sql`${t.maxHeartRate} IS NULL OR ${t.maxHeartRate} BETWEEN 20 AND 260`,
+    ),
+    check(
+      'training_metrics_calories_sane',
+      sql`${t.caloriesKcal} IS NULL OR ${t.caloriesKcal} BETWEEN 0 AND 30000`,
+    ),
+    /**
+     * An all-NULL row is not a metrics record, it is an Art. 9 processing record
+     * that asserts health data was stored and contains none. It also makes
+     * `has_metrics` true on the member's own screen, telling them something
+     * about their data that is not so.
+     */
+    check(
+      'training_metrics_not_empty',
+      sql`num_nonnulls(${t.avgHeartRate}, ${t.maxHeartRate}, ${t.caloriesKcal}) > 0`,
+    ),
+    check(
+      'training_metrics_max_ge_avg',
+      sql`${t.maxHeartRate} IS NULL OR ${t.avgHeartRate} IS NULL
+          OR ${t.maxHeartRate} >= ${t.avgHeartRate}`,
+    ),
+  ],
+);
+
+export type TrainingLog = typeof trainingLogs.$inferSelect;
+export type NewTrainingLog = typeof trainingLogs.$inferInsert;
+export type TrainingRoute = typeof trainingRoutes.$inferSelect;
+export type TrainingMetric = typeof trainingMetrics.$inferSelect;
+export type TrainingSourceValue = (typeof trainingSource.enumValues)[number];
+export type TrainingEvidenceValue = (typeof trainingEvidence.enumValues)[number];
 
 export type DivisionGroup = typeof divisionGroups.$inferSelect;
 export type NewDivisionGroup = typeof divisionGroups.$inferInsert;

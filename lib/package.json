@@ -21,6 +21,7 @@
     "./slug": "./src/slug.ts",
     "./sports": "./src/sports.ts",
     "./storage": "./src/storage/index.ts",
+    "./training": "./src/training/index.ts",
     "./csv": "./src/csv.ts",
     "./cities": "./src/cities.ts"
   },

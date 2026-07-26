@@ -4,6 +4,7 @@ import {
   leaderboardCities,
   memberDivision,
   memberStanding,
+  sportParticipationBoard,
   weekStandings,
 } from '@sportkarta/db';
 import { divisionWeekStart } from '@sportkarta/lib/divisions';
@@ -13,6 +14,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { DivisionLadder } from '@/components/passport/division-ladder';
 import { LeaderboardTable } from '@/components/passport/leaderboard-table';
+import { ParticipationTable } from '@/components/passport/participation-table';
 import { getCurrentUser } from '@/lib/auth-session';
 import { resolveScope, scopeHref } from '@/lib/leaderboard';
 import { cityDisplayName, loadCityCatalog } from '@/lib/places';
@@ -60,8 +62,9 @@ export default async function LeaderboardPage({
   // Sport labels come from the existing `Sport` namespace rather than a
   // duplicate set of 28 keys under `Leaderboard` — two catalogues of the same
   // vocabulary drift, and the map filters already own this one.
-  const [t, sportName] = await Promise.all([
+  const [t, tp, sportName] = await Promise.all([
     getTranslations('Leaderboard'),
+    getTranslations('Participation'),
     getTranslations('Sport'),
   ]);
   const query = await searchParams;
@@ -106,6 +109,27 @@ export default async function LeaderboardPage({
   const ladder = myDivision
     ? await weekStandings(getDb(), week, { groupId: myDivision.groupId })
     : [];
+
+  /**
+   * The participation board — who actually TURNS UP, and for what.
+   *
+   * This is the board the sport filter below always looked like it was showing
+   * and never was: that filter narrows CONTRIBUTIONS by the sport of the
+   * facility contributed to, so it answers "who edited football pitches". Both
+   * boards are now on the page, each under a heading that says which question it
+   * answers, and the sport scope is shared so the two agree about what "football"
+   * means.
+   *
+   * Rolling 90 days rather than all time: a participation board is a claim about
+   * who is active, and an all-time one would freeze early adopters at the top
+   * exactly the way `monthStart`'s comment says the contributions board must not.
+   */
+  const participation = await sportParticipationBoard(getDb(), {
+    sport: resolved.sport ?? undefined,
+    municipalityId: resolved.city?.id,
+    days: 90,
+    limit: 50,
+  });
 
   const heading = resolved.city
     ? t('headingCity', { city: cityDisplayName(resolved.city.nameBg, resolved.city.nameEn, locale) })
@@ -195,7 +219,33 @@ export default async function LeaderboardPage({
         </div>
       </nav>
 
-      <LeaderboardTable entries={entries} />
+      {/*
+        TWO BOARDS, EACH SAYING WHICH QUESTION IT ANSWERS. Participation leads,
+        because "who plays this sport" is what a visitor reading a sport filter
+        is actually asking; contributions follow under their own heading, so the
+        older board stops being silently mistaken for the newer one.
+      */}
+      <section className="space-y-2">
+        <h2 className="text-h3 font-extrabold tracking-tight text-ink">
+          {tp('sectionTitle')}
+        </h2>
+        <p className="text-body-sm text-ink-soft">{tp('intro')}</p>
+        <ParticipationTable entries={participation} />
+        <p className="text-caption text-text-muted">
+          {tp('logPrompt')}{' '}
+          <Link href="/trenirovki" className="font-medium text-link hover:text-link-hover">
+            {tp('logLink')}
+          </Link>
+        </p>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-h3 font-extrabold tracking-tight text-ink">
+          {t('contributionsSectionTitle')}
+        </h2>
+        <p className="text-body-sm text-ink-soft">{t('contributionsSectionBody')}</p>
+        <LeaderboardTable entries={entries} />
+      </section>
 
       {ladder.length === 0 && (
         <section className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm text-body-sm">

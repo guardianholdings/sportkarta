@@ -32,6 +32,118 @@ re-confirming before you edit the file.
 | 8 — Person-scoped sharing (C2c, C4, C3) | ✅ **done 2026-07-26** | Card, share payload and the Viber plain-text week. C6's text half deferred. |
 | 9 — Divisions (B2) | ✅ **done 2026-07-26** | Migration `0026`, pure core, rollover job, ladder on `/klasirane`, and the **consent registry** gate §7 asked for. No separate bootstrap job. |
 | 10 — Later | not started | B4 per-capita city board · C5 recap · B5 clubs · B3b volunteering (blocked on blocker 19). |
+| **T — Training logs** | ✅ **done 2026-07-26** | Not in the original plan. Migration `0027`, `/trenirovki`, the sport participation board, and the seams for Strava/Garmin/Apple Health. |
+
+### Training logs (T) — added 2026-07-26, outside the original plan
+
+**Why it exists: the sport filter was answering a different question from the one
+it looked like it was asking.** `/klasirane?sport=football` narrows
+`points_ledger` by the sport of the FACILITY a contribution was about, so it
+ranks who edited football pitches. It works — the heading changes and rows
+filter — but only 5 of 29 sports had any ranked points in dev and most had zero
+*eligible* members, so 24 of 29 pills rendered an empty board and the whole
+control read as dead. No amount of fixing that query makes it answer "who plays
+football", because the dataset does not contain participation. That was the
+missing dataset.
+
+**Four operator decisions, 2026-07-26.** Training awards **no points** (its own
+board, its own unit); the board ranks **session count**; heart rate and calories
+are stored **behind explicit opt-in**; and **full GPS routes** are stored from
+imports. The last two were chosen against the recommendation, with the
+consequences stated in the question — so the build's job was to make them
+survivable rather than to re-litigate them.
+
+**The survivability answer is three tables, not one.** `training_logs` is the
+hot, narrow table every board and future competition reads. `training_routes`
+(PostGIS LineString) and `training_metrics` (heart rate, calories) hold the
+sensitive halves, one row each, reachable only through two writers that THROW
+without a recorded consent timestamp. Three consequences, all of them the point:
+a future author writing a new board cannot leak a route, because the table they
+select from does not contain one; withdrawing consent deletes those rows while
+the training history stands; and neither table is on the open-data
+`ALLOWED_RELATIONS` allowlist, which is default-deny and now has a test saying so.
+
+**Consent is two timestamps, not one boolean.** Timestamps because the Art. 9
+obligation is to *demonstrate* consent, and "true" answers none of the questions
+a regulator or the member would ask. Two, because a member may reasonably want
+their route and not their heart rate — bundling two Art. 9 questions into one
+control is what makes consent non-specific and therefore invalid.
+
+**Evidence is structural, following migration 0014.** A manual entry is
+`self_reported` and can be nothing else; an import is `connected_app` and can be
+nothing else, by CHECK. This is what lets a future prize surface require a tier
+instead of trusting whoever wrote the query.
+
+**Migration `0027` came back from `db-migration-reviewer` with THREE blocking
+findings, all real:**
+
+1. **A cross-account data-corruption path.** The import dedupe key was
+   `(source, external_id)` with no member. External ids are provider-local and
+   often *device*-local — Apple Health and Google Fit hand out per-device
+   ordinals — so two members genuinely collide. Member B's import would have
+   taken the ON CONFLICT path against member A's row, overwritten A's sport,
+   time, duration and place while leaving `user_id` as A, then handed B the id of
+   A's row, after which B's route and metrics writes would have matched zero rows
+   and vanished with no error. The key now leads with `user_id`, and a test
+   reproduces the exact collision.
+2. **The evidence CHECK permitted what its own comment forbade.** Written as
+   `evidence IN ('connected_app','qr_verified')` for any non-manual source, it
+   let any importer assert the top tier by passing a nicer string — while the
+   comment beside it and the column COMMENT both claimed the opposite, and
+   `minEvidence: 'qr_verified'` was documented for prize surfaces. Pinned exactly
+   now. Coupled to that: `qr_verified` was **unreachable** (no source could grant
+   it), so it was removed from the enum entirely rather than shipped as a
+   permanent label — Postgres has no DROP VALUE — that silently returns an empty
+   board.
+3. **No index led with `sofia_day`,** so the default all-sports board and the
+   board's own filter menu, which filter on the day alone, would have
+   sequential-scanned the fastest-growing table in the schema on every render of
+   a public page, forever. Added while the table was empty, because a later fix
+   could not use `CREATE INDEX CONCURRENTLY` inside drizzle's transaction.
+
+Suggestions taken as well: `(user_id, started_at DESC)` so "my training" is a
+top-N scan rather than a full sort; `(facility_id, sofia_day)`; both time columns
+bounded against `infinity` and `sofia_day` bounded ABOVE (every board window is
+`>= X`, so a far-future row would sit in every rolling window forever); a shape
+CHECK on the free-text `sport`, which lands raw on a public filter menu;
+`training_metrics` refusing an all-NULL row (an Art. 9 record asserting health
+processing that holds no health data) and a max-below-average heart rate; the
+route's `point_count` checked against `ST_NumPoints` and coordinates bounded; a
+`set_updated_at` trigger; and the `users` ADD COLUMNs moved next to the FK block
+with the lock note corrected — `ADD COLUMN` takes ACCESS EXCLUSIVE on `users`,
+which is stronger than the FKs the header had blamed.
+
+**The GIST index on the route geometry was deliberately DROPPED.** Nothing issues
+a spatial predicate against `training_routes`, so it was pure write
+amplification — and it is exactly the index that would make a public heatmap
+cheap, which is the one thing that table's header says needs a new operator
+decision. Its absence keeps that cost visible.
+
+**Two claims of mine that were false and are now true rather than deleted.** The
+migration header justified enforcing consent in the application by saying a
+trigger would fire inside the erasure cascade; that is the 0006 trap for a
+DELETE-*refusing* trigger, and a BEFORE INSERT trigger would never fire during a
+cascade — the header now gives the real reason (a standing preference, which a
+future author may reverse). And two code comments claimed `/trenirovki`'s entry
+points were covered by the reachability gate; that gate is anonymous-only and
+`/trenirovki` needs auth, so a member-side reachability test was added and the
+claims are now backed.
+
+**Verified end to end in the browser**, not only by test: a training logged
+through the real form at 07:00 Sofia stored `started_at 04:00Z` with
+`sofia_day 2026-07-26` and rendered back as 07:00; it then appeared on the
+participation board under «Кой спортува» while «Кой допълва картата» stayed
+correctly empty for running. Route consent granted through the real control
+recorded a timestamp, flipped the button to «Оттегли», and left the health
+consent independently ungranted. Fixture removed afterwards.
+
+**Deliberately not built:** the actual Strava/Garmin/Apple Health OAuth and sync.
+That needs client registrations, secrets in `.env.example` and the VPS, a write
+API with real authentication (today's API keys "raise the rate limit and never
+gate access"), and a per-provider rate-limit budget. The *seams* are built and
+tested — `source`, `external_id`, member-scoped idempotent upsert, and the two
+consent-gated attach functions — so the mobile app has a contract to write
+against.
 
 ### Phase 9 (B2)
 
@@ -1095,14 +1207,15 @@ each with its generated snapshot (blocker 13).
 |---|---|---|
 | **0025** ✅ | `streak_freezes` | **Landed 2026-07-26.** Trigger decision stated in the header (there is none, and why) |
 | **0026** ✅ | `division_groups` + `division_members` | **Landed 2026-07-26.** "One group per member per week" is a composite FK + unique index, not app code — exactly as planned |
-| 0027 | `member_notifications` (shared ledger, two partial unique indexes) + notification prefs | Still deferred until mail actually ships — it is only needed by the notifier |
-| 0028 | `facility_legends` (announcement ledger; the title itself stays a live query) | Only needed once legend mail exists |
+| **0027** ✅ | `training_logs` + `training_routes` + `training_metrics` + two consent columns on `users` | **Landed 2026-07-26.** Not in the original plan — see the training-log section in the status log |
+| 0028 | `member_notifications` (shared ledger, two partial unique indexes) + notification prefs | Still deferred until mail actually ships — it is only needed by the notifier |
+| 0029 | `facility_legends` (announcement ledger; the title itself stays a live query) | Only needed once legend mail exists |
 
-> Numbering changed twice from the original plan, both times because the
+> Numbering changed three times from the original plan, every time because the
 > notification ledger kept being overtaken: it is blocked on the mail decisions
-> and has nothing to write to it, while `streak_freezes` (0025) and the division
-> tables (0026) were ready. The next migration is **0027** and will need its
-> journal `when` hand-bumped above **1785091200000**.
+> and has nothing to write to it, while `streak_freezes` (0025), the division
+> tables (0026) and the training tables (0027) were ready. The next migration is
+> **0028** and will need its journal `when` hand-bumped above **1785094800000**.
 
 **The divisions tables store MEMBERSHIP only** — no score, no rank, no outcome.
 All three are recomputable (the score from the append-only ledger, the rank by
@@ -1241,6 +1354,26 @@ for any new flag · `deploy/compose.prod.yml` updated for any worker-read variab
    overall board. A "divisions open at 10" placeholder was rejected for the
    reason D5 gives about the Local Legend crest: an absent feature must look
    absent, not failed.
+9. **Personal training logs award NO points.** They get their own board in their
+   own unit. `points_ledger` is contribution-scoped and was hardened against
+   farming before anything ranked it; a self-reported number cannot be given that
+   standing. A competition that wants to score training can do so later through
+   the campaign rules grammar without merging the two economies.
+10. **The participation board ranks SESSION COUNT.** Comparable across all 29
+    sports — a climb and a swim are both one turn-out — and not inflatable by
+    exaggerating a single entry, which matters when most rows are self-reported.
+    Minutes and distance are displayed, never ranked.
+11. **Heart rate and calories ARE stored, behind explicit opt-in** (chosen
+    against the recommendation, with the Art. 9 consequences stated). Isolated in
+    `training_metrics`, gated on `users.training_health_consent_at`, deleted on
+    withdrawal, off the open-data allowlist, and read by no board or campaign.
+    **A DPIA and a privacy-policy update are outstanding operator tasks** — they
+    are not code and were not done here.
+12. **Full GPS routes ARE stored from imports** (also chosen against the
+    recommendation). Isolated in `training_routes`, gated on
+    `users.training_route_consent_at`, deleted on withdrawal, no public read
+    path, no export, and deliberately no GIST index — the index that would make a
+    heatmap cheap is absent so that decision stays explicit.
 
 ### Still open
 

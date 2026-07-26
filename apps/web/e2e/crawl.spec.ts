@@ -41,7 +41,7 @@ const PUBLIC_ROUTES = [
   '/vhod',
 ];
 
-const MEMBER_ONLY = ['/profil', '/pasport', '/dobavi'];
+const MEMBER_ONLY = ['/profil', '/pasport', '/dobavi', '/trenirovki'];
 const MEMBER_ROUTES = [...PUBLIC_ROUTES, ...MEMBER_ONLY];
 
 const ADMIN_ONLY = [
@@ -237,6 +237,35 @@ test.describe('link crawler', () => {
     assertClean(await crawl(page, MEMBER_ROUTES));
     // A plain member reaches no admin/ambassador surface.
     await assertDenied(page, ADMIN_ONLY, 'member');
+  });
+
+  /**
+   * The member-side counterpart of the anonymous reachability test above.
+   *
+   * /trenirovki has no nav tab — the bar is already four items plus the add FAB
+   * — so it is reachable only by the links this asserts. Crawling it in
+   * MEMBER_ROUTES proves it RENDERS; this proves a member can FIND it, which is
+   * the distinction A6 was written about after /kampanii sat link-less behind a
+   * green crawl.
+   */
+  test('a member can find their training log', async ({ page }) => {
+    await signIn(page, `crawl-training-${String(Date.now())}@example.org`, /\/profil/);
+
+    const linksOn = async (route: string): Promise<string[]> => {
+      await page.goto(route, { waitUntil: 'domcontentloaded' });
+      const hrefs = await page.$$eval('a[href]', (as) =>
+        as.map((a) => a.getAttribute('href') ?? ''),
+      );
+      return hrefs.map((h) => (h.split('#')[0] ?? '').replace(/^\/en(?=\/|$)/, ''));
+    };
+
+    expect(await linksOn('/profil'), '/trenirovki must be linked from /profil').toContain(
+      '/trenirovki',
+    );
+    expect(
+      await linksOn('/klasirane'),
+      '/trenirovki must be linked from the participation board',
+    ).toContain('/trenirovki');
   });
 
   test('admin', async ({ page }) => {
