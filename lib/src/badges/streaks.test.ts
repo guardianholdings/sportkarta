@@ -228,6 +228,8 @@ describe('summarizeStreak', () => {
       current: 0,
       longest: 0,
       lastActive: null,
+      // Nothing to lose, so nothing is at risk.
+      atRisk: false,
     });
   });
 
@@ -322,10 +324,141 @@ describe('summarizeStreak', () => {
       current: 3,
       longest: 3,
       lastActive: '2026-07-22',
+      // Active TODAY, so the open period is already satisfied.
+      atRisk: false,
     });
   });
 
   it('refuses an invalid instant rather than silently bucketing NaN', () => {
     expect(() => streakBuckets([{ at: new Date('nonsense') }], 'day')).toThrow(/invalid instant/);
+  });
+});
+
+/**
+ * Streak freezes («замразяване», ENGAGEMENT.md A4).
+ *
+ * A frozen period does not break a run. Two properties matter more than the
+ * arithmetic, and both are asserted here rather than trusted:
+ *
+ *  1. A freeze BRIDGES but does not COUNT. It forgives a week you missed; it
+ *     must never manufacture one you did not show up for, because the whole
+ *     product framing is "reward showing up" (§1.2) and a streak inflated by
+ *     absence is the opposite claim.
+ *  2. With no freezes, nothing changes at all. The freeze path and the old
+ *     adjacency test are the same code (`bridged` with an empty set), so the
+ *     DST suite above is still testing the same function it always was.
+ */
+describe('streak freezes', () => {
+  const MON = (day: string): Timed => at(`${day}T09:00:00Z`);
+
+  it('bridges a missed week so the run survives', () => {
+    // Active weeks of 6 Jul and 20 Jul; the week of 13 Jul is missed but frozen.
+    const events = [MON('2026-07-06'), MON('2026-07-20')];
+    const frozen = new Set(['2026-07-13']);
+    const summary = summarizeStreak(events, 'week', {
+      now: new Date('2026-07-20T12:00:00Z'),
+      frozen,
+    });
+    expect(summary.current).toBe(2);
+    expect(summary.longest).toBe(2);
+  });
+
+  it('does NOT count the frozen week toward the run', () => {
+    // The decisive assertion: two weeks of real activity with one frozen gap is
+    // a streak of TWO, not three. A freeze is forgiveness, not attendance.
+    const events = [MON('2026-07-06'), MON('2026-07-20')];
+    const summary = summarizeStreak(events, 'week', {
+      now: new Date('2026-07-20T12:00:00Z'),
+      frozen: new Set(['2026-07-13']),
+    });
+    expect(summary.current).toBe(2);
+  });
+
+  it('breaks the run when the missed week is NOT frozen', () => {
+    const events = [MON('2026-07-06'), MON('2026-07-20')];
+    const summary = summarizeStreak(events, 'week', {
+      now: new Date('2026-07-20T12:00:00Z'),
+    });
+    expect(summary.current).toBe(1);
+    expect(summary.longest).toBe(1);
+  });
+
+  it('bridges two consecutive frozen weeks', () => {
+    const events = [MON('2026-06-29'), MON('2026-07-20')];
+    const summary = summarizeStreak(events, 'week', {
+      now: new Date('2026-07-20T12:00:00Z'),
+      frozen: new Set(['2026-07-06', '2026-07-13']),
+    });
+    expect(summary.current).toBe(2);
+  });
+
+  it('does not bridge a gap where only SOME of the missed weeks are frozen', () => {
+    const events = [MON('2026-06-29'), MON('2026-07-20')];
+    const summary = summarizeStreak(events, 'week', {
+      now: new Date('2026-07-20T12:00:00Z'),
+      frozen: new Set(['2026-07-06']), // 13 Jul still missing
+    });
+    expect(summary.current).toBe(1);
+  });
+
+  it('keeps a run alive when the frozen week is the one just gone', () => {
+    // Last activity two weeks ago, last week frozen, this week still open: the
+    // member has not broken anything yet.
+    const events = [MON('2026-07-06')];
+    const summary = summarizeStreak(events, 'week', {
+      now: new Date('2026-07-22T12:00:00Z'), // week of 20 Jul, still open
+      frozen: new Set(['2026-07-13']),
+    });
+    expect(summary.current).toBe(1);
+    expect(summary.atRisk).toBe(true);
+  });
+
+  it('changes nothing when the freeze set is empty', () => {
+    const events = [MON('2026-07-06'), MON('2026-07-13'), MON('2026-07-20')];
+    const now = new Date('2026-07-20T12:00:00Z');
+    expect(summarizeStreak(events, 'week', { now })).toEqual(
+      summarizeStreak(events, 'week', { now, frozen: new Set() }),
+    );
+  });
+});
+
+describe('atRisk', () => {
+  it('is true when the streak is alive but the open period is still empty', () => {
+    const events = [at('2026-07-21T09:00:00Z')]; // yesterday
+    const summary = summarizeStreak(events, 'day', {
+      now: new Date('2026-07-22T12:00:00Z'),
+    });
+    expect(summary.current).toBe(1);
+    expect(summary.atRisk).toBe(true);
+  });
+
+  it('is false once the member has been active in the open period', () => {
+    const events = [at('2026-07-21T09:00:00Z'), at('2026-07-22T09:00:00Z')];
+    const summary = summarizeStreak(events, 'day', {
+      now: new Date('2026-07-22T12:00:00Z'),
+    });
+    expect(summary.atRisk).toBe(false);
+  });
+
+  it('is false for a streak that is already broken — nothing left to lose', () => {
+    const events = [at('2026-07-10T09:00:00Z')];
+    const summary = summarizeStreak(events, 'day', {
+      now: new Date('2026-07-22T12:00:00Z'),
+    });
+    expect(summary.current).toBe(0);
+    expect(summary.atRisk).toBe(false);
+  });
+
+  it('is never true while current is zero', () => {
+    fc.assert(
+      fc.property(fc.array(fc.integer({ min: 0, max: 400 }), { maxLength: 30 }), (offsets) => {
+        const base = Date.UTC(2026, 0, 1, 9, 0, 0);
+        const events = offsets.map((d) => ({ at: new Date(base + d * 86_400_000) }));
+        const summary = summarizeStreak(events, 'day', {
+          now: new Date(base + 401 * 86_400_000),
+        });
+        return summary.current > 0 || !summary.atRisk;
+      }),
+    );
   });
 });

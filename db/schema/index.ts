@@ -2012,3 +2012,75 @@ export type FacilityEdit = typeof facilityEdits.$inferSelect;
 export type NewFacilityEdit = typeof facilityEdits.$inferInsert;
 export type FacilityReport = typeof facilityReports.$inferSelect;
 export type NewFacilityReport = typeof facilityReports.$inferInsert;
+
+/**
+ * Weeks a member missed that do not break their streak («замразяване»,
+ * ENGAGEMENT.md A4).
+ *
+ * NOT A BALANCE, AND DELIBERATELY SO. CLAUDE.md fixes the points economy as
+ * earning-only with no spending mechanics, and a freeze the member holds and
+ * spends would be exactly the mechanic that rule excludes. A row here is
+ * forgiveness the SYSTEM applied on the member's behalf, capped per rolling
+ * year — nothing is bought, held or consumed, and the copy must describe it as
+ * applied rather than as something to use up.
+ *
+ * WEEKS ONLY, by CHECK rather than by convention. A day-streak freeze would be
+ * the daily loss-pressure loop docs/ENGAGEMENT.md §3 rejects outright (Octalysis
+ * Core Drive 8, with minors named as a protected group in the EU Digital
+ * Fairness Act). Making the unit a constraint means a later caller cannot widen
+ * the mechanic to days by passing a different string.
+ *
+ * The row is the whole state: `lib/src/badges/streaks.ts` stays pure and takes
+ * the set of frozen keys as a fold parameter, so the DST suite still tests real
+ * transitions with no database in sight.
+ *
+ * NO account_deletions COUNTER, following `calendar_tokens` — the schema's ONLY
+ * uncounted user-scoped cascade, justified in apps/web/lib/account-deletion.ts
+ * as "one credential row, not a record of anything the member did". The same
+ * reading applies here: a freeze is system-applied, regenerable state. Note
+ * `user_badges` DOES carry a counter (`badges_erased`, added by 0010) — do not
+ * cite it as precedent for omitting one. The CASCADE below is the whole erasure
+ * story either way.
+ */
+export const streakFreezes = pgTable(
+  'streak_freezes',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** Always 'week'. Pinned by a CHECK — see the header. */
+    unit: text('unit').notNull().default('week'),
+    /**
+     * The Monday that starts the frozen week, as a civil Sofia date.
+     *
+     * A DATE, not a timestamp: this is a calendar position, and the one place
+     * an instant becomes one is `bucketKeyFor`. Storing an instant would invite
+     * a reader to re-derive the week in SQL with date_trunc, which agrees with
+     * the TypeScript today only by coincidence.
+     */
+    bucketKey: date('bucket_key').notNull(),
+    /** When the system applied it. Never shown as "spent". */
+    appliedAt: timestamptz('applied_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // One freeze per member per period: the fold reads a SET, and a duplicate
+    // would let a retry of the grant job quietly consume two of the year's cap.
+    uniqueIndex('streak_freezes_user_unit_bucket_unique').on(t.userId, t.unit, t.bucketKey),
+    // Weeks only — the mechanic cannot be widened to days by a caller.
+    check('streak_freezes_week_only', sql`${t.unit} = 'week'`),
+    // A week key is a Monday. Postgres' ISO dow: 1 = Monday.
+    // `isfinite` FIRST: since PG14 `extract(isodow from 'infinity'::date)` is
+    // NULL, and `NULL = 1` is NULL, which a CHECK ACCEPTS. Without this an
+    // infinite key would sit here forever, match no key the fold looks up (so
+    // the freeze silently does nothing) and still consume one of the year's
+    // allowance. Same defect 0024 was written to close.
+    check(
+      'streak_freezes_bucket_is_monday',
+      sql`isfinite(${t.bucketKey}) AND extract(isodow from ${t.bucketKey}) = 1`,
+    ),
+  ],
+);
+
+export type StreakFreeze = typeof streakFreezes.$inferSelect;
+export type NewStreakFreeze = typeof streakFreezes.$inferInsert;

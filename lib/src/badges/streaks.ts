@@ -61,6 +61,14 @@ export interface StreakSummary {
   longest: number;
   /** Most recent active period, or null when there is no activity at all. */
   lastActive: BucketKey | null;
+  /**
+   * The run is alive but the period currently open is still empty — it ends
+   * unless something happens before this period closes.
+   *
+   * False for a dead streak (nothing left to lose) and false once the member
+   * has been active in the open period. Never true when `current` is 0.
+   */
+  atRisk: boolean;
 }
 
 const CIVIL_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -122,10 +130,39 @@ export function previousBucketKey(key: BucketKey, unit: StreakUnit): BucketKey {
  * one bucket, which is the entire point (playing twice on Tuesday is not a
  * two-day streak).
  */
+const NO_FREEZES: ReadonlySet<BucketKey> = new Set();
+
+/**
+ * Is the run from `from` to `to` unbroken — either adjacent, or separated only
+ * by periods that are frozen?
+ *
+ * With an empty freeze set this is exactly the old adjacency test, which is why
+ * adding freezes changed no existing behaviour: for neighbouring periods the
+ * loop never runs and the answer is the same one `key === nextBucketKey(previous)`
+ * gave.
+ *
+ * Terminates because `nextBucketKey` strictly advances and keys sort
+ * chronologically (that is the whole reason they are `YYYY-MM-DD` strings).
+ */
+function bridged(
+  from: BucketKey,
+  to: BucketKey,
+  unit: StreakUnit,
+  frozen: ReadonlySet<BucketKey>,
+): boolean {
+  let cursor = nextBucketKey(from, unit);
+  while (cursor < to) {
+    if (!frozen.has(cursor)) return false;
+    cursor = nextBucketKey(cursor, unit);
+  }
+  return cursor === to;
+}
+
 export function streakBuckets(
   events: readonly Timed[],
   unit: StreakUnit,
   timeZone: string = SOFIA_TZ,
+  frozen: ReadonlySet<BucketKey> = NO_FREEZES,
 ): StreakBucket[] {
   const earliest = new Map<BucketKey, number>();
   for (const event of events) {
@@ -141,7 +178,12 @@ export function streakBuckets(
   let previous: BucketKey | null = null;
   let run = 0;
   for (const key of keys) {
-    run = previous !== null && key === nextBucketKey(previous, unit) ? run + 1 : 1;
+    // A frozen period BRIDGES the run without COUNTING toward it: `run + 1` is
+    // the one active period just found, never the frozen gap as well. A freeze
+    // forgives a week you missed; it must not manufacture one you did not show
+    // up for, which is the whole framing of the product (ENGAGEMENT.md §1.2 —
+    // reward showing up, not performance).
+    run = previous !== null && bridged(previous, key, unit, frozen) ? run + 1 : 1;
     buckets.push({ key, firstAt: new Date(earliest.get(key) as number), runLength: run });
     previous = key;
   }
@@ -152,6 +194,20 @@ export interface StreakOptions {
   timeZone?: string;
   /** "Now" for the liveness question. Defaults to the real clock. */
   now?: Date;
+  /**
+   * Periods that do not break a run even though nothing happened in them
+   * («замразяване», ENGAGEMENT.md A4).
+   *
+   * NOT A BALANCE THE MEMBER SPENDS. CLAUDE.md is explicit that the points
+   * economy is earning-only with no spending mechanics, and a freeze you hold
+   * and consume would be exactly that. It is forgiveness the system applies on
+   * the member's behalf, capped per rolling year, and the copy must describe it
+   * as APPLIED rather than as something to use up.
+   *
+   * The caller supplies the set — this module stays pure and stateless, so the
+   * tests can still pin real DST transitions with no database in sight.
+   */
+  frozen?: ReadonlySet<BucketKey>;
 }
 
 /**
@@ -169,14 +225,32 @@ export function summarizeStreak(
   options: StreakOptions = {},
 ): StreakSummary {
   const timeZone = options.timeZone ?? SOFIA_TZ;
-  const buckets = streakBuckets(events, unit, timeZone);
-  if (buckets.length === 0) return { unit, current: 0, longest: 0, lastActive: null };
+  const frozen = options.frozen ?? NO_FREEZES;
+  const buckets = streakBuckets(events, unit, timeZone, frozen);
+  if (buckets.length === 0) {
+    return { unit, current: 0, longest: 0, lastActive: null, atRisk: false };
+  }
 
   const longest = buckets.reduce((best, bucket) => Math.max(best, bucket.runLength), 0);
   const last = buckets[buckets.length - 1] as StreakBucket;
 
   const nowKey = bucketKeyFor(options.now ?? new Date(), unit, timeZone);
-  const alive = last.key === nowKey || last.key === previousBucketKey(nowKey, unit);
+  // `bridged` subsumes the old "this period or the previous one" test: for the
+  // immediately preceding period there is nothing in between, so it is true
+  // with no freezes at all. Frozen periods simply extend how far back the last
+  // activity may sit and still be alive.
+  const alive = last.key === nowKey || bridged(last.key, nowKey, unit, frozen);
 
-  return { unit, current: alive ? last.runLength : 0, longest, lastActive: last.key };
+  return {
+    unit,
+    current: alive ? last.runLength : 0,
+    longest,
+    lastActive: last.key,
+    // Alive, but nothing in the period that is currently open — so the run ends
+    // unless something happens before this period closes. Derived HERE rather
+    // than by a caller comparing dates, because `bucketKeyFor` is the one place
+    // an instant is allowed to become a calendar position, and "is my streak in
+    // danger" is a question about Sofia's calendar.
+    atRisk: alive && last.key !== nowKey,
+  };
 }

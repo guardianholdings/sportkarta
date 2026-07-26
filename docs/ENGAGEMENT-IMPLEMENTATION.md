@@ -25,7 +25,61 @@ re-confirming before you edit the file.
 | 1 — Show the number (A2) | ✅ **done 2026-07-26** | Verified in-browser (bg + en) and by the QR + contributions e2e suites. |
 | 2 — Instrument + framing rule (C1, C7) | ✅ **done 2026-07-26** | 9 events across 8 files, closed vocabulary, privacy copy updated. |
 | 3 — Badge evaluation off the render path (A1) | ✅ **done 2026-07-26** | **No migration needed.** Verified end-to-end against the real worker + database. |
-| 4 onward | not started | |
+| 4 — Streak freezes + at-risk (A4) | 🟡 **engine + schema done 2026-07-26** | Pure fold and migration `0025` landed and applied. **Granting job, read wiring and UI still to do.** |
+| 5 onward | not started | |
+
+### Phase 4, so far
+
+**The pure engine is done and is the hard part.** `streakBuckets`/`summarizeStreak`
+take an optional set of frozen week keys, and `StreakSummary` gained `atRisk`.
+Three decisions, each now enforced rather than documented:
+
+- **A frozen week BRIDGES but does not COUNT.** Two active weeks with a frozen gap
+  is a streak of *two*, not three. A freeze forgives a week you missed; it must
+  never manufacture one you did not show up for, which is the opposite of the
+  product's whole framing.
+- **Weeks only, by CHECK.** A day-streak freeze would be the daily loss-pressure
+  loop §3 rejects outright. `streak_freezes_week_only` means a caller cannot
+  widen the mechanic by passing a different string.
+- **A cap, not a balance.** CLAUDE.md fixes the economy as earning-only with no
+  spending mechanics, so a freeze cannot be a currency the member holds and
+  spends. It is forgiveness the system applies, capped per rolling year. The copy
+  must say *applied*, never *used up*.
+
+`bridged()` generalises the old adjacency test — with an empty freeze set it is
+the identical function, which is why the DST suite still passes unchanged and is
+still testing what it always tested.
+
+**Migration `0025` went through `db-migration-reviewer` and came back with four
+blocking findings, all fixed and re-verified against the live database:**
+
+1. `extract(isodow from 'infinity'::date)` is **NULL** since PG14, and `NULL = 1`
+   is NULL — which a CHECK *accepts*. An infinite key would have sat in the table
+   forever, matched no key the fold looks up (so the freeze silently does
+   nothing) and still consumed one of the year's allowance. Fixed with an
+   `isfinite()` guard; rejection confirmed in psql.
+2. No `lock_timeout`/`statement_timeout` guards, while the FK takes SHARE ROW
+   EXCLUSIVE on `users` — a deploy landing mid-transaction would have queued
+   every write to `users` indefinitely. Guards added and the FK moved last.
+3. No `-- rollback:` note. Added.
+4. **My header cited the wrong precedent.** I wrote that `user_badges` has no
+   `account_deletions` counter; it does (`badges_erased`, 0010). The schema's only
+   genuinely uncounted user-scoped cascade is `calendar_tokens`. The decision to
+   omit a counter stands; the justification was corrected.
+
+Also dropped a redundant `(user_id)` index — a strict prefix of the unique index,
+which would have cost an extra index on every insert *and* forced a heap fetch on
+the one read path it claimed to serve.
+
+**Still to do in Phase 4:** the granting job (which applies a freeze within the
+rolling-year cap), the `frozenWeeks` reader wiring into `ownPassport`, and the
+StreakPanel at-risk/frozen states (D3). Until the granting job exists the table
+is never written, so the mechanic is inert — the engine is correct but nothing
+triggers it yet.
+
+**Still deliberately not built:** the at-risk *nudge mail*. It needs the
+frequency cap and its own unsubscribe route, neither of which is decided. The
+at-risk *state* is now computed, so it can be surfaced in-app with no mail at all.
 
 **Phase 3 came in smaller than planned: no migration at all.** The plan budgeted
 `0025` for a shared notification ledger, but `user_badges` already carries
@@ -742,10 +796,15 @@ each with its generated snapshot (blocker 13).
 
 | # | Contents | Notes |
 |---|---|---|
-| 0025 | `member_notifications` (shared ledger, two partial unique indexes) + notification prefs | Also carries any new `account_deletions` counters + the CHECK rewrite |
-| 0026 | `streak_freezes` | Trigger decision explicit in the header (blocker in §3 Phase 4) |
+| ~~0025~~ **0026** | `member_notifications` (shared ledger, two partial unique indexes) + notification prefs | Deferred until mail actually ships — it is only needed by the notifier |
+| **0025** ✅ | `streak_freezes` | **Landed 2026-07-26.** Trigger decision stated in the header (there is none, and why) |
 | 0027 | `facility_legends` (announcement ledger; the title itself stays a live query) | |
 | 0028 | `division_groups` + `division_members` | "One group per member per week" is a composite FK + unique index, not app code |
+
+> Numbering changed from the original plan: `streak_freezes` took **0025** because
+> the notification ledger it was queued behind is blocked on the mail decisions
+> and had nothing to write to it. The next migration is **0026** and will need its
+> journal `when` hand-bumped above **1785087600000**.
 
 **Tier A needs no new badge state** — `user_badges` already has `first_seen_at`/
 `seen_at`, and B3's milestones are pure catalogue entries.
