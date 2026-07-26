@@ -3,8 +3,13 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
 import { AdSlot } from '@/components/ads/ad-slot';
+import { buildShare } from '@sportkarta/lib/share';
+
 import { FacilityDetailView } from '@/components/facility/facility-detail-view';
 import { FacilityLegendBlock } from '@/components/facility/facility-legend';
+import { ShareSheet } from '@/components/share/share-sheet';
+import { siteUrl } from '@/lib/seo';
+import { shareSheetStrings } from '@/lib/share/sheet-strings';
 import { FacilitySponsorBlock } from '@/components/facility/facility-sponsor';
 import { ReportForm } from '@/components/facility/report-form';
 import { MiniMapLoader } from '@/components/map/mini-map-loader';
@@ -68,15 +73,17 @@ export default async function FacilityPage({
   const { locale, slug } = await params;
   setRequestLocale(locale);
 
-  const [facility, currentUser, t, tSport, tContribute, tAdd, query] = await Promise.all([
-    getFacilityBySlug(slug),
-    getCurrentUser(),
-    getTranslations('Facility'),
-    getTranslations('Sport'),
-    getTranslations('Contribute'),
-    getTranslations('AddFacility'),
-    searchParams,
-  ]);
+  const [facility, currentUser, t, tSport, tContribute, tAdd, tShareSheet, query] =
+    await Promise.all([
+      getFacilityBySlug(slug),
+      getCurrentUser(),
+      getTranslations('Facility'),
+      getTranslations('Sport'),
+      getTranslations('Contribute'),
+      getTranslations('AddFacility'),
+      getTranslations('ShareSheet'),
+      searchParams,
+    ]);
   if (!facility) notFound();
 
   const justAdded = addedPoints(query.added);
@@ -141,6 +148,25 @@ export default async function FacilityPage({
             and a legend is a fact ABOUT the place rather than part of its
             record. Names nobody: this page is indexed. */}
         <FacilityLegendBlock facilityId={facility.id} viewerId={currentUser?.id ?? null} />
+
+        {/*
+          The facility share — the one that RECRUITS rather than announces, and
+          the reason it sits on the highest-traffic public page. Nothing here is
+          person-scoped: a place, its sports and its story image are all already
+          public, so this share is cacheable and scraper-fetchable, unlike every
+          share on /pasport or /trenirovki.
+        */}
+        <ShareSheet
+          payload={buildShare({
+            kind: 'facility',
+            locale,
+            origin: siteUrl(),
+            page: `/obekt/${slug}`,
+            ref: slug,
+            text: tShareSheet('textFacility', { place: facility.name ?? slug }),
+          })}
+          strings={await shareSheetStrings('facility')}
+        />
 
         {facility.photos.length > 1 && (
           <SectionCard title={t('photos')}>

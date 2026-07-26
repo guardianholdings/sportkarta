@@ -78,6 +78,30 @@ export const ANALYTICS_EVENTS = {
    * Records that a share was reached for — never what was in it.
    */
   weekShare: 'week_share',
+
+  /**
+   * The share sheet, across all nine moments.
+   *
+   * WHY THREE EVENTS AND NOT TWENTY-SEVEN. The product question is "which
+   * moments do members reach for, and where do they send them" — and the MOMENT
+   * is already answered by the page the event fired on, because Umami records
+   * the URL alongside the event. Encoding the kind in the name too would add
+   * nine constants that say what the URL already says.
+   *
+   * `shareOpen` is the trigger — including the native OS sheet path, which is
+   * the only one that reaches Instagram and Facebook Stories. `shareNetwork` is
+   * an explicit per-network anchor, and `shareDownload` is saving the story
+   * image to post by hand.
+   *
+   * DELIBERATELY NO NETWORK DIMENSION on `shareNetwork`, for the same reason
+   * `checkinSubmit` carries no outcome: `data-umami-event-*` attributes are the
+   * channel a subject would travel through, so the gate forbids the whole shape
+   * rather than policing values inside it. Which network wins is a question for
+   * a later, deliberate change — not something to get by accident.
+   */
+  shareOpen: 'share_open',
+  shareNetwork: 'share_network',
+  shareDownload: 'share_download',
 } as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];

@@ -33,6 +33,84 @@ re-confirming before you edit the file.
 | 9 — Divisions (B2) | ✅ **done 2026-07-26** | Migration `0026`, pure core, rollover job, ladder on `/klasirane`, and the **consent registry** gate §7 asked for. No separate bootstrap job. |
 | 10 — Later | not started | B4 per-capita city board · C5 recap · B5 clubs · B3b volunteering (blocked on blocker 19). |
 | **T — Training logs** | ✅ **done 2026-07-26** | Not in the original plan. Migration `0027`, `/trenirovki`, the sport participation board, and the seams for Strava/Garmin/Apple Health. |
+| **S — Social sharing** | ✅ **done 2026-07-26** | Not in the original plan. 1080×1920 story renderer, nine share kinds, per-network intents, `ShareSheet` on five surfaces. |
+
+### Social sharing (S) — added 2026-07-26, outside the original plan
+
+**The operator's goal was stated as making sharing habitual.** What that decomposes
+into, and what was built for each: MANY TRIGGERS (nine kinds, not one "share my
+profile" button — a member who just logged a run, changed division or turned up
+somewhere has four different things to say); FORMAT-NATIVE OUTPUT (a story is
+1080×1920, a feed post is a link with a 1200×630 preview, and posting the wrong
+shape is what makes a share look like an ad); NO FRICTION (every target is a
+plain URL, every caption pre-written); and LOW LATENCY TO THE MOMENT (a share
+button on every training row, not only the newest).
+
+**The one platform fact that shaped the whole design: Instagram and Facebook
+Stories have no web share intent.** No URL opens a story composer — that is not
+an omission in this build, it is what the platforms expose. The only two routes
+to them are `navigator.share({ files })` with the PNG attached, which does reach
+them on mobile, and saving the image to post by hand. Both are built, and they
+are the reason a story RENDERER exists at all rather than just more link
+previews. `NETWORKS` therefore lists only the five targets that genuinely accept
+a URL — Viber and Facebook first, the country's order (§1.1), not the world's.
+
+**Two renderers, not one parameterised one.** `renderOgCard` is a LINK PREVIEW:
+scraped by Viber and Facebook, read at thumbnail size beside a headline.
+`renderStoryCard` is a POST: the whole screen of somebody's phone for about two
+seconds. They share a palette and a font stack and nothing else. The story's
+safe area IS its design — Instagram and Facebook overlay chrome on roughly the
+top and bottom 250px, so the wordmark sits above the bottom reserve rather than
+at the edge, and a story whose punchline is under the reply box is one nobody
+reposts.
+
+**The privacy split is the same one C2c established, extended.** Person-scoped
+stories (`training`, `week`, `passport`, `division`) live under `/og/lichen/…`,
+are `force-dynamic` + `private, no-store` + `X-Robots-Tag: noindex`, and — the
+new part — **resolve their subject from the SESSION, never from a parameter**.
+The passport CARD renders for anyone with the link because publishing a passport
+is consent for exactly that; a STORY has no such opt-in, so it is generated for
+the member's own device and there is no handle or id that could render somebody
+else's. Proven both ways in the browser: with a cookie it renders, `curl` without
+one gets 404 — carrying the right headers even on the 404. The consequence worth
+remembering is that a session-gated image can never be an `og:image`, which is
+why `SharePayload` keeps `storyPath` and `cardPath` as separate fields.
+
+**Three things found by looking at the rendered images rather than by testing:**
+
+1. **The training story printed its hero twice** — `9.4` as the 260px number and
+   again in the stat row, which reads as a rendering bug and spends one of three
+   stat slots repeating itself.
+2. **A facility story led with "1 спорта тук"** — a giant numeral saying nothing.
+   Some subjects genuinely have no interesting number, so `hero` is now optional
+   and the layout is TITLE-LED without it: the place name becomes the thing you
+   see from across the room, which for a place was always the right answer.
+   Inventing a figure to fill the slot would have been the Wrapped-2024 failure.
+3. **The route-privacy gate initially failed on a correct file** — it scanned raw
+   source, and the public card route mentions `no-store` only to explain why the
+   person-scoped one needs it. A gate that cannot tell code from prose would also
+   pass on a rule that had been written down instead of implemented; it strips
+   comments now, like the consent registry.
+
+**The C7 framing gate now covers the share copy**, which is where it matters
+most: `ShareSheet` and `Story` were added to `GUARDED_NAMESPACES`, because a
+caption is read by people who have never seen the product. This is not a
+softening of the goal — the evidence C7 cites (Sezer/Gino/Norton, JPSP) is that
+brag-framed sharing leaves the poster LESS liked and less trusted, so copy that
+makes the sharer look good is copy that gets posted again.
+
+**`Privacy.analyticsBody` was updated in the same commit as the three new
+events**, as `analytics-events.ts` requires of any change to that vocabulary.
+`share_open` / `share_network` / `share_download` carry no subject and no network
+dimension — which network wins is a question for a later, deliberate change
+rather than something to acquire by accident.
+
+**Wired onto five surfaces:** `/trenirovki` (per-training and the 30-day
+summary), `/pasport` (points story, beside the existing C3 text week),
+`/klasirane` (the member's own division standing, read out of the ladder already
+on screen), and `/obekt/[slug]` (the public facility share — the one that
+recruits rather than announces). Session and campaign stories render but are not
+yet wired to a button.
 
 ### Training logs (T) — added 2026-07-26, outside the original plan
 

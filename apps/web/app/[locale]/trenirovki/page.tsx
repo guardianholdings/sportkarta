@@ -1,12 +1,16 @@
 import { getDb, memberParticipation, memberTrainings, trainingConsents } from '@sportkarta/db';
 import { sql } from '@sportkarta/db';
+import { buildShare, formatKm, formatMinutes } from '@sportkarta/lib/share';
 import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
+import { ShareSheet } from '@/components/share/share-sheet';
 import { AppShell } from '@/components/shell/app-shell';
 import { TrainingForm } from '@/components/training/training-form';
 import { requireUser } from '@/lib/auth-session';
+import { siteUrl } from '@/lib/seo';
+import { shareSheetStrings } from '@/lib/share/sheet-strings';
 import {
   deleteTrainingAction,
   setTrainingConsentAction,
@@ -52,10 +56,14 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
   setRequestLocale(locale);
   const user = await requireUser();
 
-  const [t, sportName] = await Promise.all([
+  const [t, tShare, sportName, sheetWeek, sheetTraining] = await Promise.all([
     getTranslations('Training'),
+    getTranslations('ShareSheet'),
     getTranslations('Sport'),
+    shareSheetStrings('week'),
+    shareSheetStrings('training'),
   ]);
+  const origin = siteUrl();
 
   const [rows, totals, consents, facilities] = await Promise.all([
     memberTrainings(getDb(), user.id),
@@ -104,6 +112,26 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
             </div>
           ))}
         </section>
+
+        {/*
+          THE SUMMARY SHARE, directly under the numbers it describes. Offered
+          only once there is something to say — a story of zeroes is the
+          Wrapped-2024 failure in the other direction, and the story route 404s
+          on it anyway.
+        */}
+        {totals.sessions > 0 && (
+          <ShareSheet
+            variant="primary"
+            payload={buildShare({
+              kind: 'week',
+              locale,
+              origin,
+              page: '/klasirane',
+              text: tShare('textWeek', { sessions: totals.sessions }),
+            })}
+            strings={sheetWeek}
+          />
+        )}
 
         <section className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm">
           <h2 className="text-h3 font-bold text-ink">{t('addTitle')}</h2>
@@ -160,6 +188,30 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
                         ` · ${t('distanceKm', { km: Math.round(row.distanceM / 100) / 10 })}`}
                     </p>
                   </div>
+                  {/*
+                    A share on EVERY row, not only the newest. The moment a
+                    member wants to post is not always the moment they logged —
+                    a good run is worth posting that evening too.
+                  */}
+                  <ShareSheet
+                    size="sm"
+                    payload={buildShare({
+                      kind: 'training',
+                      locale,
+                      origin,
+                      page: '/klasirane',
+                      ref: row.id,
+                      text: (() => {
+                        const km = formatKm(row.distanceM);
+                        const minutes = formatMinutes(row.durationS);
+                        const sport = sportName(row.sport);
+                        return km
+                          ? tShare('textTrainingKm', { sport, km, minutes })
+                          : tShare('textTraining', { sport, minutes });
+                      })(),
+                    })}
+                    strings={sheetTraining}
+                  />
                   <form action={deleteTrainingAction}>
                     <input type="hidden" name="id" value={row.id} />
                     <button

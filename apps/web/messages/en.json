@@ -408,7 +408,7 @@
     "accountsTitle": "Accounts",
     "accountsBody": "If you create an account we store your email address, the display name and city you enter, and whether you are under 18. A date of birth is used once to determine the age category and is not recorded anywhere. The category does not restrict anything — every feature is available regardless of age. Session IP addresses are not stored. You can delete your account yourself from the \"My profile\" page — the profile and email are gone for good, while your contributions stay in the open dataset but anonymised, as \"former user\". The edit audit log is kept with no link to your identity, so the history of the data stays traceable.",
     "analyticsTitle": "Visit analytics",
-    "analyticsBody": "We use self-hosted, cookieless analytics (Umami). Alongside page views we record the kind of a few actions — that someone asked for directions, or submitted a contribution, for example. Those records contain no identifier of who did it, or of which facility, session or check-in they concerned. We do not build profiles or track individuals across sites.",
+    "analyticsBody": "We use self-hosted, cookieless analytics (Umami). Besides page visits we record the KIND of some actions — that someone asked for directions, submitted a contribution, or opened sharing. These records contain neither who did it nor which facility, training, check-in or network they relate to. We build no profiles and do not track individuals across sites.",
     "reportsTitle": "Problem reports",
     "reportsBody": "Facility reports are anonymous — we neither ask for nor store a name, email, or account. For spam protection your IP address is used transiently, only to rate-limit requests, and is never stored together with the report.",
     "photosTitle": "Photos",
@@ -1890,6 +1890,91 @@
     "you": "You",
     "ladderNote": "Points count from Monday to Sunday, Sofia time. A week without activity does not move you down.",
     "sectionTitle": "Your division"
+  },
+  "ShareSheet": {
+    "panelTitle": "Link and networks",
+    "copyLink": "Copy the link",
+    "copyText": "Copy the text",
+    "copied": "Copied",
+    "downloadStory": "Save the image",
+    "storyHint": "Ready for an Instagram or Facebook story (1080×1920).",
+    "facebookNote": "Facebook takes only the link — the text does not travel with it.",
+    "networks": {
+      "viber": "Viber",
+      "facebook": "Facebook",
+      "telegram": "Telegram",
+      "whatsapp": "WhatsApp",
+      "x": "X"
+    },
+    "triggerTraining": "Share the training",
+    "triggerWeek": "Share the week",
+    "triggerPassport": "Share the passport",
+    "triggerDivision": "Share the division",
+    "triggerLegend": "Share the place",
+    "triggerFacility": "Share the facility",
+    "triggerSession": "Invite friends",
+    "triggerCampaign": "Share the campaign",
+    "textTraining": "{sport} · {minutes} min. Logged a training on SportKarta.",
+    "textTrainingKm": "{sport} · {km} km in {minutes} min. Logged a training on SportKarta.",
+    "textWeek": "{sessions} trainings in the last 30 days. We count turning up, not performance.",
+    "textPassport": "{points} points for contributions to the map of free sports facilities.",
+    "textDivision": "{tier}, {rank}th place this week.",
+    "textLegend": "{place}: the most regular person here has come {days} days.",
+    "textFacility": "{place} — a free sports facility on SportKarta.",
+    "textSession": "{title} — {day}. Come along.",
+    "textCampaign": "{title} — join in."
+  },
+  "Story": {
+    "callToAction": "Find your place at sportnakarta.bg",
+    "label": {
+      "minutes": "minutes",
+      "km": "km",
+      "elevation": "m climbed",
+      "sports": "sports",
+      "points": "points",
+      "contributions": "contributions",
+      "checkins": "check-ins",
+      "inGroup": "in the group"
+    },
+    "training": {
+      "eyebrow": "training",
+      "heroKm": "kilometres",
+      "heroMin": "minutes",
+      "title": "{sport}"
+    },
+    "week": {
+      "eyebrow": "last 30 days",
+      "heroLabel": "trainings",
+      "title": "Trainings in the last 30 days"
+    },
+    "passport": {
+      "eyebrow": "sports passport",
+      "heroLabel": "points",
+      "title": "Points for contributions to the map"
+    },
+    "division": {
+      "eyebrow": "division",
+      "heroLabel": "place",
+      "title": "{tier} · this week"
+    },
+    "legend": {
+      "eyebrow": "local legend",
+      "heroLabel": "days on the pitch",
+      "title": "{place}",
+      "window": "in the last {days} days"
+    },
+    "facility": {
+      "heroLabel": "sports here"
+    },
+    "session": {
+      "heroLabel": "start",
+      "callToAction": "Come along — sportnakarta.bg"
+    },
+    "campaign": {
+      "eyebrow": "campaign",
+      "hero": "NOW",
+      "heroLabel": "join in"
+    }
   },
   "Share": {
     "weekTitle": "Share your week",

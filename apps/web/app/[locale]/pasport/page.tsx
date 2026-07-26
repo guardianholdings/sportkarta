@@ -4,6 +4,9 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { BadgeGrid } from '@/components/passport/badge-grid';
 import { HistoryList } from '@/components/passport/history-list';
 import { StreakPanel } from '@/components/passport/streak-panel';
+import { ShareSheet } from '@/components/share/share-sheet';
+import { buildShare } from '@sportkarta/lib/share';
+
 import { WeekShare } from '@/components/share/week-share';
 import { renderWeekGrid } from '@/lib/share/week-grid';
 import { VisibilityPanel } from '@/components/passport/visibility-panel';
@@ -14,6 +17,7 @@ import { Link } from '@/i18n/navigation';
 
 import { acknowledgeBadgesAction } from './actions';
 import { AppShell } from '@/components/shell/app-shell';
+import { shareSheetStrings } from '@/lib/share/sheet-strings';
 
 /**
  * The member's own sports passport (docs/ROADMAP.md §7, Stage 5.1).
@@ -29,9 +33,11 @@ export const dynamic = 'force-dynamic';
 export default async function PassportPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const [t, tShare] = await Promise.all([
+  const [t, tShare, tShare2, sheetPassport] = await Promise.all([
     getTranslations('Passport'),
     getTranslations('Share'),
+    getTranslations('ShareSheet'),
+    shareSheetStrings('passport'),
   ]);
   const user = await requireUser();
   const passport = await ownPassport(getDb(), user.id);
@@ -85,6 +91,29 @@ export default async function PassportPage({ params }: { params: Promise<{ local
             one at /pasport/[handle] deliberately cannot — see StreakPanel. */}
         <StreakPanel streaks={passport.streaks} atRisk={passport.streaks.weeksAtRisk} />
       </section>
+
+      {/*
+        THE PASSPORT STORY — the image share, beside the text one.
+        Offered to EVERY member regardless of passport visibility, for the same
+        reason C3's text week is: the story image carries no name and no handle,
+        only the member's own numbers, and it is rendered behind their session
+        onto their own device. Publishing a passport is a separate decision
+        about a separate artifact (the public page and its scraper-fetchable
+        card); posting your own totals to your own story is not a publication.
+      */}
+      {passport.totals.points > 0 && (
+        <ShareSheet
+          variant="primary"
+          payload={buildShare({
+            kind: 'passport',
+            locale,
+            origin: siteUrl(),
+            page: '/klasirane',
+            text: tShare2('textPassport', { points: passport.totals.points }),
+          })}
+          strings={sheetPassport}
+        />
+      )}
 
       {/* C3: the Viber-native share. Offered to EVERY member, whatever their
           passport visibility (operator decision 2026-07-26) — the text carries

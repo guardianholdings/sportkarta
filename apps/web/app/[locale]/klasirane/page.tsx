@@ -7,7 +7,8 @@ import {
   sportParticipationBoard,
   weekStandings,
 } from '@sportkarta/db';
-import { divisionWeekStart } from '@sportkarta/lib/divisions';
+import { divisionWeekStart, tierSlug } from '@sportkarta/lib/divisions';
+import { buildShare } from '@sportkarta/lib/share';
 import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
@@ -15,9 +16,12 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { DivisionLadder } from '@/components/passport/division-ladder';
 import { LeaderboardTable } from '@/components/passport/leaderboard-table';
 import { ParticipationTable } from '@/components/passport/participation-table';
+import { ShareSheet } from '@/components/share/share-sheet';
 import { getCurrentUser } from '@/lib/auth-session';
 import { resolveScope, scopeHref } from '@/lib/leaderboard';
 import { cityDisplayName, loadCityCatalog } from '@/lib/places';
+import { siteUrl } from '@/lib/seo';
+import { shareSheetStrings } from '@/lib/share/sheet-strings';
 import { Link } from '@/i18n/navigation';
 import { AppShell } from '@/components/shell/app-shell';
 
@@ -62,10 +66,13 @@ export default async function LeaderboardPage({
   // Sport labels come from the existing `Sport` namespace rather than a
   // duplicate set of 28 keys under `Leaderboard` — two catalogues of the same
   // vocabulary drift, and the map filters already own this one.
-  const [t, tp, sportName] = await Promise.all([
+  const [t, tp, tShare, tDivision, sportName, sheetDivision] = await Promise.all([
     getTranslations('Leaderboard'),
     getTranslations('Participation'),
+    getTranslations('ShareSheet'),
+    getTranslations('Division'),
     getTranslations('Sport'),
+    shareSheetStrings('division'),
   ]);
   const query = await searchParams;
 
@@ -157,6 +164,31 @@ export default async function LeaderboardPage({
         self-reference per page, not two saying different things.
       */}
       <DivisionLadder rows={ladder} viewerUserId={user?.id ?? null} />
+
+      {/*
+        The division share reads the member's OWN row out of the ladder that is
+        already on screen — no second query, and nothing that could disagree
+        with what they are looking at.
+      */}
+      {(() => {
+        const mine = user ? ladder.find((row) => row.userId === user.id) : undefined;
+        if (!mine) return null;
+        return (
+          <ShareSheet
+            payload={buildShare({
+              kind: 'division',
+              locale,
+              origin: siteUrl(),
+              page: '/klasirane',
+              text: tShare('textDivision', {
+                tier: tDivision(`tier.${tierSlug(mine.tier)}`),
+                rank: mine.rank,
+              }),
+            })}
+            strings={sheetDivision}
+          />
+        );
+      })()}
 
       {ladder.length > 0 && (
         <h2 className="border-t border-line pt-6 text-h3 font-extrabold tracking-tight text-ink">

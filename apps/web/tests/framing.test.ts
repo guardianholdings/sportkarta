@@ -42,6 +42,12 @@ const GUARDED_NAMESPACES = [
   'Division',
   'Share',
   'Og',
+  // The share sheet's captions and the story cards' copy (2026-07-26). These
+  // are the words a member actually posts to Viber and Facebook, so they are
+  // the single most load-bearing place the "showing up, not superiority" rule
+  // applies — a caption is read by people who have never seen the product.
+  'ShareSheet',
+  'Story',
 ];
 
 interface DenyEntry {
