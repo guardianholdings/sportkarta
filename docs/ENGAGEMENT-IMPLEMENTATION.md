@@ -26,7 +26,47 @@ re-confirming before you edit the file.
 | 2 — Instrument + framing rule (C1, C7) | ✅ **done 2026-07-26** | 9 events across 8 files, closed vocabulary, privacy copy updated. |
 | 3 — Badge evaluation off the render path (A1) | ✅ **done 2026-07-26** | **No migration needed.** Verified end-to-end against the real worker + database. |
 | 4 — Streak freezes + at-risk (A4) | ✅ **done 2026-07-26** | Engine, migration `0025`, granting job, read wiring and the at-risk banner. Nudge mail deferred. |
-| 5 onward | not started | |
+| 5 — Unbury /kampanii and /sedmitsata (A6) | ✅ **done 2026-07-26** | Footer + /sesii entry points, new `/sedmitsata` index, and a **reachability** gate. A7/A5 still blocked on mail. |
+| 6 onward | not started | |
+
+### Phase 5 (A6)
+
+**The placement was already decided, and not where my plan said.** I had carried
+the design workstream's suggestion of a live-campaign strip in the map's list
+panel. `docs/design/COVERAGE-MATRIX.md:87-97` decided otherwise, and says so
+explicitly: a **«Кампании» card on `/sesii`**, under the sessions list ("the two
+are the play/compete pair and belong on one surface"), plus **«Тази седмица»
+linked from the `/sesii` header**. The map/leaderboard pairing came from
+`ENGAGEMENT.md`, written *after* the audit. The audit wins.
+
+**The entry point must render UNCONDITIONALLY, which kills the strip idea.** A
+strip that appears only while a campaign is running renders nothing today, and
+re-buries `/kampanii` the day the last campaign closes — the identical defect on
+a delay. So the entry points are a card and a footer link that are always there.
+`/kampanii` also went into the **global footer**, whose own docstring names it
+"the persistent home for the transparency surfaces the audit found BURIED".
+
+**The gate that matters was missing from my §7 test list entirely.**
+`crawl.spec.ts` visits `/kampanii` from a hardcoded `PUBLIC_ROUTES` array, so the
+suite was **green with zero inbound links** and would have stayed green if every
+link A6 added were deleted. The new test asserts *reachability* — that an
+anonymous visitor can FIND these pages by following links — and was proven to go
+red when both campaign entry points are removed.
+
+**`/sedmitsata` index: `force-dynamic`, not `revalidate`.** The `[city]` page can
+carry `revalidate` because it has no `generateStaticParams`, so nothing is
+prerendered. An index has no params at all, so `revalidate` would make Next
+prerender it during `next build` — which runs in the Docker image with no
+database reachable. It would fail the build, or bake an empty city list into the
+image.
+
+Two things that could not be reused, contrary to assumption: `digestCities`
+requires a `userId` and has no week window (a new `weeklyCities` query was
+needed), and the `[city]` page's `<AdSlot slot="weekly_page" />` must NOT be
+copied — one visible placement per slot is an EXCLUDE constraint.
+
+**Still blocked on the mail decisions:** A7 (campaign-close notification) and A5
+(personal digest blocks). Both need the frequency cap and an unsubscribe route.
 
 ### Phase 4, so far
 
@@ -345,7 +385,7 @@ Its §4 guardrails section is its weakest part.
 | A1: "into the contribution paths **or** a light post-write job" | Not equivalent. `passportEvents` is deliberately unbounded (`db/src/passport.ts:44-47`) — inlining puts a full-history scan inside the transaction that adds a facility, and inside `checkIn` it could roll back an attendance, breaking *"nothing refuses a check-in."* **Job only.** |
 | A5: "the query engine for all of this already exists" | Three of four. **Rank movement has no data source** — `memberStanding` has no upper time bound and no historical rank is stored anywhere. |
 | A4: streak freeze is "the cheapest anti-churn mechanic" | Not in this repo. `lib/src/badges/streaks.ts` is deliberately **pure and stateless**; a freeze introduces persistent state into a fold over history. It is the *second-largest* Tier A item. |
-| §0: `/sedmitsata` has zero links | It has no nav entry and no index route (correct), but `digest-panel.tsx:37` links every offered city. The genuinely link-less page is `/kampanii`. |
+| §0: `/sedmitsata` has zero links | It had no nav entry and no index route, but `digest-panel.tsx:37` links every offered city — behind `requireUser()`, so a signed-out visitor could not reach it. The genuinely link-less page was `/kampanii`: zero anchors anywhere. **Both fixed by A6 (phase 5).** |
 | §0: check-in shows no number | Correct, and **narrower than implied** — verify and condition already interpolate via `Contribute.thanksWithPoints`. A2 is two specific gaps, with a working pattern to copy. |
 
 ---

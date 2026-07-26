@@ -48,7 +48,20 @@ export default async function SessionsIndexPage({
     <AppShell active="/sesii">
       <main className="mx-auto max-w-2xl px-4 py-5">
       <header className="mb-5">
-        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('indexTitle')}</h1>
+        <div className="flex items-baseline gap-3">
+          <h1 className="flex-1 text-h2 font-extrabold tracking-tight text-ink">
+            {t('indexTitle')}
+          </h1>
+          {/* COVERAGE-MATRIX §3: link «Тази седмица» from the /sesii header so
+              the weekly digest is reachable without the email. Points at the
+              index rather than a city, because /sesii has no city in scope. */}
+          <Link
+            href="/sedmitsata"
+            className="shrink-0 text-body-sm font-semibold text-link hover:text-link-hover"
+          >
+            {t('weeklyLink')}
+          </Link>
+        </div>
         <p className="mt-1.5 text-body-sm text-ink-soft">{t('indexIntro')}</p>
       </header>
 
@@ -104,6 +117,22 @@ export default async function SessionsIndexPage({
           })}
         </ul>
       )}
+
+      {/* COVERAGE-MATRIX §1: «Кампании» gets its own home here, under the
+          sessions list — "the two are the play/compete pair and belong on one
+          surface". UNCONDITIONAL on purpose: a card that appeared only while a
+          campaign was running would re-bury /kampanii the day the last one
+          closed, which is the same defect on a delay. */}
+      <section className="mt-6 rounded-card border border-line bg-surface p-4 shadow-sm">
+        <h2 className="text-h4 font-bold text-ink">{t('campaignsCardTitle')}</h2>
+        <p className="mt-1 text-body-sm text-ink-soft">{t('campaignsCardBody')}</p>
+        <Link
+          href="/kampanii"
+          className="mt-3 inline-flex text-body-sm font-semibold text-link hover:text-link-hover"
+        >
+          {t('campaignsCardLink')}
+        </Link>
+      </section>
       </main>
     </AppShell>
   );

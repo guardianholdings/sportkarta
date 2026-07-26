@@ -63,9 +63,11 @@ export const ANALYTICS_EVENTS = {
   sessionRsvpLeave: 'session_rsvp_leave',
 
   /**
-   * The buried-page counters. `/sedmitsata` has no nav entry and no index route,
-   * and its only inbound link is the profile digest panel — so this is the
-   * baseline A6 has to beat, and without it "unburying worked" is unfalsifiable.
+   * The buried-page counter. Until A6 (2026-07-26) `/sedmitsata` had no index
+   * route and its only inbound link sat on `/profil`, behind requireUser() — so
+   * a page built to be forwarded was reachable only by people already signed in.
+   * It now has an index and a link from `/sesii`; this event is what makes
+   * "unburying worked" falsifiable rather than an assertion.
    */
   weeklyOpen: 'weekly_open',
 } as const;

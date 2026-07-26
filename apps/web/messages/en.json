@@ -626,7 +626,13 @@
     "optOut": "Stop emails",
     "noCities": "No cities have a weekly programme yet.",
     "unsubscribeConfirmTitle": "Unsubscribe from the weekly programme",
-    "unsubscribeConfirmBody": "Press the button to stop the emails. You do not need to sign in."
+    "unsubscribeConfirmBody": "Press the button to stop the emails. You do not need to sign in.",
+    "indexTitle": "This week",
+    "indexIntro": "Pick a city to see what is being played this week.",
+    "indexEmptyTitle": "Nothing is scheduled this week",
+    "indexEmptyBody": "No one has announced a session for this week yet. See everything coming up.",
+    "indexAllSessions": "All sessions",
+    "indexSessions": "{count, plural, one {# session} other {# sessions}}"
   },
   "DigestEmail": {
     "subject": "This week in {city}",
@@ -1160,7 +1166,11 @@
     "cancelOccurrence": "Cancel this session",
     "cancelOccurrenceConfirm": "Cancel this session? Everyone signed up will be notified. This cannot be undone.",
     "cancelSeries": "Cancel the whole series",
-    "cancelSeriesConfirm": "Cancel the WHOLE series? All future sessions will be cancelled and attendees notified. This cannot be undone."
+    "cancelSeriesConfirm": "Cancel the WHOLE series? All future sessions will be cancelled and attendees notified. This cannot be undone.",
+    "weeklyLink": "This week →",
+    "campaignsCardTitle": "Campaigns",
+    "campaignsCardBody": "Short initiatives with a clear deadline — add, verify and play together.",
+    "campaignsCardLink": "See the campaigns →"
   },
   "SessionSkill": {
     "any": "all levels",
@@ -1569,7 +1579,8 @@
     "privacy": "Privacy",
     "attribution": "Map data © OpenStreetMap · ODbL",
     "partners": "Partners",
-    "support": "Support us"
+    "support": "Support us",
+    "campaigns": "Campaigns"
   },
   "AdminPrivate": {
     "title": "Private venues",

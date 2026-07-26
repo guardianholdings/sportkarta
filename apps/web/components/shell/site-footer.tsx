@@ -17,6 +17,15 @@ export function SiteFooter() {
   return (
     <footer className="border-t border-line bg-surface">
       <nav className="mx-auto flex max-w-2xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-6 text-caption">
+        {/* Кампании lives here for the reason this footer exists: it was BURIED
+            with zero inbound links anywhere in the product. A campaign STRIP
+            cannot fix that on its own — it renders nothing the day the last
+            campaign closes, which re-buries the page on a delay. This link is
+            unconditional, so /kampanii stays reachable whether or not anything
+            is currently running. */}
+        <Link href="/kampanii" className="font-medium text-ink-soft hover:text-brand">
+          {t('campaigns')}
+        </Link>
         <Link href="/statistika" className="font-medium text-ink-soft hover:text-brand">
           {t('stats')}
         </Link>

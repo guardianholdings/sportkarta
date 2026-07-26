@@ -36,6 +36,7 @@ const PUBLIC_ROUTES = [
   '/podkrepi',
   '/sesii',
   `/obshtina/${CITY}`,
+  '/sedmitsata',
   `/sedmitsata/${CITY}`,
   '/vhod',
 ];
@@ -182,6 +183,53 @@ test.describe('link crawler', () => {
     assertClean(await crawl(page, PUBLIC_ROUTES));
     // Auth-gating: an anonymous visitor reaches no member/admin surface.
     await assertDenied(page, [...MEMBER_ONLY, ...ADMIN_ONLY], 'anonymous');
+  });
+
+  /**
+   * REACHABILITY, which the crawl above does NOT test.
+   *
+   * `crawl` visits PUBLIC_ROUTES — a hardcoded array — so it stays green for a
+   * page with zero inbound links. That is exactly how /kampanii came to be
+   * BURIED (docs/design/COVERAGE-MATRIX.md:87): reachable by URL, linked from
+   * nowhere, and no test noticed. `/sedmitsata` was the same, with its one link
+   * behind requireUser() on /profil.
+   *
+   * This asserts the property the audit actually cares about: an ANONYMOUS
+   * visitor can FIND these pages by following links. Delete the footer entry or
+   * the /sesii card and this goes red — the crawl would not.
+   *
+   * Deliberately checks entry points that render UNCONDITIONALLY. A live
+   * campaign strip would satisfy a weaker version of this test today and fail
+   * silently the day the last campaign closes, re-burying the page on a delay.
+   */
+  test('buried surfaces are reachable by an anonymous visitor', async ({ page }) => {
+    async function internalLinksOn(route: string): Promise<string[]> {
+      await page.goto(route, { waitUntil: 'domcontentloaded' });
+      const hrefs = await page.$$eval('a[href]', (as) =>
+        as.map((a) => a.getAttribute('href') ?? ''),
+      );
+      return hrefs.map((h) => (h.split('#')[0] ?? '').replace(/^\/en(?=\/|$)/, ''));
+    }
+
+    // /sesii is where COVERAGE-MATRIX puts both entry points.
+    const fromSesii = await internalLinksOn('/sesii');
+    expect(fromSesii, '/kampanii must be linked from /sesii (COVERAGE-MATRIX §1)').toContain(
+      '/kampanii',
+    );
+    expect(fromSesii, '/sedmitsata must be linked from /sesii (COVERAGE-MATRIX §3)').toContain(
+      '/sedmitsata',
+    );
+
+    // …and the global footer keeps /kampanii reachable from every non-map page,
+    // so it survives any single surface being redesigned.
+    const fromLeaderboard = await internalLinksOn('/klasirane');
+    expect(fromLeaderboard, '/kampanii must be in the global footer').toContain('/kampanii');
+
+    // The index must actually lead somewhere: at least one city, or an explicit
+    // empty state that offers the way on rather than a blank list.
+    const fromWeekly = await internalLinksOn('/sedmitsata');
+    const leadsOn = fromWeekly.some((h) => h.startsWith('/sedmitsata/') || h === '/sesii');
+    expect(leadsOn, '/sedmitsata must link to a city page or offer a way on').toBe(true);
   });
 
   test('member', async ({ page }) => {

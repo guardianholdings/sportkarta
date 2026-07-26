@@ -135,3 +135,43 @@ export async function digestCities(db: SqlRunner, userId: string): Promise<Diges
     nameEn: String(row.name_en),
   }));
 }
+
+/**
+ * Municipality ids that actually have programming in the CURRENT Sofia week,
+ * with how many occurrences — for the `/sedmitsata` index (A6).
+ *
+ * NOT `digestCities`, which cannot serve this: it requires a `userId` (it ORs in
+ * the caller's own subscriptions) and it has NO week window — its EXISTS clause
+ * matches any scheduled session ever. An index built on it would list cities
+ * whose weekly page then renders empty, which is the burial complaint restated
+ * rather than fixed.
+ *
+ * The week boundary is computed the way the rest of the product computes it —
+ * `date_trunc('week', …)` on the SOFIA wall clock, Monday-start — matching
+ * `weeklyDigest`, the digest job and `bucketKeyFor`. A UTC truncation would move
+ * Sunday-evening sessions into the wrong week for exactly the audience that
+ * plays on Sunday evenings.
+ *
+ * Returns ids only; the caller resolves names and slugs through
+ * `loadCityCatalog()`, which is the single place a municipality becomes a URL.
+ */
+export async function weeklyCities(db: SqlRunner): Promise<{ id: number; sessions: number }[]> {
+  const result = await db.execute(sql`
+    WITH week AS (
+      SELECT date_trunc('week', (now() AT TIME ZONE 'Europe/Sofia')) AS start_local
+    )
+    SELECT f.municipality_id AS id, count(*)::int AS sessions
+      FROM play_session_occurrences o
+      JOIN play_sessions s ON s.id = o.session_id
+      JOIN facilities f    ON f.id = s.facility_id
+     CROSS JOIN week w
+     WHERE o.status = 'scheduled'
+       AND s.status = 'scheduled'
+       AND o.starts_at_local >= w.start_local
+       AND o.starts_at_local <  w.start_local + interval '7 days'
+       AND f.municipality_id IS NOT NULL
+     GROUP BY f.municipality_id
+     ORDER BY count(*) DESC, f.municipality_id
+  `);
+  return result.rows.map((row) => ({ id: Number(row.id), sessions: Number(row.sessions) }));
+}

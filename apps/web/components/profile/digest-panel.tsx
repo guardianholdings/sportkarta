@@ -34,11 +34,11 @@ export async function DigestPanel({
           const name = cityDisplayName(city.nameBg, city.nameEn, locale);
           return (
             <li key={city.id} className="flex items-center gap-3 py-2">
-              {/* C1: the ONLY inbound link to /sedmitsata anywhere in the
-                  product — it has no nav entry and no index route. This is the
-                  baseline that A6's unburying has to beat; without it, "the
-                  weekly page is buried" and "unburying worked" are both
-                  unfalsifiable. */}
+              {/* C1: this was the ONLY inbound link to /sedmitsata anywhere in
+                  the product until A6 added an index at /sedmitsata and a link
+                  from /sesii. It is still the personalised one — a member's own
+                  subscribed cities — and remains the baseline the unburying is
+                  measured against. */}
               <Link
                 href={`/sedmitsata/${city.slug}`}
                 className="flex-1 truncate text-body-sm font-medium text-link hover:text-link-hover"
