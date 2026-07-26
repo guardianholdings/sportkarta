@@ -1770,5 +1770,19 @@
     "error_facility_not_found": "No facility with that slug.",
     "error_facility_taken": "That facility is already adopted for this period.",
     "error_label_too_long": "The plaque line is too long (200 characters max)."
+  },
+  "Og": {
+    "wordmark": "SportKarta",
+    "attribution": "© OpenStreetMap · Protomaps",
+    "facility": {
+      "unnamed": "Sports facility"
+    },
+    "session": {
+      "cta": "Come along — free and open to all.",
+      "startsAt": "starts"
+    },
+    "campaign": {
+      "eyebrow": "Campaign"
+    }
   }
 }

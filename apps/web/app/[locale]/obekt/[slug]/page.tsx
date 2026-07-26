@@ -36,9 +36,15 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   if (!facility) return { title: t('notFound') };
   const name = displayName(facility, t('unnamed'));
   const place = facility.municipalityName ?? facility.quarter ?? '';
+  const title = place ? `${name} — ${place}` : name;
+  // C2: the card is a separate URL under /og — NOT /api (robots.ts disallows it
+  // and the scrapers honour that) and dotted, so middleware does not
+  // locale-rewrite it. See the route for the full reasoning.
+  const card = `/og/${locale}/obekt/${facility.slug}/card.png`;
   return {
-    title: place ? `${name} — ${place}` : name,
+    title,
     alternates: buildAlternates(`/obekt/${facility.slug}`, locale),
+    openGraph: { title, type: 'website', images: [{ url: card, width: 1200, height: 630 }] },
   };
 }
 

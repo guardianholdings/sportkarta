@@ -1770,5 +1770,19 @@
     "error_facility_not_found": "Няма игрище с такъв слъг.",
     "error_facility_taken": "Игрището вече е осиновено за този период.",
     "error_label_too_long": "Редът за табелка е твърде дълъг (до 200 знака)."
+  },
+  "Og": {
+    "wordmark": "СпортКарта",
+    "attribution": "© OpenStreetMap · Protomaps",
+    "facility": {
+      "unnamed": "Спортно съоръжение"
+    },
+    "session": {
+      "cta": "Ела и ти — свободно и безплатно.",
+      "startsAt": "начало"
+    },
+    "campaign": {
+      "eyebrow": "Кампания"
+    }
   }
 }

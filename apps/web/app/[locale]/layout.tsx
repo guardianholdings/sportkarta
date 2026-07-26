@@ -8,6 +8,7 @@ import { ErrorMonitor } from '@/components/monitoring/error-monitor';
 import { ServiceWorkerRegistrar } from '@/components/pwa/service-worker';
 import { SiteFooter } from '@/components/shell/site-footer';
 import { routing } from '@/i18n/routing';
+import { siteUrl } from '@/lib/seo';
 
 import '../fonts.css';
 import '../globals.css';
@@ -34,6 +35,12 @@ export async function generateMetadata({ params }: { params: LocaleParams }): Pr
   const t = await getTranslations({ locale, namespace: 'Metadata' });
 
   return {
+    // Without metadataBase Next cannot resolve a RELATIVE openGraph.images path
+    // to an absolute URL, and every card would build cleanly and then render
+    // nothing in any preview — the failure costs a share and reports nothing.
+    // lib/seo.ts already owns the origin; this is the same source the canonical
+    // and hreflang tags use, so a card cannot point at a different host.
+    metadataBase: new URL(siteUrl()),
     title: t('title'),
     description: t('description'),
   };

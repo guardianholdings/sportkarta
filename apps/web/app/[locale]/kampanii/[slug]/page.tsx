@@ -46,7 +46,13 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
     // Shareable, not indexed: OpenGraph so a pasted link previews properly in
     // Facebook and Viber, which is how a Bulgarian NGO campaign actually
     // spreads — while robots keeps it out of search results.
-    openGraph: { title, ...(description ? { description } : {}), type: 'website' },
+    openGraph: {
+      title,
+      ...(description ? { description } : {}),
+      type: 'website',
+      // C2b. No map data on a campaign card, so it carries no OSM credit.
+      images: [{ url: `/og/${locale}/kampaniya/${slug}/card.png`, width: 1200, height: 630 }],
+    },
     robots: { index: false, follow: false },
   };
 }

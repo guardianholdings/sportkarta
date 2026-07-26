@@ -27,7 +27,43 @@ re-confirming before you edit the file.
 | 3 — Badge evaluation off the render path (A1) | ✅ **done 2026-07-26** | **No migration needed.** Verified end-to-end against the real worker + database. |
 | 4 — Streak freezes + at-risk (A4) | ✅ **done 2026-07-26** | Engine, migration `0025`, granting job, read wiring and the at-risk banner. Nudge mail deferred. |
 | 5 — Unbury /kampanii and /sedmitsata (A6) | ✅ **done 2026-07-26** | Footer + /sesii entry points, new `/sedmitsata` index, and a **reachability** gate. A7/A5 still blocked on mail. |
-| 6 onward | not started | |
+| 6 — OG foundation (C2a, C2b) | ✅ **done 2026-07-26** | Facility, session and campaign cards. Public only — person-scoped is phase 8. |
+| 7 onward | not started | |
+
+### Phase 6 (C2a + C2b)
+
+Feasibility was re-proven before anything was built: a probe rendered flawless
+Cyrillic (Ж Ъ Щ Ю Я) at 1200×630 in ~2 s cold, ~26 KB.
+
+**The route path is three constraints stacked**, each silent if ignored:
+NOT under `/api/` (robots.ts disallows it and the scrapers honour that, so the
+card would be refused by exactly the crawlers it exists for); a **dotted final
+segment** `card.png`, because middleware skips dotted paths and would otherwise
+locale-rewrite it and 307 every scrape; and **locale as a route segment**,
+because that same dot means next-intl never resolves a locale, so every card
+would silently render in Bulgarian — including one referenced from an `/en` page.
+Verified live: 0 redirects, absolute `og:image`, 404 on unknown kind.
+
+**Font handling is the prod-only failure.** `.woff` never `.woff2` (satori
+cannot decode woff2), the **cyrillic** subset never latin (the vendored fallback
+is Latin-only Noto Sans, so the wrong subset renders tofu while passing locally),
+and read from `public/` never `node_modules` (the Docker target copies only
+`.next/standalone`, `.next/static` and `public/`). All three are gated by
+`tests/og-assets.test.ts`, proven to fail on a missing file and on a woff2 copied
+under a `.woff` name (magic `wOF2`).
+
+**The palette is duplicated on purpose.** satori resolves no CSS variables, so
+cards need literal hex — but `lib/design/` is inside the design-token gate and
+every card would fail CI there. They live in `lib/og/` instead, with a drift test
+parsing `colors.css`.
+
+Two things worth noting: `vitest.config.ts` needed `esbuild: { jsx: 'automatic' }`
+— Next compiles with the automatic JSX runtime and esbuild defaults to the
+classic one, so the card threw "React is not defined" under test only; fixing the
+config beat adding a React import to production code. And the session card was
+initially built without the day and time, which for the one share with an action
+attached is the entire message — it now leads with the weekday and a 56px start
+time.
 
 ### Phase 5 (A6)
 

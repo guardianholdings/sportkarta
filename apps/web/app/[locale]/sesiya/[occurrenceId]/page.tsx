@@ -43,6 +43,10 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   const view = await occurrenceView(occurrenceId, null);
   if (!view) return { robots: { index: false, follow: false } };
   const t = await getTranslations({ locale, namespace: 'Session' });
+  // C6: the session invite is the one share with an ACTION attached, and the
+  // only one that recruits rather than brags. The page stays noindex — shareable
+  // is not indexable — but a link pasted into Viber still deserves a preview.
+  const card = `/og/${locale}/sesiya/${occurrenceId}/card.png`;
   return {
     title: t('metaTitle', { title: view.title }),
     description: t('metaDescription', {
@@ -50,6 +54,11 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
       facility: view.facilityName ?? '',
     }),
     robots: { index: false, follow: false },
+    openGraph: {
+      title: t('metaTitle', { title: view.title }),
+      type: 'website',
+      images: [{ url: card, width: 1200, height: 630 }],
+    },
   };
 }
 
