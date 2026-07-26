@@ -76,7 +76,9 @@ export default async function PassportPage({ params }: { params: Promise<{ local
         <h2 id="streaks-h" className="text-h4 font-bold text-ink">
           {t('streaksTitle')}
         </h2>
-        <StreakPanel streaks={passport.streaks} />
+        {/* The OWNER's page, so it may say the week is still empty. The public
+            one at /pasport/[handle] deliberately cannot — see StreakPanel. */}
+        <StreakPanel streaks={passport.streaks} atRisk={passport.streaks.weeksAtRisk} />
       </section>
 
       <section aria-labelledby="badges-h" className="space-y-3">

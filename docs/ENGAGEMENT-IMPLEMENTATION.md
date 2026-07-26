@@ -25,7 +25,7 @@ re-confirming before you edit the file.
 | 1 — Show the number (A2) | ✅ **done 2026-07-26** | Verified in-browser (bg + en) and by the QR + contributions e2e suites. |
 | 2 — Instrument + framing rule (C1, C7) | ✅ **done 2026-07-26** | 9 events across 8 files, closed vocabulary, privacy copy updated. |
 | 3 — Badge evaluation off the render path (A1) | ✅ **done 2026-07-26** | **No migration needed.** Verified end-to-end against the real worker + database. |
-| 4 — Streak freezes + at-risk (A4) | 🟡 **engine + schema done 2026-07-26** | Pure fold and migration `0025` landed and applied. **Granting job, read wiring and UI still to do.** |
+| 4 — Streak freezes + at-risk (A4) | ✅ **done 2026-07-26** | Engine, migration `0025`, granting job, read wiring and the at-risk banner. Nudge mail deferred. |
 | 5 onward | not started | |
 
 ### Phase 4, so far
@@ -71,11 +71,27 @@ Also dropped a redundant `(user_id)` index — a strict prefix of the unique ind
 which would have cost an extra index on every insert *and* forced a heap fetch on
 the one read path it claimed to serve.
 
-**Still to do in Phase 4:** the granting job (which applies a freeze within the
-rolling-year cap), the `frozenWeeks` reader wiring into `ownPassport`, and the
-StreakPanel at-risk/frozen states (D3). Until the granting job exists the table
-is never written, so the mechanic is inert — the engine is correct but nothing
-triggers it yet.
+**Completed after the engine:** `freezeCandidate` (the pure grant decision, cap
+of 2 per rolling 12 months), the `streaks.freeze` worker job on Monday 04:20
+Europe/Sofia, the `frozenStreakWeeks` reader wired into BOTH `ownPassport` and
+`publicPassport`, and the at-risk banner on `/pasport`.
+
+Two things the end-to-end check caught that every unit test had missed:
+
+- **`passportStreaks` silently dropped the freeze set.** It builds its streak
+  options explicitly rather than spreading the caller's, and the first version
+  simply forgot to copy `frozen` across — so the freeze reached the database,
+  the reader and that function, then evaporated one call short of the fold. A
+  member whose week had been forgiven still saw zero. Every unit test passed,
+  because they all called `summarizeStreak` directly. There is now a regression
+  test at the `passportStreaks` level, proven to fail without the forwarding.
+- **The at-risk state leaked into the PUBLIC passport.** `PassportStreakView`
+  gained `weeksAtRisk`/`frozenWeeks`, and the public projection reused that same
+  shape — so "has not played yet this week" would have been published on a page
+  anyone can open. `apps/web/tests/passport-privacy.test.ts` caught it on the
+  first run. The public payload now has its own narrow `PublicStreakView` and is
+  built field by field, and `StreakPanel` takes the public shape with `atRisk`
+  as a separate prop only the owner's page passes.
 
 **Still deliberately not built:** the at-risk *nudge mail*. It needs the
 frequency cap and its own unsubscribe route, neither of which is decided. The

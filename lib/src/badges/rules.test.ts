@@ -430,3 +430,44 @@ describe('attendance is counted once (Stage 5.4)', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe('passportStreaks forwards the freeze set', () => {
+  /**
+   * REGRESSION. `passportStreaks` builds its streak options explicitly rather
+   * than spreading the caller's, and the first version of A4 simply forgot to
+   * copy `frozen` across. The freeze reached the database, the reader and this
+   * function — and then evaporated one call short of the fold, so a member whose
+   * week had been forgiven still saw a streak of zero.
+   *
+   * Every unit test passed, because they all called `summarizeStreak` directly.
+   * Only an end-to-end read against a real row caught it. This is that check,
+   * moved down to where it is cheap.
+   */
+  const checkin = (day: string): PassportEvent => ({
+    kind: 'session_checkin',
+    at: new Date(`${day}T09:00:00Z`),
+    facilityId: null,
+    municipalityId: null,
+    sports: [],
+    points: 0,
+  });
+
+  const EVENTS = [checkin('2026-06-29'), checkin('2026-07-06')];
+  const NOW = new Date('2026-07-23T12:00:00Z'); // week of 20 Jul; 13 Jul missed
+
+  it('breaks the week streak without a freeze', () => {
+    expect(passportStreaks(EVENTS, { now: NOW }).weeks.current).toBe(0);
+  });
+
+  it('keeps the week streak alive when the missed week is frozen', () => {
+    const streaks = passportStreaks(EVENTS, { now: NOW, frozen: new Set(['2026-07-13']) });
+    expect(streaks.weeks.current).toBe(2);
+    expect(streaks.weeks.atRisk).toBe(true);
+  });
+
+  it('leaves the DAY streak untouched — freezes are weeks only', () => {
+    // Passing a week key must not accidentally bridge a day gap.
+    const streaks = passportStreaks(EVENTS, { now: NOW, frozen: new Set(['2026-07-13']) });
+    expect(streaks.days.current).toBe(0);
+  });
+});

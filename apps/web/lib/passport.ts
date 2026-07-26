@@ -1,5 +1,6 @@
 import {
   markBadgesSeen,
+  frozenStreakWeeks,
   passportEvents,
   passportHistory,
   passportTotals,
@@ -72,11 +73,32 @@ function sofiaMonth(iso: string): string {
   return formatted.slice(0, 7);
 }
 
-export interface PassportStreakView {
+/**
+ * The four numbers, and nothing about the member's current behaviour.
+ *
+ * This is what a PUBLIC passport may carry. Split from the owner's view below
+ * when A4 added at-risk state: "has not played yet this week" is a statement
+ * about what a named person is doing right now, which is precisely what a page
+ * anyone can open must not publish — and the exact-key test in
+ * apps/web/tests/passport-privacy.test.ts caught it trying to.
+ */
+export interface PublicStreakView {
   currentDays: number;
   longestDays: number;
   currentWeeks: number;
   longestWeeks: number;
+}
+
+/** The OWNER's view: the public numbers plus their own live state. */
+export interface PassportStreakView extends PublicStreakView {
+  /** The week streak is alive but this week is still empty (A4). */
+  weeksAtRisk: boolean;
+  /**
+   * How many weeks the system has forgiven, ever. Owner-only, and never
+   * rendered as a balance — a freeze is applied, not spent (CLAUDE.md: the
+   * economy is earning-only).
+   */
+  frozenWeeks: number;
 }
 
 export interface OwnPassport {
@@ -100,13 +122,26 @@ export interface OwnPassport {
   };
 }
 
-function streakView(events: readonly PassportEvent[], now?: Date): PassportStreakView {
-  const streaks = passportStreaks(events, now ? { now } : {});
+function streakView(
+  events: readonly PassportEvent[],
+  now?: Date,
+  frozen?: ReadonlySet<string>,
+): PassportStreakView {
+  const streaks = passportStreaks(events, {
+    ...(now ? { now } : {}),
+    // Weeks the system forgave (A4). Passed in rather than read here so the fold
+    // stays pure; an empty set is exactly the old behaviour.
+    ...(frozen ? { frozen } : {}),
+  });
   return {
     currentDays: streaks.days.current,
     longestDays: streaks.days.longest,
     currentWeeks: streaks.weeks.current,
     longestWeeks: streaks.weeks.longest,
+    // Surfaced so the panel can say "at risk" without re-deriving a civil week
+    // in a component — bucketKeyFor is the one place that may happen.
+    weeksAtRisk: streaks.weeks.atRisk,
+    frozenWeeks: frozen ? frozen.size : 0,
   };
 }
 
@@ -144,11 +179,12 @@ export async function ownPassport(
   userId: string,
   now: Date = new Date(),
 ): Promise<OwnPassport> {
-  const [events, totals, history, visibility] = await Promise.all([
+  const [events, totals, history, visibility, frozen] = await Promise.all([
     passportEvents(db, userId),
     passportTotals(db, userId),
     passportHistory(db, userId),
     readVisibility(db, userId),
+    frozenStreakWeeks(db, userId),
   ]);
 
   const badges = evaluateBadges(LAUNCH_BADGES, events, { now });
@@ -166,7 +202,7 @@ export async function ownPassport(
     totals,
     badges,
     newBadges,
-    streaks: streakView(events, now),
+    streaks: streakView(events, now, frozen),
     history,
     visibility: {
       isPublic: visibility.isPublic,
@@ -195,7 +231,7 @@ export interface PublicPassport {
   totals: { points: number; contributions: number; checkins: number };
   /** EARNED badges only. An unearned badge's progress is activity data. */
   badges: PublicBadge[];
-  streaks: PassportStreakView;
+  streaks: PublicStreakView;
   /** Monthly counts, or null when the member has not opted into showing them. */
   activity: MonthlyActivity[] | null;
 }
@@ -216,13 +252,19 @@ export async function publicPassport(
   const owner = await publicPassportOwner(db, handle);
   if (!owner) return null;
 
-  const [events, totals, activity] = await Promise.all([
+  const [events, totals, activity, frozen] = await Promise.all([
     passportEvents(db, owner.userId),
     passportTotals(db, owner.userId),
     owner.showActivity ? publicMonthlyActivity(db, owner.userId) : Promise.resolve(null),
+    // The SAME freezes the owner's own view folds. Without this the two pages
+    // would print different streak numbers for one person — the failure the
+    // whole "one definition" discipline exists to prevent. A frozen week is not
+    // itself disclosed: it only changes a number that was already public.
+    frozenStreakWeeks(db, owner.userId),
   ]);
 
   const badges = evaluateBadges(LAUNCH_BADGES, events, { now });
+  const ownerStreaks = streakView(events, now, frozen);
 
   // Built field by field. Nothing is spread in from a private shape, so a new
   // private field cannot arrive here by accident.
@@ -239,7 +281,14 @@ export async function publicPassport(
     badges: badges
       .filter((badge): badge is BadgeState & { earnedAt: Date } => badge.earnedAt !== null)
       .map((badge) => ({ slug: badge.slug, earnedMonth: sofiaMonth(badge.earnedAt.toISOString()) })),
-    streaks: streakView(events, now),
+    streaks: {
+      // Field by field, deliberately: spreading the owner's view is exactly how
+      // weeksAtRisk and frozenWeeks reached this payload the first time.
+      currentDays: ownerStreaks.currentDays,
+      longestDays: ownerStreaks.longestDays,
+      currentWeeks: ownerStreaks.currentWeeks,
+      longestWeeks: ownerStreaks.longestWeeks,
+    },
     activity,
   };
 }

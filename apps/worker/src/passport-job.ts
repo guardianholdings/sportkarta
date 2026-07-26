@@ -1,4 +1,13 @@
-import { badgeEvaluationCandidates, evaluateAndRecordBadges, getDb } from '@sportkarta/db';
+import {
+  appliedStreakFreezes,
+  applyStreakFreeze,
+  badgeEvaluationCandidates,
+  evaluateAndRecordBadges,
+  getDb,
+  passportEvents,
+  streakFreezeCandidates,
+} from '@sportkarta/db';
+import { freezeCandidate } from '@sportkarta/lib/badges';
 
 /**
  * Badge evaluation, off the passport render path (docs/ENGAGEMENT-IMPLEMENTATION.md,
@@ -107,6 +116,51 @@ export async function runBadgeBackfill(now: Date = new Date()): Promise<Evaluate
       // account id identifies a person.
       console.error(
         '[worker] badges.backfill member failed:',
+        error instanceof Error ? error.name : 'unknown',
+      );
+    }
+  }
+  return report;
+}
+
+/**
+ * Apply streak freezes for the week that just closed («замразяване», A4).
+ *
+ * Runs after the week boundary. For each member with recent attendance it asks
+ * the pure `freezeCandidate` whether the closed week is one worth forgiving,
+ * and records it if so. Almost every answer is null — a freeze is only ever
+ * applied to a week that would otherwise END a live run.
+ *
+ * SILENTLY, by design. ENGAGEMENT.md A4's finding is that freezes work because
+ * they apply without ceremony; the member simply finds their streak intact.
+ * Nothing here mails, and the table's COMMENT pins the language: a freeze is
+ * APPLIED, never spent or used up.
+ *
+ * Sequential and per-member try/catch, matching the backfill: one member's bad
+ * history must not abandon everyone else's.
+ */
+export async function runStreakFreezes(now: Date = new Date()): Promise<EvaluateReport> {
+  const db = getDb();
+  const userIds = await streakFreezeCandidates(db);
+
+  const report: EvaluateReport = { evaluated: 0, recorded: 0, failed: 0 };
+  for (const userId of userIds) {
+    try {
+      const [events, applied] = await Promise.all([
+        passportEvents(db, userId),
+        appliedStreakFreezes(db, userId),
+      ]);
+      report.evaluated += 1;
+      // The week streak is PARTICIPATION, so the candidate is decided on the
+      // same event subset passportStreaks folds — otherwise a contribution
+      // could quietly hold a participation streak together.
+      const checkins = events.filter((event) => event.kind === 'session_checkin');
+      const key = freezeCandidate(checkins, applied, { now });
+      if (key && (await applyStreakFreeze(db, userId, key))) report.recorded += 1;
+    } catch (error) {
+      report.failed += 1;
+      console.error(
+        '[worker] streaks.freeze member failed:',
         error instanceof Error ? error.name : 'unknown',
       );
     }

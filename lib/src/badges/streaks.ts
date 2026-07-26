@@ -254,3 +254,74 @@ export function summarizeStreak(
     atRisk: alive && last.key !== nowKey,
   };
 }
+
+/**
+ * How many weeks a member may have forgiven in any rolling 12 months.
+ *
+ * Two, following the finding ENGAGEMENT.md A4 cites: Duolingo tested one, two
+ * and three, and two beat one while three added nothing measurable. It is a
+ * CEILING, not a wallet — see the `frozen` option and the table's COMMENT for
+ * why this product cannot have a spendable balance.
+ */
+export const STREAK_FREEZE_CAP_PER_YEAR = 2;
+
+/** A freeze applied at a point in time — what the cap counts. */
+export interface AppliedFreeze {
+  bucketKey: BucketKey;
+  appliedAt: Date;
+}
+
+/**
+ * The one week, if any, that should be forgiven right now.
+ *
+ * Called after a week closes. Returns the week key to freeze, or null — and
+ * null is the common answer, which is the point: a freeze is only ever spent on
+ * a week that would otherwise END something.
+ *
+ * The four conditions, in the order they are cheapest to refute:
+ *
+ *  1. The week must be CLOSED. Freezing the week currently in progress would
+ *     forgive a member who still has days left to show up.
+ *  2. The member must have missed it. Freezing an active week is free of
+ *     consequence but consumes the year's allowance for nothing.
+ *  3. A run must actually have been in progress going into it. Without this the
+ *     mechanic quietly hands two freezes a year to members with no streak at
+ *     all, and the first real streak they build has no protection left.
+ *  4. The rolling-year cap must not be spent. Rolling rather than calendar so a
+ *     member who missed two weeks in December is not handed two more on 1
+ *     January.
+ *
+ * Pure: the caller supplies history, existing freezes and `now`, so this is
+ * unit-testable across DST boundaries with no clock and no database.
+ */
+export function freezeCandidate(
+  events: readonly Timed[],
+  applied: readonly AppliedFreeze[],
+  options: StreakOptions = {},
+): BucketKey | null {
+  const timeZone = options.timeZone ?? SOFIA_TZ;
+  const now = options.now ?? new Date();
+  const frozen = new Set(applied.map((freeze) => freeze.bucketKey));
+
+  // 1. The week that just closed.
+  const target = previousBucketKey(bucketKeyFor(now, 'week', timeZone), 'week');
+  if (frozen.has(target)) return null;
+
+  // 2. Missed it?
+  const active = new Set(streakBuckets(events, 'week', timeZone, frozen).map((b) => b.key));
+  if (active.has(target)) return null;
+
+  // 3. Was a run alive going into it? Walk back over already-frozen weeks to
+  //    the most recent active one; if there is none, there is nothing to save.
+  let cursor = previousBucketKey(target, 'week');
+  while (frozen.has(cursor)) cursor = previousBucketKey(cursor, 'week');
+  if (!active.has(cursor)) return null;
+
+  // 4. Rolling 12 months, counted from `now` rather than from a calendar year.
+  const yearAgo = new Date(now.getTime());
+  yearAgo.setUTCFullYear(yearAgo.getUTCFullYear() - 1);
+  const spent = applied.filter((freeze) => freeze.appliedAt >= yearAgo).length;
+  if (spent >= STREAK_FREEZE_CAP_PER_YEAR) return null;
+
+  return target;
+}

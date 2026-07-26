@@ -14,8 +14,10 @@ import {
 import {
   bucketKeyFor,
   formatCivilDate,
+  freezeCandidate,
   nextBucketKey,
   previousBucketKey,
+  STREAK_FREEZE_CAP_PER_YEAR,
   streakBuckets,
   summarizeStreak,
   type Timed,
@@ -460,5 +462,80 @@ describe('atRisk', () => {
         return summary.current > 0 || !summary.atRisk;
       }),
     );
+  });
+});
+
+describe('freezeCandidate', () => {
+  const W = (day: string): Timed => at(`${day}T09:00:00Z`);
+  // Thursday of the week starting Mon 2026-07-20; the week just closed is 13 Jul.
+  const NOW = new Date('2026-07-23T12:00:00Z');
+
+  it('forgives the week just closed when a live run would otherwise end', () => {
+    // Active 29 Jun and 6 Jul, missed 13 Jul.
+    expect(freezeCandidate([W('2026-06-29'), W('2026-07-06')], [], { now: NOW })).toBe('2026-07-13');
+  });
+
+  it('returns null when the member was active in that week — nothing to save', () => {
+    expect(
+      freezeCandidate([W('2026-07-06'), W('2026-07-13')], [], { now: NOW }),
+    ).toBeNull();
+  });
+
+  it('returns null when no run was in progress — freezes are not handed out for free', () => {
+    // Last activity months ago: there is no streak to protect, so spending one
+    // of the two would leave the member's first real streak unprotected.
+    expect(freezeCandidate([W('2026-03-02')], [], { now: NOW })).toBeNull();
+  });
+
+  it('never freezes the week still in progress', () => {
+    const candidate = freezeCandidate([W('2026-07-13')], [], { now: NOW });
+    // The open week is 2026-07-20; only the closed one may ever be returned.
+    expect(candidate).not.toBe('2026-07-20');
+  });
+
+  it('is idempotent — a week already frozen is not frozen twice', () => {
+    const applied = [{ bucketKey: '2026-07-13', appliedAt: new Date('2026-07-20T00:00:00Z') }];
+    expect(freezeCandidate([W('2026-06-29'), W('2026-07-06')], applied, { now: NOW })).toBeNull();
+  });
+
+  it('refuses once the rolling-year cap is spent', () => {
+    const applied = [
+      { bucketKey: '2026-05-04', appliedAt: new Date('2026-05-11T00:00:00Z') },
+      { bucketKey: '2026-06-01', appliedAt: new Date('2026-06-08T00:00:00Z') },
+    ];
+    expect(applied).toHaveLength(STREAK_FREEZE_CAP_PER_YEAR);
+    expect(freezeCandidate([W('2026-06-29'), W('2026-07-06')], applied, { now: NOW })).toBeNull();
+  });
+
+  it('the cap is ROLLING, so an old freeze stops counting', () => {
+    const applied = [
+      // Both more than a year before NOW: spent, but no longer counted.
+      { bucketKey: '2025-05-05', appliedAt: new Date('2025-05-12T00:00:00Z') },
+      { bucketKey: '2025-06-02', appliedAt: new Date('2025-06-09T00:00:00Z') },
+    ];
+    expect(freezeCandidate([W('2026-06-29'), W('2026-07-06')], applied, { now: NOW })).toBe(
+      '2026-07-13',
+    );
+  });
+
+  it('walks back over an existing freeze to find the run it is protecting', () => {
+    // Active 29 Jun, 6 Jul already frozen, 13 Jul missed: the run is still
+    // alive through the earlier freeze, so this week is worth saving too.
+    const applied = [{ bucketKey: '2026-07-06', appliedAt: new Date('2026-07-13T00:00:00Z') }];
+    expect(freezeCandidate([W('2026-06-29')], applied, { now: NOW })).toBe('2026-07-13');
+  });
+
+  it('a granted freeze actually keeps the streak alive (end to end, pure)', () => {
+    const events = [W('2026-06-29'), W('2026-07-06')];
+    // Without the freeze the run is dead by the open week.
+    expect(summarizeStreak(events, 'week', { now: NOW }).current).toBe(0);
+    const key = freezeCandidate(events, [], { now: NOW });
+    expect(key).not.toBeNull();
+    const after = summarizeStreak(events, 'week', {
+      now: NOW,
+      frozen: new Set([key as string]),
+    });
+    expect(after.current).toBe(2);
+    expect(after.atRisk).toBe(true);
   });
 });

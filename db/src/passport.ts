@@ -403,3 +403,80 @@ export async function badgeEvaluationCandidates(db: SqlRunner): Promise<string[]
   `);
   return result.rows.map((row) => String(row.user_id));
 }
+
+/**
+ * Weeks already forgiven for this member, newest first.
+ *
+ * Returns `appliedAt` as well as the key because the cap is ROLLING: the fold
+ * only needs the keys, but `freezeCandidate` needs to know when each was
+ * applied to count the last twelve months.
+ */
+export async function appliedStreakFreezes(
+  db: SqlRunner,
+  userId: string,
+): Promise<{ bucketKey: string; appliedAt: Date }[]> {
+  const result = await db.execute(sql`
+    SELECT to_char(bucket_key, 'YYYY-MM-DD') AS bucket_key, applied_at
+    FROM streak_freezes
+    WHERE user_id = ${userId} AND unit = 'week'
+    ORDER BY bucket_key DESC
+  `);
+  return result.rows.map((row) => ({
+    bucketKey: String(row.bucket_key),
+    appliedAt: new Date(String(row.applied_at)),
+  }));
+}
+
+/**
+ * Just the keys, for the streak fold.
+ *
+ * `to_char` rather than letting the driver render the date: the fold matches
+ * these against `bucketKeyFor`'s `YYYY-MM-DD` strings, and a driver that
+ * returned a Date (or an ISO instant) would produce keys that silently match
+ * nothing — the freeze would appear to do nothing at all.
+ */
+export async function frozenStreakWeeks(db: SqlRunner, userId: string): Promise<Set<string>> {
+  const freezes = await appliedStreakFreezes(db, userId);
+  return new Set(freezes.map((freeze) => freeze.bucketKey));
+}
+
+/**
+ * Record one forgiven week. Idempotent.
+ *
+ * ON CONFLICT DO NOTHING against the unique index, so a retried job cannot
+ * consume two of the member's allowance for one week. Returns whether a row was
+ * actually written.
+ */
+export async function applyStreakFreeze(
+  db: SqlRunner,
+  userId: string,
+  bucketKey: string,
+): Promise<boolean> {
+  const result = await db.execute(sql`
+    INSERT INTO streak_freezes (user_id, unit, bucket_key)
+    VALUES (${userId}, 'week', ${bucketKey}::date)
+    ON CONFLICT (user_id, unit, bucket_key) DO NOTHING
+    RETURNING id
+  `);
+  return result.rows.length > 0;
+}
+
+/**
+ * Members worth considering for a freeze: anyone with a check-in in the last
+ * ~10 weeks.
+ *
+ * The week streak counts participation (`passportStreaks` filters to
+ * `session_checkin`), so a member with no recent attendance has no live run to
+ * protect and folding their history would be pure cost. The window is
+ * deliberately wider than the two weeks the decision actually reads, so a
+ * member whose run is being held together by earlier freezes is still seen.
+ */
+export async function streakFreezeCandidates(db: SqlRunner): Promise<string[]> {
+  const result = await db.execute(sql`
+    SELECT DISTINCT user_id::text AS user_id
+    FROM play_session_checkins
+    WHERE checked_in_at > now() - interval '70 days'
+    ORDER BY user_id
+  `);
+  return result.rows.map((row) => String(row.user_id));
+}

@@ -818,7 +818,8 @@
     "hideActivity": "Hide activity by month",
     "publicMetaTitle": "{name}’s sports passport — SportKarta",
     "publicSubtitle": "On SportKarta since {since}",
-    "publicSubtitleWithCity": "{city} · on SportKarta since {since}"
+    "publicSubtitleWithCity": "{city} · on SportKarta since {since}",
+    "streak_atRisk": "No attendance recorded yet this week — your streak continues if you show up before Sunday."
   },
   "Badge": {
     "new": "new",

@@ -71,8 +71,12 @@ export type {
   MemberStanding,
 } from './leaderboard.js';
 export {
+  appliedStreakFreezes,
+  applyStreakFreeze,
   badgeEvaluationCandidates,
   evaluateAndRecordBadges,
+  frozenStreakWeeks,
+  streakFreezeCandidates,
   markBadgesSeen,
   passportEvents,
   passportHistory,

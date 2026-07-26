@@ -4,6 +4,7 @@ import {
   bucketKeyFor,
   streakBuckets,
   summarizeStreak,
+  type BucketKey,
   type StreakSummary,
   type StreakUnit,
 } from './streaks.js';
@@ -157,6 +158,14 @@ export interface EvaluateOptions {
   timeZone?: string;
   /** Only used by streak rules, to answer "is it still running". */
   now?: Date;
+  /**
+   * Weeks the system forgave (A4). Only meaningful for streak rules.
+   *
+   * Threaded through to the fold so a member's DISPLAYED streak and their
+   * streak BADGE cannot disagree — two different numbers for one person on one
+   * page is a worse failure than either number being generous.
+   */
+  frozen?: ReadonlySet<BucketKey>;
 }
 
 function matches(event: PassportEvent, events: readonly PassportEventKind[]): boolean {
@@ -293,6 +302,11 @@ export function passportStreaks(
   const streakOptions = {
     timeZone: options.timeZone ?? SOFIA_TZ,
     ...(options.now ? { now: options.now } : {}),
+    // MUST be forwarded. Built explicitly rather than spread from `options`,
+    // which is why the first version silently dropped it: the freeze reached
+    // the database, the reader and this function, and then evaporated one call
+    // short of the fold. Only an end-to-end read caught it.
+    ...(options.frozen ? { frozen: options.frozen } : {}),
   };
   return {
     days: summarizeStreak(events, 'day', streakOptions),

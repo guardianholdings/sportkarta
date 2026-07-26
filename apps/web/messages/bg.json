@@ -818,7 +818,8 @@
     "hideActivity": "Скрий активността по месеци",
     "publicMetaTitle": "Спортен паспорт на {name} — СпортКарта",
     "publicSubtitle": "В СпортКарта от {since}",
-    "publicSubtitleWithCity": "{city} · в СпортКарта от {since}"
+    "publicSubtitleWithCity": "{city} · в СпортКарта от {since}",
+    "streak_atRisk": "Тази седмица още нямате отбелязано присъствие — серията ви продължава, ако се появите до неделя."
   },
   "Badge": {
     "new": "ново",

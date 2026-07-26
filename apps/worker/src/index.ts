@@ -7,6 +7,7 @@ import { runOpenDataDump } from './opendata-dump-job.js';
 import {
   runBadgeBackfill,
   runPassportEvaluate,
+  runStreakFreezes,
   type PassportEvaluateJobData,
 } from './passport-job.js';
 import {
@@ -42,6 +43,8 @@ const OPENDATA_DUMP_QUEUE = 'opendata.dump';
  */
 const PASSPORT_EVALUATE_QUEUE = 'passport.evaluate';
 const BADGE_BACKFILL_QUEUE = 'badges.backfill';
+/** Streak freezes (A4): applied once a week has closed, silently. */
+const STREAK_FREEZE_QUEUE = 'streaks.freeze';
 
 interface ImportOsmJobData {
   dryRun?: boolean;
@@ -84,6 +87,7 @@ async function main(): Promise<void> {
   await boss.createQueue(OPENDATA_DUMP_QUEUE);
   await boss.createQueue(PASSPORT_EVALUATE_QUEUE);
   await boss.createQueue(BADGE_BACKFILL_QUEUE);
+  await boss.createQueue(STREAK_FREEZE_QUEUE);
 
   await boss.work(HEALTH_QUEUE, async (jobs) => {
     for (const job of jobs) {
@@ -302,6 +306,20 @@ async function main(): Promise<void> {
     );
   });
   await boss.send(BADGE_BACKFILL_QUEUE, {});
+
+  // Streak freezes (A4). Monday 04:20 EUROPE/SOFIA — after the civil week has
+  // closed and well clear of the 03:30 backup and the 03:40 open-data dump. The
+  // timezone is the point: a week boundary is a wall-clock promise, so a UTC
+  // cron would apply freezes an hour early or late for half the year and
+  // occasionally decide the wrong week had just closed.
+  await boss.work(STREAK_FREEZE_QUEUE, async () => {
+    const report = await runStreakFreezes();
+    console.log(
+      `[worker] ${STREAK_FREEZE_QUEUE} considered ${String(report.evaluated)} member(s), ` +
+        `${String(report.recorded)} week(s) forgiven, ${String(report.failed)} failed`,
+    );
+  });
+  await boss.schedule(STREAK_FREEZE_QUEUE, '20 4 * * 1', {}, { tz: 'Europe/Sofia' });
 
   console.log('[worker] started, listening for jobs');
 
