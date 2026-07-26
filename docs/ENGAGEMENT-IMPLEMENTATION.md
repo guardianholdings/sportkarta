@@ -24,7 +24,47 @@ re-confirming before you edit the file.
 | 0 — Truth repairs | ✅ **done 2026-07-26** | All five items, each with a gate proven to fail on the bug it guards. |
 | 1 — Show the number (A2) | ✅ **done 2026-07-26** | Verified in-browser (bg + en) and by the QR + contributions e2e suites. |
 | 2 — Instrument + framing rule (C1, C7) | ✅ **done 2026-07-26** | 9 events across 8 files, closed vocabulary, privacy copy updated. |
-| 3 onward | not started | |
+| 3 — Badge evaluation off the render path (A1) | ✅ **done 2026-07-26** | **No migration needed.** Verified end-to-end against the real worker + database. |
+| 4 onward | not started | |
+
+**Phase 3 came in smaller than planned: no migration at all.** The plan budgeted
+`0025` for a shared notification ledger, but `user_badges` already carries
+`seen_at`/`first_seen_at`, and the ledger is only needed by the MAIL layer —
+which is still blocked on the frequency-cap and unsubscribe decisions. So A1
+shipped as pure code: `recordEarnedBadges` gained a cutoff, a `passport.evaluate`
+job, a `badges.backfill` one-shot, and five enqueue call sites. `0025` moves to
+whenever mail actually ships.
+
+**The backfill is silent by a cutoff, not a flag** (operator decision
+2026-07-26). `RecordBadgesOptions.unseenSince` means "a badge is new only if it
+was earned just now"; anything older is written already-seen. A `silent: boolean`
+would have made the backfill and the live path two different code paths, and then
+the ORDER between them matters — a contribution arriving before the backfill
+reached that member would still produce the burst. As a cutoff, both paths are
+the same call and the race cannot exist. Proven on one member in one call: a
+badge earned 120 days ago stayed silent while `mapper_5`, earned in the same
+evaluation, lit up.
+
+**Verified end-to-end, not just by unit test.** The worker was run against the
+dev database with a purpose-built fixture: `badges.backfill` evaluated 9 members
+and recorded 1 badge, silently; `passport.evaluate` then recorded a
+just-earned badge as unseen. Fixture removed afterwards, dev data unchanged.
+
+Two things worth knowing for phase 4+:
+
+- **`evaluateAndRecordBadges` lives in `db/src/passport.ts`, not `apps/web/lib`** —
+  the worker cannot import `apps/web`, the same reason `weeklyDigest` lives in
+  `db/`. One implementation, so the job and `/pasport` cannot disagree about who
+  holds which badge.
+- **The enqueue can never break a write.** `enqueuePassportEvaluate` swallows
+  every failure, and `apps/web/tests/passport-evaluate.test.ts` pins it — the
+  plan listed this as a risk bullet; it is a deliverable. Inside `checkIn` a
+  throwing enqueue would contradict the rule the anti-abuse layer rests on:
+  attendance is a fact and is always recorded, only the payment stops.
+
+Still deliberately **not** built: any mail. The job records and marks; it sends
+nothing, because a notifier without a frequency cap is how a member gets four
+engagement emails in one weekend.
 
 **Phase 2 checkpoint:** typecheck green, lint clean, **1,505 unit tests**
 (web 41 files / 488 tests), and `contributions` + `checkin-qr` + `sessions-rsvp`

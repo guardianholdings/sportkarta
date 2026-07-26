@@ -1,6 +1,6 @@
 import { sql, type SQL } from 'drizzle-orm';
 
-import type { PassportEvent } from '@sportkarta/lib/badges';
+import { evaluateBadges, LAUNCH_BADGES, type PassportEvent } from '@sportkarta/lib/badges';
 
 /**
  * The passport's data layer (docs/ROADMAP.md §7, Stage 5.1).
@@ -284,20 +284,57 @@ export async function publicMonthlyActivity(
  * this member right now. Nothing here decides whether a badge is HELD — the
  * engine already did, and this table is never read to answer that.
  */
+export interface RecordBadgesOptions {
+  /**
+   * Only a badge earned at or after this instant is recorded as UNSEEN (the
+   * "ново" marker and, later, the nav dot). Anything older is written already
+   * seen.
+   *
+   * WHY THIS EXISTS. Badges are DERIVED and retroactive: the engine folds a
+   * member's whole history, so the first evaluation of an account that has been
+   * contributing for months earns its entire back catalogue at once. Before
+   * this, that burst was invisible because evaluation only ran when the member
+   * opened /pasport — which is also why a badge did not exist until they looked.
+   * Moving evaluation into a job (Stage: A1) fixes that, and would otherwise
+   * hand every existing member eight simultaneous "new" badges the first time
+   * the job ran, plus a nav dot they never earned by doing anything.
+   *
+   * A cutoff rather than a `silent: boolean` flag, deliberately: a flag makes
+   * the backfill and the live path two different code paths, and then the
+   * ordering between them matters — a contribution arriving before the backfill
+   * reached that member would still produce the burst. Expressed as "a badge is
+   * new only if it was earned just now", both paths are the SAME call and the
+   * race cannot happen. The backfill is then simply "evaluate everyone", with
+   * nothing special about it.
+   *
+   * Omit to record everything as unseen (the pre-existing behaviour, still what
+   * an interactive /pasport render wants).
+   */
+  unseenSince?: Date;
+}
+
 export async function recordEarnedBadges(
   db: SqlRunner,
   userId: string,
   earned: readonly { slug: string; earnedAt: Date }[],
+  options: RecordBadgesOptions = {},
 ): Promise<string[]> {
   if (earned.length === 0) return [];
 
+  const cutoff = options.unseenSince;
   const values = sql.join(
-    earned.map((badge) => sql`(${userId}, ${badge.slug}, ${badge.earnedAt.toISOString()}::timestamptz)`),
+    earned.map((badge) => {
+      // `seen_at` non-null means "already shown"; NULL is what unseenBadges and
+      // the partial index user_badges_user_unseen_idx look for.
+      const seenAt =
+        cutoff && badge.earnedAt < cutoff ? sql`now()` : sql`NULL::timestamptz`;
+      return sql`(${userId}, ${badge.slug}, ${badge.earnedAt.toISOString()}::timestamptz, ${seenAt})`;
+    }),
     sql`, `,
   );
 
   const result = await db.execute(sql`
-    INSERT INTO user_badges (user_id, badge_slug, earned_at)
+    INSERT INTO user_badges (user_id, badge_slug, earned_at, seen_at)
     VALUES ${values}
     ON CONFLICT (user_id, badge_slug) DO NOTHING
     RETURNING badge_slug
@@ -318,4 +355,51 @@ export async function markBadgesSeen(db: SqlRunner, userId: string): Promise<voi
   await db.execute(sql`
     UPDATE user_badges SET seen_at = now() WHERE user_id = ${userId} AND seen_at IS NULL
   `);
+}
+
+/**
+ * Fold a member's whole history, record whatever badges it earns, and say what
+ * was newly written. The one place badge evaluation happens for a single member.
+ *
+ * WHY IT LIVES IN db/ RATHER THAN apps/web/lib. This is called from the worker
+ * (the `passport.evaluate` job), and the worker cannot import apps/web — the
+ * same reason `weeklyDigest` lives here rather than beside the page that renders
+ * it. Keeping one implementation is the point: a second copy in the worker
+ * would drift from the one /pasport uses, and the two would disagree about who
+ * has which badge.
+ *
+ * COST. `passportEvents` is deliberately unbounded (see its comment), so this is
+ * O(a member's whole history) plus an in-memory fold. That is exactly why it
+ * must NOT be inlined into a contribution or check-in transaction: attendance is
+ * a fact and is always recorded, and an engagement feature must never be able to
+ * roll one back. Call it from a job, after the write has committed.
+ */
+export async function evaluateAndRecordBadges(
+  db: SqlRunner,
+  userId: string,
+  options: { now?: Date; unseenSince?: Date } = {},
+): Promise<string[]> {
+  const now = options.now ?? new Date();
+  const events = await passportEvents(db, userId);
+  const earned = evaluateBadges(LAUNCH_BADGES, events, { now })
+    .filter((badge): badge is typeof badge & { earnedAt: Date } => badge.earnedAt !== null)
+    .map((badge) => ({ slug: badge.slug, earnedAt: badge.earnedAt }));
+  return recordEarnedBadges(db, userId, earned, { unseenSince: options.unseenSince });
+}
+
+/**
+ * Accounts worth re-evaluating: everyone who has ever earned a point.
+ *
+ * `points_ledger` is the only source `passportEvents` reads, so an account with
+ * no ledger row cannot hold a badge and re-folding its (empty) history would be
+ * pure cost. Ordered by id so a resumed backfill is deterministic.
+ */
+export async function badgeEvaluationCandidates(db: SqlRunner): Promise<string[]> {
+  const result = await db.execute(sql`
+    SELECT DISTINCT user_id::text AS user_id
+    FROM points_ledger
+    WHERE user_id IS NOT NULL
+    ORDER BY user_id
+  `);
+  return result.rows.map((row) => String(row.user_id));
 }

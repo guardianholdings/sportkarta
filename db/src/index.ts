@@ -71,6 +71,8 @@ export type {
   MemberStanding,
 } from './leaderboard.js';
 export {
+  badgeEvaluationCandidates,
+  evaluateAndRecordBadges,
   markBadgesSeen,
   passportEvents,
   passportHistory,
@@ -85,6 +87,7 @@ export type {
   PassportHistoryEntry,
   PassportTotals,
   PublicPassportOwner,
+  RecordBadgesOptions,
 } from './passport.js';
 
 export {

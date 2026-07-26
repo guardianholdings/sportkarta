@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth-session';
 import { addFacilityRateLimiter } from '@/lib/contribution-rate-limit';
 import { addedRedirectValue } from '@/lib/contributions/added-banner';
+import { enqueuePassportEvaluate } from '@/lib/passport-evaluate';
 import { addFacility } from '@/lib/contributions/add-facility';
 import { ContributionError } from '@/lib/contributions/errors';
 import { discardContributionPhoto, storeContributionPhoto } from '@/lib/contributions/photo-upload';
@@ -71,6 +72,10 @@ export async function addFacilityAction(
     }
     throw error;
   }
+
+  // After the write COMMITS, before the redirect: adding a facility is the
+  // largest award and the most likely thing to complete a badge (A1).
+  await enqueuePassportEvaluate(user.id);
 
   // Outside the try: redirect() signals by throwing, and catching it here would
   // both swallow the navigation and delete a photo that now has a facility.

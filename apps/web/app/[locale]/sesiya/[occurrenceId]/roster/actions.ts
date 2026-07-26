@@ -4,6 +4,7 @@ import { getDb } from '@sportkarta/db';
 import { revalidatePath } from 'next/cache';
 
 import { requireUser } from '@/lib/auth-session';
+import { enqueuePassportEvaluate } from '@/lib/passport-evaluate';
 import { checkIn } from '@/lib/sessions/checkin';
 import { SessionError } from '@/lib/sessions/errors';
 
@@ -38,6 +39,9 @@ export async function markPresentAction(occurrenceId: string, memberId: string):
     if (error instanceof SessionError) return;
     throw error;
   } finally {
+    // The MEMBER whose attendance was recorded, not the organiser who
+    // recorded it: the badge belongs to whoever showed up.
+    await enqueuePassportEvaluate(memberId);
     revalidatePath(`/sesiya/${occurrenceId}/roster`);
     revalidatePath(`/sesiya/${occurrenceId}`);
   }

@@ -5,6 +5,11 @@ import { runImport } from '@sportkarta/import-osm';
 import { runWeeklyDigest } from './digest-job.js';
 import { runOpenDataDump } from './opendata-dump-job.js';
 import {
+  runBadgeBackfill,
+  runPassportEvaluate,
+  type PassportEvaluateJobData,
+} from './passport-job.js';
+import {
   NOTIFY_REASONS,
   runSessionNotify,
   runSessionReminders,
@@ -30,6 +35,13 @@ const SESSION_NOTIFY_QUEUE = 'session.notify';
 const SESSION_REMINDERS_QUEUE = 'session.reminders';
 const DIGEST_WEEKLY_QUEUE = 'digest.weekly';
 const OPENDATA_DUMP_QUEUE = 'opendata.dump';
+/**
+ * Badge evaluation (A1). `passport.evaluate` is enqueued by the web app after a
+ * contribution or check-in commits; `badges.backfill` is the one-shot that
+ * records the retroactive back catalogue for everyone who already has points.
+ */
+const PASSPORT_EVALUATE_QUEUE = 'passport.evaluate';
+const BADGE_BACKFILL_QUEUE = 'badges.backfill';
 
 interface ImportOsmJobData {
   dryRun?: boolean;
@@ -70,6 +82,8 @@ async function main(): Promise<void> {
   await boss.createQueue(SESSION_REMINDERS_QUEUE);
   await boss.createQueue(DIGEST_WEEKLY_QUEUE);
   await boss.createQueue(OPENDATA_DUMP_QUEUE);
+  await boss.createQueue(PASSPORT_EVALUATE_QUEUE);
+  await boss.createQueue(BADGE_BACKFILL_QUEUE);
 
   await boss.work(HEALTH_QUEUE, async (jobs) => {
     for (const job of jobs) {
@@ -256,6 +270,38 @@ async function main(): Promise<void> {
     return last;
   });
   await boss.schedule(OPENDATA_DUMP_QUEUE, '40 3 * * *', {}, { tz: 'Europe/Sofia' });
+
+  // Badge evaluation (A1). Until now `recordEarnedBadges` ran from exactly one
+  // place — a /pasport render — so a badge did not exist until the member
+  // personally looked. The web app enqueues here after a contribution or a
+  // check-in COMMITS; see apps/worker/src/passport-job.ts for why this must not
+  // be inlined into those transactions.
+  await boss.work(PASSPORT_EVALUATE_QUEUE, async (jobs) => {
+    for (const job of jobs) {
+      const report = await runPassportEvaluate((job.data ?? {}) as PassportEvaluateJobData);
+      if (report.recorded > 0) {
+        // Counts only — an account id identifies a person even with no name.
+        console.log(
+          `[worker] ${PASSPORT_EVALUATE_QUEUE} job ${job.id}: ${String(report.recorded)} badge(s) recorded`,
+        );
+      }
+    }
+  });
+
+  // The retroactive back catalogue, once. Every badge it writes is historical
+  // and therefore recorded already-seen, so nobody wakes up to eight
+  // simultaneous "new" badges. Sent on every boot rather than scheduled: it is
+  // idempotent (ON CONFLICT DO NOTHING), it is the only thing that catches a
+  // member whose badges were earned while this feature did not exist, and one
+  // pass over the ledger's distinct users is cheap next to getting it wrong.
+  await boss.work(BADGE_BACKFILL_QUEUE, async () => {
+    const report = await runBadgeBackfill();
+    console.log(
+      `[worker] ${BADGE_BACKFILL_QUEUE} evaluated ${String(report.evaluated)} member(s), ` +
+        `${String(report.recorded)} badge(s) recorded, ${String(report.failed)} failed`,
+    );
+  });
+  await boss.send(BADGE_BACKFILL_QUEUE, {});
 
   console.log('[worker] started, listening for jobs');
 

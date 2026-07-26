@@ -4,6 +4,7 @@ import { getDb } from '@sportkarta/db';
 import { revalidatePath } from 'next/cache';
 
 import { requireUser } from '@/lib/auth-session';
+import { enqueuePassportEvaluate } from '@/lib/passport-evaluate';
 import { checkinSecret } from '@/lib/checkin-config';
 import { contributionRateLimiter } from '@/lib/contribution-rate-limit';
 import { checkIn, type CheckinOutcome } from '@/lib/sessions/checkin';
@@ -74,6 +75,10 @@ export async function redeemCheckinAction(
       lon: coordinate(formData.get('lon'), 180),
     });
     revalidatePath(`/sesiya/${occurrenceId}`);
+    // Enqueued for EVERY outcome, including the unscored ones: participation
+    // badges count the attendance FACT, not the payment, so a check-in that
+    // earned no points can still complete a badge.
+    await enqueuePassportEvaluate(user.id);
     return {
       status: 'ok',
       outcome: result.outcome,

@@ -5,6 +5,7 @@ import { POINTS_BY_EVENT } from '@sportkarta/lib/points';
 import { revalidatePath } from 'next/cache';
 
 import { requireUser } from '@/lib/auth-session';
+import { enqueuePassportEvaluate } from '@/lib/passport-evaluate';
 import { contributionRateLimiter } from '@/lib/contribution-rate-limit';
 import { reportCondition } from '@/lib/contributions/condition-report';
 import { ContributionError } from '@/lib/contributions/errors';
@@ -102,6 +103,9 @@ export async function verifyFacilityAction(
       },
     });
     revalidatePath(`/obekt/${slug}`);
+    // After the write COMMITS: a verification can complete a badge, and the
+    // engine must not run inside the contribution's transaction (A1).
+    await enqueuePassportEvaluate(user.id);
     return { status: 'ok', awarded: result.awarded ? POINTS_BY_EVENT.facility_verified : 0 };
   } catch (error) {
     if (error instanceof ContributionError) return { status: 'error', error: error.code };
@@ -140,6 +144,7 @@ export async function reportConditionAction(
       },
     });
     revalidatePath(`/obekt/${slug}`);
+    await enqueuePassportEvaluate(user.id);
     return { status: 'ok', awarded: result.awarded ? POINTS_BY_EVENT.condition_reported : 0 };
   } catch (error) {
     await discardContributionPhoto(storagePath);
