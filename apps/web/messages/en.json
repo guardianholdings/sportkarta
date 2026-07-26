@@ -276,7 +276,7 @@
     "distanceKm": "{km} km away",
     "viewDetails": "View details",
     "close": "Close",
-    "showList": "List",
+    "showList": "Show the list",
     "showMap": "Map",
     "loading": "Loading the map…",
     "myLocation": "Your location",
@@ -285,7 +285,8 @@
     "layer_default": "Standard (self-hosted)",
     "layer_cyclosm": "Cycling — CyclOSM",
     "layer_transport": "Transport — Thunderforest",
-    "layer_topo": "Topographic — Tracestrack"
+    "layer_topo": "Topographic — Tracestrack",
+    "hideList": "Hide the list"
   },
   "Facility": {
     "directions": "Directions",

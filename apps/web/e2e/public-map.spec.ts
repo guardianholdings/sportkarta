@@ -44,7 +44,7 @@ async function seedPitch(): Promise<void> {
 
 test.describe('public map — find nearest free football pitch', () => {
   // This journey is the MOBILE one: the redesign serves the results list and the
-  // facility bottom sheet (`#facility-list`, testId `facility-sheet`) only below
+  // facility bottom sheet (`#facility-list-mobile`, testId `facility-sheet`) only below
   // the `lg` breakpoint; the desktop layout uses a side panel instead. Pin a
   // phone viewport so the bottom-sheet flow this test asserts actually renders.
   test.use({ viewport: { width: 390, height: 844 } });
@@ -72,9 +72,12 @@ test.describe('public map — find nearest free football pitch', () => {
     await page.getByRole('button', { name: bg.Map.locate }).click();
 
     // Nearest-first: the pitch seeded at the geolocation tops the list. Results
-    // are now select-buttons (data-slug), not nav links, and both the desktop
-    // and mobile layouts carry an #facility-list — scope to the visible one.
-    const firstItem = page.locator('#facility-list:visible button[data-slug]').first();
+    // are select-buttons (data-slug), not nav links. Both layouts are always in
+    // the DOM with only one displayed, so this scopes to the VISIBLE panel. The
+    // two used to share `id="facility-list"`, which also silently broke the skip
+    // link on mobile; they are now `-desktop` and `-mobile`, matched by prefix so
+    // this keeps working whichever breakpoint the run lands on.
+    const firstItem = page.locator('[id^="facility-list"]:visible button[data-slug]').first();
     await expect(firstItem).toHaveAttribute('data-slug', PITCH.slug);
 
     // Tap → the facility preview opens in place as a bottom-sheet dialog, and

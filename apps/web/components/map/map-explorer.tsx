@@ -1,6 +1,8 @@
 'use client';
 
 import {
+  PanelLeftClose,
+  PanelLeftOpen,
   ArrowLeft,
   Layers,
   LocateFixed,
@@ -58,12 +60,42 @@ const QUICK_SPORTS: CanonicalSport[] = [
 ];
 
 type Snap = 'peek' | 'half' | 'full';
+
+/**
+ * How much screen the list takes, and therefore how much map is left.
+ *
+ * `half` was 52dvh, which with the 56px tab bar under it left the map about 40%
+ * of a phone — on a product whose entire subject is a map. It is 40dvh now,
+ * which still shows the count, the search field, the sport chips and a card and
+ * a half, while the map keeps roughly 53%.
+ *
+ * `peek` is sized to the header block rather than to a round number: at 168px
+ * the count line and the SEARCH FIELD are both still visible, so the collapsed
+ * state is usable rather than merely small. A peek that hides the search is a
+ * state nobody stays in.
+ */
 const SNAP_H: Record<Snap, string> = {
-  peek: 'h-[128px]',
-  half: 'h-[52dvh]',
+  peek: 'h-[168px]',
+  half: 'h-[40dvh]',
   full: 'h-[calc(100dvh-3.5rem)]',
 };
-const SNAP_ORDER: Snap[] = ['peek', 'half', 'full'];
+
+/** Approximate rendered height in px, for the map's frame padding. */
+const SNAP_PX: Record<Snap, (viewport: number) => number> = {
+  peek: () => 168,
+  half: (viewport) => viewport * 0.4,
+  full: (viewport) => viewport,
+};
+
+/**
+ * The handle cycles TOWARDS THE MAP first: half → peek → full → half.
+ *
+ * The old order was peek → half → full, so from the default the first tap made
+ * the sheet BIGGER and covered even more map. Somebody tapping the handle
+ * because the list is in their way wants it out of the way, and had to tap
+ * twice to get there.
+ */
+const SNAP_NEXT: Record<Snap, Snap> = { half: 'peek', peek: 'full', full: 'half' };
 
 interface MapExplorerProps {
   filters: PublicFilters;
@@ -121,6 +153,47 @@ export function MapExplorer({
   const [radiusKm, setRadiusKm] = useState(8);
   const [query, setQuery] = useState('');
   const [snap, setSnap] = useState<Snap>('half');
+  /**
+   * Desktop only: the list panel can be folded away.
+   *
+   * There was no way to do this at all — 76px of nav rail plus a 384px opaque
+   * aside sat over the map permanently, which on a 1280px laptop is 36% of the
+   * width of the one thing the page is for. The map is full-bleed underneath,
+   * so folding the panel genuinely reveals map rather than resizing a column.
+   */
+  const [listOpen, setListOpen] = useState(true);
+  /**
+   * How much of the canvas the UI covers, in CSS px, handed to MapLibre as
+   * padding so every camera operation aims at the part the member can see.
+   *
+   * Measured from the media query and the snap rather than from the DOM: the
+   * sheet animates its height over 200ms, and a ResizeObserver would thrash
+   * setPadding through every frame of that transition — each one recomputing the
+   * zoom floor. These are the same numbers the classes above resolve to.
+   */
+  const [viewport, setViewport] = useState({ width: 0, height: 0, desktop: false });
+
+  useEffect(() => {
+    const measure = () =>
+      setViewport({
+        width: window.innerWidth,
+        height: window.innerHeight,
+        desktop: window.matchMedia('(min-width: 1024px)').matches,
+      });
+    measure();
+    window.addEventListener('resize', measure);
+    return () => {
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
+
+  const mapPadding = useMemo(() => {
+    if (viewport.width === 0) return {};
+    // Desktop: the nav rail is always there; the list only when unfolded.
+    if (viewport.desktop) return { left: 76 + (listOpen ? 384 : 0) };
+    // Mobile: the sheet plus the 56px tab bar beneath it.
+    return { bottom: SNAP_PX[snap](viewport.height) + 56 };
+  }, [viewport, listOpen, snap]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [activeLayer, setActiveLayer] = useState<string>(DEFAULT_LAYER);
   const [layerMenuOpen, setLayerMenuOpen] = useState(false);
@@ -442,9 +515,23 @@ export function MapExplorer({
 
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden bg-paper">
+      {/*
+        TWO skip links, one per breakpoint, because there are two list panels and
+        both are always in the DOM — the other is merely display:none. They
+        previously shared `id="facility-list"`, so on a phone the skip link
+        resolved to the HIDDEN desktop panel and did nothing: an accessibility
+        affordance that silently went nowhere for every mobile visitor. Only one
+        of these is rendered at a time, so only one target is ever live.
+      */}
       <a
-        href="#facility-list"
-        className="sr-only rounded-pill bg-brand px-3 py-2 text-on-brand focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50"
+        href="#facility-list-desktop"
+        className="sr-only hidden rounded-pill bg-brand px-3 py-2 text-on-brand focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 lg:inline"
+      >
+        {t('skipToList')}
+      </a>
+      <a
+        href="#facility-list-mobile"
+        className="sr-only rounded-pill bg-brand px-3 py-2 text-on-brand focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 lg:hidden"
       >
         {t('skipToList')}
       </a>
@@ -472,6 +559,7 @@ export function MapExplorer({
           externalLayers={externalLayers}
           activeLayer={activeLayer}
           onBoundsChange={setViewBounds}
+          padding={mapPadding}
         />
       </div>
 
@@ -534,12 +622,44 @@ export function MapExplorer({
             the visible map, below), so the rail's copy is off. */}
         <NavRail active="/" labelFor={(k) => tNav(k)} className="pointer-events-auto" showAdd={false} />
 
+        {/*
+          FOLDED AWAY ENTIRELY rather than narrowed: the map is full-bleed
+          underneath, so removing the panel from the flow reveals real map. A
+          narrowed panel would still cover it AND make the list unreadable.
+        */}
+        {!listOpen && (
+          <button
+            type="button"
+            onClick={() => { setListOpen(true); }}
+            aria-expanded={false}
+            aria-controls="facility-list-desktop"
+            className="pointer-events-auto absolute left-[88px] top-4 z-30 inline-flex items-center gap-1.5 rounded-pill border border-line bg-surface px-3 py-2 text-body-sm font-semibold text-ink shadow-float hover:bg-surface-2"
+          >
+            <PanelLeftOpen size={18} />
+            {t('showList')}
+          </button>
+        )}
+
         <aside
-          id="facility-list"
+          id="facility-list-desktop"
+          hidden={!listOpen}
           className="pointer-events-auto flex w-[384px] shrink-0 flex-col border-r border-line bg-paper"
         >
           <div className="border-b border-line bg-surface px-4 py-3">
-            <h2 className="text-h4 font-bold text-ink">{t('discoverTitle')}</h2>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-h4 font-bold text-ink">{t('discoverTitle')}</h2>
+              <button
+                type="button"
+                onClick={() => { setListOpen(false); }}
+                aria-expanded
+                aria-controls="facility-list-desktop"
+                aria-label={t('hideList')}
+                title={t('hideList')}
+                className="grid size-9 shrink-0 place-items-center rounded-md text-ink-soft hover:bg-paper-sunk"
+              >
+                <PanelLeftClose size={18} />
+              </button>
+            </div>
             <div className="mt-3 flex items-center gap-2">
               <Input
                 iconLeft={<Search size={18} />}
@@ -601,13 +721,13 @@ export function MapExplorer({
           </div>
         ) : (
           <section
-            id="facility-list"
+            id="facility-list-mobile"
             className={`absolute inset-x-0 bottom-14 z-30 flex flex-col rounded-t-[20px] border-t border-line-strong bg-surface shadow-float transition-[height] duration-200 ease-standard ${SNAP_H[snap]}`}
           >
             <button
               type="button"
               aria-label={t('resize')}
-              onClick={() => setSnap((s) => SNAP_ORDER[(SNAP_ORDER.indexOf(s) + 1) % 3] ?? 'half')}
+              onClick={() => setSnap((s) => SNAP_NEXT[s])}
               className="flex justify-center pt-2.5 pb-1.5"
             >
               <span className="h-1 w-10 rounded-full bg-line-strong" />

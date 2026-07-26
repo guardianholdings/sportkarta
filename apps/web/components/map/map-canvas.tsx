@@ -63,6 +63,21 @@ interface MapCanvasProps {
   activeLayer?: string;
   /** Fires on load and after every gesture with the visible extent. */
   onBoundsChange?: (bounds: MapBounds) => void;
+  /**
+   * How much of the canvas is covered by UI, in CSS pixels.
+   *
+   * THE CANVAS IS FULL-BLEED (`absolute inset-0`) and the list panel sits ON TOP
+   * of it — 76px of nav rail plus a 384px opaque aside on desktop, a 52dvh sheet
+   * on mobile. Without telling MapLibre that, every camera operation aims at the
+   * centre of the WHOLE viewport, which is a point the member cannot see: the
+   * zoom floor fits Bulgaria into the full width and hides a third of it behind
+   * the panel, `flyTo` on geolocate drops the member under the list, and the
+   * pan clamp is computed against a rectangle that is 36% invisible.
+   *
+   * `map.setPadding` is the supported way to say "the viewport is this, but the
+   * VISIBLE part is that", and every built-in camera method then respects it.
+   */
+  padding?: { top?: number; right?: number; bottom?: number; left?: number };
 }
 
 const SOURCE_ID = 'facilities';
@@ -129,6 +144,7 @@ export default function MapCanvas({
   externalLayers = [],
   activeLayer = DEFAULT_LAYER,
   onBoundsChange = () => undefined,
+  padding = {},
 }: MapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -136,6 +152,8 @@ export default function MapCanvas({
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const loadedRef = useRef(false);
   const rafRef = useRef(0);
+  /** Set by the init effect so a padding change can re-run it without re-init. */
+  const paddingApplyRef = useRef<(() => void) | null>(null);
 
   // Latest props for the map's long-lived handlers, without re-init.
   const pointsRef = useRef(points);
@@ -158,6 +176,8 @@ export default function MapCanvas({
   activeLayerRef.current = activeLayer;
   const onBoundsChangeRef = useRef(onBoundsChange);
   onBoundsChangeRef.current = onBoundsChange;
+  const paddingRef = useRef(padding);
+  paddingRef.current = padding;
 
   function reportBounds() {
     const map = mapRef.current;
@@ -313,18 +333,51 @@ export default function MapCanvas({
     }
     mapRef.current = map;
 
+    /**
+     * The padding, clamped so it can never swallow the viewport.
+     *
+     * At the mobile sheet's `full` snap the panel is nearly the whole screen,
+     * and handing MapLibre a padding taller than the canvas makes every camera
+     * calculation degenerate — `cameraForBounds` returns nonsense and the map
+     * can end up unable to move at all. 55% per axis leaves a real rectangle in
+     * every state; at `full` the member is reading the list rather than the
+     * map, so the cap costs nothing.
+     */
+    const framePadding = () => {
+      const { clientWidth: w, clientHeight: h } = map.getCanvas();
+      const capX = Math.max(0, w * 0.55);
+      const capY = Math.max(0, h * 0.55);
+      const p = paddingRef.current;
+      return {
+        top: Math.min(p.top ?? 0, capY),
+        bottom: Math.min(p.bottom ?? 0, capY),
+        left: Math.min(p.left ?? 0, capX),
+        right: Math.min(p.right ?? 0, capX),
+      };
+    };
+
     // Zoom-out floor: the platform is national, so the furthest view is "all
     // of Bulgaria on screen". A fixed number can't do that — a phone needs a
     // lower zoom than a desktop to fit the same bbox — so the floor is the
     // fit-Bulgaria camera for THIS viewport, refreshed on every resize. The
     // small epsilon keeps the floor itself showing the whole territory with
     // room to spare rather than clipping an edge.
-    const zoomFloor = () => {
-      const cam = map.cameraForBounds(BG_BOUNDS, { padding: 16 });
+    //
+    // The frame padding is added to the 16px breathing room, so the floor fits
+    // Bulgaria into the part of the canvas the member can actually SEE. Fitting
+    // it into the full canvas is what put a third of the country behind the
+    // list panel.
+    const applyPadding = () => {
+      const p = framePadding();
+      map.setPadding(p);
+      const cam = map.cameraForBounds(BG_BOUNDS, {
+        padding: { top: p.top + 16, bottom: p.bottom + 16, left: p.left + 16, right: p.right + 16 },
+      });
       if (cam?.zoom !== undefined) map.setMinZoom(Math.max(0, cam.zoom - 0.1));
     };
-    zoomFloor();
-    map.on('resize', zoomFloor);
+    applyPadding();
+    paddingApplyRef.current = applyPadding;
+    map.on('resize', applyPadding);
 
     map.on('load', () => {
       const accent = token('--accent');
@@ -413,6 +466,20 @@ export default function MapCanvas({
   useEffect(() => {
     applyStates();
   }, [selectedSlug, hoveredSlug]);
+
+  /**
+   * Re-apply the frame when the covered area changes — the member collapsing
+   * the desktop list, or cycling the mobile sheet's snap.
+   *
+   * The zoom FLOOR moves with it, and that is the point: with the list open,
+   * "all of Bulgaria on screen" needs a lower zoom than with it closed, so a
+   * fixed floor would either clip the country or leave dead space. Keyed on the
+   * four numbers rather than the object, since the parent rebuilds the literal
+   * on every render.
+   */
+  useEffect(() => {
+    paddingApplyRef.current?.();
+  }, [padding.top, padding.right, padding.bottom, padding.left]);
 
   useEffect(() => {
     applyLayerVisibility();

@@ -276,7 +276,7 @@
     "distanceKm": "на {km} км",
     "viewDetails": "Виж детайли",
     "close": "Затвори",
-    "showList": "Списък",
+    "showList": "Покажи списъка",
     "showMap": "Карта",
     "loading": "Зареждане на картата…",
     "myLocation": "Твоето местоположение",
@@ -285,7 +285,8 @@
     "layer_default": "Стандартна (наша)",
     "layer_cyclosm": "Вело — CyclOSM",
     "layer_transport": "Транспорт — Thunderforest",
-    "layer_topo": "Топографска — Tracestrack"
+    "layer_topo": "Топографска — Tracestrack",
+    "hideList": "Скрий списъка"
   },
   "Facility": {
     "directions": "Упъти ме",
