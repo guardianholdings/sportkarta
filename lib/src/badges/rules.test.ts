@@ -361,8 +361,11 @@ describe('assertValidCatalog', () => {
     expect(() => assertValidCatalog(LAUNCH_BADGES)).not.toThrow();
   });
 
-  it('has ten launch badges, mixing contribution and participation', () => {
-    expect(LAUNCH_BADGES).toHaveLength(10);
+  it('has the launch catalogue, mixing contribution and participation', () => {
+    // Bumped from 10 to 14 when B3a added the parkrun rungs 25/50/100/250.
+    // A literal count is deliberate: a badge appearing or vanishing unnoticed is
+    // exactly what this guards, and the number is cheap to update on purpose.
+    expect(LAUNCH_BADGES).toHaveLength(14);
     const groups = LAUNCH_BADGES.map((badge) => badge.group);
     expect(groups.filter((group) => group === 'contribution').length).toBeGreaterThan(0);
     expect(groups.filter((group) => group === 'participation').length).toBeGreaterThan(0);

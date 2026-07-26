@@ -28,7 +28,42 @@ re-confirming before you edit the file.
 | 4 — Streak freezes + at-risk (A4) | ✅ **done 2026-07-26** | Engine, migration `0025`, granting job, read wiring and the at-risk banner. Nudge mail deferred. |
 | 5 — Unbury /kampanii and /sedmitsata (A6) | ✅ **done 2026-07-26** | Footer + /sesii entry points, new `/sedmitsata` index, and a **reachability** gate. A7/A5 still blocked on mail. |
 | 6 — OG foundation (C2a, C2b) | ✅ **done 2026-07-26** | Facility, session and campaign cards. Public only — person-scoped is phase 8. |
-| 7 onward | not started | |
+| 7 — Place identity (B1, B3a) | ✅ **done 2026-07-26** | Local Legend names NOBODY (operator decision); five milestone rungs; new badge↔i18n gate. |
+| 8 onward | not started | |
+
+### Phase 7 (B1 + B3a)
+
+Built to the four decisions of 2026-07-26 recorded in §8.
+
+**Local Legend names nobody.** `facilityLegend` returns `{ days, holderUserId }`
+and no display name at all — the SHAPE is the guarantee, asserted by a test. The
+facility page states a fact about the PLACE ("the most regular person here has
+come 3 days"), which is also an invitation. The only exception is telling the
+HOLDER it is theirs, which is not disclosure. Verified on a real page with a
+seeded holder: display name, account id and any `/pasport/` link all absent.
+
+**Only `qr` counts**, by the same rule migration 0014 made a CHECK — proven by a
+live-DB test where three `self`/`organizer` check-ins crown nobody. Distinct
+Sofia DAYS, not check-ins, and a `LEGEND_MIN_DAYS` floor of 3: a "legend" with
+one visit is not one, and on a quiet facility a count of 1 beside a title comes
+close to naming the only person who goes there.
+
+Live query, not a materialized view: one facility, on a page that is already
+dynamic, over a moving 90-day window that a view would have to be refreshed to
+keep honest.
+
+**Milestones: all five rungs.** 10 already existed as `regular_10`; 25/50/100/250
+added as pure catalogue config. Because badges are derived and retroactive,
+members receive the rungs they have already earned, dated truthfully, on first
+evaluation.
+
+**A gate that should have existed and did not.** `catalog.ts` says adding a badge
+is "one entry plus two message keys", and `badge-grid.tsx` claims the i18n parity
+test catches a missing one. It does not — parity only checks bg and en agree, so
+a badge missing from BOTH is symmetric and passes. Proven: removing
+`Badge.regular_100` from both catalogues leaves `i18n.test.ts` green at 4/4 while
+the new `badge-i18n.test.ts` fails. Four rungs landing at once is exactly the
+change that would have hit it.
 
 ### Phase 6 (C2a + C2b)
 
@@ -977,6 +1012,31 @@ for any new flag · `deploy/compose.prod.yml` updated for any worker-read variab
 ---
 
 ## 8. Operator decisions
+
+### RESOLVED 2026-07-26
+
+1. **Local Legend renders a crest, a count and the window — NEVER a name** on
+   `/obekt/[slug]`. That page is indexed (~6,600 in the sitemap) and cannot be
+   noindex because it *is* the SEO product, so naming the holder would publish a
+   named person tied to one place with a 90-day frequency count. The holder is
+   named only on noindex surfaces. No new consent column is needed, and
+   `leaderboard_eligible_members` is not touched.
+2. **Only `method = 'qr'` check-ins count.** Matches the 0014 CHECK — `self` is a
+   button somebody tapped and `organizer` is somebody vouching, and 0014 says
+   neither is evidence. Accepted cost: a member who reliably attends an
+   organiser-run session where nobody opens the QR screen can never hold the
+   title of the place they actually hold.
+3. **Divisions omit members who have not opted in, and ranks stay contiguous.**
+   Exactly what `publicStandings` already does, for the reason its own comment
+   gives: ranks are computed AFTER the consent join so a board reads 1, 2, 3
+   "without gaps that would otherwise advertise the existence of hidden
+   competitors". No anonymous rows; the consent guarantee stays in SQL.
+4. **All five milestone rungs ship at once: 10 / 25 / 50 / 100 / 250.** Raising a
+   threshold later takes a badge away from someone holding it; adding a tier
+   never does. They are derived and retroactive, so members receive the rungs
+   they have already earned, dated truthfully, on first evaluation.
+
+### Still open
 
 **Blocking — work cannot start without these:**
 

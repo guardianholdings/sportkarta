@@ -70,6 +70,8 @@ export type {
   LeaderboardScope,
   MemberStanding,
 } from './leaderboard.js';
+export { facilityLegend, LEGEND_MIN_DAYS, LEGEND_WINDOW_DAYS } from './legend.js';
+export type { FacilityLegend } from './legend.js';
 export {
   appliedStreakFreezes,
   applyStreakFreeze,

@@ -870,6 +870,22 @@
     "streak_weeks_4": {
       "name": "A month in motion",
       "description": "Played every week for 4 weeks."
+    },
+    "regular_25": {
+      "name": "Steady",
+      "description": "You have taken part in 25 sessions."
+    },
+    "regular_50": {
+      "name": "Fifty",
+      "description": "You have taken part in 50 sessions."
+    },
+    "regular_100": {
+      "name": "Hundred",
+      "description": "You have taken part in 100 sessions."
+    },
+    "regular_250": {
+      "name": "Two hundred and fifty",
+      "description": "You have taken part in 250 sessions."
     }
   },
   "Leaderboard": {
@@ -1784,5 +1800,11 @@
     "campaign": {
       "eyebrow": "Campaign"
     }
+  },
+  "Legend": {
+    "title": "Local Legend",
+    "days": "{count, plural, one {# day on the pitch} other {# days on the pitch}}",
+    "window": "in the last 90 days",
+    "yours": "That is you, right now."
   }
 }

@@ -96,6 +96,39 @@ export const LAUNCH_BADGES: readonly BadgeDefinition[] = [
     rule: { kind: 'count', events: ['session_checkin'], threshold: 10 },
   },
   /**
+   * The parkrun ladder (B3a, operator decision 2026-07-26). All five rungs are
+   * declared at once — 10 is `regular_10` above — because RAISING a threshold
+   * later takes a badge away from somebody who already holds it, while ADDING a
+   * higher tier never does. 250 is years away for anyone, and that is the point:
+   * a visible far rung is what makes it a ladder.
+   *
+   * Counted by ATTENDANCE, not ability — the mechanic that fits a country where
+   * 61% of adults never exercise (docs/ENGAGEMENT.md §1.2). Deliberately NOT
+   * age-conditional: parkrun gives under-18s a lower first rung, but migration
+   * 0020 withdrew the minors distinction and `BadgeDefinition` has no per-member
+   * variation anyway, so 10 is the first rung for everyone.
+   */
+  {
+    slug: 'regular_25',
+    group: 'participation',
+    rule: { kind: 'count', events: ['session_checkin'], threshold: 25 },
+  },
+  {
+    slug: 'regular_50',
+    group: 'participation',
+    rule: { kind: 'count', events: ['session_checkin'], threshold: 50 },
+  },
+  {
+    slug: 'regular_100',
+    group: 'participation',
+    rule: { kind: 'count', events: ['session_checkin'], threshold: 100 },
+  },
+  {
+    slug: 'regular_250',
+    group: 'participation',
+    rule: { kind: 'count', events: ['session_checkin'], threshold: 250 },
+  },
+  /**
    * Any activity, seven Sofia days running. The daily unit is why the DST work
    * in streaks.ts exists — 23 h and 25 h days must both count as one.
    */
