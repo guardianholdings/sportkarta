@@ -30,7 +30,113 @@ re-confirming before you edit the file.
 | 6 — OG foundation (C2a, C2b) | ✅ **done 2026-07-26** | Facility, session and campaign cards. Public only — person-scoped is phase 8. |
 | 7 — Place identity (B1, B3a) | ✅ **done 2026-07-26** | Local Legend names NOBODY (operator decision); five milestone rungs; new badge↔i18n gate. |
 | 8 — Person-scoped sharing (C2c, C4, C3) | ✅ **done 2026-07-26** | Card, share payload and the Viber plain-text week. C6's text half deferred. |
-| 9 onward | not started | |
+| 9 — Divisions (B2) | ✅ **done 2026-07-26** | Migration `0026`, pure core, rollover job, ladder on `/klasirane`, and the **consent registry** gate §7 asked for. No separate bootstrap job. |
+| 10 — Later | not started | B4 per-capita city board · C5 recap · B5 clubs · B3b volunteering (blocked on blocker 19). |
+
+### Phase 9 (B2)
+
+Built to four operator decisions of 2026-07-26: **score = points earned in the
+civil-Sofia week**, **Bulgarian mountain names**, **30 / top 7 / bottom 5**, and
+**render nothing below a floor of 10**.
+
+**The ladder is ordered by summit height** — Родопи 2191 m, Витоша 2290 m, Стара
+планина 2376 m, Пирин 2914 m, Рила 2925 m. A member can check the ordering
+against a map, which is the standard the rest of the product holds itself to.
+Numbers were rejected because «Дивизия 7» tells a member their position in the
+whole population, which is the single thing divisions exist to stop saying.
+
+**Points, not check-ins**, and the third reason is the one that mattered: the
+ledger already carries both halves of the product (`session_attended` is written
+only for a QR-verified check-in), it was hardened against farming *before*
+anything ranked it, and it is the unit `/klasirane` already shows — so a member
+is never shown two numbers that disagree about what their week was worth.
+Ranking check-ins directly would also have been empty at launch.
+
+**There is no bootstrap job, by design.** §3 warned that "the rollover closes
+last week and assigns next — nothing creates week one, so it is a no-op forever
+without it". The fix was a shape, not a second job: `runDivisionRollover` derives
+each member's tier from whatever history exists, and with none, `tierFor` returns
+the entry tier for everybody. Week one is the general case with an empty
+left-hand side. A dedicated seeder would have been a code path that runs exactly
+once, in production, unrehearsed — the same trap phase 3 avoided by making the
+badge backfill a cutoff rather than a flag. **A missed week also degrades
+correctly**: `previousTier` reads the last week a member was *assigned*, not last
+week specifically, so an outage costs a round of promotions and resets nobody.
+
+**Inactivity protection is one line in the pure core**, and it is the promise
+worth publishing: a member who scored nothing holds, from any rank. The
+alternative sends a relegation notice to somebody who was ill or away, and
+creates a reason to scrape together a token contribution on a Sunday night. The
+copy says so on the page.
+
+**Three things found by building rather than by planning:**
+
+1. **The zone bands overlapped in a short group.** Applying 7 and 5 literally to
+   a group of eight makes ranks 1–7 promote *and* 4–8 relegate, and whichever
+   test runs first silently wins — seven of eight promoted out of a competition.
+   Fixed at both ends: `zoneCounts` scales the bands proportionally (exact at 30,
+   provably disjoint at every size), and `planDivisions` now **balances** group
+   sizes instead of filling greedily, so a tier of 65 is 22/22/21 rather than
+   30/30/5. The greedy version put the *least active* members — the people the
+   mechanic exists to keep — in the most volatile field on the ladder.
+2. **The ladder tinted a relegation zone that could not happen.** At the entry
+   tier the bottom rows were recessed with the heading suppressed (announcing it
+   would have been untrue), leaving a band carried by colour alone, saying
+   something false — the exact thing the component's own header forbids. Caught
+   by looking at the rendered page, not by a test. The band logic now lives in
+   `divisionSections` in the pure core and delegates to `zoneFor`, which already
+   makes both ends terminal, so at the entry tier those rows are not a zone at
+   all. It has a test now instead of a screenshot.
+3. **The integration test was measuring the dev database.** `divisionCandidates`
+   selects every eligible member with recent points — as it must, since that is
+   the production query — so a test week near today sweeps in whatever the dev
+   database holds and the exact-count assertions drift. Moved to a far-future
+   week with a `guardEmptyWindow` that *asserts* the isolation rather than
+   assuming it, so a future fixture landing there fails loudly with a reason.
+
+**Migration `0026` went through `db-migration-reviewer`: no blocking findings,
+and three suggestions taken.** The important one was a missing index —
+`weekStandings` filters `division_members.week_start` and nothing led with it, so
+the public ladder would have scanned every row the table had ever held, growing
+one row per active member per week forever. Adding it later could not have used
+`CREATE INDEX CONCURRENTLY` (drizzle runs a migration inside one transaction), so
+it went in while the table was empty. Also dropped a single-column FK fully
+implied by the composite one, and **corrected a header claim**: re-running a week
+*completes* it (ON CONFLICT DO NOTHING), it does not rewrite it — correcting a
+bad ladder means deleting that week's rows first.
+
+**The consent registry gate now exists** (`db/src/consent-registry.test.ts`),
+which §7 called for and nothing implemented. It scans **per exported function**,
+not per file, because per-file scanning is already defeated in this repo —
+`campaigns.ts` mentions the view several times *and* contains `adminStandings`,
+which joins `users` directly. Any function that builds SQL and selects
+`public_handle` or `display_name` must name `leaderboard_eligible_members` in its
+own body, or sit on an allowlist with a written reason (three entries: the admin
+board, the single-passport lookup, and the member's own digest). Its first
+version had the failure mode a gate must not have — the brace matcher stopped at
+a default parameter's `{}`, so every body came back one character long and the
+whole gate passed while checking nothing; there is now a test asserting the
+scanner extracts real bodies. Proven to go red by swapping the view for `users`
+in `weekStandings`.
+
+**Verified against the real stack, not only by test.** The worker job was run
+against the dev database with a 16-member fixture: one tier-1 group written,
+promotion band «Първите 3 се изкачват» (`zoneCounts(16)` → 3 up, 2 down), ranks
+contiguous, the member's own row highlighted, and — after moving the group to
+tier 3 — both bands rendering with exactly rows 15–16 tinted. Checked at 375 px
+with no horizontal overflow, and the empty path re-checked after the fixture was
+removed. **Residue:** two `points_ledger` rows remain on the local dev account
+`audit-adult@example.org` (9 points); `points_ledger` is append-only and only an
+account deletion can remove them, so they were deliberately left rather than
+forcing past the trigger. Local dev only, cleared by `pnpm db:reset`.
+
+**Not built, and deliberately:** any mail about a promotion or relegation. Same
+blocker as everything else — the frequency cap and unsubscribe route are still
+open operator decisions (§8). A member finds their new division when they next
+open `/klasirane`. `DivisionLadder` is also **not** registered on
+`/design-system`: that page is `'use client'` and this is an async server
+component reading `next-intl/server`, which D12 already flagged as
+unregisterable-as-is.
 
 ### Phase 8, so far (C2c + C4)
 
@@ -739,10 +845,16 @@ SELECT to fit the card shape mints a public named ranking that bypasses consent,
 and no proposed test would catch it. Pin the loader in the catalogue entry and
 assert no file under `lib/og/` contains a raw ``sql` `` template.
 
-### Phase 9 — Divisions · L/XL
+### Phase 9 — Divisions · L/XL ✅ done 2026-07-26
 **B2.** Needs the consent decision in §8 first, plus a first-week bootstrap path
 (the rollover job closes "last week" and assigns "next" — nothing creates week
 one, so it is a no-op forever without it).
+
+> Both resolved. The consent decision is §8 RESOLVED 3 (omit non-consenting
+> members, contiguous ranks). The bootstrap turned out to need **no** separate
+> path: `runDivisionRollover` derives a tier from whatever history exists, so
+> week one is the general case with an empty left-hand side. See the Phase 9
+> section in the status log.
 
 ### Phase 10 — Later
 **B4** evergreen per-capita city board (needs the `ekatte_code` hop through
@@ -981,15 +1093,31 @@ each with its generated snapshot (blocker 13).
 
 | # | Contents | Notes |
 |---|---|---|
-| ~~0025~~ **0026** | `member_notifications` (shared ledger, two partial unique indexes) + notification prefs | Deferred until mail actually ships — it is only needed by the notifier |
 | **0025** ✅ | `streak_freezes` | **Landed 2026-07-26.** Trigger decision stated in the header (there is none, and why) |
-| 0027 | `facility_legends` (announcement ledger; the title itself stays a live query) | |
-| 0028 | `division_groups` + `division_members` | "One group per member per week" is a composite FK + unique index, not app code |
+| **0026** ✅ | `division_groups` + `division_members` | **Landed 2026-07-26.** "One group per member per week" is a composite FK + unique index, not app code — exactly as planned |
+| 0027 | `member_notifications` (shared ledger, two partial unique indexes) + notification prefs | Still deferred until mail actually ships — it is only needed by the notifier |
+| 0028 | `facility_legends` (announcement ledger; the title itself stays a live query) | Only needed once legend mail exists |
 
-> Numbering changed from the original plan: `streak_freezes` took **0025** because
-> the notification ledger it was queued behind is blocked on the mail decisions
-> and had nothing to write to it. The next migration is **0026** and will need its
-> journal `when` hand-bumped above **1785087600000**.
+> Numbering changed twice from the original plan, both times because the
+> notification ledger kept being overtaken: it is blocked on the mail decisions
+> and has nothing to write to it, while `streak_freezes` (0025) and the division
+> tables (0026) were ready. The next migration is **0027** and will need its
+> journal `when` hand-bumped above **1785091200000**.
+
+**The divisions tables store MEMBERSHIP only** — no score, no rank, no outcome.
+All three are recomputable (the score from the append-only ledger, the rank by
+ordering it, the outcome from the tier difference between consecutive weeks,
+because `zoneFor` clamps at both ends so difference and zone agree exactly). This
+is the same discipline `campaign_results` follows for the opposite reason: a
+campaign freezes a placing because closing is a one-time event whose inputs keep
+moving, and a division's do not.
+
+**`division_members_week_group_idx` is not optional.** The ladder filters
+`week_start` and the table grows one row per active member per week forever with
+no pruning; without a leading `week_start` the public page reads the entire
+history of the feature to render one week. It had to land with the table because
+a later `CREATE INDEX` could not be `CONCURRENTLY` — drizzle runs a migration
+inside one transaction.
 
 **Tier A needs no new badge state** — `user_badges` already has `first_seen_at`/
 `seen_at`, and B3's milestones are pure catalogue entries.
@@ -1093,6 +1221,26 @@ for any new flag · `deploy/compose.prod.yml` updated for any worker-read variab
    threshold later takes a badge away from someone holding it; adding a tier
    never does. They are derived and retroactive, so members receive the rungs
    they have already earned, dated truthfully, on first evaluation.
+5. **A division week is scored on POINTS EARNED IN THAT WEEK**, from
+   `points_ledger`. It already covers contributions and QR-verified attendance
+   (`session_attended` is a ledger event), it was hardened against farming before
+   anything ranked it, and it is the unit `/klasirane` already shows — so a
+   member never sees two numbers disagreeing about their week. Ranking check-ins
+   directly was rejected: every division would be empty at launch.
+6. **Divisions are named after Bulgarian mountains, ordered by summit height** —
+   Родопи / Витоша / Стара планина / Пирин / Рила. Place-rooted, on-brand, and
+   the ordering is a fact a member can check. Numbers were rejected: «Дивизия 7»
+   states a member's position in the whole population, which is what divisions
+   exist to stop doing.
+7. **30 per group, top 7 promote, bottom 5 relegate.** Eighteen of thirty finish
+   a week having stayed put, which is the anti-demoralisation argument in
+   numbers. Implemented as a PROPORTION (`zoneCounts`), exact at 30, so a smaller
+   group scales instead of promoting most of itself.
+8. **Below 10 assignable members the rollover writes nothing.** Not a display
+   rule — no group rows exist, so there is no ladder and `/klasirane` keeps the
+   overall board. A "divisions open at 10" placeholder was rejected for the
+   reason D5 gives about the Local Legend crest: an absent feature must look
+   absent, not failed.
 
 ### Still open
 
@@ -1104,12 +1252,12 @@ for any new flag · `deploy/compose.prod.yml` updated for any worker-read variab
    is already dynamic and already calls `getCurrentUser()`); (c) a third explicit
    opt-in — which would be a *new consent column*, not a widening of the view.
    Recommendation: (a) for v1.
-2. **Division consent.** Recommendation: reuse the campaigns pattern — score
-   everyone, join the view for display, contiguous ranks. The anonymous-row
-   variant is a reversal of a documented decision and should be recorded as one if
-   wanted.
+2. ~~**Division consent.**~~ **Resolved** as RESOLVED 3 above and shipped in
+   phase 9: the view is joined at assignment *and* again at display, and ranks
+   are computed after the join. The second join is the one that matters — a
+   member may publish on Monday and unpublish on Wednesday.
 3. **Streak-nudge unsubscribe** — own preference + route, or redefine the existing
-   token? Affects migration 0026.
+   token? Affects the notification-ledger migration (now **0027**).
 4. **Mail frequency cap.** Badge + streak-at-risk + streak-broken + division +
    legend + campaign-close + weekly digest could put four mails in one weekend.
    Recommendation: one optional engagement mail per member per civil Sofia day —
@@ -1122,14 +1270,19 @@ for any new flag · `deploy/compose.prod.yml` updated for any worker-read variab
    (5.97:1) passes but is a visible brand change on every accent CTA. No new
    accent CTA should ship before this is answered.
 
-**Non-blocking but needed soon:** B1 tie rule and minimum qualifying visits · B2
-constants (30/7/5, and the launch roster floor) · milestone thresholds and
-whether organising counts on the same ladder · division names (numbered, or
-Bulgarian place/nature names — this decides whether a fifth colour is ever
-needed) · recap period (calendar year vs first-anniversary; it determines the URL
-shape, so decide before C5 starts) · per-capita city board population floor ·
-`themeColor` pine vs paper · who writes idiomatic English for ~120 keys · club
+**Non-blocking but needed soon:** B1 tie rule and minimum qualifying visits ·
+~~B2 constants~~ and ~~division names~~ (both RESOLVED above, 2026-07-26) ·
+milestone thresholds and whether organising counts on the same ladder · recap
+period (calendar year vs first-anniversary; it determines the URL shape, so
+decide before C5 starts) · per-capita city board population floor · `themeColor`
+pine vs paper · who writes idiomatic English for ~120 keys · club
 creation/joining policy.
+
+**New, from phase 9:** whether a division should ever be scoped to a city rather
+than nationally (today one national ladder splits into tiers; a Sofia member and
+a Varna member can share a group). Not urgent — at current volume there is one
+group — but it becomes a real question at a few hundred weekly-active members,
+and it is cheaper to decide before anyone has a division history to disturb.
 
 ---
 
@@ -1144,10 +1297,21 @@ Phase 4  Streaks (at-risk, freeze) ......... L
 Phase 5  Unbury + campaign close + digest .. M+L
 Phase 6  OG foundation + public cards ...... L+M
 Phase 7  Local Legend + milestones ......... M+S
-Phase 8  Person-scoped sharing + text week . M+L
-Phase 9  Divisions ......................... L/XL
+Phase 8  Person-scoped sharing + text week . M+L   ✅
+Phase 9  Divisions ......................... L/XL  ✅
 Phase 10 City-vs-city, recap, clubs ........ later
 ```
+
+Phases 0–9 are shipped. **Phase 10 is what remains**, and every item in it is
+gated on something rather than on effort: B4 needs the `ekatte_code` hop through
+`municipalities`; C5 needs a real page at `pasport/[handle]/godina/` and the
+recap-period decision; B3b is blocked on blocker 19 (the subtractive
+`CAMPAIGN_EVENT_KINDS` filter must become an explicit allowlist first); B5 needs
+a club creation/joining policy. Separately, **every mail-bearing item across the
+whole plan — A3's nudge, A5's digest blocks, A7's campaign close, and now a
+division promotion notice — is blocked on the same two open decisions**: the mail
+frequency cap and an unsubscribe route (§8, still open 3 and 4). That is now the
+single largest thing standing between this plan and the rest of its value.
 
 Two dependencies the proposal's own §5 sequencing does not name:
 

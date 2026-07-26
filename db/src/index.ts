@@ -73,6 +73,22 @@ export type {
 export { facilityLegend, LEGEND_MIN_DAYS, LEGEND_WINDOW_DAYS } from './legend.js';
 export type { FacilityLegend } from './legend.js';
 export {
+  divisionCandidates,
+  divisionsExist,
+  memberDivision,
+  memberTier,
+  runDivisionRollover,
+  weekBounds,
+  weekStandings,
+} from './divisions.js';
+export type {
+  RolloverOptions,
+  RolloverReport,
+  StandingsOptions as DivisionStandingsOptions,
+  StandingRow as DivisionStandingRow,
+  WeekKey,
+} from './divisions.js';
+export {
   appliedStreakFreezes,
   applyStreakFreeze,
   badgeEvaluationCandidates,

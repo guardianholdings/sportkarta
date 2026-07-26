@@ -5,6 +5,7 @@ import {
   check,
   customType,
   date,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -2084,3 +2085,139 @@ export const streakFreezes = pgTable(
 
 export type StreakFreeze = typeof streakFreezes.$inferSelect;
 export type NewStreakFreeze = typeof streakFreezes.$inferInsert;
+
+/**
+ * One week's divisions — a tier, and a group within it (docs/ENGAGEMENT.md B2).
+ *
+ * WHAT IS AND IS NOT STORED. These two tables record MEMBERSHIP and nothing
+ * else: who shared a group in which week, at which tier. No score, no rank, no
+ * outcome. All three are recomputable — the score from `points_ledger` (which is
+ * append-only, so a closed week's total is stable), the rank by ordering that
+ * score, and the promote/hold/relegate outcome from the tier difference between
+ * two consecutive weeks, because `zoneFor` already clamps at both ends of the
+ * ladder so the difference and the zone agree exactly.
+ *
+ * That is the same discipline `campaign_results` follows for the opposite
+ * reason. A campaign freezes a PLACING because closing is a one-time event whose
+ * inputs keep moving; a division freezes nothing because its inputs do not. A
+ * stored rank here would be a second source of truth for a number the ladder
+ * recomputes on every render, and the two would eventually disagree.
+ *
+ * WHO MAY BE HERE is not decided by these tables. `db/src/divisions.ts` joins
+ * `leaderboard_eligible_members` when it assigns AND again when it displays —
+ * twice, because a member may publish their passport on Monday and unpublish it
+ * on Wednesday, and the second join is what makes their name stop rendering
+ * without disturbing anyone else's contiguous rank.
+ */
+export const divisionGroups = pgTable(
+  'division_groups',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    /**
+     * The Monday that starts the week, as a civil Sofia date — the same key
+     * `bucketKeyFor(at, 'week')` produces for streaks and the weekly digest.
+     *
+     * A DATE, not a timestamp, for the reason `streak_freezes.bucket_key` gives:
+     * storing an instant invites a reader to re-derive the week in SQL with
+     * `date_trunc`, which agrees with the TypeScript only by coincidence and
+     * disagrees on exactly the two evenings a year that matter.
+     */
+    weekStart: date('week_start').notNull(),
+    /** 1 = the entry tier. See `DIVISION_TIERS` for the names. */
+    tier: integer('tier').notNull(),
+    /** Which group within the tier, 1-based. */
+    ordinal: integer('ordinal').notNull(),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // The natural key. Also the read path: "this week's tier-3 groups".
+    uniqueIndex('division_groups_week_tier_ordinal_unique').on(t.weekStart, t.tier, t.ordinal),
+    // Referenceable target for division_members' composite FK — the constraint
+    // that makes "one group per member per week" structural. A plain UNIQUE on
+    // (id) is implied by the PK, but Postgres will not accept a PK as the
+    // target of a two-column FK, so this pair must exist in its own right.
+    unique('division_groups_id_week_unique').on(t.id, t.weekStart),
+    // The ladder has five rungs and the numbers are meaningless outside it.
+    // Bounded here rather than in the app because an out-of-range tier renders
+    // as a missing i18n key on a public page.
+    check('division_groups_tier_range', sql`${t.tier} BETWEEN 1 AND 5`),
+    check('division_groups_ordinal_positive', sql`${t.ordinal} >= 1`),
+    // A week key is a Monday. `isfinite` FIRST, for the reason spelled out on
+    // streak_freezes: since PG14 `extract(isodow from 'infinity'::date)` is
+    // NULL, and a CHECK ACCEPTS NULL.
+    check(
+      'division_groups_week_is_monday',
+      sql`isfinite(${t.weekStart}) AND extract(isodow from ${t.weekStart}) = 1`,
+    ),
+  ],
+);
+
+/**
+ * A member's place in one week's ladder.
+ *
+ * `week_start` is denormalised from the group ON PURPOSE, and the composite FK
+ * below is why it is safe: "one group per member per week" is then a plain
+ * UNIQUE `(user_id, week_start)`, enforced by Postgres, rather than a rule the
+ * assignment job has to remember. Without the denormalised column the same
+ * guarantee would need a trigger or an application check, and an application
+ * check that runs inside a job with retries is not a guarantee.
+ *
+ * The FK pins the two together, so the denormalised value cannot drift: a row
+ * may only name a `(group_id, week_start)` pair that exists on the group.
+ *
+ * ERASURE: ON DELETE CASCADE from `users`, and deliberately NO
+ * `account_deletions` counter — following `streak_freezes` and `calendar_tokens`
+ * rather than `user_badges`. A membership is system-assigned, regenerable
+ * placement, not a record of anything the member did; the thing they did is
+ * their `points_ledger` rows, which are counted already. Adding a counter is a
+ * four-place change (the column, the CHECK enumerating every counter,
+ * `DeletionSummary`, and the INSERT list) and would break the positional fixture
+ * in apps/web/tests/account-deletion.test.ts.
+ */
+export const divisionMembers = pgTable(
+  'division_members',
+  {
+    /**
+     * No single-column `.references()` here on purpose: the composite FK below
+     * already implies it (a `(group_id, week_start)` pair that exists means the
+     * `group_id` does), and declaring both would maintain two RI trigger pairs
+     * on every insert and walk two cascade passes on every group delete.
+     */
+    groupId: bigint('group_id', { mode: 'number' }).notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** Always equal to the group's `week_start`; pinned by the composite FK. */
+    weekStart: date('week_start').notNull(),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.groupId, t.userId] }),
+    // ONE GROUP PER MEMBER PER WEEK, structurally. The assignment job is
+    // idempotent by construction (planDivisions is deterministic), but "the job
+    // is careful" is not a constraint, and a member listed in two groups would
+    // appear twice on the ladder with two different ranks.
+    uniqueIndex('division_members_user_week_unique').on(t.userId, t.weekStart),
+    // THE LADDER'S OWN READ PATH. `weekStandings` filters `dm.week_start = $1`
+    // and joins the group; without a leading `week_start` Postgres cannot infer
+    // the group's week from the join and must scan every row this table has
+    // ever held — and it holds one row per active member per week, forever,
+    // with no pruning. That is a public page getting linearly slower every week
+    // it runs. Adding it now is free because the table is empty; adding it later
+    // cannot use CREATE INDEX CONCURRENTLY, because drizzle wraps a migration
+    // run in one transaction and CONCURRENTLY is rejected inside one.
+    index('division_members_week_group_idx').on(t.weekStart, t.groupId, t.userId),
+    // Keeps the denormalised week honest. No separate isodow CHECK is needed
+    // here: this column can only hold a value that already passed the group's.
+    foreignKey({
+      name: 'division_members_group_week_fk',
+      columns: [t.groupId, t.weekStart],
+      foreignColumns: [divisionGroups.id, divisionGroups.weekStart],
+    }).onDelete('cascade'),
+  ],
+);
+
+export type DivisionGroup = typeof divisionGroups.$inferSelect;
+export type NewDivisionGroup = typeof divisionGroups.$inferInsert;
+export type DivisionMember = typeof divisionMembers.$inferSelect;
+export type NewDivisionMember = typeof divisionMembers.$inferInsert;

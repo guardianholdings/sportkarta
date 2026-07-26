@@ -2,6 +2,7 @@ import { materializeSessions, refreshStats } from '@sportkarta/db';
 import { createMailer } from '@sportkarta/lib/email';
 import { runImport } from '@sportkarta/import-osm';
 
+import { runDivisions } from './divisions-job.js';
 import { runWeeklyDigest } from './digest-job.js';
 import { runOpenDataDump } from './opendata-dump-job.js';
 import {
@@ -45,6 +46,11 @@ const PASSPORT_EVALUATE_QUEUE = 'passport.evaluate';
 const BADGE_BACKFILL_QUEUE = 'badges.backfill';
 /** Streak freezes (A4): applied once a week has closed, silently. */
 const STREAK_FREEZE_QUEUE = 'streaks.freeze';
+/**
+ * Weekly divisions (B2): promote, relegate and re-group once a week has closed.
+ * Also the bootstrap — there is no separate seeding job.
+ */
+const DIVISIONS_ROLLOVER_QUEUE = 'divisions.rollover';
 
 interface ImportOsmJobData {
   dryRun?: boolean;
@@ -88,6 +94,7 @@ async function main(): Promise<void> {
   await boss.createQueue(PASSPORT_EVALUATE_QUEUE);
   await boss.createQueue(BADGE_BACKFILL_QUEUE);
   await boss.createQueue(STREAK_FREEZE_QUEUE);
+  await boss.createQueue(DIVISIONS_ROLLOVER_QUEUE);
 
   await boss.work(HEALTH_QUEUE, async (jobs) => {
     for (const job of jobs) {
@@ -320,6 +327,26 @@ async function main(): Promise<void> {
     );
   });
   await boss.schedule(STREAK_FREEZE_QUEUE, '20 4 * * 1', {}, { tz: 'Europe/Sofia' });
+
+  // Weekly divisions (B2). Monday 04:40 EUROPE/SOFIA — twenty minutes after the
+  // freezes, so a week that was forgiven is already forgiven before anything
+  // reads it, and well before the 08:00 digest. Same timezone reasoning as
+  // above: a week boundary is a wall-clock promise, and a UTC cron would
+  // occasionally roll the wrong week over.
+  //
+  // Also the bootstrap. There is no separate seeding job — see
+  // divisions-job.ts: week one is the general case with no history, and a
+  // missed week resumes rather than resets.
+  await boss.work(DIVISIONS_ROLLOVER_QUEUE, async () => {
+    const report = await runDivisions();
+    console.log(
+      `[worker] ${DIVISIONS_ROLLOVER_QUEUE} ${report.week}: ` +
+        (report.belowFloor
+          ? 'below floor, nothing written'
+          : `${String(report.groups)} group(s), ${String(report.members)} member(s)`),
+    );
+  });
+  await boss.schedule(DIVISIONS_ROLLOVER_QUEUE, '40 4 * * 1', {}, { tz: 'Europe/Sofia' });
 
   console.log('[worker] started, listening for jobs');
 

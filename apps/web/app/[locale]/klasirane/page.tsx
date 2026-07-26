@@ -1,8 +1,17 @@
-import { getDb, leaderboard, leaderboardCities, memberStanding } from '@sportkarta/db';
+import {
+  getDb,
+  leaderboard,
+  leaderboardCities,
+  memberDivision,
+  memberStanding,
+  weekStandings,
+} from '@sportkarta/db';
+import { divisionWeekStart } from '@sportkarta/lib/divisions';
 import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
+import { DivisionLadder } from '@/components/passport/division-ladder';
 import { LeaderboardTable } from '@/components/passport/leaderboard-table';
 import { getCurrentUser } from '@/lib/auth-session';
 import { resolveScope, scopeHref } from '@/lib/leaderboard';
@@ -80,6 +89,24 @@ export default async function LeaderboardPage({
 
   const standing = user ? await memberStanding(getDb(), user.id, { scope, period }) : null;
 
+  /**
+   * The member's own division, and the ladder for it (T4/T6).
+   *
+   * It leads the page when it exists, which is what "divisions become the
+   * default view" means here — no toggle and no new URL parameter, because a
+   * toggle would have to be threaded through every filter link below and would
+   * give a signed-out visitor a control that does nothing for them.
+   *
+   * Three ways this is absent, all rendering the overall board alone: signed
+   * out, not assigned (a new member, or one who has not scored inside the
+   * activity window), or the whole week is below the floor and has no groups.
+   */
+  const week = divisionWeekStart();
+  const myDivision = user ? await memberDivision(getDb(), user.id, week) : null;
+  const ladder = myDivision
+    ? await weekStandings(getDb(), week, { groupId: myDivision.groupId })
+    : [];
+
   const heading = resolved.city
     ? t('headingCity', { city: cityDisplayName(resolved.city.nameBg, resolved.city.nameEn, locale) })
     : resolved.sport
@@ -98,6 +125,20 @@ export default async function LeaderboardPage({
         <h1 className="text-h2 font-extrabold tracking-tight text-ink">{heading}</h1>
         <p className="text-body-sm text-ink-soft">{t('intro')}</p>
       </header>
+
+      {/*
+        The division leads, and renders nothing at all when the member has none.
+        `DivisionLadder` highlights the viewer's own row, which is why the
+        "your standing" card below is suppressed while it is showing: one
+        self-reference per page, not two saying different things.
+      */}
+      <DivisionLadder rows={ladder} viewerUserId={user?.id ?? null} />
+
+      {ladder.length > 0 && (
+        <h2 className="border-t border-line pt-6 text-h3 font-extrabold tracking-tight text-ink">
+          {t('nationalSectionTitle')}
+        </h2>
+      )}
 
       <nav aria-label={t('filtersLabel')} className="space-y-3">
         <div className="flex flex-wrap gap-2">
@@ -156,29 +197,35 @@ export default async function LeaderboardPage({
 
       <LeaderboardTable entries={entries} />
 
-      <section className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm text-body-sm">
-        <h2 className="font-semibold">{t('yourStandingTitle')}</h2>
-        {!user && <p className="text-ink-soft">{t('standingSignedOut')}</p>}
-        {user && standing && (
-          <p className="text-ink-soft">
-            {t('standingRanked', { rank: standing.rank, total: standing.total, points: standing.points })}
-          </p>
-        )}
-        {/*
-          There is now ONE reason to be unranked — the passport is not public —
-          and it is something the member can change, so the copy points at the
-          control. The second branch that used to be here told minors the rule
-          did not apply to them; migration 0020 removed the rule.
-        */}
-        {user && !standing && (
-          <p className="text-ink-soft">
-            {t('standingNotPublic')}{' '}
-            <Link href="/pasport" className="font-medium text-link hover:text-link-hover">
-              {t('standingPassportLink')}
-            </Link>
-          </p>
-        )}
-      </section>
+      {ladder.length === 0 && (
+        <section className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm text-body-sm">
+          <h2 className="font-semibold">{t('yourStandingTitle')}</h2>
+          {!user && <p className="text-ink-soft">{t('standingSignedOut')}</p>}
+          {user && standing && (
+            <p className="text-ink-soft">
+              {t('standingRanked', {
+                rank: standing.rank,
+                total: standing.total,
+                points: standing.points,
+              })}
+            </p>
+          )}
+          {/*
+            There is now ONE reason to be unranked — the passport is not public —
+            and it is something the member can change, so the copy points at the
+            control. The second branch that used to be here told minors the rule
+            did not apply to them; migration 0020 removed the rule.
+          */}
+          {user && !standing && (
+            <p className="text-ink-soft">
+              {t('standingNotPublic')}{' '}
+              <Link href="/pasport" className="font-medium text-link hover:text-link-hover">
+                {t('standingPassportLink')}
+              </Link>
+            </p>
+          )}
+        </section>
+      )}
 
       <p className="text-caption text-text-muted">{t('eligibilityNote')}</p>
       </main>

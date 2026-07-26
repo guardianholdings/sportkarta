@@ -10,6 +10,7 @@
     "./campaigns": "./src/campaigns/index.ts",
     "./checkin-token": "./src/checkin-token/index.ts",
     "./condition": "./src/condition.ts",
+    "./divisions": "./src/divisions/index.ts",
     "./points": "./src/points.ts",
     "./email": "./src/email/index.ts",
     "./ical": "./src/ical/index.ts",

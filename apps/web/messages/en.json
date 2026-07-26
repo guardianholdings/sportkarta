@@ -909,7 +909,8 @@
     "standingSignedOut": "Sign in to see your standing.",
     "standingNotPublic": "To take part in the leaderboard, make your sports passport public.",
     "standingPassportLink": "Go to my passport",
-    "eligibilityNote": "Only members who have made their sports passport public appear here. Age is not a condition."
+    "eligibilityNote": "Only members who have made their sports passport public appear here. Age is not a condition.",
+    "nationalSectionTitle": "Overall board"
   },
   "Campaign": {
     "listMetaTitle": "Campaigns — SportKarta",
@@ -1812,6 +1813,21 @@
     "days": "{count, plural, one {# day on the pitch} other {# days on the pitch}}",
     "window": "in the last 90 days",
     "yours": "That is you, right now."
+  },
+  "Division": {
+    "tier": {
+      "rodopi": "Rodopi",
+      "vitosha": "Vitosha",
+      "stara_planina": "Stara planina",
+      "pirin": "Pirin",
+      "rila": "Rila"
+    },
+    "groupSummary": "{members, plural, one {# member} other {# members}} this week",
+    "zonePromote": "{count, plural, one {The top one climbs} other {The top # climb}}",
+    "zoneRelegate": "{count, plural, one {The last one descends} other {The last # descend}}",
+    "you": "You",
+    "ladderNote": "Points count from Monday to Sunday, Sofia time. A week without activity does not move you down.",
+    "sectionTitle": "Your division"
   },
   "Share": {
     "weekTitle": "Share your week",
