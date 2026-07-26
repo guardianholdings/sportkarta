@@ -1,9 +1,11 @@
 import { calendarToken, getDb } from '@sportkarta/db';
+import { BookOpenCheck, ShieldCheck } from 'lucide-react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { CalendarPanel } from '@/components/profile/calendar-panel';
 import { DigestPanel } from '@/components/profile/digest-panel';
 import { PointsPanel } from '@/components/profile/points-panel';
+import { AppShell } from '@/components/shell/app-shell';
 import { Button } from '@/components/ui/button';
 import { requireUser } from '@/lib/auth-session';
 import { digestCities, subscriptionsFor } from '@/lib/digest';
@@ -20,6 +22,9 @@ export const metadata = { robots: { index: false, follow: false } };
 
 // Per-request: session cookie + live profile read.
 export const dynamic = 'force-dynamic';
+
+const pillLink =
+  'inline-flex items-center gap-1.5 rounded-pill border border-line-strong bg-surface px-3 py-1.5 text-caption font-semibold text-ink-soft hover:bg-surface-2';
 
 export default async function ProfilePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
@@ -41,51 +46,55 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
   const subscribedIds = new Set(subscriptions.map((s) => s.municipalityId));
 
   return (
-    <main className="mx-auto max-w-xl space-y-10 p-4">
-      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-neutral-200 pb-3">
-        <h1 className="text-xl font-semibold">{t('title')}</h1>
-        <div className="ml-auto flex items-center gap-3 text-xs text-neutral-500">
-          <Link href="/pasport" className="underline">
-            {t('passportLink')}
-          </Link>
-          {canAccessAdminPanel(user.role) && (
-            <Link href="/admin" className="underline">
-              {t('adminLink')}
+    <AppShell active="/profil">
+      <main className="mx-auto w-full max-w-2xl space-y-6 px-4 py-5">
+        <header>
+          <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
+          <p className="mt-1.5 text-body-sm text-ink-soft">{t('emailLine', { email: user.email })}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Link href="/pasport" className={pillLink}>
+              <BookOpenCheck size={15} />
+              {t('passportLink')}
             </Link>
-          )}
-          <form action={signOutAction}>
-            <button type="submit" className="underline">
-              {t('signOut')}
-            </button>
-          </form>
-        </div>
-      </header>
+            {canAccessAdminPanel(user.role) && (
+              <Link href="/admin" className={pillLink}>
+                <ShieldCheck size={15} />
+                {t('adminLink')}
+              </Link>
+            )}
+            <form action={signOutAction} className="ml-auto">
+              <Button type="submit" variant="ghost" size="sm">
+                {t('signOut')}
+              </Button>
+            </form>
+          </div>
+        </header>
 
-      <section className="space-y-4">
-        <p className="text-sm text-neutral-600">{t('emailLine', { email: user.email })}</p>
-        <ProfileForm
-          displayName={user.displayName}
-          homeCity={user.homeCity ?? ''}
-          isMinor={user.isMinor}
-        />
-      </section>
+        <section className="rounded-card border border-line bg-surface p-4 shadow-sm">
+          <ProfileForm
+            displayName={user.displayName}
+            homeCity={user.homeCity ?? ''}
+            isMinor={user.isMinor}
+          />
+        </section>
 
-      <PointsPanel summary={summary} />
+        <PointsPanel summary={summary} />
 
-      <DigestPanel locale={locale} cities={digestCityList} subscribedIds={subscribedIds} />
+        <DigestPanel locale={locale} cities={digestCityList} subscribedIds={subscribedIds} />
 
-      <CalendarPanel token={feedToken} siteUrl={siteUrl()} />
+        <CalendarPanel token={feedToken} siteUrl={siteUrl()} />
 
-      <section className="space-y-4 rounded border border-red-200 p-4">
-        <h2 className="text-lg font-semibold">{t('deleteTitle')}</h2>
-        <DeleteAccountForm confirmationWord={t('deleteConfirmWord')} />
-      </section>
+        <section className="space-y-4 rounded-card border border-danger-border bg-danger-bg/40 p-4">
+          <h2 className="text-h4 font-bold text-danger">{t('deleteTitle')}</h2>
+          <DeleteAccountForm confirmationWord={t('deleteConfirmWord')} />
+        </section>
 
-      <p className="text-xs text-neutral-500">
-        <Button asChild variant="ghost" className="h-auto p-0 text-xs">
-          <Link href="/privacy">{t('privacyLink')}</Link>
-        </Button>
-      </p>
-    </main>
+        <p className="text-caption text-text-muted">
+          <Link href="/privacy" className="font-medium text-link hover:text-link-hover">
+            {t('privacyLink')}
+          </Link>
+        </p>
+      </main>
+    </AppShell>
   );
 }

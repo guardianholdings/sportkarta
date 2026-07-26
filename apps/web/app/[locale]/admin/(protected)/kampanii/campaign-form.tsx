@@ -34,11 +34,14 @@ export function CampaignForm({
   campaign,
   cities,
   sportLabels,
+  partners = [],
 }: {
   action: (state: CampaignFormState, formData: FormData) => Promise<CampaignFormState>;
   campaign?: CampaignRow;
   cities: CityOption[];
   sportLabels: Record<string, string>;
+  /** Sponsor candidates, already tier-filtered and localised by the server page. */
+  partners?: { id: number; name: string }[];
 }) {
   const t = useTranslations('AdminCampaigns');
   const [state, formAction, pending] = useActionState<CampaignFormState, FormData>(
@@ -55,17 +58,17 @@ export function CampaignForm({
     campaign?.rules.events.find((event) => event.kind === kind)?.weight;
   const selectedSports = new Set(campaign?.rules.sports ?? []);
 
-  const field = 'w-full rounded border border-neutral-300 px-3 py-2';
+  const field = 'w-full rounded-md border border-line-strong bg-surface px-3 py-2';
 
   return (
     <form action={formAction} className="space-y-8">
       {campaign && <input type="hidden" name="id" value={campaign.id} />}
 
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase text-neutral-500">{t('sectionBasics')}</h2>
+        <h2 className="text-body-sm font-semibold uppercase text-text-muted">{t('sectionBasics')}</h2>
 
         <label className="block space-y-1">
-          <span className="text-sm font-medium">{t('slugLabel')}</span>
+          <span className="text-body-sm font-medium">{t('slugLabel')}</span>
           <input
             type="text"
             name="slug"
@@ -75,11 +78,11 @@ export function CampaignForm({
             defaultValue={campaign?.slug ?? ''}
             className={field}
           />
-          <span className="block text-xs text-neutral-500">{t('slugHint')}</span>
+          <span className="block text-caption text-text-muted">{t('slugHint')}</span>
         </label>
 
         <label className="block space-y-1">
-          <span className="text-sm font-medium">{t('titleBgLabel')}</span>
+          <span className="text-body-sm font-medium">{t('titleBgLabel')}</span>
           <input
             type="text"
             name="titleBg"
@@ -91,7 +94,7 @@ export function CampaignForm({
         </label>
 
         <label className="block space-y-1">
-          <span className="text-sm font-medium">{t('titleEnLabel')}</span>
+          <span className="text-body-sm font-medium">{t('titleEnLabel')}</span>
           <input
             type="text"
             name="titleEn"
@@ -99,47 +102,67 @@ export function CampaignForm({
             defaultValue={campaign?.titleEn ?? ''}
             className={field}
           />
-          <span className="block text-xs text-neutral-500">{t('translationHint')}</span>
+          <span className="block text-caption text-text-muted">{t('translationHint')}</span>
         </label>
 
         <label className="block space-y-1">
-          <span className="text-sm font-medium">{t('blurbBgLabel')}</span>
+          <span className="text-body-sm font-medium">{t('blurbBgLabel')}</span>
           <textarea name="blurbBg" rows={3} maxLength={2000} defaultValue={campaign?.blurbBg ?? ''} className={field} />
         </label>
         <label className="block space-y-1">
-          <span className="text-sm font-medium">{t('blurbEnLabel')}</span>
+          <span className="text-body-sm font-medium">{t('blurbEnLabel')}</span>
           <textarea name="blurbEn" rows={3} maxLength={2000} defaultValue={campaign?.blurbEn ?? ''} className={field} />
         </label>
 
         <label className="block space-y-1">
-          <span className="text-sm font-medium">{t('prizeBgLabel')}</span>
+          <span className="text-body-sm font-medium">{t('prizeBgLabel')}</span>
           <textarea name="prizeBg" rows={2} maxLength={2000} defaultValue={campaign?.prizeBg ?? ''} className={field} />
         </label>
         <label className="block space-y-1">
-          <span className="text-sm font-medium">{t('prizeEnLabel')}</span>
+          <span className="text-body-sm font-medium">{t('prizeEnLabel')}</span>
           <textarea name="prizeEn" rows={2} maxLength={2000} defaultValue={campaign?.prizeEn ?? ''} className={field} />
+        </label>
+
+        {/*
+          The campaign's sponsor (MONETISATION S2). The list is already filtered
+          to the headline/category tiers by the server page — those are the tiers
+          §S1 sells campaign sponsorship to — so the UI cannot offer an
+          institutional partner (never invoiced) or an advertiser (bought a slot,
+          not a campaign). Empty = unsponsored, which is the normal case.
+        */}
+        <label className="block space-y-1">
+          <span className="text-body-sm font-medium">{t('partnerLabel')}</span>
+          <select name="partnerId" defaultValue={campaign?.partnerId ? String(campaign.partnerId) : ''} className={field}>
+            <option value="">{t('partnerNone')}</option>
+            {partners.map((partner) => (
+              <option key={partner.id} value={String(partner.id)}>
+                {partner.name}
+              </option>
+            ))}
+          </select>
+          <span className="block text-caption text-text-muted">{t('partnerHint')}</span>
         </label>
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase text-neutral-500">{t('sectionWindow')}</h2>
+        <h2 className="text-body-sm font-semibold uppercase text-text-muted">{t('sectionWindow')}</h2>
         <div className="flex flex-wrap gap-4">
           <label className="space-y-1">
-            <span className="block text-sm font-medium">{t('startsOnLabel')}</span>
-            <input type="date" name="startsOn" required defaultValue={campaign?.window.startsOn ?? ''} className="rounded border border-neutral-300 px-3 py-2" />
+            <span className="block text-caption font-medium text-ink-soft">{t('startsOnLabel')}</span>
+            <input type="date" name="startsOn" required defaultValue={campaign?.window.startsOn ?? ''} className="rounded-md border border-line-strong bg-surface px-3 py-2" />
           </label>
           <label className="space-y-1">
-            <span className="block text-sm font-medium">{t('endsOnLabel')}</span>
-            <input type="date" name="endsOn" required defaultValue={campaign?.window.endsOn ?? ''} className="rounded border border-neutral-300 px-3 py-2" />
+            <span className="block text-caption font-medium text-ink-soft">{t('endsOnLabel')}</span>
+            <input type="date" name="endsOn" required defaultValue={campaign?.window.endsOn ?? ''} className="rounded-md border border-line-strong bg-surface px-3 py-2" />
           </label>
         </div>
-        <p className="text-xs text-neutral-500">{t('windowHint')}</p>
+        <p className="text-caption text-text-muted">{t('windowHint')}</p>
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase text-neutral-500">{t('sectionScope')}</h2>
+        <h2 className="text-body-sm font-semibold uppercase text-text-muted">{t('sectionScope')}</h2>
         <label className="block space-y-1">
-          <span className="text-sm font-medium">{t('scopeLabel')}</span>
+          <span className="text-body-sm font-medium">{t('scopeLabel')}</span>
           <select
             name="scopeKind"
             value={scopeKind}
@@ -154,7 +177,7 @@ export function CampaignForm({
 
         {scopeKind !== 'national' && (
           <label className="block space-y-1">
-            <span className="text-sm font-medium">{t('municipalityLabel')}</span>
+            <span className="text-body-sm font-medium">{t('municipalityLabel')}</span>
             <select name="municipalityId" defaultValue={campaign?.scope.kind !== 'national' ? String(campaign?.scope.municipalityId ?? '') : ''} className={field}>
               <option value="">{t('choose')}</option>
               {cities.map((city) => (
@@ -168,7 +191,7 @@ export function CampaignForm({
 
         {scopeKind === 'quarter' && (
           <label className="block space-y-1">
-            <span className="text-sm font-medium">{t('quarterLabel')}</span>
+            <span className="text-body-sm font-medium">{t('quarterLabel')}</span>
             <input
               type="text"
               name="quarter"
@@ -176,14 +199,14 @@ export function CampaignForm({
               defaultValue={campaign?.scope.kind === 'quarter' ? campaign.scope.quarter : ''}
               className={field}
             />
-            <span className="block text-xs text-neutral-500">{t('quarterHint')}</span>
+            <span className="block text-caption text-text-muted">{t('quarterHint')}</span>
           </label>
         )}
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase text-neutral-500">{t('sectionScoring')}</h2>
-        <p className="text-xs text-neutral-500">{t('scoringHint')}</p>
+        <h2 className="text-body-sm font-semibold uppercase text-text-muted">{t('sectionScoring')}</h2>
+        <p className="text-caption text-text-muted">{t('scoringHint')}</p>
 
         <ul className="space-y-2">
           {CAMPAIGN_EVENT_KINDS.map((kind) => {
@@ -192,17 +215,17 @@ export function CampaignForm({
               <li key={kind} className="flex flex-wrap items-center gap-3">
                 <label className="flex items-center gap-2">
                   <input type="checkbox" name={`event_${kind}`} defaultChecked={weight !== undefined} />
-                  <span className="text-sm">{t(`event_${kind}`)}</span>
+                  <span className="text-body-sm">{t(`event_${kind}`)}</span>
                 </label>
                 <label className="flex items-center gap-2">
-                  <span className="text-xs text-neutral-500">{t('weightLabel')}</span>
+                  <span className="text-caption text-text-muted">{t('weightLabel')}</span>
                   <input
                     type="number"
                     name={`weight_${kind}`}
                     min={1}
                     max={1000}
                     defaultValue={weight ?? 1}
-                    className="w-24 rounded border border-neutral-300 px-2 py-1"
+                    className="w-24 rounded-md border border-line-strong bg-surface px-2 py-1"
                   />
                 </label>
               </li>
@@ -211,23 +234,23 @@ export function CampaignForm({
         </ul>
 
         <label className="block space-y-1">
-          <span className="text-sm font-medium">{t('perDayCapLabel')}</span>
+          <span className="text-body-sm font-medium">{t('perDayCapLabel')}</span>
           <input
             type="number"
             name="perDayCap"
             min={1}
             defaultValue={campaign?.rules.perDayCap ?? ''}
-            className="w-32 rounded border border-neutral-300 px-3 py-2"
+            className="w-32 rounded-md border border-line-strong bg-surface px-3 py-2"
           />
-          <span className="block text-xs text-neutral-500">{t('perDayCapHint')}</span>
+          <span className="block text-caption text-text-muted">{t('perDayCapHint')}</span>
         </label>
 
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium">{t('sportsLabel')}</legend>
-          <p className="text-xs text-neutral-500">{t('sportsHint')}</p>
+          <legend className="text-body-sm font-medium">{t('sportsLabel')}</legend>
+          <p className="text-caption text-text-muted">{t('sportsHint')}</p>
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             {CANONICAL_SPORTS.map((sport) => (
-              <label key={sport} className="flex items-center gap-1.5 text-sm">
+              <label key={sport} className="flex items-center gap-1.5 text-body-sm">
                 <input type="checkbox" name="sports" value={sport} defaultChecked={selectedSports.has(sport)} />
                 {sportLabels[sport] ?? sport}
               </label>
@@ -237,9 +260,9 @@ export function CampaignForm({
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase text-neutral-500">{t('sectionBoard')}</h2>
+        <h2 className="text-body-sm font-semibold uppercase text-text-muted">{t('sectionBoard')}</h2>
         <label className="block space-y-1">
-          <span className="text-sm font-medium">{t('leaderboardTypeLabel')}</span>
+          <span className="text-body-sm font-medium">{t('leaderboardTypeLabel')}</span>
           <select
             name="leaderboardType"
             value={leaderboardType}
@@ -260,14 +283,14 @@ export function CampaignForm({
           public passport, while a city board names nobody and can safely
           include everyone — with small municipalities suppressed.
         */}
-        <p className="text-xs text-neutral-500">
+        <p className="text-caption text-text-muted">
           {leaderboardType === 'individual'
             ? t('leaderboardIndividualNote')
             : t('leaderboardCityNote', { min: CITY_BOARD_MIN_MEMBERS })}
         </p>
 
         <label className="block space-y-1">
-          <span className="text-sm font-medium">{t('templateLabel')}</span>
+          <span className="text-body-sm font-medium">{t('templateLabel')}</span>
           <select name="template" defaultValue={campaign?.template ?? 'standard'} className={field}>
             {CAMPAIGN_TEMPLATES.map((template) => (
               <option key={template} value={template}>
@@ -278,13 +301,13 @@ export function CampaignForm({
         </label>
       </section>
 
-      {state.error && <p className="text-sm text-red-700">{t(`error_${state.error}`)}</p>}
-      {state.saved && <p className="text-sm text-green-700">{t('saved')}</p>}
+      {state.error && <p className="text-body-sm text-danger">{t(`error_${state.error}`)}</p>}
+      {state.saved && <p className="text-body-sm text-success">{t('saved')}</p>}
 
       <button
         type="submit"
         disabled={pending}
-        className="rounded bg-neutral-900 px-4 py-2 text-sm text-white disabled:opacity-50"
+        className="rounded-pill bg-brand px-4 py-2 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-50"
       >
         {campaign ? t('save') : t('create')}
       </button>

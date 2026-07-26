@@ -94,6 +94,235 @@ export const sources = pgTable(
   (t) => [check('sources_name_not_blank', sql`btrim(${t.name}) <> ''`)],
 );
 
+/**
+ * Operator switches (0018). One row per key; the only key so far is
+ * 'public_show_paid' — the master toggle for the commercial (access='paid')
+ * facility category. Text values; boolean-shaped keys are CHECK-pinned.
+ */
+export const appSettings = pgTable(
+  'app_settings',
+  {
+    key: text('key').primaryKey(),
+    value: text('value').notNull(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    check('app_settings_bool_keys', sql`${t.key} <> 'public_show_paid' OR ${t.value} IN ('true', 'false')`),
+  ],
+);
+
+/**
+ * The per-business visibility unit for commercial venues (0018): a chain with
+ * thirty locations is ONE toggle. normalized_key (brand > operator > name,
+ * lower/trimmed) is what re-imports attach by, so a business is never minted
+ * twice. Institutional names only — nothing here resolves to a person, and
+ * this table stays OFF the open-data ALLOWED_RELATIONS.
+ */
+export const businesses = pgTable(
+  'businesses',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    name: text('name').notNull(),
+    normalizedKey: text('normalized_key').notNull().unique(),
+    visible: boolean('visible').notNull().default(true),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    check('businesses_name_not_blank', sql`btrim(${t.name}) <> ''`),
+    check('businesses_key_normalized', sql`${t.normalizedKey} = lower(btrim(${t.normalizedKey})) AND ${t.normalizedKey} <> ''`),
+  ],
+);
+
+/**
+ * Partners & sponsors registry (0019, docs/MONETISATION.md M1): the single
+ * institutional-entity table every sponsorship surface reads — the /partnyori
+ * page now, campaign sponsorship and adopt-a-facility later. Content is
+ * bilingual COLUMNS (the campaigns title_bg/title_en pattern), never i18n
+ * keys. DELIBERATE ABSENCES, per the plan: no contact-person columns (sponsor
+ * contacts are natural persons; they live in the offline CRM under the NGO's
+ * records of processing, never in the platform database), and this table
+ * stays OFF the open-data ALLOWED_RELATIONS like `businesses`. A partner is
+ * hidden (visible=false, the default), never deleted — future FKs will
+ * RESTRICT on it. Rendering rule everywhere: visible AND window active.
+ */
+export const partners = pgTable(
+  'partners',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    slug: text('slug').notNull().unique(),
+    tier: text('tier').notNull(),
+    nameBg: text('name_bg').notNull(),
+    nameEn: text('name_en'),
+    blurbBg: text('blurb_bg'),
+    blurbEn: text('blurb_en'),
+    url: text('url'),
+    logoPath: text('logo_path'),
+    visible: boolean('visible').notNull().default(false),
+    sortOrder: integer('sort_order').notNull().default(0),
+    startsOn: date('starts_on'),
+    endsOn: date('ends_on'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    check('partners_slug_shape', sql`${t.slug} ~ '^[a-z0-9]+(-[a-z0-9]+)*$' AND char_length(${t.slug}) <= 60`),
+    // 'advertiser' arrived with 0021 (ad slots): an advertiser lives in the
+    // SAME registry as a sponsor — same creative pipeline, same acceptance
+    // policy, same no-contact-columns rule — and only its tier differs. TEXT +
+    // CHECK rather than an enum precisely so adding one is this single ALTER.
+    check(
+      'partners_tier_known',
+      sql`${t.tier} IN ('headline', 'category', 'supporter', 'institutional', 'advertiser')`,
+    ),
+    check('partners_name_sane', sql`btrim(${t.nameBg}) <> '' AND char_length(${t.nameBg}) <= 120 AND (${t.nameEn} IS NULL OR (btrim(${t.nameEn}) <> '' AND char_length(${t.nameEn}) <= 120))`),
+    check('partners_blurb_sane', sql`(${t.blurbBg} IS NULL OR (btrim(${t.blurbBg}) <> '' AND char_length(${t.blurbBg}) <= 2000)) AND (${t.blurbEn} IS NULL OR (btrim(${t.blurbEn}) <> '' AND char_length(${t.blurbEn}) <= 2000))`),
+    check('partners_url_shape', sql`${t.url} IS NULL OR (${t.url} ~ '^https?://[^[:space:]]+$' AND char_length(${t.url}) <= 300)`),
+    check('partners_logo_path_sane', sql`${t.logoPath} IS NULL OR (${t.logoPath} <> '' AND ${t.logoPath} !~ '^/' AND ${t.logoPath} !~ '(^|/)\\.\\.(/|$)')`),
+    check('partners_window_order', sql`${t.startsOn} IS NULL OR ${t.endsOn} IS NULL OR ${t.endsOn} >= ${t.startsOn}`),
+  ],
+);
+
+/**
+ * Direct-sold, first-party-served display advertising (docs/MONETISATION.md S5,
+ * phase M4; migration 0021).
+ *
+ * WHAT MAKES THIS TABLE HARMLESS is the columns it does NOT have. There is no
+ * impression counter, no click counter, no viewer attribute, and no third-party
+ * script URL: a placement is a creative FILE we host, a link, and a window. The
+ * slot is selected by PAGE CONTEXT only — never by anything about the person
+ * reading — which is why the platform still needs no consent banner and the
+ * privacy page's "не проследяваме потребителите" stays true.
+ *
+ * The advertiser is a `partners` row of tier 'advertiser', so the acceptance
+ * policy, the logo/creative pipeline and the "no contact columns" rule are
+ * inherited rather than restated.
+ *
+ * `slot` is TEXT + CHECK, not an enum, and the four values are a deliberate,
+ * documented list (MONETISATION §S5). Adding a fifth surface means editing that
+ * table in the plan AND this CHECK — two edits, on purpose, so a slot cannot be
+ * added by a component import alone.
+ *
+ * Exclusivity ("one advertiser per slot per period") is an EXCLUDE constraint
+ * in the migration, which drizzle cannot express — see 0021's header.
+ */
+export const adPlacements = pgTable(
+  'ad_placements',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    partnerId: bigint('partner_id', { mode: 'number' })
+      .notNull()
+      .references(() => partners.id, { onDelete: 'restrict' }),
+    slot: text('slot').notNull(),
+    // Storage-adapter key, written by the admin upload through the same
+    // EXIF-stripping webp pipeline as facility photos; served by a row-decides
+    // route. Same shape CHECK as facility_photos / partners.logo_path.
+    creativePath: text('creative_path').notNull(),
+    url: text('url').notNull(),
+    altBg: text('alt_bg').notNull(),
+    altEn: text('alt_en'),
+    // Always bounded, unlike a partner's optional window: an advertising slot
+    // is sold for a period, and a placement with no end date is a placement
+    // nobody remembers to take down.
+    startsOn: date('starts_on').notNull(),
+    endsOn: date('ends_on').notNull(),
+    visible: boolean('visible').notNull().default(false),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // Every FK gets an index (reviewer rule) — this is the child side.
+    index('ad_placements_partner_idx').on(t.partnerId),
+    // The public read is "the placement for THIS slot, today", on page render.
+    index('ad_placements_slot_idx').on(t.slot),
+    check(
+      'ad_placements_slot_known',
+      sql`${t.slot} IN ('facility_page', 'city_page', 'weekly_page', 'map_panel')`,
+    ),
+    check(
+      'ad_placements_creative_path_sane',
+      sql`btrim(${t.creativePath}) <> '' AND ${t.creativePath} !~ '^/' AND ${t.creativePath} !~ '(^|/)\\.\\.(/|$)'`,
+    ),
+    check(
+      'ad_placements_url_shape',
+      sql`${t.url} ~ '^https?://[^[:space:]]+$' AND char_length(${t.url}) <= 300`,
+    ),
+    // alt text is not decoration: a creative with no alt is an image a screen
+    // reader announces as nothing, and this one is a paid message.
+    check(
+      'ad_placements_alt_sane',
+      sql`btrim(${t.altBg}) <> '' AND char_length(${t.altBg}) <= 200 AND (${t.altEn} IS NULL OR (btrim(${t.altEn}) <> '' AND char_length(${t.altEn}) <= 200))`,
+    ),
+    // Bounded means FINITE. `date 'infinity'` satisfies `ends_on >= starts_on`
+    // and then reaches `daterange(..., '[]')`, whose inclusive upper bound
+    // cannot be canonicalised — so without isfinite() the "always bounded"
+    // claim in 0021's header is a promise the schema does not keep, and the
+    // failure surfaces as a range error rather than a constraint violation.
+    check(
+      'ad_placements_window_order',
+      sql`isfinite(${t.startsOn}) AND isfinite(${t.endsOn}) AND ${t.endsOn} >= ${t.startsOn}`,
+    ),
+  ],
+);
+
+/**
+ * Adopt-a-facility («Осинови игрище») — docs/MONETISATION.md S3, phase M3a;
+ * migration 0023.
+ *
+ * AN ADJACENT TABLE, NEVER A COLUMN ON `facilities`. That is the single most
+ * important thing about this feature: sponsorship stays entirely outside the
+ * merge policy, `facility_edits` provenance and the crowd-data protections, so a
+ * sponsor acquires exactly zero authority over facility data or moderation. No
+ * per-facility authority concept exists in this schema; adopting one must not
+ * invent it.
+ *
+ * ALWAYS TIME-BOUNDED (both dates NOT NULL, unlike a partner's optional window):
+ * an adoption is an annual arrangement and it must lapse visibly rather than
+ * become a permanent claim on a public asset.
+ *
+ * One adoption per facility at a time — an EXCLUDE constraint in the migration,
+ * which drizzle cannot express (see 0023's header).
+ *
+ * The plaque line (`label_bg`/`label_en`) is optional operator-authored content,
+ * e.g. "Обновено през 2026 с подкрепата на …". It is bilingual COLUMNS, not i18n
+ * keys, for the campaigns reason: admin content, not UI strings.
+ */
+export const facilitySponsorships = pgTable(
+  'facility_sponsorships',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    facilityId: uuid('facility_id')
+      .notNull()
+      .references(() => facilities.id, { onDelete: 'restrict' }),
+    partnerId: bigint('partner_id', { mode: 'number' })
+      .notNull()
+      .references(() => partners.id, { onDelete: 'restrict' }),
+    labelBg: text('label_bg'),
+    labelEn: text('label_en'),
+    startsOn: date('starts_on').notNull(),
+    endsOn: date('ends_on').notNull(),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // Both FKs get an index (reviewer rule). The facility one is also the read
+    // path: "is this facility adopted today", asked on every facility page.
+    index('facility_sponsorships_facility_idx').on(t.facilityId),
+    index('facility_sponsorships_partner_idx').on(t.partnerId),
+    check(
+      'facility_sponsorships_label_sane',
+      sql`(${t.labelBg} IS NULL OR (btrim(${t.labelBg}) <> '' AND char_length(${t.labelBg}) <= 200))
+          AND (${t.labelEn} IS NULL OR (btrim(${t.labelEn}) <> '' AND char_length(${t.labelEn}) <= 200))`,
+    ),
+    // Finite, for the reason 0021's window check states: an adoption over public
+    // infrastructure that lapses "at infinity" is the standing claim the
+    // bounded-window rule exists to prevent.
+    check(
+      'facility_sponsorships_window_order',
+      sql`isfinite(${t.startsOn}) AND isfinite(${t.endsOn}) AND ${t.endsOn} >= ${t.startsOn}`,
+    ),
+  ],
+);
+
 export const facilities = pgTable(
   'facilities',
   {
@@ -116,6 +345,12 @@ export const facilities = pgTable(
     access: facilityAccess('access').notNull(),
     status: facilityStatus('status').notNull().default('active'),
     municipalityId: integer('municipality_id').references(() => municipalities.id, {
+      onDelete: 'restrict',
+    }),
+    // Commercial venues only (access='paid'): the per-BUSINESS visibility unit
+    // (0018). NULL = no recognisable operator; such a row rides the master
+    // 'public_show_paid' switch alone.
+    businessId: bigint('business_id', { mode: 'number' }).references(() => businesses.id, {
       onDelete: 'restrict',
     }),
     quarter: text('quarter'),
@@ -1399,6 +1634,24 @@ export const campaigns = pgTable(
     blurbEn: text('blurb_en'),
     prizeBg: text('prize_bg'),
     prizeEn: text('prize_en'),
+    /**
+     * The sponsor of this campaign (docs/MONETISATION.md S2, phase M2; migration
+     * 0022). NULL for the overwhelming majority — an unsponsored campaign is the
+     * normal case, so this is nullable rather than defaulted.
+     *
+     * A REFERENCE, NOT COPIED CONTENT. The sponsor's name, logo and link live in
+     * `partners` and are read through it, so hiding a partner or letting their
+     * window lapse removes the sponsor line from every campaign at once. RESTRICT
+     * because a partner with a sponsored campaign must not vanish — a campaign
+     * that was "supported by" somebody keeps saying so.
+     *
+     * What this column deliberately does NOT do: reach `campaign_results`, which
+     * stores no display data at all (0012), and give a sponsor any influence over
+     * scoring, which is the closed `rules` grammar.
+     */
+    partnerId: bigint('partner_id', { mode: 'number' }).references(() => partners.id, {
+      onDelete: 'restrict',
+    }),
     /** When an admin froze the standings. NULL until then; set with status='closed'. */
     closedAt: timestamptz('closed_at'),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
@@ -1406,6 +1659,12 @@ export const campaigns = pgTable(
   },
   (t) => [
     index('campaigns_status_idx').on(t.status, t.startsOn),
+    // Every FK gets an index, and this one is partial: almost every campaign is
+    // unsponsored, so indexing the NULLs would be pure overhead. The query that
+    // needs it is "does this partner have campaigns" before hiding them.
+    index('campaigns_partner_idx')
+      .on(t.partnerId)
+      .where(sql`${t.partnerId} IS NOT NULL`),
     index('campaigns_municipality_idx')
       .on(t.municipalityId)
       .where(sql`${t.municipalityId} IS NOT NULL`),
@@ -1708,6 +1967,11 @@ export type ApiKey = typeof apiKeys.$inferSelect;
 export type NewApiKey = typeof apiKeys.$inferInsert;
 export type OpendataDump = typeof opendataDumps.$inferSelect;
 export type NewOpendataDump = typeof opendataDumps.$inferInsert;
+
+export type AdPlacement = typeof adPlacements.$inferSelect;
+export type NewAdPlacement = typeof adPlacements.$inferInsert;
+export type Partner = typeof partners.$inferSelect;
+export type NewPartner = typeof partners.$inferInsert;
 
 export type Campaign = typeof campaigns.$inferSelect;
 export type NewCampaign = typeof campaigns.$inferInsert;

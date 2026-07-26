@@ -30,11 +30,11 @@ export default async function AdminResultsPage({
 
   return (
     <main className="space-y-6">
-      <h1 className="text-xl font-semibold">{t('title')}</h1>
+      <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
       {/* The no-timing-hardware boundary, said where an operator will read it. */}
-      <p className="max-w-prose text-sm text-neutral-600">{t('intro')}</p>
+      <p className="max-w-prose text-body-sm text-ink-soft">{t('intro')}</p>
 
-      {occurrences.length === 0 && <p className="text-sm text-neutral-500">{t('noOccurrences')}</p>}
+      {occurrences.length === 0 && <p className="text-body-sm text-text-muted">{t('noOccurrences')}</p>}
 
       {[
         { heading: t('pending'), rows: pending },
@@ -43,32 +43,32 @@ export default async function AdminResultsPage({
         .filter((group) => group.rows.length > 0)
         .map((group) => (
           <section key={group.heading} className="space-y-2">
-            <h2 className="text-lg font-semibold">{group.heading}</h2>
-            <div className="overflow-x-auto rounded border border-neutral-200">
-              <table className="w-full text-sm">
-                <thead className="bg-neutral-50">
+            <h2 className="text-h4 font-bold text-ink">{group.heading}</h2>
+            <div className="overflow-x-auto rounded-card border border-line bg-surface">
+              <table className="w-full text-body-sm">
+                <thead className="bg-paper-sunk">
                   <tr>
-                    <th className="px-3 py-2 text-left font-medium">{t('when')}</th>
-                    <th className="px-3 py-2 text-left font-medium">{t('occurrence')}</th>
-                    <th className="px-3 py-2 text-left font-medium">{t('facility')}</th>
-                    <th className="px-3 py-2 text-right font-medium">{t('title')}</th>
+                    <th className="t-overline px-3 py-2.5 text-left font-semibold">{t('when')}</th>
+                    <th className="t-overline px-3 py-2.5 text-left font-semibold">{t('occurrence')}</th>
+                    <th className="t-overline px-3 py-2.5 text-left font-semibold">{t('facility')}</th>
+                    <th className="t-overline px-3 py-2.5 text-right font-semibold">{t('title')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {group.rows.map((occurrence) => (
-                    <tr key={occurrence.occurrenceId} className="border-t border-neutral-100">
-                      <td className="px-3 py-2 whitespace-nowrap tabular-nums">
+                    <tr key={occurrence.occurrenceId} className="border-t border-line">
+                      <td className="px-3 py-2 font-mono whitespace-nowrap tabular-nums">
                         {occurrence.startsAtLocal.replace('T', ' ').slice(0, 16)}
                       </td>
                       <td className="px-3 py-2">
                         {occurrence.title}
-                        <span className="text-neutral-500"> · {tSport(occurrence.sport)}</span>
+                        <span className="text-text-muted"> · {tSport(occurrence.sport)}</span>
                       </td>
-                      <td className="px-3 py-2 text-neutral-600">{occurrence.facilityName}</td>
+                      <td className="px-3 py-2 text-ink-soft">{occurrence.facilityName}</td>
                       <td className="px-3 py-2 text-right">
                         <Link
                           href={`/admin/rezultati/${occurrence.occurrenceId}`}
-                          className="underline"
+                          className="font-medium text-link hover:text-link-hover"
                         >
                           {occurrence.resultCount === 0
                             ? t('save')

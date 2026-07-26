@@ -17,6 +17,7 @@ import {
   type ScopeOptions,
 } from '@/lib/places';
 import { buildAlternates } from '@/lib/seo';
+import { AppShell } from '@/components/shell/app-shell';
 
 // ISR: on-demand + cached hourly, never prerendered at build (no DB there).
 export const revalidate = 3600;
@@ -115,30 +116,31 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
       : [[], []];
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 p-4">
-      <Link href={`/igrishta/${city.slug}`} className="text-sm underline">
+    <AppShell>
+      <main className="mx-auto max-w-3xl space-y-6 p-4">
+      <Link href={`/igrishta/${city.slug}`} className="text-body-sm font-medium text-link hover:text-link-hover">
         {t('backToCity', { city: name })}
       </Link>
 
       <header className="space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight">{heading}</h1>
-        <p className="text-neutral-700">{intro}</p>
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{heading}</h1>
+        <p className="text-ink-soft">{intro}</p>
       </header>
 
       <section aria-labelledby="map-h">
-        <h2 id="map-h" className="mb-2 text-lg font-semibold">
+        <h2 id="map-h" className="mb-2 text-h4 font-bold text-ink">
           {t('mapHeading')}
         </h2>
         <PlaceMap facilities={facilities} />
       </section>
 
       <section aria-labelledby="list-h">
-        <h2 id="list-h" className="mb-2 text-lg font-semibold">
+        <h2 id="list-h" className="mb-2 text-h4 font-bold text-ink">
           {t('facilitiesHeading')}
         </h2>
         <FacilityList facilities={facilities.slice(0, LIST_LIMIT)} />
         {count > LIST_LIMIT && (
-          <p className="mt-2 text-sm text-neutral-500">
+          <p className="mt-2 text-body-sm text-text-muted">
             {t('showingLimited', { shown: Math.min(LIST_LIMIT, facilities.length), total: count })}
           </p>
         )}
@@ -146,7 +148,7 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
 
       {otherSports.length > 0 && (
         <section aria-labelledby="others-h">
-          <h2 id="others-h" className="mb-2 text-lg font-semibold">
+          <h2 id="others-h" className="mb-2 text-h4 font-bold text-ink">
             {t('otherSportsHeading', { city: name })}
           </h2>
           <ul className="flex flex-wrap gap-2">
@@ -154,9 +156,9 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
               <li key={s.sport}>
                 <Link
                   href={`/igrishta/${city.slug}/${s.sport}`}
-                  className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-neutral-50"
+                  className="rounded-full border border-line-strong px-3 py-1 text-sm hover:bg-paper-sunk"
                 >
-                  {tSport(s.sport)} <span className="text-neutral-500">({s.count})</span>
+                  {tSport(s.sport)} <span className="text-text-muted">({s.count})</span>
                 </Link>
               </li>
             ))}
@@ -166,7 +168,7 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
 
       {scope.kind === 'sport' && sameSportCities.length > 0 && (
         <section aria-labelledby="cities-h">
-          <h2 id="cities-h" className="mb-2 text-lg font-semibold">
+          <h2 id="cities-h" className="mb-2 text-h4 font-bold text-ink">
             {t('sameSportOtherCitiesHeading', { sport: tSport(scope.sport) })}
           </h2>
           <ul className="flex flex-wrap gap-2">
@@ -174,15 +176,16 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
               <li key={other.slug}>
                 <Link
                   href={`/igrishta/${other.slug}/${scope.sport}`}
-                  className="rounded-full border border-neutral-300 px-3 py-1 text-sm hover:bg-neutral-50"
+                  className="rounded-full border border-line-strong px-3 py-1 text-sm hover:bg-paper-sunk"
                 >
-                  {cityName(other, locale)} <span className="text-neutral-500">({n})</span>
+                  {cityName(other, locale)} <span className="text-text-muted">({n})</span>
                 </Link>
               </li>
             ))}
           </ul>
         </section>
       )}
-    </main>
+      </main>
+    </AppShell>
   );
 }

@@ -88,10 +88,10 @@ export interface CampaignRules {
 /**
  * Below this many contributing members, an aggregate city row is SUPPRESSED.
  *
- * An aggregate board is safe for minors precisely because no individual is
- * named — but a municipality where one person contributed publishes that
- * person's score under a city label, which is the same disclosure with extra
- * steps. Five is a floor, not a calculation: it is small enough that real
+ * An aggregate board names no individual — but a municipality where one person
+ * contributed publishes that person's score under a city label, which is the
+ * same disclosure with extra steps, and it reaches members who never opted into
+ * being named. Five is a floor, not a calculation: it is small enough that real
  * cities still appear and large enough that no row is one person.
  */
 export const CITY_BOARD_MIN_MEMBERS = 5;

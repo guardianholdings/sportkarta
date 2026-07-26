@@ -16,21 +16,21 @@ export default async function AdminImportJobPage({
 
   return (
     <main className="space-y-4">
-      <Link href="/admin/import" className="text-sm underline">
+      <Link href="/admin/import" className="text-body-sm font-medium text-link hover:text-link-hover">
         {t('back')}
       </Link>
-      <h1 className="text-xl font-semibold">
+      <h1 className="text-h2 font-extrabold tracking-tight text-ink">
         {t('reportTitle')} — {job.dryRun ? t('modeDry') : t('modeLive')} ·{' '}
-        <span className="text-neutral-500">
+        <span className="text-text-muted">
           {t.has(`state.${job.state}`) ? t(`state.${job.state}`) : job.state}
         </span>
       </h1>
       {job.report ? (
-        <pre className="max-w-4xl overflow-x-auto rounded bg-neutral-50 p-4 text-xs whitespace-pre-wrap">
+        <pre className="max-w-4xl overflow-x-auto rounded-md bg-paper-sunk p-4 text-caption whitespace-pre-wrap">
           {job.report}
         </pre>
       ) : (
-        <p className="text-sm text-neutral-500">{t('reportMissing')}</p>
+        <p className="text-body-sm text-text-muted">{t('reportMissing')}</p>
       )}
     </main>
   );

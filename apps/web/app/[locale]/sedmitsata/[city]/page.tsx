@@ -3,9 +3,11 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
+import { AdSlot } from '@/components/ads/ad-slot';
 import { Link } from '@/i18n/navigation';
 import { getCityBySlug, type City } from '@/lib/places';
 import { buildAlternates } from '@/lib/seo';
+import { AppShell } from '@/components/shell/app-shell';
 
 /**
  * The auto-generated weekly city page (docs/ROADMAP.md §6, Stage 4.4).
@@ -87,24 +89,25 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
   });
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 p-4">
-      <Link href="/" className="text-sm underline">
+    <AppShell>
+      <main className="mx-auto max-w-3xl space-y-6 p-4">
+      <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
         {t('backToMap')}
       </Link>
 
       <header className="space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight">{t('h1', { city: name })}</h1>
-        <p className="text-sm text-neutral-500">{t('weekOf', { date: week.weekStart })}</p>
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('h1', { city: name })}</h1>
+        <p className="text-body-sm text-text-muted">{t('weekOf', { date: week.weekStart })}</p>
         {week.occurrences.length > 0 && (
-          <p className="text-neutral-700">{t('intro', { count: week.occurrences.length })}</p>
+          <p className="text-ink-soft">{t('intro', { count: week.occurrences.length })}</p>
         )}
       </header>
 
       {week.occurrences.length === 0 ? (
-        <section className="space-y-2 rounded border border-neutral-200 p-4">
-          <p className="text-neutral-700">{t('empty', { city: name })}</p>
-          <p className="text-sm text-neutral-500">{t('emptyHint')}</p>
-          <Link href={`/igrishta/${city.slug}`} className="text-sm underline">
+        <section className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm">
+          <p className="text-ink-soft">{t('empty', { city: name })}</p>
+          <p className="text-body-sm text-text-muted">{t('emptyHint')}</p>
+          <Link href={`/igrishta/${city.slug}`} className="text-body-sm font-medium text-link hover:text-link-hover">
             {t('backToMap')}
           </Link>
         </section>
@@ -112,12 +115,12 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
         <div className="space-y-6">
           {byDay(week.occurrences).map(([day, entries]) => (
             <section key={day} aria-label={day}>
-              <h2 className="mb-2 border-b border-neutral-200 pb-1 text-lg font-semibold capitalize">
+              <h2 className="mb-2 border-b border-line pb-1 text-h4 font-bold text-ink capitalize">
                 {/* The date is a civil date; parsing it as UTC and formatting in
                     UTC keeps it a calendar date and never shifts it. */}
                 {weekdayFormat.format(new Date(`${day}T00:00:00Z`))}
               </h2>
-              <ul className="divide-y divide-neutral-100">
+              <ul className="divide-y divide-line">
                 {entries.map((entry) => (
                   <li key={entry.occurrenceId} className="flex flex-wrap gap-x-3 gap-y-1 py-2">
                     <span className="w-12 shrink-0 font-mono text-sm tabular-nums">
@@ -127,14 +130,14 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
                       {/* Stage 4.2: the week is now a way in, not just a
                           listing — each entry leads to the page where you can
                           actually sign up. */}
-                      <Link href={`/sesiya/${entry.occurrenceId}`} className="font-medium underline">
+                      <Link href={`/sesiya/${entry.occurrenceId}`} className="font-medium text-link hover:text-link-hover">
                         {entry.title}
                       </Link>
-                      <span className="text-neutral-500"> · {tSport(entry.sport)}</span>
+                      <span className="text-text-muted"> · {tSport(entry.sport)}</span>
                       {entry.facilityName && (
-                        <span className="block text-sm text-neutral-600">
+                        <span className="block text-body-sm text-ink-soft">
                           {entry.facilitySlug ? (
-                            <Link href={`/obekt/${entry.facilitySlug}`} className="underline">
+                            <Link href={`/obekt/${entry.facilitySlug}`} className="font-medium text-link hover:text-link-hover">
                               {entry.facilityName}
                             </Link>
                           ) : (
@@ -143,7 +146,7 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
                         </span>
                       )}
                     </span>
-                    <span className="shrink-0 self-start text-sm text-neutral-500">
+                    <span className="shrink-0 self-start text-body-sm text-text-muted">
                       {entry.capacity === null
                         ? t('spotsUnlimited', { going: entry.going })
                         : t('spots', { going: entry.going, capacity: entry.capacity })}
@@ -156,11 +159,16 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
         </div>
       )}
 
-      <p className="border-t border-neutral-200 pt-4 text-sm text-neutral-600">
-        <Link href="/profil" className="underline">
+      <p className="border-t border-line pt-4 text-body-sm text-ink-soft">
+        <Link href="/profil" className="font-medium text-link hover:text-link-hover">
           {t('subscribe')}
         </Link>
       </p>
-    </main>
+
+      {/* MONETISATION §S5 ad surface: local, activity-minded audience. Renders
+          nothing when the slot is unsold. */}
+      <AdSlot slot="weekly_page" />
+      </main>
+    </AppShell>
   );
 }

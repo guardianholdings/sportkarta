@@ -77,7 +77,8 @@ export const OPEN_DATA_API_VERSION = 'v1';
  *
  * The alias is `f`, matching every facilities query in the codebase.
  */
-export const PUBLIC_FACILITY_PREDICATE = "f.status <> 'gone' AND f.slug IS NOT NULL";
+export const PUBLIC_FACILITY_PREDICATE =
+  "f.status <> 'gone' AND f.slug IS NOT NULL AND (f.access <> 'paid' OR (EXISTS (SELECT 1 FROM app_settings st WHERE st.key = 'public_show_paid' AND st.value = 'true') AND (f.business_id IS NULL OR EXISTS (SELECT 1 FROM businesses b WHERE b.id = f.business_id AND b.visible))))";
 
 /**
  * Field types. A closed set on purpose: the denylist rejects anything it does

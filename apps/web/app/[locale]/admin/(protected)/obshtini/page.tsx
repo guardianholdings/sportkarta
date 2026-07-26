@@ -89,8 +89,8 @@ export default async function AdminMunicipalImportPage({
 
   return (
     <main className="space-y-6">
-      <h1 className="text-xl font-semibold">{t('title')}</h1>
-      <p className="max-w-prose text-sm text-neutral-600">{t('intro')}</p>
+      <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
+      <p className="max-w-prose text-body-sm text-ink-soft">{t('intro')}</p>
       <MunicipalImport labels={labels} fieldLabels={fieldLabels} sampleCsv={sampleCsv()} />
     </main>
   );

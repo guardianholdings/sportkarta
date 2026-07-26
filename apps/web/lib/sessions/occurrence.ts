@@ -5,10 +5,12 @@ import { getDb, sql } from '@sportkarta/db';
  *
  * WHAT THIS DELIBERATELY DOES NOT RETURN: an attendee list. Migration 0008 says
  * it in the view's own comment — who may see who is coming is a UI rule, not
- * the view's job — and Stage 5's minors rule decides that rule here: a public
- * page that names a person next to a place and a time publishes where they
- * reliably are on a Tuesday evening. So the page shows COUNTS, plus the
- * viewer's own position, and nothing about anybody else. Not even a first name.
+ * the view's job — and the pattern-of-life rule decides that rule here: a
+ * public page that names a person next to a place and a time publishes where
+ * they reliably are on a Tuesday evening. That is true of every member at every
+ * age, which is why removing the minors boundary (0020) changed nothing here.
+ * The page shows COUNTS, plus the viewer's own position, and nothing about
+ * anybody else. Not even a first name.
  *
  * The organiser is named, because somebody has to be answerable for a session
  * strangers are being invited to, and organising one is a public act.

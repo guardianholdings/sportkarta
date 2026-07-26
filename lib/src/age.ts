@@ -8,7 +8,11 @@
  * which proves that end to end.
  */
 
-/** Bulgarian majority age; minors are excluded from individual public leaderboards. */
+/**
+ * Bulgarian majority age. The boundary this constant marks GATES NOTHING since
+ * migration 0020 (operator decision 2026-07-25 — minors are treated as adults);
+ * it records an age category and no feature reads it.
+ */
 export const MINOR_AGE = 18;
 
 /** Civil timezone the product reasons in — the same one Stage 4 schedules in. */

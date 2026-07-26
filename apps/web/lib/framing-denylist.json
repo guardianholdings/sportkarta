@@ -1,0 +1,53 @@
+{
+  "$comment": [
+    "ENGAGEMENT.md C7 — the framing rule, made mechanical.",
+    "",
+    "Sezer/Gino/Norton (JPSP) found that humblebragging leaves people LESS liked",
+    "and less trusted than plain bragging, and that self-promoters systematically",
+    "overestimate how well their sharing lands. For an NGO whose subject is free",
+    "public sport in a country where 61% never exercise, copy that frames a",
+    "member as better than other members is both off-message and, by that",
+    "evidence, less effective at the thing it is for.",
+    "",
+    "So achievement and share copy is framed around SHOWING UP and BELONGING TO A",
+    "PLACE — '50 тренировки', 'Господар на Южен парк' — never around superiority.",
+    "This file is the denylist that keeps it that way; the gate is",
+    "apps/web/tests/framing.test.ts.",
+    "",
+    "WHY JSON RATHER THAN TypeScript: the hardcoded-Cyrillic gate scans every .ts",
+    "and .tsx under apps/web/{app,components,lib} with an empty allowlist, so a",
+    "Bulgarian denylist written in TypeScript would be flagged as hardcoded UI",
+    "copy by the very gate it sits beside. Message data lives in .json here.",
+    "",
+    "WHY WORD BOUNDARIES, NOT SUBSTRINGS: calibrating this list against the live",
+    "catalogue caught 'елит' matching inside 'Сателитен изглед'. Bulgarian is",
+    "agglutinative enough that substring matching produces confident nonsense, so",
+    "every token below is matched at a word boundary and stems are marked.",
+    "",
+    "This list is deliberately about COMPARISON BETWEEN MEMBERS. It does not",
+    "forbid naming a campaign winner or printing a rank — those are facts on a",
+    "ranking surface, which is why Leaderboard and Campaign are outside the",
+    "gate's scope (see the test)."
+  ],
+  "bg": [
+    { "token": "по-добър", "stem": true, "why": "ranks the reader against other members" },
+    { "token": "по-добра", "stem": true, "why": "ranks the reader against other members" },
+    { "token": "най-добър", "stem": true, "why": "superlative comparison between members" },
+    { "token": "най-добри", "stem": true, "why": "superlative comparison between members" },
+    { "token": "надмин", "stem": true, "why": "'surpass' — frames others as the thing beaten" },
+    { "token": "победи", "stem": true, "why": "'defeat' — turns showing up into a contest won" },
+    { "token": "съперник", "stem": true, "why": "casts other members as rivals" },
+    { "token": "конкурен", "stem": true, "why": "competition framing between members" },
+    { "token": "превъзход", "stem": true, "why": "explicit superiority" },
+    { "token": "по-силен", "stem": true, "why": "compares ability, not attendance" },
+    { "token": "докажи", "stem": true, "why": "'prove yourself' — performance pressure" }
+  ],
+  "en": [
+    { "token": "better than", "stem": false, "why": "ranks the reader against other members" },
+    { "token": "beat", "stem": true, "why": "turns showing up into a contest won" },
+    { "token": "outrank", "stem": true, "why": "explicit comparison between members" },
+    { "token": "rival", "stem": true, "why": "casts other members as rivals" },
+    { "token": "prove yourself", "stem": false, "why": "performance pressure" },
+    { "token": "the best", "stem": false, "why": "superlative comparison between members" }
+  ]
+}

@@ -26,9 +26,9 @@ export async function StreakPanel({ streaks }: { streaks: PassportStreakView }) 
   return (
     <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {stats.map((stat) => (
-        <div key={stat.key} className="rounded border border-neutral-200 p-3">
-          <dt className="text-xs text-neutral-500">{t(`streak_${stat.key}`)}</dt>
-          <dd className="mt-1 text-xl font-semibold tabular-nums">{stat.value}</dd>
+        <div key={stat.key} className="rounded-card border border-line bg-surface p-3 shadow-sm">
+          <dt className="text-caption text-text-muted">{t(`streak_${stat.key}`)}</dt>
+          <dd className="mt-1 font-mono text-h3 font-bold text-ink tabular-nums">{stat.value}</dd>
         </div>
       ))}
     </dl>

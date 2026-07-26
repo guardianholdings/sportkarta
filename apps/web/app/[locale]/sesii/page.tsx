@@ -8,6 +8,7 @@ import { listUpcomingSessions } from '@/lib/sessions/occurrence';
 import { buildAlternates } from '@/lib/seo';
 import { Link } from '@/i18n/navigation';
 import type { CanonicalSport } from '@sportkarta/lib/sports';
+import { AppShell } from '@/components/shell/app-shell';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,7 +45,8 @@ export default async function SessionsIndexPage({
   ]);
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-5">
+    <AppShell active="/sesii">
+      <main className="mx-auto max-w-2xl px-4 py-5">
       <header className="mb-5">
         <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('indexTitle')}</h1>
         <p className="mt-1.5 text-body-sm text-ink-soft">{t('indexIntro')}</p>
@@ -102,6 +104,7 @@ export default async function SessionsIndexPage({
           })}
         </ul>
       )}
-    </main>
+      </main>
+    </AppShell>
   );
 }

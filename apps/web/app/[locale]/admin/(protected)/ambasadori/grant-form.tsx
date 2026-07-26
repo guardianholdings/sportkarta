@@ -19,24 +19,24 @@ export function GrantForm() {
   return (
     <form action={action} className="flex flex-wrap items-end gap-3">
       <label className="space-y-1">
-        <span className="block text-sm font-medium">{t('grantEmailLabel')}</span>
+        <span className="block text-caption font-medium text-ink-soft">{t('grantEmailLabel')}</span>
         <input
           type="email"
           name="email"
           required
-          className="w-72 rounded border border-neutral-300 px-3 py-2 text-sm"
+          className="w-72 rounded-pill border border-line-strong bg-surface px-3 py-2 text-body-sm font-semibold text-ink-soft hover:bg-surface-2"
         />
       </label>
       <Button type="submit" disabled={pending}>
         {t('grantSubmit')}
       </Button>
       {state.error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-body-sm text-danger">
           {t(`error_${state.error}`)}
         </p>
       )}
       {state.granted && (
-        <p role="status" className="text-sm text-green-700">
+        <p role="status" className="text-body-sm text-success">
           {t('granted', { email: state.granted })}
         </p>
       )}

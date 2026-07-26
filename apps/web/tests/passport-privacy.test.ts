@@ -183,15 +183,18 @@ describe('public passport projection', () => {
 });
 
 describe('public passport resolution', () => {
-  it('filters on visibility and minor status in SQL, not in the caller', async () => {
+  it('filters on visibility in SQL, not in the caller', async () => {
     const db = fakeDb(() => []);
     await publicPassport(db, 'a'.repeat(24));
     const lookup = db.statements[0]?.sql ?? '';
     expect(lookup).toContain("profile_visibility = 'public'");
-    expect(lookup).toContain('is_minor = false');
+    // Age is NOT a term in the lookup (migration 0020). Asserted as an absence
+    // so reinstating the predicate is a failing test rather than a silent
+    // un-publishing of members who opted in.
+    expect(lookup).not.toContain('is_minor');
   });
 
-  it('returns null for an unknown, private or minor handle without distinguishing them', async () => {
+  it('returns null for an unknown or private handle without distinguishing them', async () => {
     const db = fakeDb(() => []);
     expect(await publicPassport(db, 'a'.repeat(24))).toBeNull();
     // One statement: it never went on to read anybody's history.
@@ -200,7 +203,10 @@ describe('public passport resolution', () => {
 });
 
 describe('visibility updates', () => {
-  it('refuses to publish a minor and writes nothing', async () => {
+  it('publishes a minor exactly like anybody else', async () => {
+    // The mirror image of the test that stood here until migration 0020: the
+    // row says is_minor, and the function publishes it anyway because age is no
+    // longer an input to the decision.
     const db = fakeDb(() => [
       {
         profile_visibility: 'private',
@@ -209,10 +215,9 @@ describe('visibility updates', () => {
         is_minor: true,
       },
     ]);
-    await expect(
-      setPassportVisibility(db, 'u1', { isPublic: true, showActivity: false }),
-    ).rejects.toThrow(/minor_cannot_publish/);
-    expect(db.statements.some((s) => s.sql.includes('UPDATE users'))).toBe(false);
+    const handle = await setPassportVisibility(db, 'u1', { isPublic: true, showActivity: false });
+    expect(handle).toMatch(/^[0-9a-f]{24}$/);
+    expect(db.statements.some((s) => s.sql.includes('UPDATE users'))).toBe(true);
   });
 
   it('mints a handle on first publish and keeps it afterwards', async () => {
@@ -244,7 +249,7 @@ describe('visibility updates', () => {
     ).toBe('b'.repeat(24));
   });
 
-  it('re-checks is_minor in the UPDATE itself, not only in the guard', async () => {
+  it('writes no age predicate into the UPDATE', async () => {
     const db = fakeDb(() => [
       {
         profile_visibility: 'private',
@@ -255,7 +260,9 @@ describe('visibility updates', () => {
     ]);
     await setPassportVisibility(db, 'u1', { isPublic: true, showActivity: false });
     const update = db.statements.find((s) => s.sql.includes('UPDATE users'))?.sql ?? '';
-    expect(update).toContain('is_minor = false');
+    // The belt-and-braces `AND is_minor = false` that guarded this statement
+    // went with the CHECK in 0020. Its absence is asserted, not assumed.
+    expect(update).not.toContain('is_minor');
   });
 });
 

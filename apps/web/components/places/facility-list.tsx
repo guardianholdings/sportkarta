@@ -11,7 +11,7 @@ export async function FacilityList({ facilities }: { facilities: ScopedFacility[
   ]);
 
   return (
-    <ul className="divide-y divide-neutral-100 rounded-lg border border-neutral-200">
+    <ul className="divide-y divide-line rounded-card border border-line">
       {facilities.map((f) => {
         const name = f.name ?? tFacility('unnamed');
         const sports = f.sportTypes.slice(0, 3).map((s) => tSport(s));
@@ -24,11 +24,11 @@ export async function FacilityList({ facilities }: { facilities: ScopedFacility[
             <Link
               href={`/obekt/${f.slug}`}
               aria-label={label}
-              className="block px-4 py-3 hover:bg-neutral-50"
+              className="block px-4 py-3 hover:bg-paper-sunk"
             >
               <span className="font-medium">{name}</span>
               {sports.length > 0 && (
-                <span className="block text-xs text-neutral-500">{sports.join(' · ')}</span>
+                <span className="block text-caption text-text-muted">{sports.join(' · ')}</span>
               )}
             </Link>
           </li>

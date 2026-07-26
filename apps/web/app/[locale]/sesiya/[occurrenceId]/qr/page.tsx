@@ -87,8 +87,8 @@ export default async function CheckinQrPage({ params }: { params: PageParams }) 
     // Fail closed and say so plainly to the one person who can report it.
     return (
       <main className="mx-auto max-w-md space-y-4 p-4">
-        <h1 className="text-xl font-semibold">{view.title}</h1>
-        <p role="alert" className="rounded border border-amber-200 bg-amber-50 p-3 text-amber-900">
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{view.title}</h1>
+        <p role="alert" className="rounded border border-warning-border bg-warning-bg p-3 text-warning">
           {t('disabled')}
         </p>
       </main>
@@ -116,8 +116,8 @@ export default async function CheckinQrPage({ params }: { params: PageParams }) 
       <meta httpEquiv="refresh" content={String(refreshSeconds)} />
 
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold">{view.title}</h1>
-        <p className="text-sm text-neutral-500">
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{view.title}</h1>
+        <p className="text-body-sm text-text-muted">
           {t('attendance', { checkedIn: view.checkedIn, going: view.going })}
         </p>
       </header>
@@ -129,11 +129,11 @@ export default async function CheckinQrPage({ params }: { params: PageParams }) 
           received. Inlining the SVG is what keeps the code crisp at any size. */}
       <div className="mx-auto w-full max-w-[320px]" dangerouslySetInnerHTML={{ __html: svg }} />
 
-      <p className="text-sm text-neutral-700">{t('scanHint')}</p>
-      <p className="text-xs text-neutral-500">
+      <p className="text-body-sm text-ink-soft">{t('scanHint')}</p>
+      <p className="text-caption text-text-muted">
         {t('rotates', { seconds: Math.round(WINDOW_MS / 1000) })}
       </p>
-      <p className="text-xs text-neutral-400">{t('keepScreenOn')}</p>
+      <p className="text-caption text-text-faint">{t('keepScreenOn')}</p>
     </main>
   );
 }

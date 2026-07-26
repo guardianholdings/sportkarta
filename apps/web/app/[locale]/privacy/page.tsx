@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
 import { buildAlternates } from '@/lib/seo';
+import { AppShell } from '@/components/shell/app-shell';
 
 type PageParams = Promise<{ locale: string }>;
 
@@ -21,35 +22,45 @@ export default async function PrivacyPage({ params }: { params: PageParams }) {
   setRequestLocale(locale);
   const t = await getTranslations('Privacy');
 
-  const sections = ['store', 'accounts', 'analytics', 'reports', 'photos', 'data'] as const;
+  const sections = [
+    'store',
+    'accounts',
+    'analytics',
+    'mapLayers',
+    'reports',
+    'photos',
+    'data',
+  ] as const;
   const contactEmail = process.env.CONTACT_EMAIL;
 
   return (
-    <main className="mx-auto max-w-2xl space-y-6 p-4">
-      <Link href="/" className="text-sm underline">
+    <AppShell>
+      <main className="mx-auto max-w-2xl space-y-6 p-4">
+      <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
         {t('back')}
       </Link>
-      <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-      <p className="text-neutral-700">{t('intro')}</p>
+      <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
+      <p className="text-ink-soft">{t('intro')}</p>
       {sections.map((s) => (
         <section key={s} className="space-y-1">
-          <h2 className="text-lg font-semibold">{t(`${s}Title`)}</h2>
-          <p className="text-neutral-700">{t(`${s}Body`)}</p>
+          <h2 className="text-h4 font-bold text-ink">{t(`${s}Title`)}</h2>
+          <p className="text-ink-soft">{t(`${s}Body`)}</p>
         </section>
       ))}
       <section className="space-y-1">
-        <h2 className="text-lg font-semibold">{t('contactTitle')}</h2>
-        <p className="text-neutral-700">{t('contactIntro')}</p>
+        <h2 className="text-h4 font-bold text-ink">{t('contactTitle')}</h2>
+        <p className="text-ink-soft">{t('contactIntro')}</p>
         {contactEmail ? (
           <p>
-            <a href={`mailto:${contactEmail}`} className="text-teal-700 underline">
+            <a href={`mailto:${contactEmail}`} className="font-medium text-link hover:text-link-hover">
               {contactEmail}
             </a>
           </p>
         ) : (
-          <p className="text-neutral-700">{t('contactFallback')}</p>
+          <p className="text-ink-soft">{t('contactFallback')}</p>
         )}
       </section>
-    </main>
+      </main>
+    </AppShell>
   );
 }

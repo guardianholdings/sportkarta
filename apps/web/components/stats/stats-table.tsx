@@ -91,9 +91,9 @@ export function StatsTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-sm">
+      <table className="w-full border-collapse text-body-sm">
         <thead>
-          <tr className="border-b border-neutral-300 text-left">
+          <tr className="border-b border-line-strong text-left">
             {columns.map((c) => (
               <th
                 key={c.key}
@@ -105,7 +105,7 @@ export function StatsTable({
                   onClick={() => {
                     toggleSort(c.key);
                   }}
-                  className={`px-2 py-2 font-medium hover:underline ${c.numeric ? 'w-full text-right' : ''}`}
+                  className={`px-2 py-2 font-medium hover:text-link-hover ${c.numeric ? 'w-full text-right' : ''}`}
                 >
                   {c.label}
                   {sortKey === c.key ? (dir === 1 ? ' ▲' : ' ▼') : ''}
@@ -116,7 +116,7 @@ export function StatsTable({
         </thead>
         <tbody>
           {sorted.map((r) => (
-            <tr key={r.ekatteCode} className="border-b border-neutral-100">
+            <tr key={r.ekatteCode} className="border-b border-line">
               {columns.map((c) => (
                 <td
                   key={c.key}

@@ -1,6 +1,7 @@
 import { getTranslations } from 'next-intl/server';
 
 import { setPassportVisibilityAction } from '@/app/[locale]/pasport/actions';
+import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 import type { OwnPassport } from '@/lib/passport';
 
 /**
@@ -12,8 +13,10 @@ import type { OwnPassport } from '@/lib/passport';
  * matters more here than for a digest, because the flapping value is whether a
  * page about somebody is publicly readable.
  *
- * A minor is shown an explanation, not a disabled toggle: the rule is not a
- * temporary condition of the UI, it is why the feature does not apply to them.
+ * Every member gets the same controls. A minors-only explanatory branch stood
+ * here (the feature did not apply to them at all) until the operator decision
+ * of 2026-07-25 — minors are treated as adults, so there is nothing left to
+ * explain and no member for whom publishing is unavailable.
  */
 export async function VisibilityPanel({
   visibility,
@@ -24,19 +27,10 @@ export async function VisibilityPanel({
 }) {
   const t = await getTranslations('Passport');
 
-  if (!visibility.canPublish) {
-    return (
-      <section className="space-y-2 rounded border border-neutral-200 p-4">
-        <h2 className="text-lg font-semibold">{t('visibilityTitle')}</h2>
-        <p className="text-sm text-neutral-600">{t('visibilityMinor')}</p>
-      </section>
-    );
-  }
-
   return (
-    <section className="space-y-3 rounded border border-neutral-200 p-4">
-      <h2 className="text-lg font-semibold">{t('visibilityTitle')}</h2>
-      <p className="text-sm text-neutral-600">
+    <section className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm">
+      <h2 className="text-h4 font-bold text-ink">{t('visibilityTitle')}</h2>
+      <p className="text-body-sm text-ink-soft">
         {visibility.isPublic ? t('visibilityPublicExplainer') : t('visibilityPrivateExplainer')}
       </p>
 
@@ -51,8 +45,8 @@ export async function VisibilityPanel({
           type="submit"
           className={
             visibility.isPublic
-              ? 'rounded border border-neutral-300 px-3 py-1.5 text-sm'
-              : 'rounded bg-neutral-900 px-3 py-1.5 text-sm text-white'
+              ? 'rounded border border-line-strong px-3 py-1.5 text-sm'
+              : 'rounded-pill bg-brand px-3 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover'
           }
         >
           {visibility.isPublic ? t('makePrivate') : t('makePublic')}
@@ -60,8 +54,16 @@ export async function VisibilityPanel({
       </form>
 
       {visibility.isPublic && publicUrl && (
-        <p className="break-all text-sm">
-          <a href={publicUrl} className="underline">
+        <p className="break-all text-body-sm">
+          {/* C1: the only share-shaped affordance that exists today. This is
+              THE number that decides whether the passport share card (C4) is
+              worth building — it measures the desire path before anything paves
+              it (docs/ENGAGEMENT.md §0). */}
+          <a
+            href={publicUrl}
+            className="font-medium text-link hover:text-link-hover"
+            data-umami-event={ANALYTICS_EVENTS.passportPublicLink}
+          >
             {publicUrl}
           </a>
         </p>
@@ -75,8 +77,8 @@ export async function VisibilityPanel({
             name="showActivity"
             value={visibility.showActivity ? 'false' : 'true'}
           />
-          <p className="text-sm text-neutral-600">{t('activityExplainer')}</p>
-          <button type="submit" className="rounded border border-neutral-300 px-3 py-1.5 text-sm">
+          <p className="text-body-sm text-ink-soft">{t('activityExplainer')}</p>
+          <button type="submit" className="rounded border border-line-strong px-3 py-1.5 text-body-sm">
             {visibility.showActivity ? t('hideActivity') : t('showActivity')}
           </button>
         </form>

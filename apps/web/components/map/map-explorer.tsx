@@ -2,16 +2,13 @@
 
 import {
   ArrowLeft,
-  CalendarDays,
+  Layers,
   LocateFixed,
-  Map as MapIcon,
   MapPin,
   Navigation,
   Plus,
   Search,
   SlidersHorizontal,
-  Trophy,
-  User,
   WifiOff,
   X,
 } from 'lucide-react';
@@ -19,6 +16,8 @@ import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { AdCreative } from '@/components/ads/ad-creative';
+import { BottomNav, NavRail } from '@/components/shell/app-nav';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
@@ -34,12 +33,13 @@ import {
   type PublicFilters,
 } from '@/lib/filters';
 import { distanceKm, formatKm } from '@/lib/geo';
+import { DEFAULT_LAYER, type ExternalMapLayer } from '@/lib/map/layers';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { CANONICAL_SPORTS, CANONICAL_SURFACES, type CanonicalSport } from '@sportkarta/lib/sports';
 
 import type { FacilityFeatureCollection } from '@/lib/public-data';
 
-import type { MapPoint, MapView, NearMe } from './map-canvas';
+import type { MapBounds, MapPoint, MapView, NearMe } from './map-canvas';
 
 const MapCanvas = dynamic(() => import('./map-canvas'), {
   ssr: false,
@@ -70,6 +70,15 @@ interface MapExplorerProps {
   initialFacilities: MapPoint[];
   initialView: MapView;
   initialSelected: string | null;
+  /** External raster basemaps the server configured (lib/map/external-layers.ts). */
+  externalLayers?: ExternalMapLayer[];
+  /**
+   * The `map_panel` ad placement, already resolved and localised by the server
+   * page (components/ads/ad-slot.tsx → `adSlotProps`). Three strings and an id:
+   * deliberately NOT the row, so no ad logic and no db import cross into the
+   * client bundle. Null/absent = unsold = nothing rendered.
+   */
+  ad?: { id: number; url: string; alt: string } | null;
 }
 
 function toggle(list: string[], value: string): string[] {
@@ -88,8 +97,12 @@ export function MapExplorer({
   initialFacilities,
   initialView,
   initialSelected,
+  externalLayers = [],
+  ad = null,
 }: MapExplorerProps) {
   const t = useTranslations('Map');
+  const tAds = useTranslations('Ads');
+  const tNav = useTranslations('Nav');
   const tSport = useTranslations('Sport');
   const tFacility = useTranslations('Facility');
   const router = useRouter();
@@ -109,6 +122,9 @@ export function MapExplorer({
   const [query, setQuery] = useState('');
   const [snap, setSnap] = useState<Snap>('half');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [activeLayer, setActiveLayer] = useState<string>(DEFAULT_LAYER);
+  const [layerMenuOpen, setLayerMenuOpen] = useState(false);
+  const [viewBounds, setViewBounds] = useState<MapBounds | null>(null);
 
   const listRef = useRef<HTMLDivElement>(null);
   const filterKey = filtersToSearchParams(filters).toString();
@@ -220,7 +236,10 @@ export function MapExplorer({
     [nearMeOn, userLocation, radiusKm],
   );
 
-  // Distance-sort + near-me radius + name search, all composing.
+  // Distance-sort + near-me radius + name search, all composing — then a
+  // stable partition so whatever is CURRENTLY ON THE MAP leads the list
+  // (operator request 2026-07-25): pan to Варна and the thread starts with
+  // Варна, while relative order within each half is untouched.
   const listItems = useMemo(() => {
     const q = query.trim().toLowerCase();
     let rows = points.map((p) => ({
@@ -230,8 +249,16 @@ export function MapExplorer({
     if (q) rows = rows.filter((r) => (r.point.name ?? '').toLowerCase().includes(q));
     if (nearMe) rows = rows.filter((r) => r.km !== null && r.km <= radiusKm);
     if (userLocation) rows.sort((a, b) => (a.km ?? 0) - (b.km ?? 0));
+    if (viewBounds) {
+      const visible = (p: MapPoint) =>
+        p.lon >= viewBounds.west &&
+        p.lon <= viewBounds.east &&
+        p.lat >= viewBounds.south &&
+        p.lat <= viewBounds.north;
+      rows = [...rows.filter((r) => visible(r.point)), ...rows.filter((r) => !visible(r.point))];
+    }
     return rows.slice(0, 60);
-  }, [points, userLocation, nearMe, radiusKm, query]);
+  }, [points, userLocation, nearMe, radiusKm, query, viewBounds]);
 
   const selected = useMemo(
     () => (selectedSlug ? (points.find((p) => p.slug === selectedSlug) ?? null) : null),
@@ -383,6 +410,19 @@ export function MapExplorer({
           ))}
         </ul>
       )}
+      {/*
+        The `map_panel` ad slot (MONETISATION §S5). It sits at the FOOT of the
+        results list, inside the panel BESIDE the map — the map canvas itself
+        stays ad-free forever. Its data was fetched and localised by the server
+        page (`adSlotProps`) and arrives as three plain strings, so this client
+        component gains no database import and no ad logic. Absent = unsold =
+        nothing rendered, never a placeholder.
+      */}
+      {ad && (
+        <div className="pt-4">
+          <AdCreative id={ad.id} url={ad.url} alt={ad.alt} label={tAds('label')} />
+        </div>
+      )}
     </div>
   );
 
@@ -429,6 +469,9 @@ export function MapExplorer({
           onSelect={select}
           onHoverMarker={onHoverMarker}
           onMoveEnd={(v) => onMoveEndRef.current(v)}
+          externalLayers={externalLayers}
+          activeLayer={activeLayer}
+          onBoundsChange={setViewBounds}
         />
       </div>
 
@@ -444,18 +487,52 @@ export function MapExplorer({
         >
           <LocateFixed size={20} className={userLocation ? 'text-brand' : ''} />
         </IconButton>
+        {externalLayers.length > 0 && (
+          <div className="relative">
+            <IconButton
+              aria-label={t('layers')}
+              aria-expanded={layerMenuOpen}
+              variant="floating"
+              round
+              onClick={() => setLayerMenuOpen((open) => !open)}
+            >
+              <Layers size={20} className={activeLayer !== DEFAULT_LAYER ? 'text-brand' : ''} />
+            </IconButton>
+            {layerMenuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-12 z-30 w-48 rounded-card border border-line bg-surface p-1 shadow-lg lg:top-auto lg:bottom-12"
+              >
+                {[DEFAULT_LAYER, ...externalLayers.map((l) => l.id)].map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={activeLayer === id}
+                    onClick={() => {
+                      setActiveLayer(id);
+                      setLayerMenuOpen(false);
+                    }}
+                    className={`block w-full rounded-md px-3 py-2 text-left text-body-sm ${
+                      activeLayer === id
+                        ? 'bg-brand-subtle font-semibold text-ink'
+                        : 'text-ink-soft hover:bg-surface-2'
+                    }`}
+                  >
+                    {t(`layer_${id}`)}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ═══ DESKTOP: left rail + list panel + right detail ═══ */}
       <div className="pointer-events-none absolute inset-0 z-20 hidden lg:flex">
-        <nav className="pointer-events-auto flex w-[76px] shrink-0 flex-col items-center gap-1 border-r border-line bg-surface py-4">
-          <BrandMark />
-          <div className="mt-4 flex flex-1 flex-col gap-1">
-            {NAV.map((n) => (
-              <NavRailItem key={n.key} item={n} active={n.href === '/'} label={t(n.key)} />
-            ))}
-          </div>
-        </nav>
+        {/* The add-facility FAB lives on the map itself here (bottom-left of
+            the visible map, below), so the rail's copy is off. */}
+        <NavRail active="/" labelFor={(k) => tNav(k)} className="pointer-events-auto" showAdd={false} />
 
         <aside
           id="facility-list"
@@ -490,6 +567,20 @@ export function MapExplorer({
           </div>
           {resultsBody}
         </aside>
+
+        {/* The visible map region (right of the list). The add-facility FAB
+            anchors to ITS bottom-left, so it sits on the map, not under the
+            panel — operator request 2026-07-25. Mobile keeps the BottomNav
+            center FAB. */}
+        <div className="relative min-w-0 flex-1">
+          <Link
+            href="/dobavi"
+            aria-label={tNav('navAdd')}
+            className="pointer-events-auto absolute bottom-6 left-6 grid size-[54px] place-items-center rounded-full border-[3px] border-surface bg-accent text-on-accent shadow-lg transition-transform hover:scale-105 active:scale-[0.97]"
+          >
+            <Plus size={26} />
+          </Link>
+        </div>
 
         {selected && (
           <aside className="pointer-events-auto absolute right-4 top-4 w-[380px] rounded-sheet border border-line bg-surface shadow-float">
@@ -551,7 +642,7 @@ export function MapExplorer({
           </section>
         )}
 
-        <BottomNav labelFor={(k) => t(k)} />
+        <BottomNav active="/" labelFor={(k) => tNav(k)} className="absolute inset-x-0 bottom-0 z-40" />
       </div>
 
       {/* ── Filter sheet (shared) ── */}
@@ -581,90 +672,6 @@ export function MapExplorer({
         </div>
       )}
     </div>
-  );
-}
-
-// ── Nav ─────────────────────────────────────────────────────────────────────
-
-const NAV = [
-  { key: 'navMap', href: '/', icon: MapIcon },
-  { key: 'navSessions', href: '/sesii', icon: CalendarDays },
-  { key: 'navLeaderboards', href: '/klasirane', icon: Trophy },
-  { key: 'navProfile', href: '/profil', icon: User },
-] as const;
-
-function BrandMark() {
-  return (
-    <span className="grid size-9 place-items-center rounded-md bg-brand text-on-brand">
-      <MapPin size={20} />
-    </span>
-  );
-}
-
-function NavRailItem({
-  item,
-  active,
-  label,
-}: {
-  item: (typeof NAV)[number];
-  active: boolean;
-  label: string;
-}) {
-  const Icon = item.icon;
-  return (
-    <Link
-      href={item.href}
-      className={`flex flex-col items-center gap-1 rounded-md px-2 py-2 text-[11px] font-semibold ${
-        active ? 'bg-brand-subtle text-brand' : 'text-ink-soft hover:bg-surface-2'
-      }`}
-    >
-      <Icon size={22} />
-      {label}
-    </Link>
-  );
-}
-
-function BottomNav({ labelFor }: { labelFor: (k: string) => string }) {
-  return (
-    <div className="absolute inset-x-0 bottom-0 z-40 flex h-14 items-center border-t border-line bg-surface">
-      {NAV.slice(0, 2).map((n) => (
-        <TabItem key={n.key} item={n} active={n.href === '/'} label={labelFor(n.key)} />
-      ))}
-      <div className="w-14" />
-      {NAV.slice(2).map((n) => (
-        <TabItem key={n.key} item={n} active={false} label={labelFor(n.key)} />
-      ))}
-      <Link
-        href="/dobavi"
-        aria-label={labelFor('navAdd')}
-        className="absolute left-1/2 top-[-22px] grid size-[54px] -translate-x-1/2 place-items-center rounded-full border-[3px] border-surface bg-accent text-on-accent shadow-lg active:scale-[0.97]"
-      >
-        <Plus size={26} />
-      </Link>
-    </div>
-  );
-}
-
-function TabItem({
-  item,
-  active,
-  label,
-}: {
-  item: (typeof NAV)[number];
-  active: boolean;
-  label: string;
-}) {
-  const Icon = item.icon;
-  return (
-    <Link
-      href={item.href}
-      className={`flex flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${
-        active ? 'text-brand' : 'text-text-muted'
-      }`}
-    >
-      <Icon size={23} />
-      {label}
-    </Link>
   );
 }
 

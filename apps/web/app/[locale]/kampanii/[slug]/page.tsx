@@ -4,11 +4,13 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
+import { CampaignSponsor } from '@/components/campaigns/campaign-sponsor';
 import { CampaignStandings } from '@/components/campaigns/campaign-standings';
 import { Link } from '@/i18n/navigation';
 import { getCurrentUser } from '@/lib/auth-session';
 import { localizedText } from '@/lib/campaigns';
 import { cityDisplayName, loadCityCatalog } from '@/lib/places';
+import { AppShell } from '@/components/shell/app-shell';
 
 /**
  * A campaign's landing page (docs/ROADMAP.md §7, Stage 5.3).
@@ -79,35 +81,41 @@ export default async function CampaignPage({ params }: { params: PageParams }) {
   const leadWithCountdown = campaign.template === 'sprint';
 
   return (
-    <main className="mx-auto max-w-2xl space-y-8 p-4">
-      <header className="space-y-3 border-b border-neutral-200 pb-4">
+    <AppShell>
+      <main className="mx-auto max-w-2xl space-y-8 p-4">
+      <header className="space-y-3 border-b border-line pb-4">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded bg-neutral-100 px-2 py-0.5 text-xs">{t(`phase_${phase}`)}</span>
+          <span className="rounded bg-paper-sunk px-2 py-0.5 text-caption">{t(`phase_${phase}`)}</span>
           {phase === 'running' && leadWithCountdown && (
-            <span className="rounded bg-neutral-900 px-2 py-0.5 text-xs text-white">
+            <span className="rounded-pill bg-brand px-2 py-0.5 text-caption font-semibold text-on-brand">
               {t('daysLeft', { count: daysRemaining(campaign.window, now) })}
             </span>
           )}
         </div>
-        <h1 className="text-2xl font-semibold">{title}</h1>
-        <p className="text-sm text-neutral-500">
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{title}</h1>
+        <p className="text-body-sm text-text-muted">
           {campaign.window.startsOn} → {campaign.window.endsOn}
           {phase === 'running' && !leadWithCountdown &&
             ` · ${t('daysLeft', { count: daysRemaining(campaign.window, now) })}`}
         </p>
-        {blurb && <p className="text-sm">{blurb}</p>}
+        {blurb && <p className="text-body-sm">{blurb}</p>}
       </header>
 
       {prize && (
-        <section className="rounded border border-neutral-900 p-4">
-          <h2 className="text-sm font-semibold uppercase text-neutral-500">{t('prizeTitle')}</h2>
-          <p className="mt-1 text-sm">{prize}</p>
+        <section className="rounded-card border border-brand-border bg-brand-subtle p-4">
+          <h2 className="text-body-sm font-semibold uppercase text-text-muted">{t('prizeTitle')}</h2>
+          <p className="mt-1 text-body-sm">{prize}</p>
         </section>
       )}
 
+      {/* The sponsor line (MONETISATION S2) sits beside the prize because that
+          is the deal: the sponsor provides the prize and is acknowledged for it.
+          Renders nothing for an unsponsored campaign or a lapsed sponsor. */}
+      <CampaignSponsor partnerId={campaign.partnerId} />
+
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">{t('howToScore')}</h2>
-        <ul className="space-y-1 text-sm">
+        <h2 className="text-h4 font-bold text-ink">{t('howToScore')}</h2>
+        <ul className="space-y-1 text-body-sm">
           {campaign.rules.events.map((event) => (
             <li key={event.kind} className="flex gap-3">
               <span>{t(`event_${event.kind}`)}</span>
@@ -118,36 +126,36 @@ export default async function CampaignPage({ params }: { params: PageParams }) {
           ))}
         </ul>
         {campaign.rules.perDayCap !== undefined && (
-          <p className="text-xs text-neutral-500">
+          <p className="text-caption text-text-muted">
             {t('capNote', { cap: campaign.rules.perDayCap })}
           </p>
         )}
-        <p className="text-xs text-neutral-500">{t(`scopeNote_${campaign.scope.kind}`)}</p>
+        <p className="text-caption text-text-muted">{t(`scopeNote_${campaign.scope.kind}`)}</p>
       </section>
 
       {campaign.status === 'closed' ? (
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">{t('finishedTitle')}</h2>
-          <p className="text-sm text-neutral-600">{t('finishedBody')}</p>
+          <h2 className="text-h4 font-bold text-ink">{t('finishedTitle')}</h2>
+          <p className="text-body-sm text-ink-soft">{t('finishedBody')}</p>
           <Link
             href={`/kampanii/${campaign.slug}/rezultati`}
-            className="inline-block rounded bg-neutral-900 px-3 py-1.5 text-sm text-white"
+            className="inline-block rounded-pill bg-brand px-3 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover"
           >
             {t('seeResults')}
           </Link>
         </section>
       ) : phase === 'awaiting_close' ? (
         <section className="space-y-2">
-          <h2 className="text-lg font-semibold">{t('awaitingTitle')}</h2>
+          <h2 className="text-h4 font-bold text-ink">{t('awaitingTitle')}</h2>
           {/* Honest rather than reassuring: the window has closed, and the
               numbers below are the last live ones, not the official result. */}
-          <p className="text-sm text-neutral-600">{t('awaitingBody')}</p>
+          <p className="text-body-sm text-ink-soft">{t('awaitingBody')}</p>
         </section>
       ) : null}
 
       {campaign.status !== 'closed' && (
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">
+          <h2 className="text-h4 font-bold text-ink">
             {campaign.leaderboardType === 'city' ? t('cityStandings') : t('standings')}
           </h2>
           <CampaignStandings
@@ -161,23 +169,24 @@ export default async function CampaignPage({ params }: { params: PageParams }) {
             )}
           />
           {campaign.leaderboardType === 'individual' && (
-            <p className="text-xs text-neutral-500">{t('eligibilityNote')}</p>
+            <p className="text-caption text-text-muted">{t('eligibilityNote')}</p>
           )}
         </section>
       )}
 
       {user && (
-        <section className="space-y-1 rounded border border-neutral-200 p-4 text-sm">
+        <section className="space-y-1 rounded-card border border-line bg-surface p-4 shadow-sm text-body-sm">
           <h2 className="font-semibold">{t('yourStandingTitle')}</h2>
           {standing ? (
-            <p className="text-neutral-600">
+            <p className="text-ink-soft">
               {t('yourStanding', { rank: standing.rank, score: standing.score })}
             </p>
           ) : (
-            <p className="text-neutral-600">{t('yourStandingNone')}</p>
+            <p className="text-ink-soft">{t('yourStandingNone')}</p>
           )}
         </section>
       )}
-    </main>
+      </main>
+    </AppShell>
   );
 }

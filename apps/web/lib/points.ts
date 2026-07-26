@@ -56,8 +56,9 @@ export interface PointsSummary {
 
 /**
  * A member's own score and recent contributions. Deliberately per-user and
- * never a ranking: minors must not appear on individual public leaderboards
- * (CLAUDE.md), and the simplest way to honour that is to have no leaderboard.
+ * never a ranking: ranking anybody publicly needs their opt-in, which lives in
+ * `leaderboard_eligible_members`, so a page about one member reads their own
+ * history and never other people's positions.
  */
 export async function pointsSummary(
   db: SqlRunner,

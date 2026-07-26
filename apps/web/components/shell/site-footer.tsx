@@ -23,6 +23,12 @@ export function SiteFooter() {
         <Link href="/danni" className="font-medium text-ink-soft hover:text-brand">
           {t('openData')}
         </Link>
+        <Link href="/partnyori" className="font-medium text-ink-soft hover:text-brand">
+          {t('partners')}
+        </Link>
+        <Link href="/podkrepi" className="font-medium text-ink-soft hover:text-brand">
+          {t('support')}
+        </Link>
         <Link href="/privacy" className="font-medium text-ink-soft hover:text-brand">
           {t('privacy')}
         </Link>

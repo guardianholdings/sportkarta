@@ -17,13 +17,17 @@ import { renderSql } from './render-sql.js';
  *
  * Three things are attacked here rather than demonstrated:
  *
- *  1. A minor must never be NAMED on a public individual board, while still
- *     being counted — a campaign that silently excludes under-18s from
- *     competing is the wrong product for a youth-sport NGO, and one that names
- *     them publicly breaks a binding legal constant.
+ *  1. NAMING FOLLOWS CONSENT AND NOTHING ELSE. A member who published their
+ *     passport is named on the public individual board whatever their age
+ *     (migration 0020 — minors are treated as adults, so the MINOR fixture here
+ *     is PUBLIC and expected to appear); a member who did not is counted, is
+ *     visible to organisers so a prize can be handed over, and is never named.
+ *     The old form of this test asserted the opposite for minors; it is kept in
+ *     mirror image rather than deleted, because "counted but not named" is
+ *     still the property that can silently break.
  *  2. An aggregate city row backed by too few members must be SUPPRESSED,
- *     because otherwise "counting minors is safe, nobody is named" stops being
- *     true the moment a municipality has one contributor.
+ *     because otherwise "nobody is named in an aggregate" stops being true the
+ *     moment a municipality has one contributor.
  *  3. Closing must FREEZE. New events after the close must not move a published
  *     result, and a second close must not renumber the winners.
  *
@@ -41,6 +45,11 @@ const MEMBERS = [ADULT_PUBLIC, ADULT_PRIVATE, MINOR, RUNNER_UP];
 const HANDLES: Record<string, string> = {
   [ADULT_PUBLIC]: 'aaaa1111bbbb2222cccc3333',
   [RUNNER_UP]: 'dddd4444eeee5555ffff6666',
+  // A minor WITH a handle — i.e. published, and therefore nameable. Before 0020
+  // this row was unconstructible (users_minor_profile_not_public). The
+  // unnameable role in these tests belongs to ADULT_PRIVATE, who withheld
+  // consent, which is now the only reason anybody is unnameable.
+  [MINOR]: '9999777788886666555544cc',
 };
 
 const SLUG = 'e2e-test-campaign';
@@ -287,23 +296,29 @@ describe.skipIf(!hasDb)('campaign scoring (requires running database)', () => {
   });
 
   describe('who is named', () => {
-    it('counts a minor but NEVER names them on a public individual board', async () => {
+    it('names a minor who published their passport, exactly like anyone else', async () => {
       const campaign = await makeCampaign();
-      // The minor out-scores everyone.
+      // The minor out-scores everyone — a leak in either direction lands at
+      // rank 1 rather than somewhere easy to miss.
       await award(MINOR, 0, 'facility_added', '2019-03-02', 'm1');
       await award(MINOR, 1, 'facility_added', '2019-03-03', 'm2');
       await award(ADULT_PUBLIC, 2, 'facility_added', '2019-03-02', 'a1');
 
       const publicBoard = await publicStandings(db as never, campaign);
-      expect(publicBoard.map((r) => r.displayName)).not.toContain(`Тест ${MINOR}`);
+      const minorRow = publicBoard.find((r) => r.handle === HANDLES[MINOR]);
+      expect(minorRow?.displayName).toBe(`Тест ${MINOR}`);
+      expect(minorRow?.rank).toBe(1);
+      expect(minorRow?.score).toBe(20);
+      // Still no nameless row on a board that names people.
       expect(publicBoard.map((r) => r.handle)).not.toContain(null);
 
-      // …but they ARE scored, and the organisers can see them to award a prize.
+      // The admin board carries the same score and NO age datum at all —
+      // adminStandings deliberately stopped selecting is_minor in 0020.
       const admin = await adminStandings(db as never, campaign);
-      const minorRow = admin.find((r) => r.userId === MINOR);
-      expect(minorRow?.score).toBe(20);
-      expect(minorRow?.rank).toBe(1);
-      expect(minorRow?.isMinor).toBe(true);
+      const adminRow = admin.find((r) => r.userId === MINOR);
+      expect(adminRow?.score).toBe(20);
+      expect(adminRow?.rank).toBe(1);
+      expect(adminRow).not.toHaveProperty('isMinor');
     });
 
     it('lets a minor see their own standing', async () => {
@@ -328,7 +343,9 @@ describe.skipIf(!hasDb)('campaign scoring (requires running database)', () => {
 
     it('numbers the public board 1,2,3 without gaps advertising hidden competitors', async () => {
       const campaign = await makeCampaign();
-      await award(MINOR, 0, 'facility_added', '2019-03-02', 'top');
+      // The hidden top scorer is the member who withheld consent — since 0020
+      // that is the only kind of hidden competitor there is.
+      await award(ADULT_PRIVATE, 0, 'facility_added', '2019-03-02', 'top');
       await award(ADULT_PUBLIC, 1, 'facility_added', '2019-03-02', 'second');
       await award(RUNNER_UP, 2, 'facility_verified', '2019-03-02', 'third');
 
@@ -347,7 +364,7 @@ describe.skipIf(!hasDb)('campaign scoring (requires running database)', () => {
       expect(rows).toHaveLength(0);
     });
 
-    it('names no individual, so a minor may be counted in it', async () => {
+    it('names no individual at all, whoever contributed to the row', async () => {
       const campaign = await makeCampaign({ leaderboardType: 'city' });
       await award(MINOR, 0, 'facility_added', '2019-03-02', 'x');
       const rows = await publicStandings(db as never, campaign);
@@ -402,12 +419,13 @@ describe.skipIf(!hasDb)('campaign scoring (requires running database)', () => {
 
     it('freezes members who cannot be named, so placings are not renumbered', async () => {
       const campaign = await makeCampaign();
-      await award(MINOR, 0, 'facility_added', '2019-03-02', 'i1');
+      await award(ADULT_PRIVATE, 0, 'facility_added', '2019-03-02', 'i1');
       await award(ADULT_PUBLIC, 1, 'facility_verified', '2019-03-02', 'i2');
       await closeCampaign(db as never, campaign);
 
       const frozen = await frozenResults(db as never, campaign.id);
-      // Two rows: the minor's placing is real and first, just not nameable.
+      // Two rows: the unpublished member's placing is real and first, just not
+      // nameable.
       expect(frozen).toHaveLength(2);
       expect(frozen[0]?.rank).toBe(1);
       expect(frozen[0]?.handle).toBeNull();
@@ -489,6 +507,7 @@ describe('campaign scoring counts VERIFIED attendance only (Stage 5.4)', () => {
       blurbEn: null,
       prizeBg: null,
       prizeEn: null,
+      partnerId: null,
       closedAt: null,
     };
     void campaignStanding(recorder as never, campaign, 'member_1');

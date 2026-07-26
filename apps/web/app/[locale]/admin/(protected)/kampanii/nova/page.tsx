@@ -1,7 +1,9 @@
+import { getDb } from '@sportkarta/db';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { requireRole } from '@/lib/auth-session';
 import { cityDisplayName, loadCityCatalog } from '@/lib/places';
+import { partnerText, sponsorCandidates } from '@/lib/partners';
 import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
 
 import { createCampaignAction } from '../actions';
@@ -17,10 +19,11 @@ export default async function NewCampaignPage({
   const { locale } = await params;
   setRequestLocale(locale);
   await requireRole('admin');
-  const [t, sportName, catalog] = await Promise.all([
+  const [t, sportName, catalog, sponsors] = await Promise.all([
     getTranslations('AdminCampaigns'),
     getTranslations('Sport'),
     loadCityCatalog(),
+    sponsorCandidates(getDb()),
   ]);
 
   // Sport labels are resolved server-side and handed to the client component:
@@ -36,8 +39,16 @@ export default async function NewCampaignPage({
 
   return (
     <main className="max-w-2xl space-y-6">
-      <h1 className="text-xl font-semibold">{t('newCampaign')}</h1>
-      <CampaignForm action={createCampaignAction} cities={cities} sportLabels={sportLabels} />
+      <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('newCampaign')}</h1>
+      <CampaignForm
+        action={createCampaignAction}
+        cities={cities}
+        sportLabels={sportLabels}
+        partners={sponsors.map((p) => ({
+          id: p.id,
+          name: partnerText(p.nameBg, p.nameEn, locale) ?? p.nameBg,
+        }))}
+      />
     </main>
   );
 }

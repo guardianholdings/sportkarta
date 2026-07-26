@@ -193,14 +193,14 @@ export interface PublicPassportOwner {
  * Resolve a public handle to its owner, or null.
  *
  * THE VISIBILITY TEST IS IN THE WHERE CLAUSE, not in a caller's `if`. A private
- * passport, and a minor's passport, must be indistinguishable from one that
- * does not exist — including to somebody who kept an old link after the member
- * went private again. Selecting the row and letting the page decide would make
- * that a one-line regression away.
+ * passport must be indistinguishable from one that does not exist — including to
+ * somebody who kept an old link after the member went private again. Selecting
+ * the row and letting the page decide would make that a one-line regression
+ * away.
  *
- * `is_minor` is re-tested here even though a CHECK constraint already forbids a
- * public minor. It costs nothing and means the read path does not depend on the
- * write path having been correct.
+ * An `AND is_minor = false` predicate stood here until migration 0020 (operator
+ * decision 2026-07-25 — minors are treated as adults). Age is no longer part of
+ * this question; consent is the whole of it.
  */
 export async function publicPassportOwner(
   db: SqlRunner,
@@ -211,7 +211,6 @@ export async function publicPassportOwner(
     FROM users
     WHERE public_handle = ${handle}
       AND profile_visibility = 'public'
-      AND is_minor = false
   `);
   const row = result.rows[0];
   if (!row) return null;

@@ -1,5 +1,6 @@
 import { getLocale, getTranslations, setRequestLocale } from 'next-intl/server';
 
+import { Button } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Link } from '@/i18n/navigation';
 import { requireAdmin } from '@/lib/auth-session';
@@ -34,7 +35,7 @@ function Flags({
         <li
           key={flag.reason}
           title={flag.note ?? undefined}
-          className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-900"
+          className="rounded-pill border border-warning-border bg-warning-bg px-2 py-0.5 text-caption text-warning"
         >
           {labelFor(flag.reason)}
         </li>
@@ -81,9 +82,9 @@ export default async function AdminModerationPage({
   return (
     <main className="space-y-6">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h1 className="text-xl font-semibold">{t('title')}</h1>
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
         {user.role === 'ambassador' && (
-          <p className="text-sm text-neutral-600">
+          <p className="text-body-sm text-ink-soft">
             {scope.length === 0
               ? t('noScope')
               : t('scopedTo', { municipalities: scope.map((m) => m.name).join(', ') })}
@@ -91,28 +92,28 @@ export default async function AdminModerationPage({
         )}
       </div>
 
-      <section aria-labelledby="sla-h" className="rounded border border-neutral-200 p-4">
-        <h2 id="sla-h" className="mb-3 font-medium">
+      <section aria-labelledby="sla-h" className="rounded-card border border-line bg-surface p-4 shadow-sm">
+        <h2 id="sla-h" className="t-overline mb-3">
           {t('slaTitle')}
         </h2>
-        <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-4 text-body-sm sm:grid-cols-4">
           <div>
-            <dt className="text-neutral-500">{t('slaMedian')}</dt>
-            <dd className="text-lg font-semibold">{formatHours(sla.medianHours)}</dd>
-            <dd className="text-xs text-neutral-500">
+            <dt className="text-caption text-text-muted">{t('slaMedian')}</dt>
+            <dd className="font-mono text-h4 font-bold text-ink tabular-nums">{formatHours(sla.medianHours)}</dd>
+            <dd className="text-caption text-text-muted">
               {t('slaWindow', { days: sla.windowDays, decisions: sla.decisionsInWindow })}
             </dd>
           </div>
           <div>
-            <dt className="text-neutral-500">{t('slaOldest')}</dt>
-            <dd className="text-lg font-semibold">{formatHours(sla.oldestPendingHours)}</dd>
+            <dt className="text-caption text-text-muted">{t('slaOldest')}</dt>
+            <dd className="font-mono text-h4 font-bold text-ink tabular-nums">{formatHours(sla.oldestPendingHours)}</dd>
           </div>
           <div>
-            <dt className="text-neutral-500">{t('slaQueue')}</dt>
-            <dd className="text-lg font-semibold">
+            <dt className="text-caption text-text-muted">{t('slaQueue')}</dt>
+            <dd className="font-mono text-h4 font-bold text-ink tabular-nums">
               {sla.pendingPhotos + sla.pendingReports + sla.pendingFacilities}
             </dd>
-            <dd className="text-xs text-neutral-500">
+            <dd className="text-caption text-text-muted">
               {t('slaBreakdown', {
                 photos: sla.pendingPhotos,
                 reports: sla.pendingReports,
@@ -124,9 +125,9 @@ export default async function AdminModerationPage({
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-medium">{t('facilitiesTitle')}</h2>
+        <h2 className="text-h4 font-bold text-ink">{t('facilitiesTitle')}</h2>
         {facilities.length === 0 ? (
-          <p className="rounded border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500">
+          <p className="rounded-card border border-dashed border-line-strong p-6 text-center text-body-sm text-text-muted">
             {t('facilitiesEmpty')}
           </p>
         ) : (
@@ -137,32 +138,29 @@ export default async function AdminModerationPage({
               return (
                 <li
                   key={facility.id}
-                  className="flex flex-wrap items-center gap-3 rounded border border-neutral-200 p-3 text-sm"
+                  className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-surface p-3 text-body-sm shadow-sm"
                 >
                   <div className="min-w-0 flex-1 space-y-1">
                     <Link
                       href={`/admin/facilities/${facility.id}`}
-                      className="font-medium underline"
+                      className="font-medium text-link hover:text-link-hover"
                     >
                       {facility.name ?? tFacilities('unnamed')}
                     </Link>
-                    <div className="text-xs text-neutral-500">
+                    <div className="text-caption text-text-muted">
                       {[facility.quarter, facility.municipalityName].filter(Boolean).join(', ')} ·{' '}
                       {formatDate(facility.createdAt)}
                     </div>
                     <Flags flags={facility.flags} label={t('flagsLabel')} labelFor={flagLabel} />
                   </div>
                   <form action={verify}>
-                    <button
-                      type="submit"
-                      className="rounded bg-green-600 px-3 py-2 font-medium text-white"
-                    >
+                    <Button type="submit" size="sm">
                       {t('verifyFacility')}
-                    </button>
+                    </Button>
                   </form>
                   <form action={gone}>
                     <ConfirmButton
-                      className="rounded bg-red-600 px-3 py-2 font-medium text-white"
+                      className="inline-flex h-9 items-center rounded-pill bg-danger px-4 text-body-sm font-semibold text-on-brand shadow-xs hover:opacity-90"
                       message={t('markGoneConfirm')}
                     >
                       {t('markGone')}
@@ -176,9 +174,9 @@ export default async function AdminModerationPage({
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-medium">{t('photosTitle')}</h2>
+        <h2 className="text-h4 font-bold text-ink">{t('photosTitle')}</h2>
         {photos.length === 0 ? (
-          <p className="rounded border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500">
+          <p className="rounded-card border border-dashed border-line-strong p-6 text-center text-body-sm text-text-muted">
             {t('photosEmpty')}
           </p>
         ) : (
@@ -189,13 +187,13 @@ export default async function AdminModerationPage({
               return (
                 <li
                   key={photo.id}
-                  className="flex flex-wrap items-center gap-3 rounded border border-neutral-200 p-3 text-sm"
+                  className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-surface p-3 text-body-sm shadow-sm"
                 >
                   <div className="min-w-0 flex-1 space-y-1">
-                    <Link href={`/admin/facilities/${photo.facilityId}`} className="underline">
+                    <Link href={`/admin/facilities/${photo.facilityId}`} className="font-medium text-link hover:text-link-hover">
                       {photo.facilityName ?? tFacilities('unnamed')}
                     </Link>
-                    <div className="truncate text-xs text-neutral-500">
+                    <div className="truncate text-caption text-text-muted">
                       <code>{photo.storagePath}</code> ·{' '}
                       {t('uploadedBy', { who: photo.uploadedBy ?? t('unknownUploader') })} ·{' '}
                       {formatDate(photo.createdAt)}
@@ -203,20 +201,14 @@ export default async function AdminModerationPage({
                     <Flags flags={photo.flags} label={t('flagsLabel')} labelFor={flagLabel} />
                   </div>
                   <form action={approve}>
-                    <button
-                      type="submit"
-                      className="rounded bg-green-600 px-3 py-2 font-medium text-white"
-                    >
+                    <Button type="submit" size="sm">
                       {t('approve')}
-                    </button>
+                    </Button>
                   </form>
                   <form action={reject}>
-                    <button
-                      type="submit"
-                      className="rounded bg-red-600 px-3 py-2 font-medium text-white"
-                    >
+                    <Button type="submit" variant="danger" size="sm">
                       {t('reject')}
-                    </button>
+                    </Button>
                   </form>
                 </li>
               );
@@ -226,9 +218,9 @@ export default async function AdminModerationPage({
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-medium">{t('reportsTitle')}</h2>
+        <h2 className="text-h4 font-bold text-ink">{t('reportsTitle')}</h2>
         {reports.length === 0 ? (
-          <p className="rounded border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500">
+          <p className="rounded-card border border-dashed border-line-strong p-6 text-center text-body-sm text-text-muted">
             {t('reportsEmpty')}
           </p>
         ) : (
@@ -239,38 +231,35 @@ export default async function AdminModerationPage({
               return (
                 <li
                   key={report.id}
-                  className="flex flex-wrap items-start gap-3 rounded border border-neutral-200 p-3 text-sm"
+                  className="flex flex-wrap items-start gap-3 rounded-card border border-line bg-surface p-3 text-body-sm shadow-sm"
                 >
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
                         href={`/admin/facilities/${report.facilityId}`}
-                        className="font-medium underline"
+                        className="font-medium text-link hover:text-link-hover"
                       >
                         {report.facilityName ?? tFacilities('unnamed')}
                       </Link>
-                      <span className="rounded bg-neutral-100 px-2 py-0.5 text-xs">
+                      <span className="rounded-pill bg-paper-sunk px-2 py-0.5 text-caption text-ink-soft">
                         {tIssue(`issue.${report.issue}`)}
                       </span>
-                      <span className="text-xs text-neutral-500">
+                      <span className="font-mono text-caption text-text-muted">
                         {formatDate(report.createdAt)}
                       </span>
                     </div>
-                    {report.body && <p className="text-neutral-700">{report.body}</p>}
+                    {report.body && <p className="text-ink-soft">{report.body}</p>}
                     <Flags flags={report.flags} label={t('flagsLabel')} labelFor={flagLabel} />
                   </div>
                   <form action={markReviewed}>
-                    <button
-                      type="submit"
-                      className="rounded bg-green-600 px-3 py-2 font-medium text-white"
-                    >
+                    <Button type="submit" size="sm">
                       {t('markReviewed')}
-                    </button>
+                    </Button>
                   </form>
                   <form action={dismiss}>
-                    <button type="submit" className="rounded bg-neutral-200 px-3 py-2 font-medium">
+                    <Button type="submit" variant="secondary" size="sm">
                       {t('dismiss')}
-                    </button>
+                    </Button>
                   </form>
                 </li>
               );

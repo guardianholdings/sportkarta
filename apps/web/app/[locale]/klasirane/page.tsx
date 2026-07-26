@@ -8,14 +8,15 @@ import { getCurrentUser } from '@/lib/auth-session';
 import { resolveScope, scopeHref } from '@/lib/leaderboard';
 import { cityDisplayName, loadCityCatalog } from '@/lib/places';
 import { Link } from '@/i18n/navigation';
+import { AppShell } from '@/components/shell/app-shell';
 
 /**
  * Public leaderboards — national, per city, per sport (docs/ROADMAP.md §7,
  * Stage 5.2).
  *
- * WHO IS ON IT is decided by `leaderboard_eligible_members` (migration 0011),
- * not by this page: not a minor (binding legal constant), and has opted their
- * passport public. This page cannot widen that and neither can a future one.
+ * WHO IS ON IT is decided by `leaderboard_eligible_members` (migration 0011,
+ * amended by 0020), not by this page: members who opted their passport public,
+ * at any age. This page cannot widen that and neither can a future one.
  *
  * NOINDEX, like the passports it links to. The board publishes names to people
  * who visit the site; indexing it would publish them against their name in a
@@ -87,14 +88,15 @@ export default async function LeaderboardPage({
 
   const filterClass = (active: boolean): string =>
     active
-      ? 'rounded bg-neutral-900 px-2.5 py-1 text-xs text-white'
-      : 'rounded border border-neutral-300 px-2.5 py-1 text-xs';
+      ? 'rounded-pill bg-brand px-2.5 py-1 text-caption font-semibold text-on-brand'
+      : 'rounded border border-line-strong px-2.5 py-1 text-xs';
 
   return (
-    <main className="mx-auto max-w-2xl space-y-8 p-4">
-      <header className="space-y-2 border-b border-neutral-200 pb-3">
-        <h1 className="text-xl font-semibold">{heading}</h1>
-        <p className="text-sm text-neutral-600">{t('intro')}</p>
+    <AppShell active="/klasirane">
+      <main className="mx-auto max-w-2xl space-y-8 p-4">
+      <header className="space-y-2 border-b border-line pb-3">
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{heading}</h1>
+        <p className="text-body-sm text-ink-soft">{t('intro')}</p>
       </header>
 
       <nav aria-label={t('filtersLabel')} className="space-y-3">
@@ -154,34 +156,32 @@ export default async function LeaderboardPage({
 
       <LeaderboardTable entries={entries} />
 
-      <section className="space-y-2 rounded border border-neutral-200 p-4 text-sm">
+      <section className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm text-body-sm">
         <h2 className="font-semibold">{t('yourStandingTitle')}</h2>
-        {!user && <p className="text-neutral-600">{t('standingSignedOut')}</p>}
+        {!user && <p className="text-ink-soft">{t('standingSignedOut')}</p>}
         {user && standing && (
-          <p className="text-neutral-600">
+          <p className="text-ink-soft">
             {t('standingRanked', { rank: standing.rank, total: standing.total, points: standing.points })}
           </p>
         )}
         {/*
-          The two reasons somebody is not ranked are different in kind, and the
-          page says which. A minor is not "missing a setting" — the rule is not
-          something they can opt into, and offering them a toggle that silently
-          does nothing would be worse than saying so.
+          There is now ONE reason to be unranked — the passport is not public —
+          and it is something the member can change, so the copy points at the
+          control. The second branch that used to be here told minors the rule
+          did not apply to them; migration 0020 removed the rule.
         */}
-        {user && !standing && user.isMinor && (
-          <p className="text-neutral-600">{t('standingMinor')}</p>
-        )}
-        {user && !standing && !user.isMinor && (
-          <p className="text-neutral-600">
+        {user && !standing && (
+          <p className="text-ink-soft">
             {t('standingNotPublic')}{' '}
-            <Link href="/pasport" className="underline">
+            <Link href="/pasport" className="font-medium text-link hover:text-link-hover">
               {t('standingPassportLink')}
             </Link>
           </p>
         )}
       </section>
 
-      <p className="text-xs text-neutral-500">{t('eligibilityNote')}</p>
-    </main>
+      <p className="text-caption text-text-muted">{t('eligibilityNote')}</p>
+      </main>
+    </AppShell>
   );
 }

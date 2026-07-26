@@ -1,5 +1,7 @@
 import type { StyleSpecification } from 'maplibre-gl';
 
+import type { ExternalMapLayer } from './layers';
+
 // A clean, light MapLibre basemap over our self-hosted Protomaps `.pmtiles`
 // (docs/ROADMAP.md Stage 2). Layer names follow the Protomaps basemap flat
 // schema; if a build lacks a layer it simply doesn't render — the map still
@@ -33,9 +35,48 @@ export interface MapStyleOptions {
   tilesUrl: string;
   /** Glyph (font PBF) endpoint template with {fontstack}/{range}. */
   glyphsUrl: string;
+  /**
+   * Optional external raster basemaps (lib/map/layers.ts). Each becomes a
+   * raster source + a hidden raster layer placed AFTER every vector layer, so
+   * making one visible fully covers the self-hosted basemap — no vector
+   * toggling, and the facility hit-layers (added after style load) still land
+   * on top. Tiles are only fetched while a layer is visible, so an unused
+   * entry costs nothing and no third-party request happens by default.
+   */
+  externalLayers?: ExternalMapLayer[];
 }
 
-export function buildMapStyle({ tilesUrl, glyphsUrl }: MapStyleOptions): StyleSpecification {
+/** Style ids for an external layer, shared by the canvas visibility effect. */
+export function externalLayerIds(id: string): { source: string; layer: string } {
+  return { source: `ext-${id}`, layer: `ext-${id}-raster` };
+}
+
+export function buildMapStyle({
+  tilesUrl,
+  glyphsUrl,
+  externalLayers = [],
+}: MapStyleOptions): StyleSpecification {
+  const style = baseStyle(tilesUrl, glyphsUrl);
+  for (const ext of externalLayers) {
+    const ids = externalLayerIds(ext.id);
+    style.sources[ids.source] = {
+      type: 'raster',
+      tiles: ext.tiles,
+      tileSize: 256,
+      maxzoom: ext.maxzoom,
+      attribution: ext.attribution,
+    };
+    style.layers.push({
+      id: ids.layer,
+      type: 'raster',
+      source: ids.source,
+      layout: { visibility: 'none' },
+    });
+  }
+  return style;
+}
+
+function baseStyle(tilesUrl: string, glyphsUrl: string): StyleSpecification {
   return {
     version: 8,
     glyphs: glyphsUrl,

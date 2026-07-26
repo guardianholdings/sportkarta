@@ -8,7 +8,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
  * check-ins, on the grounds that a check-in was self-attested. 5.4 makes some
  * of them evidence — and `play_session_checkins_only_qr_scores` is what keeps
  * 5.2's promise true for the rest. These tests attack the constraint directly,
- * with SQL, the way db/src/leaderboard-authz.test.ts attacks the minors rule:
+ * with SQL, the way db/src/leaderboard-authz.test.ts attacks the consent rule:
  * if the rule only exists in application code, the application is one refactor
  * away from paying for a button somebody tapped at home.
  *

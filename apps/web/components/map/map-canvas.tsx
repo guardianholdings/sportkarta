@@ -4,8 +4,9 @@ import type { Feature, FeatureCollection, Point, Polygon } from 'geojson';
 import maplibregl, { type GeoJSONSource } from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
 
+import { DEFAULT_LAYER, type ExternalMapLayer } from '@/lib/map/layers';
 import { ensurePmtilesProtocol } from '@/lib/map/pmtiles';
-import { buildMapStyle, mapAssetUrls } from '@/lib/map/style';
+import { buildMapStyle, externalLayerIds, mapAssetUrls } from '@/lib/map/style';
 
 import { createCluster, createTeardrop } from './markers';
 
@@ -23,6 +24,14 @@ export interface MapView {
   lng: number;
   lat: number;
   zoom: number;
+}
+
+/** The viewport's geographic extent — what "currently on screen" means. */
+export interface MapBounds {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
 }
 
 export interface NearMe {
@@ -44,10 +53,23 @@ interface MapCanvasProps {
   unnamedLabel?: string;
   /** A marker was hovered (slug) or left (null) — the list highlights + scrolls. */
   onHoverMarker?: (slug: string | null) => void;
+  /** External raster basemaps to offer (lib/map/layers.ts). Style-time only. */
+  externalLayers?: ExternalMapLayer[];
+  /** Which basemap is showing: DEFAULT_LAYER or an external layer id. */
+  activeLayer?: string;
+  /** Fires on load and after every gesture with the visible extent. */
+  onBoundsChange?: (bounds: MapBounds) => void;
 }
 
 const SOURCE_ID = 'facilities';
 const NEARME_ID = 'nearme';
+
+// Bulgaria's bbox, matching the URL-view validation in app/[locale]/page.tsx —
+// the furthest permitted zoom-out is the camera that fits exactly this box.
+const BG_BOUNDS: maplibregl.LngLatBoundsLike = [
+  [22.0, 41.0],
+  [29.0, 44.5],
+];
 
 function toFeatureCollection(points: MapPoint[]): FeatureCollection<Point> {
   return {
@@ -94,6 +116,9 @@ export default function MapCanvas({
   onSelect,
   onHoverMarker = () => undefined,
   onMoveEnd,
+  externalLayers = [],
+  activeLayer = DEFAULT_LAYER,
+  onBoundsChange = () => undefined,
 }: MapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -117,6 +142,43 @@ export default function MapCanvas({
   onMoveEndRef.current = onMoveEnd;
   const unnamedRef = useRef(unnamedLabel);
   unnamedRef.current = unnamedLabel;
+  const externalLayersRef = useRef(externalLayers);
+  externalLayersRef.current = externalLayers;
+  const activeLayerRef = useRef(activeLayer);
+  activeLayerRef.current = activeLayer;
+  const onBoundsChangeRef = useRef(onBoundsChange);
+  onBoundsChangeRef.current = onBoundsChange;
+
+  function reportBounds() {
+    const map = mapRef.current;
+    if (!map) return;
+    const b = map.getBounds();
+    onBoundsChangeRef.current({
+      west: b.getWest(),
+      south: b.getSouth(),
+      east: b.getEast(),
+      north: b.getNorth(),
+    });
+  }
+
+  // Show the chosen external raster, hide the rest. The rasters sit above
+  // every vector layer in the style, so a visible one fully covers the
+  // self-hosted basemap; DEFAULT_LAYER hides them all. Tiles are only
+  // requested while a layer is visible — the third-party request happens on
+  // the visitor's explicit choice, never by default.
+  function applyLayerVisibility() {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
+    for (const ext of externalLayersRef.current) {
+      const { layer } = externalLayerIds(ext.id);
+      if (!map.getLayer(layer)) continue;
+      map.setLayoutProperty(
+        layer,
+        'visibility',
+        ext.id === activeLayerRef.current ? 'visible' : 'none',
+      );
+    }
+  }
 
   function applyStates() {
     for (const [id, marker] of markersRef.current) {
@@ -215,7 +277,10 @@ export default function MapCanvas({
     try {
       map = new maplibregl.Map({
         container: containerRef.current,
-        style: buildMapStyle(mapAssetUrls(window.location.origin)),
+        style: buildMapStyle({
+          ...mapAssetUrls(window.location.origin),
+          externalLayers: externalLayersRef.current,
+        }),
         center: [initialView.lng, initialView.lat],
         zoom: initialView.zoom,
         attributionControl: { compact: true },
@@ -227,6 +292,19 @@ export default function MapCanvas({
       return;
     }
     mapRef.current = map;
+
+    // Zoom-out floor: the platform is national, so the furthest view is "all
+    // of Bulgaria on screen". A fixed number can't do that — a phone needs a
+    // lower zoom than a desktop to fit the same bbox — so the floor is the
+    // fit-Bulgaria camera for THIS viewport, refreshed on every resize. The
+    // small epsilon keeps the floor itself showing the whole territory with
+    // room to spare rather than clipping an edge.
+    const zoomFloor = () => {
+      const cam = map.cameraForBounds(BG_BOUNDS, { padding: 16 });
+      if (cam?.zoom !== undefined) map.setMinZoom(Math.max(0, cam.zoom - 0.1));
+    };
+    zoomFloor();
+    map.on('resize', zoomFloor);
 
     map.on('load', () => {
       const accent = token('--accent');
@@ -270,12 +348,15 @@ export default function MapCanvas({
       });
 
       loadedRef.current = true;
+      applyLayerVisibility();
+      reportBounds();
       syncMarkers();
     });
 
     map.on('moveend', () => {
       const c = map.getCenter();
       onMoveEndRef.current({ lng: c.lng, lat: c.lat, zoom: map.getZoom() });
+      reportBounds();
       scheduleSync();
     });
     map.on('move', scheduleSync);
@@ -312,6 +393,12 @@ export default function MapCanvas({
   useEffect(() => {
     applyStates();
   }, [selectedSlug, hoveredSlug]);
+
+  useEffect(() => {
+    applyLayerVisibility();
+    // Ref-based helper; re-run only when the choice changes.
+     
+  }, [activeLayer]);
 
   useEffect(() => {
     const map = mapRef.current;

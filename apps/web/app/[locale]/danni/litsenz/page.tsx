@@ -4,6 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
 import { buildAlternates } from '@/lib/seo';
+import { AppShell } from '@/components/shell/app-shell';
 
 /**
  * The licence page (Stage 6.1) — the target of the `Link: rel="license"` header
@@ -48,16 +49,17 @@ export default async function OpenDataLicensePage({ params }: { params: PagePara
   ] as const;
 
   return (
-    <main className="mx-auto max-w-2xl space-y-6 p-4">
-      <Link href="/danni" className="text-sm underline">
+    <AppShell>
+      <main className="mx-auto max-w-2xl space-y-6 p-4">
+      <Link href="/danni" className="text-body-sm font-medium text-link hover:text-link-hover">
         {t('back')}
       </Link>
-      <h1 className="text-2xl font-bold tracking-tight">{t('licenseTitle')}</h1>
+      <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('licenseTitle')}</h1>
 
-      <p className="text-neutral-700">
+      <p className="text-ink-soft">
         {t('licenseIntro')}{' '}
         <a
-          className="text-teal-700 underline"
+          className="font-medium text-link hover:text-link-hover"
           href={OPEN_DATA_LICENSE.url}
           rel="license noopener noreferrer"
           target="_blank"
@@ -67,21 +69,22 @@ export default async function OpenDataLicensePage({ params }: { params: PagePara
       </p>
 
       <section className="space-y-2">
-        <h2 className="text-lg font-semibold">{t('licenseAttributionTitle')}</h2>
-        <p className="text-neutral-700">{t('licenseAttributionBody')}</p>
+        <h2 className="text-h4 font-bold text-ink">{t('licenseAttributionTitle')}</h2>
+        <p className="text-ink-soft">{t('licenseAttributionBody')}</p>
         {/* The one string a reuser is here to copy — rendered from the same
             constant the API headers and the dumps carry. */}
-        <p className="rounded border border-neutral-300 bg-neutral-50 p-3 font-medium">
+        <p className="rounded border border-line-strong bg-paper-sunk p-3 font-medium">
           {OPEN_DATA_LICENSE.attribution}
         </p>
       </section>
 
       {sections.map(([title, body]) => (
         <section key={title} className="space-y-1">
-          <h2 className="text-lg font-semibold">{t(title)}</h2>
-          <p className="text-neutral-700">{t(body)}</p>
+          <h2 className="text-h4 font-bold text-ink">{t(title)}</h2>
+          <p className="text-ink-soft">{t(body)}</p>
         </section>
       ))}
-    </main>
+      </main>
+    </AppShell>
   );
 }

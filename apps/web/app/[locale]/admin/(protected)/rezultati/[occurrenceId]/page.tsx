@@ -100,20 +100,20 @@ export default async function ResultsEditorPage({
 
   return (
     <main className="space-y-6">
-      <Link href="/admin/rezultati" className="text-sm underline">
+      <Link href="/admin/rezultati" className="text-body-sm font-medium text-link hover:text-link-hover">
         {t('backToList')}
       </Link>
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold">{occurrence.title}</h1>
-        <p className="text-sm text-neutral-600">
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{occurrence.title}</h1>
+        <p className="text-body-sm text-ink-soft">
           {occurrence.starts_at_local.replace('T', ' ').slice(0, 16)} · {tSport(occurrence.sport)}
           {occurrence.facility_name ? ` · ${occurrence.facility_name}` : ''}
         </p>
       </header>
-      <p className="max-w-prose text-sm text-neutral-600">{t('intro')}</p>
+      <p className="max-w-prose text-body-sm text-ink-soft">{t('intro')}</p>
 
       {anonymised > 0 && (
-        <p className="rounded bg-neutral-50 px-3 py-2 text-sm text-neutral-600">
+        <p className="rounded bg-paper-sunk px-3 py-2 text-body-sm text-ink-soft">
           {t('anonymisedPreserved', { count: anonymised })}
         </p>
       )}

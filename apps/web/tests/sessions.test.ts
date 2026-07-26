@@ -288,6 +288,7 @@ describe('checkIn authorization', () => {
     status: 'scheduled',
     within_window: true,
     actor_is_organizer: false,
+    member_attending: true,
     facility_id: '00000000-0000-4000-8000-000000000001',
     distance_m: null,
   };
@@ -353,6 +354,25 @@ describe('checkIn authorization', () => {
       pointsAwarded: 0,
     });
     expect(db.statements[1]?.params).toContain('organizer_1');
+  });
+
+  it('refuses `organizer` for a member who holds no active RSVP on the occurrence', async () => {
+    // The organiser IS the organiser — but the named member is a stranger to
+    // this occurrence. Without the roster-membership gate, this write would
+    // fabricate attendance in the stranger's passport history.
+    const db = fakeDb([[{ ...open, actor_is_organizer: true, member_attending: false }]]);
+    await expect(
+      checkIn(db, {
+        occurrenceId: 'occ_1',
+        userId: 'stranger',
+        actorId: 'organizer_1',
+        method: 'organizer',
+      }),
+    ).rejects.toThrowError('not_attending');
+    // The membership test is a database read in the same context statement.
+    expect(db.statements[0]?.sql).toMatch(/play_session_rsvps/);
+    // Nothing was written.
+    expect(db.statements).toHaveLength(1);
   });
 
   it('refuses a qr check-in with no token', async () => {

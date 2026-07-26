@@ -38,11 +38,11 @@ export default async function UnsubscribePage({
 
   if (done) {
     return (
-      <main className="mx-auto max-w-xl space-y-4 p-4">
-        <h1 className="text-xl font-semibold">
+      <main className="mx-auto max-w-2xl space-y-4 p-4">
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">
           {done === 'ok' ? t('unsubscribed') : t('unsubscribeInvalid')}
         </h1>
-        <Link href="/" className="text-sm underline">
+        <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
           {t('backToMap')}
         </Link>
       </main>
@@ -50,18 +50,18 @@ export default async function UnsubscribePage({
   }
 
   return (
-    <main className="mx-auto max-w-xl space-y-4 p-4">
-      <h1 className="text-xl font-semibold">{t('unsubscribeConfirmTitle')}</h1>
-      <p className="text-neutral-700">{t('unsubscribeConfirmBody')}</p>
+    <main className="mx-auto max-w-2xl space-y-4 p-4">
+      <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('unsubscribeConfirmTitle')}</h1>
+      <p className="text-ink-soft">{t('unsubscribeConfirmBody')}</p>
       <form action={confirmUnsubscribeAction}>
         <input type="hidden" name="token" value={token} />
         {/* The action has no request path of its own to redirect against. */}
         <input type="hidden" name="locale" value={locale} />
-        <button type="submit" className="rounded bg-neutral-900 px-4 py-3 font-medium text-white">
+        <button type="submit" className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover">
           {t('optOut')}
         </button>
       </form>
-      <Link href="/" className="text-sm underline">
+      <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
         {t('backToMap')}
       </Link>
     </main>

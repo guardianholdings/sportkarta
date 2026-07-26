@@ -32,19 +32,19 @@ export async function BadgeGrid({
           key={badge.slug}
           className={
             badge.earned
-              ? 'relative rounded border border-neutral-900 p-3'
-              : 'relative rounded border border-dashed border-neutral-300 p-3 text-neutral-500'
+              ? 'relative rounded-card border border-brand-border bg-brand-subtle p-3'
+              : 'relative rounded border border-dashed border-line-strong p-3 text-text-muted'
           }
         >
           {badge.earned && isNew.has(badge.slug) && (
-            <span className="absolute right-2 top-2 rounded bg-neutral-900 px-1.5 py-0.5 text-[10px] font-medium uppercase text-white">
+            <span className="absolute right-2 top-2 rounded-pill bg-accent px-1.5 py-0.5 text-[10px] font-semibold uppercase text-on-accent">
               {t('new')}
             </span>
           )}
-          <h3 className="text-sm font-semibold">{t(`${badge.slug}.name`)}</h3>
-          <p className="mt-1 text-xs">{t(`${badge.slug}.description`)}</p>
+          <h3 className="text-body-sm font-semibold">{t(`${badge.slug}.name`)}</h3>
+          <p className="mt-1 text-caption">{t(`${badge.slug}.description`)}</p>
           {!badge.earned && (
-            <p className="mt-2 text-xs tabular-nums text-neutral-500">
+            <p className="mt-2 text-xs tabular-nums text-text-muted">
               {t('progress', { have: badge.progress.have, need: badge.progress.need })}
             </p>
           )}
@@ -73,16 +73,16 @@ export async function PublicBadgeGrid({ badges }: { badges: PublicBadgeView[] })
   const t = await getTranslations('Badge');
 
   if (badges.length === 0) {
-    return <p className="text-sm text-neutral-500">{t('noneYet')}</p>;
+    return <p className="text-body-sm text-text-muted">{t('noneYet')}</p>;
   }
 
   return (
     <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       {badges.map((badge) => (
-        <li key={badge.slug} className="rounded border border-neutral-900 p-3">
-          <h3 className="text-sm font-semibold">{t(`${badge.slug}.name`)}</h3>
-          <p className="mt-1 text-xs">{t(`${badge.slug}.description`)}</p>
-          <p className="mt-2 text-xs tabular-nums text-neutral-500">{badge.earnedMonth}</p>
+        <li key={badge.slug} className="rounded-card border border-brand-border bg-brand-subtle p-3">
+          <h3 className="text-body-sm font-semibold">{t(`${badge.slug}.name`)}</h3>
+          <p className="mt-1 text-caption">{t(`${badge.slug}.description`)}</p>
+          <p className="mt-2 text-xs tabular-nums text-text-muted">{badge.earnedMonth}</p>
         </li>
       ))}
     </ul>

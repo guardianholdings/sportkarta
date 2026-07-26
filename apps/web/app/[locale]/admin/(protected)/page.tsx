@@ -1,3 +1,4 @@
+import { ArrowRight } from 'lucide-react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
@@ -23,20 +24,21 @@ export default async function AdminDashboardPage({
 
   return (
     <main className="space-y-6">
-      <h1 className="text-xl font-semibold">{t('title')}</h1>
+      <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {stats.map((stat) => (
-          <div key={stat.label} className="rounded border border-neutral-200 p-4">
-            <div className="text-2xl font-semibold tabular-nums">{stat.value}</div>
-            <div className="text-xs text-neutral-500">{stat.label}</div>
+          <div key={stat.label} className="rounded-card border border-line bg-surface p-4 shadow-sm">
+            <div className="font-mono text-h2 font-bold text-ink tabular-nums">{stat.value}</div>
+            <div className="mt-1 text-caption text-text-muted">{stat.label}</div>
           </div>
         ))}
       </div>
       <Link
         href="/admin/verify"
-        className="inline-block rounded bg-neutral-900 px-4 py-3 font-medium text-white"
+        className="inline-flex h-11 items-center gap-2 rounded-pill bg-brand px-5 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover"
       >
-        {t('verifyCta')} →
+        {t('verifyCta')}
+        <ArrowRight size={18} />
       </Link>
     </main>
   );

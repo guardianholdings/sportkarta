@@ -57,7 +57,7 @@ export function BulkCreateTabs({
   const [tab, setTab] = useState<'grid' | 'csv'>('grid');
   return (
     <div className="space-y-4">
-      <div role="tablist" className="flex gap-2 border-b border-neutral-200">
+      <div role="tablist" className="flex gap-2 border-b border-line">
         {(['grid', 'csv'] as const).map((key) => (
           <button
             key={key}
@@ -68,8 +68,8 @@ export function BulkCreateTabs({
             }}
             className={
               tab === key
-                ? 'border-b-2 border-neutral-900 px-3 py-2 text-sm font-medium'
-                : 'px-3 py-2 text-sm text-neutral-500'
+                ? 'border-b-2 border-brand px-3 py-2 text-body-sm font-semibold text-brand'
+                : 'px-3 py-2 text-body-sm text-text-muted hover:text-ink'
             }
           >
             {key === 'grid' ? L('gridTab') : L('csvTab')}
@@ -137,7 +137,7 @@ function GridForm({
     <form action={action} className="space-y-6">
       <fieldset className="grid gap-3 sm:grid-cols-2">
         <Field label={L('sport')}>
-          <select name="sport" required className="w-full rounded border border-neutral-300 p-2">
+          <select name="sport" required className="w-full rounded-md border border-line-strong bg-surface p-2">
             {sports.map((sport) => (
               <option key={sport} value={sport}>
                 {F(sport)}
@@ -150,7 +150,7 @@ function GridForm({
             name="title"
             required
             maxLength={120}
-            className="w-full rounded border border-neutral-300 p-2"
+            className="w-full rounded-md border border-line-strong bg-surface p-2"
           />
         </Field>
         <Field label={L('startDate')}>
@@ -158,7 +158,7 @@ function GridForm({
             type="date"
             name="date"
             required
-            className="w-full rounded border border-neutral-300 p-2"
+            className="w-full rounded-md border border-line-strong bg-surface p-2"
           />
         </Field>
         <Field label={L('startTime')}>
@@ -167,7 +167,7 @@ function GridForm({
             name="time"
             required
             step={60}
-            className="w-full rounded border border-neutral-300 p-2"
+            className="w-full rounded-md border border-line-strong bg-surface p-2"
           />
         </Field>
         <Field label={L('duration')}>
@@ -177,7 +177,7 @@ function GridForm({
             defaultValue={90}
             min={15}
             max={480}
-            className="w-full rounded border border-neutral-300 p-2"
+            className="w-full rounded-md border border-line-strong bg-surface p-2"
           />
         </Field>
         <Field label={L('capacity')}>
@@ -186,11 +186,11 @@ function GridForm({
             name="capacity"
             min={1}
             max={500}
-            className="w-full rounded border border-neutral-300 p-2"
+            className="w-full rounded-md border border-line-strong bg-surface p-2"
           />
         </Field>
         <Field label={L('skillLevel')}>
-          <select name="skillLevel" className="w-full rounded border border-neutral-300 p-2">
+          <select name="skillLevel" className="w-full rounded-md border border-line-strong bg-surface p-2">
             {['any', 'beginner', 'intermediate', 'advanced'].map((level) => (
               <option key={level} value={level}>
                 {F(level)}
@@ -199,7 +199,7 @@ function GridForm({
           </select>
         </Field>
         <Field label={L('visibility')}>
-          <select name="visibility" className="w-full rounded border border-neutral-300 p-2">
+          <select name="visibility" className="w-full rounded-md border border-line-strong bg-surface p-2">
             {['public', 'unlisted'].map((value) => (
               <option key={value} value={value}>
                 {F(value)}
@@ -210,12 +210,12 @@ function GridForm({
       </fieldset>
 
       <fieldset>
-        <legend className="mb-1 text-sm font-medium">{L('weekdays')}</legend>
+        <legend className="mb-1 text-caption font-medium text-ink-soft">{L('weekdays')}</legend>
         <div className="flex flex-wrap gap-2">
           {WEEKDAYS.map((day) => (
             <label
               key={day}
-              className="flex items-center gap-1 rounded border border-neutral-300 px-2 py-1 text-sm"
+              className="flex items-center gap-1.5 rounded-pill border border-line-strong px-2.5 py-1 text-body-sm"
             >
               <input type="checkbox" name="weekday" value={day} />
               {F(`weekday${String(day)}`)}
@@ -225,14 +225,14 @@ function GridForm({
       </fieldset>
 
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">{L('facilities')}</legend>
+        <legend className="text-caption font-medium text-ink-soft">{L('facilities')}</legend>
         <div className="flex flex-wrap gap-2">
           <select
             value={city}
             onChange={(e) => {
               setCity(e.target.value);
             }}
-            className="rounded border border-neutral-300 p-2 text-sm"
+            className="rounded-md border border-line-strong bg-surface p-2 text-body-sm"
           >
             <option value="">{L('filterCity')}</option>
             {cities.map((name) => (
@@ -246,7 +246,7 @@ function GridForm({
             onChange={(e) => {
               setSportFilter(e.target.value);
             }}
-            className="rounded border border-neutral-300 p-2 text-sm"
+            className="rounded-md border border-line-strong bg-surface p-2 text-body-sm"
           >
             <option value="">{L('filterSport')}</option>
             {sports.map((sport) => (
@@ -261,7 +261,7 @@ function GridForm({
               setSearch(e.target.value);
             }}
             placeholder={L('filterName')}
-            className="min-w-40 flex-1 rounded border border-neutral-300 p-2 text-sm"
+            className="min-w-40 flex-1 rounded-md border border-line-strong bg-surface p-2 text-body-sm"
           />
           {/* Bulk selection acts on what is FILTERED, which is the whole point:
               "every football pitch in Plovdiv" is two filters and one click. */}
@@ -270,7 +270,7 @@ function GridForm({
             onClick={() => {
               setSelected((prev) => new Set([...prev, ...visible.map((f) => f.id)]));
             }}
-            className="rounded border border-neutral-300 px-3 py-2 text-sm"
+            className="rounded-pill border border-line-strong bg-surface px-3 py-2 text-body-sm font-semibold text-ink-soft hover:bg-surface-2"
           >
             {L('selectAll')}
           </button>
@@ -279,13 +279,13 @@ function GridForm({
             onClick={() => {
               setSelected(new Set());
             }}
-            className="rounded border border-neutral-300 px-3 py-2 text-sm"
+            className="rounded-pill border border-line-strong bg-surface px-3 py-2 text-body-sm font-semibold text-ink-soft hover:bg-surface-2"
           >
             {L('clearAll')}
           </button>
         </div>
 
-        <p className="text-sm text-neutral-600">
+        <p className="text-body-sm text-ink-soft">
           {L('selectedCount').replace('{count}', String(selected.size))}
         </p>
 
@@ -293,17 +293,17 @@ function GridForm({
             the missing facilities are unfindable, not merely unlisted — say so
             instead of letting the list look complete (AUDIT-F1). */}
         {facilities.length < facilityTotal && (
-          <p className="rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <p className="rounded-md border border-warning-border bg-warning-bg px-3 py-2 text-body-sm text-warning">
             {L('facilityListTruncated')
               .replace('{shown}', String(facilities.length))
               .replace('{total}', String(facilityTotal))}
           </p>
         )}
 
-        <ul className="max-h-80 divide-y divide-neutral-100 overflow-y-auto rounded border border-neutral-200">
+        <ul className="max-h-80 divide-y divide-line overflow-y-auto rounded-card border border-line bg-surface">
           {visible.map((facility) => (
             <li key={facility.id}>
-              <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-neutral-50">
+              <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-body-sm hover:bg-paper-sunk">
                 <input
                   type="checkbox"
                   checked={selected.has(facility.id)}
@@ -312,7 +312,7 @@ function GridForm({
                   }}
                 />
                 <span className="flex-1">{facility.name}</span>
-                <span className="text-xs text-neutral-500">{facility.cityName}</span>
+                <span className="text-caption text-text-muted">{facility.cityName}</span>
               </label>
             </li>
           ))}
@@ -329,7 +329,7 @@ function GridForm({
       <button
         type="submit"
         disabled={pending || selected.size === 0}
-        className="rounded bg-neutral-900 px-4 py-3 font-medium text-white disabled:opacity-50"
+        className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-50"
       >
         {L('create')} ({selected.size})
       </button>
@@ -344,24 +344,24 @@ function CsvForm({ labels }: { labels: Labels }) {
 
   return (
     <form action={action} className="space-y-3">
-      <p className="text-sm text-neutral-600">{L('templateHint')}</p>
-      <label className="block text-sm font-medium">
+      <p className="text-body-sm text-ink-soft">{L('templateHint')}</p>
+      <label className="block text-body-sm font-medium text-ink-soft">
         {L('csvPaste')}
         <textarea
           name="csv"
           rows={8}
-          className="mt-1 w-full rounded border border-neutral-300 p-2 font-mono text-xs"
+          className="mt-1 w-full rounded-md border border-line-strong bg-surface p-2 font-mono text-caption"
         />
       </label>
-      <label className="block text-sm font-medium">
+      <label className="block text-body-sm font-medium text-ink-soft">
         {L('csvUpload')}
-        <input type="file" name="file" accept=".csv,text/csv" className="mt-1 block text-sm" />
+        <input type="file" name="file" accept=".csv,text/csv" className="mt-1 block text-body-sm" />
       </label>
       {state.error && <ErrorLine code={state.error} labels={labels} />}
       <button
         type="submit"
         disabled={pending}
-        className="rounded bg-neutral-900 px-4 py-3 font-medium text-white disabled:opacity-50"
+        className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-50"
       >
         {L('csvParse')}
       </button>
@@ -391,16 +391,16 @@ function MappingForm({ state, labels }: { state: BulkState; labels: Labels }) {
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="csv" value={state.csv ?? ''} />
-      <h2 className="text-lg font-semibold">{L('mapColumns')}</h2>
-      <p className="text-sm text-neutral-600">{L('mapHint')}</p>
+      <h2 className="text-h4 font-bold text-ink">{L('mapColumns')}</h2>
+      <p className="text-body-sm text-ink-soft">{L('mapHint')}</p>
       <div className="grid gap-3 sm:grid-cols-2">
         {MAPPABLE.map((field) => (
-          <label key={field} className="block text-sm">
-            <span className="font-medium">{L(field) ?? field}</span>
+          <label key={field} className="block text-body-sm">
+            <span className="text-caption font-medium text-ink-soft">{L(field) ?? field}</span>
             <select
               name={`map.${field}`}
               defaultValue={state.mapping?.[field] ?? ''}
-              className="mt-1 w-full rounded border border-neutral-300 p-2"
+              className="mt-1 w-full rounded-md border border-line-strong bg-surface p-2"
             >
               <option value="">{L('ignoreColumn')}</option>
               {(state.headers ?? []).map((header, index) => (
@@ -414,12 +414,12 @@ function MappingForm({ state, labels }: { state: BulkState; labels: Labels }) {
       </div>
 
       {(state.sampleRows ?? []).length > 0 && (
-        <div className="overflow-x-auto rounded border border-neutral-200">
-          <table className="w-full text-xs">
-            <thead className="bg-neutral-50">
+        <div className="overflow-x-auto rounded-card border border-line bg-surface">
+          <table className="w-full text-caption">
+            <thead className="bg-paper-sunk">
               <tr>
                 {(state.headers ?? []).map((header, i) => (
-                  <th key={`${header}-${String(i)}`} className="px-2 py-1 text-left font-medium">
+                  <th key={`${header}-${String(i)}`} className="t-overline px-2 py-1.5 text-left font-semibold">
                     {header}
                   </th>
                 ))}
@@ -427,7 +427,7 @@ function MappingForm({ state, labels }: { state: BulkState; labels: Labels }) {
             </thead>
             <tbody>
               {(state.sampleRows ?? []).map((row, i) => (
-                <tr key={i} className="border-t border-neutral-100">
+                <tr key={i} className="border-t border-line">
                   {row.map((cell, j) => (
                     <td key={j} className="px-2 py-1 whitespace-nowrap">
                       {cell}
@@ -443,7 +443,7 @@ function MappingForm({ state, labels }: { state: BulkState; labels: Labels }) {
       <button
         type="submit"
         disabled={pending}
-        className="rounded bg-neutral-900 px-4 py-3 font-medium text-white disabled:opacity-50"
+        className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-50"
       >
         {L('preview')}
       </button>
@@ -462,13 +462,13 @@ function PreviewForm({ state, labels }: { state: BulkState; labels: Labels }) {
       {Object.entries(state.mapping ?? {}).map(([field, index]) => (
         <input key={field} type="hidden" name={`map.${field}`} value={index} />
       ))}
-      <h2 className="text-lg font-semibold">{L('preview')}</h2>
-      <p className="text-sm text-neutral-600">{L('previewHint')}</p>
+      <h2 className="text-h4 font-bold text-ink">{L('preview')}</h2>
+      <p className="text-body-sm text-ink-soft">{L('previewHint')}</p>
       <RowTable rows={state.preview ?? []} labels={labels} />
       <button
         type="submit"
         disabled={pending || (state.validCount ?? 0) === 0}
-        className="rounded bg-neutral-900 px-4 py-3 font-medium text-white disabled:opacity-50"
+        className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-50"
       >
         {L('confirmImport').replace('{count}', String(state.validCount ?? 0))}
       </button>
@@ -480,12 +480,12 @@ function DonePanel({ state, labels }: { state: BulkState; labels: Labels }) {
   const L = (key: string): string => labelOf(labels, key);
   return (
     <div className="space-y-4">
-      <p className="rounded bg-green-50 px-3 py-2 text-sm text-green-800">
+      <p className="rounded-md border border-success-border bg-success-bg px-3 py-2 text-body-sm text-success">
         {L('createdCount').replace('{count}', String(state.created ?? 0))}
       </p>
       {(state.skipped ?? []).length > 0 && (
         <>
-          <p className="rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <p className="rounded-md border border-warning-border bg-warning-bg px-3 py-2 text-body-sm text-warning">
             {L('skippedCount').replace('{count}', String(state.skipped?.length ?? 0))}
           </p>
           <RowTable rows={state.skipped ?? []} labels={labels} />
@@ -498,29 +498,29 @@ function DonePanel({ state, labels }: { state: BulkState; labels: Labels }) {
 function RowTable({ rows, labels }: { rows: BulkState['preview'] & object; labels: Labels }) {
   const L = (key: string): string => labelOf(labels, key);
   return (
-    <div className="overflow-x-auto rounded border border-neutral-200">
-      <table className="w-full text-sm">
-        <thead className="bg-neutral-50">
+    <div className="overflow-x-auto rounded-card border border-line bg-surface">
+      <table className="w-full text-body-sm">
+        <thead className="bg-paper-sunk">
           <tr>
-            <th className="px-2 py-1 text-left font-medium">{L('rowNumber')}</th>
-            <th className="px-2 py-1 text-left font-medium">{L('facility')}</th>
-            <th className="px-2 py-1 text-left font-medium">{L('sessionTitle')}</th>
-            <th className="px-2 py-1 text-left font-medium">{L('status')}</th>
-            <th className="px-2 py-1 text-left font-medium">{L('reason')}</th>
+            <th className="t-overline px-2 py-1.5 text-left font-semibold">{L('rowNumber')}</th>
+            <th className="t-overline px-2 py-1.5 text-left font-semibold">{L('facility')}</th>
+            <th className="t-overline px-2 py-1.5 text-left font-semibold">{L('sessionTitle')}</th>
+            <th className="t-overline px-2 py-1.5 text-left font-semibold">{L('status')}</th>
+            <th className="t-overline px-2 py-1.5 text-left font-semibold">{L('reason')}</th>
           </tr>
         </thead>
         <tbody>
           {(rows ?? []).map((row) => (
-            <tr key={row.rowNumber} className="border-t border-neutral-100">
-              <td className="px-2 py-1 tabular-nums">{row.rowNumber}</td>
+            <tr key={row.rowNumber} className="border-t border-line">
+              <td className="px-2 py-1 font-mono tabular-nums">{row.rowNumber}</td>
               <td className="px-2 py-1">{row.facility}</td>
               <td className="px-2 py-1">{row.title}</td>
               <td className="px-2 py-1">
-                <span className={row.ok ? 'text-green-700' : 'text-amber-700'}>
+                <span className={row.ok ? 'text-success' : 'text-warning'}>
                   {row.ok ? L('rowOk') : L('rowError')}
                 </span>
               </td>
-              <td className="px-2 py-1 text-neutral-600">
+              <td className="px-2 py-1 text-ink-soft">
                 {row.error ? (L(`error_${row.error}`) ?? row.error) : ''}
               </td>
             </tr>
@@ -533,8 +533,8 @@ function RowTable({ rows, labels }: { rows: BulkState['preview'] & object; label
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="block text-sm">
-      <span className="font-medium">{label}</span>
+    <label className="block text-body-sm">
+      <span className="text-caption font-medium text-ink-soft">{label}</span>
       <span className="mt-1 block">{children}</span>
     </label>
   );
@@ -543,7 +543,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function ErrorLine({ code, labels }: { code: string; labels: Labels }) {
   const L = (key: string): string => labelOf(labels, key);
   return (
-    <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+    <p className="rounded-md border border-danger-border bg-danger-bg px-3 py-2 text-body-sm text-danger">
       {L(`error_${code}`) ?? L(code) ?? code}
     </p>
   );

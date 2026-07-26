@@ -56,8 +56,8 @@ export default async function CheckinPage({ params }: { params: PageParams }) {
     // attacker the oracle the verifier is careful not to be.
     return (
       <Shell>
-        <h1 className="text-xl font-semibold">{t('invalidHeading')}</h1>
-        <p className="text-neutral-700">{t('invalidBody')}</p>
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('invalidHeading')}</h1>
+        <p className="text-ink-soft">{t('invalidBody')}</p>
       </Shell>
     );
   }
@@ -67,8 +67,8 @@ export default async function CheckinPage({ params }: { params: PageParams }) {
   if (!view) {
     return (
       <Shell>
-        <h1 className="text-xl font-semibold">{t('invalidHeading')}</h1>
-        <p className="text-neutral-700">{t('invalidBody')}</p>
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('invalidHeading')}</h1>
+        <p className="text-ink-soft">{t('invalidBody')}</p>
       </Shell>
     );
   }
@@ -76,12 +76,12 @@ export default async function CheckinPage({ params }: { params: PageParams }) {
   if (!user) {
     return (
       <Shell>
-        <h1 className="text-xl font-semibold">{view.title}</h1>
-        <p className="text-neutral-700">{t('signInBody')}</p>
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{view.title}</h1>
+        <p className="text-ink-soft">{t('signInBody')}</p>
         {/* The token is carried through sign-in so the scan is not wasted —
             it may well have expired by the time they are back, which the page
             will then say plainly. */}
-        <Link href={`/vhod?next=${encodeURIComponent(`/otmetka/${token}`)}`} className="underline">
+        <Link href={`/vhod?next=${encodeURIComponent(`/otmetka/${token}`)}`} className="font-medium text-link hover:text-link-hover">
           {t('signInLink')}
         </Link>
       </Shell>
@@ -91,42 +91,17 @@ export default async function CheckinPage({ params }: { params: PageParams }) {
   return (
     <Shell>
       <header className="space-y-1">
-        <h1 className="text-xl font-semibold">{view.title}</h1>
-        {view.facilityName && <p className="text-sm text-neutral-500">{view.facilityName}</p>}
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{view.title}</h1>
+        {view.facilityName && <p className="text-body-sm text-text-muted">{view.facilityName}</p>}
       </header>
 
-      <CheckinForm
-        token={token}
-        occurrenceId={verified.occurrenceId}
-        labels={{
-          submit: t('submit'),
-          pending: t('pending'),
-          locating: t('locating'),
-          locationDenied: t('locationDenied'),
-          locationHint: t('locationHint'),
-          genericError: t('error.generic'),
-          outcomes: {
-            scored: t('outcome.scored'),
-            unscored_method: t('outcome.unscored_method'),
-            unscored_no_location: t('outcome.unscored_no_location'),
-            unscored_out_of_range: t('outcome.unscored_out_of_range'),
-            unscored_daily_cap: t('outcome.unscored_daily_cap'),
-            unscored_already: t('outcome.unscored_already'),
-          },
-          errors: {
-            rate_limited: t('error.rate_limited'),
-            disabled: t('disabled'),
-            invalid_checkin_token: t('error.invalid_checkin_token'),
-            occurrence_cancelled: t('error.occurrence_cancelled'),
-            occurrence_not_found: t('error.occurrence_not_found'),
-            checkin_window_closed: t('error.checkin_window_closed'),
-            not_organizer: t('error.not_organizer'),
-          },
-        }}
-      />
+      {/* CheckinForm resolves its own copy: the success line names the points
+          earned, which is only known after the action returns, so it cannot be
+          pre-resolved here. See the component's header. */}
+      <CheckinForm token={token} occurrenceId={verified.occurrenceId} />
 
-      <p className="border-t border-neutral-200 pt-3 text-sm">
-        <Link href={`/sesiya/${verified.occurrenceId}`} className="underline">
+      <p className="border-t border-line pt-3 text-body-sm">
+        <Link href={`/sesiya/${verified.occurrenceId}`} className="font-medium text-link hover:text-link-hover">
           {t('viewSession')}
         </Link>
       </p>

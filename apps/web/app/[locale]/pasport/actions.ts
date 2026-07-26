@@ -4,7 +4,7 @@ import { getDb } from '@sportkarta/db';
 import { revalidatePath } from 'next/cache';
 
 import { requireUser } from '@/lib/auth-session';
-import { acknowledgeBadges, setPassportVisibility, PassportVisibilityError } from '@/lib/passport';
+import { acknowledgeBadges, setPassportVisibility } from '@/lib/passport';
 
 /**
  * Passport visibility (Stage 5.1).
@@ -23,15 +23,10 @@ export async function setPassportVisibilityAction(formData: FormData): Promise<v
   const isPublic = String(formData.get('isPublic') ?? '') === 'true';
   const showActivity = String(formData.get('showActivity') ?? '') === 'true';
 
-  try {
-    await setPassportVisibility(getDb(), user.id, { isPublic, showActivity });
-  } catch (error) {
-    // A minor cannot publish. The UI does not offer the control at all, so
-    // reaching here means a hand-crafted post — swallowing it silently would be
-    // wrong, but so would a 500: the request is refused and the page re-renders
-    // showing the unchanged (private) state.
-    if (!(error instanceof PassportVisibilityError)) throw error;
-  }
+  // No eligibility catch: setPassportVisibility has no refusal left to make
+  // since migration 0020 removed the minor boundary (minors are treated as
+  // adults). A failure here is a real fault and must surface as one.
+  await setPassportVisibility(getDb(), user.id, { isPublic, showActivity });
 
   revalidatePath('/pasport');
 }

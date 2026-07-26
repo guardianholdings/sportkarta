@@ -40,6 +40,13 @@ export interface CampaignInput {
   blurbEn: string | null;
   prizeBg: string | null;
   prizeEn: string | null;
+  /**
+   * The sponsoring partner, or null (MONETISATION S2). Only an id crosses this
+   * boundary: the sponsor's name, logo and link are read from `partners` at
+   * render time through the renderability rule, so a hidden or lapsed partner
+   * withdraws the sponsor line without anybody editing the campaign.
+   */
+  partnerId: number | null;
 }
 
 const TITLE_MAX = 120;
@@ -112,7 +119,24 @@ export function buildCampaignInput(formData: FormData): CampaignInput {
     blurbEn: text(formData.get('blurbEn'), TEXT_MAX),
     prizeBg: text(formData.get('prizeBg'), TEXT_MAX),
     prizeEn: text(formData.get('prizeEn'), TEXT_MAX),
+    partnerId: partnerIdFromForm(formData),
   };
+}
+
+/**
+ * The sponsor field: empty means unsponsored, which is the normal case.
+ *
+ * A posted id is only shape-checked here; whether that partner may sponsor a
+ * campaign at all (tier headline/category — §S1's table is what those tiers
+ * sell) is enforced where the tiers are known, in the admin page that builds
+ * the select. The FK catches an id that does not exist.
+ */
+function partnerIdFromForm(formData: FormData): number | null {
+  const raw = String(formData.get('partnerId') ?? '').trim();
+  if (!raw) return null;
+  const id = Number(raw);
+  if (!Number.isInteger(id) || id <= 0) throw new CampaignRuleError('partner_unknown');
+  return id;
 }
 
 function scopeColumns(scope: CampaignScope): { municipalityId: number | null; quarter: string | null } {
@@ -127,7 +151,7 @@ export async function createCampaign(db: SqlRunner, input: CampaignInput): Promi
     INSERT INTO campaigns (
       slug, scope_kind, municipality_id, quarter, starts_on, ends_on,
       leaderboard_type, template, rules, title_bg, title_en,
-      blurb_bg, blurb_en, prize_bg, prize_en
+      blurb_bg, blurb_en, prize_bg, prize_en, partner_id
     ) VALUES (
       ${input.slug}, ${input.scope.kind}::campaign_scope_kind, ${municipalityId}, ${quarter},
       ${input.startsOn}::date, ${input.endsOn}::date,
@@ -135,7 +159,7 @@ export async function createCampaign(db: SqlRunner, input: CampaignInput): Promi
       ${input.template}::campaign_template,
       ${JSON.stringify(input.rules)}::jsonb,
       ${input.titleBg}, ${input.titleEn}, ${input.blurbBg}, ${input.blurbEn},
-      ${input.prizeBg}, ${input.prizeEn}
+      ${input.prizeBg}, ${input.prizeEn}, ${input.partnerId}
     )
     RETURNING id
   `);
@@ -170,6 +194,7 @@ export async function updateCampaign(
       title_bg = ${input.titleBg}, title_en = ${input.titleEn},
       blurb_bg = ${input.blurbBg}, blurb_en = ${input.blurbEn},
       prize_bg = ${input.prizeBg}, prize_en = ${input.prizeEn},
+      partner_id = ${input.partnerId},
       updated_at = now()
     WHERE id = ${id}::uuid AND status <> 'closed'
     RETURNING id

@@ -19,10 +19,11 @@ import type { BadgeDefinition } from './rules.js';
  * line somebody already crossed.
  *
  * WHAT IS DELIBERATELY ABSENT: anything comparative. No "top 10", no "more than
- * other members", no rank. Minors must never appear on individual public
- * leaderboards (CLAUDE.md), and the way to honour that is to have nothing that
- * ranks people against each other in the first place. Every badge here is a
- * threshold against a member's own history.
+ * other members", no rank. A badge is derived from history and shown on a
+ * passport that may be public, so a comparative badge would publish other
+ * people's positions through a page only its owner consented to — the public
+ * boards do the ranking, behind the opt-in in `leaderboard_eligible_members`.
+ * Every badge here is a threshold against a member's own history.
  */
 export const LAUNCH_BADGES: readonly BadgeDefinition[] = [
   /**

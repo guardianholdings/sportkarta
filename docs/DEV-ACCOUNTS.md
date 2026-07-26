@@ -19,7 +19,7 @@ read anywhere.
 | `e2e@example.org` | admin | display name „Одит Админ“; also used by the e2e suite |
 | `audit-amb@example.org` | ambassador | „Одит Амбасадор“, scoped to **Невестино + Столична** |
 | `audit-adult@example.org` | member (adult) | „Одит Възрастен“ — has points and contribution history |
-| `audit-minor@example.org` | member (**minor**) | „Одит Дете“, `is_minor=true` — for verifying minor protections (never on public leaderboards, no passport visibility toggle) |
+| `audit-minor@example.org` | member (**minor**) | „Одит Дете“, `is_minor=true` — kept as a fixture, but **there are no minor protections left to verify**: migration `0020_minors_as_adults` (operator decision 2026-07-25) removed the CHECK, the leaderboard predicate and the read-path guards, so this account can publish a passport and appear on public boards exactly like an adult. Useful for the opposite assertion — that nothing gates on `is_minor` any more |
 | `audit-org@example.org` | member (organizer) | „Одит Организатор“ — organizer of the audit's play session (sees that session's QR screen) |
 
 All of these live only in the local dev database; they are fixtures from the

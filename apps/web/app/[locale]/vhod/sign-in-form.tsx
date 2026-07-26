@@ -23,7 +23,7 @@ export function SignInForm({ googleEnabled, next }: { googleEnabled: boolean; ne
         <input type="hidden" name="step" value={state.step} />
 
         <label className="block space-y-1">
-          <span className="text-sm font-medium">{t('emailLabel')}</span>
+          <span className="text-body-sm font-medium">{t('emailLabel')}</span>
           <input
             type="email"
             name="email"
@@ -33,13 +33,13 @@ export function SignInForm({ googleEnabled, next }: { googleEnabled: boolean; ne
             inputMode="email"
             defaultValue={state.email}
             readOnly={onCodeStep}
-            className="w-full rounded border border-neutral-300 px-3 py-2 read-only:bg-neutral-100"
+            className="w-full rounded-md border border-line-strong bg-surface px-3 py-2 read-only:bg-paper-sunk"
           />
         </label>
 
         {onCodeStep && (
           <label className="block space-y-1">
-            <span className="text-sm font-medium">{t('codeLabel')}</span>
+            <span className="text-body-sm font-medium">{t('codeLabel')}</span>
             <input
               type="text"
               name="code"
@@ -51,14 +51,14 @@ export function SignInForm({ googleEnabled, next }: { googleEnabled: boolean; ne
               inputMode="numeric"
               pattern="\d{6}"
               maxLength={6}
-              className="w-full rounded border border-neutral-300 px-3 py-2 tracking-widest"
+              className="w-full rounded-md border border-line-strong bg-surface px-3 py-2 tracking-widest"
             />
-            <span className="block text-xs text-neutral-500">{t('codeHint')}</span>
+            <span className="block text-caption text-text-muted">{t('codeHint')}</span>
           </label>
         )}
 
         {state.error && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-body-sm text-danger">
             {t(`error_${state.error}`)}
           </p>
         )}
@@ -71,14 +71,14 @@ export function SignInForm({ googleEnabled, next }: { googleEnabled: boolean; ne
       {googleEnabled && (
         <form action={googleSignInAction} className="space-y-2">
           <input type="hidden" name="next" value={next} />
-          <div className="text-center text-xs text-neutral-500">{t('or')}</div>
+          <div className="text-center text-caption text-text-muted">{t('or')}</div>
           <Button type="submit" variant="secondary" className="w-full">
             {t('google')}
           </Button>
         </form>
       )}
 
-      <p className="text-xs text-neutral-500">{t('privacyNote')}</p>
+      <p className="text-caption text-text-muted">{t('privacyNote')}</p>
     </div>
   );
 }

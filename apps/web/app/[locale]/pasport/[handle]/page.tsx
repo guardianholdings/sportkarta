@@ -7,6 +7,7 @@ import { PublicBadgeGrid } from '@/components/passport/badge-grid';
 import { PublicActivityList } from '@/components/passport/history-list';
 import { StreakPanel } from '@/components/passport/streak-panel';
 import { publicPassport } from '@/lib/passport';
+import { AppShell } from '@/components/shell/app-shell';
 
 /**
  * A member's public sports passport (docs/ROADMAP.md §7, Stage 5.1).
@@ -25,8 +26,8 @@ import { publicPassport } from '@/lib/passport';
  * to", not "indexed against your name forever" — those are different decisions
  * and only the first one was made here.
  *
- * A missing handle, a private passport and a minor's passport are all the same
- * 404. Somebody holding an old link must not be able to tell which.
+ * A missing handle and a private passport are the same 404. Somebody holding an
+ * old link must not be able to tell which.
  */
 // noindex is set in generateMetadata below, on BOTH branches — Next forbids
 // exporting `metadata` and `generateMetadata` from the same page, so the
@@ -61,10 +62,11 @@ export default async function PublicPassportPage({ params }: { params: PageParam
   ] as const;
 
   return (
-    <main className="mx-auto max-w-2xl space-y-10 p-4">
-      <header className="space-y-1 border-b border-neutral-200 pb-3">
-        <h1 className="text-xl font-semibold">{passport.displayName}</h1>
-        <p className="text-sm text-neutral-500">
+    <AppShell>
+      <main className="mx-auto max-w-2xl space-y-10 p-4">
+      <header className="space-y-1 border-b border-line pb-3">
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{passport.displayName}</h1>
+        <p className="text-body-sm text-text-muted">
           {passport.homeCity
             ? t('publicSubtitleWithCity', {
                 city: passport.homeCity,
@@ -75,28 +77,28 @@ export default async function PublicPassportPage({ params }: { params: PageParam
       </header>
 
       <section aria-labelledby="public-totals-h" className="space-y-3">
-        <h2 id="public-totals-h" className="text-lg font-semibold">
+        <h2 id="public-totals-h" className="text-h4 font-bold text-ink">
           {t('totalsTitle')}
         </h2>
         <dl className="grid grid-cols-3 gap-3">
           {totals.map((total) => (
-            <div key={total.key} className="rounded border border-neutral-200 p-3">
-              <dt className="text-xs text-neutral-500">{t(`total_${total.key}`)}</dt>
-              <dd className="mt-1 text-xl font-semibold tabular-nums">{total.value}</dd>
+            <div key={total.key} className="rounded-card border border-line bg-surface p-3 shadow-sm">
+              <dt className="text-caption text-text-muted">{t(`total_${total.key}`)}</dt>
+              <dd className="mt-1 font-mono text-h3 font-bold text-ink tabular-nums">{total.value}</dd>
             </div>
           ))}
         </dl>
       </section>
 
       <section aria-labelledby="public-streaks-h" className="space-y-3">
-        <h2 id="public-streaks-h" className="text-lg font-semibold">
+        <h2 id="public-streaks-h" className="text-h4 font-bold text-ink">
           {t('streaksTitle')}
         </h2>
         <StreakPanel streaks={passport.streaks} />
       </section>
 
       <section aria-labelledby="public-badges-h" className="space-y-3">
-        <h2 id="public-badges-h" className="text-lg font-semibold">
+        <h2 id="public-badges-h" className="text-h4 font-bold text-ink">
           {t('badgesTitle')}
         </h2>
         <PublicBadgeGrid badges={passport.badges} />
@@ -104,12 +106,13 @@ export default async function PublicPassportPage({ params }: { params: PageParam
 
       {passport.activity && (
         <section aria-labelledby="public-activity-h" className="space-y-3">
-          <h2 id="public-activity-h" className="text-lg font-semibold">
+          <h2 id="public-activity-h" className="text-h4 font-bold text-ink">
             {t('activityTitle')}
           </h2>
           <PublicActivityList months={passport.activity} />
         </section>
       )}
-    </main>
+      </main>
+    </AppShell>
   );
 }

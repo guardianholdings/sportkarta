@@ -24,15 +24,15 @@ export async function LeaderboardTable({
   const t = await getTranslations('Leaderboard');
 
   if (entries.length === 0) {
-    return <p className="text-sm text-neutral-600">{t('empty')}</p>;
+    return <p className="text-body-sm text-ink-soft">{t('empty')}</p>;
   }
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full text-body-sm">
         <caption className="sr-only">{t('tableCaption')}</caption>
         <thead>
-          <tr className="border-b border-neutral-200 text-left text-xs text-neutral-500">
+          <tr className="border-b border-line text-left text-caption text-text-muted">
             <th scope="col" className="py-2 pr-3 font-medium">
               {t('columnRank')}
             </th>
@@ -53,21 +53,21 @@ export async function LeaderboardTable({
               key={entry.handle}
               className={
                 entry.handle === highlightHandle
-                  ? 'border-b border-neutral-100 bg-neutral-100'
-                  : 'border-b border-neutral-100'
+                  ? 'border-b border-line bg-paper-sunk'
+                  : 'border-b border-line'
               }
             >
-              <td className="py-2 pr-3 tabular-nums text-neutral-500">{entry.rank}</td>
+              <td className="py-2 pr-3 tabular-nums text-text-muted">{entry.rank}</td>
               <td className="py-2 pr-3">
-                <Link href={`/pasport/${entry.handle}`} className="underline">
+                <Link href={`/pasport/${entry.handle}`} className="font-medium text-link hover:text-link-hover">
                   {entry.displayName}
                 </Link>
                 {entry.homeCity && (
-                  <span className="ml-2 text-xs text-neutral-500">{entry.homeCity}</span>
+                  <span className="ml-2 text-caption text-text-muted">{entry.homeCity}</span>
                 )}
               </td>
               <td className="py-2 pr-3 text-right font-medium tabular-nums">{entry.points}</td>
-              <td className="py-2 text-right tabular-nums text-neutral-500">
+              <td className="py-2 text-right tabular-nums text-text-muted">
                 {entry.contributions}
               </td>
             </tr>

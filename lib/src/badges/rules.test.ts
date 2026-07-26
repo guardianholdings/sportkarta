@@ -346,9 +346,10 @@ describe('evaluateBadges over the launch catalogue', () => {
   });
 
   it('never awards a comparative badge — nothing in the catalogue ranks members', () => {
-    // The minors rule (CLAUDE.md) is honoured structurally: a rule can only
-    // read the member's own stream, so there is no shape in the grammar that
-    // could express "more than other people".
+    // Honoured structurally: a rule can only read the member's own stream, so
+    // there is no shape in the grammar that could express "more than other
+    // people" — a badge on a public passport therefore never publishes anybody
+    // else's position.
     for (const badge of LAUNCH_BADGES) {
       expect(['count', 'distinct', 'streak']).toContain(badge.rule.kind);
     }

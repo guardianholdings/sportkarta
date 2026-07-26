@@ -7,11 +7,11 @@ import { scopeHref } from '@/lib/leaderboard';
  * Leaderboard query shape and scoping (docs/ROADMAP.md §7, Stage 5.2).
  *
  * The adversarial companion to this file is db/src/leaderboard-authz.test.ts,
- * which attacks the minor and consent rules against real Postgres. What is
- * asserted HERE is the thing a DB test cannot see: that the statements the
- * application actually builds join the eligibility view rather than the users
- * table. A query that read `users` directly would pass every DB test written
- * against the view and still publish a child.
+ * which attacks the consent rule against real Postgres. What is asserted HERE is
+ * the thing a DB test cannot see: that the statements the application actually
+ * builds join the eligibility view rather than the users table. A query that
+ * read `users` directly would pass every DB test written against the view and
+ * still publish somebody who never opted in.
  */
 
 /**
@@ -45,7 +45,7 @@ describe('leaderboard query', () => {
 
     expect(statement).toContain('leaderboard_eligible_members');
     // The whole protection rests on this: no leaderboard statement may read
-    // `users`, because the view is where "not a minor, and consented" lives.
+    // `users`, because the view is where "consented" lives.
     expect(statement).not.toMatch(/\busers\b/);
   });
 

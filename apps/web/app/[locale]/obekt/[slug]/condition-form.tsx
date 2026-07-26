@@ -7,6 +7,7 @@ import { useActionState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Radio } from '@/components/ui/radio';
+import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 
 import { reportConditionAction, type ContributionState } from './contribution-actions';
 
@@ -77,7 +78,11 @@ export function ConditionForm({ slug }: { slug: string }) {
         </p>
       )}
 
-      <Button type="submit" disabled={pending}>
+      <Button
+        type="submit"
+        disabled={pending}
+        data-umami-event={ANALYTICS_EVENTS.contributionConditionSubmit}
+      >
         {t('conditionSubmit')}
       </Button>
     </form>

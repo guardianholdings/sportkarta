@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 import { SPORT_VISUALS } from '@/lib/design/sport-visuals';
 import { Link } from '@/i18n/navigation';
 
@@ -121,7 +122,7 @@ export function AddFacilityForm({
           {state.conflictSlug && (
             <Link
               href={`/obekt/${state.conflictSlug}`}
-              className="font-medium text-brand underline hover:text-brand-hover"
+              className="font-medium text-link hover:text-link-hover"
             >
               {t('seeExisting')}
             </Link>
@@ -130,7 +131,13 @@ export function AddFacilityForm({
       )}
 
       <div className="flex flex-col gap-2">
-        <Button type="submit" size="lg" block disabled={pending}>
+        <Button
+          type="submit"
+          size="lg"
+          block
+          disabled={pending}
+          data-umami-event={ANALYTICS_EVENTS.contributionAddSubmit}
+        >
           {pending ? t('submitting') : t('submit')}
         </Button>
         <p className="text-caption text-text-muted">{t('moderationNote')}</p>

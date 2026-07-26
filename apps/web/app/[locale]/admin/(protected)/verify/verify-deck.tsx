@@ -1,9 +1,11 @@
 'use client';
 
+import { Check } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 
+import { Button } from '@/components/ui/button';
 import type { VerifyCard } from '@/lib/admin-data';
 
 import { decideFacility, type VerifyDecision } from './actions';
@@ -74,7 +76,11 @@ export function VerifyDeck({ cards, remaining }: { cards: VerifyCard[]; remainin
   const left = Math.max(remaining - cleared, deck.length);
 
   if (!card) {
-    return <p className="rounded bg-green-50 p-6 text-center text-green-800">{t('empty')}</p>;
+    return (
+      <p className="rounded-card border border-success-border bg-success-bg p-6 text-center text-success">
+        {t('empty')}
+      </p>
+    );
   }
 
   const d = 0.003;
@@ -82,28 +88,31 @@ export function VerifyDeck({ cards, remaining }: { cards: VerifyCard[]; remainin
   const mapSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${String(card.lat)}%2C${String(card.lon)}`;
 
   return (
-    <div className="mx-auto max-w-lg space-y-3">
-      <p className="text-sm text-neutral-500">
+    <div className="mx-auto max-w-2xl space-y-3">
+      <p className="font-mono text-caption text-text-muted tabular-nums">
         {t('cleared', { count: cleared })} · {t('remaining', { count: left })}
       </p>
 
-      <div className="space-y-3 rounded-lg border border-neutral-200 p-4 shadow-sm">
+      <div className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm">
         <div>
-          <h2 className="text-lg font-semibold">
-            {card.name ?? <span className="text-neutral-400">—</span>}
+          <h2 className="text-h4 font-bold text-ink">
+            {card.name ?? <span className="text-text-faint">—</span>}
           </h2>
-          <p className="text-sm text-neutral-500">
+          <p className="text-body-sm text-text-muted">
             {[card.municipalityName, card.quarter].filter(Boolean).join(' · ') || '—'}
           </p>
         </div>
         <div className="flex flex-wrap gap-1">
           {card.sportTypes.map((sport) => (
-            <span key={sport} className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs">
+            <span
+              key={sport}
+              className="rounded-pill bg-paper-sunk px-2.5 py-0.5 text-caption font-medium text-ink-soft"
+            >
               {tSport.has(sport) ? tSport(sport) : sport}
             </span>
           ))}
         </div>
-        <p className="text-sm text-neutral-600">
+        <p className="text-body-sm text-ink-soft">
           {tEdit('access')}: {tAccess(card.access)}
           {card.surface && (
             <>
@@ -126,14 +135,16 @@ export function VerifyDeck({ cards, remaining }: { cards: VerifyCard[]; remainin
             title={tMap('openInOsm')}
             loading="lazy"
             referrerPolicy="no-referrer"
-            className="h-56 w-full rounded border border-neutral-200"
+            className="h-56 w-full rounded-card border border-line"
           />
-          <figcaption className="text-xs text-neutral-500">{tMap('attribution')}</figcaption>
+          <figcaption className="text-caption text-text-muted">{tMap('attribution')}</figcaption>
         </figure>
         {card.osmTags && (
           <details>
-            <summary className="cursor-pointer text-sm font-medium">{tEdit('rawTags')}</summary>
-            <pre className="mt-1 max-h-40 overflow-auto rounded bg-neutral-50 p-2 text-xs">
+            <summary className="cursor-pointer text-body-sm font-medium text-ink-soft">
+              {tEdit('rawTags')}
+            </summary>
+            <pre className="mt-1 max-h-40 overflow-auto rounded-md bg-paper-sunk p-2 text-caption">
               {JSON.stringify(card.osmTags, null, 2)}
             </pre>
           </details>
@@ -141,35 +152,41 @@ export function VerifyDeck({ cards, remaining }: { cards: VerifyCard[]; remainin
       </div>
 
       <div className="flex gap-2">
-        <button
+        <Button
           type="button"
+          size="lg"
+          iconLeft={<Check size={20} />}
           onClick={() => {
             advance('active');
           }}
-          className="min-h-14 flex-1 rounded-lg bg-green-600 font-semibold text-white"
+          className="min-h-14 flex-1"
         >
-          ✓ {t('verify')}
-        </button>
-        <button
+          {t('verify')}
+        </Button>
+        <Button
           type="button"
+          variant="secondary"
+          size="lg"
           onClick={() => {
             advance('skip');
           }}
-          className="min-h-14 flex-1 rounded-lg bg-neutral-200 font-semibold"
+          className="min-h-14 flex-1"
         >
           {t('skip')}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="danger"
+          size="lg"
           onClick={() => {
             advance('gone');
           }}
-          className="min-h-14 flex-1 rounded-lg bg-red-600 font-semibold text-white"
+          className="min-h-14 flex-1"
         >
           {t('gone')}
-        </button>
+        </Button>
       </div>
-      <p className="text-center text-xs text-neutral-400">{t('keysHint')}</p>
+      <p className="text-center text-caption text-text-faint">{t('keysHint')}</p>
     </div>
   );
 }

@@ -4,6 +4,11 @@ import { notFound } from 'next/navigation';
 
 import { Link } from '@/i18n/navigation';
 import { MapEmbed } from '@/components/admin/map-embed';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Radio } from '@/components/ui/radio';
+import { Select } from '@/components/ui/select';
 import { ACCESS_VALUES, facilityHistory, getFacility, STATUS_VALUES } from '@/lib/admin-data';
 import { requireAdmin } from '@/lib/auth-session';
 
@@ -36,138 +41,130 @@ export default async function AdminFacilityEditPage({
   if (!facility) notFound();
 
   const saveWithId = saveFacility.bind(null, facility.id);
-  const inputClass = 'w-full rounded border border-neutral-300 px-3 py-2';
 
   return (
     <main className="space-y-4">
-      <Link href="/admin/facilities" className="text-sm underline">
+      <Link href="/admin/facilities" className="text-body-sm font-medium text-link hover:text-link-hover">
         {t('back')}
       </Link>
-      <h1 className="text-xl font-semibold">{t('title')}</h1>
+      <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
       {saved !== null && (
-        <p className="rounded bg-green-50 px-3 py-2 text-sm text-green-800">
+        <p className="rounded-md border border-success-border bg-success-bg px-3 py-2 text-body-sm text-success">
           {saved > 0 ? t('saved', { count: saved }) : t('savedNone')}
         </p>
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <form action={saveWithId} className="space-y-4 text-sm">
-          <label className="block space-y-1">
-            <span className="font-medium">{t('name')}</span>
-            <input name="name" defaultValue={facility.name ?? ''} className={inputClass} />
+        <form action={saveWithId} className="space-y-4 text-body-sm">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-caption font-medium text-ink-soft">{t('name')}</span>
+            <Input name="name" defaultValue={facility.name ?? ''} />
           </label>
-          <label className="block space-y-1">
-            <span className="font-medium">{t('quarter')}</span>
-            <input name="quarter" defaultValue={facility.quarter ?? ''} className={inputClass} />
+          <label className="flex flex-col gap-1.5">
+            <span className="text-caption font-medium text-ink-soft">{t('quarter')}</span>
+            <Input name="quarter" defaultValue={facility.quarter ?? ''} />
           </label>
 
           <fieldset className="space-y-1">
-            <legend className="font-medium">{t('sports')}</legend>
+            <legend className="text-caption font-medium text-ink-soft">{t('sports')}</legend>
             <div className="grid grid-cols-2 gap-x-3 gap-y-1 sm:grid-cols-3">
               {CANONICAL_SPORTS.map((sport) => (
-                <label key={sport} className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    name="sports"
-                    value={sport}
-                    defaultChecked={facility.sportTypes.includes(sport)}
-                  />
-                  {tSport(sport)}
-                </label>
+                <Checkbox
+                  key={sport}
+                  name="sports"
+                  value={sport}
+                  defaultChecked={facility.sportTypes.includes(sport)}
+                  label={tSport(sport)}
+                />
               ))}
             </div>
           </fieldset>
 
-          <label className="block space-y-1">
-            <span className="font-medium">{t('surface')}</span>
-            <select name="surface" defaultValue={facility.surface ?? ''} className={inputClass}>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-caption font-medium text-ink-soft">{t('surface')}</span>
+            <Select name="surface" defaultValue={facility.surface ?? ''}>
               <option value="">{t('surfaceUnknown')}</option>
               {CANONICAL_SURFACES.map((surface) => (
                 <option key={surface} value={surface}>
                   {tSurface(surface)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
 
           <fieldset className="space-y-1">
-            <legend className="font-medium">{t('lighting')}</legend>
+            <legend className="text-caption font-medium text-ink-soft">{t('lighting')}</legend>
             <div className="flex gap-4">
               {(['yes', 'no', 'unknown'] as const).map((option) => (
-                <label key={option} className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="lighting"
-                    value={option}
-                    defaultChecked={
-                      facility.lighting === (option === 'yes') ||
-                      (option === 'unknown' && facility.lighting === null)
-                    }
-                  />
-                  {option === 'yes'
-                    ? t('lightingYes')
-                    : option === 'no'
-                      ? t('lightingNo')
-                      : t('lightingUnknown')}
-                </label>
+                <Radio
+                  key={option}
+                  name="lighting"
+                  value={option}
+                  defaultChecked={
+                    facility.lighting === (option === 'yes') ||
+                    (option === 'unknown' && facility.lighting === null)
+                  }
+                  label={
+                    option === 'yes'
+                      ? t('lightingYes')
+                      : option === 'no'
+                        ? t('lightingNo')
+                        : t('lightingUnknown')
+                  }
+                />
               ))}
             </div>
           </fieldset>
 
-          <label className="flex items-center gap-2 font-medium">
-            <input type="checkbox" name="covered" defaultChecked={facility.covered} />
-            {t('covered')}
-          </label>
+          <Checkbox name="covered" defaultChecked={facility.covered} label={t('covered')} />
 
-          <label className="block space-y-1">
-            <span className="font-medium">{t('access')}</span>
-            <select name="access" defaultValue={facility.access} className={inputClass}>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-caption font-medium text-ink-soft">{t('access')}</span>
+            <Select name="access" defaultValue={facility.access}>
               {ACCESS_VALUES.map((a) => (
                 <option key={a} value={a}>
                   {tAccess(a)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
 
-          <label className="block space-y-1">
-            <span className="font-medium">{t('status')}</span>
-            <select name="status" defaultValue={facility.status} className={inputClass}>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-caption font-medium text-ink-soft">{t('status')}</span>
+            <Select name="status" defaultValue={facility.status}>
               {STATUS_VALUES.map((s) => (
                 <option key={s} value={s}>
                   {tStatus(s)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
 
-          <button type="submit" className="rounded bg-neutral-900 px-6 py-3 font-medium text-white">
-            {t('save')}
-          </button>
+          <Button type="submit">{t('save')}</Button>
         </form>
 
-        <aside className="space-y-4 text-sm">
+        <aside className="space-y-4 text-body-sm">
           <div>
-            <h2 className="mb-1 font-medium">{t('mapPreview')}</h2>
+            <h2 className="t-overline mb-1.5">{t('mapPreview')}</h2>
             <MapEmbed lon={facility.lon} lat={facility.lat} />
           </div>
           {facility.osmTags && (
             <details>
-              <summary className="cursor-pointer font-medium">{t('rawTags')}</summary>
-              <pre className="mt-1 overflow-x-auto rounded bg-neutral-50 p-2 text-xs">
+              <summary className="cursor-pointer font-medium text-ink-soft">{t('rawTags')}</summary>
+              <pre className="mt-1 overflow-x-auto rounded-md bg-paper-sunk p-2 text-caption">
                 {JSON.stringify(facility.osmTags, null, 2)}
               </pre>
             </details>
           )}
           <div>
-            <h2 className="mb-1 font-medium">{t('history')}</h2>
+            <h2 className="t-overline mb-1.5">{t('history')}</h2>
             {history.length === 0 ? (
-              <p className="text-neutral-500">{t('historyEmpty')}</p>
+              <p className="text-text-muted">{t('historyEmpty')}</p>
             ) : (
-              <ul className="space-y-1 text-xs">
+              <ul className="space-y-1 text-caption">
                 {history.map((edit) => (
-                  <li key={edit.id} className="rounded border border-neutral-100 p-2">
-                    <span className="text-neutral-500">{edit.createdAt.slice(0, 16)}</span> ·{' '}
+                  <li key={edit.id} className="rounded-md border border-line bg-surface p-2">
+                    <span className="font-mono text-text-muted tabular-nums">{edit.createdAt.slice(0, 16)}</span> ·{' '}
                     <span className="font-medium">
                       {edit.actor === null
                         ? tSource(edit.source)

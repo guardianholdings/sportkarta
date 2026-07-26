@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 // next/dynamic({ ssr:false }) is only allowed inside a client component.
 const MiniMap = dynamic(() => import('./mini-map'), {
   ssr: false,
-  loading: () => <div className="h-56 w-full animate-pulse rounded-lg bg-neutral-100" />,
+  loading: () => <div className="h-56 w-full animate-pulse rounded-lg bg-paper-sunk" />,
 });
 
 export function MiniMapLoader(props: { lon: number; lat: number; label: string }) {

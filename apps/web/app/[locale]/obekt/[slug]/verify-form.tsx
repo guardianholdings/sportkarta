@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Radio } from '@/components/ui/radio';
 import { Select } from '@/components/ui/select';
+import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 
 import { verifyFacilityAction, type ContributionState } from './contribution-actions';
 
@@ -142,7 +143,11 @@ export function VerifyForm(props: VerifyFormProps) {
         </p>
       )}
 
-      <Button type="submit" disabled={pending}>
+      <Button
+        type="submit"
+        disabled={pending}
+        data-umami-event={ANALYTICS_EVENTS.contributionVerifySubmit}
+      >
         {t('verifySubmit')}
       </Button>
     </form>

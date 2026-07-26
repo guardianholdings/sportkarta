@@ -76,7 +76,7 @@ function MunicipalImportWizard({
   return (
     <div className="space-y-6">
       {state.error && (
-        <p role="alert" className="rounded border border-red-300 bg-red-50 p-2 text-sm text-red-800">
+        <p role="alert" className="rounded border border-danger-border bg-danger-bg p-2 text-body-sm text-danger">
           {L(labels, `error_${state.error}`)}
         </p>
       )}
@@ -84,36 +84,36 @@ function MunicipalImportWizard({
       {state.step === 'input' && (
         <form action={parse} className="space-y-3">
           <label className="block space-y-1">
-            <span className="text-sm font-medium">{L(labels, 'registryLabel')}</span>
+            <span className="text-body-sm font-medium">{L(labels, 'registryLabel')}</span>
             <input
               name="registryLabel"
               defaultValue={state.registryLabel ?? ''}
               required
               maxLength={120}
               placeholder={L(labels, 'registryPlaceholder')}
-              className="w-full rounded border border-neutral-300 px-2 py-1 text-sm"
+              className="w-full rounded-md border border-line-strong bg-surface px-2 py-1 text-body-sm"
             />
-            <span className="block text-xs text-neutral-500">{L(labels, 'registryHint')}</span>
+            <span className="block text-caption text-text-muted">{L(labels, 'registryHint')}</span>
           </label>
           <label className="block space-y-1">
-            <span className="text-sm font-medium">{L(labels, 'upload')}</span>
-            <input type="file" name="file" accept=".csv,text/csv" className="block text-sm" />
+            <span className="text-body-sm font-medium">{L(labels, 'upload')}</span>
+            <input type="file" name="file" accept=".csv,text/csv" className="block text-body-sm" />
           </label>
           <label className="block space-y-1">
-            <span className="text-sm font-medium">{L(labels, 'paste')}</span>
+            <span className="text-body-sm font-medium">{L(labels, 'paste')}</span>
             <textarea
               name="csv"
               defaultValue={state.csv ?? ''}
               rows={6}
-              className="w-full rounded border border-neutral-300 p-2 font-mono text-xs"
+              className="w-full rounded-md border border-line-strong bg-surface p-2 font-mono text-caption"
               placeholder={sampleCsv}
             />
           </label>
-          <details className="text-xs text-neutral-600">
+          <details className="text-caption text-ink-soft">
             <summary className="cursor-pointer">{L(labels, 'templateHint')}</summary>
-            <pre className="mt-2 overflow-x-auto rounded bg-neutral-50 p-2">{sampleCsv}</pre>
+            <pre className="mt-2 overflow-x-auto rounded bg-paper-sunk p-2">{sampleCsv}</pre>
           </details>
-          <button type="submit" className="rounded bg-teal-700 px-4 py-1.5 text-sm text-white">
+          <button type="submit" className="rounded-pill bg-brand px-4 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover">
             {L(labels, 'next')}
           </button>
         </form>
@@ -123,15 +123,15 @@ function MunicipalImportWizard({
         <form action={preview} className="space-y-4">
           <input type="hidden" name="csv" value={state.csv ?? ''} />
           <input type="hidden" name="registryLabel" value={state.registryLabel ?? ''} />
-          <p className="text-sm text-neutral-600">{L(labels, 'mapHint')}</p>
+          <p className="text-body-sm text-ink-soft">{L(labels, 'mapHint')}</p>
           <div className="grid gap-2 sm:grid-cols-2">
             {MUNICIPAL_FIELDS.map((field) => (
-              <label key={field} className="flex items-center justify-between gap-2 text-sm">
+              <label key={field} className="flex items-center justify-between gap-2 text-body-sm">
                 <span className="font-medium">{L(fieldLabels, field)}</span>
                 <select
                   name={`map.${field}`}
                   defaultValue={state.mapping?.[field] ?? ''}
-                  className="rounded border border-neutral-300 px-2 py-1 text-sm"
+                  className="rounded-md border border-line-strong bg-surface px-2 py-1 text-body-sm"
                 >
                   <option value="">{L(labels, 'ignoreColumn')}</option>
                   {state.headers?.map((header, index) => (
@@ -144,12 +144,12 @@ function MunicipalImportWizard({
             ))}
           </div>
           {state.sampleRows && state.sampleRows.length > 0 && (
-            <div className="overflow-x-auto rounded border border-neutral-200">
-              <table className="w-full text-xs">
-                <thead className="bg-neutral-50">
+            <div className="overflow-x-auto rounded-card border border-line bg-surface">
+              <table className="w-full text-caption">
+                <thead className="bg-paper-sunk">
                   <tr>
                     {state.headers.map((header, index) => (
-                      <th key={index} className="px-2 py-1 text-left font-medium">
+                      <th key={index} className="t-overline px-2 py-1.5 text-left font-semibold">
                         {header || `#${String(index + 1)}`}
                       </th>
                     ))}
@@ -157,7 +157,7 @@ function MunicipalImportWizard({
                 </thead>
                 <tbody>
                   {state.sampleRows.map((sample, r) => (
-                    <tr key={r} className="border-t border-neutral-100">
+                    <tr key={r} className="border-t border-line">
                       {sample.map((cell, c) => (
                         <td key={c} className="px-2 py-1">
                           {cell}
@@ -169,7 +169,7 @@ function MunicipalImportWizard({
               </table>
             </div>
           )}
-          <button type="submit" className="rounded bg-teal-700 px-4 py-1.5 text-sm text-white">
+          <button type="submit" className="rounded-pill bg-brand px-4 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover">
             {L(labels, 'preview')}
           </button>
         </form>
@@ -183,17 +183,17 @@ function MunicipalImportWizard({
             <input key={field} type="hidden" name={`map.${field}`} value={String(index)} />
           ))}
 
-          <div className="flex flex-wrap gap-3 text-sm">
+          <div className="flex flex-wrap gap-3 text-body-sm">
             <Badge label={L(labels, 'countNew')} value={state.counts.new} tone="green" />
             <Badge label={L(labels, 'countMatch')} value={state.counts.match} tone="blue" />
             <Badge label={L(labels, 'countConflict')} value={state.counts.conflict} tone="amber" />
             <Badge label={L(labels, 'countInvalid')} value={state.counts.invalid} tone="red" />
           </div>
-          <p className="text-sm text-neutral-600">{L(labels, 'previewHint')}</p>
+          <p className="text-body-sm text-ink-soft">{L(labels, 'previewHint')}</p>
 
-          <div className="overflow-x-auto rounded border border-neutral-200">
-            <table className="w-full text-sm">
-              <thead className="bg-neutral-50">
+          <div className="overflow-x-auto rounded-card border border-line bg-surface">
+            <table className="w-full text-body-sm">
+              <thead className="bg-paper-sunk">
                 <tr>
                   <th className="px-2 py-1 text-left">{L(labels, 'rowNumber')}</th>
                   <th className="px-2 py-1 text-left">{L(labels, 'name')}</th>
@@ -203,18 +203,18 @@ function MunicipalImportWizard({
               </thead>
               <tbody>
                 {state.rows.map((row) => (
-                  <tr key={row.rowNumber} className="border-t border-neutral-100 align-top">
+                  <tr key={row.rowNumber} className="border-t border-line align-top">
                     <td className="px-2 py-1 tabular-nums">{row.rowNumber}</td>
                     <td className="px-2 py-1">{row.name ?? '—'}</td>
                     <td className="px-2 py-1">
                       <span className="font-medium">{L(labels, `status_${row.status}`)}</span>
                       {row.status === 'invalid' && row.error && (
-                        <span className="block text-xs text-red-700">
+                        <span className="block text-caption text-danger">
                           {L(labels, `rowError_${row.error}`)}
                         </span>
                       )}
                       {row.status === 'conflict' && (
-                        <span className="block text-xs text-amber-700">
+                        <span className="block text-caption text-warning">
                           {L(labels, `conflict_${row.conflictReason ?? 'ambiguous'}`)}
                         </span>
                       )}
@@ -224,7 +224,7 @@ function MunicipalImportWizard({
                         <select
                           name={`resolve.${row.rowNumber}`}
                           defaultValue="skip"
-                          className="rounded border border-neutral-300 px-2 py-1 text-xs"
+                          className="rounded-md border border-line-strong bg-surface px-2 py-1 text-caption"
                         >
                           <option value="skip">{L(labels, 'resolveSkip')}</option>
                           <option value="new">{L(labels, 'resolveNew')}</option>
@@ -236,9 +236,9 @@ function MunicipalImportWizard({
                           ))}
                         </select>
                       ) : row.status === 'invalid' ? (
-                        <span className="text-xs text-neutral-500">{L(labels, 'willSkip')}</span>
+                        <span className="text-caption text-text-muted">{L(labels, 'willSkip')}</span>
                       ) : (
-                        <span className="text-xs text-neutral-500">{L(labels, 'willCommit')}</span>
+                        <span className="text-caption text-text-muted">{L(labels, 'willCommit')}</span>
                       )}
                     </td>
                   </tr>
@@ -247,14 +247,14 @@ function MunicipalImportWizard({
             </table>
           </div>
 
-          <button type="submit" className="rounded bg-teal-700 px-4 py-1.5 text-sm text-white">
+          <button type="submit" className="rounded-pill bg-brand px-4 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover">
             {L(labels, 'confirmImport')}
           </button>
         </form>
       )}
 
       {state.step === 'done' && state.committed && (
-        <div className="space-y-2 rounded border border-green-300 bg-green-50 p-4 text-sm">
+        <div className="space-y-2 rounded-card border border-success-border bg-success-bg p-4 text-body-sm">
           <p className="font-medium">{L(labels, 'doneTitle')}</p>
           <ul className="space-y-0.5">
             <li>
@@ -273,7 +273,7 @@ function MunicipalImportWizard({
           <button
             type="button"
             onClick={onReset}
-            className="inline-block cursor-pointer text-teal-700 underline"
+            className="inline-block cursor-pointer font-medium text-link hover:text-link-hover"
           >
             {L(labels, 'importAnother')}
           </button>
@@ -293,10 +293,10 @@ function Badge({
   tone: 'green' | 'blue' | 'amber' | 'red';
 }) {
   const tones = {
-    green: 'bg-green-100 text-green-800',
-    blue: 'bg-blue-100 text-blue-800',
-    amber: 'bg-amber-100 text-amber-800',
-    red: 'bg-red-100 text-red-800',
+    green: 'bg-success-bg text-success',
+    blue: 'bg-info-bg text-info',
+    amber: 'bg-warning-bg text-warning',
+    red: 'bg-danger-bg text-danger',
   };
   return (
     <span className={`rounded px-2 py-1 ${tones[tone]}`}>

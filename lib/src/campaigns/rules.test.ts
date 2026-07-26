@@ -168,8 +168,9 @@ describe('validateCampaignSlug', () => {
 
 describe('aggregate board privacy floor', () => {
   it('is at least 2, or an aggregate row could be one person', () => {
-    // The whole justification for counting minors in a city board is that no
-    // individual is named. A city row with one contributor breaks that.
+    // The whole justification for counting everyone in a city board — including
+    // members who never opted into being named — is that no individual is
+    // named. A city row with one contributor breaks that.
     expect(CITY_BOARD_MIN_MEMBERS).toBeGreaterThanOrEqual(2);
   });
 });

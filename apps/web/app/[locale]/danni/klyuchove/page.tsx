@@ -9,6 +9,7 @@ import { requireUser } from '@/lib/auth-session';
 import { listApiKeys, MAX_KEYS_PER_ACCOUNT } from '@/lib/opendata/keys';
 import { OPEN_DATA_LIMITS } from '@/lib/opendata/limits';
 import { buildAlternates } from '@/lib/seo';
+import { AppShell } from '@/components/shell/app-shell';
 
 /**
  * Self-service API keys (Stage 6.1).
@@ -57,12 +58,13 @@ export default async function ApiKeysPage({ params }: { params: PageParams }) {
   const keys = await listApiKeys(user.id);
 
   return (
-    <main className="mx-auto max-w-2xl space-y-6 p-4">
-      <Link href="/danni" className="text-sm underline">
+    <AppShell>
+      <main className="mx-auto max-w-2xl space-y-6 p-4">
+      <Link href="/danni" className="text-body-sm font-medium text-link hover:text-link-hover">
         {t('back')}
       </Link>
-      <h1 className="text-2xl font-bold tracking-tight">{t('keysTitle')}</h1>
-      <p className="text-neutral-700">
+      <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('keysTitle')}</h1>
+      <p className="text-ink-soft">
         {t('keysIntro', {
           anon: OPEN_DATA_LIMITS.anonPerMinute,
           keyed: OPEN_DATA_LIMITS.keyedPerMinute,
@@ -86,11 +88,11 @@ export default async function ApiKeysPage({ params }: { params: PageParams }) {
 
       <section className="space-y-2">
         {keys.length === 0 ? (
-          <p className="text-sm text-neutral-600">{t('keysEmpty')}</p>
+          <p className="text-body-sm text-ink-soft">{t('keysEmpty')}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-neutral-600">
+            <table className="w-full text-left text-body-sm">
+              <thead className="text-ink-soft">
                 <tr>
                   <th className="py-1 pr-3 font-medium">{t('keysColumnLabel')}</th>
                   <th className="py-1 pr-3 font-medium">{t('keysColumnPrefix')}</th>
@@ -101,15 +103,15 @@ export default async function ApiKeysPage({ params }: { params: PageParams }) {
               </thead>
               <tbody>
                 {keys.map((key) => (
-                  <tr key={key.id} className="border-t border-neutral-100">
+                  <tr key={key.id} className="border-t border-line">
                     <td className="py-2 pr-3">{key.label}</td>
                     <td className="py-2 pr-3">
-                      <code className="text-xs">{key.prefix}…</code>
+                      <code className="text-caption">{key.prefix}…</code>
                     </td>
-                    <td className="py-2 pr-3 text-neutral-600">
+                    <td className="py-2 pr-3 text-ink-soft">
                       {formatDate(key.createdAt, locale)}
                     </td>
-                    <td className="py-2 pr-3 text-neutral-600">
+                    <td className="py-2 pr-3 text-ink-soft">
                       {key.lastUsedAt ? formatDate(key.lastUsedAt, locale) : t('keysNeverUsed')}
                     </td>
                     <td className="py-2">
@@ -119,7 +121,7 @@ export default async function ApiKeysPage({ params }: { params: PageParams }) {
                         <input type="hidden" name="keyId" value={key.id} />
                         <button
                           type="submit"
-                          className="rounded border border-neutral-300 px-2 py-1 text-xs"
+                          className="rounded-md border border-line-strong bg-surface px-2 py-1 text-caption"
                         >
                           {t('keysRevoke')}
                         </button>
@@ -134,13 +136,14 @@ export default async function ApiKeysPage({ params }: { params: PageParams }) {
       </section>
 
       <section className="space-y-1">
-        <h2 className="text-lg font-semibold">{t('keysUsageTitle')}</h2>
-        <p className="text-sm text-neutral-700">{t('keysHeaderOnly')}</p>
+        <h2 className="text-h4 font-bold text-ink">{t('keysUsageTitle')}</h2>
+        <p className="text-body-sm text-ink-soft">{t('keysHeaderOnly')}</p>
         {/* Shell, not UI text — deliberately not translated. */}
-        <pre className="overflow-x-auto rounded bg-neutral-900 p-3 text-xs text-neutral-100">
+        <pre className="overflow-x-auto rounded-md bg-paper-sunk p-3 font-mono text-caption text-ink">
           {'curl -H "Authorization: Bearer skbg_…" \\\n  ".../api/opendata/v1/facilities"'}
         </pre>
       </section>
-    </main>
+      </main>
+    </AppShell>
   );
 }

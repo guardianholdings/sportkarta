@@ -83,25 +83,25 @@ export default async function DevMailPage({ params }: { params: Promise<{ locale
     <main className="mx-auto max-w-2xl space-y-6 px-4 py-8">
       <AutoRefresh seconds={4} />
       <header className="space-y-2">
-        <h1 className="text-xl font-semibold">{t('title')}</h1>
-        <p className="max-w-prose text-sm text-neutral-600">{t('intro')}</p>
-        <p className="text-xs text-neutral-500">{t('refreshHint')}</p>
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
+        <p className="max-w-prose text-body-sm text-ink-soft">{t('intro')}</p>
+        <p className="text-caption text-text-muted">{t('refreshHint')}</p>
       </header>
 
       {messages.length === 0 ? (
-        <p className="rounded border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-600">
+        <p className="rounded-card border border-line bg-paper-sunk px-3 py-2 text-body-sm text-ink-soft">
           {t('empty')}
         </p>
       ) : (
         <ul className="space-y-3">
           {messages.map((message) => (
-            <li key={message.file} className="rounded-lg border border-neutral-200 p-4">
+            <li key={message.file} className="rounded-card border border-line p-4">
               <div className="flex flex-wrap items-center gap-3">
-                <span className="rounded bg-teal-50 px-3 py-1 font-mono text-lg font-bold tracking-widest text-teal-800">
+                <span className="rounded-md bg-brand-subtle px-3 py-1 font-mono text-h4 font-bold tracking-widest text-brand">
                   {message.code ?? t('noCode')}
                 </span>
-                <span className="text-sm font-medium">{message.to}</span>
-                <span className="ml-auto text-xs text-neutral-500">
+                <span className="text-body-sm font-medium">{message.to}</span>
+                <span className="ml-auto text-caption text-text-muted">
                   {message.sentAt
                     ? new Date(message.sentAt).toLocaleString(locale === 'en' ? 'en-GB' : 'bg-BG', {
                         timeZone: 'Europe/Sofia',
@@ -109,10 +109,10 @@ export default async function DevMailPage({ params }: { params: Promise<{ locale
                     : ''}
                 </span>
               </div>
-              <p className="mt-1 text-sm text-neutral-600">{message.subject}</p>
-              <details className="mt-2 text-xs text-neutral-500">
+              <p className="mt-1 text-body-sm text-ink-soft">{message.subject}</p>
+              <details className="mt-2 text-caption text-text-muted">
                 <summary className="cursor-pointer">{t('fullMessage')}</summary>
-                <pre className="mt-1 overflow-x-auto whitespace-pre-wrap rounded bg-neutral-50 p-2">
+                <pre className="mt-1 overflow-x-auto whitespace-pre-wrap rounded bg-paper-sunk p-2">
                   {message.text}
                 </pre>
               </details>

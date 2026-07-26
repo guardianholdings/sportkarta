@@ -1,5 +1,7 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
+import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
 import { municipalityOptions, verifyQueue } from '@/lib/admin-data';
 import { requireAdmin } from '@/lib/auth-session';
 
@@ -34,16 +36,17 @@ export default async function AdminVerifyPage({
   return (
     <main className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">{t('title')}</h1>
-        <form method="get" className="flex items-center gap-2 text-sm">
-          <label htmlFor="municipality" className="text-neutral-500">
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
+        <form method="get" className="flex items-center gap-2">
+          <label htmlFor="municipality" className="text-caption font-medium text-ink-soft">
             {t('municipalityFilter')}
           </label>
-          <select
+          <div className="w-56">
+          <Select
             id="municipality"
             name="municipality"
+            size="sm"
             defaultValue={municipality === 'none' ? 'none' : (municipality ?? '')}
-            className="rounded border border-neutral-300 px-2 py-1"
           >
             <option value="">{t('allMunicipalities')}</option>
             <option value="none">{t('noMunicipality')}</option>
@@ -52,10 +55,11 @@ export default async function AdminVerifyPage({
                 {m.nameBg}
               </option>
             ))}
-          </select>
-          <button type="submit" className="rounded bg-neutral-900 px-3 py-1 text-white">
+          </Select>
+          </div>
+          <Button type="submit" size="sm">
             {t('apply')}
-          </button>
+          </Button>
         </form>
       </div>
       <VerifyDeck cards={cards} remaining={remaining} />

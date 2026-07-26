@@ -41,7 +41,7 @@ export function ResultsEditor({
 
   return (
     <div className="space-y-4">
-      <div role="tablist" className="flex gap-2 border-b border-neutral-200">
+      <div role="tablist" className="flex gap-2 border-b border-line">
         {(['form', 'csv'] as const).map((key) => (
           <button
             key={key}
@@ -52,8 +52,8 @@ export function ResultsEditor({
             }}
             className={
               tab === key
-                ? 'border-b-2 border-neutral-900 px-3 py-2 text-sm font-medium'
-                : 'px-3 py-2 text-sm text-neutral-500'
+                ? 'border-b-2 border-brand px-3 py-2 text-body-sm font-semibold text-brand'
+                : 'px-3 py-2 text-body-sm text-text-muted'
             }
           >
             {key === 'form' ? L('save') : L('csvImport')}
@@ -87,12 +87,12 @@ function ManualForm({
       <input type="hidden" name="occurrenceId" value={occurrenceId} />
 
       {state.step === 'done' && (
-        <p className="rounded bg-green-50 px-3 py-2 text-sm text-green-800">
+        <p className="rounded-md border border-success-border bg-success-bg px-3 py-2 text-body-sm text-success">
           {L('saved')} ({state.saved ?? 0})
         </p>
       )}
       {state.error && (
-        <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p className="rounded-md border border-danger-border bg-danger-bg px-3 py-2 text-body-sm text-danger">
           {L(`error_${state.error}`)}
         </p>
       )}
@@ -100,35 +100,35 @@ function ManualForm({
         <SkippedTable rows={state.skipped ?? []} labels={labels} />
       )}
 
-      <div className="overflow-x-auto rounded border border-neutral-200">
-        <table className="w-full text-sm">
-          <thead className="bg-neutral-50">
+      <div className="overflow-x-auto rounded-card border border-line bg-surface">
+        <table className="w-full text-body-sm">
+          <thead className="bg-paper-sunk">
             <tr>
-              <th className="px-2 py-1 text-left font-medium">{L('participant')}</th>
-              <th className="px-2 py-1 text-left font-medium">{L('team')}</th>
-              <th className="px-2 py-1 text-left font-medium">{L('position')}</th>
-              <th className="px-2 py-1 text-left font-medium">{L('score')}</th>
-              <th className="px-2 py-1 text-left font-medium">{L('note')}</th>
+              <th className="t-overline px-2 py-1.5 text-left font-semibold">{L('participant')}</th>
+              <th className="t-overline px-2 py-1.5 text-left font-semibold">{L('team')}</th>
+              <th className="t-overline px-2 py-1.5 text-left font-semibold">{L('position')}</th>
+              <th className="t-overline px-2 py-1.5 text-left font-semibold">{L('score')}</th>
+              <th className="t-overline px-2 py-1.5 text-left font-semibold">{L('note')}</th>
             </tr>
           </thead>
           <tbody>
             {Array.from({ length: rowCount }, (_, i) => {
               const row = existing[i];
               return (
-                <tr key={i} className="border-t border-neutral-100">
+                <tr key={i} className="border-t border-line">
                   <td className="p-1">
                     <input
                       name="participant"
                       defaultValue={row?.participant ?? ''}
                       placeholder={L('participantHint')}
-                      className="w-full rounded border border-neutral-300 p-1.5"
+                      className="w-full rounded border border-line-strong p-1.5"
                     />
                   </td>
                   <td className="p-1">
                     <input
                       name="team"
                       defaultValue={row?.team ?? ''}
-                      className="w-full rounded border border-neutral-300 p-1.5"
+                      className="w-full rounded border border-line-strong p-1.5"
                     />
                   </td>
                   <td className="p-1">
@@ -137,7 +137,7 @@ function ManualForm({
                       type="number"
                       min={1}
                       defaultValue={row?.position ?? ''}
-                      className="w-20 rounded border border-neutral-300 p-1.5"
+                      className="w-20 rounded border border-line-strong p-1.5"
                     />
                   </td>
                   <td className="p-1">
@@ -145,7 +145,7 @@ function ManualForm({
                       name="score"
                       defaultValue={row?.score ?? ''}
                       placeholder={L('scoreHint')}
-                      className="w-full rounded border border-neutral-300 p-1.5"
+                      className="w-full rounded border border-line-strong p-1.5"
                     />
                   </td>
                   <td className="p-1">
@@ -153,7 +153,7 @@ function ManualForm({
                       name="note"
                       defaultValue={row?.note ?? ''}
                       placeholder={L('noteHint')}
-                      className="w-full rounded border border-neutral-300 p-1.5"
+                      className="w-full rounded border border-line-strong p-1.5"
                     />
                   </td>
                 </tr>
@@ -169,14 +169,14 @@ function ManualForm({
           onClick={() => {
             setRowCount((n) => n + 1);
           }}
-          className="rounded border border-neutral-300 px-3 py-2 text-sm"
+          className="rounded-pill border border-line-strong bg-surface px-3 py-2 text-body-sm font-semibold text-ink-soft hover:bg-surface-2"
         >
           {L('addRow')}
         </button>
         <button
           type="submit"
           disabled={pending}
-          className="rounded bg-neutral-900 px-4 py-2 font-medium text-white disabled:opacity-50"
+          className="rounded-pill bg-brand px-4 py-2 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-50"
         >
           {L('save')}
         </button>
@@ -197,24 +197,24 @@ function CsvFlow({ occurrenceId, labels }: { occurrenceId: string; labels: Label
 
   return (
     <form action={action} className="space-y-3">
-      <label className="block text-sm font-medium">
+      <label className="block text-body-sm font-medium text-ink-soft">
         {L('csvImport')}
         <textarea
           name="csv"
           rows={8}
-          className="mt-1 w-full rounded border border-neutral-300 p-2 font-mono text-xs"
+          className="mt-1 w-full rounded-md border border-line-strong bg-surface p-2 font-mono text-caption"
         />
       </label>
-      <input type="file" name="file" accept=".csv,text/csv" className="block text-sm" />
+      <input type="file" name="file" accept=".csv,text/csv" className="block text-body-sm" />
       {state.error && (
-        <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p className="rounded-md border border-danger-border bg-danger-bg px-3 py-2 text-body-sm text-danger">
           {L(`error_${state.error}`)}
         </p>
       )}
       <button
         type="submit"
         disabled={pending}
-        className="rounded bg-neutral-900 px-4 py-2 font-medium text-white disabled:opacity-50"
+        className="rounded-pill bg-brand px-4 py-2 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-50"
       >
         {L('csvImport')}
       </button>
@@ -242,12 +242,12 @@ function MappingStep({
       <input type="hidden" name="csv" value={state.csv ?? ''} />
       <div className="grid gap-3 sm:grid-cols-2">
         {MAPPABLE.map((field) => (
-          <label key={field} className="block text-sm">
+          <label key={field} className="block text-body-sm">
             <span className="font-medium">{L(field)}</span>
             <select
               name={`map.${field}`}
               defaultValue={state.mapping?.[field] ?? ''}
-              className="mt-1 w-full rounded border border-neutral-300 p-2"
+              className="mt-1 w-full rounded-md border border-line-strong bg-surface p-2"
             >
               <option value="">—</option>
               {(state.headers ?? []).map((header, index) => (
@@ -262,7 +262,7 @@ function MappingStep({
       <button
         type="submit"
         disabled={pending}
-        className="rounded bg-neutral-900 px-4 py-2 font-medium text-white disabled:opacity-50"
+        className="rounded-pill bg-brand px-4 py-2 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-50"
       >
         {L('save')}
       </button>
@@ -285,7 +285,7 @@ function PreviewStep({
   if (done.step === 'done') {
     return (
       <div className="space-y-3">
-        <p className="rounded bg-green-50 px-3 py-2 text-sm text-green-800">
+        <p className="rounded-md border border-success-border bg-success-bg px-3 py-2 text-body-sm text-success">
           {L('saved')} ({done.saved ?? 0})
         </p>
         {(done.skipped ?? []).length > 0 && (
@@ -306,7 +306,7 @@ function PreviewStep({
       <button
         type="submit"
         disabled={pending || (state.validCount ?? 0) === 0}
-        className="rounded bg-neutral-900 px-4 py-2 font-medium text-white disabled:opacity-50"
+        className="rounded-pill bg-brand px-4 py-2 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-50"
       >
         {L('save')} ({state.validCount ?? 0})
       </button>
@@ -328,21 +328,21 @@ function SkippedTable({
   if (visible.length === 0) return null;
 
   return (
-    <div className="overflow-x-auto rounded border border-neutral-200">
-      <table className="w-full text-sm">
-        <thead className="bg-neutral-50">
+    <div className="overflow-x-auto rounded-card border border-line bg-surface">
+      <table className="w-full text-body-sm">
+        <thead className="bg-paper-sunk">
           <tr>
-            <th className="px-2 py-1 text-left font-medium">#</th>
-            <th className="px-2 py-1 text-left font-medium">{L('participant')}</th>
-            <th className="px-2 py-1 text-left font-medium">{L('note')}</th>
+            <th className="t-overline px-2 py-1.5 text-left font-semibold">#</th>
+            <th className="t-overline px-2 py-1.5 text-left font-semibold">{L('participant')}</th>
+            <th className="t-overline px-2 py-1.5 text-left font-semibold">{L('note')}</th>
           </tr>
         </thead>
         <tbody>
           {visible.map((row) => (
-            <tr key={row.rowNumber} className="border-t border-neutral-100">
+            <tr key={row.rowNumber} className="border-t border-line">
               <td className="px-2 py-1 tabular-nums">{row.rowNumber}</td>
               <td className="px-2 py-1">{row.participant}</td>
-              <td className="px-2 py-1 text-neutral-600">
+              <td className="px-2 py-1 text-ink-soft">
                 {row.error ? L(`error_${row.error}`) : ''}
               </td>
             </tr>

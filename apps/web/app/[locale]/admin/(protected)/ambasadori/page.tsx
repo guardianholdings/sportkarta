@@ -42,20 +42,20 @@ export default async function AdminAmbassadorsPage({
   return (
     <main className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">{t('title')}</h1>
-        <p className="mt-1 text-sm text-neutral-600">{t('intro')}</p>
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
+        <p className="mt-1 text-body-sm text-ink-soft">{t('intro')}</p>
       </div>
 
-      <section className="space-y-2 rounded border border-neutral-200 p-4">
+      <section className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm">
         <h2 className="font-medium">{t('grantTitle')}</h2>
         <GrantForm />
-        <p className="text-xs text-neutral-500">{t('grantHint')}</p>
+        <p className="text-caption text-text-muted">{t('grantHint')}</p>
       </section>
 
       <section className="space-y-3">
         <h2 className="font-medium">{t('listTitle')}</h2>
         {ambassadors.length === 0 ? (
-          <p className="rounded border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500">
+          <p className="rounded border border-dashed border-line-strong p-6 text-center text-body-sm text-text-muted">
             {t('empty')}
           </p>
         ) : (
@@ -66,13 +66,13 @@ export default async function AdminAmbassadorsPage({
               return (
                 <li
                   key={ambassador.userId}
-                  className="space-y-3 rounded border border-neutral-200 p-4"
+                  className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm"
                 >
                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                     <span className="font-medium">
                       {ambassador.displayName || ambassador.email}
                     </span>
-                    <span className="text-xs text-neutral-500">{ambassador.email}</span>
+                    <span className="text-caption text-text-muted">{ambassador.email}</span>
                     <form action={revoke} className="ml-auto">
                       <ConfirmButton
                         className={buttonVariants({ variant: 'secondary', size: 'sm' })}
@@ -83,17 +83,17 @@ export default async function AdminAmbassadorsPage({
                     </form>
                   </div>
 
-                  <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-3">
+                  <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-caption sm:grid-cols-3">
                     <div>
-                      <dt className="text-neutral-500">{t('decisions')}</dt>
+                      <dt className="text-text-muted">{t('decisions')}</dt>
                       <dd className="font-medium">{ambassador.decisions}</dd>
                     </div>
                     <div>
-                      <dt className="text-neutral-500">{t('medianTime')}</dt>
+                      <dt className="text-text-muted">{t('medianTime')}</dt>
                       <dd className="font-medium">{formatHours(ambassador.medianHours)}</dd>
                     </div>
                     <div>
-                      <dt className="text-neutral-500">{t('lastActive')}</dt>
+                      <dt className="text-text-muted">{t('lastActive')}</dt>
                       <dd className="font-medium">
                         {ambassador.lastDecisionAt
                           ? formatDate(ambassador.lastDecisionAt)
@@ -103,9 +103,9 @@ export default async function AdminAmbassadorsPage({
                   </dl>
 
                   <div className="space-y-2">
-                    <h3 className="text-xs font-medium text-neutral-500">{t('scope')}</h3>
+                    <h3 className="text-caption font-medium text-text-muted">{t('scope')}</h3>
                     {ambassador.municipalities.length === 0 ? (
-                      <p className="text-xs text-amber-700">{t('noScope')}</p>
+                      <p className="text-caption text-warning">{t('noScope')}</p>
                     ) : (
                       <ul className="flex flex-wrap gap-2">
                         {ambassador.municipalities.map((municipality) => {
@@ -118,7 +118,7 @@ export default async function AdminAmbassadorsPage({
                             <li key={municipality.id}>
                               <form action={remove}>
                                 <ConfirmButton
-                                  className="rounded-full border border-neutral-300 px-3 py-1 text-xs hover:bg-neutral-50"
+                                  className="rounded-pill border border-line-strong px-3 py-1 text-caption font-semibold text-ink-soft hover:bg-surface-2"
                                   aria-label={t('removeMunicipality', {
                                     municipality: municipality.name,
                                   })}
@@ -140,7 +140,7 @@ export default async function AdminAmbassadorsPage({
                       <select
                         name="municipalityId"
                         aria-label={t('addMunicipality')}
-                        className="rounded border border-neutral-300 px-2 py-1 text-xs"
+                        className="rounded-md border border-line-strong bg-surface px-2 py-1 text-caption"
                       >
                         {municipalities.map((municipality) => (
                           <option key={municipality.id} value={municipality.id}>

@@ -6,6 +6,7 @@ import { getCurrentUser, PROFILE_PATH } from '@/lib/auth-session';
 import { isAuthAvailable } from '@/lib/auth';
 
 import { SignInForm } from './sign-in-form';
+import { AppShell } from '@/components/shell/app-shell';
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -29,16 +30,18 @@ export default async function SignInPage({
   const { next } = await searchParams;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center p-4">
-      <h1 className="mb-2 text-xl font-semibold">{t('title')}</h1>
-      <p className="mb-6 text-sm text-neutral-600">{t('intro')}</p>
+    <AppShell active="/profil">
+      <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center p-4">
+      <h1 className="mb-2 text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
+      <p className="mb-6 text-body-sm text-ink-soft">{t('intro')}</p>
       {available ? (
         <SignInForm googleEnabled={resolveGoogleAuth(process.env).enabled} next={next ?? ''} />
       ) : (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-body-sm text-danger">
           {t('error_auth_unavailable')}
         </p>
       )}
-    </main>
+      </main>
+    </AppShell>
   );
 }

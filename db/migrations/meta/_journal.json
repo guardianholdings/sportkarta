@@ -127,6 +127,55 @@
       "when": 1784908774687,
       "tag": "0017_stats_public_predicate",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1784995174687,
+      "tag": "0018_private_businesses",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1785066000000,
+      "tag": "0019_partners",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1785069600000,
+      "tag": "0020_minors_as_adults",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1785073200000,
+      "tag": "0021_ad_placements",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1785076800000,
+      "tag": "0022_campaign_partner",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1785080400000,
+      "tag": "0023_facility_sponsorships",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1785084000000,
+      "tag": "0024_harden_sponsorship_windows",
+      "breakpoints": true
     }
   ]
 }

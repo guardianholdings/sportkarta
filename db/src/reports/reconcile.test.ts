@@ -4,6 +4,7 @@ import {
   GRANT_REPORT,
   QUARTERLY_REPORT,
 } from '@sportkarta/lib/reports';
+import { PUBLIC_FACILITY_PREDICATE } from '@sportkarta/lib/opendata';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -398,7 +399,7 @@ describe.skipIf(!url)('report figures against the real database', () => {
         SELECT count(*)::int AS total,
                count(DISTINCT municipality_id) FILTER (WHERE municipality_id IS NOT NULL)::int AS covered,
                count(*) FILTER (WHERE condition = 'unusable')::int AS unusable
-        FROM facilities WHERE status <> 'gone' AND slug IS NOT NULL
+        FROM facilities f WHERE ${PUBLIC_FACILITY_PREDICATE}
       `)
     ).rows[0];
     if (!direct) throw new Error('direct query returned no row');

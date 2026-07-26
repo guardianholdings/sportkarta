@@ -102,7 +102,7 @@ export async function runOsmium(pbfPath: string, workDir: string): Promise<strin
   await execFileAsync('osmium', [
     'tags-filter',
     pbfPath,
-    'nwr/leisure=pitch,fitness_station,sports_centre,track',
+    'nwr/leisure=pitch,fitness_station,sports_centre,track,fitness_centre',
     'nwr/sport',
     '-O',
     '-o',

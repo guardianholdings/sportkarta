@@ -112,28 +112,28 @@ export function PinPicker({ initialLon, initialLat }: PinPickerProps) {
         ref={containerRef}
         role="application"
         aria-label={t('mapLabel')}
-        className="h-72 w-full rounded border border-neutral-300 bg-neutral-100"
+        className="h-72 w-full rounded border border-line-strong bg-paper-sunk"
       />
       <input type="hidden" name="lon" value={position.lon} />
       <input type="hidden" name="lat" value={position.lat} />
 
-      <div className="flex flex-wrap items-center gap-3 text-sm">
+      <div className="flex flex-wrap items-center gap-3 text-body-sm">
         <button
           type="button"
           onClick={locateMe}
           disabled={locating}
-          className="rounded border border-neutral-300 px-3 py-1 disabled:opacity-50"
+          className="rounded-pill border border-line-strong bg-surface px-3 py-1.5 font-semibold text-ink-soft hover:bg-surface-2 disabled:opacity-50"
         >
           {locating ? t('locating') : t('useMyLocation')}
         </button>
-        <span className="text-neutral-600">
+        <span className="text-ink-soft">
           {t('coordinates', { lat: position.lat.toFixed(5), lon: position.lon.toFixed(5) })}
         </span>
       </div>
 
-      <p className="text-xs text-neutral-500">{t('pinHint')}</p>
+      <p className="text-caption text-text-muted">{t('pinHint')}</p>
       {locationError && (
-        <p role="alert" className="text-xs text-amber-700">
+        <p role="alert" className="text-caption text-warning">
           {t('locationUnavailable')}
         </p>
       )}

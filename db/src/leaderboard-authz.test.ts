@@ -4,20 +4,25 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { leaderboard, memberStanding } from './leaderboard.js';
 
 /**
- * The leaderboard's exclusion rules, ATTACKED at the query layer
- * (docs/ROADMAP.md §7, Stage 5.2: "minor protection enforced at the query layer
- * and attacked in tests").
+ * The leaderboard's exclusion rule, ATTACKED at the query layer
+ * (docs/ROADMAP.md §7, Stage 5.2 — "enforced at the query layer and attacked in
+ * tests"; the rule itself was narrowed by migration 0020).
  *
- * The binding rule is a legal constant, not a preference: minors are never on
- * individual public leaderboards. So these tests do not check that the UI hides
- * a minor — they give a minor the highest score on the board and then try, by
- * every route the schema allows, to get them to appear. A test that only
- * exercised the happy path would pass just as well against an implementation
- * with the predicate in a React component.
+ * THERE IS EXACTLY ONE RULE LEFT AND IT IS CONSENT. Appearing on a ranked
+ * public list publishes a name next to an activity level, so it takes the
+ * member's own opt-in. These tests give the member who withheld that opt-in the
+ * highest score on the board and then try, by every route the schema allows, to
+ * get them to appear — a test that only exercised the happy path would pass
+ * against an implementation with the predicate in a React component.
  *
- * The second rule is consent: appearing on a ranked public list publishes a
- * name next to an activity level, so it takes the same opt-in that publishes a
- * passport. A member who never opted in is as absent as a minor.
+ * AGE IS NO LONGER A TERM. Until 0020 a minor was excluded by a legal constant,
+ * with 0010's CHECK making a public minor unconstructible as a second layer.
+ * The operator removed both on 2026-07-25 (minors are treated as adults), so
+ * the MINOR fixture below is PUBLIC and every assertion about them is inverted:
+ * they must appear, in every scope, and they must keep their standing when the
+ * flag is set. That inversion is the regression test for the change — a
+ * reinstated `is_minor` predicate anywhere fails here rather than silently
+ * un-publishing somebody.
  *
  * Integration test against the dev/CI database; skips without DATABASE_URL.
  */
@@ -93,22 +98,18 @@ describe.skipIf(!hasDb)('leaderboard eligibility (requires running database)', (
   }
 
   /**
-   * Everyone adult and public except where the test says otherwise.
+   * Everyone public except PRIVATE, who is the one member withholding consent.
    *
-   * The minor is created PRIVATE because the database will not allow anything
-   * else — `users_minor_profile_not_public` (0010) refuses a public minor
-   * outright, which is asserted below rather than assumed. So the protection
-   * here is two independent layers: a minor cannot reach the state the view
-   * looks for, AND the view excludes them even if they somehow did. The minor
-   * still gets a handle and the top score, so a view that dropped its
-   * `is_minor` predicate would be caught the moment the CHECK were ever
-   * relaxed.
+   * The minor is created PUBLIC — a row the database refused to hold before
+   * 0020 dropped `users_minor_profile_not_public` — and given the top score, so
+   * a reinstated age predicate in the view or in a query shows up as a
+   * disappearing rank 1 rather than as a subtle omission.
    */
   beforeEach(async () => {
     await cleanup();
     for (const id of ALL) {
       const isMinor = id === MINOR;
-      const visibility = id === PRIVATE || isMinor ? 'private' : 'public';
+      const visibility = id === PRIVATE ? 'private' : 'public';
       await client.query(
         `INSERT INTO users (id, display_name, email, is_minor, profile_visibility, public_handle)
          VALUES ($1, $2, $3, $4, $5::profile_visibility, $6)`,
@@ -116,8 +117,9 @@ describe.skipIf(!hasDb)('leaderboard eligibility (requires running database)', (
       );
     }
 
-    // The minor and the private member out-score everybody, on both facilities,
-    // so any leak puts them at rank 1 rather than somewhere easy to miss.
+    // The minor and the private member out-score everybody, on both facilities:
+    // the minor must therefore hold rank 1, and any leak of the private member
+    // puts them there too rather than somewhere easy to miss.
     const awards: [string, string, string, number][] = [
       [MINOR, facilityA, 'facility_added', 10],
       [MINOR, facilityB, 'facility_added', 10],
@@ -146,28 +148,33 @@ describe.skipIf(!hasDb)('leaderboard eligibility (requires running database)', (
   it('ranks eligible members, highest first', async () => {
     const rows = await leaderboard(db as never, { scope: { kind: 'national' }, limit: 50 });
     const ours = rows.filter((row) => Object.values(HANDLES).includes(row.handle));
-    expect(ours[0]?.handle).toBe(HANDLES[CHAMPION]);
-    expect(ours[0]?.points).toBe(13);
-    expect(ours[1]?.handle).toBe(HANDLES[RUNNER_UP]);
+    // The published minor's 20 points beat the champion's 13. Before 0020 this
+    // row could not exist at all.
+    expect(ours[0]?.handle).toBe(HANDLES[MINOR]);
+    expect(ours[0]?.points).toBe(20);
+    expect(ours[1]?.handle).toBe(HANDLES[CHAMPION]);
+    expect(ours[1]?.points).toBe(13);
+    expect(ours[2]?.handle).toBe(HANDLES[RUNNER_UP]);
   });
 
-  it('refuses the attack at its root: a minor cannot be made publicly visible at all', async () => {
-    // The direct route to putting a child on the board is to publish their
-    // passport. The database refuses, so the leaderboard never gets the chance
-    // to decide — this is the first of the two layers.
+  it('lets a minor publish at all — the CHECK that forbade it is gone', async () => {
+    // The fixture already inserts the minor as public, so this asserts the
+    // schema state directly: the statement 0010 refused now succeeds, straight
+    // against Postgres with no application in the picture.
+    await client.query(`UPDATE users SET profile_visibility = 'private' WHERE id = $1`, [MINOR]);
     await expect(
       client.query(`UPDATE users SET profile_visibility = 'public' WHERE id = $1`, [MINOR]),
-    ).rejects.toThrow(/users_minor_profile_not_public/);
+    ).resolves.toBeDefined();
   });
 
-  it('NEVER shows a minor, in any scope, even topping the board', async () => {
+  it('SHOWS a published minor in every scope, at the top of the board', async () => {
     for (const { name, scope } of scopes()) {
       for (const period of ['all_time', 'month'] as const) {
         const rows = await leaderboard(db as never, { scope, period, limit: 200 });
         expect(
           rows.map((row) => row.handle),
-          `${name}/${period} leaked a minor`,
-        ).not.toContain(HANDLES[MINOR]);
+          `${name}/${period} dropped a published minor`,
+        ).toContain(HANDLES[MINOR]);
       }
     }
   });
@@ -181,9 +188,9 @@ describe.skipIf(!hasDb)('leaderboard eligibility (requires running database)', (
     }
   });
 
-  it('gives a minor no standing to read, even about themselves', async () => {
+  it('gives a minor their own standing, in every scope', async () => {
     for (const { scope } of scopes()) {
-      expect(await memberStanding(db as never, MINOR, { scope })).toBeNull();
+      expect(await memberStanding(db as never, MINOR, { scope })).not.toBeNull();
     }
   });
 
@@ -191,19 +198,18 @@ describe.skipIf(!hasDb)('leaderboard eligibility (requires running database)', (
     expect(await memberStanding(db as never, PRIVATE, {})).toBeNull();
   });
 
-  it('drops a member from the board the moment they are marked a minor', async () => {
+  it('KEEPS a member on the board when they are newly marked a minor', async () => {
     const before = await leaderboard(db as never, { limit: 200 });
     expect(before.map((r) => r.handle)).toContain(HANDLES[CHAMPION]);
 
-    // The demotion the profile form performs (0010): minor + private together.
-    await client.query(
-      `UPDATE users SET is_minor = true, profile_visibility = 'private' WHERE id = $1`,
-      [CHAMPION],
-    );
+    // Exactly what a member entering their date of birth now does — the flag
+    // alone, with no demotion (apps/web/lib/profile.ts stopped touching
+    // visibility in 0020, because a profile save is not a consent decision).
+    await client.query(`UPDATE users SET is_minor = true WHERE id = $1`, [CHAMPION]);
 
     const after = await leaderboard(db as never, { limit: 200 });
-    expect(after.map((r) => r.handle)).not.toContain(HANDLES[CHAMPION]);
-    expect(await memberStanding(db as never, CHAMPION, {})).toBeNull();
+    expect(after.map((r) => r.handle)).toContain(HANDLES[CHAMPION]);
+    expect(await memberStanding(db as never, CHAMPION, {})).not.toBeNull();
   });
 
   it('drops a member the moment they make their passport private again', async () => {
@@ -212,15 +218,16 @@ describe.skipIf(!hasDb)('leaderboard eligibility (requires running database)', (
     expect(rows.map((r) => r.handle)).not.toContain(HANDLES[CHAMPION]);
   });
 
-  it('the view itself excludes them — with no application code in the picture', async () => {
+  it('the view itself excludes the unconsenting member — no application code in the picture', async () => {
     // The guarantee has to survive somebody writing a new query by hand, so it
     // is asserted against the view directly rather than through the module.
+    // PRIVATE is absent; the minor is present.
     const result = await client.query<{ id: string }>(
       `SELECT id FROM leaderboard_eligible_members WHERE id = ANY($1::text[])`,
       [ALL],
     );
     const visible = result.rows.map((row) => row.id).sort();
-    expect(visible).toEqual([CHAMPION, RUNNER_UP].sort());
+    expect(visible).toEqual([CHAMPION, RUNNER_UP, MINOR].sort());
   });
 
   it('a hand-written ranking that joins the view inherits the protection', async () => {
@@ -234,7 +241,24 @@ describe.skipIf(!hasDb)('leaderboard eligibility (requires running database)', (
         GROUP BY m.id`,
       [ALL],
     );
-    expect(result.rows.map((r) => r.id).sort()).toEqual([CHAMPION, RUNNER_UP].sort());
+    expect(result.rows.map((r) => r.id).sort()).toEqual([CHAMPION, RUNNER_UP, MINOR].sort());
+  });
+
+  it('a member who never consented is absent however their row is otherwise shaped', async () => {
+    // The remaining rule, attacked from the other side: the private member has a
+    // handle and every other attribute of an eligible one. Consent is the only
+    // thing they lack, and it is the only thing that matters.
+    const handles = await client.query<{ public_handle: string }>(
+      `SELECT public_handle FROM users WHERE id = $1`,
+      [PRIVATE],
+    );
+    expect(handles.rows[0]?.public_handle).toBe(HANDLES[PRIVATE]);
+
+    const result = await client.query<{ id: string }>(
+      `SELECT id FROM leaderboard_eligible_members WHERE id = $1`,
+      [PRIVATE],
+    );
+    expect(result.rows).toHaveLength(0);
   });
 
   it('scopes actually narrow — a sport-specific board is not the national one', async () => {

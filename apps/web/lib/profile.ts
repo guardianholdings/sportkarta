@@ -93,23 +93,19 @@ export async function saveProfile(
   update: ProfileUpdate,
 ): Promise<void> {
   /**
-   * Becoming a minor demotes a public passport to private IN THE SAME
-   * STATEMENT (Stage 5.1).
+   * The age category is recorded and CHANGES NOTHING ELSE.
    *
-   * `users_minor_profile_not_public` forbids the combination, so without this
-   * a member who corrects their birth date downwards would get a constraint
-   * violation instead of a saved profile — the database would be right and the
-   * person would be stuck. Demoting here makes the correction succeed and the
-   * exposure stop atomically; the CHECK stays as the backstop for every other
-   * path. Deliberately one-directional: turning 18 does not re-publish a
-   * passport, because nobody consented to that.
+   * Until migration 0020 this statement also demoted a public passport to
+   * private whenever it newly derived a minor, because
+   * `users_minor_profile_not_public` would otherwise have refused the save.
+   * That constraint is gone (operator decision 2026-07-25 — minors are treated
+   * as adults), and with it the only reason this function ever touched
+   * visibility. It must not acquire another: a profile save is not a consent
+   * decision, and silently publishing or unpublishing a passport from the
+   * profile form is exactly the surprise the opt-in exists to prevent.
    */
   const isMinorAssignment =
-    update.isMinor === undefined
-      ? sql``
-      : update.isMinor
-        ? sql`, is_minor = ${update.isMinor}, profile_visibility = 'private'`
-        : sql`, is_minor = ${update.isMinor}`;
+    update.isMinor === undefined ? sql`` : sql`, is_minor = ${update.isMinor}`;
 
   await db.execute(sql`
     UPDATE users

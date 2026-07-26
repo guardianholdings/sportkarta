@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
+import { adSlotProps } from '@/components/ads/ad-slot';
 import { MapExplorer } from '@/components/map/map-explorer';
 import type { MapView } from '@/components/map/map-canvas';
 import { parsePublicFilters } from '@/lib/filters';
+import { externalMapLayers } from '@/lib/map/external-layers';
 import { listPublicFacilities } from '@/lib/public-data';
 import { buildAlternates } from '@/lib/seo';
 
@@ -55,9 +57,14 @@ export default async function HomePage({
   const sp = await searchParams;
 
   const filters = parsePublicFilters(sp);
-  const [t, facilities] = await Promise.all([
+  // The `map_panel` placement is resolved HERE, on the server, and handed to the
+  // client explorer as three plain strings (MONETISATION §S5): the ad logic and
+  // the database import stay out of the map bundle, and the map CANVAS stays
+  // ad-free — the slot is a card at the foot of the list panel beside it.
+  const [t, facilities, ad] = await Promise.all([
     getTranslations('Map'),
     listPublicFacilities(filters, 100),
+    adSlotProps('map_panel'),
   ]);
 
   return (
@@ -67,6 +74,8 @@ export default async function HomePage({
         filters={filters}
         initialView={parseView(sp)}
         initialSelected={typeof sp.selected === 'string' ? sp.selected : null}
+        externalLayers={externalMapLayers()}
+        ad={ad}
         initialFacilities={facilities.map((f) => ({
           slug: f.slug,
           name: f.name,

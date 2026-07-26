@@ -45,7 +45,7 @@ export default async function AddFacilityPage({
   const lat = coordinate(sp.lat, 90) ?? DEFAULT_CENTRE.lat;
 
   return (
-    <main className="mx-auto max-w-xl px-4 py-5">
+    <main className="mx-auto max-w-2xl px-4 py-5">
       <Link
         href="/"
         className="mb-4 inline-flex text-body-sm font-medium text-ink-soft hover:text-brand"

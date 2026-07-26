@@ -36,20 +36,20 @@ export function CloseCampaignForm({
   return (
     <form action={action} className="space-y-2">
       <input type="hidden" name="id" value={id} />
-      <p className="max-w-md text-xs text-neutral-600">{warning}</p>
+      <p className="max-w-md text-caption text-ink-soft">{warning}</p>
       <label className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-neutral-600">{confirmLabel}</span>
+        <span className="text-caption text-ink-soft">{confirmLabel}</span>
         <input
           type="text"
           value={typed}
           onChange={(event) => setTyped(event.target.value)}
-          className="w-32 rounded border border-neutral-300 px-2 py-1 text-sm"
+          className="w-32 rounded-md border border-line-strong bg-surface px-2 py-1 text-body-sm"
         />
       </label>
       <button
         type="submit"
         disabled={!armed}
-        className="rounded bg-red-700 px-3 py-1.5 text-sm text-white disabled:opacity-40"
+        className="rounded-pill bg-danger px-3 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs disabled:opacity-40"
       >
         {label}
       </button>

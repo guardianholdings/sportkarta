@@ -8,6 +8,7 @@ import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Link } from '@/i18n/navigation';
 import { requireRole } from '@/lib/auth-session';
 import { localizedText } from '@/lib/campaigns';
+import { partnerText, sponsorCandidates } from '@/lib/partners';
 import { cityDisplayName, loadCityCatalog } from '@/lib/places';
 
 import { cancelCampaignAction, closeCampaignAction, publishCampaignAction, updateCampaignAction } from '../actions';
@@ -24,10 +25,11 @@ export default async function EditCampaignPage({
   const { locale, slug } = await params;
   setRequestLocale(locale);
   await requireRole('admin');
-  const [t, sportName, catalog] = await Promise.all([
+  const [t, sportName, catalog, sponsors] = await Promise.all([
     getTranslations('AdminCampaigns'),
     getTranslations('Sport'),
     loadCityCatalog(),
+    sponsorCandidates(getDb()),
   ]);
 
   const campaign = await campaignBySlug(getDb(), slug);
@@ -37,11 +39,12 @@ export default async function EditCampaignPage({
   const isClosed = campaign.status === 'closed';
 
   /**
-   * The ADMIN standings: everyone, by name, minors and unpublished members
-   * included. This exists so a prize can actually be awarded — scoring already
-   * counted these people, and hiding them from the organisers too would mean a
-   * campaign that let members compete and then could not tell anyone they had
-   * won. The public board (apps/web/app/[locale]/kampanii) shows far less.
+   * The ADMIN standings: everyone, by name, unpublished members included. This
+   * exists so a prize can actually be awarded — scoring already counted these
+   * people, and hiding them from the organisers too would mean a campaign that
+   * let members compete and then could not tell anyone they had won. The public
+   * board (apps/web/app/[locale]/kampanii) shows far less. It carries no age
+   * datum: `adminStandings` deliberately stopped selecting `is_minor` in 0020.
    */
   const standings = isClosed ? [] : await adminStandings(getDb(), campaign, { limit: 100 });
   const frozen = isClosed ? await frozenResults(getDb(), campaign.id, 100) : [];
@@ -58,24 +61,24 @@ export default async function EditCampaignPage({
     <main className="max-w-3xl space-y-8">
       <header className="space-y-2">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-xl font-semibold">
+          <h1 className="text-h2 font-extrabold tracking-tight text-ink">
             {localizedText(campaign.titleBg, campaign.titleEn, locale)}
           </h1>
-          <span className="rounded bg-neutral-100 px-2 py-0.5 text-xs">{t(`phase_${phase}`)}</span>
-          <Link href={`/kampanii/${campaign.slug}`} className="ml-auto text-sm underline">
+          <span className="rounded bg-paper-sunk px-2 py-0.5 text-caption">{t(`phase_${phase}`)}</span>
+          <Link href={`/kampanii/${campaign.slug}`} className="ml-auto text-body-sm font-medium text-link hover:text-link-hover">
             {t('viewPublic')}
           </Link>
         </div>
-        <p className="text-sm text-neutral-500">
+        <p className="text-body-sm text-text-muted">
           {campaign.window.startsOn} → {campaign.window.endsOn}
         </p>
       </header>
 
-      <section className="flex flex-wrap gap-3 rounded border border-neutral-200 p-4">
+      <section className="flex flex-wrap gap-3 rounded-card border border-line bg-surface p-4 shadow-sm">
         {(campaign.status === 'draft' || campaign.status === 'cancelled') && (
           <form action={publishCampaignAction}>
             <input type="hidden" name="id" value={campaign.id} />
-            <button type="submit" className="rounded bg-neutral-900 px-3 py-1.5 text-sm text-white">
+            <button type="submit" className="rounded-pill bg-brand px-3 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover">
               {t('publish')}
             </button>
           </form>
@@ -84,7 +87,7 @@ export default async function EditCampaignPage({
           <form action={cancelCampaignAction}>
             <input type="hidden" name="id" value={campaign.id} />
             <ConfirmButton
-              className="rounded border border-neutral-300 px-3 py-1.5 text-sm"
+              className="rounded border border-line-strong px-3 py-1.5 text-body-sm"
               message={t('cancelConfirm')}
             >
               {t('cancel')}
@@ -101,18 +104,18 @@ export default async function EditCampaignPage({
             warning={t('closeWarning')}
           />
         )}
-        {isClosed && <p className="text-sm text-neutral-600">{t('closedNote')}</p>}
+        {isClosed && <p className="text-body-sm text-ink-soft">{t('closedNote')}</p>}
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">
+        <h2 className="text-h4 font-bold text-ink">
           {isClosed ? t('frozenStandings') : t('liveStandings')}
         </h2>
         {isClosed ? (
-          <ol className="space-y-1 text-sm">
+          <ol className="space-y-1 text-body-sm">
             {frozen.map((row) => (
               <li key={`${row.rank}-${row.handle ?? row.municipalityId ?? 'x'}`} className="flex gap-3">
-                <span className="w-8 tabular-nums text-neutral-500">{row.rank}</span>
+                <span className="w-8 tabular-nums text-text-muted">{row.rank}</span>
                 <span>
                   {row.displayName ??
                     (row.municipalityId
@@ -124,11 +127,11 @@ export default async function EditCampaignPage({
             ))}
           </ol>
         ) : standings.length === 0 ? (
-          <p className="text-sm text-neutral-600">{t('noScoresYet')}</p>
+          <p className="text-body-sm text-ink-soft">{t('noScoresYet')}</p>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-body-sm">
             <thead>
-              <tr className="border-b border-neutral-200 text-left text-xs text-neutral-500">
+              <tr className="border-b border-line text-left text-caption text-text-muted">
                 <th scope="col" className="py-2 pr-3 font-medium">{t('columnRank')}</th>
                 <th scope="col" className="py-2 pr-3 font-medium">{t('columnMember')}</th>
                 <th scope="col" className="py-2 pr-3 font-medium">{t('columnVisibility')}</th>
@@ -137,17 +140,16 @@ export default async function EditCampaignPage({
             </thead>
             <tbody>
               {standings.map((row) => (
-                <tr key={row.userId ?? row.rank} className="border-b border-neutral-100">
-                  <td className="py-2 pr-3 tabular-nums text-neutral-500">{row.rank}</td>
+                <tr key={row.userId ?? row.rank} className="border-b border-line">
+                  <td className="py-2 pr-3 tabular-nums text-text-muted">{row.rank}</td>
                   <td className="py-2 pr-3">{row.displayName}</td>
-                  <td className="py-2 pr-3 text-xs text-neutral-500">
+                  <td className="py-2 pr-3 text-caption text-text-muted">
                     {/* Why somebody is not on the public board, stated plainly:
-                        the organiser needs to know before they announce it. */}
-                    {row.isMinor
-                      ? t('notPublicMinor')
-                      : row.isPublic
-                        ? t('publicMember')
-                        : t('notPublicPrivate')}
+                        the organiser needs to know before they announce it.
+                        One reason only since 0020 — the passport is private.
+                        Age is not shown here and is not selected (see
+                        adminStandings). */}
+                    {row.isPublic ? t('publicMember') : t('notPublicPrivate')}
                   </td>
                   <td className="py-2 text-right font-medium tabular-nums">{row.score}</td>
                 </tr>
@@ -158,14 +160,18 @@ export default async function EditCampaignPage({
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">{t('editTitle')}</h2>
-        {isClosed && <p className="text-sm text-neutral-600">{t('closedNotEditable')}</p>}
+        <h2 className="text-h4 font-bold text-ink">{t('editTitle')}</h2>
+        {isClosed && <p className="text-body-sm text-ink-soft">{t('closedNotEditable')}</p>}
         {!isClosed && (
           <CampaignForm
             action={updateCampaignAction}
             campaign={campaign}
             cities={cities}
             sportLabels={sportLabels}
+            partners={sponsors.map((p) => ({
+              id: p.id,
+              name: partnerText(p.nameBg, p.nameEn, locale) ?? p.nameBg,
+            }))}
           />
         )}
       </section>

@@ -32,8 +32,9 @@ describe('mapSports', () => {
     });
   });
 
-  it('implies fitness for sport-less fitness_station only', () => {
+  it('implies fitness for sport-less fitness_station and fitness_centre only', () => {
     expect(mapSports(undefined, 'fitness_station').sports).toEqual(['fitness']);
+    expect(mapSports(undefined, 'fitness_centre').sports).toEqual(['fitness']);
     expect(mapSports(undefined, 'pitch').sports).toEqual([]);
     expect(mapSports(undefined, 'track').sports).toEqual([]);
   });
@@ -71,6 +72,8 @@ describe('mapCovered / mapAccess', () => {
     expect(mapAccess({ access: 'customers' })).toBe('paid');
     expect(mapAccess({ leisure: 'sports_centre' })).toBe('paid');
     expect(mapAccess({ leisure: 'sports_centre', fee: 'no' })).toBe('free');
+    expect(mapAccess({ leisure: 'fitness_centre' })).toBe('paid');
+    expect(mapAccess({ leisure: 'fitness_centre', fee: 'no' })).toBe('free');
     expect(mapAccess({ leisure: 'pitch' })).toBe('free');
   });
 });

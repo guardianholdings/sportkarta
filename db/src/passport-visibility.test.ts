@@ -2,15 +2,22 @@ import pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 /**
- * The minor boundary, proven AT THE QUERY LAYER (Stage 5.1) — the same
- * discipline as db/src/moderation-authz.test.ts.
+ * Passport visibility constraints, proven AT THE QUERY LAYER (Stage 5.1) — the
+ * same discipline as db/src/moderation-authz.test.ts. These tests bypass the
+ * application entirely and run the statements straight against Postgres: if the
+ * guarantees lived in TypeScript they would all pass while being worthless.
  *
- * CLAUDE.md: "Minors: no individual public leaderboards". A publicly readable
- * page of one named child's sporting habits is that exposure by another route,
- * so the rule is a CHECK constraint and not an `if` in a server action. These
- * tests bypass the application entirely and run the statements straight against
- * Postgres: if the guarantee lived in TypeScript they would all pass while
- * being worthless.
+ * THE MINOR BOUNDARY USED TO BE THE POINT OF THIS FILE. `users_minor_profile_
+ * not_public` (0010) made a public minor unconstructible, and the file's name
+ * was `passport-minor.test.ts`. Migration 0020 dropped that CHECK (operator
+ * decision 2026-07-25 — minors are treated as adults) and the assertions are
+ * inverted rather than deleted: publishing a minor must SUCCEED, and marking a
+ * public member as a minor must leave their passport exactly as it was. A
+ * reinstated constraint fails here loudly.
+ *
+ * What is still enforced, and still tested below, is everything that was never
+ * about age: a public passport needs a handle, the handle has a shape, handles
+ * are unique, and none of these constraints may block GDPR erasure.
  *
  * Integration test against the dev/CI database; skips without DATABASE_URL.
  */
@@ -73,47 +80,56 @@ describe.skipIf(!hasDb)('passport visibility constraints (requires running datab
     expect(result.rows[0]?.profile_visibility).toBe('public');
   });
 
-  it('REFUSES to publish a minor, with the application bypassed entirely', async () => {
-    await expect(
-      client.query(
-        `UPDATE users SET profile_visibility = 'public', public_handle = $2 WHERE id = $1`,
-        [MINOR, HANDLE_A],
-      ),
-    ).rejects.toThrow(/users_minor_profile_not_public/);
+  it('PUBLISHES a minor, with the application bypassed entirely', async () => {
+    // The statement 0010 refused. It is asserted straight against Postgres
+    // because that is where the refusal lived: a TypeScript-only change would
+    // have left the constraint in place and this test red.
+    await client.query(
+      `UPDATE users SET profile_visibility = 'public', public_handle = $2 WHERE id = $1`,
+      [MINOR, HANDLE_A],
+    );
+    const result = await client.query(
+      `SELECT profile_visibility, is_minor FROM users WHERE id = $1`,
+      [MINOR],
+    );
+    expect(result.rows[0]).toMatchObject({ profile_visibility: 'public', is_minor: true });
   });
 
-  it('REFUSES to mark an already-public member as a minor', async () => {
+  it('leaves a public passport untouched when the member is marked a minor', async () => {
     await client.query(
       `UPDATE users SET profile_visibility = 'public', public_handle = $2 WHERE id = $1`,
       [ADULT, HANDLE_A],
     );
-    // This is the direction apps/web/lib/profile.ts handles by demoting to
-    // private in the same statement. Without that, the database refuses — which
-    // is the correct failure, and is why the application does the demotion
-    // rather than leaving a member unable to correct their birth date.
-    await expect(
-      client.query(`UPDATE users SET is_minor = true WHERE id = $1`, [ADULT]),
-    ).rejects.toThrow(/users_minor_profile_not_public/);
-  });
-
-  it('accepts the demotion the application performs in one statement', async () => {
-    await client.query(
-      `UPDATE users SET profile_visibility = 'public', public_handle = $2 WHERE id = $1`,
-      [ADULT, HANDLE_A],
-    );
-    await client.query(
-      `UPDATE users SET is_minor = true, profile_visibility = 'private' WHERE id = $1`,
-      [ADULT],
-    );
+    // The direction apps/web/lib/profile.ts used to handle by demoting to
+    // private in the same statement, because the database would otherwise
+    // refuse. Both the refusal and the demotion are gone: entering a date of
+    // birth records a category and changes nothing a member consented to.
+    await client.query(`UPDATE users SET is_minor = true WHERE id = $1`, [ADULT]);
     const result = await client.query(
       `SELECT is_minor, profile_visibility, public_handle FROM users WHERE id = $1`,
       [ADULT],
     );
-    // The handle survives the demotion — it grants nothing while private, and
-    // keeping it means a member who turns out to be an adult after all does not
-    // lose the link they had shared.
     expect(result.rows[0]).toMatchObject({
       is_minor: true,
+      profile_visibility: 'public',
+      public_handle: HANDLE_A,
+    });
+  });
+
+  it('still lets a member go private, keeping the handle they shared', async () => {
+    await client.query(
+      `UPDATE users SET profile_visibility = 'public', public_handle = $2 WHERE id = $1`,
+      [ADULT, HANDLE_A],
+    );
+    await client.query(`UPDATE users SET profile_visibility = 'private' WHERE id = $1`, [ADULT]);
+    const result = await client.query(
+      `SELECT profile_visibility, public_handle FROM users WHERE id = $1`,
+      [ADULT],
+    );
+    // The handle survives — it grants nothing while private (the read path
+    // filters on visibility), and keeping it means a member who publishes again
+    // does not lose the link they had already shared.
+    expect(result.rows[0]).toMatchObject({
       profile_visibility: 'private',
       public_handle: HANDLE_A,
     });

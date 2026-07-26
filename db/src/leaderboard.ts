@@ -6,11 +6,11 @@ import { sql, type SQL } from 'drizzle-orm';
  * Stage 5.2).
  *
  * WHO CAN APPEAR IS NOT DECIDED HERE. Every query below joins
- * `leaderboard_eligible_members` (migration 0011) instead of `users`, and that
- * view is the single definition: not a minor (a binding legal constant), has
- * opted their passport public (appearing on a ranked public list is individual
- * public exposure, and consent for it is the same opt-in that publishes a
- * passport), and has a handle to link to.
+ * `leaderboard_eligible_members` (migration 0011, amended by 0020) instead of
+ * `users`, and that view is the single definition: has opted their passport
+ * public (appearing on a ranked public list is individual public exposure, and
+ * consent for it is the same opt-in that publishes a passport), and has a handle
+ * to link to. Age is not a condition — 0020 removed the minor exclusion.
  *
  * The point of the view is that this file cannot get it wrong, and neither can
  * the next slice somebody adds. If a fourth dimension arrives — per quarter,
@@ -26,8 +26,25 @@ import { sql, type SQL } from 'drizzle-orm';
  * created to game that ledger, and the defence is that the ledger was designed
  * not to be gameable before anything was ranking it.
  *
- * Check-ins are deliberately NOT ranked. They are self-attested until Stage
- * 4.3's signed QR exists, so ranking them would be ranking a claim.
+ * Check-ins are deliberately NOT ranked HERE, but the original reason has since
+ * expired and the boards below did not change, so read the distinction before
+ * assuming either way.
+ *
+ * Stage 5.2 wrote "check-ins are self-attested until Stage 4.3's signed QR
+ * exists, so ranking them would be ranking a claim." That QR shipped (inside
+ * 5.4), and `play_session_checkins_only_qr_scores` now makes the evidence tier
+ * STRUCTURAL: a row may be `scored` only when `method = 'qr'`. So 5.2's argument
+ * still holds for exactly two of the three methods — `self` is a button somebody
+ * tapped and `organizer` is somebody vouching, and 0014 says in as many words
+ * that neither is evidence — while a `qr` row is now the strongest attendance
+ * claim the product can make.
+ *
+ * What these boards rank is unchanged and is a SCOPE decision, not an evidence
+ * one: they rank `points_ledger`, so a check-in reaches them only through the
+ * ledger's own scoring, already capped and idempotent. A board that ranks
+ * check-ins directly is a different query with a different guard — it must
+ * filter `method = 'qr'`, or it re-opens the hole the CHECK closed by counting
+ * taps and vouches as attendance.
  */
 
 interface SqlRunner {
@@ -122,8 +139,8 @@ export async function leaderboard(
       count(*)::int       AS contributions,
       rank() OVER (ORDER BY sum(p.points) DESC)::int AS rank
     FROM points_ledger p
-    -- The view, never the users table: eligibility (minor / consent) is defined
-    -- once, in migration 0011, and this join is how it gets enforced.
+    -- The view, never the users table: eligibility (consent) is defined once,
+    -- in migration 0011, and this join is how it gets enforced.
     JOIN leaderboard_eligible_members m ON m.id = p.user_id
     JOIN facilities f ON f.id = p.facility_id
     WHERE true
@@ -156,10 +173,10 @@ export interface MemberStanding {
  * One member's own position — including well past the visible page, so someone
  * ranked 340th can still find out.
  *
- * Returns null when the member is not eligible. That covers minors and members
- * who have not published their passport, and the caller distinguishes them from
- * the profile it already holds rather than being told here: this function is
- * not the right place to explain a legal rule.
+ * Returns null when the member is not eligible — i.e. has not published their
+ * passport. The caller explains that from the profile it already holds rather
+ * than being told here: this function is not the right place to explain a
+ * product rule.
  */
 export async function memberStanding(
   db: SqlRunner,

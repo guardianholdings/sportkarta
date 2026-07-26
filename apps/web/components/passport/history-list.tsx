@@ -16,27 +16,27 @@ export async function HistoryList({ entries }: { entries: PassportHistoryEntry[]
   const [t, locale] = await Promise.all([getTranslations('Passport'), getLocale()]);
 
   if (entries.length === 0) {
-    return <p className="text-sm text-neutral-600">{t('historyEmpty')}</p>;
+    return <p className="text-body-sm text-ink-soft">{t('historyEmpty')}</p>;
   }
 
   const formatDate = (value: string): string =>
     new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(value));
 
   return (
-    <ul className="space-y-1 text-sm">
+    <ul className="space-y-1 text-body-sm">
       {entries.map((entry) => (
         <li key={`${entry.kind}-${entry.at}`} className="flex flex-wrap gap-2">
-          <span className="text-neutral-500">{formatDate(entry.at)}</span>
+          <span className="text-text-muted">{formatDate(entry.at)}</span>
           <span>
             {entry.facilitySlug ? (
-              <Link href={`/obekt/${entry.facilitySlug}`} className="underline">
+              <Link href={`/obekt/${entry.facilitySlug}`} className="font-medium text-link hover:text-link-hover">
                 {entry.facilityName ?? t(`event_${entry.kind}`)}
               </Link>
             ) : (
               (entry.facilityName ?? t(`event_${entry.kind}`))
             )}
           </span>
-          <span className="text-neutral-500">{t(`event_${entry.kind}`)}</span>
+          <span className="text-text-muted">{t(`event_${entry.kind}`)}</span>
           {entry.points > 0 && <span className="ml-auto font-medium">+{entry.points}</span>}
         </li>
       ))}
@@ -58,16 +58,16 @@ export async function PublicActivityList({ months }: { months: MonthlyActivity[]
   const t = await getTranslations('Passport');
 
   if (months.length === 0) {
-    return <p className="text-sm text-neutral-600">{t('historyEmpty')}</p>;
+    return <p className="text-body-sm text-ink-soft">{t('historyEmpty')}</p>;
   }
 
   return (
-    <ul className="space-y-1 text-sm">
+    <ul className="space-y-1 text-body-sm">
       {months.map((month) => (
         <li key={month.month} className="flex gap-3">
-          <span className="tabular-nums text-neutral-500">{month.month}</span>
+          <span className="tabular-nums text-text-muted">{month.month}</span>
           <span>{t('monthlyContributions', { count: month.contributions })}</span>
-          <span className="text-neutral-500">{t('monthlyCheckins', { count: month.checkins })}</span>
+          <span className="text-text-muted">{t('monthlyCheckins', { count: month.checkins })}</span>
         </li>
       ))}
     </ul>

@@ -1,3 +1,5 @@
+import { PUBLIC_FACILITY_PREDICATE } from '../opendata/schema.js';
+
 import type { ReportDefinition } from './schema.js';
 
 /**
@@ -92,13 +94,13 @@ export const QUARTERLY_REPORT: ReportDefinition = {
           unit: 'count',
           additive: true,
           personDerived: false,
-          // The same public-visibility predicate as the map and mv_national_stats
-          // (status <> 'gone' AND slug IS NOT NULL): a report must not count a
+          // The same public-visibility predicate as the map and mv_national_stats,
+          // (the shared PUBLIC_FACILITY_PREDICATE, paid-gate included): a report must not count a
           // row the public register does not show.
           sql: `
             SELECT count(*)::int AS value FROM facilities f
             WHERE f.created_at >= :from AND f.created_at < :to
-              AND f.status <> 'gone' AND f.slug IS NOT NULL
+              AND ${PUBLIC_FACILITY_PREDICATE}
           `,
         },
       ],
@@ -129,7 +131,7 @@ export const QUARTERLY_REPORT: ReportDefinition = {
           personDerived: false,
           sql: `
             SELECT count(*)::int AS value FROM facilities f
-            WHERE f.status <> 'gone' AND f.slug IS NOT NULL AND f.condition IS NOT NULL
+            WHERE ${PUBLIC_FACILITY_PREDICATE} AND f.condition IS NOT NULL
           `,
         },
         {
@@ -142,7 +144,7 @@ export const QUARTERLY_REPORT: ReportDefinition = {
           personDerived: false,
           sql: `
             SELECT count(*)::int AS value FROM facilities f
-            WHERE f.status <> 'gone' AND f.slug IS NOT NULL AND f.condition = 'unusable'
+            WHERE ${PUBLIC_FACILITY_PREDICATE} AND f.condition = 'unusable'
           `,
         },
         {
@@ -158,7 +160,7 @@ export const QUARTERLY_REPORT: ReportDefinition = {
               100.0 * count(*) FILTER (WHERE f.condition IN ('poor', 'unusable'))
               / nullif(count(*) FILTER (WHERE f.condition IS NOT NULL), 0), 1)::float8 AS value
             FROM facilities f
-            WHERE f.status <> 'gone' AND f.slug IS NOT NULL
+            WHERE ${PUBLIC_FACILITY_PREDICATE}
           `,
         },
       ],
@@ -214,7 +216,7 @@ export const QUARTERLY_REPORT: ReportDefinition = {
               SELECT f.municipality_id, count(*)::int AS n
               FROM facilities f
               WHERE f.created_at >= :from AND f.created_at < :to
-                AND f.status <> 'gone' AND f.slug IS NOT NULL
+                AND ${PUBLIC_FACILITY_PREDICATE}
                 AND f.municipality_id IS NOT NULL
               GROUP BY f.municipality_id
             ), verified AS (

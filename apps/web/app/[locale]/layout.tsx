@@ -19,7 +19,14 @@ export function generateStaticParams() {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#0f766e',
+  // Brand pine, = --brand / --pine-600 in app/design-tokens/colors.css. Was the
+  // pre-seed shadcn teal #0f766e until 2026-07-26, which appears nowhere in the
+  // Trail & Summit palette — RECONCILIATION.md C6 called for this and it was
+  // never applied, so every themed browser and every installed PWA framed a
+  // pine-and-clay page in teal chrome. Neither this file nor app/manifest.ts is
+  // inside the design-token gate's scanned dirs, which is how it survived; the
+  // drift is now pinned by tests/theme-color-drift.test.ts instead.
+  themeColor: '#216543',
 };
 
 export async function generateMetadata({ params }: { params: LocaleParams }): Promise<Metadata> {

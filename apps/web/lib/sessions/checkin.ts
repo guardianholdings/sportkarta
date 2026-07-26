@@ -87,6 +87,17 @@ export const CHECKIN_CLOSES_AFTER_MINUTES = 120;
 export const GEOFENCE_RADIUS_M = 250;
 
 /**
+ * The check-in window, as one SQL fragment used by every statement that asks
+ * the question — here and in the roster's gate — so the two can never drift.
+ * Evaluated against the DATABASE's `now()`, never the application clock, and
+ * expects the occurrence aliased as `o`.
+ */
+export function checkinWindowSql() {
+  return sql`(o.starts_at - make_interval(mins => ${CHECKIN_OPENS_BEFORE_MINUTES}) <= now()
+              AND o.ends_at + make_interval(mins => ${CHECKIN_CLOSES_AFTER_MINUTES}) >= now())`;
+}
+
+/**
  * The largest distance that is ever WRITTEN, matching the column's CHECK.
  *
  * A constraint must never be the thing that decides whether an attendance is
@@ -164,10 +175,19 @@ export async function checkIn(db: TransactionalDb, input: CheckinInput): Promise
     // answer is metres on the ellipsoid rather than degrees.
     const context = await tx.execute(sql`
       SELECT o.status,
-             (o.starts_at - make_interval(mins => ${CHECKIN_OPENS_BEFORE_MINUTES}) <= now()
-              AND o.ends_at + make_interval(mins => ${CHECKIN_CLOSES_AFTER_MINUTES}) >= now())
-               AS within_window,
+             ${checkinWindowSql()} AS within_window,
              (s.organizer_id = ${input.actorId}) AS actor_is_organizer,
+             -- Only consulted for method='organizer': a vouch may name ONLY a
+             -- member on the occurrence's own roster. Without this, an
+             -- organizer could write "this named person was here" for ANY
+             -- account id in the system — rows that flow into the victim's
+             -- passport history, streaks and badges. Method 'self' stays
+             -- first-person and 'qr' is redeemed by whoever scanned it, so
+             -- neither needs it.
+             EXISTS (SELECT 1 FROM play_session_rsvps r
+                      WHERE r.occurrence_id = o.id
+                        AND r.user_id = ${input.userId}
+                        AND r.state = 'active') AS member_attending,
              s.facility_id,
              CASE WHEN ${input.lat ?? null}::float8 IS NULL OR ${input.lon ?? null}::float8 IS NULL
                   THEN NULL
@@ -199,6 +219,9 @@ export async function checkIn(db: TransactionalDb, input: CheckinInput): Promise
     if (row.status === 'cancelled') throw new SessionError('occurrence_cancelled');
     if (method === 'organizer' && row.actor_is_organizer !== true) {
       throw new SessionError('not_organizer');
+    }
+    if (method === 'organizer' && row.member_attending !== true) {
+      throw new SessionError('not_attending');
     }
     if (row.within_window !== true) throw new SessionError('checkin_window_closed');
 

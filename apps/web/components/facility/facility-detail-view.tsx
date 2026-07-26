@@ -3,6 +3,7 @@ import { useLocale, useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
 import { Stat } from '@/components/ui/stat';
+import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 import { facilityFamily, FAMILY_COLOR } from '@/lib/design/families';
 import { SPORT_VISUALS } from '@/lib/design/sport-visuals';
 import type { CanonicalSport } from '@sportkarta/lib/sports';
@@ -172,6 +173,10 @@ export function FacilityDetailView({
               href={`https://www.openstreetmap.org/directions?to=${String(facility.lat)},${String(facility.lon)}`}
               target="_blank"
               rel="noopener noreferrer"
+              // C1: the strongest "I am actually going" signal in the product,
+              // on its highest-traffic page. Records THAT someone asked for
+              // directions, never to which facility (lib/analytics-events.ts).
+              data-umami-event={ANALYTICS_EVENTS.facilityDirections}
             >
               <Navigation size={19} />
               {t('directions')}

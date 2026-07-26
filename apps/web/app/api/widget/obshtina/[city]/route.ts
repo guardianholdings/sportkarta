@@ -4,7 +4,8 @@ import { routing } from '@/i18n/routing';
 import { municipalityAccountability } from '@/lib/accountability';
 import { cityDisplayName, getCityBySlug } from '@/lib/places';
 import { siteUrl } from '@/lib/seo';
-import { renderWidget, type WidgetStrings } from '@/lib/widget';
+import { escapeHtml, renderWidget, type WidgetStrings } from '@/lib/widget';
+import { widgetCached } from '@/lib/widget-cache';
 
 /**
  * The embeddable, aggregate-only municipality widget (Stage 3.4).
@@ -94,16 +95,65 @@ export async function GET(
   }
 
   const locale = localeOf(request);
-  const data = await municipalityAccountability(city);
+  const wantsJson = new URL(request.url).searchParams.get('format') === 'json';
 
-  if (new URL(request.url).searchParams.get('format') === 'json') {
+  // The micro-cache (lib/widget-cache.ts) is what makes the Cache-Control
+  // below more than a wish — nothing else in the stack caches — and its
+  // stale-while-error path is what keeps an embed alive through a deploy.
+  const cached = await widgetCached(`acc:${city.slug}`, () => municipalityAccountability(city));
+  if (!cached) {
+    // Cold process AND the database is away: degrade politely, uncached, with
+    // the same envelope guarantees as the healthy path.
+    if (wantsJson) {
+      return Response.json(
+        { error: 'temporarily_unavailable' },
+        {
+          status: 503,
+          headers: {
+            'Cache-Control': 'no-store',
+            'Retry-After': '60',
+            'Access-Control-Allow-Origin': '*',
+            'X-Content-Type-Options': 'nosniff',
+            'Referrer-Policy': 'no-referrer',
+            'X-Robots-Tag': 'noindex',
+          },
+        },
+      );
+    }
+    const t = await getTranslations({ locale, namespace: 'Accountability' });
+    return new Response(
+      `<!doctype html><html lang="${escapeHtml(locale)}"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>${escapeHtml(t('widgetTitle'))}</title></head><body style="margin:0;padding:12px;font:14px/1.4 system-ui,sans-serif;color:#6b7280">${escapeHtml(t('widgetUnavailable'))}</body></html>`,
+      {
+        status: 503,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store',
+          'Retry-After': '60',
+          'Content-Security-Policy': HTML_CSP,
+          'X-Content-Type-Options': 'nosniff',
+          'Referrer-Policy': 'no-referrer',
+          'X-Robots-Tag': 'noindex',
+        },
+      },
+    );
+  }
+  const { value: data, degraded } = cached;
+  // A stale copy served through an outage must not be re-cached downstream
+  // for an hour as if it were fresh.
+  const cacheControl = degraded ? 'public, max-age=60' : CACHE;
+
+  if (wantsJson) {
     return Response.json(data, {
       headers: {
-        'Cache-Control': CACHE,
+        'Cache-Control': cacheControl,
         // Open data under ODbL: a municipality charting our figures on its own
         // site should not need a proxy to do it.
         'Access-Control-Allow-Origin': '*',
         'X-Content-Type-Options': 'nosniff',
+        // Parity with the HTML variant: we learn nothing about who embeds us,
+        // and a JSON URL in a dashboard should not leak its referrer either.
+        'Referrer-Policy': 'no-referrer',
+        'X-Robots-Tag': 'noindex',
       },
     });
   }
@@ -121,12 +171,15 @@ export async function GET(
   return new Response(html, {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': CACHE,
+      'Cache-Control': cacheControl,
       'Content-Security-Policy': HTML_CSP,
       'X-Content-Type-Options': 'nosniff',
       // We learn nothing from who embeds us, and the embedding site should not
       // have to explain us in its own privacy policy.
       'Referrer-Policy': 'no-referrer',
+      // The meta tag in the document says the same; the header covers the JSON
+      // variant's parity and non-HTML consumers.
+      'X-Robots-Tag': 'noindex',
     },
   });
 }

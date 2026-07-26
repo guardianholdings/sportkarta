@@ -64,6 +64,25 @@ describe('buildCampaignInput', () => {
     expect(input.titleEn).toBeNull();
   });
 
+  /**
+   * The sponsor field (MONETISATION S2, M2). The property worth asserting is
+   * that UNSPONSORED IS THE DEFAULT: a form with no sponsor select — every
+   * campaign form that existed before M2 — must still produce a valid input
+   * rather than a partner id of 0 or NaN.
+   */
+  it('leaves a campaign unsponsored when no partner is submitted', () => {
+    expect(buildCampaignInput(form()).partnerId).toBeNull();
+    expect(buildCampaignInput(form({ partnerId: '' })).partnerId).toBeNull();
+    expect(buildCampaignInput(form({ partnerId: '   ' })).partnerId).toBeNull();
+  });
+
+  it('takes a sponsoring partner id and refuses a malformed one', () => {
+    expect(buildCampaignInput(form({ partnerId: '4' })).partnerId).toBe(4);
+    for (const bad of ['0', '-1', 'abc', '1.5']) {
+      expect(() => buildCampaignInput(form({ partnerId: bad }))).toThrow(/partner_unknown/);
+    }
+  });
+
   it('collects only the ticked event kinds', () => {
     const input = buildCampaignInput(
       form({

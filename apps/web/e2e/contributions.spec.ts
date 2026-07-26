@@ -1,9 +1,12 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { POINTS_BY_EVENT } from '@sportkarta/lib/points';
 import { expect, test } from '@playwright/test';
 import { config } from 'dotenv';
 import pg from 'pg';
+
+import bg from '../messages/bg.json';
 
 import { signIn } from './auth';
 
@@ -107,8 +110,25 @@ test.describe('authenticated contributions', () => {
     await page.getByLabel(/име|name/i).fill(facilityName);
     await page.getByRole('button', { name: /добави съоръжението|add facility/i }).click();
 
-    // Redirected to the new facility page.
-    await page.waitForURL(/\/obekt\/[a-z0-9-]+\?added=1/);
+    // Redirected to the new facility page, carrying the POINTS awarded (A2).
+    // The old pattern here was /\?added=1/, which is unanchored and therefore
+    // still matches "?added=10" — it would have passed without testing
+    // anything. Anchored to the exact award, so a silent change to either the
+    // redirect or POINTS_BY_EVENT fails here.
+    await page.waitForURL(
+      new RegExp(`/obekt/[a-z0-9-]+\\?added=${String(POINTS_BY_EVENT.facility_added)}$`),
+    );
+
+    // …and the member is actually told, rather than being redirected with a
+    // number nothing reads. This is the whole point of A2.
+    await expect(
+      page.getByText(
+        bg.Contribute.thanksWithPoints.replace(
+          '{points}',
+          String(POINTS_BY_EVENT.facility_added),
+        ),
+      ),
+    ).toBeVisible();
 
     const rows = await query<{ status: string; source: string; id: string }>(
       `SELECT id, status, source FROM facilities WHERE name = $1`,

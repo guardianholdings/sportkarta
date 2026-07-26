@@ -11,7 +11,7 @@ import type { MapPoint } from './map-canvas';
 // Client-only (WebGL); the surrounding SEO page still server-renders its list.
 const MapCanvas = dynamic(() => import('./map-canvas'), {
   ssr: false,
-  loading: () => <div className="h-full w-full animate-pulse bg-neutral-100" />,
+  loading: () => <div className="h-full w-full animate-pulse bg-paper-sunk" />,
 });
 
 export interface PlaceMapFacility {

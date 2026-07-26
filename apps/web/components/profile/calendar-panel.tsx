@@ -22,30 +22,36 @@ export async function CalendarPanel({ token, siteUrl }: { token: string | null; 
   const feedUrl = token ? `${siteUrl.replace(/\/+$/, '')}/kalendar/${token}.ics` : null;
 
   return (
-    <section className="space-y-3">
-      <h2 className="text-lg font-semibold">{t('feedHeading')}</h2>
-      <p className="text-sm text-neutral-700">{t('feedIntro')}</p>
+    <section className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm">
+      <h2 className="t-overline">{t('feedHeading')}</h2>
+      <p className="text-body-sm text-ink-soft">{t('feedIntro')}</p>
 
       {feedUrl ? (
         <>
           {/* Selectable text rather than a link: clicking it would open the
               download, and what the member needs is to copy it into a calendar
               app's "subscribe by URL" box. */}
-          <p className="overflow-x-auto rounded border border-neutral-200 bg-neutral-50 p-2 font-mono text-xs">
+          <p className="overflow-x-auto rounded-md border border-line bg-paper-sunk p-2.5 font-mono text-caption">
             {feedUrl}
           </p>
-          <p className="text-sm text-amber-800">{t('feedSecretWarning')}</p>
+          <p className="text-body-sm text-warning">{t('feedSecretWarning')}</p>
           <form action={calendarTokenAction}>
             <input type="hidden" name="rotate" value="true" />
-            <button type="submit" className="rounded border border-neutral-300 px-3 py-1.5 text-sm">
+            <button
+              type="submit"
+              className="rounded-pill border border-line-strong bg-surface px-3 py-1.5 text-caption font-semibold text-ink-soft hover:bg-surface-2"
+            >
               {t('feedRotate')}
             </button>
           </form>
-          <p className="text-xs text-neutral-500">{t('feedRotateHint')}</p>
+          <p className="text-caption text-text-muted">{t('feedRotateHint')}</p>
         </>
       ) : (
         <form action={calendarTokenAction}>
-          <button type="submit" className="rounded bg-neutral-900 px-3 py-1.5 text-sm text-white">
+          <button
+            type="submit"
+            className="rounded-pill bg-brand px-3 py-1.5 text-caption font-semibold text-on-brand hover:bg-brand-hover"
+          >
             {t('feedCreate')}
           </button>
         </form>

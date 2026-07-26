@@ -8,6 +8,7 @@ import { requireUser } from '@/lib/auth-session';
 import { contributionRateLimiter } from '@/lib/contribution-rate-limit';
 import { SessionError } from '@/lib/sessions/errors';
 import { rsvp, withdraw } from '@/lib/sessions/rsvp';
+import { cancelOccurrence, cancelSeries } from '@/lib/sessions/sessions';
 
 /**
  * Joining and leaving a session (docs/ROADMAP.md §6, Stage 4.2).
@@ -76,6 +77,51 @@ export async function rsvpAction(_prev: RsvpState, formData: FormData): Promise<
     if (error instanceof SessionError) return { status: 'error', error: error.code };
     throw error;
   }
+}
+
+/**
+ * Organiser controls (Stage 4.3). Fire-and-forget like the admin one-click
+ * actions: `cancelOccurrence`/`cancelSeries` re-authorize in SQL (organiser of
+ * THIS series or admin, read from the database), throw typed SessionErrors on
+ * anything invalid, and enqueue the cancellation notice themselves — the
+ * ledger in play_session_notifications dedupes the send however this races.
+ * The re-rendered page is the feedback: a cancelled occurrence shows its
+ * banner, a failed attempt leaves the page as it was.
+ */
+export async function cancelOccurrenceAction(occurrenceId: string): Promise<void> {
+  const user = await requireUser();
+  if (!UUID_RE.test(occurrenceId)) return;
+  try {
+    await cancelOccurrence(getDb(), user.id, occurrenceId, {
+      enqueue: async (_queue, data) => {
+        await notify(data);
+      },
+    });
+  } catch (error: unknown) {
+    if (error instanceof SessionError) return;
+    throw error;
+  }
+  revalidatePath(`/sesiya/${occurrenceId}`);
+  revalidatePath(`/sesiya/${occurrenceId}/roster`);
+  revalidatePath('/sesii');
+}
+
+export async function cancelSeriesAction(sessionId: string, occurrenceId: string): Promise<void> {
+  const user = await requireUser();
+  if (!UUID_RE.test(sessionId) || !UUID_RE.test(occurrenceId)) return;
+  try {
+    await cancelSeries(getDb(), user.id, sessionId, {
+      enqueue: async (_queue, data) => {
+        await notify(data);
+      },
+    });
+  } catch (error: unknown) {
+    if (error instanceof SessionError) return;
+    throw error;
+  }
+  revalidatePath(`/sesiya/${occurrenceId}`);
+  revalidatePath(`/sesiya/${occurrenceId}/roster`);
+  revalidatePath('/sesii');
 }
 
 export async function withdrawAction(_prev: RsvpState, formData: FormData): Promise<RsvpState> {

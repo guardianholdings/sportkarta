@@ -77,21 +77,21 @@ export default async function AdminReportsPage({
 
   return (
     <main className="space-y-6">
-      <h1 className="text-xl font-semibold">{t('title')}</h1>
-      <p className="max-w-prose text-sm text-neutral-600">{t('intro')}</p>
+      <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
+      <p className="max-w-prose text-body-sm text-ink-soft">{t('intro')}</p>
 
-      <form method="get" className="flex flex-wrap items-end gap-3 rounded border border-neutral-200 p-4">
-        <label className="flex flex-col gap-1 text-sm">
+      <form method="get" className="flex flex-wrap items-end gap-3 rounded-card border border-line bg-surface p-4 shadow-sm">
+        <label className="flex flex-col gap-1 text-body-sm">
           <span className="font-medium">{t('from')}</span>
           <input
             type="date"
             name="from"
             required
             defaultValue={query.get('from') ?? ''}
-            className="rounded border border-neutral-300 px-2 py-1"
+            className="rounded-md border border-line-strong bg-surface px-2 py-1"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-body-sm">
           {/* Said explicitly: the operator types an inclusive last day, and the
               runner converts it to an exclusive bound. */}
           <span className="font-medium">{t('toInclusive')}</span>
@@ -100,15 +100,15 @@ export default async function AdminReportsPage({
             name="to"
             required
             defaultValue={query.get('to') ?? ''}
-            className="rounded border border-neutral-300 px-2 py-1"
+            className="rounded-md border border-line-strong bg-surface px-2 py-1"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1 text-body-sm">
           <span className="font-medium">{t('municipality')}</span>
           <select
             name="municipality"
             defaultValue={selectedMunicipality}
-            className="rounded border border-neutral-300 px-2 py-1"
+            className="rounded-md border border-line-strong bg-surface px-2 py-1"
           >
             <option value="all">{t('allMunicipalities')}</option>
             {municipalities.map((option) => (
@@ -118,13 +118,13 @@ export default async function AdminReportsPage({
             ))}
           </select>
         </label>
-        <button type="submit" className="rounded bg-teal-700 px-3 py-1.5 text-sm text-white">
+        <button type="submit" className="rounded-pill bg-brand px-3 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover">
           {t('generate')}
         </button>
       </form>
 
       {error && (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="text-body-sm text-danger">
           {t(`error${error.charAt(0).toUpperCase()}${error.slice(1)}` as 'errorInvalidPeriod', {
             max: MAX_PERIOD_DAYS,
           })}
@@ -135,13 +135,13 @@ export default async function AdminReportsPage({
         <>
           <div className="flex flex-wrap gap-3">
             <a
-              className="rounded border border-neutral-300 px-3 py-1.5 text-sm"
+              className="rounded border border-line-strong px-3 py-1.5 text-body-sm"
               href={`/api/admin/otcheti?${scopeQuery}&format=csv`}
             >
               {t('downloadCsv')}
             </a>
             <a
-              className="rounded border border-neutral-300 px-3 py-1.5 text-sm"
+              className="rounded border border-line-strong px-3 py-1.5 text-body-sm"
               href={`/api/admin/otcheti?${scopeQuery}&format=html`}
               target="_blank"
               rel="noreferrer"
@@ -149,23 +149,23 @@ export default async function AdminReportsPage({
               {t('openHtml')}
             </a>
           </div>
-          <p className="text-sm text-neutral-600">{t('printHint')}</p>
+          <p className="text-body-sm text-ink-soft">{t('printHint')}</p>
 
           {GRANT_REPORT.sections.map((section) => (
             <section key={section.id} className="space-y-2">
-              <h2 className="text-lg font-semibold">{section.titleBg}</h2>
-              <div className="overflow-x-auto rounded border border-neutral-200">
-                <table className="w-full text-sm">
+              <h2 className="text-h4 font-bold text-ink">{section.titleBg}</h2>
+              <div className="overflow-x-auto rounded-card border border-line bg-surface">
+                <table className="w-full text-body-sm">
                   <tbody>
                     {(section.metrics ?? []).map((metric) => {
                       const value =
                         data.metrics.find((m) => m.metricId === metric.id)?.value ?? null;
                       return (
-                        <tr key={metric.id} className="border-t border-neutral-100 first:border-t-0">
+                        <tr key={metric.id} className="border-t border-line first:border-t-0">
                           <td className="px-3 py-2">
                             {metric.labelBg}
                             {!metric.additive && (
-                              <span className="ml-2 text-xs text-neutral-500">
+                              <span className="ml-2 text-caption text-text-muted">
                                 {t('notAdditive')}
                               </span>
                             )}
@@ -186,7 +186,7 @@ export default async function AdminReportsPage({
             </section>
           ))}
 
-          <p className="max-w-prose text-xs text-neutral-500">
+          <p className="max-w-prose text-caption text-text-muted">
             {t('metricCount', { count: allMetrics(GRANT_REPORT).length })}
           </p>
         </>

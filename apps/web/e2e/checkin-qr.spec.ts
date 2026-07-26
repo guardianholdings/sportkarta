@@ -1,4 +1,5 @@
 import { issueCheckinToken } from '@sportkarta/lib/checkin-token';
+import { POINTS_BY_EVENT } from '@sportkarta/lib/points';
 import { expect, test } from '@playwright/test';
 import { config } from 'dotenv';
 import pg from 'pg';
@@ -6,6 +7,15 @@ import pg from 'pg';
 import bg from '../messages/bg.json';
 
 import { signIn } from './auth';
+
+/**
+ * The scored line with its `{points}` placeholder filled, as next-intl renders
+ * it. The suite has no ICU formatter, and this message uses only a simple
+ * argument, so a literal substitution is exact.
+ */
+function scoredMessage(points: number): string {
+  return bg.Checkin.outcome.scored.replace('{points}', String(points));
+}
 
 /**
  * QR/geofence-verified scoring (Stage 5.4), end to end.
@@ -126,7 +136,11 @@ test.describe('QR check-in', () => {
     const token = issueCheckinToken({ occurrenceId, secret });
     await page.goto(`/otmetka/${token}`);
     await page.getByRole('button', { name: bg.Checkin.submit }).click();
-    await expect(page.getByText(bg.Checkin.outcome.scored)).toBeVisible();
+    // The success line names the FIGURE (A2). Asserting the raw catalogue
+    // string would pass against the literal "{points}" and therefore prove
+    // nothing — fill it the way next-intl does, so this fails if the number
+    // stops being interpolated or the award silently changes.
+    await expect(page.getByText(scoredMessage(POINTS_BY_EVENT.session_attended))).toBeVisible();
 
     const scored = await withDb((client) =>
       client.query<{ scored: boolean; distance_m: number; method: string }>(

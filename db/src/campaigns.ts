@@ -23,18 +23,18 @@ import { sql, type SQL } from 'drizzle-orm';
  * Display is what differs:
  *
  *   publicStandings   individual boards join leaderboard_eligible_members
- *                     (0011), so no minor and no member who has not published
- *                     their passport is ever named.
+ *                     (0011, amended by 0020), so a member who has not
+ *                     published their passport is never named. Age is not a
+ *                     condition — the minor exclusion was removed by 0020.
  *   adminStandings    every member, by real name, to organisers only — because
  *                     somebody has to hand over the prize, and a campaign that
- *                     silently cannot award a minor or a private member is a
- *                     campaign that quietly excluded them from competing.
+ *                     silently cannot award a private member is a campaign that
+ *                     quietly excluded them from competing.
  *
- * A city (aggregate) board counts everyone in both, minors included: no
- * individual is named, so the binding rule does not bite — but a municipality
- * with fewer than CITY_BOARD_MIN_MEMBERS contributors is SUPPRESSED, because a
- * city row backed by one person publishes that person's score under a city
- * label, which is the same disclosure with extra steps.
+ * A city (aggregate) board counts everyone in both: no individual is named —
+ * but a municipality with fewer than CITY_BOARD_MIN_MEMBERS contributors is
+ * SUPPRESSED, because a city row backed by one person publishes that person's
+ * score under a city label, which is the same disclosure with extra steps.
  */
 
 interface SqlRunner {
@@ -56,6 +56,13 @@ export interface CampaignRow {
   blurbEn: string | null;
   prizeBg: string | null;
   prizeEn: string | null;
+  /**
+   * The sponsor's partner id, or null (MONETISATION S2). Just the id: the name,
+   * logo and link are read from `partners` through the renderability rule at
+   * display time, so a hidden or lapsed sponsor disappears from the campaign
+   * without this row changing.
+   */
+  partnerId: number | null;
   closedAt: string | null;
 }
 
@@ -99,6 +106,9 @@ function toCampaign(row: Record<string, unknown>): CampaignRow {
     blurbEn: row.blurb_en === null ? null : String(row.blurb_en),
     prizeBg: row.prize_bg === null ? null : String(row.prize_bg),
     prizeEn: row.prize_en === null ? null : String(row.prize_en),
+    partnerId: row.partner_id === null || row.partner_id === undefined
+      ? null
+      : Number(row.partner_id),
     closedAt: row.closed_at === null ? null : String(row.closed_at),
   };
 }
@@ -106,7 +116,7 @@ function toCampaign(row: Record<string, unknown>): CampaignRow {
 const CAMPAIGN_COLUMNS = sql`
   id, slug, status, scope_kind, municipality_id, quarter, starts_on, ends_on,
   leaderboard_type, template, rules, title_bg, title_en, blurb_bg, blurb_en,
-  prize_bg, prize_en, closed_at
+  prize_bg, prize_en, partner_id, closed_at
 `;
 
 export async function campaignBySlug(db: SqlRunner, slug: string): Promise<CampaignRow | null> {
@@ -304,13 +314,13 @@ export interface StandingsOptions {
 /**
  * The PUBLIC board.
  *
- * Individual: joins leaderboard_eligible_members, so a minor or an unpublished
- * member is scored but never named. Ranks are computed AFTER that join, so the
- * public board reads 1, 2, 3 without gaps that would otherwise advertise the
- * existence of hidden competitors.
+ * Individual: joins leaderboard_eligible_members, so an unpublished member is
+ * scored but never named. Ranks are computed AFTER that join, so the public
+ * board reads 1, 2, 3 without gaps that would otherwise advertise the existence
+ * of hidden competitors.
  *
- * City: aggregates every member, minors included — nobody is named — with
- * municipalities below the k-anonymity floor suppressed.
+ * City: aggregates every member — nobody is named — with municipalities below
+ * the k-anonymity floor suppressed.
  */
 export async function publicStandings(
   db: SqlRunner,
@@ -359,25 +369,33 @@ export async function publicStandings(
 }
 
 /**
- * The ADMIN board: everyone, by name, including minors and members who never
- * published a passport.
+ * The ADMIN board: everyone, by name, including members who never published a
+ * passport.
  *
  * This exists so a prize can actually be awarded. Scoring already counted these
  * people — excluding them from the organisers' view too would mean a campaign
  * that let members compete and then quietly could not tell anyone they had won.
  * The page behind this is `requireRole('admin')`.
+ *
+ * IT DOES NOT SELECT `is_minor`, and that is deliberate rather than leftover.
+ * It used to: the flag explained why a top scorer was absent from the public
+ * board, back when being a minor was the reason. Since 0020 the only reason is
+ * `is_public`, so the flag would explain nothing — and it would put "this
+ * competitor is a child" on an operator's screen next to their real name, which
+ * is the disclosure `apps/web/lib/sessions/roster.ts` refuses for the same
+ * reason. Age is not an organiser's business.
  */
 export async function adminStandings(
   db: SqlRunner,
   campaign: CampaignRow,
   options: StandingsOptions = {},
-): Promise<(StandingRow & { isMinor: boolean; isPublic: boolean })[]> {
+): Promise<(StandingRow & { isPublic: boolean })[]> {
   const timeZone = options.timeZone ?? SOFIA_TZ;
   const limit = Math.min(Math.max(options.limit ?? 100, 1), 500);
   const totals = memberTotals(campaign, timeZone);
 
   const result = await db.execute(sql`
-    SELECT u.id AS user_id, u.display_name AS display_name, u.is_minor AS is_minor,
+    SELECT u.id AS user_id, u.display_name AS display_name,
            (u.profile_visibility = 'public') AS is_public,
            t.score AS score, t.events AS events, t.municipality_id AS municipality_id,
            rank() OVER (ORDER BY t.score DESC)::int AS rank
@@ -388,7 +406,6 @@ export async function adminStandings(
   `);
   return result.rows.map((row) => ({
     ...mapStanding(row),
-    isMinor: row.is_minor === true,
     isPublic: row.is_public === true,
   }));
 }
@@ -500,7 +517,7 @@ export interface FrozenResultRow {
   rank: number;
   score: number;
   memberCount: number;
-  /** Null when the member is erased, a minor, or no longer public. */
+  /** Null when the member is erased or no longer public. */
   handle: string | null;
   displayName: string | null;
   municipalityId: number | null;
@@ -516,8 +533,7 @@ export interface FrozenResultRow {
  *
  *   - an erased member keeps their placing and has no name to show;
  *   - a member who has since made their passport private keeps their placing
- *     and withdraws their name;
- *   - a minor was never nameable here and still is not.
+ *     and withdraws their name.
  *
  * `withheld` lets the page render "участник" rather than a blank, so the
  * ranking stays legible instead of looking broken.

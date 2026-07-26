@@ -62,8 +62,19 @@ export const users = pgTable(
     image: text('image'),
     // Free-text city the member plays in; drives local digests in Stage 4.
     homeCity: text('home_city'),
-    // Derived from a DOB that is never stored. Drives the minor protections
-    // (no individual public leaderboards — CLAUDE.md rules).
+    /**
+     * Derived from a DOB that is never stored (lib/src/age.ts).
+     *
+     * GATES NOTHING (operator decision 2026-07-25 — minors are treated as
+     * adults). It used to be the minor boundary: a CHECK forbade a public
+     * passport, the leaderboard view excluded them, the passport read path
+     * re-tested it. Migration 0020 removed all three. What survives is the
+     * flag itself, kept for two reasons: dropping a column is forward-only
+     * and unrecoverable, and lib/src/reports/grant.ts records that a youth
+     * participation figure is "one catalogue entry if ММС ever requires it" —
+     * which needs this column to exist. Nothing may gate on it again without
+     * an operator decision that reverses 0020.
+     */
     isMinor: boolean('is_minor').notNull().default(false),
     role: userRole('role').notNull().default('user'),
     /**
@@ -112,28 +123,17 @@ export const users = pgTable(
       sql`${t.homeCity} IS NULL OR (btrim(${t.homeCity}) <> '' AND char_length(${t.homeCity}) <= 80)`,
     ),
     /**
-     * THE MINOR BOUNDARY, IN THE DATABASE. "Minors: no individual public
-     * leaderboards" (CLAUDE.md) — a publicly readable page of one named child's
-     * sporting habits is the same exposure by another route, so a minor's
-     * passport cannot be public even with the application bypassed.
+     * `users_minor_profile_not_public` USED TO BE HERE and was dropped by
+     * migration 0020 (operator decision 2026-07-25: minors are treated as
+     * adults). Its absence is deliberate and recorded here because the
+     * constraint was documented as a legal constant for three stages — a
+     * future reader finding the rule in an old comment should find this note
+     * rather than conclude the CHECK went missing by accident.
      *
-     * The application demotes to 'private' in the same UPDATE that newly
-     * derives is_minor (apps/web/lib/profile.ts), so a member correcting their
-     * age gets a demotion rather than a failed save. This constraint is the
-     * backstop for every path that forgets to.
-     *
-     * ALLOWLIST, not `NOT (is_minor AND visibility = 'public')`. The two are
-     * equivalent today and diverge the moment somebody adds an enum value —
-     * and this schema adds enum values via ALTER TYPE … ADD VALUE, a change
-     * nobody reviews against year-old CHECKs. (play_session_visibility is
-     * already ('public','unlisted'); an 'unlisted' passport would be legal for
-     * a minor under a denylist.) This form forbids every value that has not
-     * been deliberately permitted.
+     * Age is now irrelevant to passport visibility. The remaining gate on
+     * publishing is the one that was always the real one: consent — the
+     * member's own opt-in, DEFAULT 'private'.
      */
-    check(
-      'users_minor_profile_not_public',
-      sql`${t.profileVisibility} = 'private' OR NOT ${t.isMinor}`,
-    ),
     // A public passport with no handle has no URL — it would be "public" and
     // unreachable, which is a confusing state to debug and a trivial one to
     // forbid. Opting in mints the handle in the same statement.

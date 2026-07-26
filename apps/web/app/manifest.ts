@@ -16,8 +16,12 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/',
     scope: '/',
     display: 'standalone',
-    background_color: '#f6f5f2',
-    theme_color: '#0f766e',
+    // = --paper and --brand in app/design-tokens/colors.css. Both were pre-seed
+    // scaffold values (#f6f5f2 / teal #0f766e) that RECONCILIATION.md C6 marked
+    // for replacement; pinned against the token layer by
+    // tests/theme-color-drift.test.ts so they cannot go stale again.
+    background_color: '#FBF9F3',
+    theme_color: '#216543',
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
       { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },

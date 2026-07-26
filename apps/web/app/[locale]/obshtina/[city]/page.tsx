@@ -13,6 +13,7 @@ import {
 import { cityDisplayName, getCityBySlug } from '@/lib/places';
 import { buildAlternates, siteUrl } from '@/lib/seo';
 import { pct } from '@/lib/stats-format';
+import { AppShell } from '@/components/shell/app-shell';
 
 /**
  * Municipality accountability (docs/ROADMAP.md §5, Stage 3.4).
@@ -59,10 +60,10 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
 
 function StatCard({ label, value, note }: { label: string; value: string; note?: string | null }) {
   return (
-    <div className="rounded-lg border border-neutral-200 p-3">
-      <div className="text-2xl font-bold tracking-tight tabular-nums">{value}</div>
-      <div className="text-xs text-neutral-500">{label}</div>
-      {note ? <div className="mt-1 text-xs text-neutral-400">{note}</div> : null}
+    <div className="rounded-card border border-line p-3">
+      <div className="font-mono text-h2 font-bold text-ink tabular-nums">{value}</div>
+      <div className="text-caption text-text-muted">{label}</div>
+      {note ? <div className="mt-1 text-caption text-text-faint">{note}</div> : null}
     </div>
   );
 }
@@ -123,19 +124,20 @@ export default async function AccountabilityPage({ params }: { params: PageParam
   );
 
   return (
-    <main className="mx-auto max-w-4xl space-y-8 p-4">
-      <Link href={`/igrishta/${city.slug}`} className="text-sm underline">
+    <AppShell>
+      <main className="mx-auto max-w-4xl space-y-8 p-4">
+      <Link href={`/igrishta/${city.slug}`} className="text-body-sm font-medium text-link hover:text-link-hover">
         {t('backToCity')}
       </Link>
 
       <header className="space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight">{t('h1', { city: name })}</h1>
-        <p className="text-neutral-700">{t('intro', { city: name })}</p>
-        <p className="text-xs text-neutral-500">{t('generatedAt', { date: generated })}</p>
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('h1', { city: name })}</h1>
+        <p className="text-ink-soft">{t('intro', { city: name })}</p>
+        <p className="text-caption text-text-muted">{t('generatedAt', { date: generated })}</p>
       </header>
 
       <section aria-labelledby="coverage-h" className="space-y-3">
-        <h2 id="coverage-h" className="text-lg font-semibold">
+        <h2 id="coverage-h" className="text-h4 font-bold text-ink">
           {t('coverageHeading')}
         </h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -155,7 +157,7 @@ export default async function AccountabilityPage({ params }: { params: PageParam
       </section>
 
       <section aria-labelledby="quality-h" className="space-y-3">
-        <h2 id="quality-h" className="text-lg font-semibold">
+        <h2 id="quality-h" className="text-h4 font-bold text-ink">
           {t('qualityHeading')}
         </h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -179,7 +181,7 @@ export default async function AccountabilityPage({ params }: { params: PageParam
       </section>
 
       <section aria-labelledby="response-h" className="space-y-3">
-        <h2 id="response-h" className="text-lg font-semibold">
+        <h2 id="response-h" className="text-h4 font-bold text-ink">
           {t('responseHeading')}
         </h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -199,23 +201,23 @@ export default async function AccountabilityPage({ params }: { params: PageParam
           />
           <StatCard label={t('statMedianResponse')} value={median} />
         </div>
-        <p className="text-sm text-neutral-600">{t('responseCaveat')}</p>
+        <p className="text-body-sm text-ink-soft">{t('responseCaveat')}</p>
       </section>
 
       <section aria-labelledby="embed-h" className="space-y-3">
-        <h2 id="embed-h" className="text-lg font-semibold">
+        <h2 id="embed-h" className="text-h4 font-bold text-ink">
           {t('embedHeading')}
         </h2>
-        <p className="text-sm text-neutral-700">{t('embedIntro')}</p>
-        <pre className="overflow-x-auto rounded border border-neutral-200 bg-neutral-50 p-3 text-xs">
+        <p className="text-body-sm text-ink-soft">{t('embedIntro')}</p>
+        <pre className="overflow-x-auto rounded-card border border-line bg-surface bg-paper-sunk p-3 text-caption">
           <code>{embedSnippet}</code>
         </pre>
-        <ul className="list-disc space-y-1 pl-5 text-sm text-neutral-700">
+        <ul className="list-disc space-y-1 pl-5 text-body-sm text-ink-soft">
           <li>{t('embedNoScript')}</li>
           <li>{t('embedNoCookies')}</li>
           <li>{t('embedAggregate')}</li>
           <li>
-            <a href={`${embedUrl}&format=json`} className="underline">
+            <a href={`${embedUrl}&format=json`} className="font-medium text-link hover:text-link-hover">
               {t('embedJson')}
             </a>
           </li>
@@ -223,10 +225,10 @@ export default async function AccountabilityPage({ params }: { params: PageParam
       </section>
 
       <section aria-labelledby="method-h" className="space-y-2">
-        <h2 id="method-h" className="text-lg font-semibold">
+        <h2 id="method-h" className="text-h4 font-bold text-ink">
           {t('methodologyHeading')}
         </h2>
-        <ul className="list-disc space-y-1 pl-5 text-sm text-neutral-700">
+        <ul className="list-disc space-y-1 pl-5 text-body-sm text-ink-soft">
           <li>{t('methodVisibility')}</li>
           <li>{t('methodPer10k')}</li>
           <li>{t('methodCondition')}</li>
@@ -235,6 +237,7 @@ export default async function AccountabilityPage({ params }: { params: PageParam
           <li>{t('attribution')}</li>
         </ul>
       </section>
-    </main>
+      </main>
+    </AppShell>
   );
 }

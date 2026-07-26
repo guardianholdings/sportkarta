@@ -16,7 +16,13 @@ import { ContributionError } from './errors';
  */
 export async function storeContributionPhoto(
   file: unknown,
-  prefix: 'facilities' | 'conditions',
+  // 'partners' and 'ads' ride the same EXIF-stripping pipeline: a sponsor logo
+  // or an ad creative is an admin upload, but a pipeline is a pipeline
+  // (docs/MONETISATION.md M1/M4 — creatives arrive as PNG/JPEG; SVG stays
+  // deliberately unaccepted, it can script). An advertiser-supplied file is the
+  // least trusted image on the platform, so it is the last one that should get
+  // its own shortcut past the re-encode.
+  prefix: 'facilities' | 'conditions' | 'partners' | 'ads',
 ): Promise<string> {
   if (!(file instanceof File) || file.size === 0) throw new ContributionError('photo_required');
   if (file.size > MAX_PHOTO_BYTES) throw new ContributionError('photo_too_large');

@@ -7,7 +7,10 @@ import { getCurrentUser } from '@/lib/auth-session';
 import { occurrenceView } from '@/lib/sessions/occurrence';
 import { siteUrl } from '@/lib/seo';
 
+import { cancelOccurrenceAction, cancelSeriesAction } from './actions';
 import { RsvpForm } from './rsvp-form';
+import { AppShell } from '@/components/shell/app-shell';
+import { ConfirmButton } from '@/components/ui/confirm-button';
 
 /**
  * One occurrence of a play session (docs/ROADMAP.md §6, Stage 4.2).
@@ -56,8 +59,8 @@ function timeOf(startsAtLocal: string): string {
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-wrap gap-x-3 border-b border-neutral-100 py-2 text-sm last:border-0">
-      <dt className="w-28 shrink-0 text-neutral-500">{label}</dt>
+    <div className="flex flex-wrap gap-x-3 border-b border-line py-2 text-body-sm last:border-0">
+      <dt className="w-28 shrink-0 text-text-muted">{label}</dt>
       <dd className="min-w-0 flex-1">{children}</dd>
     </div>
   );
@@ -99,28 +102,29 @@ export default async function SessionPage({ params }: { params: PageParams }) {
   const icsUrl = `${siteUrl()}/kalendar/sesiya/${view.occurrenceId}.ics`;
 
   return (
-    <main className="mx-auto max-w-2xl space-y-6 p-4">
+    <AppShell active="/sesii">
+      <main className="mx-auto max-w-2xl space-y-6 p-4">
       {view.facilitySlug && (
-        <Link href={`/obekt/${view.facilitySlug}`} className="text-sm underline">
+        <Link href={`/obekt/${view.facilitySlug}`} className="text-body-sm font-medium text-link hover:text-link-hover">
           {t('backToFacility')}
         </Link>
       )}
 
       <header className="space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight">{view.title}</h1>
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{view.title}</h1>
         {view.cancelled && (
-          <p role="status" className="rounded border border-red-200 bg-red-50 p-3 text-red-800">
+          <p role="status" className="rounded border border-danger-border bg-danger-bg p-3 text-danger">
             {t('cancelledNotice')}
           </p>
         )}
         {!view.cancelled && view.started && (
-          <p className="rounded border border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-700">
+          <p className="rounded-card border border-line bg-paper-sunk p-3 text-body-sm text-ink-soft">
             {t('startedNotice')}
           </p>
         )}
       </header>
 
-      <dl className="rounded-lg border border-neutral-200 px-4 py-1">
+      <dl className="rounded-card border border-line px-4 py-1">
         <Row label={t('labelWhen')}>
           {/* first-letter, not `capitalize`: Bulgarian month names are
               lowercase, and capitalizing every word turns "24 юли 2026 г." into
@@ -130,7 +134,7 @@ export default async function SessionPage({ params }: { params: PageParams }) {
         </Row>
         <Row label={t('labelWhere')}>
           {view.facilitySlug && view.facilityName ? (
-            <Link href={`/obekt/${view.facilitySlug}`} className="underline">
+            <Link href={`/obekt/${view.facilitySlug}`} className="font-medium text-link hover:text-link-hover">
               {view.facilityName}
             </Link>
           ) : (
@@ -143,25 +147,25 @@ export default async function SessionPage({ params }: { params: PageParams }) {
         <Row label={t('labelSpots')}>
           {spots}
           {view.waitlisted > 0 && (
-            <span className="text-neutral-500"> · {t('waitlisted', { n: view.waitlisted })}</span>
+            <span className="text-text-muted"> · {t('waitlisted', { n: view.waitlisted })}</span>
           )}
         </Row>
         {view.organizerName && <Row label={t('labelOrganizer')}>{view.organizerName}</Row>}
       </dl>
 
       {view.description && (
-        <p className="whitespace-pre-line text-neutral-700">{view.description}</p>
+        <p className="whitespace-pre-line text-ink-soft">{view.description}</p>
       )}
 
       {open && (
         <section aria-labelledby="rsvp-h" className="space-y-3">
-          <h2 id="rsvp-h" className="text-lg font-semibold">
+          <h2 id="rsvp-h" className="text-h4 font-bold text-ink">
             {t('rsvpHeading')}
           </h2>
           {user ? (
             <>
               {view.viewerStatus && (
-                <p className="text-sm text-neutral-700">
+                <p className="text-body-sm text-ink-soft">
                   {view.viewerStatus === 'going'
                     ? t('youAreGoing')
                     : t('youAreWaitlisted', { position: view.viewerPosition ?? 0 })}
@@ -188,12 +192,12 @@ export default async function SessionPage({ params }: { params: PageParams }) {
               {view.capacity !== null && view.going >= view.capacity && !view.viewerStatus && (
                 // Joining a full session is a waitlist place, not an error —
                 // say so before the button rather than after it.
-                <p className="text-sm text-neutral-500">{t('fullHint')}</p>
+                <p className="text-body-sm text-text-muted">{t('fullHint')}</p>
               )}
             </>
           ) : (
-            <p className="text-sm">
-              <Link href="/vhod" className="underline">
+            <p className="text-body-sm">
+              <Link href="/vhod" className="font-medium text-link hover:text-link-hover">
                 {t('signInToJoin')}
               </Link>
             </p>
@@ -202,37 +206,64 @@ export default async function SessionPage({ params }: { params: PageParams }) {
       )}
 
       {view.viewerIsOrganizer && !view.cancelled && (
-        <section aria-labelledby="org-h" className="space-y-2 rounded border border-neutral-200 p-3">
-          <h2 id="org-h" className="text-sm font-semibold">
+        <section aria-labelledby="org-h" className="space-y-3 rounded-card border border-line bg-surface p-3 shadow-sm">
+          <h2 id="org-h" className="text-body-sm font-semibold">
             {t('labelOrganizer')}
           </h2>
-          {/* Stage 5.4. Only the organiser of THIS series sees the link, and the
-              page behind it checks the same thing again against the database. */}
-          <Link href={`/sesiya/${view.occurrenceId}/qr`} className="text-sm underline">
-            {tCheckin('organizerLink')}
-          </Link>
+          {/* Stage 5.4 + 4.3. Only the organiser of THIS series sees these, and
+              every page and action behind them checks the same thing again
+              against the database. */}
+          <div className="flex flex-col gap-2">
+            <Link href={`/sesiya/${view.occurrenceId}/roster`} className="text-body-sm font-medium text-link hover:text-link-hover">
+              {t('organizerRoster')}
+            </Link>
+            <Link href={`/sesiya/${view.occurrenceId}/qr`} className="text-body-sm font-medium text-link hover:text-link-hover">
+              {tCheckin('organizerLink')}
+            </Link>
+          </div>
+          {!view.started && (
+            <div className="flex flex-wrap gap-2 border-t border-line pt-3">
+              <form action={cancelOccurrenceAction.bind(null, view.occurrenceId)}>
+                <ConfirmButton
+                  message={t('cancelOccurrenceConfirm')}
+                  className="rounded-pill border border-danger-border bg-surface px-3 py-1.5 text-caption font-semibold text-danger hover:bg-danger-bg"
+                >
+                  {t('cancelOccurrence')}
+                </ConfirmButton>
+              </form>
+              <form action={cancelSeriesAction.bind(null, view.sessionId, view.occurrenceId)}>
+                <ConfirmButton
+                  message={t('cancelSeriesConfirm')}
+                  className="rounded-pill border border-danger-border bg-surface px-3 py-1.5 text-caption font-semibold text-danger hover:bg-danger-bg"
+                >
+                  {t('cancelSeries')}
+                </ConfirmButton>
+              </form>
+            </div>
+          )}
         </section>
       )}
 
-      <section aria-labelledby="cal-h" className="space-y-2 border-t border-neutral-200 pt-4">
-        <h2 id="cal-h" className="text-sm font-semibold">
+      <section aria-labelledby="cal-h" className="space-y-2 border-t border-line pt-4">
+        <h2 id="cal-h" className="text-body-sm font-semibold">
           {t('calendarHeading')}
         </h2>
-        <p className="text-sm">
+        <p className="text-body-sm">
           {/* A plain link, not a client download button: an .ics is a file the
               browser and the phone already know what to do with. */}
-          <a href={icsUrl} className="underline">
+          <a href={icsUrl} className="font-medium text-link hover:text-link-hover">
             {t('addToCalendar')}
           </a>
         </p>
         {user && (
-          <p className="text-sm text-neutral-600">
-            <Link href="/profil" className="underline">
+          <p className="text-body-sm text-ink-soft">
+            <Link href="/profil" className="font-medium text-link hover:text-link-hover">
               {t('subscribeAll')}
             </Link>
           </p>
         )}
       </section>
-    </main>
+      </main>
+    </AppShell>
   );
 }

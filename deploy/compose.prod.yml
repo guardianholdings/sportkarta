@@ -92,6 +92,27 @@ services:
       # Retention and API limits are read by the job and the web app; both
       # default sensibly, so they are only set here when overridden.
       OPENDATA_DUMP_RETENTION: ${OPENDATA_DUMP_RETENTION:-30}
+      # ALL MAIL IS SENT FROM HERE, NEVER FROM web (CLAUDE.md, Stage 4.2): the
+      # web app enqueues account ids and the worker resolves the inbox at send
+      # time. So the worker — not just web — needs the relay, and without these
+      # five the whole outbound side is dead in production while every local
+      # test passes. The chain: the worker image sets NODE_ENV=production
+      # (Dockerfile), resolveMailTransport refuses every non-SMTP transport in
+      # production (lib/src/email/mailer.ts — a one-time code must never fall
+      # back to a log or a file), and DisabledMailer.send() then REJECTS. Locally
+      # NODE_ENV is unset, so the same code picks the file outbox and mail lands
+      # in apps/web/var/mail exactly as expected. That asymmetry is why this was
+      # invisible: session RSVP mail, the T-24h/T-2h reminders and the Monday
+      # digest were all failing in production only.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      # Every link in every worker-sent mail is built from this. Unset, the
+      # worker falls back to http://localhost:3000 (apps/worker/src/index.ts),
+      # so a digest would ship with links to the reader's own machine.
+      NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
     volumes:
       - uploads:/data/uploads
     depends_on:

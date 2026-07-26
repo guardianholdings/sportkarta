@@ -18,10 +18,10 @@ export function MapEmbed({ lon, lat, heightClass = 'h-56' }: MapEmbedProps) {
         title={t('openInOsm')}
         loading="lazy"
         referrerPolicy="no-referrer"
-        className={`w-full ${heightClass} rounded border border-neutral-200`}
+        className={`w-full ${heightClass} rounded-card border border-line`}
       />
-      <figcaption className="text-xs text-neutral-500">
-        <a href={link} target="_blank" rel="noreferrer" className="underline">
+      <figcaption className="text-caption text-text-muted">
+        <a href={link} target="_blank" rel="noreferrer" className="font-medium text-link hover:text-link-hover">
           {t('openInOsm')}
         </a>{' '}
         · {t('attribution')}

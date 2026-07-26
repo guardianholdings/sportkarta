@@ -54,6 +54,11 @@ test.describe('municipality accountability', () => {
     expect(headers['x-frame-options']).toBeUndefined();
     // Embedding us must not make a municipality's visitors our data subjects.
     expect(headers['set-cookie']).toBeUndefined();
+    // Stage 6 hardening envelope: no referrer leaks to us, no MIME sniffing,
+    // no indexing of an embed URL.
+    expect(headers['referrer-policy']).toBe('no-referrer');
+    expect(headers['x-content-type-options']).toBe('nosniff');
+    expect(headers['x-robots-tag']).toBe('noindex');
 
     const html = await response.text();
     expect(html).not.toMatch(/<script/i);
@@ -66,6 +71,9 @@ test.describe('municipality accountability', () => {
     const response = await request.get(`/api/widget/obshtina/${CITY}?format=json`);
     expect(response.status()).toBe(200);
     expect(response.headers()['access-control-allow-origin']).toBe('*');
+    // Header parity with the HTML variant (Stage 6 hardening).
+    expect(response.headers()['referrer-policy']).toBe('no-referrer');
+    expect(response.headers()['x-robots-tag']).toBe('noindex');
 
     const payload = (await response.json()) as Record<string, unknown>;
     const identifying = new Set([

@@ -1,0 +1,141 @@
+qid,wd_label,image,commons_cat,lon,lat,nearest_id,nearest_name,nearest_mun,dist_m,our_wikidata_tag,name_sim,verdict
+Q368232,Стадион „Георги Аспарухов“,http://commons.wikimedia.org/wiki/Special:FilePath/Sofia%20Levski%20Stadium%20Aerial.jpg,Georgi Asparuhov Stadium,23.363197,42.705467,98a8c57b-140b-4e7a-a5e2-8d62d9e5e3b4,Стадион Виваком Арена – Георги Аспарухов,Столична,15,Q368232,0.77,confirmed
+Q641325,Арена 8888 София,http://commons.wikimedia.org/wiki/Special:FilePath/Arena%20armeec.JPG,"Arena Armeets, Sofia",23.369167,42.671111,c16f51f8-33f3-4aa3-b72d-5c68921c2dad,Арена 8888 София,Столична,21,Q641325,1.0,confirmed
+Q111016961,Ледена пързалка Славия,,,23.275003,42.677549,2dc46eb9-8885-4461-b9b4-38079f175508,Зимна пързалка Славия,Столична,4,Q111016961,0.84,confirmed
+Q1058669,Хаджи Димитър (стадион),,,26.336667,42.679306,922bc29a-5591-4310-9193-5a5b5af0d7f3,"Стадион ""Хаджи Димитър""",Сливен,23,Q1058669,1.0,confirmed
+Q849639,Тича,http://commons.wikimedia.org/wiki/Special:FilePath/Ticha-Stadium.jpg,Ticha Stadium,27.931389,43.215833,65f560c0-cb01-4fc0-947a-aa817a618d9b,Стадион „Тича“,Варна,17,Q849639,1.0,confirmed
+Q1806793,Лазур (стадион),http://commons.wikimedia.org/wiki/Special:FilePath/Stadion%20%C4%8Cernomoreca%20-%20panoramio.jpg,Lasur Stadium,27.470278,42.5125,9857eef4-6329-4014-8ea2-30a98fe0c741,Лазур,Бургас,11,Q1806793,1.0,confirmed
+Q1572672,Локомотив,http://commons.wikimedia.org/wiki/Special:FilePath/Stadion%20Lokomotiv%203.jpg,Lokomotiv Stadium (Sofia),23.314806,42.737639,8c8b4a99-5a37-4de2-add8-3fa3514d349c,Стадион Локомотив,Столична,9,Q1572672,1.0,confirmed
+Q4355474,Георги Бенковски,http://commons.wikimedia.org/wiki/Special:FilePath/Stadion%20Georgi%20Benkovski%20Pazardzhik.jpg,,24.3225,42.21083333,fc898c20-86c1-4fda-acbb-6b4818130e31,Стадион Георги Бенковски,Пазарджик,16,Q4355474,1.0,confirmed
+Q5092087,Черноморец (стадион),http://commons.wikimedia.org/wiki/Special:FilePath/StadionChernomoretz1.jpg,"Chernomorets Stadium, Burgas",27.453056,42.490278,ac0c033d-0297-4aab-a47f-f69314857f42,Черноморец,Бургас,12,,1.0,confirmed
+Q3658558,Христо Ботев,,,23.78638889,42.90055556,7ad7a45e-ae28-44b1-97dd-46ab3af86a0e,Стадион „Христо Ботев“,Ботевград,14,Q3658558,1.0,confirmed
+Q12007864,Тунджа (стадион),,,26.4939,42.4836,22a8f400-208e-4065-a5ee-f538d40a7fa2,Стадион Тунджа,Ямбол,30,Q12007864,1.0,confirmed
+Q12294850,Спортен комплекс Правец,,,23.909700739,42.896863164,cb4d5c3f-7a53-462a-a3a8-0277c82adfd0,Спортен Комплекс Правец,Правец,12,,1.0,confirmed
+Q12294029,Сливнишки герой (стадион),,,23.032407781,42.858212141,a19056bc-99e4-4461-96d8-128b229f3dba,Стадион Сливнишки Герой,Сливница,14,,1.0,confirmed
+Q12287909,Национална гребна база „Средец“,,,23.409269,42.597086,c3487b0e-1aeb-448c-a6c7-ac9244f66f88,Национална гребна база Средец,Столична,49,,1.0,confirmed
+Q12273594,Бойчо Брънзов,,,27.467222222,42.515,00c377b0-d4a9-4260-bebb-1849282b3e2d,Спортна зала Бойчо Брънзов,Бургас,29,,1.0,confirmed
+Q20499270,Арена Ботевград,,Arena Botevgrad,23.78839,42.90003,722ebeb3-e99f-4064-a531-dcabbbb0eb7c,Арена Ботевград,Ботевград,5,Q20499270,1.0,confirmed
+Q25486910,Балчик,http://commons.wikimedia.org/wiki/Special:FilePath/Balchik%20Stadium%201.jpg,Balchik Stadium,28.158368,43.408689,9ed548b8-8c5b-43ec-9301-dc1570f22ab2,Балчик,Балчик,5,Q25486910,1.0,confirmed
+Q16632633,Зимен дворец на спорта,http://commons.wikimedia.org/wiki/Special:FilePath/Studentski-Grad-Zimnia-Dvorets.jpg,"Winter Sports Palace, Sofia",23.3430878,42.6440578,6bbeac2a-2e4c-4d5f-8da8-d608427de368,Зимен дворец на спорта,Столична,6,Q16632633,1.0,confirmed
+Q12289410,Осогово (стадион),,,22.683055555,42.276111111,7b3457bc-c857-401c-b472-bba956c327a5,Стадион „Осогово“,Кюстендил,21,Q12289410,1.0,confirmed
+Q7204867,Плевен,,,24.60861111,43.4125,e9c809b9-01c4-4044-a592-b009b70e94eb,Плевен,Плевен,9,,1.0,confirmed
+Q8061217,Юнак,http://commons.wikimedia.org/wiki/Special:FilePath/Maccabi%20Sofia%20in%20Yunak%20conference%201938%20p%2029.jpg,Yunak Stadium,23.3327,42.6863,16307ce2-d923-4977-ba27-134caf50f788,Юнак,Столична,46,,1.0,confirmed
+Q6997232,Градски стадион (Несебър),,,27.705,42.666806,07020b0e-592f-4c6b-898c-1d75b47e4460,Градски Несебър Стадион,Несебър,1,,1.0,confirmed
+Q2984648,Христо Ботев,http://commons.wikimedia.org/wiki/Special:FilePath/Stadiumvratsa.jpg,Vratsa stadium,23.5687,43.2009,16c7f459-11a9-400a-8044-aece08a6a58a,Стадион Христо Ботев,Враца,9,Q2984648,1.0,confirmed
+Q7452252,"Септември (стадион, Смолян)",http://commons.wikimedia.org/wiki/Special:FilePath/Smolyan-stadium-imagesfrombulgaria.JPG,,24.69916667,41.575,298aa72f-b75a-41e5-9b95-3756e66731a4,"Стадион ""Смолян""",Смолян,33,,0.74,confirmed
+Q7894226,Универсиада,http://commons.wikimedia.org/wiki/Special:FilePath/UniversiadaHall.jpg,"Universiada hall, Sofia",23.355555555,42.681111111,51c73423-848c-4af2-8f7e-3e7923a5086e,Зала Универсиада,Столична,5,Q7894226,1.0,confirmed
+Q3623321,Градски стадион,http://commons.wikimedia.org/wiki/Special:FilePath/Gradski%20Stadium.jpg,"City stadium, Rousse",25.963056,43.848056,f3cba546-053f-4349-b670-f1920bf348a3,Градски стадион,Русе,2,Q3623321,1.0,confirmed
+Q804933,Българска армия (стадион),http://commons.wikimedia.org/wiki/Special:FilePath/Balgarska%20Armija%202017.jpg,Balgarska Armiya Stadium,23.339769,42.684258,e351b407-4ca5-4921-910b-37f446b284ad,(без име),Столична,10,,,name_fill
+Q613759,Пловдив,http://commons.wikimedia.org/wiki/Special:FilePath/Plovdiv%20Stadium.JPG,Plovdiv,24.719722,42.149722,687a2966-5eb2-4d20-b875-0853ba9a9539,(без име),Пловдив,4,,,name_fill
+Q661643,Миньор,http://commons.wikimedia.org/wiki/Special:FilePath/Stadio%20Minior.jpg,,23.023333,42.606667,607679ef-b7fb-483e-930f-519840c54fe1,(без име),Перник,7,,,name_fill
+Q389625,Градски стадион,http://commons.wikimedia.org/wiki/Special:FilePath/Pomorie%20Stadium%20%281%29.jpg,,27.636656,42.565985,2e22957f-4df6-4571-a340-6d838860af91,(без име),Поморие,6,,,name_fill
+Q303387,Берое,http://commons.wikimedia.org/wiki/Special:FilePath/Stadion%20Beroe%20in%20Stara%20Zagora.jpg,,25.615278,42.432778,88c0ee82-ae13-4368-bd55-5a0a353c79f6,(без име),Стара Загора,6,,,name_fill
+Q107174800,Арена „Царско село“,,,23.315992777,42.636655044,413ce28e-be82-4625-ac34-c6fa6e05ec5a,(без име),Столична,3,,,name_fill
+Q116142331,Sports Hall Svilengrad,,,26.212546869,41.764583795,98346e13-6cec-41f8-ac54-e961d20f3ca5,(без име),Свиленград,10,,,name_fill
+Q30644373,"Футболен комплекс ""БОТЕВ 1912""",http://commons.wikimedia.org/wiki/Special:FilePath/Botev%20Plovdiv%20stadium.jpg,,24.708,42.1075,06b3158d-51d0-4fe8-bf08-4ef87839f426,(без име),Пловдив,2,,,name_fill
+Q39046436,Бистрица,http://commons.wikimedia.org/wiki/Special:FilePath/CSKA%201948%20stadium.jpg,,23.36341667,42.59125,97065cd5-55dd-469b-a06e-056e35854e38,(без име),Столична,3,,,name_fill
+Q35449633,Black Sea Ice Arena,,,28.066392,43.345156,3e401479-424b-4872-8d3a-5d25b7b74a0e,(без име),Балчик,42,,,name_fill
+Q893826,Борисова градина,http://commons.wikimedia.org/wiki/Special:FilePath/Park%20Borisova%20Gradina.jpg,"Borisova gradina, Sofia",23.34055556,42.68638889,c0620581-5f5e-4228-8373-f5e73fb28f95,(без име),Столична,94,,,name_fill
+Q849662,Христо Ботев,http://commons.wikimedia.org/wiki/Special:FilePath/Hristo%20Botev%20Stadium%20Plovdiv%20TB.JPG,,24.764444,42.139861,d85e4478-3aef-464d-bfd0-22635cf97c27,(без име),Пловдив,12,,,name_fill
+Q894120,Боровец,http://commons.wikimedia.org/wiki/Special:FilePath/Borovets%202015.jpg,Borovets,23.60694444,42.26444444,2aa937b3-97b9-4f30-a876-6c3ec2b69ea2,(без име),Самоков,73,,,name_fill
+Q851679,Локомотив,http://commons.wikimedia.org/wiki/Special:FilePath/Lokomotiv%20Stadium%2C%20Mezdra%20%282%29.jpg,,23.7125,43.138889,9b4272f0-d635-4b2b-9943-600f457ba166,(без име),Мездра,37,,,name_fill
+Q1327903,Национален стадион „Васил Левски“,http://commons.wikimedia.org/wiki/Special:FilePath/Vasil%20Levski%20National%20Stadium%202022.jpg,Vasil Levski National Stadium,23.335444,42.687583,f0f73843-e853-436b-a346-141d53b7a4cc,(без име),Столична,16,,,name_fill
+Q1541269,Градски стадион,http://commons.wikimedia.org/wiki/Special:FilePath/Litex%20stadium.jpg,Lovech Stadium,24.724861,43.142639,daa5b7a5-f405-43b1-b035-dc460e13647f,(без име),Ловеч,48,,,name_fill
+Q1859824,Александър Шаламанов,http://commons.wikimedia.org/wiki/Special:FilePath/Slavia%20stadium.JPG,,23.272028,42.675361,8df583ba-5fb5-4544-8bd9-b5b29fe66f39,(без име),Столична,16,,,name_fill
+Q6668744,"Локомотив (стадион, Стара Загора)",http://commons.wikimedia.org/wiki/Special:FilePath/Lokomotiv-stara-zagora-stadium.jpeg,,25.634306,42.439889,f6563ccc-0036-480b-9aab-8d7fdd4201b4,(без име),Стара Загора,8,,,name_fill
+Q5309428,"Дружба (стадион, Добрич)",,,27.826806,43.556028,6d608846-97d1-4f46-bbc5-66a7f41436b6,(без име),Добрич,1,,,name_fill
+Q5092043,Черният кос,,,23.5575,42.33722222,c7eeda13-5e7b-41bd-a798-7c5f4a9a160d,(без име),Самоков,236,,,name_fill
+Q4355477,Христо Ботев,http://commons.wikimedia.org/wiki/Special:FilePath/StadiumHristoBotev01.jpg,"Hristo Botev Stadium, Gabrovo",25.319722,42.86,e0004c5f-50fe-4370-a677-16711dff6614,(без име),Габрово,22,,,name_fill
+Q6535843,Levski Field,,,23.335556,42.688056,a51d52b4-32a1-4b92-9f00-0a07c4252ee0,(без име),Столична,27,,,name_fill
+Q3658465,Тодор Диев,,,24.743611,42.131667,c4e817aa-af3b-4484-8429-37aef13cf608,(без име),Пловдив,20,,,name_fill
+Q4356844,стадион Искър,,,23.55916667,42.32222222,79a092d9-964b-469d-8e00-ae9a7826e35d,(без име),Самоков,14,,,name_fill
+Q3656925,Локомотив,,,25.98222222,43.86069444,804700a9-77bb-48fe-90e4-9ac6f2d32e68,(без име),Русе,8,,,name_fill
+Q4355613,Панайот Волов,,,26.944167,43.276667,9000f9ab-1fb9-418b-b5a4-b2dbc15619ce,(без име),Шумен,10,,,name_fill
+Q4892310,Berkut Stadium,,,24.757789086,42.058228631,96be8c05-683e-45d1-9334-c37382692038,(без име),Родопи,6,,,name_fill
+Q5277416,Димитър Бурков (стадион),http://commons.wikimedia.org/wiki/Special:FilePath/MunicipalStadium%20Targovishte%201.jpg,Stadion Dimitar Burkov,26.5726,43.23572,58375927-32c7-4e16-b429-81d37e39eac3,(без име),Търговище,8,,,name_fill
+Q4700079,"Академик (стадион, София)",,,23.368611,42.685278,d37e71b1-642e-4712-a391-5afa67b9c869,(без име),Столична,24,,,name_fill
+Q5092085,Черноморец,http://commons.wikimedia.org/wiki/Special:FilePath/Chernomorets%20Stadium%20Byala.jpg,,27.890348593,42.876116991,58f0a489-6d2c-49af-8b07-d626c6904a94,(без име),Бяла,9,,,name_fill
+Q5245085,"Спартак (стадион, Варна)",http://commons.wikimedia.org/wiki/Special:FilePath/SpartakVarnaRN.jpg,,27.9125,43.218611,7c93b788-c946-4357-92c8-11f818962029,(без име),Варна,9,,,name_fill
+Q5679254,Haskovo Stadium,,,25.548889,41.927222,93b926de-1c47-40ae-8be8-0262e177cc66,(без име),Хасково,31,,,name_fill
+Q3625171,Хювефарма Арена,http://commons.wikimedia.org/wiki/Special:FilePath/Ludogorets%20arena%20in%20Razgrad%2C%20Bulgaria.png,Ludogorets Arena,26.5275,43.53361111,d644e6bc-768b-4eae-985d-2b1104506a83,(без име),Разград,96,,,name_fill
+Q107722838,Стадион „Хаджи Димитър“,,,26.336388888,42.679444444,effdfee9-941b-4111-969d-c51c3e30920b,(без име),Сливен,21,,,name_fill
+Q107284512,Дунав,,,25.976666666,43.845555555,cabf406e-e5a9-4a40-8371-98b5f892eeff,(без име),Русе,10,,,name_fill
+Q25487575,Драгалевци,,,23.309167,42.637139,370a276f-fd96-4f72-b7ab-a9512996d3f6,(без име),Столична,1,,,name_fill
+Q12294496,"Спартак (стадион, Сандански)",,,23.283981646,41.573788721,0d125364-a4d5-497c-a4ad-8dbd23e77418,(без име),Сандански,21,,,name_fill
+Q12280264,Загорец (стадион),,,26.0158,42.5003,8708e769-7dd9-472d-a7fa-51d56484af83,(без име),Нова Загора,26,,,name_fill
+Q93450528,Локомотив,http://commons.wikimedia.org/wiki/Special:FilePath/Stadion-lokomotiv.jpg,"Lokomotiv Stadium, Gorna Oryahovitsa",25.68,43.123888888,5329ad72-35a4-4d33-b33f-6644d84a97e0,(без име),Горна Оряховица,44,,,name_fill
+Q12298059,"Химик (стадион, Стара Загора)",,,25.640278,42.433333,26a8f656-766d-41ef-b676-ffefe4ff650e,(без име),Стара Загора,203,,,name_fill
+Q12272262,Априлов (стадион),,,25.314044379,42.883305085,74146d9f-9408-4dba-b1bc-9837e9fd2813,(без име),Габрово,6,,,name_fill
+Q12292118,"Раковски (стадион, София)",,,23.304169,42.678067,026a89ca-e2c7-4ee1-a776-8e1a596b87fb,(без име),Столична,8,,,name_fill
+Q12276930,Герман (стадион),,,23.415611,42.617,2431b1cc-cbbe-4e67-923e-87fcba191d04,(без име),Столична,18,,,name_fill
+Q12295658,Странджата (стадион),,,22.703055555,42.286666666,ec2ba0a0-e5ed-462d-ba40-9819edb6afb0,(без име),Кюстендил,18,,,name_fill
+Q12298238,"Христо Ботев (стадион, Козлодуй)",http://commons.wikimedia.org/wiki/Special:FilePath/Hristo%20Botev%20Stadium%20Kozloduy.JPG,,23.7356,43.7789,0b2c953e-5d4b-4e4f-b7a1-409660e5fd6d,(без име),Козлодуй,68,,,name_fill
+Q46998236,"Петър Парчевич (стадион, Раковски)",http://commons.wikimedia.org/wiki/Special:FilePath/Stadium%20Parchevich%2C%20Rakovski.jpg,,24.928681,42.270477,2662e9a1-13c2-429c-bc3a-0cdcb64a40cd,(без име),Раковски,33,,,name_fill
+Q25487572,Септември,,,23.291889,42.698306,ac3bc447-9de0-4a23-97dd-fd77e793bce2,(без име),Столична,24,Q25487572,,name_fill
+Q12294980,Стамо Костов (стадион),http://commons.wikimedia.org/wiki/Special:FilePath/Popovo%20stadiona.JPG,,26.2353,43.3439,c8a9775b-7842-4017-8d89-7ee4f1722ffe,(без име),Попово,38,,,name_fill
+Q12285976,Марица (стадион),,,24.72041,42.155905,e22fff93-d56c-4a73-95f5-e41dbb01f3a6,(без име),Пловдив,56,,,name_fill
+Q12277340,Гребна база Пловдив,http://commons.wikimedia.org/wiki/Special:FilePath/Plovdiv%20Stadium.JPG,"Grebna baza, Plovdiv",24.716388888,42.148888888,72d4c74e-7ab7-44ef-a4c0-8453ea0e9c93,(без име),Пловдив,143,,,name_fill
+Q15234685,Kavarna Stadium,,,28.33111111,43.42833333,811f226a-0d83-436a-98c1-95ea3101205a,(без име),Каварна,16,,,name_fill
+Q20036684,Арена Созопол,,Arena Sozopol,27.696944,42.413611,a3971bb1-a16a-42cd-8504-f841c89d5029,(без име),Созопол,5,,,name_fill
+Q15276210,Септември,http://commons.wikimedia.org/wiki/Special:FilePath/Septemvri%20Stadium%2C%20Sofia%20%2815%29.jpg,,23.28777778,42.69222222,b30c5a9c-ddc6-4201-aad7-12d08e231b23,(без име),Столична,8,,,name_fill
+Q7849402,Цар Самуил (стадион),http://commons.wikimedia.org/wiki/Special:FilePath/Petrich-stadium.jpg,,23.1994,41.3892,5a8fa201-cce7-47c4-8a07-02edabe0f3c0,(без име),Петрич,25,,,name_fill
+Q3623304,Бончук,http://commons.wikimedia.org/wiki/Special:FilePath/%D0%A1%D1%82%D0%B0%D0%B4%D0%B8%D0%BE%D0%BD%20%E2%80%9E%D0%91%D0%BE%D0%BD%D1%87%D1%83%D0%BA%E2%80%9C%2C%20%D0%94%D1%83%D0%BF%D0%BD%D0%B8%D1%86%D0%B0.jpg,"Bonchuk stadium, Dupnitsa",23.135556,42.275556,ae379844-1cca-43d4-8cc7-5df06a12d142,(без име),Дупница,25,,,name_fill
+Q7415985,Стадион Сандански,,,23.28361111,41.57361111,f3853a13-4396-4f1a-a698-b7a63529845a,(без име),Сандански,16,,,name_fill
+Q7100313,Orcho Voivoda Stadium,,,24.190833,42.511667,b9a2195b-5e94-4a92-8c41-c4cd0b12ba27,(без име),Панагюрище,18,,,name_fill
+Q6852078,Военномедицинска академия,http://commons.wikimedia.org/wiki/Special:FilePath/Military%20Medical%20Academy%20Sofia%20Bulgaria%20TB.jpg,Military Medical Academy (Sofia),23.303888888,42.684166666,a5f4b360-4262-4097-a692-03096ff8a7fd,(без име),Столична,198,,,name_fill
+Q7205170,Античен стадион,http://commons.wikimedia.org/wiki/Special:FilePath/Stadio%20romano.jpg,"Ancient stadium, Plovdiv",24.7480184,42.1475679,980f9637-1bd1-4969-a745-2531a8ec2f45,(без име),Пловдив,108,,,name_fill
+Q7498001,Шипка (стадион),,,24.86444444,42.01166667,b117a825-e5e3-4c6a-b178-faa853b55510,(без име),Асеновград,158,,,name_fill
+Q3625090,Христо Ботев,http://commons.wikimedia.org/wiki/Special:FilePath/Blagoevgrad%20Stadium.jpg,,23.1,42.026389,506c9262-8870-43b2-a405-97ddd58c22b3,(без име),Благоевград,36,,,name_fill
+Q3622944,Огоста,http://commons.wikimedia.org/wiki/Special:FilePath/Stadion%20montana%202012.jpg,Ogosta Stadium,23.225278,43.398611,92b5291d-14a5-4f8a-b76b-b405282d07f9,(без име),Монтана,27,,,name_fill
+Q7286736,"Раковски (стадион, Севлиево)",http://commons.wikimedia.org/wiki/Special:FilePath/Rakovski%20Stadium.jpg,,25.111389,43.024167,2fa96a08-bf8a-4529-9e92-e7d9d19ced0c,(без име),Севлиево,5,,,name_fill
+Q3623331,Локомотив,http://commons.wikimedia.org/wiki/Special:FilePath/Dsc01891a.jpg,Lokomotiv Stadium (Plovdiv),24.771667,42.133889,b121104f-dd68-4a1d-9eea-491eae9ff204,(без име),Пловдив,9,,,name_fill
+Q3622953,Ивайло,http://commons.wikimedia.org/wiki/Special:FilePath/FC%20Etar%20Veliko%20Tarnovo%20Fans.jpg,Ivaylo Stadium,25.620556,43.077222,48fe86e1-7037-4bea-9f47-b60ee3bc019f,(без име),Велико Търново,25,,,name_fill
+Q28721211,Bănderitsa,,,23.438333333,41.777777777,,,,,,,no_counterpart_250m
+Q94722155,Картала,,Kartala ski center,23.360555555,42.043055555,,,,,,,no_counterpart_250m
+Q30632970,Aqua Paradise Water Park,http://commons.wikimedia.org/wiki/Special:FilePath/Aquapark%20Ravda%20Nesebar%20-%20panoramio.jpg,,27.6821351,42.6562608,,,,,,,no_counterpart_250m
+Q138845212,A1 Motor Park,http://commons.wikimedia.org/wiki/Special:FilePath/A1-motor-park.png,,23.539693668,42.315474571,,,,,,,no_counterpart_250m
+Q136721571,Pista Dolna Mitropoliya,,,24.509871,43.451842,,,,,,,no_counterpart_250m
+Q138845212,A1 Motor Park,http://commons.wikimedia.org/wiki/Special:FilePath/A1-motor-park.png,,23.5396903,42.315462,,,,,,,no_counterpart_250m
+Q2048727,Пампорово,http://commons.wikimedia.org/wiki/Special:FilePath/Pamporovoresort.jpg,Pamporovo,24.688888888,41.6475,,,,,,,no_counterpart_250m
+Q109652425,,,,25.317222,43.2325,,,,,,,no_counterpart_250m
+Q129676073,Арена Раковски,,,24.944014003,42.278035664,,,,,,,no_counterpart_250m
+Q15121175,,,,23.94644444,42.26172222,,,,,,,no_counterpart_250m
+Q12276294,"Георги Бенковски (стадион, Видин)",,,22.7769,43.9939,,,,,,,no_counterpart_250m
+Q12284064,Кремиковци (стадион),,,23.504127631,42.734288117,,,,,,,no_counterpart_250m
+Q12299078,"Червено знаме (стадион, Бургас)",,,27.370555555,42.520555555,,,,,,,no_counterpart_250m
+Q65245561,,,,23.43694444,41.77722222,,,,,,,no_counterpart_250m
+Q15242633,Lokomotiv Stadium (Gorna Oryahovitsa),http://commons.wikimedia.org/wiki/Special:FilePath/Stadion-lokomotiv.jpg,,25.7,43.13333333,,,,,,,no_counterpart_250m
+Q15262104,New Varna Stadium,,,27.94305556,43.22111111,,,,,,,no_counterpart_250m
+Q12290726,Писта Дракон,,Drakon circuit,24.735074,42.341657,,,,,,,no_counterpart_250m
+Q7449691,Семково,,,23.53388889,42.04388889,,,,,,,no_counterpart_250m
+Q8061500,Юрий Гагарин (стадион),http://commons.wikimedia.org/wiki/Special:FilePath/%D0%92%D0%B0%D1%80%D0%BD%D0%B0%20%D0%A1%D1%82%D0%B0%D0%B4%D0%B8%D0%BE%D0%BD%20%D0%AE%D1%80%D0%B8%D0%B9%20%D0%93%D0%B0%D0%B3%D0%B0%D1%80%D0%B8%D0%BD%20-%20Varna%20Sports%20Stadium%20%22Yuri%20Gagarin%22%2C%20Bulgaria%20Oct%201993%20%284155647357%29.jpg,,27.943056,43.221111,,,,,,,no_counterpart_250m
+Q7849656,Цигов чарк,http://commons.wikimedia.org/wiki/Special:FilePath/%D0%98%D0%B7%D0%B3%D0%BB%D0%B5%D0%B4%20%D0%BA%D1%8A%D0%BC%20%D0%BA%D1%83%D1%80%D0%BE%D1%80%D1%82%20%D0%A6%D0%B8%D0%B3%D0%BE%D0%B2%20%D1%87%D0%B0%D1%80%D0%BA.jpg,Tsigov chark,24.1506,41.955,,,,,,,no_counterpart_250m
+Q2594811,Национален военен университет,http://commons.wikimedia.org/wiki/Special:FilePath/Vasil-Levski-National-Military-University-3.jpg,Vasil Levski National Military University,25.6028,43.0847,,,,,,,no_counterpart_250m
+Q124350311,Vasil Levski sports hall,http://commons.wikimedia.org/wiki/Special:FilePath/Inside%20of%20the%20hall.jpg,"Vasil Levski hall, Pazardzhik",24.336099884,42.19102742,e8cfd8b6-52a9-402e-bdf9-afd2e4ef65d0,"Зала ""Васил Левски""",Пазарджик,30,,0.1,review
+Q28320697,Hebros Stadium,,,25.903060956,41.921119849,1b541bc8-b837-48b6-adf1-0e760220fadd,Стадион Хеброс,Харманли,3,,0.07,review
+Q60193665,Фестивална,http://commons.wikimedia.org/wiki/Special:FilePath/2024%20Dan%20Kolov%20%26%20Nikola%20Petrov%20Tournament.jpg,Asics Arena (Sofia),23.36612,42.68441,8d0b2652-348d-4304-8b64-372887916fd3,Асикс Арена,Столична,3,Q60193665,0.29,review
+Q76830767,Hristo Botev Sports Hall,,,23.340116682,42.651814924,3505197c-3300-4e33-b7bd-090c4994e12f,Спортна зала „Христо Ботев”,Столична,40,,0.12,review
+Q56886530,Sport Hall Europe,,,23.395807815,42.67198273,8f1b148d-59e4-421c-a001-813a66d7021b,Център за катерене Европа,Столична,29,,0.1,review
+Q3658742,Градски стадион,,,23.35,42.962222,564e0649-56de-46c8-8eeb-30b058e0f197,Стадион „Чавдар Цветков“,Своге,18,Q3658742,0.38,review
+Q4882949,Belite Orli Stadium,,,24.608056,43.406944,04a1dca2-2002-424f-b766-59534853daee,Стадион Белите Орли,Плевен,25,,0.11,review
+Q5092083,Chernomorets Arena,,,27.453056,42.490278,ac0c033d-0297-4aab-a47f-f69314857f42,Черноморец,Бургас,12,,0.0,review
+Q109652424,,,,25.587694,42.06575,6e0714d3-8487-48d3-a374-207bcf469f35,(без име),Димитровград,3,,,review
+Q109652428,,,,23.735139,41.571528,4c1afc7a-87ed-4851-b05b-83a717c41ec4,(без име),Гоце Делчев,5,,,review
+Q109652432,,,,23.493611,41.83375,0a67b58a-11b2-4332-b64d-b741ef28ab2a,(без име),Банско,6,,,review
+Q109652430,,,,23.452972,41.879389,9f91ebbe-e22d-4408-997f-2de18a2ef6a8,(без име),Разлог,1,,,review
+Q109652438,,,,25.932139,42.294333,87f8b2cd-53f1-4c4a-b7a2-80af0b09e04f,(без име),Раднево,2,,,review
+Q109652439,,,,25.869306,42.142639,068c3956-8c50-4813-8271-18126d333957,(без име),Гълъбово,6,,,review
+Q109652433,,,,23.950278,43.476944,f0a16ec6-61e6-4e57-b8fa-886e95ea154a,Стадион Чавдар,Бяла Слатина,8,,0.0,review
+Q109652339,,,,22.961667,42.538056,776387c4-cc85-40a1-bc9c-e496c3cd63a6,(без име),Радомир,5,,,review
+Q109652341,,,,23.115139,41.890833,e01bd6c8-d087-485f-b42c-8df9de73a32b,Стадион Струма,Симитли,9,,0.0,review
+Q60594983,Зала С.И.²Л.А.,,,24.73877,42.137336,29996cfe-66a9-4847-9e31-2de3c69b44c6,Kомплекс С.И.2Л.А.,Пловдив,4,,0.6,review
+Q97371839,,,,26.582917,43.251444,225fcdb4-de22-43ce-baeb-7a24d9c7f6ef,(без име),Търговище,97,,,review
+Q97371747,,,,25.393167,42.630722,319257ec-e5c9-4921-800b-d6b7dd3615f6,(без име),Казанлък,8,,,review
+Q86674421,,,,23.3325,42.686111,f1a2b6d5-e6c7-41a1-9fc8-f73d2d904d2c,Приключенски парк Юнак,Столична,59,,0.0,review
+Q97371118,,,,25.480139,42.863222,ce6056b9-05a9-4bf6-88a1-1efe2b77c099,(без име),Трявна,3,,,review
+Q97371775,,,,28.069917,43.365083,e7ee9096-a80f-4d52-b77a-4ae709e63d89,Стадион Албена,Балчик,4,,0.0,review
+Q12279167,"Дружба (стадион, Кърджали)",http://commons.wikimedia.org/wiki/Special:FilePath/Stadion%20Drujba.jpg,Arena Arda,25.37806,41.64111,f51bd567-8ddb-4867-ab34-cef481002c76,Арена Арда,Кърджали,12,Q12279167,0.42,review
+Q20497782,Спортна зала на ПУ,,Plovdiv University sports hall,24.715189,42.156879,512cdcd3-c818-4359-a0dc-b94878a2411f,"Спортна зала ПУ ""Паисий Хилендарски""",Пловдив,13,,0.58,review
+Q20036683,Булстрад арена,,"Bulstrad Arena, Rousse",25.9619,43.8469,2d13b2eb-a31c-4598-aa71-8b2df3e654cc,Арена Русе,Русе,11,,0.42,review
+Q20499947,Многофункционална спортна зала,http://commons.wikimedia.org/wiki/Special:FilePath/Kolodrum%203.jpg,Velodrome (Plovdiv),24.766716,42.128282,39e48a0e-4b39-4043-a12f-d2117a3cf905,Колодрума,Пловдив,5,Q20499947,0.1,review
+Q7126225,Дворец на културата и спорта,http://commons.wikimedia.org/wiki/Special:FilePath/Palace%20of%20Culture%20and%20Sports%20Varna.jpg,"Palace of Culture and Sport, Varna",27.931751,43.210854,fae05c19-e3bf-42eb-8ac0-feb8e00e232c,Спортна зала,Варна,13,Q7126225,0.3,review

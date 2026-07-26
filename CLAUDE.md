@@ -11,6 +11,12 @@ browser) in a MANUAL STEPS list at the end of the session.
 
 - `pnpm dev` — Next.js dev server (apps/web)
 - `pnpm build` / `pnpm typecheck` / `pnpm lint` / `pnpm test` — fan out across the workspace
+- **NEVER run `pnpm build` while `pnpm dev` is up.** Both write `apps/web/.next`,
+  and the race corrupts `prerender-manifest.json` — every page then 500s with
+  `SyntaxError: Unexpected non-whitespace character after JSON`, which looks like
+  an application bug and is not. Recovery: stop the dev server, confirm no
+  `next dev`/`next-server` process survives, `rm -rf apps/web/.next`, restart.
+  Typecheck and test are safe to run against a live dev server; only `build` is not
 - `pnpm test:e2e` — Playwright smoke tests (apps/web/e2e); needs the dev db up + migrated + seeded
 - `pnpm db:start` — dev Postgres+PostGIS via compose (host port **5433**, not 5432)
 - `pnpm db:generate` / `pnpm db:migrate` / `pnpm db:seed` — drizzle-kit + seed in db/
@@ -58,13 +64,15 @@ browser) in a MANUAL STEPS list at the end of the session.
   migration, and is awarded retroactively with its true date. Streaks are
   civil Sofia days/weeks (never elapsed ms). Who may appear on a public
   leaderboard is defined ONCE, in the `leaderboard_eligible_members` view:
-  never a minor, and only members who opted their passport public. Every
-  ranking joins that view instead of `users`, so a new slice inherits the rule
+  members who opted their passport public. Age is NOT a condition — migration
+  0020 withdrew the minors exclusion (operator decision 2026-07-25, minors are
+  treated as adults). Every ranking joins that view instead of `users`, so a
+  new slice inherits the consent rule
 - Campaigns (Stage 5.3) are ROWS, but their scoring is a validated `rules` JSONB
   document (`lib/src/campaigns`) compiled to SQL in `db/src/campaigns.ts` —
   creating a campaign is a form, inventing a new kind of scoring is a grammar
   change. Windows are civil Sofia dates, `ends_on` inclusive. Scoring counts
-  EVERYONE; only display is gated, so a minor or an unpublished member can win a
+  EVERYONE; only display is gated, so an unpublished member can win a
   prize without appearing on a public individual board. Closing freezes the
   standings into `campaign_results`, which deliberately stores no display name —
   the placing is frozen, the identity resolves live
@@ -144,6 +152,27 @@ browser) in a MANUAL STEPS list at the end of the session.
   the VPS); `scripts/quarterly-report` renders HTML→PDF via Playwright, the
   admin screen serves print-ready HTML. `getPool()` in `@sportkarta/db` exists
   for the report runner's positional-parameter binding
+- Monetisation (Stage 8, `docs/MONETISATION.md`) is CONTENT BESIDE our own —
+  never surveillance, never authority. One registry (`partners`, 0019) carries
+  every commercial actor including advertisers (`tier='advertiser'`, 0021); the
+  three placement surfaces reference it and never copy its columns, so hiding a
+  partner withdraws their logo everywhere at once. The rendering rule is written
+  ONCE as `PARTNER_RENDERABLE` in `apps/web/lib/partners.ts` (visible AND window
+  active) and every reader embeds it — `/partnyori`, the headline strip, the
+  campaign sponsor line (`campaigns.partner_id`, 0022), the facility adoption
+  (`facility_sponsorships`, 0023) and the ad slots (`ad_placements`, 0021).
+  Ad slots are the compliance-critical part: four slot keys closed in three
+  agreeing places, selection by SURFACE only (`AdSlot` receives no viewer
+  attribute, which is why the site still needs no consent banner), an unsold
+  slot renders nothing, the «Реклама» label is inseparable from the creative,
+  and there is deliberately NO impression or click counter anywhere. Slot
+  exclusivity and one-adoption-per-facility are EXCLUDE constraints (btree_gist),
+  not application checks. Every table here is off the open-data
+  `ALLOWED_RELATIONS` and none has a contact-person column — sponsor contacts
+  are natural persons and live in the offline CRM. Adoption is an ADJACENT table:
+  sponsorship never touches a `facilities` row, so it stays outside the merge
+  policy and `facility_edits`. Creatives and logos stream from row-decides routes
+  that repeat the visibility predicate. `PARTNER_STRIP_ENABLED` ships off
 - i18n keys must be NESTED, never dotted: next-intl reads `.` as nesting and
   rejects the catalogue at request time, and the parity test cannot see it
   (`apps/web/tests/i18n.test.ts` has a separate guard)
@@ -170,10 +199,15 @@ browser) in a MANUAL STEPS list at the end of the session.
 - GDPR erasure removes the profile and anonymises contributions, but
   `facility_edits` is append-only and stays intact — erased actors render as the
   "former user" label (`apps/web/lib/account-deletion.ts`)
-- Minors: no individual public leaderboards. Leaderboards exist (Stage 5.2) and
-  minors are excluded from them at the QUERY layer, by the
-  `leaderboard_eligible_members` view — never by a UI check. That view must
-  never be widened; adding a board means a new query against it
+- Public individual exposure (a public passport, a named leaderboard row, a
+  named campaign standing) requires the member's OWN opt-in, enforced at the
+  QUERY layer by the `leaderboard_eligible_members` view — never by a UI check.
+  That view must never be widened; adding a board means a new query against it.
+  Age is not a condition: migration `0020_minors_as_adults` withdrew the
+  minors exclusion (operator decision 2026-07-25 — minors are treated as
+  adults). `is_minor` is still derived from a DOB that is still discarded, and
+  gates NOTHING; do not reintroduce a predicate on it without an operator
+  decision reversing 0020
 - Migrations forward-only, reviewed by db-migration-reviewer subagent
 - Deploys happen ONLY via GitHub Actions on main — never deploy from a session
 - Secrets: real values live only in `.env` (gitignored), GitHub Actions

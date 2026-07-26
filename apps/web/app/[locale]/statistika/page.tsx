@@ -7,6 +7,7 @@ import { cityDisplayName } from '@/lib/city-names';
 import { buildAlternates } from '@/lib/seo';
 import { getStatsSnapshot, type MunicipalityStat } from '@/lib/stats-data';
 import { pct } from '@/lib/stats-format';
+import { AppShell } from '@/components/shell/app-shell';
 
 // Reads the materialized views (cheap — refreshed every 15 min via pg-boss).
 // force-dynamic keeps it OFF the build's static prerender (the [locale] layout
@@ -27,9 +28,9 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg border border-neutral-200 p-3">
-      <div className="text-2xl font-bold tracking-tight">{value}</div>
-      <div className="text-xs text-neutral-500">{label}</div>
+    <div className="rounded-card border border-line p-3">
+      <div className="font-mono text-h2 font-bold text-ink tabular-nums">{value}</div>
+      <div className="text-caption text-text-muted">{label}</div>
     </div>
   );
 }
@@ -85,12 +86,13 @@ export default async function StatsPage({ params }: { params: PageParams }) {
   const needsShare = national ? pct(national.needsVerification, national.total) : null;
 
   return (
-    <main className="mx-auto max-w-4xl space-y-8 p-4">
+    <AppShell>
+      <main className="mx-auto max-w-4xl space-y-8 p-4">
       <header className="space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight">{t('h1')}</h1>
-        <p className="text-neutral-700">{t('intro')}</p>
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('h1')}</h1>
+        <p className="text-ink-soft">{t('intro')}</p>
         {national && (
-          <p className="text-xs text-neutral-500">{t('generatedAt', { date: generatedDate })}</p>
+          <p className="text-caption text-text-muted">{t('generatedAt', { date: generatedDate })}</p>
         )}
       </header>
 
@@ -112,17 +114,17 @@ export default async function StatsPage({ params }: { params: PageParams }) {
       </section>
 
       <section aria-labelledby="table-h">
-        <h2 id="table-h" className="mb-2 text-lg font-semibold">
+        <h2 id="table-h" className="mb-2 text-h4 font-bold text-ink">
           {t('tableHeading')}
         </h2>
         <StatsTable municipalities={municipalities} locale={locale} />
       </section>
 
       <section aria-labelledby="method-h">
-        <h2 id="method-h" className="mb-2 text-lg font-semibold">
+        <h2 id="method-h" className="mb-2 text-h4 font-bold text-ink">
           {t('methodologyHeading')}
         </h2>
-        <ul className="list-disc space-y-1 pl-5 text-sm text-neutral-700">
+        <ul className="list-disc space-y-1 pl-5 text-body-sm text-ink-soft">
           <li>{t('sourceData')}</li>
           <li>{t('sourcePopulation')}</li>
           <li>{t('verificationNote')}</li>
@@ -131,17 +133,18 @@ export default async function StatsPage({ params }: { params: PageParams }) {
       </section>
 
       <section aria-labelledby="dl-h">
-        <h2 id="dl-h" className="mb-2 text-lg font-semibold">
+        <h2 id="dl-h" className="mb-2 text-h4 font-bold text-ink">
           {t('downloadHeading')}
         </h2>
         <button
           type="button"
           disabled
-          className="cursor-not-allowed rounded-md border border-neutral-300 px-4 py-2 text-sm text-neutral-400"
+          className="cursor-not-allowed rounded-md border border-line-strong px-4 py-2 text-sm text-text-faint"
         >
           {t('downloadComingSoon')}
         </button>
       </section>
-    </main>
+      </main>
+    </AppShell>
   );
 }

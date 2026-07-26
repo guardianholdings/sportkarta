@@ -1,3 +1,5 @@
+import { PUBLIC_FACILITY_PREDICATE } from '../opendata/schema.js';
+
 import type { ReportDefinition } from './schema.js';
 
 /**
@@ -244,7 +246,7 @@ export const GRANT_REPORT: ReportDefinition = {
           sql: `
             SELECT count(*)::int AS value
             FROM facilities f
-            WHERE f.status <> 'gone' AND f.slug IS NOT NULL
+            WHERE ${PUBLIC_FACILITY_PREDICATE}
               AND ${SCOPE_FACILITY}
           `,
         },
@@ -255,14 +257,14 @@ export const GRANT_REPORT: ReportDefinition = {
           unit: 'count',
           additive: true,
           personDerived: false,
-          // The same public-visibility predicate as the map and mv_national_stats
-          // (status <> 'gone' AND slug IS NOT NULL): a report must not count a
+          // The same public-visibility predicate as the map and mv_national_stats,
+          // (the shared PUBLIC_FACILITY_PREDICATE, paid-gate included): a report must not count a
           // row the public register does not show.
           sql: `
             SELECT count(*)::int AS value
             FROM facilities f
             WHERE f.created_at >= :from AND f.created_at < :to
-              AND f.status <> 'gone' AND f.slug IS NOT NULL
+              AND ${PUBLIC_FACILITY_PREDICATE}
               AND ${SCOPE_FACILITY}
           `,
         },

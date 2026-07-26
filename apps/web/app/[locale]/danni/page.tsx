@@ -11,6 +11,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { OPEN_DATA_LIMITS } from '@/lib/opendata/limits';
 import { buildAlternates, siteUrl } from '@/lib/seo';
+import { AppShell } from '@/components/shell/app-shell';
 
 /**
  * The open-data portal (docs/ROADMAP.md §8, Stage 6.1).
@@ -67,83 +68,84 @@ export default async function OpenDataPage({ params }: { params: PageParams }) {
   const manifest = version ? await dumpManifest(db, version).catch(() => null) : null;
 
   return (
-    <main className="mx-auto max-w-3xl space-y-10 p-4">
+    <AppShell>
+      <main className="mx-auto max-w-3xl space-y-10 p-4">
       <div className="space-y-3">
-        <Link href="/" className="text-sm underline">
+        <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
           {t('back')}
         </Link>
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-neutral-700">{t('intro')}</p>
-        <p className="rounded border border-teal-200 bg-teal-50 p-3 text-sm text-teal-900">
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
+        <p className="text-ink-soft">{t('intro')}</p>
+        <p className="rounded-md border border-info-border bg-info-bg p-3 text-body-sm text-info">
           {t('attributionNotice')}{' '}
-          <Link href="/danni/litsenz" className="underline">
+          <Link href="/danni/litsenz" className="font-medium text-link hover:text-link-hover">
             {t('licenseLink')}
           </Link>
         </p>
       </div>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">{t('apiTitle')}</h2>
-        <p className="text-neutral-700">{t('apiIntro')}</p>
-        <p className="text-sm text-neutral-600">
+        <h2 className="text-h4 font-bold text-ink">{t('apiTitle')}</h2>
+        <p className="text-ink-soft">{t('apiIntro')}</p>
+        <p className="text-body-sm text-ink-soft">
           {t('apiBaseLabel')}:{' '}
-          <code className="rounded bg-neutral-100 px-1">
+          <code className="rounded bg-paper-sunk px-1">
             {siteUrl()}/api/opendata/{OPEN_DATA_API_VERSION}
           </code>
         </p>
 
         <div className="space-y-1">
-          <h3 className="font-medium">{t('apiAnonymousTitle')}</h3>
-          <p className="text-sm text-neutral-700">{t('apiAnonymousBody')}</p>
+          <h3 className="text-body-sm font-semibold text-ink">{t('apiAnonymousTitle')}</h3>
+          <p className="text-body-sm text-ink-soft">{t('apiAnonymousBody')}</p>
         </div>
         <div className="space-y-1">
-          <h3 className="font-medium">{t('apiAuthTitle')}</h3>
-          <p className="text-sm text-neutral-700">{t('apiAuthBody')}</p>
-          <Link href="/danni/klyuchove" className="text-sm text-teal-700 underline">
+          <h3 className="text-body-sm font-semibold text-ink">{t('apiAuthTitle')}</h3>
+          <p className="text-body-sm text-ink-soft">{t('apiAuthBody')}</p>
+          <Link href="/danni/klyuchove" className="text-body-sm font-medium text-link hover:text-link-hover">
             {t('keysLink')}
           </Link>
         </div>
         <div className="space-y-1">
-          <h3 className="font-medium">{t('apiLimitsTitle')}</h3>
-          <p className="text-sm text-neutral-700">
+          <h3 className="text-body-sm font-semibold text-ink">{t('apiLimitsTitle')}</h3>
+          <p className="text-body-sm text-ink-soft">
             {t('apiLimitsBody', {
               anon: OPEN_DATA_LIMITS.anonPerMinute,
               keyed: OPEN_DATA_LIMITS.keyedPerMinute,
             })}
           </p>
-          <p className="text-sm font-medium text-neutral-800">{t('apiDumpsUnmetered')}</p>
+          <p className="text-body-sm font-medium text-ink">{t('apiDumpsUnmetered')}</p>
         </div>
         <div className="space-y-1">
-          <h3 className="font-medium">{t('apiParamsTitle')}</h3>
-          <ul className="list-disc space-y-1 pl-5 text-sm text-neutral-700">
+          <h3 className="text-body-sm font-semibold text-ink">{t('apiParamsTitle')}</h3>
+          <ul className="list-disc space-y-1 pl-5 text-body-sm text-ink-soft">
             <li>{t('apiParamFormat')}</li>
             <li>{t('apiParamLimit')}</li>
           </ul>
         </div>
         <div className="space-y-1">
-          <h3 className="font-medium">{t('apiExampleTitle')}</h3>
+          <h3 className="text-body-sm font-semibold text-ink">{t('apiExampleTitle')}</h3>
           {/* Shell, not UI text — deliberately not translated. */}
-          <pre className="overflow-x-auto rounded bg-neutral-900 p-3 text-xs text-neutral-100">
+          <pre className="overflow-x-auto rounded-md bg-paper-sunk p-3 font-mono text-caption text-ink">
             {`curl -H "Authorization: Bearer skbg_…" \\\n  "${siteUrl()}/api/opendata/${OPEN_DATA_API_VERSION}/facilities?format=csv"`}
           </pre>
         </div>
       </section>
 
       <section className="space-y-6">
-        <h2 className="text-lg font-semibold">{t('datasetsTitle')}</h2>
+        <h2 className="text-h4 font-bold text-ink">{t('datasetsTitle')}</h2>
         {EXPORT_DATASETS.map((dataset) => (
-          <article key={dataset.id} className="space-y-2 rounded border border-neutral-200 p-4">
+          <article key={dataset.id} className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm">
             <h3 className="font-semibold">{t(`datasets.${dataset.titleKey}`)}</h3>
-            <p className="text-sm text-neutral-700">{t(`datasets.${dataset.descriptionKey}`)}</p>
-            <p className="text-xs text-neutral-600">
-              <code className="rounded bg-neutral-100 px-1">{apiUrl(dataset)}</code>
+            <p className="text-body-sm text-ink-soft">{t(`datasets.${dataset.descriptionKey}`)}</p>
+            <p className="text-caption text-ink-soft">
+              <code className="rounded bg-paper-sunk px-1">{apiUrl(dataset)}</code>
             </p>
-            <p className="text-xs text-neutral-600">
+            <p className="text-caption text-ink-soft">
               {t('apiFormatLabel')}: {dataset.formats.join(', ')}
             </p>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="text-neutral-600">
+              <table className="w-full text-left text-caption">
+                <thead className="text-ink-soft">
                   <tr>
                     <th className="py-1 pr-3 font-medium">{t('fieldName')}</th>
                     <th className="py-1 pr-3 font-medium">{t('fieldType')}</th>
@@ -152,12 +154,12 @@ export default async function OpenDataPage({ params }: { params: PageParams }) {
                 </thead>
                 <tbody>
                   {dataset.fields.map((field) => (
-                    <tr key={field.name} className="border-t border-neutral-100 align-top">
+                    <tr key={field.name} className="border-t border-line align-top">
                       <td className="py-1 pr-3">
                         <code>{field.name}</code>
                       </td>
-                      <td className="py-1 pr-3 text-neutral-600">{field.type}</td>
-                      <td className="py-1 text-neutral-700">{t(`fields.${field.descriptionKey}`)}</td>
+                      <td className="py-1 pr-3 text-ink-soft">{field.type}</td>
+                      <td className="py-1 text-ink-soft">{t(`fields.${field.descriptionKey}`)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -168,33 +170,33 @@ export default async function OpenDataPage({ params }: { params: PageParams }) {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">{t('dumpsTitle')}</h2>
-        <p className="text-neutral-700">{t('dumpsIntro')}</p>
-        <p className="text-sm text-neutral-600">
+        <h2 className="text-h4 font-bold text-ink">{t('dumpsTitle')}</h2>
+        <p className="text-ink-soft">{t('dumpsIntro')}</p>
+        <p className="text-body-sm text-ink-soft">
           {t('dumpsRetention', { keep: Number(process.env.OPENDATA_DUMP_RETENTION ?? 30) })}
         </p>
 
         {manifest && manifest.files.length > 0 ? (
           <div className="space-y-2">
-            <p className="text-sm font-medium">
+            <p className="text-body-sm font-medium">
               {t('dumpsLatest')}: <code>{manifest.version}</code>
             </p>
-            <ul className="space-y-2 text-sm">
+            <ul className="space-y-2 text-body-sm">
               {manifest.files.map((file) => (
                 <li
                   key={`${file.dataset}.${file.format}`}
-                  className="flex flex-wrap items-baseline gap-x-3 border-t border-neutral-100 pt-2"
+                  className="flex flex-wrap items-baseline gap-x-3 border-t border-line pt-2"
                 >
                   <a
-                    className="text-teal-700 underline"
+                    className="font-medium text-link hover:text-link-hover"
                     href={`/api/opendata/${OPEN_DATA_API_VERSION}/dumps/${file.version}/${file.dataset}.${file.format}`}
                   >
                     {file.dataset}.{file.format}
                   </a>
-                  <span className="text-neutral-600">
+                  <span className="text-ink-soft">
                     {formatBytes(file.bytes)} · {file.rowCount} {t('dumpsRows')}
                   </span>
-                  <code className="text-xs text-neutral-500">
+                  <code className="text-caption text-text-muted">
                     {t('dumpsChecksum')} {file.sha256.slice(0, 16)}…
                   </code>
                 </li>
@@ -202,19 +204,20 @@ export default async function OpenDataPage({ params }: { params: PageParams }) {
             </ul>
           </div>
         ) : (
-          <p className="text-sm text-neutral-600">{t('dumpsNone')}</p>
+          <p className="text-body-sm text-ink-soft">{t('dumpsNone')}</p>
         )}
 
-        <p className="text-sm">
-          <a className="text-teal-700 underline" href={`/api/opendata/${OPEN_DATA_API_VERSION}/dumps`}>
+        <p className="text-body-sm">
+          <a className="font-medium text-link hover:text-link-hover" href={`/api/opendata/${OPEN_DATA_API_VERSION}/dumps`}>
             {t('dumpsManifest')}
           </a>
         </p>
       </section>
 
-      <footer className="border-t border-neutral-200 pt-4 text-sm text-neutral-600">
+      <footer className="border-t border-line pt-4 text-body-sm text-ink-soft">
         {OPEN_DATA_LICENSE.attribution}
       </footer>
-    </main>
+      </main>
+    </AppShell>
   );
 }

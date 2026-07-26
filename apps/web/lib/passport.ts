@@ -97,8 +97,6 @@ export interface OwnPassport {
     isPublic: boolean;
     showActivity: boolean;
     handle: string | null;
-    /** Minors cannot publish; the UI explains rather than offering a broken toggle. */
-    canPublish: boolean;
   };
 }
 
@@ -116,12 +114,11 @@ interface VisibilityRow {
   isPublic: boolean;
   showActivity: boolean;
   handle: string | null;
-  isMinor: boolean;
 }
 
 async function readVisibility(db: SqlRunner, userId: string): Promise<VisibilityRow> {
   const result = await db.execute(sql`
-    SELECT profile_visibility, public_handle, public_show_activity, is_minor
+    SELECT profile_visibility, public_handle, public_show_activity
     FROM users WHERE id = ${userId}
   `);
   const row = result.rows[0] ?? {};
@@ -131,7 +128,6 @@ async function readVisibility(db: SqlRunner, userId: string): Promise<Visibility
     handle: row.public_handle === null || row.public_handle === undefined
       ? null
       : String(row.public_handle),
-    isMinor: row.is_minor === true,
   };
 }
 
@@ -176,7 +172,6 @@ export async function ownPassport(
       isPublic: visibility.isPublic,
       showActivity: visibility.showActivity,
       handle: visibility.handle,
-      canPublish: !visibility.isMinor,
     },
   };
 }
@@ -208,10 +203,10 @@ export interface PublicPassport {
 /**
  * A public passport by handle, or null when there is none to show.
  *
- * Null covers "no such handle", "private", and "belongs to a minor" without
- * distinguishing them: a member who has gone private again must look, to
- * somebody holding an old link, exactly like a member who never existed. The
- * visibility test itself is in the SQL (db/src/passport.ts), not here.
+ * Null covers "no such handle" and "private" without distinguishing them: a
+ * member who has gone private again must look, to somebody holding an old link,
+ * exactly like a member who never existed. The visibility test itself is in the
+ * SQL (db/src/passport.ts), not here.
  */
 export async function publicPassport(
   db: SqlRunner,
@@ -249,13 +244,6 @@ export async function publicPassport(
   };
 }
 
-export class PassportVisibilityError extends Error {
-  constructor(readonly code: 'minor_cannot_publish') {
-    super(code);
-    this.name = 'PassportVisibilityError';
-  }
-}
-
 export interface VisibilityUpdate {
   isPublic: boolean;
   showActivity: boolean;
@@ -270,12 +258,12 @@ export interface VisibilityUpdate {
  * KEEPS the handle rather than clearing it, for the same reason — and the read
  * path filters on visibility, so a retained handle grants nothing.
  *
- * The minor check is re-read from the database inside this call rather than
- * taken from the session: the session cookie cache can be stale, and this is an
- * authorization decision about a child's exposure (CLAUDE.md — authorization
- * reads the role from the database, never from the session cookie cache). The
- * CHECK constraint would refuse it anyway; this exists so the member gets an
- * explanation instead of a 500.
+ * THE MEMBER'S OWN CHOICE IS THE WHOLE AUTHORIZATION. Until migration 0020
+ * this function also re-read `is_minor` from the database and refused a minor,
+ * with a matching `AND is_minor = false` guard on the UPDATE. Both are gone
+ * (operator decision 2026-07-25 — minors are treated as adults). Age is no
+ * longer a term in the decision; nothing else was ever a term in it either,
+ * which is why there is no eligibility read left to make.
  */
 export async function setPassportVisibility(
   db: SqlRunner,
@@ -283,10 +271,6 @@ export async function setPassportVisibility(
   update: VisibilityUpdate,
 ): Promise<string | null> {
   const current = await readVisibility(db, userId);
-  if (update.isPublic && current.isMinor) {
-    throw new PassportVisibilityError('minor_cannot_publish');
-  }
-
   const handle = update.isPublic ? (current.handle ?? newPublicHandle()) : current.handle;
 
   await db.execute(sql`
@@ -296,9 +280,6 @@ export async function setPassportVisibility(
         public_show_activity = ${update.showActivity},
         updated_at = now()
     WHERE id = ${userId}
-      -- Belt and braces with the CHECK: a minor's row is not updated to public
-      -- even if the guard above were somehow bypassed.
-      AND (is_minor = false OR ${!update.isPublic})
   `);
 
   return update.isPublic ? handle : null;

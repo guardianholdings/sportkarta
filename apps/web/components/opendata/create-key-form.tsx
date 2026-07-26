@@ -45,31 +45,31 @@ export function CreateKeyForm({
           type="text"
           maxLength={60}
           required
-          className="w-full rounded border border-neutral-300 px-3 py-1.5 text-sm"
+          className="w-full rounded border border-line-strong px-3 py-1.5 text-body-sm"
         />
-        <p className="text-xs text-neutral-600">{strings.labelHint}</p>
+        <p className="text-caption text-ink-soft">{strings.labelHint}</p>
         <button
           type="submit"
           disabled={pending}
-          className="rounded bg-teal-700 px-3 py-1.5 text-sm text-white disabled:opacity-60"
+          className="rounded-pill bg-brand px-3 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-60"
         >
           {strings.create}
         </button>
       </form>
 
       {state.error ? (
-        <p className="text-sm text-red-700">{strings.errors[state.error] ?? state.error}</p>
+        <p className="text-body-sm text-danger">{strings.errors[state.error] ?? state.error}</p>
       ) : null}
 
       {state.issued ? (
-        <div className="space-y-2 rounded border border-amber-300 bg-amber-50 p-3">
-          <p className="text-sm font-medium text-amber-900">{strings.created}</p>
+        <div className="space-y-2 rounded border border-warning-border bg-warning-bg p-3">
+          <p className="text-body-sm font-medium text-warning">{strings.created}</p>
           {/* Selectable, not a link and not masked: the member has to be able
               to copy it, and there is no second chance to reveal it. */}
-          <p className="overflow-x-auto rounded border border-amber-200 bg-white p-2 font-mono text-xs">
+          <p className="overflow-x-auto rounded border border-warning-border bg-white p-2 font-mono text-caption">
             {state.issued.key}
           </p>
-          <p className="text-xs text-amber-900">{strings.copyHint}</p>
+          <p className="text-caption text-warning">{strings.copyHint}</p>
         </div>
       ) : null}
     </div>

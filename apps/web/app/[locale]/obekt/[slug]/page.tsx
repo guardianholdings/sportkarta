@@ -2,10 +2,13 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
+import { AdSlot } from '@/components/ads/ad-slot';
 import { FacilityDetailView } from '@/components/facility/facility-detail-view';
+import { FacilitySponsorBlock } from '@/components/facility/facility-sponsor';
 import { ReportForm } from '@/components/facility/report-form';
 import { MiniMapLoader } from '@/components/map/mini-map-loader';
 import { getCurrentUser } from '@/lib/auth-session';
+import { addedPoints } from '@/lib/contributions/added-banner';
 import { issueFormToken } from '@/lib/form-token';
 import { serializeJsonLd } from '@/lib/json-ld';
 import { buildAlternates } from '@/lib/seo';
@@ -16,6 +19,7 @@ import { ConditionForm } from './condition-form';
 import { VerifyForm } from './verify-form';
 
 type PageParams = Promise<{ locale: string; slug: string }>;
+type PageSearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 const UPLOADS_PREFIX = '/uploads';
 
@@ -47,18 +51,28 @@ function SectionCard({ title, children }: { title?: string; children: React.Reac
   );
 }
 
-export default async function FacilityPage({ params }: { params: PageParams }) {
+export default async function FacilityPage({
+  params,
+  searchParams,
+}: {
+  params: PageParams;
+  searchParams: PageSearchParams;
+}) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
 
-  const [facility, currentUser, t, tSport, tContribute] = await Promise.all([
+  const [facility, currentUser, t, tSport, tContribute, tAdd, query] = await Promise.all([
     getFacilityBySlug(slug),
     getCurrentUser(),
     getTranslations('Facility'),
     getTranslations('Sport'),
     getTranslations('Contribute'),
+    getTranslations('AddFacility'),
+    searchParams,
   ]);
   if (!facility) notFound();
+
+  const justAdded = addedPoints(query.added);
 
   const name = displayName(facility, t('unnamed'));
   const sportLabels = facility.sportTypes.map((s) => tSport(s));
@@ -85,6 +99,18 @@ export default async function FacilityPage({ params }: { params: PageParams }) {
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
 
+      {justAdded !== null && (
+        <div
+          role="status"
+          className="mb-4 rounded-card border border-accent-border bg-accent-subtle p-4"
+        >
+          <p className="text-h4 font-bold text-accent-active">
+            {tContribute('thanksWithPoints', { points: justAdded })}
+          </p>
+          <p className="mt-1 text-body-sm text-ink-soft">{tAdd('moderationNote')}</p>
+        </div>
+      )}
+
       <Link
         href="/"
         className="mb-4 inline-flex items-center gap-1.5 text-body-sm font-medium text-ink-soft hover:text-brand"
@@ -96,6 +122,12 @@ export default async function FacilityPage({ params }: { params: PageParams }) {
         <div className="overflow-hidden rounded-card border border-line bg-surface shadow-sm">
           <FacilityDetailView facility={facility} />
         </div>
+
+        {/* Adopt-a-facility (MONETISATION S3): high on the page, because it is
+            about this facility, and never inside FacilityDetailView — sponsorship
+            stays out of the shape the provenance line and JSON-LD read. Renders
+            nothing when the facility is unadopted. */}
+        <FacilitySponsorBlock facilityId={facility.id} />
 
         {facility.photos.length > 1 && (
           <SectionCard title={t('photos')}>
@@ -158,6 +190,10 @@ export default async function FacilityPage({ params }: { params: PageParams }) {
         <SectionCard>
           <ReportForm slug={facility.slug} formToken={issueFormToken()} />
         </SectionCard>
+
+        {/* One of the four ad surfaces in MONETISATION §S5 — the highest-volume
+            SEO page. Renders nothing when the slot is unsold. */}
+        <AdSlot slot="facility_page" />
       </div>
     </main>
   );

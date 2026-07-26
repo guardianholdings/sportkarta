@@ -1,3 +1,4 @@
+import { PUBLIC_FACILITY_PREDICATE } from '@sportkarta/lib/opendata';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -8,7 +9,7 @@ const url = process.env.DATABASE_URL;
 // The accuracy guarantee for /statistika + /api/stats: every number the public
 // sees comes from the materialized views, and here we prove each view aggregate
 // EQUALS a direct query on the base `facilities` table under the platform's
-// public-visibility predicate — status <> 'gone' AND slug IS NOT NULL, the same
+// public-visibility predicate — PUBLIC_FACILITY_PREDICATE, paid gate included, the same
 // rule as the map, the API and the export (0017; audit AUDIT-F2: "count the
 // pins and get the same number"). Requires the running dev/CI database (skips
 // otherwise). Read-only apart from refreshing the views.
@@ -43,7 +44,7 @@ describe.skipIf(!url)('statistics reconciliation (requires running database)', (
         count(*) FILTER (WHERE lighting IS NOT NULL)::int AS lit_known,
         count(*) FILTER (WHERE lighting IS NULL)::int AS lit_unknown,
         count(DISTINCT municipality_id)::int AS municipalities_covered
-      FROM facilities WHERE status <> 'gone' AND slug IS NOT NULL
+      FROM facilities f WHERE ${PUBLIC_FACILITY_PREDICATE}
     `)
     ).rows[0] as Record<string, number>;
 
@@ -61,7 +62,7 @@ describe.skipIf(!url)('statistics reconciliation (requires running database)', (
       await client.query(`
       SELECT count(DISTINCT s.sport)::int AS n
       FROM facilities f, LATERAL unnest(f.sport_types) AS s(sport)
-      WHERE f.status <> 'gone' AND f.slug IS NOT NULL
+      WHERE ${PUBLIC_FACILITY_PREDICATE}
     `)
     ).rows[0] as { n: number };
     expect(mv.n).toBe(direct.n);
@@ -73,7 +74,7 @@ describe.skipIf(!url)('statistics reconciliation (requires running database)', (
     ).rows[0] as { s: number };
     const nullMuni = (
       await client.query(
-        "SELECT count(*)::int AS n FROM facilities WHERE status <> 'gone' AND slug IS NOT NULL AND municipality_id IS NULL",
+        `SELECT count(*)::int AS n FROM facilities f WHERE ${PUBLIC_FACILITY_PREDICATE} AND municipality_id IS NULL`,
       )
     ).rows[0] as { n: number };
     const national = (await client.query('SELECT total::int AS n FROM mv_national_stats'))
@@ -100,8 +101,8 @@ describe.skipIf(!url)('statistics reconciliation (requires running database)', (
         count(*) FILTER (WHERE access = 'free')::int AS free,
         count(*) FILTER (WHERE lighting IS TRUE)::int AS lit_true,
         count(*) FILTER (WHERE lighting IS NOT NULL)::int AS lit_known
-      FROM facilities
-      WHERE status <> 'gone' AND slug IS NOT NULL AND municipality_id IS NOT NULL
+      FROM facilities f
+      WHERE ${PUBLIC_FACILITY_PREDICATE} AND municipality_id IS NOT NULL
       GROUP BY municipality_id ORDER BY municipality_id
     `)
     ).rows;
@@ -115,7 +116,7 @@ describe.skipIf(!url)('statistics reconciliation (requires running database)', (
       await client.query(`
       SELECT s.sport, count(*)::int AS total
       FROM facilities f, LATERAL unnest(f.sport_types) AS s(sport)
-      WHERE f.status <> 'gone' AND f.slug IS NOT NULL
+      WHERE ${PUBLIC_FACILITY_PREDICATE}
       GROUP BY s.sport ORDER BY s.sport
     `)
     ).rows;

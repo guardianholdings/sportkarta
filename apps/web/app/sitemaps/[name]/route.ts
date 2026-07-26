@@ -31,6 +31,8 @@ async function entriesFor(name: string): Promise<UrlEntry[] | null> {
       return [
         { path: '/', lastmod: now },
         { path: '/privacy', lastmod: now },
+        { path: '/partnyori', lastmod: now },
+        { path: '/podkrepi', lastmod: now },
       ];
     }
     default:

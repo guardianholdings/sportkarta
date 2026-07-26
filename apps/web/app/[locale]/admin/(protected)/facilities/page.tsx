@@ -1,9 +1,13 @@
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
 import { requireAdmin } from '@/lib/auth-session';
 import { MapEmbed } from '@/components/admin/map-embed';
 import { StatusBadge } from '@/components/admin/status-badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import {
   FACILITIES_PAGE_SIZE,
   listFacilities,
@@ -85,20 +89,22 @@ export default async function AdminFacilitiesPage({
 
   return (
     <main className="space-y-4">
-      <h1 className="text-xl font-semibold">{t('title')}</h1>
+      <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
 
-      <form method="get" className="flex flex-wrap items-end gap-2 text-sm">
-        <input
+      <form method="get" className="flex flex-wrap items-center gap-2">
+        <Input
           type="search"
           name="q"
+          size="sm"
           defaultValue={filters.q ?? ''}
           placeholder={t('searchPlaceholder')}
-          className="w-56 rounded border border-neutral-300 px-3 py-2"
+          className="w-56"
         />
-        <select
+        <div className="w-56">
+        <Select
           name="municipality"
+          size="sm"
           defaultValue={filters.municipality === 'none' ? 'none' : (filters.municipality ?? '')}
-          className="rounded border border-neutral-300 px-2 py-2"
         >
           <option value="">{t('allMunicipalities')}</option>
           <option value="none">{t('noMunicipality')}</option>
@@ -107,78 +113,80 @@ export default async function AdminFacilitiesPage({
               {m.nameBg}
             </option>
           ))}
-        </select>
-        <select
-          name="status"
-          defaultValue={filters.status ?? ''}
-          className="rounded border border-neutral-300 px-2 py-2"
-        >
+        </Select>
+        </div>
+        <div className="w-48">
+        <Select name="status" size="sm" defaultValue={filters.status ?? ''}>
           <option value="">{t('allStatuses')}</option>
           {STATUS_VALUES.map((s) => (
             <option key={s} value={s}>
               {tStatus(s)}
             </option>
           ))}
-        </select>
-        <select
-          name="source"
-          defaultValue={filters.source ?? ''}
-          className="rounded border border-neutral-300 px-2 py-2"
-        >
+        </Select>
+        </div>
+        <div className="w-48">
+        <Select name="source" size="sm" defaultValue={filters.source ?? ''}>
           <option value="">{t('allSources')}</option>
           {SOURCE_VALUES.map((s) => (
             <option key={s} value={s}>
               {tSource(s)}
             </option>
           ))}
-        </select>
-        <button type="submit" className="rounded bg-neutral-900 px-4 py-2 font-medium text-white">
+        </Select>
+        </div>
+        <Button type="submit" size="sm">
           {t('search')}
-        </button>
+        </Button>
       </form>
 
       {rows.length === 0 ? (
-        <p className="text-neutral-500">{t('empty')}</p>
+        <p className="text-body-sm text-text-muted">{t('empty')}</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
+        <div className="overflow-x-auto rounded-card border border-line bg-surface shadow-sm">
+          <table className="w-full text-body-sm">
             <thead>
-              <tr className="border-b border-neutral-300 text-left text-xs text-neutral-500">
-                <th className="py-2 pr-3">{t('colName')}</th>
-                <th className="py-2 pr-3">{t('colMunicipality')}</th>
-                <th className="py-2 pr-3">{t('colSports')}</th>
-                <th className="py-2 pr-3">{t('colStatus')}</th>
-                <th className="py-2 pr-3">{t('colSource')}</th>
-                <th className="py-2 pr-3">{t('colUpdated')}</th>
-                <th className="py-2" />
+              <tr className="border-b border-line bg-paper-sunk text-left">
+                <th scope="col" className="t-overline px-3 py-2.5 font-semibold">{t('colName')}</th>
+                <th scope="col" className="t-overline px-3 py-2.5 font-semibold">{t('colMunicipality')}</th>
+                <th scope="col" className="t-overline px-3 py-2.5 font-semibold">{t('colSports')}</th>
+                <th scope="col" className="t-overline px-3 py-2.5 font-semibold">{t('colStatus')}</th>
+                <th scope="col" className="t-overline px-3 py-2.5 font-semibold">{t('colSource')}</th>
+                <th scope="col" className="t-overline px-3 py-2.5 font-semibold">{t('colUpdated')}</th>
+                <th scope="col" className="px-3 py-2.5" />
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-line">
               {rows.map((row) => (
-                <tr key={row.id} className="border-b border-neutral-100 align-top">
-                  <td className="py-2 pr-3">
-                    {row.name ?? <span className="text-neutral-400">{t('unnamed')}</span>}
-                    {row.quarter && <div className="text-xs text-neutral-500">{row.quarter}</div>}
+                <tr key={row.id} className="align-top">
+                  <td className="px-3 py-2.5">
+                    {row.name ?? <span className="text-text-faint">{t('unnamed')}</span>}
+                    {row.quarter && <div className="text-caption text-text-muted">{row.quarter}</div>}
                   </td>
-                  <td className="py-2 pr-3">{row.municipalityName ?? '—'}</td>
-                  <td className="py-2 pr-3">
+                  <td className="px-3 py-2.5">{row.municipalityName ?? '—'}</td>
+                  <td className="px-3 py-2.5">
                     {row.sportTypes.map((s) => (tSport.has(s) ? tSport(s) : s)).join(', ') || '—'}
                   </td>
-                  <td className="py-2 pr-3">
+                  <td className="px-3 py-2.5">
                     <StatusBadge status={row.status} />
                   </td>
-                  <td className="py-2 pr-3">{tSource(row.source)}</td>
-                  <td className="py-2 pr-3 text-xs whitespace-nowrap text-neutral-500">
+                  <td className="px-3 py-2.5">{tSource(row.source)}</td>
+                  <td className="px-3 py-2.5 font-mono text-caption whitespace-nowrap text-text-muted tabular-nums">
                     {row.updatedAt.slice(0, 10)}
                   </td>
-                  <td className="py-2">
+                  <td className="px-3 py-2.5">
                     <details>
-                      <summary className="cursor-pointer text-xs underline">{t('preview')}</summary>
+                      <summary className="cursor-pointer text-caption font-medium text-link hover:text-link-hover">
+                        {t('preview')}
+                      </summary>
                       <div className="w-80 py-2">
                         <MapEmbed lon={row.lon} lat={row.lat} heightClass="h-48" />
                       </div>
                     </details>
-                    <Link href={`/admin/facilities/${row.id}`} className="text-xs underline">
+                    <Link
+                      href={`/admin/facilities/${row.id}`}
+                      className="text-caption font-medium text-link hover:text-link-hover"
+                    >
                       {t('edit')}
                     </Link>
                   </td>
@@ -189,18 +197,26 @@ export default async function AdminFacilitiesPage({
         </div>
       )}
 
-      <div className="flex items-center gap-3 text-sm">
+      <div className="flex items-center gap-3 text-body-sm">
         {filters.page > 1 && (
-          <Link href={pageHref(sp, filters.page - 1)} className="underline">
-            ← {t('prev')}
+          <Link
+            href={pageHref(sp, filters.page - 1)}
+            className="inline-flex items-center gap-1.5 rounded-pill border border-line-strong bg-surface px-3 py-1.5 text-caption font-semibold text-ink-soft hover:bg-surface-2"
+          >
+            <ArrowLeft size={15} />
+            {t('prev')}
           </Link>
         )}
-        <span className="text-neutral-500">
+        <span className="font-mono text-caption text-text-muted tabular-nums">
           {t('pageOf', { page: filters.page, pages, total })}
         </span>
         {filters.page < pages && (
-          <Link href={pageHref(sp, filters.page + 1)} className="underline">
-            {t('next')} →
+          <Link
+            href={pageHref(sp, filters.page + 1)}
+            className="inline-flex items-center gap-1.5 rounded-pill border border-line-strong bg-surface px-3 py-1.5 text-caption font-semibold text-ink-soft hover:bg-surface-2"
+          >
+            {t('next')}
+            <ArrowRight size={15} />
           </Link>
         )}
       </div>

@@ -8,7 +8,15 @@ export type OsmTags = Record<string, string>;
 export type Access = 'free' | 'paid' | 'restricted' | 'school';
 
 /** leisure values extracted unconditionally. */
-export const QUALIFYING_LEISURE = new Set(['pitch', 'fitness_station', 'sports_centre', 'track']);
+export const QUALIFYING_LEISURE = new Set([
+  'pitch',
+  'fitness_station',
+  'sports_centre',
+  'track',
+  // Commercial gyms/studios (item 2, 2026-07-25): imported as access='paid',
+  // publicly visible only behind the 0018 master + per-business switches.
+  'fitness_centre',
+]);
 
 /** OSM sport=* token → canonical sport slug (UI translates via i18n). */
 export const SPORT_MAP: Record<string, string> = {
@@ -108,7 +116,8 @@ export interface SportMapping {
 /**
  * sport=* is semicolon-multi-valued; tokens map independently and dedupe.
  * Sorted output keeps array comparison stable across runs (idempotency).
- * leisure=fitness_station implies fitness when no sport tag maps.
+ * leisure=fitness_station and leisure=fitness_centre imply fitness when no
+ * sport tag maps.
  */
 export function mapSports(sportTag: string | undefined, leisure: string | undefined): SportMapping {
   const sports = new Set<string>();
@@ -125,7 +134,7 @@ export function mapSports(sportTag: string | undefined, leisure: string | undefi
       }
     }
   }
-  if (sports.size === 0 && leisure === 'fitness_station') {
+  if (sports.size === 0 && (leisure === 'fitness_station' || leisure === 'fitness_centre')) {
     sports.add('fitness');
   }
   return { sports: [...sports].sort(), unmapped };
@@ -176,6 +185,8 @@ export function mapAccess(tags: OsmTags): Access {
   if (access === 'customers') return 'paid';
   if (tags['fee']?.toLowerCase() === 'no') return 'free';
   if (tags['leisure'] === 'sports_centre') return 'paid';
+  // A gym is a business: paid unless it explicitly says otherwise above.
+  if (tags['leisure'] === 'fitness_centre') return 'paid';
   return 'free';
 }
 

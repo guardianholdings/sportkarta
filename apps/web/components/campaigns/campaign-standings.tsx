@@ -8,8 +8,8 @@ import { Link } from '@/i18n/navigation';
  *
  * The two boards differ in what they can possibly show, not in styling:
  *
- *   individual  members who opted their passport public. Minors and
- *               unpublished members are SCORED — they can win — but never
+ *   individual  members who opted their passport public, at any age.
+ *               Unpublished members are SCORED — they can win — but never
  *               named here.
  *   city        municipalities. Nobody is named, which is exactly why a city
  *               board can safely include everyone, and why small municipalities
@@ -28,14 +28,14 @@ export async function CampaignStandings({
   const t = await getTranslations('Campaign');
 
   if (rows.length === 0) {
-    return <p className="text-sm text-neutral-600">{t('noScoresYet')}</p>;
+    return <p className="text-body-sm text-ink-soft">{t('noScoresYet')}</p>;
   }
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full text-body-sm">
         <thead>
-          <tr className="border-b border-neutral-200 text-left text-xs text-neutral-500">
+          <tr className="border-b border-line text-left text-caption text-text-muted">
             <th scope="col" className="py-2 pr-3 font-medium">{t('columnRank')}</th>
             <th scope="col" className="py-2 pr-3 font-medium">
               {leaderboardType === 'city' ? t('columnCity') : t('columnMember')}
@@ -50,14 +50,14 @@ export async function CampaignStandings({
           {rows.map((row) => (
             <tr
               key={`${row.rank}-${row.handle ?? row.municipalityId ?? ''}`}
-              className="border-b border-neutral-100"
+              className="border-b border-line"
             >
-              <td className="py-2 pr-3 tabular-nums text-neutral-500">{row.rank}</td>
+              <td className="py-2 pr-3 tabular-nums text-text-muted">{row.rank}</td>
               <td className="py-2 pr-3">
                 {leaderboardType === 'city' ? (
                   (cityNames[row.municipalityId ?? -1] ?? '—')
                 ) : row.handle ? (
-                  <Link href={`/pasport/${row.handle}`} className="underline">
+                  <Link href={`/pasport/${row.handle}`} className="font-medium text-link hover:text-link-hover">
                     {row.displayName}
                   </Link>
                 ) : (
@@ -65,7 +65,7 @@ export async function CampaignStandings({
                 )}
               </td>
               {leaderboardType === 'city' && (
-                <td className="py-2 pr-3 text-right tabular-nums text-neutral-500">
+                <td className="py-2 pr-3 text-right tabular-nums text-text-muted">
                   {row.memberCount}
                 </td>
               )}
@@ -98,7 +98,7 @@ export async function FrozenStandings({
   const t = await getTranslations('Campaign');
 
   if (rows.length === 0) {
-    return <p className="text-sm text-neutral-600">{t('noResults')}</p>;
+    return <p className="text-body-sm text-ink-soft">{t('noResults')}</p>;
   }
 
   return (
@@ -108,23 +108,23 @@ export async function FrozenStandings({
           key={`${row.rank}-${row.handle ?? row.municipalityId ?? row.score}`}
           className={
             row.rank <= 3
-              ? 'flex items-baseline gap-3 rounded border border-neutral-900 p-3'
-              : 'flex items-baseline gap-3 border-b border-neutral-100 px-3 py-2'
+              ? 'flex items-baseline gap-3 rounded-card border border-brand-border bg-brand-subtle p-3'
+              : 'flex items-baseline gap-3 border-b border-line px-3 py-2'
           }
         >
-          <span className="w-8 text-lg font-semibold tabular-nums">{row.rank}</span>
+          <span className="w-8 text-h4 font-bold text-ink tabular-nums">{row.rank}</span>
           <span className="flex-1">
             {leaderboardType === 'city'
               ? (cityNames[row.municipalityId ?? -1] ?? '—')
               : row.handle
                 ? (
-                    <Link href={`/pasport/${row.handle}`} className="underline">
+                    <Link href={`/pasport/${row.handle}`} className="font-medium text-link hover:text-link-hover">
                       {row.displayName}
                     </Link>
                   )
                 : t('withheld')}
             {leaderboardType === 'city' && (
-              <span className="ml-2 text-xs text-neutral-500">
+              <span className="ml-2 text-caption text-text-muted">
                 {t('memberCount', { count: row.memberCount })}
               </span>
             )}
