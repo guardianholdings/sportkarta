@@ -1799,6 +1799,12 @@
     },
     "campaign": {
       "eyebrow": "Campaign"
+    },
+    "passport": {
+      "since": "Member since {month}",
+      "points": "{count, plural, one {point} other {points}}",
+      "checkins": "{count, plural, one {session} other {sessions}}",
+      "badges": "{count, plural, one {badge} other {badges}}"
     }
   },
   "Legend": {

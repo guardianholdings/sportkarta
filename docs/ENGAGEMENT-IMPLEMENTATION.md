@@ -29,7 +29,44 @@ re-confirming before you edit the file.
 | 5 — Unbury /kampanii and /sedmitsata (A6) | ✅ **done 2026-07-26** | Footer + /sesii entry points, new `/sedmitsata` index, and a **reachability** gate. A7/A5 still blocked on mail. |
 | 6 — OG foundation (C2a, C2b) | ✅ **done 2026-07-26** | Facility, session and campaign cards. Public only — person-scoped is phase 8. |
 | 7 — Place identity (B1, B3a) | ✅ **done 2026-07-26** | Local Legend names NOBODY (operator decision); five milestone rungs; new badge↔i18n gate. |
-| 8 onward | not started | |
+| 8 — Person-scoped sharing (C2c, C4) | 🟡 **card + payload done 2026-07-26** | C3 (Viber plain-text week) and C6's text half still to do. |
+| 9 onward | not started | |
+
+### Phase 8, so far (C2c + C4)
+
+**The person-scoped card is a SEPARATE route, and the separation is the point.**
+`/og/lichen/…` sets `Cache-Control: private, no-store` and
+`dynamic = 'force-dynamic'`, because ImageResponse's default is a ONE-YEAR
+immutable public copy — on a card carrying a member's name that is functionally
+the frozen named artifact migration 0012 forbids, and a member who erases their
+account cannot revoke what a CDN promised to keep. `force-dynamic` additionally
+keeps it out of Next's on-disk ISR cache, so the image is never written down at
+all. Both headers verified on the live response.
+
+**`X-Robots-Tag: noindex` is a HEADER, never a robots.txt Disallow.**
+`/pasport/[handle]` is deliberately noindex, but an OG image is a separate URL
+carrying none of the page's metadata — without the header the card would be a
+freshly indexable URL whose pixels contain a member's name. A Disallow would
+instead kill the preview entirely, because Facebook's and Viber's scrapers honour
+robots.txt.
+
+**`PassportShare` is a THIRD narrowing**, not a reuse: `OwnPassport` →
+`PublicPassport` → `PassportShare`, each built field by field. A share travels
+further than a page and outlives the decision to publish, so `activity` (the
+month-by-month history) does not travel, badges become a COUNT rather than a
+list, and nothing derived from current behaviour is included. Pinned by its own
+exact-key test — the same guard that caught `weeksAtRisk` leaking in phase 4.
+
+Consent needs no new check: `toPassportShare` takes a `PublicPassport`, which
+only exists once `publicPassportOwner`'s visibility predicate has passed, and no
+overload takes a handle or an id. Verified against a real private passport with a
+valid handle: card and page both 404.
+
+Two things caught by looking rather than by testing: the stat labels were fixed
+nouns, so the card rendered **"1 тренировки"** and **"1 отличия"** — wrong
+Bulgarian; they are ICU plurals now. And my first exact-key test asserted a
+substring on the serialised blob, which failed on a correct payload because
+"lon" is inside "longestWeeks".
 
 ### Phase 7 (B1 + B3a)
 

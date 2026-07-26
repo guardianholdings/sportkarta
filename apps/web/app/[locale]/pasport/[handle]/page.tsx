@@ -43,7 +43,18 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   const t = await getTranslations({ locale, namespace: 'Passport' });
   return {
     title: t('publicMetaTitle', { name: passport.displayName }),
+    // The PAGE stays noindex — "public means anyone I send the link to, not
+    // indexed against your name forever". The card is a separate URL that
+    // carries none of this metadata, so it enforces its own noindex through an
+    // X-Robots-Tag HEADER; see the route. Shareable is not indexable.
     robots: { index: false, follow: false },
+    openGraph: {
+      title: t('publicMetaTitle', { name: passport.displayName }),
+      type: 'profile',
+      images: [
+        { url: `/og/lichen/${locale}/pasport/${handle}/card.png`, width: 1200, height: 630 },
+      ],
+    },
   };
 }
 

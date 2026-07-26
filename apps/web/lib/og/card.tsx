@@ -58,6 +58,18 @@ export interface OgCardInput {
   accent?: string;
   /** Wordmark, from messages — never hardcoded (the Cyrillic gate is repo-wide). */
   wordmark: string;
+  /**
+   * Response headers to override.
+   *
+   * REQUIRED for any card that names a person. ImageResponse defaults to
+   * `public, immutable, no-transform, max-age=31536000` — a ONE-YEAR immutable
+   * public copy, which for a card carrying a member's name is functionally the
+   * frozen named artifact migration 0012 forbids: a member who erases their
+   * account or goes private cannot revoke it. Person-scoped routes pass
+   * `private, no-store` here AND declare `dynamic = 'force-dynamic'`, so nothing
+   * is written to the ISR cache either.
+   */
+  headers?: Record<string, string>;
 }
 
 export function renderOgCard(input: OgCardInput): ImageResponse {
@@ -186,6 +198,6 @@ export function renderOgCard(input: OgCardInput): ImageResponse {
         </div>
       </div>
     ),
-    { ...OG_SIZE, fonts: ogFonts() },
+    { ...OG_SIZE, fonts: ogFonts(), ...(input.headers ? { headers: input.headers } : {}) },
   );
 }

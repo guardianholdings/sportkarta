@@ -1799,6 +1799,12 @@
     },
     "campaign": {
       "eyebrow": "Кампания"
+    },
+    "passport": {
+      "since": "Член от {month}",
+      "points": "{count, plural, one {точка} other {точки}}",
+      "checkins": "{count, plural, one {тренировка} other {тренировки}}",
+      "badges": "{count, plural, one {отличие} other {отличия}}"
     }
   },
   "Legend": {
