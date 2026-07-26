@@ -4,6 +4,8 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { BadgeGrid } from '@/components/passport/badge-grid';
 import { HistoryList } from '@/components/passport/history-list';
 import { StreakPanel } from '@/components/passport/streak-panel';
+import { WeekShare } from '@/components/share/week-share';
+import { renderWeekGrid } from '@/lib/share/week-grid';
 import { VisibilityPanel } from '@/components/passport/visibility-panel';
 import { requireUser } from '@/lib/auth-session';
 import { ownPassport } from '@/lib/passport';
@@ -27,7 +29,10 @@ export const dynamic = 'force-dynamic';
 export default async function PassportPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const t = await getTranslations('Passport');
+  const [t, tShare] = await Promise.all([
+    getTranslations('Passport'),
+    getTranslations('Share'),
+  ]);
   const user = await requireUser();
   const passport = await ownPassport(getDb(), user.id);
 
@@ -80,6 +85,19 @@ export default async function PassportPage({ params }: { params: Promise<{ local
             one at /pasport/[handle] deliberately cannot — see StreakPanel. */}
         <StreakPanel streaks={passport.streaks} atRisk={passport.streaks.weeksAtRisk} />
       </section>
+
+      {/* C3: the Viber-native share. Offered to EVERY member, whatever their
+          passport visibility (operator decision 2026-07-26) — the text carries
+          no name, no handle, no place and no time, and the link goes to the
+          site rather than to a profile. */}
+      <WeekShare
+        text={[
+          tShare('weekHeading'),
+          renderWeekGrid(passport.week),
+          tShare('weekDays', { count: passport.week.activeDays }),
+          siteUrl(),
+        ].join('\n')}
+      />
 
       <section aria-labelledby="badges-h" className="space-y-3">
         <div className="flex flex-wrap items-center gap-3">

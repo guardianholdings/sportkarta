@@ -29,7 +29,7 @@ re-confirming before you edit the file.
 | 5 — Unbury /kampanii and /sedmitsata (A6) | ✅ **done 2026-07-26** | Footer + /sesii entry points, new `/sedmitsata` index, and a **reachability** gate. A7/A5 still blocked on mail. |
 | 6 — OG foundation (C2a, C2b) | ✅ **done 2026-07-26** | Facility, session and campaign cards. Public only — person-scoped is phase 8. |
 | 7 — Place identity (B1, B3a) | ✅ **done 2026-07-26** | Local Legend names NOBODY (operator decision); five milestone rungs; new badge↔i18n gate. |
-| 8 — Person-scoped sharing (C2c, C4) | 🟡 **card + payload done 2026-07-26** | C3 (Viber plain-text week) and C6's text half still to do. |
+| 8 — Person-scoped sharing (C2c, C4, C3) | ✅ **done 2026-07-26** | Card, share payload and the Viber plain-text week. C6's text half deferred. |
 | 9 onward | not started | |
 
 ### Phase 8, so far (C2c + C4)
@@ -67,6 +67,27 @@ nouns, so the card rendered **"1 тренировки"** and **"1 отличия
 Bulgarian; they are ICU plurals now. And my first exact-key test asserted a
 substring on the serialised blob, which failed on a correct payload because
 "lon" is inside "longestWeeks".
+
+**C3 — the plain-text week — ships to EVERY member** (operator decision
+2026-07-26), including one whose passport is private. It is the only share
+artifact that does not require the public opt-in, and it can be because it names
+nobody: seven emoji cells, a count, and a link to the SITE rather than to a
+profile. Pinned by a test asserting the grid line contains no letter or digit in
+any alphabet, and by an e2e that signs in a brand-new (therefore private) member
+and finds the control there.
+
+Two states, not three: active or rest. A third (mapped vs played) is more
+informative and less on-message — the framing is that turning up counts, not
+what kind — and two glyphs render identically everywhere, which a third would
+not. It counts ANY activity rather than check-ins only, because at launch there
+is barely any session volume and a grid that is empty for everybody is not worth
+pasting; the copy says "activity", never "sessions", so it cannot be confused
+with the participation streak beside it.
+
+The week boundary comes from `bucketKeyFor` — the same function the streaks,
+badges and digest use — so the grid can never disagree with the streak printed
+next to it about when the week began. A test pins the Sofia-vs-UTC case: 21:30Z
+on Sunday is already Monday in Sofia and belongs to the new week's first cell.
 
 ### Phase 7 (B1 + B3a)
 

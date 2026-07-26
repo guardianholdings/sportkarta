@@ -1812,5 +1812,14 @@
     "days": "{count, plural, one {# day on the pitch} other {# days on the pitch}}",
     "window": "in the last 90 days",
     "yours": "That is you, right now."
+  },
+  "Share": {
+    "weekTitle": "Share your week",
+    "weekBody": "A short block you can paste into Viber, Messenger or SMS. It contains no name, place or time.",
+    "weekHeading": "SportKarta · my week",
+    "weekDays": "{count, plural, one {# active day} other {# active days}}",
+    "copy": "Copy the text",
+    "copied": "Copied",
+    "share": "Share"
   }
 }

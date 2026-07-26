@@ -70,6 +70,14 @@ export const ANALYTICS_EVENTS = {
    * "unburying worked" falsifiable rather than an assertion.
    */
   weeklyOpen: 'weekly_open',
+
+  /**
+   * The C3 plain-text week. THE number ENGAGEMENT.md's C1 exists to produce:
+   * the proposal ranks a pasteable text block above image cards for this
+   * country, and this is the only way to find out whether that is right here.
+   * Records that a share was reached for — never what was in it.
+   */
+  weekShare: 'week_share',
 } as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];

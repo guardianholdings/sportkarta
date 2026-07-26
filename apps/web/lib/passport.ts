@@ -21,6 +21,8 @@ import {
   type PassportEvent,
 } from '@sportkarta/lib/badges';
 
+import { weekGrid, type WeekGrid } from '@/lib/share/week-grid';
+
 /**
  * The sports passport (docs/ROADMAP.md §7, Stage 5.1) — assembly only. Scoring
  * is the pure engine in lib/src/badges; the queries are db/src/passport.ts.
@@ -115,6 +117,16 @@ export interface OwnPassport {
   newBadges: string[];
   streaks: PassportStreakView;
   history: PassportHistoryEntry[];
+  /**
+   * This Sofia week as seven cells, for the C3 plain-text share. Computed here
+   * because `ownPassport` already has the event stream loaded — a separate call
+   * would be a second unbounded history scan for seven booleans.
+   *
+   * Owner-only, like the rest of this shape. It names nobody, so every member
+   * may SHARE it whatever their passport visibility (operator decision
+   * 2026-07-26) — but it is still their own page that offers it.
+   */
+  week: WeekGrid;
   visibility: {
     isPublic: boolean;
     showActivity: boolean;
@@ -203,6 +215,7 @@ export async function ownPassport(
     badges,
     newBadges,
     streaks: streakView(events, now, frozen),
+    week: weekGrid(events, now),
     history,
     visibility: {
       isPublic: visibility.isPublic,
