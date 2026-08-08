@@ -98,7 +98,11 @@ export function dayRangePeriod(fromDay: string, toDayInclusive: string): ReportP
   // Midnight on the day AFTER the inclusive end. Constructed through a UTC
   // date only to advance the calendar day; the result is re-resolved in Sofia.
   const nextDay = new Date(Date.UTC(ty, tm - 1, td + 1));
-  const to = sofiaMidnight(nextDay.getUTCFullYear(), nextDay.getUTCMonth() + 1, nextDay.getUTCDate());
+  const to = sofiaMidnight(
+    nextDay.getUTCFullYear(),
+    nextDay.getUTCMonth() + 1,
+    nextDay.getUTCDate(),
+  );
   if (to <= from) {
     throw new Error('reports: the end of the period must not precede its start');
   }

@@ -85,14 +85,7 @@ export const PUBLIC_FACILITY_PREDICATE = "f.status <> 'gone' AND f.slug IS NOT N
  * rather than a `string | unknown` escape hatch.
  */
 export type ExportFieldType =
-  | 'string'
-  | 'integer'
-  | 'number'
-  | 'boolean'
-  | 'enum'
-  | 'enum_list'
-  | 'timestamp'
-  | 'coordinate';
+  'string' | 'integer' | 'number' | 'boolean' | 'enum' | 'enum_list' | 'timestamp' | 'coordinate';
 
 /**
  * Types that may never appear in an export, listed so the test asserts against
@@ -279,7 +272,8 @@ export function assertSafeFragment(fragment: string, where: string): void {
   if (!FRAGMENT_ALLOWED.test(fragment)) {
     throw new Error(`opendata: unsafe characters in SQL fragment (${where})`);
   }
-  if (fragment.includes(';')) throw new Error(`opendata: statement separator in fragment (${where})`);
+  if (fragment.includes(';'))
+    throw new Error(`opendata: statement separator in fragment (${where})`);
   if (fragment.includes('--')) throw new Error(`opendata: line comment in fragment (${where})`);
   if (fragment.includes('/*')) throw new Error(`opendata: block comment in fragment (${where})`);
 }

@@ -80,7 +80,9 @@ export default async function LeaderboardPage({
   const standing = user ? await memberStanding(getDb(), user.id, { scope, period }) : null;
 
   const heading = resolved.city
-    ? t('headingCity', { city: cityDisplayName(resolved.city.nameBg, resolved.city.nameEn, locale) })
+    ? t('headingCity', {
+        city: cityDisplayName(resolved.city.nameBg, resolved.city.nameEn, locale),
+      })
     : resolved.sport
       ? t('headingSport', { sport: sportName(resolved.sport) })
       : t('headingNational');
@@ -99,10 +101,7 @@ export default async function LeaderboardPage({
 
       <nav aria-label={t('filtersLabel')} className="space-y-3">
         <div className="flex flex-wrap gap-2">
-          <Link
-            href={scopeHref({ period })}
-            className={filterClass(scope.kind === 'national')}
-          >
+          <Link href={scopeHref({ period })} className={filterClass(scope.kind === 'national')}>
             {t('scopeNational')}
           </Link>
           {cities.map((city) => (
@@ -159,7 +158,11 @@ export default async function LeaderboardPage({
         {!user && <p className="text-neutral-600">{t('standingSignedOut')}</p>}
         {user && standing && (
           <p className="text-neutral-600">
-            {t('standingRanked', { rank: standing.rank, total: standing.total, points: standing.points })}
+            {t('standingRanked', {
+              rank: standing.rank,
+              total: standing.total,
+              points: standing.points,
+            })}
           </p>
         )}
         {/*

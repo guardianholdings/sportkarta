@@ -36,14 +36,20 @@ export async function CampaignStandings({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-neutral-200 text-left text-xs text-neutral-500">
-            <th scope="col" className="py-2 pr-3 font-medium">{t('columnRank')}</th>
+            <th scope="col" className="py-2 pr-3 font-medium">
+              {t('columnRank')}
+            </th>
             <th scope="col" className="py-2 pr-3 font-medium">
               {leaderboardType === 'city' ? t('columnCity') : t('columnMember')}
             </th>
             {leaderboardType === 'city' && (
-              <th scope="col" className="py-2 pr-3 text-right font-medium">{t('columnMembers')}</th>
+              <th scope="col" className="py-2 pr-3 text-right font-medium">
+                {t('columnMembers')}
+              </th>
             )}
-            <th scope="col" className="py-2 text-right font-medium">{t('columnScore')}</th>
+            <th scope="col" className="py-2 text-right font-medium">
+              {t('columnScore')}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -114,15 +120,15 @@ export async function FrozenStandings({
         >
           <span className="w-8 text-lg font-semibold tabular-nums">{row.rank}</span>
           <span className="flex-1">
-            {leaderboardType === 'city'
-              ? (cityNames[row.municipalityId ?? -1] ?? '—')
-              : row.handle
-                ? (
-                    <Link href={`/pasport/${row.handle}`} className="underline">
-                      {row.displayName}
-                    </Link>
-                  )
-                : t('withheld')}
+            {leaderboardType === 'city' ? (
+              (cityNames[row.municipalityId ?? -1] ?? '—')
+            ) : row.handle ? (
+              <Link href={`/pasport/${row.handle}`} className="underline">
+                {row.displayName}
+              </Link>
+            ) : (
+              t('withheld')
+            )}
             {leaderboardType === 'city' && (
               <span className="ml-2 text-xs text-neutral-500">
                 {t('memberCount', { count: row.memberCount })}

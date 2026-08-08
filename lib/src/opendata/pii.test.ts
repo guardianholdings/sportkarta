@@ -193,7 +193,9 @@ describe('open-data catalogue: the export cannot out-publish the map', () => {
   it('every geojson dataset declares a geometry, and only those do', () => {
     for (const dataset of EXPORT_DATASETS) {
       const emitsGeoJSON = dataset.formats.includes('geojson');
-      expect(Boolean(dataset.geometry), `${dataset.id} geometry/format mismatch`).toBe(emitsGeoJSON);
+      expect(Boolean(dataset.geometry), `${dataset.id} geometry/format mismatch`).toBe(
+        emitsGeoJSON,
+      );
       if (!dataset.geometry) continue;
       for (const name of [dataset.geometry.lon, dataset.geometry.lat]) {
         const field = dataset.fields.find((f) => f.name === name);

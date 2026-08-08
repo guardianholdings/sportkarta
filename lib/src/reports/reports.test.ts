@@ -134,8 +134,9 @@ describe('non-additive figures are marked as such', () => {
   it.each(METRIC_CASES)('$label — a DISTINCT person count is never additive', ({ metric }) => {
     // The trap this prevents: a ministry sums twelve municipal annexes and
     // exceeds the national total, because one person played in two places.
-    const countsDistinctPeople =
-      /count\(DISTINCT\s+\w+\.(user_id|actor|actor_id)/i.test(metric.sql);
+    const countsDistinctPeople = /count\(DISTINCT\s+\w+\.(user_id|actor|actor_id)/i.test(
+      metric.sql,
+    );
     if (countsDistinctPeople) {
       expect(metric.additive, `${metric.id} counts distinct people but claims to be additive`).toBe(
         false,
@@ -153,7 +154,9 @@ describe('non-additive figures are marked as such', () => {
 describe('attendance is never reported as one number', () => {
   it('the grant annex reports the three check-in methods separately', () => {
     const ids = allMetrics(GRANT_REPORT).map(({ metric }) => metric.id);
-    expect(ids).toEqual(expect.arrayContaining(['attendance_qr', 'attendance_organizer', 'attendance_self']));
+    expect(ids).toEqual(
+      expect.arrayContaining(['attendance_qr', 'attendance_organizer', 'attendance_self']),
+    );
     // ...and no metric sums them, which would report as evidence a figure
     // migration 0014's CHECK exists to say is not evidence.
     for (const { metric } of allMetrics(GRANT_REPORT)) {
@@ -353,7 +356,10 @@ describe('rendering', () => {
   it('CSV carries the scope on every row, and a BOM for Excel', () => {
     const csv = renderReportCsv(GRANT_REPORT, data);
     expect(csv.charCodeAt(0)).toBe(0xfeff);
-    const lines = csv.replace(/^\uFEFF/, '').split('\r\n').filter(Boolean);
+    const lines = csv
+      .replace(/^\uFEFF/, '')
+      .split('\r\n')
+      .filter(Boolean);
     const header = lines[0]?.split(',') ?? [];
     expect(header.slice(0, 3)).toEqual(['Период от', 'Период до', 'Обхват']);
     // Every data row repeats the period: an annex that cannot say what period

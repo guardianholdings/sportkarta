@@ -128,9 +128,10 @@ async function readVisibility(db: SqlRunner, userId: string): Promise<Visibility
   return {
     isPublic: row.profile_visibility === 'public',
     showActivity: row.public_show_activity === true,
-    handle: row.public_handle === null || row.public_handle === undefined
-      ? null
-      : String(row.public_handle),
+    handle:
+      row.public_handle === null || row.public_handle === undefined
+        ? null
+        : String(row.public_handle),
     isMinor: row.is_minor === true,
   };
 }
@@ -237,13 +238,15 @@ export async function publicPassport(
     memberSince: sofiaMonth(owner.memberSince),
     totals: {
       points: totals.points,
-      contributions:
-        totals.facilitiesAdded + totals.facilitiesVerified + totals.conditionsReported,
+      contributions: totals.facilitiesAdded + totals.facilitiesVerified + totals.conditionsReported,
       checkins: totals.checkins,
     },
     badges: badges
       .filter((badge): badge is BadgeState & { earnedAt: Date } => badge.earnedAt !== null)
-      .map((badge) => ({ slug: badge.slug, earnedMonth: sofiaMonth(badge.earnedAt.toISOString()) })),
+      .map((badge) => ({
+        slug: badge.slug,
+        earnedMonth: sofiaMonth(badge.earnedAt.toISOString()),
+      })),
     streaks: streakView(events, now),
     activity,
   };

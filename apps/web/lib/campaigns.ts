@@ -115,7 +115,10 @@ export function buildCampaignInput(formData: FormData): CampaignInput {
   };
 }
 
-function scopeColumns(scope: CampaignScope): { municipalityId: number | null; quarter: string | null } {
+function scopeColumns(scope: CampaignScope): {
+  municipalityId: number | null;
+  quarter: string | null;
+} {
   if (scope.kind === 'national') return { municipalityId: null, quarter: null };
   if (scope.kind === 'city') return { municipalityId: scope.municipalityId, quarter: null };
   return { municipalityId: scope.municipalityId, quarter: scope.quarter };
@@ -205,11 +208,7 @@ export async function cancelCampaign(db: SqlRunner, id: string): Promise<boolean
 }
 
 /** Bilingual content with a bg fallback — en is optional by design. */
-export function localizedText(
-  bg: string | null,
-  en: string | null,
-  locale: string,
-): string | null {
+export function localizedText(bg: string | null, en: string | null, locale: string): string | null {
   if (locale === 'en') return en ?? bg;
   return bg;
 }

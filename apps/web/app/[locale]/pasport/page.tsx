@@ -30,9 +30,10 @@ export default async function PassportPage({ params }: { params: Promise<{ local
   const user = await requireUser();
   const passport = await ownPassport(getDb(), user.id);
 
-  const publicUrl = passport.visibility.isPublic && passport.visibility.handle
-    ? `${siteUrl()}/pasport/${passport.visibility.handle}`
-    : null;
+  const publicUrl =
+    passport.visibility.isPublic && passport.visibility.handle
+      ? `${siteUrl()}/pasport/${passport.visibility.handle}`
+      : null;
 
   const totals = [
     { key: 'points', value: passport.totals.points },

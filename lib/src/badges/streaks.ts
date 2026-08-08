@@ -1,4 +1,10 @@
-import { addDays, instantToWall, isoWeekday, SOFIA_TZ, type WallClock } from '../recurrence/index.js';
+import {
+  addDays,
+  instantToWall,
+  isoWeekday,
+  SOFIA_TZ,
+  type WallClock,
+} from '../recurrence/index.js';
 
 /**
  * Streaks for the sports passport (docs/ROADMAP.md §7: "DST-correct streaks").
@@ -92,11 +98,7 @@ export function parseCivilDate(key: BucketKey): WallClock {
  * the one place an instant becomes a calendar position, and it is the only
  * place it is allowed to happen.
  */
-export function bucketKeyFor(
-  at: Date,
-  unit: StreakUnit,
-  timeZone: string = SOFIA_TZ,
-): BucketKey {
+export function bucketKeyFor(at: Date, unit: StreakUnit, timeZone: string = SOFIA_TZ): BucketKey {
   const wall = instantToWall(at.getTime(), timeZone);
   const midnight: WallClock = { ...wall, hour: 0, minute: 0 };
   if (unit === 'day') return formatCivilDate(midnight);

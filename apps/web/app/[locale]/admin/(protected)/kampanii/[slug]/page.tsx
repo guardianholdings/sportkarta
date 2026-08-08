@@ -9,7 +9,12 @@ import { requireRole } from '@/lib/auth-session';
 import { localizedText } from '@/lib/campaigns';
 import { cityDisplayName, loadCityCatalog } from '@/lib/places';
 
-import { cancelCampaignAction, closeCampaignAction, publishCampaignAction, updateCampaignAction } from '../actions';
+import {
+  cancelCampaignAction,
+  closeCampaignAction,
+  publishCampaignAction,
+  updateCampaignAction,
+} from '../actions';
 import { CampaignForm } from '../campaign-form';
 import { CloseCampaignForm } from './close-form';
 
@@ -107,7 +112,10 @@ export default async function EditCampaignPage({
         {isClosed ? (
           <ol className="space-y-1 text-sm">
             {frozen.map((row) => (
-              <li key={`${row.rank}-${row.handle ?? row.municipalityId ?? 'x'}`} className="flex gap-3">
+              <li
+                key={`${row.rank}-${row.handle ?? row.municipalityId ?? 'x'}`}
+                className="flex gap-3"
+              >
                 <span className="w-8 tabular-nums text-neutral-500">{row.rank}</span>
                 <span>
                   {row.displayName ??
@@ -125,10 +133,18 @@ export default async function EditCampaignPage({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-200 text-left text-xs text-neutral-500">
-                <th scope="col" className="py-2 pr-3 font-medium">{t('columnRank')}</th>
-                <th scope="col" className="py-2 pr-3 font-medium">{t('columnMember')}</th>
-                <th scope="col" className="py-2 pr-3 font-medium">{t('columnVisibility')}</th>
-                <th scope="col" className="py-2 text-right font-medium">{t('columnScore')}</th>
+                <th scope="col" className="py-2 pr-3 font-medium">
+                  {t('columnRank')}
+                </th>
+                <th scope="col" className="py-2 pr-3 font-medium">
+                  {t('columnMember')}
+                </th>
+                <th scope="col" className="py-2 pr-3 font-medium">
+                  {t('columnVisibility')}
+                </th>
+                <th scope="col" className="py-2 text-right font-medium">
+                  {t('columnScore')}
+                </th>
               </tr>
             </thead>
             <tbody>

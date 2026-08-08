@@ -56,12 +56,7 @@ export {
   listCampaigns,
   publicStandings,
 } from './campaigns.js';
-export type {
-  CampaignRow,
-  CloseReport,
-  FrozenResultRow,
-  StandingRow,
-} from './campaigns.js';
+export type { CampaignRow, CloseReport, FrozenResultRow, StandingRow } from './campaigns.js';
 export { leaderboard, leaderboardCities, memberStanding, monthStart } from './leaderboard.js';
 export type {
   LeaderboardEntry,
@@ -87,17 +82,9 @@ export type {
   PublicPassportOwner,
 } from './passport.js';
 
-export {
-  asQueryable,
-  assertReportSafe,
-  compileMetric,
-  runReport,
-} from './reports/run.js';
+export { asQueryable, assertReportSafe, compileMetric, runReport } from './reports/run.js';
 export type { RunScope } from './reports/run.js';
-export {
-  commitMunicipalImport,
-  previewMunicipalRows,
-} from './import/municipal.js';
+export { commitMunicipalImport, previewMunicipalRows } from './import/municipal.js';
 export type {
   CommitCounts,
   CommitInput,

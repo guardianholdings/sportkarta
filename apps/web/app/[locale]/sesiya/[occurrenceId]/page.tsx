@@ -202,7 +202,10 @@ export default async function SessionPage({ params }: { params: PageParams }) {
       )}
 
       {view.viewerIsOrganizer && !view.cancelled && (
-        <section aria-labelledby="org-h" className="space-y-2 rounded border border-neutral-200 p-3">
+        <section
+          aria-labelledby="org-h"
+          className="space-y-2 rounded border border-neutral-200 p-3"
+        >
           <h2 id="org-h" className="text-sm font-semibold">
             {t('labelOrganizer')}
           </h2>

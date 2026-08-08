@@ -67,7 +67,9 @@ export async function PublicActivityList({ months }: { months: MonthlyActivity[]
         <li key={month.month} className="flex gap-3">
           <span className="tabular-nums text-neutral-500">{month.month}</span>
           <span>{t('monthlyContributions', { count: month.contributions })}</span>
-          <span className="text-neutral-500">{t('monthlyCheckins', { count: month.checkins })}</span>
+          <span className="text-neutral-500">
+            {t('monthlyCheckins', { count: month.checkins })}
+          </span>
         </li>
       ))}
     </ul>

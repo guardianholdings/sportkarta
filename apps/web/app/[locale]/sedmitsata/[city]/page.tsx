@@ -127,7 +127,10 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
                       {/* Stage 4.2: the week is now a way in, not just a
                           listing — each entry leads to the page where you can
                           actually sign up. */}
-                      <Link href={`/sesiya/${entry.occurrenceId}`} className="font-medium underline">
+                      <Link
+                        href={`/sesiya/${entry.occurrenceId}`}
+                        className="font-medium underline"
+                      >
                         {entry.title}
                       </Link>
                       <span className="text-neutral-500"> · {tSport(entry.sport)}</span>

@@ -47,11 +47,21 @@ export default async function AdminCampaignsPage({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-200 text-left text-xs text-neutral-500">
-                <th scope="col" className="py-2 pr-3 font-medium">{t('columnTitle')}</th>
-                <th scope="col" className="py-2 pr-3 font-medium">{t('columnWindow')}</th>
-                <th scope="col" className="py-2 pr-3 font-medium">{t('columnScope')}</th>
-                <th scope="col" className="py-2 pr-3 font-medium">{t('columnBoard')}</th>
-                <th scope="col" className="py-2 font-medium">{t('columnPhase')}</th>
+                <th scope="col" className="py-2 pr-3 font-medium">
+                  {t('columnTitle')}
+                </th>
+                <th scope="col" className="py-2 pr-3 font-medium">
+                  {t('columnWindow')}
+                </th>
+                <th scope="col" className="py-2 pr-3 font-medium">
+                  {t('columnScope')}
+                </th>
+                <th scope="col" className="py-2 pr-3 font-medium">
+                  {t('columnBoard')}
+                </th>
+                <th scope="col" className="py-2 font-medium">
+                  {t('columnPhase')}
+                </th>
               </tr>
             </thead>
             <tbody>

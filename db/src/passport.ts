@@ -120,9 +120,8 @@ export async function passportTotals(db: SqlRunner, userId: string): Promise<Pas
     facilitiesVerified: Number(row.facilities_verified ?? 0),
     conditionsReported: Number(row.conditions_reported ?? 0),
     checkins: Number(row.checkins ?? 0),
-    memberSince: row.member_since === null || row.member_since === undefined
-      ? null
-      : String(row.member_since),
+    memberSince:
+      row.member_since === null || row.member_since === undefined ? null : String(row.member_since),
   };
 }
 
@@ -293,7 +292,9 @@ export async function recordEarnedBadges(
   if (earned.length === 0) return [];
 
   const values = sql.join(
-    earned.map((badge) => sql`(${userId}, ${badge.slug}, ${badge.earnedAt.toISOString()}::timestamptz)`),
+    earned.map(
+      (badge) => sql`(${userId}, ${badge.slug}, ${badge.earnedAt.toISOString()}::timestamptz)`,
+    ),
     sql`, `,
   );
 

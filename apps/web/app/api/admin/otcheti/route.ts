@@ -59,8 +59,7 @@ export async function GET(request: Request) {
 
   return new Response(rendered.body, {
     headers: {
-      'Content-Type':
-        format === 'html' ? 'text/html; charset=utf-8' : 'text/csv; charset=utf-8',
+      'Content-Type': format === 'html' ? 'text/html; charset=utf-8' : 'text/csv; charset=utf-8',
       // `inline` for HTML so the operator can read it and print it; `attachment`
       // for CSV, which no browser renders usefully.
       'Content-Disposition': `${format === 'html' ? 'inline' : 'attachment'}; filename="${rendered.filename}"`,

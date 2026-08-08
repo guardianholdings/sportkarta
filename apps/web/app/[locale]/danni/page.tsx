@@ -157,7 +157,9 @@ export default async function OpenDataPage({ params }: { params: PageParams }) {
                         <code>{field.name}</code>
                       </td>
                       <td className="py-1 pr-3 text-neutral-600">{field.type}</td>
-                      <td className="py-1 text-neutral-700">{t(`fields.${field.descriptionKey}`)}</td>
+                      <td className="py-1 text-neutral-700">
+                        {t(`fields.${field.descriptionKey}`)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -206,7 +208,10 @@ export default async function OpenDataPage({ params }: { params: PageParams }) {
         )}
 
         <p className="text-sm">
-          <a className="text-teal-700 underline" href={`/api/opendata/${OPEN_DATA_API_VERSION}/dumps`}>
+          <a
+            className="text-teal-700 underline"
+            href={`/api/opendata/${OPEN_DATA_API_VERSION}/dumps`}
+          >
             {t('dumpsManifest')}
           </a>
         </p>

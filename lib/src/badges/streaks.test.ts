@@ -301,13 +301,13 @@ describe('summarizeStreak', () => {
   it('keeps a week streak alive through last week and breaks it after that', () => {
     const events = [at('2026-07-14T17:00:00Z'), at('2026-07-21T17:00:00Z')];
     // Now is in the week starting 2026-07-27; last active week is the previous one.
-    expect(
-      summarizeStreak(events, 'week', { now: new Date('2026-07-28T12:00:00Z') }).current,
-    ).toBe(2);
+    expect(summarizeStreak(events, 'week', { now: new Date('2026-07-28T12:00:00Z') }).current).toBe(
+      2,
+    );
     // A week later, a whole week has been missed.
-    expect(
-      summarizeStreak(events, 'week', { now: new Date('2026-08-04T12:00:00Z') }).current,
-    ).toBe(0);
+    expect(summarizeStreak(events, 'week', { now: new Date('2026-08-04T12:00:00Z') }).current).toBe(
+      0,
+    );
   });
 
   it('is order-independent — events may arrive from the database in any order', () => {

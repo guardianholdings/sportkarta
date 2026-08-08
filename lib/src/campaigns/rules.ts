@@ -135,9 +135,9 @@ export function validateCampaignRules(input: unknown): CampaignRules {
     byKind.set(kind as PassportEventKind, weight);
   }
 
-  const events: CampaignEventWeight[] = PASSPORT_EVENT_KINDS.filter((kind) =>
-    byKind.has(kind),
-  ).map((kind) => ({ kind, weight: byKind.get(kind) as number }));
+  const events: CampaignEventWeight[] = PASSPORT_EVENT_KINDS.filter((kind) => byKind.has(kind)).map(
+    (kind) => ({ kind, weight: byKind.get(kind) as number }),
+  );
 
   const rules: CampaignRules = { events };
 
@@ -177,7 +177,9 @@ export function validateCampaignScope(
 ): CampaignScope {
   if (kind === 'national') return { kind: 'national' };
 
-  const id = positiveInteger(typeof municipalityId === 'string' ? Number(municipalityId) : municipalityId);
+  const id = positiveInteger(
+    typeof municipalityId === 'string' ? Number(municipalityId) : municipalityId,
+  );
   if (id === null) throw new CampaignRuleError('scope_needs_municipality');
 
   if (kind === 'city') return { kind: 'city', municipalityId: id };

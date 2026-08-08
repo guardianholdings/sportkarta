@@ -92,7 +92,8 @@ export default async function CampaignPage({ params }: { params: PageParams }) {
         <h1 className="text-2xl font-semibold">{title}</h1>
         <p className="text-sm text-neutral-500">
           {campaign.window.startsOn} → {campaign.window.endsOn}
-          {phase === 'running' && !leadWithCountdown &&
+          {phase === 'running' &&
+            !leadWithCountdown &&
             ` · ${t('daysLeft', { count: daysRemaining(campaign.window, now) })}`}
         </p>
         {blurb && <p className="text-sm">{blurb}</p>}

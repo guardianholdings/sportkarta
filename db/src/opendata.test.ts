@@ -158,8 +158,14 @@ describe('open-data dump versioning', () => {
     expect(second).toBe(first);
     expect(first).toContain('2026-07-23T00:00:00.000Z');
 
-    expect(JSON.stringify(serializeJson(sports, [{ sport: 'football', total: 3 }], dumpGeneratedAt(version)))).toBe(
-      JSON.stringify(serializeJson(sports, [{ sport: 'football', total: 3 }], dumpGeneratedAt(version))),
+    expect(
+      JSON.stringify(
+        serializeJson(sports, [{ sport: 'football', total: 3 }], dumpGeneratedAt(version)),
+      ),
+    ).toBe(
+      JSON.stringify(
+        serializeJson(sports, [{ sport: 'football', total: 3 }], dumpGeneratedAt(version)),
+      ),
     );
 
     // A different version must produce different bytes — otherwise the stamp

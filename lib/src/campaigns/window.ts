@@ -110,12 +110,7 @@ export function campaignWindowInstants(
  * say "finished, results shortly" honestly.
  */
 export type CampaignPhase =
-  | 'draft'
-  | 'cancelled'
-  | 'upcoming'
-  | 'running'
-  | 'awaiting_close'
-  | 'closed';
+  'draft' | 'cancelled' | 'upcoming' | 'running' | 'awaiting_close' | 'closed';
 
 export function campaignPhase(
   status: CampaignStatus,

@@ -175,9 +175,10 @@ describe.skipIf(!hasDb)('leaderboard eligibility (requires running database)', (
   it('NEVER shows a member who has not published their passport', async () => {
     for (const { name, scope } of scopes()) {
       const rows = await leaderboard(db as never, { scope, limit: 200 });
-      expect(rows.map((row) => row.handle), `${name} leaked a private member`).not.toContain(
-        HANDLES[PRIVATE],
-      );
+      expect(
+        rows.map((row) => row.handle),
+        `${name} leaked a private member`,
+      ).not.toContain(HANDLES[PRIVATE]);
     }
   });
 

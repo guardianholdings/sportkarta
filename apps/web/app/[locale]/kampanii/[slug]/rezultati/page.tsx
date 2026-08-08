@@ -88,10 +88,7 @@ export default async function CampaignResultsPage({ params }: { params: PagePara
           rows={rows}
           leaderboardType={campaign.leaderboardType}
           cityNames={Object.fromEntries(
-            catalog.all.map((city) => [
-              city.id,
-              cityDisplayName(city.nameBg, city.nameEn, locale),
-            ]),
+            catalog.all.map((city) => [city.id, cityDisplayName(city.nameBg, city.nameEn, locale)]),
           )}
         />
       </section>

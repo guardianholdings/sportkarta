@@ -94,7 +94,12 @@ export interface MunicipalRowView {
   error?: string;
   /** Set for conflicts: the reason slug and the facilities it collides with. */
   conflictReason?: string;
-  candidates?: { facilityId: string; name: string | null; slug: string | null; distanceM: number }[];
+  candidates?: {
+    facilityId: string;
+    name: string | null;
+    slug: string | null;
+    distanceM: number;
+  }[];
   /** For a match, the facility it will update. */
   matchFacilityId?: string;
 }
@@ -125,19 +130,30 @@ export async function previewMunicipal(rows: readonly RawRow[]): Promise<Municip
   const views: MunicipalRowView[] = rows.map((raw): MunicipalRowView => {
     const error = errors.get(raw.rowNumber);
     if (error) {
-      return { rowNumber: raw.rowNumber, name: (raw.name ?? '').trim() || null, status: 'invalid', error: error.code };
+      return {
+        rowNumber: raw.rowNumber,
+        name: (raw.name ?? '').trim() || null,
+        status: 'invalid',
+        error: error.code,
+      };
     }
     const preview = previewByRow.get(raw.rowNumber);
     if (!preview) {
       // Unreachable — a non-invalid row is always previewed — but never assume.
-      return { rowNumber: raw.rowNumber, name: null, status: 'invalid', error: 'coordinates_required' };
+      return {
+        rowNumber: raw.rowNumber,
+        name: null,
+        status: 'invalid',
+        error: 'coordinates_required',
+      };
     }
     const view: MunicipalRowView = {
       rowNumber: preview.rowNumber,
       name: preview.name,
       status: preview.outcome.kind,
     };
-    if (preview.outcome.kind === 'match') view.matchFacilityId = preview.outcome.candidate.facilityId;
+    if (preview.outcome.kind === 'match')
+      view.matchFacilityId = preview.outcome.candidate.facilityId;
     if (preview.outcome.kind === 'conflict') {
       view.conflictReason = preview.outcome.reason;
       view.candidates = preview.outcome.candidates.map((c) => ({
