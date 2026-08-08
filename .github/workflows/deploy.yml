@@ -156,14 +156,20 @@ jobs:
       - name: Log VPS into GHCR (private images)
         run: |
           ssh vps "echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin"
-      - name: Pull images, migrate, start stack
+      - name: Pull images, migrate, seed, start stack
         run: |
           ssh vps 'cd /opt/sportkarta \
             && docker compose -f compose.prod.yml pull -q \
             && docker compose -f compose.prod.yml up -d --wait db \
             && docker compose -f compose.prod.yml --profile ops run --rm migrate \
+            && docker compose -f compose.prod.yml --profile ops run --rm migrate pnpm db:seed \
             && docker compose -f compose.prod.yml up -d --remove-orphans \
             && docker compose -f compose.prod.yml restart caddy'
+          # The seed is idempotent dev/prod (fixed UUIDs, ON CONFLICT DO
+          # NOTHING) and the health gate below depends on it: /api/health
+          # smoke-queries the _health row, which migrations never create.
+          # Without this step every deploy to a fresh box fails its health
+          # check with "st_dwithin smoke query found no rows".
           # The Caddyfile is a bind mount read at startup: compose only
           # recreates caddy when its SERVICE config changes, so a shipped
           # Caddyfile edit (or the IP↔TLS flip) needs the explicit restart.
