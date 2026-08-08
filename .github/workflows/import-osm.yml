@@ -1,0 +1,78 @@
+name: Import OSM
+
+# Operator-dispatched OSM facility import into the PRODUCTION database.
+# CI is the operator's remote hands (docs/ROADMAP.md): the runner has
+# osmium-tool, the deploy SSH key, and POSTGRES_PASSWORD — so the import
+# runs where the credentials already live, and no secret ever leaves
+# GitHub. The db publishes no ports; the runner reaches it through an SSH
+# tunnel to the compose network, exactly like the deploy job reaches the
+# host. Dry-run first is the ROADMAP §3 gate discipline: the default run
+# is a dry run; tick the box to go live.
+on:
+  workflow_dispatch:
+    inputs:
+      live:
+        description: 'Live import (unticked = dry-run, rolled back)'
+        type: boolean
+        default: false
+
+# Never concurrent with a deploy — both mutate the same stack.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  import:
+    # Refuse non-main dispatches for the same reason deploy does.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install osmium
+        run: sudo apt-get update -q && sudo apt-get install -y -q osmium-tool
+      - run: pnpm install --frozen-lockfile
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          {
+            echo "Host vps"
+            echo "  HostName ${{ secrets.DEPLOY_HOST }}"
+            echo "  User deploy"
+            echo "  IdentityFile ~/.ssh/deploy_key"
+            echo "  StrictHostKeyChecking accept-new"
+          } > ~/.ssh/config
+      - name: Open tunnel to the db container
+        run: |
+          DBIP=$(ssh vps "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' sportkarta-db-1")
+          ssh -f -N -o ExitOnForwardFailure=yes -L 15432:"$DBIP":5432 vps
+      - name: Import (dry-run by default, --live when ticked)
+        run: |
+          umask 077
+          echo "DATABASE_URL=postgres://sportkarta:${{ secrets.POSTGRES_PASSWORD }}@127.0.0.1:15432/sportkarta" > .env
+          if [ "${{ inputs.live }}" = "true" ]; then
+            pnpm import:osm --live
+          else
+            pnpm import:osm
+          fi
+      # The CLI audit samples LIVE rows against the extract, so it is
+      # meaningful only after a live import — a dry run rolls back and the
+      # audit would just flag whatever already existed.
+      - name: Audit the live rows against the same extract
+        if: ${{ inputs.live }}
+        run: pnpm import:osm:audit --sample 350 --skip-download
+      - name: Upload import + audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: osm-import-reports
+          path: scripts/import-osm/reports/*.md
+          if-no-files-found: ignore
