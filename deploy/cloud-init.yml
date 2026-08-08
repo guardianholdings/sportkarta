@@ -30,6 +30,7 @@ write_files:
     content: |
       # Rendered by .github/workflows/deploy.yml — do not edit by hand.
       DOMAIN=
+      SITE_URL=
       IMAGE_TAG=latest
       POSTGRES_PASSWORD=
       UMAMI_APP_SECRET=
