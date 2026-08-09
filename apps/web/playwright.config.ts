@@ -36,6 +36,12 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
+      // The dev server compiles the whole app on demand and its heap grows
+      // with it. On CI's small runners Next's memory watcher would restart
+      // the server mid-suite — and the restart corrupts its own manifest
+      // state, 500-ing every page with "Unexpected non-whitespace character
+      // after JSON" until nothing passes. Give it room instead.
+      NODE_OPTIONS: '--max-old-space-size=4096',
       // The suite reads sign-in codes from the file outbox (e2e/auth.ts). Pinned
       // here rather than left to .env: a developer with a real SMTP relay
       // configured would otherwise send a dozen live emails per run.
