@@ -14,29 +14,63 @@
 -- but the seed is `ON CONFLICT (id) DO NOTHING` by design, so it cannot correct
 -- rows that already exist. Hence this one-time forward-only correction.
 --
--- WHY IT IS SAFE TO RE-RUN AND WHY IT WILL NOT FIGHT A HUMAN. The predicate is
--- narrow on purpose: the two fixed seed UUIDs, AND still carrying the seed
--- marker, AND still exactly `active`. Once a moderator verifies one of these on
--- the ground through /admin/facilities the row is `active` again — but this
--- migration has already run and will never run a second time, so a real
--- verification is never reverted. On a database where the rows do not exist
--- (a fresh install seeded by the new code) it updates zero rows and is a no-op.
+-- THIS IS A RELABELLING, NOT A TAKEDOWN. `PUBLIC_FACILITY_PREDICATE` hides only
+-- `gone` and slug-less rows, so both facilities stay on the map, in /igrishta
+-- and in the open-data export; what changes is that they now carry the "awaiting
+-- verification" badge and enter the ambassador queue, which is where an
+-- unconfirmed claim belongs.
+--
+-- CONVERGENT, NOT ORDER-DEPENDENT. Production runs `migrate` then `seed`: if the
+-- rows exist this corrects them, and if they do not it updates zero rows and the
+-- seed inserts them as `needs_verification` moments later. Same end state.
+--
+-- WHY IT CANNOT FIGHT A HUMAN. Both routes to `active` — the on-site crowd
+-- verification and a moderator's decision — require the row to already BE
+-- `needs_verification`, so while these rows are `active` no verification can
+-- even be in flight, and this migration runs exactly once. A later genuine
+-- verification is therefore never reverted.
 --
 -- NOT deleted, deliberately: `facility_edits` is append-only and references
 -- facilities ON DELETE RESTRICT, and a place that plausibly exists belongs in
 -- the verification queue rather than erased from the record.
 --
--- Rollback (DESTRUCTIVE — re-publishes an unverified claim as verified):
+-- NO matview REFRESH here, deliberately: this shifts two rows across the
+-- active/needs_verification counters in `mv_national_stats` and the municipality
+-- views, and both are refreshed by the seed step that follows this migration in
+-- the deploy and again by the worker every 15 minutes. A REFRESH inside the
+-- migration would be wrong twice: CONCURRENTLY cannot run in the migrator's
+-- transaction, and the plain form takes ACCESS EXCLUSIVE and would block
+-- /statistika for its duration.
+--
+-- Rollback (DESTRUCTIVE — re-publishes an unverified claim as verified; the
+-- guards matter, or this resurrects a facility a moderator confirmed is gone):
 --   UPDATE facilities SET status = 'active'
 --    WHERE id IN ('00000000-0000-4000-8000-000000000006',
---                 '00000000-0000-4000-8000-000000000007');
+--                 '00000000-0000-4000-8000-000000000007')
+--      AND attrs->>'seed' = 'true'
+--      AND status = 'needs_verification';
 
-UPDATE "facilities"
-   SET "status" = 'needs_verification',
-       "updated_at" = now()
- WHERE "id" IN (
-         '00000000-0000-4000-8000-000000000006'::uuid,
-         '00000000-0000-4000-8000-000000000007'::uuid
-       )
-   AND "attrs"->>'seed' = 'true'
-   AND "status" = 'active';
+SET LOCAL lock_timeout = '3s';--> statement-breakpoint
+-- One statement so the audit row is written for exactly the rows that actually
+-- changed — zero of them on a database seeded by the current code.
+--
+-- `actor` is NULL and that is load-bearing, not stylistic: the facility page
+-- computes "last verified" as max(created_at) over edits WHERE actor IS NOT
+-- NULL, so an attributed row would make this facility announce a verification
+-- date on the very row this migration exists to mark UNVERIFIED. NULL actor is
+-- also the established encoding for institutional, non-person writes.
+WITH corrected AS (
+  UPDATE "facilities"
+     SET "status" = 'needs_verification'
+   WHERE "id" IN (
+           '00000000-0000-4000-8000-000000000006'::uuid,
+           '00000000-0000-4000-8000-000000000007'::uuid
+         )
+     AND "attrs"->>'seed' = 'true'
+     AND "status" = 'active'
+  RETURNING "id"
+)
+INSERT INTO "facility_edits" ("facility_id", "actor", "source", "field", "old_value", "new_value")
+SELECT "id", NULL, 'crowd', 'status', '"active"'::jsonb, '"needs_verification"'::jsonb
+  FROM corrected;--> statement-breakpoint
+SET LOCAL lock_timeout = DEFAULT;
