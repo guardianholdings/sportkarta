@@ -146,9 +146,7 @@ export interface RowError {
   code: string;
 }
 
-export type NormalizeOutcome =
-  | { ok: true; row: NormalizedRow }
-  | { ok: false; error: RowError };
+export type NormalizeOutcome = { ok: true; row: NormalizedRow } | { ok: false; error: RowError };
 
 function cleanText(value: string | undefined): string {
   return (value ?? '').trim().replace(/\s+/g, ' ');

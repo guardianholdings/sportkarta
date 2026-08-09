@@ -174,9 +174,10 @@ describe.skipIf(!hasDb)('passport visibility constraints (requires running datab
     );
     await expect(client.query(`DELETE FROM users WHERE id = $1`, [ADULT])).resolves.toBeDefined();
 
-    const badges = await client.query(`SELECT count(*)::int AS n FROM user_badges WHERE user_id = $1`, [
-      ADULT,
-    ]);
+    const badges = await client.query(
+      `SELECT count(*)::int AS n FROM user_badges WHERE user_id = $1`,
+      [ADULT],
+    );
     expect(badges.rows[0]?.n).toBe(0);
   });
 });

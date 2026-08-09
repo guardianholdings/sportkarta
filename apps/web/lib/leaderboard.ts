@@ -46,16 +46,23 @@ export async function resolveScope(params: ScopeParams): Promise<ResolvedScope> 
   }
 
   if (params.sport && CANONICAL_SPORT_SET.has(params.sport)) {
-    return { scope: { kind: 'sport', sport: params.sport }, period, city: null, sport: params.sport };
+    return {
+      scope: { kind: 'sport', sport: params.sport },
+      period,
+      city: null,
+      sport: params.sport,
+    };
   }
 
   return { scope: { kind: 'national' }, period, city: null, sport: null };
 }
 
 /** The canonical URL for a scope — used for the filter links and their active state. */
-export function scopeHref(
-  options: { citySlug?: string | null; sport?: string | null; period?: LeaderboardPeriod },
-): string {
+export function scopeHref(options: {
+  citySlug?: string | null;
+  sport?: string | null;
+  period?: LeaderboardPeriod;
+}): string {
   const search = new URLSearchParams();
   if (options.citySlug) search.set('grad', options.citySlug);
   else if (options.sport) search.set('sport', options.sport);

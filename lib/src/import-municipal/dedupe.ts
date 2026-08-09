@@ -36,10 +36,7 @@ export type Classification =
   | { kind: 'match'; candidate: NearbyCandidate }
   | { kind: 'conflict'; reason: ConflictReason; candidates: NearbyCandidate[] };
 
-export type ConflictReason =
-  | 'same_spot_different_name'
-  | 'name_match_farther'
-  | 'ambiguous';
+export type ConflictReason = 'same_spot_different_name' | 'name_match_farther' | 'ambiguous';
 
 /**
  * Normalise a facility name for comparison: lowercase, strip punctuation,

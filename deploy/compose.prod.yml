@@ -27,7 +27,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://sportkarta:${POSTGRES_PASSWORD}@db:5432/sportkarta
-      NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
+      NEXT_PUBLIC_SITE_URL: ${SITE_URL:?SITE_URL is rendered into .env by deploy.yml}
       STORAGE_DIR: /data/uploads
       # Auth (better-auth, self-hosted). Empty AUTH_SECRET fails closed: the
       # public map keeps serving, sign-in and /admin return 503 until it is set.

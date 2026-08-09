@@ -230,11 +230,7 @@ export async function cancelCampaign(db: SqlRunner, id: string): Promise<boolean
 }
 
 /** Bilingual content with a bg fallback — en is optional by design. */
-export function localizedText(
-  bg: string | null,
-  en: string | null,
-  locale: string,
-): string | null {
+export function localizedText(bg: string | null, en: string | null, locale: string): string | null {
   if (locale === 'en') return en ?? bg;
   return bg;
 }

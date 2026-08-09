@@ -11,7 +11,12 @@ import { localizedText } from '@/lib/campaigns';
 import { partnerText, sponsorCandidates } from '@/lib/partners';
 import { cityDisplayName, loadCityCatalog } from '@/lib/places';
 
-import { cancelCampaignAction, closeCampaignAction, publishCampaignAction, updateCampaignAction } from '../actions';
+import {
+  cancelCampaignAction,
+  closeCampaignAction,
+  publishCampaignAction,
+  updateCampaignAction,
+} from '../actions';
 import { CampaignForm } from '../campaign-form';
 import { CloseCampaignForm } from './close-form';
 

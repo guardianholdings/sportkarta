@@ -28,11 +28,7 @@ export async function generateMetadata({
   return { title: t('listMetaTitle'), robots: { index: false, follow: true } };
 }
 
-export default async function CampaignsPage({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
+export default async function CampaignsPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations('Campaign');

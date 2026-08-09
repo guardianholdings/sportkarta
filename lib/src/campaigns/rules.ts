@@ -194,7 +194,9 @@ export function validateCampaignScope(
 ): CampaignScope {
   if (kind === 'national') return { kind: 'national' };
 
-  const id = positiveInteger(typeof municipalityId === 'string' ? Number(municipalityId) : municipalityId);
+  const id = positiveInteger(
+    typeof municipalityId === 'string' ? Number(municipalityId) : municipalityId,
+  );
   if (id === null) throw new CampaignRuleError('scope_needs_municipality');
 
   if (kind === 'city') return { kind: 'city', municipalityId: id };

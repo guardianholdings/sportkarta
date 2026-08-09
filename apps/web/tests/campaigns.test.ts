@@ -136,15 +136,16 @@ describe('buildCampaignInput', () => {
     expect(() => buildCampaignInput(form({ scopeKind: 'city' }))).toThrow(
       /scope_needs_municipality/,
     );
-    expect(
-      buildCampaignInput(form({ scopeKind: 'city', municipalityId: '7' })).scope,
-    ).toEqual({ kind: 'city', municipalityId: 7 });
+    expect(buildCampaignInput(form({ scopeKind: 'city', municipalityId: '7' })).scope).toEqual({
+      kind: 'city',
+      municipalityId: 7,
+    });
   });
 
   it('requires a quarter for a quarter scope', () => {
-    expect(() =>
-      buildCampaignInput(form({ scopeKind: 'quarter', municipalityId: '7' })),
-    ).toThrow(/scope_needs_quarter/);
+    expect(() => buildCampaignInput(form({ scopeKind: 'quarter', municipalityId: '7' }))).toThrow(
+      /scope_needs_quarter/,
+    );
   });
 
   it('rejects a window whose end precedes its start', () => {

@@ -44,15 +44,10 @@ export function CampaignForm({
   partners?: { id: number; name: string }[];
 }) {
   const t = useTranslations('AdminCampaigns');
-  const [state, formAction, pending] = useActionState<CampaignFormState, FormData>(
-    action,
-    INITIAL,
-  );
+  const [state, formAction, pending] = useActionState<CampaignFormState, FormData>(action, INITIAL);
 
   const [scopeKind, setScopeKind] = useState(campaign?.scope.kind ?? 'national');
-  const [leaderboardType, setLeaderboardType] = useState(
-    campaign?.leaderboardType ?? 'individual',
-  );
+  const [leaderboardType, setLeaderboardType] = useState(campaign?.leaderboardType ?? 'individual');
 
   const weightFor = (kind: string): number | undefined =>
     campaign?.rules.events.find((event) => event.kind === kind)?.weight;

@@ -141,7 +141,9 @@ export default async function LeaderboardPage({
   });
 
   const heading = resolved.city
-    ? t('headingCity', { city: cityDisplayName(resolved.city.nameBg, resolved.city.nameEn, locale) })
+    ? t('headingCity', {
+        city: cityDisplayName(resolved.city.nameBg, resolved.city.nameEn, locale),
+      })
     : resolved.sport
       ? t('headingSport', { sport: sportName(resolved.sport) })
       : t('headingNational');

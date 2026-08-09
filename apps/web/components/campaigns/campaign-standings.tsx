@@ -41,9 +41,13 @@ export async function CampaignStandings({
               {leaderboardType === 'city' ? t('columnCity') : t('columnMember')}
             </th>
             {leaderboardType === 'city' && (
-              <th scope="col" className="py-2 pr-3 text-right font-medium">{t('columnMembers')}</th>
+              <th scope="col" className="py-2 pr-3 text-right font-medium">
+                {t('columnMembers')}
+              </th>
             )}
-            <th scope="col" className="py-2 text-right font-medium">{t('columnScore')}</th>
+            <th scope="col" className="py-2 text-right font-medium">
+              {t('columnScore')}
+            </th>
           </tr>
         </thead>
         <tbody>

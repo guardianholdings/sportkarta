@@ -161,9 +161,7 @@ describe('public passport projection', () => {
         ? [{ ...OWNER_ROW, public_show_activity: true }]
         : rowsFor(sql),
     );
-    const shown = must(
-      await publicPassport(on, 'a'.repeat(24), new Date('2026-03-01T12:00:00Z')),
-    );
+    const shown = must(await publicPassport(on, 'a'.repeat(24), new Date('2026-03-01T12:00:00Z')));
     expect(shown.activity).toEqual([{ month: '2026-02', contributions: 1, checkins: 0 }]);
   });
 

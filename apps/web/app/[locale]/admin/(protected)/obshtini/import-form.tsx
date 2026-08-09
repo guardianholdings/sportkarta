@@ -2,12 +2,7 @@
 
 import { useActionState, useState } from 'react';
 
-import {
-  commitCsvAction,
-  parseCsvAction,
-  previewCsvAction,
-  type MunicipalState,
-} from './actions';
+import { commitCsvAction, parseCsvAction, previewCsvAction, type MunicipalState } from './actions';
 
 // Subpath, never the barrel: the barrel re-exports the mailer, which drags
 // nodemailer and node:fs into the browser bundle (client-imports.test.ts).
@@ -229,9 +224,12 @@ function MunicipalImportWizard({
                           <option value="skip">{L(labels, 'resolveSkip')}</option>
                           <option value="new">{L(labels, 'resolveNew')}</option>
                           {row.candidates.map((candidate) => (
-                            <option key={candidate.facilityId} value={`link:${candidate.facilityId}`}>
-                              {L(labels, 'resolveLink')}: {candidate.name ?? candidate.slug ?? '—'} (
-                              {candidate.distanceM} m)
+                            <option
+                              key={candidate.facilityId}
+                              value={`link:${candidate.facilityId}`}
+                            >
+                              {L(labels, 'resolveLink')}: {candidate.name ?? candidate.slug ?? '—'}{' '}
+                              ({candidate.distanceM} m)
                             </option>
                           ))}
                         </select>

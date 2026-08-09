@@ -1,11 +1,17 @@
 name: Deploy
 
 # Push to main = deploy, but only after CI succeeds on that commit.
+# workflow_dispatch is the operator override: it deploys main HEAD without
+# waiting for a fresh CI run (first deploy, secret rotation, re-deploy after
+# flipping DEPLOY_ENABLED). Dispatching any other ref is refused below —
+# deploys happen only from main (CLAUDE.md), and a non-main dispatch would
+# also repoint the :latest image tags.
 on:
   workflow_run:
     workflows: [CI]
     types: [completed]
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: deploy
@@ -14,10 +20,15 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   IMAGE_BASE: ghcr.io/${{ github.repository_owner }}/sportkarta
+  # The commit being deployed: the CI-validated sha on push-triggered runs,
+  # the dispatched ref's sha on manual runs.
+  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
   build-push:
-    if: github.event.workflow_run.conclusion == 'success'
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -25,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ env.DEPLOY_SHA }}
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -39,7 +50,7 @@ jobs:
           target: web
           push: true
           tags: |
-            ${{ env.IMAGE_BASE }}-web:${{ github.event.workflow_run.head_sha }}
+            ${{ env.IMAGE_BASE }}-web:${{ env.DEPLOY_SHA }}
             ${{ env.IMAGE_BASE }}-web:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -50,7 +61,7 @@ jobs:
           target: worker
           push: true
           tags: |
-            ${{ env.IMAGE_BASE }}-worker:${{ github.event.workflow_run.head_sha }}
+            ${{ env.IMAGE_BASE }}-worker:${{ env.DEPLOY_SHA }}
             ${{ env.IMAGE_BASE }}-worker:latest
           cache-from: type=gha
       - name: Build and push migrate
@@ -60,7 +71,7 @@ jobs:
           target: migrate
           push: true
           tags: |
-            ${{ env.IMAGE_BASE }}-migrate:${{ github.event.workflow_run.head_sha }}
+            ${{ env.IMAGE_BASE }}-migrate:${{ env.DEPLOY_SHA }}
             ${{ env.IMAGE_BASE }}-migrate:latest
           cache-from: type=gha
       - name: Build and push backup
@@ -69,7 +80,7 @@ jobs:
           context: deploy/backup
           push: true
           tags: |
-            ${{ env.IMAGE_BASE }}-backup:${{ github.event.workflow_run.head_sha }}
+            ${{ env.IMAGE_BASE }}-backup:${{ env.DEPLOY_SHA }}
             ${{ env.IMAGE_BASE }}-backup:latest
           cache-from: type=gha
 
@@ -85,7 +96,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ env.DEPLOY_SHA }}
       - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
@@ -98,16 +109,34 @@ jobs:
             echo "  IdentityFile ~/.ssh/deploy_key"
             echo "  StrictHostKeyChecking accept-new"
           } > ~/.ssh/config
+      # No PROD_DOMAIN secret yet = IP-only mode: plain HTTP on the server
+      # address, Caddyfile.ip (no TLS, no subdomains). Setting PROD_DOMAIN
+      # later flips everything back to the TLS Caddyfile and https URLs in
+      # one deploy — nothing else to change.
+      - name: Compute public base URL
+        id: base
+        run: |
+          if [ -n "${{ secrets.PROD_DOMAIN }}" ]; then
+            echo "url=https://${{ secrets.PROD_DOMAIN }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "url=http://${{ secrets.DEPLOY_HOST }}" >> "$GITHUB_OUTPUT"
+          fi
       - name: Ship compose, Caddyfile, initdb
         run: |
-          scp deploy/compose.prod.yml deploy/Caddyfile vps:/opt/sportkarta/
+          if [ -n "${{ secrets.PROD_DOMAIN }}" ]; then
+            scp deploy/Caddyfile vps:/opt/sportkarta/Caddyfile
+          else
+            scp deploy/Caddyfile.ip vps:/opt/sportkarta/Caddyfile
+          fi
+          scp deploy/compose.prod.yml vps:/opt/sportkarta/
           scp -r deploy/initdb vps:/opt/sportkarta/
       - name: Render server .env from secrets
         run: |
           ssh vps 'umask 077 && cat > /opt/sportkarta/.env' <<'EOF'
           # Rendered by deploy.yml — do not edit by hand.
           DOMAIN=${{ secrets.PROD_DOMAIN }}
-          IMAGE_TAG=${{ github.event.workflow_run.head_sha }}
+          SITE_URL=${{ steps.base.outputs.url }}
+          IMAGE_TAG=${{ env.DEPLOY_SHA }}
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           UMAMI_APP_SECRET=${{ secrets.UMAMI_APP_SECRET }}
           GLITCHTIP_SECRET_KEY=${{ secrets.GLITCHTIP_SECRET_KEY }}
@@ -127,16 +156,26 @@ jobs:
       - name: Log VPS into GHCR (private images)
         run: |
           ssh vps "echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin"
-      - name: Pull images, migrate, start stack
+      - name: Pull images, migrate, seed, start stack
         run: |
           ssh vps 'cd /opt/sportkarta \
             && docker compose -f compose.prod.yml pull -q \
             && docker compose -f compose.prod.yml up -d --wait db \
             && docker compose -f compose.prod.yml --profile ops run --rm migrate \
-            && docker compose -f compose.prod.yml up -d --remove-orphans'
+            && docker compose -f compose.prod.yml --profile ops run --rm migrate pnpm db:seed \
+            && docker compose -f compose.prod.yml up -d --remove-orphans \
+            && docker compose -f compose.prod.yml restart caddy'
+          # The seed is idempotent dev/prod (fixed UUIDs, ON CONFLICT DO
+          # NOTHING) and the health gate below depends on it: /api/health
+          # smoke-queries the _health row, which migrations never create.
+          # Without this step every deploy to a fresh box fails its health
+          # check with "st_dwithin smoke query found no rows".
+          # The Caddyfile is a bind mount read at startup: compose only
+          # recreates caddy when its SERVICE config changes, so a shipped
+          # Caddyfile edit (or the IP↔TLS flip) needs the explicit restart.
       - name: Health check (fail loudly)
         run: |
-          url="https://${{ secrets.PROD_DOMAIN }}/api/health"
+          url="${{ steps.base.outputs.url }}/api/health"
           for i in $(seq 1 20); do
             if curl -fsS --max-time 10 "$url"; then
               echo

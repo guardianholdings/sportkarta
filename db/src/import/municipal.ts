@@ -112,7 +112,8 @@ async function nearbyCandidates(
 
 function toOutcome(classification: Classification): RowOutcome {
   if (classification.kind === 'new') return { kind: 'new' };
-  if (classification.kind === 'match') return { kind: 'match', candidate: classification.candidate };
+  if (classification.kind === 'match')
+    return { kind: 'match', candidate: classification.candidate };
   return {
     kind: 'conflict',
     reason: classification.reason,
@@ -207,9 +208,7 @@ async function loadCurrent(
  * resolved on its own is the failure mode this whole feature exists to prevent.
  */
 export type Resolution =
-  | { action: 'skip' }
-  | { action: 'new' }
-  | { action: 'link'; facilityId: string };
+  { action: 'skip' } | { action: 'new' } | { action: 'link'; facilityId: string };
 
 export interface CommitInput {
   rows: readonly NormalizedRow[];

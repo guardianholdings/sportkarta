@@ -1,167 +1,38 @@
 {
   "bulk": {
-    "facility": [
-      "обект",
-      "обект/slug",
-      "facility",
-      "facility slug",
-      "slug",
-      "игрище"
-    ],
-    "sport": [
-      "спорт",
-      "sport"
-    ],
-    "title": [
-      "заглавие",
-      "име",
-      "title",
-      "name"
-    ],
-    "description": [
-      "описание",
-      "description"
-    ],
-    "date": [
-      "дата",
-      "начална дата",
-      "date",
-      "start date"
-    ],
-    "time": [
-      "час",
-      "начален час",
-      "time",
-      "start time"
-    ],
-    "duration": [
-      "продължителност",
-      "минути",
-      "duration",
-      "minutes"
-    ],
-    "rrule": [
-      "повторение",
-      "правило",
-      "rrule",
-      "recurrence",
-      "repeat"
-    ],
-    "capacity": [
-      "капацитет",
-      "места",
-      "capacity",
-      "places"
-    ],
-    "skillLevel": [
-      "ниво",
-      "skill",
-      "skill level",
-      "level"
-    ],
-    "visibility": [
-      "видимост",
-      "visibility"
-    ]
+    "facility": ["обект", "обект/slug", "facility", "facility slug", "slug", "игрище"],
+    "sport": ["спорт", "sport"],
+    "title": ["заглавие", "име", "title", "name"],
+    "description": ["описание", "description"],
+    "date": ["дата", "начална дата", "date", "start date"],
+    "time": ["час", "начален час", "time", "start time"],
+    "duration": ["продължителност", "минути", "duration", "minutes"],
+    "rrule": ["повторение", "правило", "rrule", "recurrence", "repeat"],
+    "capacity": ["капацитет", "места", "capacity", "places"],
+    "skillLevel": ["ниво", "skill", "skill level", "level"],
+    "visibility": ["видимост", "visibility"]
   },
   "result": {
-    "participant": [
-      "участник",
-      "име",
-      "имейл",
-      "email",
-      "participant",
-      "name",
-      "player"
-    ],
-    "team": [
-      "отбор",
-      "team",
-      "side"
-    ],
-    "position": [
-      "място",
-      "позиция",
-      "position",
-      "place",
-      "rank"
-    ],
-    "score": [
-      "резултат",
-      "точки",
-      "време",
-      "score",
-      "result",
-      "time"
-    ],
-    "note": [
-      "бележка",
-      "коментар",
-      "note",
-      "comment"
-    ]
+    "participant": ["участник", "име", "имейл", "email", "participant", "name", "player"],
+    "team": ["отбор", "team", "side"],
+    "position": ["място", "позиция", "position", "place", "rank"],
+    "score": ["резултат", "точки", "време", "score", "result", "time"],
+    "note": ["бележка", "коментар", "note", "comment"]
   },
   "bulkSample": [
     "обект,спорт,заглавие,дата,час,продължителност,повторение,капацитет,ниво,видимост",
     "sofia-borisova-gradina-1,football,\"Вечерен футбол\",2026-09-01,18:00,90,FREQ=WEEKLY;BYDAY=TU,TH,12,any,public"
   ],
   "municipal": {
-    "name": [
-      "име",
-      "наименование",
-      "name",
-      "обект",
-      "площадка"
-    ],
-    "sport": [
-      "спорт",
-      "спортове",
-      "sport",
-      "sports"
-    ],
-    "access": [
-      "достъп",
-      "режим",
-      "access"
-    ],
-    "surface": [
-      "настилка",
-      "покритие",
-      "surface"
-    ],
-    "lighting": [
-      "осветление",
-      "осветена",
-      "lighting",
-      "lit"
-    ],
-    "covered": [
-      "покрита",
-      "закрита",
-      "covered",
-      "indoor"
-    ],
-    "quarter": [
-      "квартал",
-      "район",
-      "quarter",
-      "district"
-    ],
-    "lon": [
-      "дължина",
-      "longitude",
-      "lon",
-      "lng",
-      "x",
-      "geo_lon"
-    ],
-    "lat": [
-      "ширина",
-      "latitude",
-      "lat",
-      "y",
-      "geo_lat"
-    ]
+    "name": ["име", "наименование", "name", "обект", "площадка"],
+    "sport": ["спорт", "спортове", "sport", "sports"],
+    "access": ["достъп", "режим", "access"],
+    "surface": ["настилка", "покритие", "surface"],
+    "lighting": ["осветление", "осветена", "lighting", "lit"],
+    "covered": ["покрита", "закрита", "covered", "indoor"],
+    "quarter": ["квартал", "район", "quarter", "district"],
+    "lon": ["дължина", "longitude", "lon", "lng", "x", "geo_lon"],
+    "lat": ["ширина", "latitude", "lat", "y", "geo_lat"]
   },
   "municipalSample": [
     "име,спорт,достъп,настилка,осветление,покрита,квартал,дължина,ширина",

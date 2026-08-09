@@ -192,7 +192,9 @@ describe.skipIf(!url)('municipal import against the real database', () => {
   it('leaves an unresolved conflict untouched — no write without a decision', async () => {
     await client.query('BEGIN');
     try {
-      const before = await client.query<{ n: string }>(`SELECT count(*)::text AS n FROM facilities`);
+      const before = await client.query<{ n: string }>(
+        `SELECT count(*)::text AS n FROM facilities`,
+      );
       await client.query(
         `INSERT INTO facilities (geom, name, sport_types, access, source, status)
          VALUES (ST_SetSRID(ST_MakePoint($1, $2), 4326), 'Съществуваща', '{football}',

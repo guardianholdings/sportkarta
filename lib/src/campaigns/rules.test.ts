@@ -78,9 +78,9 @@ describe('validateCampaignRules', () => {
 
   it('refuses weights that are not positive integers, or are absurd', () => {
     for (const weight of [0, -5, 1.5, Number.NaN, '10', null, Number.POSITIVE_INFINITY]) {
-      expect(() =>
-        validateCampaignRules({ events: [{ kind: 'facility_added', weight }] }),
-      ).toThrow(/rules_bad_weight/);
+      expect(() => validateCampaignRules({ events: [{ kind: 'facility_added', weight }] })).toThrow(
+        /rules_bad_weight/,
+      );
     }
     expect(() =>
       validateCampaignRules({ events: [{ kind: 'facility_added', weight: MAX_EVENT_WEIGHT + 1 }] }),
@@ -106,9 +106,7 @@ describe('validateCampaignRules', () => {
 
   it('refuses a cap below the heaviest event — always a units mistake, never a policy', () => {
     // The admin meant "three actions a day" and wrote 3, while an add is 10.
-    expect(() => validateCampaignRules({ ...ok, perDayCap: 3 })).toThrow(
-      /rules_cap_below_weight/,
-    );
+    expect(() => validateCampaignRules({ ...ok, perDayCap: 3 })).toThrow(/rules_cap_below_weight/);
     // Exactly equal is fine: one full action a day.
     expect(validateCampaignRules({ ...ok, perDayCap: 10 }).perDayCap).toBe(10);
   });
@@ -160,7 +158,15 @@ describe('validateCampaignSlug', () => {
   });
 
   it('refuses anything that would not survive a printed flyer', () => {
-    for (const bad of ['', '-leading', 'trailing-', 'double--dash', 'кирилица', 'has space', 'a'.repeat(61)]) {
+    for (const bad of [
+      '',
+      '-leading',
+      'trailing-',
+      'double--dash',
+      'кирилица',
+      'has space',
+      'a'.repeat(61),
+    ]) {
       expect(() => validateCampaignSlug(bad), bad).toThrow(/slug_invalid/);
     }
   });

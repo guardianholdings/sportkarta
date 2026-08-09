@@ -59,7 +59,8 @@ export const QUARTERLY_REPORT: ReportDefinition = {
         {
           id: 'facilities_free_pct',
           labelBg: 'Дял със свободен достъп (%)',
-          definitionBg: 'Дял на площадките със свободен публичен достъп от всички публични площадки.',
+          definitionBg:
+            'Дял на площадките със свободен публичен достъп от всички публични площадки.',
           unit: 'percent',
           additive: false,
           personDerived: false,

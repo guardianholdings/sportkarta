@@ -43,6 +43,10 @@ jobs:
           # and no test-only endpoint in the app (apps/web/e2e/auth.ts).
           echo "MAIL_TRANSPORT=file" >> .env
           echo "MAIL_OUTBOX_DIR=./var/mail" >> .env
+          # The contributions suite uploads a real photo; without a storage
+          # root the add-facility action throws and both dobavi specs fail
+          # (.env.example's dev value, resolved against apps/web).
+          echo "STORAGE_DIR=./.data/storage" >> .env
           # The e2e admin account, promoted on first sign-in.
           echo "ADMIN_EMAILS=e2e@example.org" >> .env
           # Every browser in the suite shares one IP; the production cap would

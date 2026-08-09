@@ -287,8 +287,7 @@ export async function publicPassport(
     memberSince: sofiaMonth(owner.memberSince),
     totals: {
       points: totals.points,
-      contributions:
-        totals.facilitiesAdded + totals.facilitiesVerified + totals.conditionsReported,
+      contributions: totals.facilitiesAdded + totals.facilitiesVerified + totals.conditionsReported,
       checkins: totals.checkins,
     },
     badges: badges

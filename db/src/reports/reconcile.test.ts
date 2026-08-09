@@ -114,10 +114,11 @@ describe.skipIf(!url)('report figures against the real database', () => {
     const userIds: string[] = [];
     for (let i = 0; i < 3; i += 1) {
       const id = `rpt-user-${stamp}-${String(i)}`;
-      await client.query(
-        `INSERT INTO users (id, display_name, email) VALUES ($1, $2, $3)`,
-        [id, `Участник ${String(i)}`, `rpt-${stamp}-${String(i)}@example.org`],
-      );
+      await client.query(`INSERT INTO users (id, display_name, email) VALUES ($1, $2, $3)`, [
+        id,
+        `Участник ${String(i)}`,
+        `rpt-${stamp}-${String(i)}@example.org`,
+      ]);
       userIds.push(id);
     }
 
@@ -370,7 +371,8 @@ describe.skipIf(!url)('report figures against the real database', () => {
       const b = await grantValues(second.municipalityId);
       const national = await grantValues(null);
 
-      const sumOfParts = (a.get('distinct_participants') ?? 0) + (b.get('distinct_participants') ?? 0);
+      const sumOfParts =
+        (a.get('distinct_participants') ?? 0) + (b.get('distinct_participants') ?? 0);
       const nationalValue = national.get('distinct_participants') ?? 0;
 
       // The invariant that makes the `additive: false` flag necessary: summing

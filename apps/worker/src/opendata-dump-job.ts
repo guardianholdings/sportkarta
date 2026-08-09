@@ -127,7 +127,9 @@ export async function runOpenDataDump(options: { now?: Date } = {}): Promise<Dum
       const body = Buffer.from(serialize(dataset, format, rows, generatedAt), 'utf8');
       const sha256 = createHash('sha256').update(body).digest('hex');
 
-      await files.put(key, body, { contentType: format === 'csv' ? 'text/csv' : 'application/json' });
+      await files.put(key, body, {
+        contentType: format === 'csv' ? 'text/csv' : 'application/json',
+      });
       // Only now: the artifact is on the volume and hashed.
       await recordDump(db, {
         version,
@@ -170,7 +172,8 @@ export async function runOpenDataDump(options: { now?: Date } = {}): Promise<Dum
   let prunedVersions = 0;
   if (written > 0) {
     const retention = Number(process.env.OPENDATA_DUMP_RETENTION ?? DEFAULT_RETENTION);
-    const keep = Number.isFinite(retention) && retention > 0 ? Math.floor(retention) : DEFAULT_RETENTION;
+    const keep =
+      Number.isFinite(retention) && retention > 0 ? Math.floor(retention) : DEFAULT_RETENTION;
     // The row goes first and the file second — a file with no row is invisible
     // and harmless, a row with no file is a broken download.
     const removed = await pruneDumps(db, keep);
