@@ -1,5 +1,8 @@
 name: CI
 
+# The deploy workflow watches THIS workflow's conclusion, so everything here is
+# a release gate. The Playwright suite deliberately lives in e2e.yml instead —
+# see the comment at the top of that file.
 on:
   push:
     branches: [main]
@@ -8,6 +11,7 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4 # version from packageManager field
@@ -19,11 +23,16 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm format:check
-      # DB-backed tests skip themselves here (no DATABASE_URL) and run in e2e.
+      # DB-backed tests skip themselves here (no DATABASE_URL) and run below.
       - run: pnpm test
 
-  e2e:
+  db-tests:
+    # The suites that run against a real PostGIS: geospatial SQL, the merge
+    # policy, moderation and leaderboard authorization, campaign scoring, the
+    # report reconciliation. These assert things no unit test can, they run in
+    # ~2 minutes, and they are the reason this job gates the deploy.
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       DATABASE_URL: postgres://sportkarta:sportkarta@localhost:5433/sportkarta
     steps:
@@ -39,29 +48,10 @@ jobs:
       - name: Migrate and seed
         run: |
           echo "DATABASE_URL=$DATABASE_URL" > .env
-          # Sign-in codes go to a file outbox the e2e suite reads — no relay,
-          # and no test-only endpoint in the app (apps/web/e2e/auth.ts).
-          echo "MAIL_TRANSPORT=file" >> .env
-          echo "MAIL_OUTBOX_DIR=./var/mail" >> .env
-          # The contributions suite uploads a real photo; without a storage
-          # root the add-facility action throws and both dobavi specs fail
-          # (.env.example's dev value, resolved against apps/web).
-          echo "STORAGE_DIR=./.data/storage" >> .env
-          # The e2e admin account, promoted on first sign-in.
-          echo "ADMIN_EMAILS=e2e@example.org" >> .env
-          # Every browser in the suite shares one IP; the production cap would
-          # throttle the run.
-          echo "OTP_RATE_LIMIT_IP=200" >> .env
-          echo "OTP_RATE_LIMIT_EMAIL=50" >> .env
-          echo "OTP_RATE_LIMIT_PER_MINUTE=100" >> .env
           pnpm db:migrate
           pnpm db:seed
       - name: DB-backed unit tests (ST_DWithin smoke)
         run: pnpm --filter @sportkarta/db test
-      - name: Install Playwright browsers
-        run: pnpm --filter @sportkarta/web exec playwright install --with-deps chromium
-      - name: Playwright e2e
-        run: pnpm test:e2e
-      - name: Stack logs on failure
+      - name: Database logs on failure
         if: failure()
-        run: docker compose -f compose.dev.yml logs --tail 100
+        run: docker compose -f compose.dev.yml logs --tail 100 db
