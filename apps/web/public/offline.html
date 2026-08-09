@@ -3,8 +3,11 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0f766e" />
-    <title>Офлайн — СпортКарта</title>
+    <!-- Values mirror app/design-tokens/colors.css (--accent, --paper, --ink,
+         --text-muted, --link); this file is a standalone SW fallback and can
+         reach no stylesheet, so the literals are deliberate. -->
+    <meta name="theme-color" content="#FF4A2B" />
+    <title>Офлайн — Повече от просто спорт</title>
     <style>
       body {
         margin: 0;
@@ -20,8 +23,8 @@
           system-ui,
           -apple-system,
           sans-serif;
-        color: #171717;
-        background: #f6f5f2;
+        color: #101418;
+        background: #f5f3ee;
       }
       h1 {
         font-size: 1.5rem;
@@ -29,17 +32,28 @@
       }
       p {
         max-width: 28rem;
-        color: #525252;
+        color: #646a73;
         margin: 0;
       }
       a {
         margin-top: 0.5rem;
-        color: #0f766e;
+        color: #0b7a40;
         font-weight: 600;
+      }
+      .mark {
+        width: 56px;
+        height: 56px;
+        color: #ff4a2b;
       }
     </style>
   </head>
   <body>
+    <svg class="mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="31" cy="22" r="9" fill="currentColor"></circle>
+      <circle cx="69" cy="22" r="9" fill="currentColor"></circle>
+      <path d="M8 44 A42 42 0 0 0 92 44" fill="none" stroke="currentColor" stroke-width="11" stroke-linecap="round"></path>
+      <path d="M24 44 A26 26 0 0 0 76 44" fill="none" stroke="currentColor" stroke-width="11" stroke-linecap="round"></path>
+    </svg>
     <h1>Няма връзка</h1>
     <p>
       В момента сте офлайн. Проверете интернет връзката си и опитайте отново. Разгледаните части от

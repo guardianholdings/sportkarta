@@ -12,7 +12,7 @@ import { DEFAULT_LAYER, type ExternalMapLayer } from '@/lib/map/layers';
 import { ensurePmtilesProtocol } from '@/lib/map/pmtiles';
 import { buildMapStyle, externalLayerIds, mapAssetUrls } from '@/lib/map/style';
 
-import { createCluster, createTeardrop } from './markers';
+import { createCluster, createPin } from './markers';
 
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -78,6 +78,36 @@ interface MapCanvasProps {
    * VISIBLE part is that", and every built-in camera method then respects it.
    */
   padding?: { top?: number; right?: number; bottom?: number; left?: number };
+  /**
+   * Lift the national zoom-out frame (operator request 2026-08-07, for mobile).
+   *
+   * WHAT WAS WRONG. On a phone the country could not be pulled back into view.
+   * Two things caused it and only one was obvious. The zoom floor is "fit
+   * Bulgaria into the part of the canvas you can SEE", and the sheet plus the
+   * tab bar leave a ~390x420 strip, so the floor sat near z6.4 against a default
+   * view of z6.8. But the binding constraint was `maxBounds`: MapLibre refuses
+   * any zoom whose viewport would show area outside the box, so even requesting
+   * z5.4 in the URL rendered identically to z6.8. Lifting the floor alone
+   * changes nothing — verified.
+   *
+   * WHY IT CANNOT BE FIXED WITHOUT SHOWING EMPTY MARGINS. Bulgaria is landscape
+   * (about 6.3° by 3°) and a phone is portrait. Fitting the country's WIDTH into
+   * 390px needs roughly z5.4, at which an 844px-tall viewport spans about 12° of
+   * latitude — four times the country's height. Seeing the whole country side to
+   * side therefore REQUIRES showing a lot of non-Bulgaria above and below it,
+   * and the basemap is a Bulgaria-only pmtiles archive bounded at lon 22–29,
+   * lat 41–44.5. So those margins are the style's background colour, not map.
+   * That is a property of the shape of the country and the shape of the device,
+   * not something a camera setting can avoid.
+   *
+   * WHAT THIS DOES. On mobile the pan box is dropped and the floor becomes the
+   * width-fit of the national bounds — far enough to see the whole country at
+   * once, and no further. It deliberately does NOT go to z0: the archive would
+   * render as a speck on a blank page, which reads as a broken map rather than
+   * as freedom. Desktop keeps the frame, where the panel sits beside the map and
+   * the floor already fits the country comfortably.
+   */
+  unrestricted?: boolean;
 }
 
 const SOURCE_ID = 'facilities';
@@ -102,10 +132,11 @@ function toFeatureCollection(points: MapPoint[]): FeatureCollection<Point> {
     features: points.map((p) => ({
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
-      // sports rides along so an unclustered point can be drawn in its family
-      // colour + glyph; joined to a string because queryRenderedFeatures does not
-      // round-trip array-valued properties reliably.
-      properties: { slug: p.slug, name: p.name, sports: p.sports.join(',') },
+      // Only what syncMarkers reads. The POPS pin is state-coloured, not
+      // family-coloured, so sports stays on MapPoint (the list uses it) but no
+      // longer rides in the feature. If a property must return, keep it scalar:
+      // queryRenderedFeatures does not round-trip array values reliably.
+      properties: { slug: p.slug, name: p.name },
     })),
   };
 }
@@ -145,6 +176,7 @@ export default function MapCanvas({
   activeLayer = DEFAULT_LAYER,
   onBoundsChange = () => undefined,
   padding = {},
+  unrestricted = false,
 }: MapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -178,6 +210,8 @@ export default function MapCanvas({
   onBoundsChangeRef.current = onBoundsChange;
   const paddingRef = useRef(padding);
   paddingRef.current = padding;
+  const unrestrictedRef = useRef(unrestricted);
+  unrestrictedRef.current = unrestricted;
 
   function reportBounds() {
     const map = mapRef.current;
@@ -253,11 +287,9 @@ export default function MapCanvas({
         });
       } else {
         const slug = String(props.slug);
-        const sports = typeof props.sports === 'string' && props.sports ? props.sports.split(',') : [];
-        el = createTeardrop({
+        el = createPin({
           slug,
           name: (props.name as string | null) ?? unnamedRef.current,
-          sports,
         });
         el.addEventListener('click', () => onSelectRef.current(slug));
         el.addEventListener('mouseenter', () => onHoverRef.current(slug));
@@ -370,10 +402,39 @@ export default function MapCanvas({
     const applyPadding = () => {
       const p = framePadding();
       map.setPadding(p);
+
+      if (unrestrictedRef.current) {
+        // The pan box has to go, and it is the reason not the extra: while it is
+        // set, MapLibre clamps the zoom so the viewport never exceeds it, which
+        // silently re-imposes the floor this flag exists to lift.
+        map.setMaxBounds(null);
+        // The floor is the WIDTH-fit of the country: measured against the canvas
+        // width alone, ignoring both the sheet and the height, because the
+        // height is what cannot be satisfied on a portrait screen. `zoom - 0.1`
+        // keeps a hair of margin at the limit, as the framed branch does.
+        const { clientWidth } = map.getCanvas();
+        // [[minLon, minLat], [maxLon, maxLat]] — nested pairs, not a flat tuple.
+        const span = BULGARIA_BOUNDS[1][0] - BULGARIA_BOUNDS[0][0];
+        // Web-mercator zoom for a longitude span across a pixel width: at zoom z
+        // the world is 512 * 2^z px wide and spans 360°.
+        const widthFit = Math.log2(((clientWidth - 32) * 360) / (512 * span));
+        // Clamp to maxZoom as well: setMinZoom THROWS above it, and on a small
+        // canvas the fit math can legitimately land there.
+        map.setMinZoom(Math.min(Math.max(0, widthFit - 0.1), map.getMaxZoom()));
+        return;
+      }
+
+      map.setMaxBounds(BG_BOUNDS);
       const cam = map.cameraForBounds(BG_BOUNDS, {
         padding: { top: p.top + 16, bottom: p.bottom + 16, left: p.left + 16, right: p.right + 16 },
       });
-      if (cam?.zoom !== undefined) map.setMinZoom(Math.max(0, cam.zoom - 0.1));
+      // On a phone-sized canvas the padding can exceed the viewport and
+      // cameraForBounds then reports a zoom past maxZoom — setMinZoom throws
+      // ("minZoom must be between -2 and the current maxZoom") instead of
+      // clamping, so clamp here.
+      if (cam?.zoom !== undefined) {
+        map.setMinZoom(Math.min(Math.max(0, cam.zoom - 0.1), map.getMaxZoom()));
+      }
     };
     applyPadding();
     paddingApplyRef.current = applyPadding;
@@ -389,7 +450,7 @@ export default function MapCanvas({
         clusterRadius: 55,
         clusterMaxZoom: 14,
       });
-      // Invisible hit/query layers — the visible markers are HTML (createTeardrop
+      // Invisible hit/query layers — the visible markers are HTML (createPin
       // / createCluster), synced from these via queryRenderedFeatures.
       map.addLayer({
         id: 'facilities-clusters',
@@ -479,7 +540,7 @@ export default function MapCanvas({
    */
   useEffect(() => {
     paddingApplyRef.current?.();
-  }, [padding.top, padding.right, padding.bottom, padding.left]);
+  }, [padding.top, padding.right, padding.bottom, padding.left, unrestricted]);
 
   useEffect(() => {
     applyLayerVisibility();

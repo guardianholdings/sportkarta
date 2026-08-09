@@ -73,7 +73,7 @@ export default async function OpenDataLicensePage({ params }: { params: PagePara
         <p className="text-ink-soft">{t('licenseAttributionBody')}</p>
         {/* The one string a reuser is here to copy — rendered from the same
             constant the API headers and the dumps carry. */}
-        <p className="rounded border border-line-strong bg-paper-sunk p-3 font-medium">
+        <p className="rounded-md border border-line-strong bg-paper-sunk p-3 font-medium">
           {OPEN_DATA_LICENSE.attribution}
         </p>
       </section>

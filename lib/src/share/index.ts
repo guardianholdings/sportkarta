@@ -223,7 +223,7 @@ export function cardPath(input: StoryPathInput): string | null {
 export interface BuildShareInput {
   kind: ShareKind;
   locale: string;
-  /** Absolute site origin, e.g. `https://sportnakarta.bg`. */
+  /** Absolute site origin, e.g. `https://pops.bg`. */
   origin: string;
   /** The page this share points at, as a site-relative path. */
   page: string;

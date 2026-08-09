@@ -3,6 +3,12 @@ import { CANONICAL_SPORTS, facilitySlug, slugify } from '@sportkarta/lib';
 import { BULGARIA_BBOX, insideBulgaria } from '@sportkarta/lib/geo';
 
 import { awardPoints } from '../points';
+import {
+  type Coordinates,
+  distanceToPointSql,
+  isOnSite,
+  parseCoordinates,
+} from './proximity';
 
 import { ContributionError } from './errors';
 
@@ -100,6 +106,10 @@ interface TransactionalDb extends SqlRunner {
 }
 
 export interface AddFacilityResult {
+  /** Metres from the dropped pin, or null when no position was offered. */
+  distanceM?: number | null;
+  /** Whether the contributor was close enough to be trusted (and paid). */
+  onSite?: boolean;
   facilityId: string;
   slug: string;
   awarded: boolean;
@@ -145,11 +155,23 @@ export async function addFacility(
     input: AddFacilityInput;
     /** Storage key of the already-processed (EXIF-stripped) photo. */
     photoStoragePath: string;
+    /**
+     * Where the contributor was standing, if they offered it. Measured against
+     * THE PIN THEY DROPPED rather than against anything already on the map —
+     * "you must be at the place you are marking" is the only sensible reading
+     * for a facility that does not exist yet.
+     */
+    position?: { lat: unknown; lon: unknown } | null;
     now?: Date;
   },
 ): Promise<AddFacilityResult> {
   const facility = normalizeAddFacility(params.input);
   if (!params.photoStoragePath) throw new ContributionError('photo_required');
+  // A missing or unparseable fix degrades to "no location", never to an error:
+  // a broken GPS must not cost somebody their contribution.
+  const coords: Coordinates | null = params.position
+    ? parseCoordinates(params.position.lat, params.position.lon)
+    : null;
 
   return db.transaction(async (tx) => {
     // Inside the transaction: two concurrent submissions of the same pin would
@@ -214,25 +236,47 @@ export async function addFacility(
       VALUES (${facilityId}::uuid, ${params.photoStoragePath}, 'pending', ${params.userId})
     `);
 
-    // The audit row carries what was claimed, attributed to the account.
-    await tx.execute(sql`
-      INSERT INTO facility_edits (facility_id, actor, source, field, old_value, new_value)
+    // The audit row carries what was claimed, attributed to the account, and how
+    // far away its author was. The distance is computed in SQL from coordinates
+    // that exist only for this statement — nothing writes a latitude anywhere.
+    const measured = await tx.execute(sql`
+      INSERT INTO facility_edits (facility_id, actor, source, field, old_value, new_value, distance_m)
       VALUES (${facilityId}::uuid, ${params.userId}, 'crowd', 'created', NULL,
               ${JSON.stringify({
                 name: facility.name,
                 quarter: facility.quarter,
                 sport_types: facility.sportTypes,
                 access: facility.access,
-              })}::jsonb)
+              })}::jsonb,
+              ${distanceToPointSql({ lat: facility.lat, lon: facility.lon }, coords)})
+      RETURNING distance_m
     `);
+    const distanceM =
+      measured.rows[0]?.distance_m === null || measured.rows[0]?.distance_m === undefined
+        ? null
+        : Number(measured.rows[0].distance_m);
+    const onSite = isOnSite(distanceM);
 
-    const awarded = await awardPoints(tx, {
-      userId: params.userId,
-      event: 'facility_added',
-      facilityId,
-      ...(params.now ? { now: params.now } : {}),
-    });
+    /**
+     * POINTS ARE THE ONLY THING PROXIMITY GATES HERE.
+     *
+     * The facility is inserted either way, and it was already landing as
+     * `needs_verification` — a crowd addition has always waited for a human, so
+     * there is no status left to withhold. What changes is the reward: a pin
+     * dropped from the next city earns nothing, which is what makes filing a
+     * hundred of them pointless, while the pin itself still reaches the queue
+     * where a moderator can judge it on its merits (and can now see how far away
+     * its author was).
+     */
+    const awarded = onSite
+      ? await awardPoints(tx, {
+          userId: params.userId,
+          event: 'facility_added',
+          facilityId,
+          ...(params.now ? { now: params.now } : {}),
+        })
+      : false;
 
-    return { facilityId, slug, awarded };
+    return { facilityId, slug, awarded, distanceM, onSite };
   });
 }

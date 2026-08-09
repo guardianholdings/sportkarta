@@ -92,7 +92,7 @@ export function digestStrings(locale: string): DigestStrings {
 
 export interface DigestRunOptions {
   now?: Date;
-  /** Absolute site base, e.g. https://sportkarta.bg. */
+  /** Absolute site base, e.g. https://pops.bg. */
   siteUrl: string;
   locale?: string;
   mailer: Mailer;

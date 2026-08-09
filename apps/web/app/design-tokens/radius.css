@@ -9,8 +9,10 @@
   --radius-xs:   6px;
   --radius-sm:   8px;
   --radius-md:   10px;
-  --radius-lg:   14px;
-  --radius-xl:   20px;
+  /* lg/xl = the POPS brand radii: card 18, panel 22
+     (docs/design/pops-brand/tokens.json). */
+  --radius-lg:   18px;
+  --radius-xl:   22px;
   --radius-2xl:  28px;
   --radius-pill: 999px;
   --radius-circle: 50%;

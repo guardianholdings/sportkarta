@@ -20,6 +20,7 @@
  *     previews on a lock screen and in bounce reports.
  */
 
+import { brandEmailHtml } from './html.js';
 import type { MailMessage } from './mailer.js';
 
 export type SessionMailKind =
@@ -180,9 +181,12 @@ export function renderSessionMail(data: SessionMailData, strings: SessionMailStr
 
   lines.push('', strings.footer);
 
+  const text = lines.join('\n');
   return {
     to: '',
     subject: subjectFor(data, strings),
-    text: lines.join('\n'),
+    text,
+    // Same content, branded shell — the text part stays the source of truth.
+    html: brandEmailHtml(text),
   };
 }

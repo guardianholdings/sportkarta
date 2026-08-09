@@ -292,7 +292,7 @@ export function renderReportHtml(definition: ReportDefinition, data: ReportData)
 ${suppression}
 ${body}
 ${methodology(definition)}
-<footer>Данни за площадките: © OpenStreetMap contributors + SportKarta community (ODbL 1.0).</footer>
+<footer>Данни за площадките: © OpenStreetMap contributors + POPS community (ODbL 1.0).</footer>
 </body>
 </html>`;
 }

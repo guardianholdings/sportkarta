@@ -81,6 +81,10 @@ export async function verifyFacilityAction(
     const result = await verifyFacility(getDb(), {
       userId: user.id,
       facilityId,
+      // The browser's fix, if it offered one. Passed straight through: the
+      // coordinates are turned into metres inside the transaction and are never
+      // written down (lib/contributions/proximity.ts).
+      position: { lat: formData.get('lat'), lon: formData.get('lon') },
       checklist: {
         exists,
         ...(exists
@@ -137,6 +141,10 @@ export async function reportConditionAction(
     const result = await reportCondition(getDb(), {
       userId: user.id,
       facilityId,
+      // The browser's fix, if it offered one. Passed straight through: the
+      // coordinates are turned into metres inside the transaction and are never
+      // written down (lib/contributions/proximity.ts).
+      position: { lat: formData.get('lat'), lon: formData.get('lon') },
       input: {
         state: String(formData.get('state') ?? ''),
         tags: formData.getAll('tags').map(String),

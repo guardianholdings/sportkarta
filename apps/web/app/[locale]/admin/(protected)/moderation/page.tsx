@@ -160,7 +160,7 @@ export default async function AdminModerationPage({
                   </form>
                   <form action={gone}>
                     <ConfirmButton
-                      className="inline-flex h-9 items-center rounded-pill bg-danger px-4 text-body-sm font-semibold text-on-brand shadow-xs hover:opacity-90"
+                      className="inline-flex min-h-11 items-center rounded-pill bg-danger px-4 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-[color-mix(in_oklab,var(--danger),black_12%)]"
                       message={t('markGoneConfirm')}
                     >
                       {t('markGone')}

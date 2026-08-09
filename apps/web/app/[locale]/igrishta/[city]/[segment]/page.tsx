@@ -18,6 +18,7 @@ import {
 } from '@/lib/places';
 import { buildAlternates } from '@/lib/seo';
 import { AppShell } from '@/components/shell/app-shell';
+import { chipClass } from '@/components/ui/chip';
 
 // ISR: on-demand + cached hourly, never prerendered at build (no DB there).
 export const revalidate = 3600;
@@ -156,7 +157,7 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
               <li key={s.sport}>
                 <Link
                   href={`/igrishta/${city.slug}/${s.sport}`}
-                  className="rounded-full border border-line-strong px-3 py-1 text-sm hover:bg-paper-sunk"
+                  className={chipClass()}
                 >
                   {tSport(s.sport)} <span className="text-text-muted">({s.count})</span>
                 </Link>
@@ -176,7 +177,7 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
               <li key={other.slug}>
                 <Link
                   href={`/igrishta/${other.slug}/${scope.sport}`}
-                  className="rounded-full border border-line-strong px-3 py-1 text-sm hover:bg-paper-sunk"
+                  className={chipClass()}
                 >
                   {cityName(other, locale)} <span className="text-text-muted">({n})</span>
                 </Link>

@@ -45,6 +45,10 @@ export async function addFacilityAction(
     const result = await addFacility(getDb(), {
       userId: user.id,
       photoStoragePath: storagePath,
+      // The browser's fix, if it offered one. Passed straight through: the
+      // coordinates are turned into metres inside the transaction and are never
+      // written down (lib/contributions/proximity.ts).
+      position: { lat: formData.get('lat'), lon: formData.get('lon') },
       input: {
         name: String(formData.get('name') ?? ''),
         quarter: String(formData.get('quarter') ?? ''),

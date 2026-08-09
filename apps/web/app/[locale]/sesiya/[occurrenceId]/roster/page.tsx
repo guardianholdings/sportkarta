@@ -31,8 +31,16 @@ const REFRESH_SECONDS = 60;
 
 type PageParams = Promise<{ locale: string; occurrenceId: string }>;
 
-function formatLocal(startsAtLocal: string): string {
-  return startsAtLocal.replace('T', ' · ').slice(0, 18);
+/** "сряда, 12 август · 18:30" — a read-aloud date, not the wire format. */
+function formatLocal(startsAtLocal: string, locale: string): string {
+  const [datePart, timePart] = startsAtLocal.split('T');
+  const day = new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'bg-BG', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  }).format(new Date(`${datePart ?? ''}T00:00:00Z`));
+  return `${day} · ${(timePart ?? '').slice(0, 5)}`;
 }
 
 export default async function RosterPage({ params }: { params: PageParams }) {
@@ -75,7 +83,9 @@ export default async function RosterPage({ params }: { params: PageParams }) {
       <header className="space-y-1">
         <h1 className="text-h2 font-extrabold tracking-tight text-ink">{roster.title}</h1>
         <p className="text-body-sm text-text-muted">
-          <span className="font-mono tabular-nums">{formatLocal(roster.startsAtLocal)}</span>
+          <span className="inline-block first-letter:uppercase">
+            {formatLocal(roster.startsAtLocal, locale)}
+          </span>
         </p>
         <p className="text-body-sm text-text-muted">
           {t('attendance', { checkedIn: roster.checkedInCount, going: going.length })}
@@ -89,7 +99,7 @@ export default async function RosterPage({ params }: { params: PageParams }) {
           </p>
         )}
         {!roster.cancelled && !roster.checkinOpen && (
-          <p className="text-caption text-text-faint">
+          <p className="text-caption text-text-muted">
             {t('checkinClosedHint', {
               opens: CHECKIN_OPENS_BEFORE_MINUTES,
               closes: CHECKIN_CLOSES_AFTER_MINUTES / 60,
@@ -129,7 +139,10 @@ export default async function RosterPage({ params }: { params: PageParams }) {
                   <form action={markPresentAction.bind(null, roster.occurrenceId, member.userId)}>
                     <button
                       type="submit"
-                      className="rounded-pill border border-line-strong bg-surface px-3 py-1.5 text-caption font-semibold text-ink-soft hover:bg-surface-2"
+                      // min-h-11: the organiser taps this at the pitch, member
+                      // after member — it is the one control where the 44px
+                      // floor is not negotiable.
+                      className="min-h-11 rounded-pill border border-line-strong bg-surface px-4 py-1.5 text-caption font-semibold text-ink-soft hover:bg-surface-2"
                     >
                       {t('markPresent')}
                     </button>
@@ -139,7 +152,7 @@ export default async function RosterPage({ params }: { params: PageParams }) {
             ))}
           </ul>
           {waitlisted.length > 0 && (
-            <p className="text-caption text-text-faint">{t('waitlistHint')}</p>
+            <p className="text-caption text-text-muted">{t('waitlistHint')}</p>
           )}
         </section>
       )}

@@ -80,7 +80,7 @@ const STRINGS: WidgetStrings = {
   hours: 'h',
   days: 'days',
   na: 'no data',
-  attribution: 'Data: SportKarta and OpenStreetMap, ODbL 1.0.',
+  attribution: 'Data: POPS and OpenStreetMap, ODbL 1.0.',
   more: 'Full figures and methodology',
   conditionHeading: 'Condition',
   conditionExcellent: 'Excellent',
@@ -94,7 +94,7 @@ function widget(overrides: Partial<MunicipalityAccountability> = {}, cityName = 
   return renderWidget({
     data: { ...SAMPLE, ...overrides },
     cityName,
-    pageUrl: 'https://sportkarta.bg/obshtina/sofia',
+    pageUrl: 'https://pops.bg/obshtina/sofia',
     locale: 'bg',
     strings: STRINGS,
   });
@@ -174,7 +174,7 @@ describe('renderWidget', () => {
     const html = widget();
     // The only absolute URL is the link back to our own page.
     const urls = html.match(/https?:\/\/[^"'\s)]+/g) ?? [];
-    expect(urls).toEqual(['https://sportkarta.bg/obshtina/sofia']);
+    expect(urls).toEqual(['https://pops.bg/obshtina/sofia']);
     expect(html).not.toMatch(/<link\b/i);
     expect(html).not.toMatch(/<img\b/i);
   });

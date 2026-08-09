@@ -10,6 +10,7 @@ import { Radio } from '@/components/ui/radio';
 import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 
 import { reportConditionAction, type ContributionState } from './contribution-actions';
+import { PositionFields, PositionNotice, usePosition } from '@/components/facility/position-fields';
 
 const INITIAL: ContributionState = { status: 'idle' };
 
@@ -20,6 +21,7 @@ const INITIAL: ContributionState = { status: 'idle' };
  */
 export function ConditionForm({ slug }: { slug: string }) {
   const t = useTranslations('Contribute');
+  const { phase, latRef, lonRef } = usePosition();
   const tState = useTranslations('Condition');
   const tTag = useTranslations('ConditionTag');
   const [state, action, pending] = useActionState<ContributionState, FormData>(
@@ -29,6 +31,15 @@ export function ConditionForm({ slug }: { slug: string }) {
 
   return (
     <form action={action} className="flex flex-col gap-5">
+      <PositionFields latRef={latRef} lonRef={lonRef} />
+      <PositionNotice
+        phase={phase}
+        labels={{
+          locating: t('locating'),
+          granted: t('locationGranted'),
+          denied: t('locationDenied'),
+        }}
+      />
       <input type="hidden" name="slug" value={slug} />
 
       <fieldset className="flex flex-col gap-2">

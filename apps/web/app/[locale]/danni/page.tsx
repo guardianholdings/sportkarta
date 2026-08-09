@@ -89,7 +89,7 @@ export default async function OpenDataPage({ params }: { params: PageParams }) {
         <p className="text-ink-soft">{t('apiIntro')}</p>
         <p className="text-body-sm text-ink-soft">
           {t('apiBaseLabel')}:{' '}
-          <code className="rounded bg-paper-sunk px-1">
+          <code className="rounded-sm bg-paper-sunk px-1">
             {siteUrl()}/api/opendata/{OPEN_DATA_API_VERSION}
           </code>
         </p>
@@ -135,10 +135,10 @@ export default async function OpenDataPage({ params }: { params: PageParams }) {
         <h2 className="text-h4 font-bold text-ink">{t('datasetsTitle')}</h2>
         {EXPORT_DATASETS.map((dataset) => (
           <article key={dataset.id} className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm">
-            <h3 className="font-semibold">{t(`datasets.${dataset.titleKey}`)}</h3>
+            <h3 className="text-body font-bold">{t(`datasets.${dataset.titleKey}`)}</h3>
             <p className="text-body-sm text-ink-soft">{t(`datasets.${dataset.descriptionKey}`)}</p>
             <p className="text-caption text-ink-soft">
-              <code className="rounded bg-paper-sunk px-1">{apiUrl(dataset)}</code>
+              <code className="rounded-sm bg-paper-sunk px-1">{apiUrl(dataset)}</code>
             </p>
             <p className="text-caption text-ink-soft">
               {t('apiFormatLabel')}: {dataset.formats.join(', ')}

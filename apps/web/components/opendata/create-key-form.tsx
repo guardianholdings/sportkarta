@@ -3,6 +3,8 @@
 import { useActionState } from 'react';
 
 import { createApiKeyAction } from '@/app/[locale]/danni/klyuchove/actions';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { EMPTY_KEY_STATE } from '@/lib/opendata/key-form-state';
 
 /**
@@ -36,25 +38,14 @@ export function CreateKeyForm({
   return (
     <div className="space-y-3">
       <form action={action} className="space-y-2">
-        <label className="block text-sm font-medium" htmlFor="label">
+        <label className="block text-body-sm font-medium" htmlFor="label">
           {strings.labelField}
         </label>
-        <input
-          id="label"
-          name="label"
-          type="text"
-          maxLength={60}
-          required
-          className="w-full rounded border border-line-strong px-3 py-1.5 text-body-sm"
-        />
+        <Input id="label" name="label" type="text" maxLength={60} required />
         <p className="text-caption text-ink-soft">{strings.labelHint}</p>
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-pill bg-brand px-3 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-60"
-        >
+        <Button type="submit" disabled={pending}>
           {strings.create}
-        </button>
+        </Button>
       </form>
 
       {state.error ? (
@@ -62,11 +53,11 @@ export function CreateKeyForm({
       ) : null}
 
       {state.issued ? (
-        <div className="space-y-2 rounded border border-warning-border bg-warning-bg p-3">
+        <div className="space-y-2 rounded-card border border-warning-border bg-warning-bg p-3">
           <p className="text-body-sm font-medium text-warning">{strings.created}</p>
           {/* Selectable, not a link and not masked: the member has to be able
               to copy it, and there is no second chance to reveal it. */}
-          <p className="overflow-x-auto rounded border border-warning-border bg-white p-2 font-mono text-caption">
+          <p className="overflow-x-auto rounded-md border border-warning-border bg-surface p-2 font-mono text-caption">
             {state.issued.key}
           </p>
           <p className="text-caption text-warning">{strings.copyHint}</p>

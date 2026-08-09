@@ -226,7 +226,7 @@ export function serializeJson(
  */
 export function licenseText(version: string): string {
   return [
-    'SportKarta — open data',
+    'POPS — open data',
     '',
     `Version: ${version}`,
     `License: ${OPEN_DATA_LICENSE.name} (${OPEN_DATA_LICENSE.id})`,

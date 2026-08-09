@@ -24,7 +24,7 @@ export function GrantForm() {
           type="email"
           name="email"
           required
-          className="w-72 rounded-pill border border-line-strong bg-surface px-3 py-2 text-body-sm font-semibold text-ink-soft hover:bg-surface-2"
+          className="h-11 w-72 rounded-md border border-line-strong bg-surface px-3 text-body-sm text-ink focus-visible:shadow-[var(--ring)]"
         />
       </label>
       <Button type="submit" disabled={pending}>

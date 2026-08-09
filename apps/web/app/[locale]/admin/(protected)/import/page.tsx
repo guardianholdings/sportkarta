@@ -44,7 +44,7 @@ export default async function AdminImportPage({
       <div className="flex flex-wrap gap-3">
         <form action={enqueueImport}>
           <input type="hidden" name="mode" value="dry-run" />
-          <button type="submit" className="rounded border border-line-strong px-4 py-3 font-medium">
+          <button type="submit" className="rounded-md border border-line-strong px-4 py-3 font-medium">
             {t('dryRun')}
           </button>
         </form>
@@ -52,7 +52,7 @@ export default async function AdminImportPage({
           <input type="hidden" name="mode" value="live" />
           <ConfirmButton
             message={t('liveConfirm')}
-            className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover"
+            className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover"
           >
             {t('live')}
           </ConfirmButton>
@@ -60,18 +60,18 @@ export default async function AdminImportPage({
       </div>
 
       <section className="space-y-2">
-        <h2 className="font-medium">{t('runsTitle')}</h2>
+        <h2 className="text-h4 font-bold text-ink">{t('runsTitle')}</h2>
         {jobs.length === 0 ? (
           <p className="text-body-sm text-text-muted">{t('runsEmpty')}</p>
         ) : (
           <table className="w-full border-collapse text-body-sm">
             <thead>
               <tr className="border-b border-line-strong text-left text-caption text-text-muted">
-                <th className="py-2 pr-3">{t('colState')}</th>
-                <th className="py-2 pr-3">{t('colMode')}</th>
-                <th className="py-2 pr-3">{t('colCreated')}</th>
-                <th className="py-2 pr-3">{t('colCompleted')}</th>
-                <th className="py-2" />
+                <th className="t-overline py-2 pr-3">{t('colState')}</th>
+                <th className="t-overline py-2 pr-3">{t('colMode')}</th>
+                <th className="t-overline py-2 pr-3">{t('colCreated')}</th>
+                <th className="t-overline py-2 pr-3">{t('colCompleted')}</th>
+                <th className="t-overline py-2" />
               </tr>
             </thead>
             <tbody>

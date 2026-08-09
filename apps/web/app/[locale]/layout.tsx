@@ -20,14 +20,13 @@ export function generateStaticParams() {
 }
 
 export const viewport: Viewport = {
-  // Brand pine, = --brand / --pine-600 in app/design-tokens/colors.css. Was the
-  // pre-seed shadcn teal #0f766e until 2026-07-26, which appears nowhere in the
-  // Trail & Summit palette — RECONCILIATION.md C6 called for this and it was
-  // never applied, so every themed browser and every installed PWA framed a
-  // pine-and-clay page in teal chrome. Neither this file nor app/manifest.ts is
-  // inside the design-token gate's scanned dirs, which is how it survived; the
-  // drift is now pinned by tests/theme-color-drift.test.ts instead.
-  themeColor: '#216543',
+  // POPS coral, = --accent / --coral-500 in app/design-tokens/colors.css. The
+  // browser/PWA chrome matches the MARK's colour, not --brand: the app icon and
+  // favicon are coral (docs/design/pops-brand/HANDOFF.md — coral is „знакът"),
+  // and green chrome around a coral icon read as two different apps. Neither
+  // this file nor app/manifest.ts is inside the design-token gate's scanned
+  // dirs; the drift is pinned by tests/theme-color-drift.test.ts instead.
+  themeColor: '#FF4A2B',
 };
 
 export async function generateMetadata({ params }: { params: LocaleParams }): Promise<Metadata> {
@@ -41,7 +40,10 @@ export async function generateMetadata({ params }: { params: LocaleParams }): Pr
     // lib/seo.ts already owns the origin; this is the same source the canonical
     // and hreflang tags use, so a card cannot point at a different host.
     metadataBase: new URL(siteUrl()),
-    title: t('title'),
+    // template: every child page that sets a title gets the brand suffix
+    // uniformly — before this, eleven metaTitle strings carried it by hand
+    // and the transparency pages had none.
+    title: { template: t('titleTemplate'), default: t('title') },
     description: t('description'),
   };
 }

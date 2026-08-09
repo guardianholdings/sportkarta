@@ -197,6 +197,20 @@
       "when": 1785094800000,
       "tag": "0027_training_logs",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1785098400000,
+      "tag": "0028_account_access_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1785102000000,
+      "tag": "0029_contribution_proximity",
+      "breakpoints": true
     }
   ]
 }

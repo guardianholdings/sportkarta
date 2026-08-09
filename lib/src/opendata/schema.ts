@@ -45,7 +45,7 @@ export const OPEN_DATA_LICENSE = {
   name: 'Open Database License v1.0',
   url: 'https://opendatacommons.org/licenses/odbl/1-0/',
   /** The authoritative string. Page, GeoJSON/JSON member, LICENSE.txt. */
-  attribution: '© OpenStreetMap contributors + SportKarta community',
+  attribution: '© OpenStreetMap contributors + POPS community',
   /**
    * The same attribution for an HTTP HEADER, and the difference is not
    * cosmetic. Header values are ISO-8859-1 by specification: Node writes the
@@ -58,7 +58,7 @@ export const OPEN_DATA_LICENSE = {
    * A consumer reading either is attributing us correctly; a consumer reading
    * the header is not copying a broken character into their own page.
    */
-  attributionAscii: '(c) OpenStreetMap contributors + SportKarta community',
+  attributionAscii: '(c) OpenStreetMap contributors + POPS community',
 } as const;
 
 /** URL segment of the documented API. Bumped only for a breaking change. */

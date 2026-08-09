@@ -121,7 +121,7 @@ export default async function ApiKeysPage({ params }: { params: PageParams }) {
                         <input type="hidden" name="keyId" value={key.id} />
                         <button
                           type="submit"
-                          className="rounded-md border border-line-strong bg-surface px-2 py-1 text-caption"
+                          className="min-h-11 rounded-pill border border-line-strong bg-surface px-4 text-caption font-semibold text-ink-soft hover:bg-surface-2"
                         >
                           {t('keysRevoke')}
                         </button>

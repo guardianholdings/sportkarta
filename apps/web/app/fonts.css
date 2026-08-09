@@ -2,47 +2,59 @@
    FONTS — self-hosted (replaces the seed's Google-Fonts @import)
    ------------------------------------------------------------
    Our stack takes NO external runtime dependencies, and the app is
-   Bulgarian-first — so the seed's `tokens/fonts.css` @import of
-   fonts.googleapis.com is NOT used. Instead we self-host via the
-   @fontsource packages (bundled from our own origin at build time,
-   no CDN request ever), importing only the CYRILLIC + LATIN subsets
-   of the exact weights the type scale declares:
+   Bulgarian-first — so fonts are self-hosted via the @fontsource
+   packages (bundled from our own origin at build time, no CDN
+   request ever), importing only the CYRILLIC + LATIN subsets of
+   the exact weights the type scale declares.
 
-     - Manrope        400 / 500 / 600 / 700 / 800   (display · headings · UI · body)
-     - JetBrains Mono 400 / 500 / 600 / 700         (data · stats · overline)
+   POPS brand faces (docs/design/pops-brand/HANDOFF.md):
 
-   Verified in PART B: the cyrillic subset carries the full Bulgarian
-   alphabet (proven at the cmap level with fontTools — 0 missing);
-   digits/ASCII come from the latin subset (both imported). Both
-   families are licensed SIL Open Font License 1.1, which permits
-   self-hosting and bundling (see NOTICE below).
+     - Unbounded  700 / 800          (display · logotype · headings)
+     - Golos Text 400 / 500 / 600 / 700 / 800   (UI · body · labels)
+     - JetBrains Mono 400 / 500 / 600 / 700     (data · stats · overline)
+
+   The cyrillic subsets of all three families carry the full
+   Bulgarian alphabet (Google's cyrillic subset spans U+0400-045F,
+   incl. ѝ U+045D); digits/ASCII come from the latin subset (both
+   imported). All three families are licensed SIL Open Font License
+   1.1, which permits self-hosting and bundling.
 
    @import order below is by subset so the browser matches by
    unicode-range: cyrillic first, latin second — the `--font-*`
-   family stacks in design-tokens/typography live-reference these.
+   family stacks in design-tokens/fonts.css live-reference these.
    ============================================================ */
 
-/* ---- Manrope (sans) ---- */
-@import '@fontsource/manrope/cyrillic-400.css';
-@import '@fontsource/manrope/cyrillic-ext-400.css';
-@import '@fontsource/manrope/latin-400.css';
-@import '@fontsource/manrope/latin-ext-400.css';
-@import '@fontsource/manrope/cyrillic-500.css';
-@import '@fontsource/manrope/cyrillic-ext-500.css';
-@import '@fontsource/manrope/latin-500.css';
-@import '@fontsource/manrope/latin-ext-500.css';
-@import '@fontsource/manrope/cyrillic-600.css';
-@import '@fontsource/manrope/cyrillic-ext-600.css';
-@import '@fontsource/manrope/latin-600.css';
-@import '@fontsource/manrope/latin-ext-600.css';
-@import '@fontsource/manrope/cyrillic-700.css';
-@import '@fontsource/manrope/cyrillic-ext-700.css';
-@import '@fontsource/manrope/latin-700.css';
-@import '@fontsource/manrope/latin-ext-700.css';
-@import '@fontsource/manrope/cyrillic-800.css';
-@import '@fontsource/manrope/cyrillic-ext-800.css';
-@import '@fontsource/manrope/latin-800.css';
-@import '@fontsource/manrope/latin-ext-800.css';
+/* ---- Unbounded (display) ---- */
+@import '@fontsource/unbounded/cyrillic-700.css';
+@import '@fontsource/unbounded/cyrillic-ext-700.css';
+@import '@fontsource/unbounded/latin-700.css';
+@import '@fontsource/unbounded/latin-ext-700.css';
+@import '@fontsource/unbounded/cyrillic-800.css';
+@import '@fontsource/unbounded/cyrillic-ext-800.css';
+@import '@fontsource/unbounded/latin-800.css';
+@import '@fontsource/unbounded/latin-ext-800.css';
+
+/* ---- Golos Text (sans) ---- */
+@import '@fontsource/golos-text/cyrillic-400.css';
+@import '@fontsource/golos-text/cyrillic-ext-400.css';
+@import '@fontsource/golos-text/latin-400.css';
+@import '@fontsource/golos-text/latin-ext-400.css';
+@import '@fontsource/golos-text/cyrillic-500.css';
+@import '@fontsource/golos-text/cyrillic-ext-500.css';
+@import '@fontsource/golos-text/latin-500.css';
+@import '@fontsource/golos-text/latin-ext-500.css';
+@import '@fontsource/golos-text/cyrillic-600.css';
+@import '@fontsource/golos-text/cyrillic-ext-600.css';
+@import '@fontsource/golos-text/latin-600.css';
+@import '@fontsource/golos-text/latin-ext-600.css';
+@import '@fontsource/golos-text/cyrillic-700.css';
+@import '@fontsource/golos-text/cyrillic-ext-700.css';
+@import '@fontsource/golos-text/latin-700.css';
+@import '@fontsource/golos-text/latin-ext-700.css';
+@import '@fontsource/golos-text/cyrillic-800.css';
+@import '@fontsource/golos-text/cyrillic-ext-800.css';
+@import '@fontsource/golos-text/latin-800.css';
+@import '@fontsource/golos-text/latin-ext-800.css';
 
 /* ---- JetBrains Mono (data / mono) ---- */
 @import '@fontsource/jetbrains-mono/cyrillic-400.css';

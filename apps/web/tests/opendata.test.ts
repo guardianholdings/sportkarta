@@ -162,7 +162,7 @@ describe('every response states its licence', () => {
     expect(headers['X-License']).toBe('ODbL-1.0');
     // ASCII by construction: a header value is latin-1, so the © form would
     // reach every client as "Â©" — in the one field meant to be machine-read.
-    expect(headers['X-Attribution']).toBe('(c) OpenStreetMap contributors + SportKarta community');
+    expect(headers['X-Attribution']).toBe('(c) OpenStreetMap contributors + POPS community');
     expect(/^[\x20-\x7e]*$/.test(headers['X-Attribution'] ?? '')).toBe(true);
     expect(/^[\x20-\x7e]*$/.test(headers.Link ?? '')).toBe(true);
     expect(headers.Link).toContain('rel="license"');
@@ -173,7 +173,7 @@ describe('every response states its licence', () => {
     // The header, the licence page, the GeoJSON member and every dump's
     // LICENSE.txt all render from this. Two copies would be one wrong copy.
     expect(OPEN_DATA_LICENSE.attribution).toBe(
-      '© OpenStreetMap contributors + SportKarta community',
+      '© OpenStreetMap contributors + POPS community',
     );
     expect(licenseHeaders()['X-Attribution']).toBe(OPEN_DATA_LICENSE.attributionAscii);
     // The two differ only in the copyright sign — same attribution, one of

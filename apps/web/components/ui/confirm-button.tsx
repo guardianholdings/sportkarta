@@ -15,8 +15,8 @@ import * as React from 'react';
  * a dismissed dialog changes nothing the action itself would not also refuse.
  *
  * Raw <button> (not the design-system `Button`) so each caller keeps its own
- * page-local styling via `className`; the admin console is still on pre-seed
- * styling and a confirm gate must not restyle only the buttons it guards.
+ * page-local styling via `className` — a confirm gate must not restyle the
+ * buttons it guards.
  */
 export function ConfirmButton({
   message,

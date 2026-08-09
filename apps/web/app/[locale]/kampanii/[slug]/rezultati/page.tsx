@@ -9,6 +9,7 @@ import { Link } from '@/i18n/navigation';
 import { localizedText } from '@/lib/campaigns';
 import { cityDisplayName, loadCityCatalog } from '@/lib/places';
 import { AppShell } from '@/components/shell/app-shell';
+import { campaignWindowLabel } from '@/lib/campaign-window';
 
 /**
  * The shareable close-out results page (docs/ROADMAP.md §7, Stage 5.3).
@@ -71,7 +72,7 @@ export default async function CampaignResultsPage({ params }: { params: PagePara
         <p className="text-caption uppercase tracking-wide text-text-muted">{t('resultsEyebrow')}</p>
         <h1 className="text-h2 font-extrabold tracking-tight text-ink">{title}</h1>
         <p className="text-body-sm text-text-muted">
-          {campaign.window.startsOn} → {campaign.window.endsOn}
+          {campaignWindowLabel(locale, campaign.window)}
         </p>
         {/* Says plainly that these numbers are final, so nobody wonders why
             their score kept rising afterwards and the page did not. */}

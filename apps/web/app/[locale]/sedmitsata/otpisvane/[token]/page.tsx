@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
+import { Button } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
 
 import { confirmUnsubscribeAction } from './actions';
@@ -57,9 +58,9 @@ export default async function UnsubscribePage({
         <input type="hidden" name="token" value={token} />
         {/* The action has no request path of its own to redirect against. */}
         <input type="hidden" name="locale" value={locale} />
-        <button type="submit" className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover">
-          {t('optOut')}
-        </button>
+        {/* The Button primitive, not a hand-rolled twin: the bare `shadow-xs`
+            version silently discarded the global focus ring (see button.tsx). */}
+        <Button type="submit">{t('optOut')}</Button>
       </form>
       <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
         {t('backToMap')}

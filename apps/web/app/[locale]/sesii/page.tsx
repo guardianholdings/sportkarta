@@ -25,7 +25,9 @@ export async function generateMetadata({
 /** wall-clock 'YYYY-MM-DDTHH:MM:SS' → [localized date, HH:MM] */
 function whenParts(startsAtLocal: string, locale: string): [string, string] {
   const [date, time] = startsAtLocal.split('T');
-  const d = new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short' }).format(
+  // en-GB, matching the session detail page — bare 'en' drifts into US
+  // month-day ordering between two screens showing the same session.
+  const d = new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'bg-BG', { weekday: 'short', day: 'numeric', month: 'short' }).format(
     new Date(`${date}T00:00:00`),
   );
   return [d, (time ?? '').slice(0, 5)];

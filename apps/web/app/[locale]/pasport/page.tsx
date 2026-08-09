@@ -119,6 +119,7 @@ export default async function PassportPage({ params }: { params: Promise<{ local
           passport visibility (operator decision 2026-07-26) — the text carries
           no name, no handle, no place and no time, and the link goes to the
           site rather than to a profile. */}
+      {passport.week.activeDays > 0 && (
       <WeekShare
         text={[
           tShare('weekHeading'),
@@ -127,6 +128,7 @@ export default async function PassportPage({ params }: { params: Promise<{ local
           siteUrl(),
         ].join('\n')}
       />
+      )}
 
       <section aria-labelledby="badges-h" className="space-y-3">
         <div className="flex flex-wrap items-center gap-3">

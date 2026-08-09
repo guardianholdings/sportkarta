@@ -186,7 +186,7 @@ export function VerifyDeck({ cards, remaining }: { cards: VerifyCard[]; remainin
           {t('gone')}
         </Button>
       </div>
-      <p className="text-center text-caption text-text-faint">{t('keysHint')}</p>
+      <p className="text-center text-caption text-text-muted">{t('keysHint')}</p>
     </div>
   );
 }

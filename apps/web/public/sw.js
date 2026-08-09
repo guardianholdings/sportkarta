@@ -1,6 +1,9 @@
-/* SportKarta service worker: app shell + offline fallback + last-viewport tile
- * cache with a conservative budget. Registered in production only. */
-const VERSION = 'v1';
+/* POPS service worker: app shell + offline fallback + last-viewport tile
+ * cache with a conservative budget. Registered in production only.
+ * v2: POPS rebrand — /icons/* pixels changed under unchanged paths, and this
+ * cache serves them cache-first with no revalidation, so the version bump is
+ * what makes installed clients drop the old teal icons. */
+const VERSION = 'v2';
 const APP_CACHE = `sk-app-${VERSION}`;
 const STATIC_CACHE = `sk-static-${VERSION}`;
 const TILE_CACHE = `sk-tiles-${VERSION}`;

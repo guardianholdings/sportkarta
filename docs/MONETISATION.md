@@ -518,7 +518,8 @@ active-sponsorship join.
 mapped: add a scalar `sponsored: boolean` (or partner-slug string) property
 in `apps/web/lib/public-data.ts` GeoJSON SELECT (LEFT JOIN on the rendering
 rule above) → `MapPoint`/`toFeatureCollection`/`syncMarkers`/
-`createTeardrop` in `map-canvas.tsx` + `markers.ts` → a `.sk-marker__badge`
+`createPin` in `map-canvas.tsx` + `markers.ts` (the POPS pin — the badge
+element would sit beside the `pinSvg()` wrapper spans) → a `.sk-marker__badge`
 element styled in `globals.css` (tokens only, no hex in TS). Thread through
 `map-explorer.tsx` (fetch mapping + optional chip in `FacilityPreview`) and
 `place-map.tsx`/`places.ts` for the `/igrishta` pages (NB: `places.ts` has

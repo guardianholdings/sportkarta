@@ -39,9 +39,9 @@ const BASE: SessionMailData = {
   sport: 'Football',
   startsAtLocal: '2026-07-24T18:00:00',
   facilityName: 'Борисова градина',
-  facilityUrl: 'https://sportkarta.bg/obekt/borisova-gradina',
-  sessionUrl: 'https://sportkarta.bg/sesiya/abc',
-  calendarUrl: 'https://sportkarta.bg/sesiya/abc.ics',
+  facilityUrl: 'https://pops.bg/obekt/borisova-gradina',
+  sessionUrl: 'https://pops.bg/sesiya/abc',
+  calendarUrl: 'https://pops.bg/sesiya/abc.ics',
   capacity: 10,
   going: 4,
 };
@@ -135,8 +135,8 @@ describe('renderSessionMail', () => {
 
   it('includes the private feed link only when the member has one', () => {
     expect(mail().text).not.toContain(STRINGS.calendarFeed);
-    expect(mail({ feedUrl: 'https://sportkarta.bg/kalendar/tok.ics' }).text).toContain(
-      'https://sportkarta.bg/kalendar/tok.ics',
+    expect(mail({ feedUrl: 'https://pops.bg/kalendar/tok.ics' }).text).toContain(
+      'https://pops.bg/kalendar/tok.ics',
     );
   });
 

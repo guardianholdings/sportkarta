@@ -14,33 +14,32 @@
  * precisely so it passes that gate; a card cannot.
  *
  * SO THE DUPLICATION IS DELIBERATE, AND HELD HONEST BY A TEST.
- * apps/web/tests/og-palette.test.ts parses app/design-tokens/colors.css and
- * asserts every constant below still equals the token it claims to mirror. The
- * source line is recorded per entry so a reader can check by eye too.
+ * apps/web/tests/og-assets.test.ts parses app/design-tokens/colors.css and
+ * asserts every constant below still equals the token it claims to mirror.
  */
 
 /** Mirrors app/design-tokens/colors.css. Keys are the TOKEN names they track. */
 export const OG_PALETTE = {
-  /** --paper, colors.css:12 — the card background. */
-  paper: '#FBF9F3',
-  /** --surface, colors.css:14 */
-  surface: '#FFFEFB',
-  /** --ink, colors.css:21 — titles. */
-  ink: '#1E241D',
-  /** --ink-soft, colors.css:22 — subtitles. */
-  inkSoft: '#3A4136',
-  /** --text-muted, colors.css:23 — eyebrow and footer meta. */
-  textMuted: '#7C7668',
-  /** --border, colors.css:18 */
-  line: '#E8E3D8',
-  /** --pine-600 = --brand, colors.css:33 — the wordmark. */
-  brand: '#216543',
-  /** --pine-700, colors.css:34 */
-  brandDeep: '#1A5036',
-  /** --clay-500 = --accent, colors.css:44 */
-  accent: '#D5762A',
-  /** --clay-700, colors.css:46 */
-  accentDeep: '#9C4E1B',
+  /** --paper — the card background (raw POPS paper). */
+  paper: '#F5F3EE',
+  /** --surface */
+  surface: '#FEFDFB',
+  /** --ink — titles (raw POPS ink). */
+  ink: '#101418',
+  /** --ink-soft — subtitles. */
+  inkSoft: '#313D49',
+  /** --text-muted — eyebrow and footer meta. */
+  textMuted: '#646A73',
+  /** --border */
+  line: '#E3DFD4',
+  /** --green-600 = --brand — the wordmark. */
+  brand: '#0B7A40',
+  /** --green-700 */
+  brandDeep: '#09623A',
+  /** --coral-500 = --accent — the mark's raw coral (accent rule, graphics). */
+  accent: '#FF4A2B',
+  /** --coral-700 — coral that may carry text. */
+  accentDeep: '#B02F12',
 } as const;
 
 /**
@@ -55,8 +54,8 @@ export const OG_PALETTE_TOKENS: Record<keyof typeof OG_PALETTE, string> = {
   inkSoft: 'ink-soft',
   textMuted: 'text-muted',
   line: 'border',
-  brand: 'pine-600',
-  brandDeep: 'pine-700',
-  accent: 'clay-500',
-  accentDeep: 'clay-700',
+  brand: 'green-600',
+  brandDeep: 'green-700',
+  accent: 'coral-500',
+  accentDeep: 'coral-700',
 };

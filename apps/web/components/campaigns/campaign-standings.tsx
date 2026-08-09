@@ -52,7 +52,7 @@ export async function CampaignStandings({
               key={`${row.rank}-${row.handle ?? row.municipalityId ?? ''}`}
               className="border-b border-line"
             >
-              <td className="py-2 pr-3 tabular-nums text-text-muted">{row.rank}</td>
+              <td className="py-2 pr-3 font-mono tabular-nums text-text-muted">{row.rank}</td>
               <td className="py-2 pr-3">
                 {leaderboardType === 'city' ? (
                   (cityNames[row.municipalityId ?? -1] ?? '—')
@@ -65,11 +65,11 @@ export async function CampaignStandings({
                 )}
               </td>
               {leaderboardType === 'city' && (
-                <td className="py-2 pr-3 text-right tabular-nums text-text-muted">
+                <td className="py-2 pr-3 text-right font-mono tabular-nums text-text-muted">
                   {row.memberCount}
                 </td>
               )}
-              <td className="py-2 text-right font-medium tabular-nums">{row.score}</td>
+              <td className="py-2 text-right font-mono font-medium tabular-nums">{row.score}</td>
             </tr>
           ))}
         </tbody>
@@ -112,7 +112,7 @@ export async function FrozenStandings({
               : 'flex items-baseline gap-3 border-b border-line px-3 py-2'
           }
         >
-          <span className="w-8 text-h4 font-bold text-ink tabular-nums">{row.rank}</span>
+          <span className="w-8 font-mono text-h4 font-bold text-ink tabular-nums">{row.rank}</span>
           <span className="flex-1">
             {leaderboardType === 'city'
               ? (cityNames[row.municipalityId ?? -1] ?? '—')

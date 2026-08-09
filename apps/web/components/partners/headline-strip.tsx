@@ -67,7 +67,8 @@ export async function HeadlineStrip() {
             href={partner.url}
             target="_blank"
             rel="sponsored noopener"
-            className="hover:opacity-80"
+            // The 44px floor comes from the padded link box, not a bigger logo.
+            className="inline-flex min-h-11 min-w-11 items-center justify-center hover:opacity-80"
           >
             {logo}
           </a>

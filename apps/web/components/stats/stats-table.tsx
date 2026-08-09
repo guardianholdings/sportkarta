@@ -120,7 +120,7 @@ export function StatsTable({
               {columns.map((c) => (
                 <td
                   key={c.key}
-                  className={`px-2 py-1.5 ${c.numeric ? 'text-right tabular-nums' : ''}`}
+                  className={`px-2 py-1.5 ${c.numeric ? 'text-right font-mono tabular-nums' : ''}`}
                 >
                   {c.render(r)}
                 </td>

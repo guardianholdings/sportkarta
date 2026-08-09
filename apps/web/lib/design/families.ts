@@ -1,9 +1,11 @@
 import { type CanonicalSport } from '@sportkarta/lib/sports';
 
 /**
- * Pure sport→family→colour model (no React, no lucide) so the MapLibre canvas
- * can colour teardrop markers without dragging the icon registry into the map
- * bundle. The visual registry (sport-visuals.tsx) builds on this and adds icons.
+ * Pure sport→family→colour model (no React, no lucide) for the LIST layer:
+ * family dots on facility cards, sport chips and the detail view. The visual
+ * registry (sport-visuals.tsx) builds on this and adds icons. The POPS map pin
+ * is state-coloured (free/active/busy), not family-coloured, so the map canvas
+ * no longer reads this module.
  * See docs/design/RECONCILIATION.md §3 — colour encodes the broad family.
  */
 

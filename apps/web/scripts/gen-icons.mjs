@@ -1,40 +1,55 @@
-import { mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import sharp from 'sharp';
 
-// Regenerate the PWA icons: `node scripts/gen-icons.mjs` from apps/web.
-// A simple location-pin mark on the brand teal — recognizable for a map app.
-const TEAL = '#0f766e';
+// Regenerate the app icons from the POPS brand artwork:
+//   node scripts/gen-icons.mjs   (from apps/web)
+//
+// Outputs (the full set of raster icon slots):
+//   app/icon1.png                 192  favicon PNG fallback (app/icon0.svg is
+//                                      the primary, served as-is)
+//   app/apple-icon.png            180  apple-touch-icon — FULL-BLEED: iOS masks
+//                                      it itself; transparent corners go black
+//   public/icons/icon-192.png     192  manifest "any" + SW precache
+//   public/icons/icon-512.png     512  manifest "any"
+//   public/icons/icon-maskable-512.png 512 manifest "maskable" — full-bleed,
+//                                      mark inside the ~80% safe zone
+//
+// The rounded artwork is public/brand/favicon.svg (compact mark, 22% radius,
+// coral) — the brand package's own favicon. The full-bleed variant is the same
+// geometry as public/brand/icon-app.svg with the corner radius removed.
+// After changing icon pixels, bump VERSION in public/sw.js — /icons/* is
+// served cache-first with no revalidation, so installed PWAs keep old pixels
+// until the cache name changes.
+
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const dir = path.join(webRoot, 'public/icons');
+const iconsDir = path.join(webRoot, 'public/icons');
 const appDir = path.join(webRoot, 'app');
-mkdirSync(dir, { recursive: true });
 
-const pin = (cx, cy, scale) => `
-  <path transform="translate(${cx} ${cy}) scale(${scale}) translate(-256 -256)"
-        d="M256 96 C 188 96 132 152 132 220 C 132 300 256 420 256 420 C 256 420 380 300 380 220 C 380 152 324 96 256 96 Z"
-        fill="#ffffff"/>
-  <circle transform="translate(${cx} ${cy}) scale(${scale}) translate(-256 -256)"
-          cx="256" cy="220" r="50" fill="${TEAL}"/>`;
+const rounded = readFileSync(path.join(webRoot, 'public/brand/favicon.svg'));
 
-// `any` icon: rounded square + centered pin. Maskable: full-bleed + pin kept
-// inside the ~80% safe zone (smaller scale).
-const svg = (
-  maskable,
-) => `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="${maskable ? 0 : 96}" fill="${TEAL}"/>
-  ${pin(256, 256, maskable ? 0.62 : 0.82)}
-</svg>`;
+// Full mark, white on coral, full-bleed (mark spans ~56% width — inside the
+// maskable safe zone). Colours: --coral-500 / white; a raw hex is fine here,
+// this is an asset generator, not product code.
+const fullBleed = Buffer.from(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024"><rect width="1024" height="1024" fill="#FF4A2B"></rect><g transform="translate(512 512) scale(5.9) translate(-50 -50)"><circle cx="31" cy="22" r="9" fill="#FFFFFF"></circle><circle cx="69" cy="22" r="9" fill="#FFFFFF"></circle><path d="M8 44 A42 42 0 0 0 92 44" fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round"></path><path d="M24 44 A26 26 0 0 0 76 44" fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round"></path></g></svg>`,
+);
 
-async function render(svgStr, size, file) {
-  await sharp(Buffer.from(svgStr)).resize(size, size).png().toFile(file);
-  console.log('wrote', path.relative(webRoot, file));
+const jobs = [
+  { src: rounded, size: 192, out: path.join(appDir, 'icon1.png') },
+  { src: fullBleed, size: 180, out: path.join(appDir, 'apple-icon.png') },
+  { src: rounded, size: 192, out: path.join(iconsDir, 'icon-192.png') },
+  { src: rounded, size: 512, out: path.join(iconsDir, 'icon-512.png') },
+  { src: fullBleed, size: 512, out: path.join(iconsDir, 'icon-maskable-512.png') },
+];
+
+for (const { src, size, out } of jobs) {
+  const buf = await sharp(src, { density: 72 * (size / 100) * 2 })
+    .resize(size, size)
+    .png()
+    .toBuffer();
+  writeFileSync(out, buf);
+  console.log(path.relative(webRoot, out), buf.length, 'bytes');
 }
-
-await render(svg(false), 192, path.join(dir, 'icon-192.png'));
-await render(svg(false), 512, path.join(dir, 'icon-512.png'));
-await render(svg(true), 512, path.join(dir, 'icon-maskable-512.png'));
-// Next's file convention: app/apple-icon.png auto-emits <link rel="apple-touch-icon">.
-await render(svg(false), 180, path.join(appDir, 'apple-icon.png'));

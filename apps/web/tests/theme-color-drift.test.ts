@@ -34,8 +34,8 @@ const css = readFileSync(COLORS_CSS, 'utf8');
 
 /**
  * Resolve a semantic token to a literal hex, following ONE level of var()
- * indirection (`--brand: var(--pine-600)` → `--pine-600: #216543`). That is the
- * whole shape the palette uses: semantic aliases over a raw scale.
+ * indirection (`--accent: var(--coral-500)` → `--coral-500: #FF4A2B`). That is
+ * the whole shape the palette uses: semantic aliases over a raw scale.
  */
 function resolveToken(name: string): string {
   const direct = new RegExp(`--${name}:\\s*([^;]+);`).exec(css);
@@ -63,21 +63,24 @@ function literalFor(file: string, key: string): string {
 
 describe('theme colour drift', () => {
   it('resolves the tokens it is comparing against (guards a vacuous pass)', () => {
-    expect(resolveToken('brand')).toMatch(/^#[0-9A-F]{6}$/);
+    expect(resolveToken('accent')).toMatch(/^#[0-9A-F]{6}$/);
     expect(resolveToken('paper')).toMatch(/^#[0-9A-F]{6}$/);
   });
 
-  it('viewport.themeColor equals --brand', () => {
+  // Chrome tracks --accent, not --brand, since the POPS rebrand: the app icon
+  // and favicon are the coral mark (docs/design/pops-brand/HANDOFF.md — coral
+  // is „знакът"), and the browser/PWA frame must match the icon it sits behind.
+  it('viewport.themeColor equals --accent (the mark coral)', () => {
     expect(
       literalFor(LAYOUT, 'themeColor'),
-      'app/[locale]/layout.tsx viewport.themeColor has drifted from --brand in ' +
+      'app/[locale]/layout.tsx viewport.themeColor has drifted from --accent in ' +
         'app/design-tokens/colors.css. The browser reads this before any CSS, so it ' +
         'cannot use a token — update the literal to match.',
-    ).toBe(resolveToken('brand'));
+    ).toBe(resolveToken('accent'));
   });
 
-  it('manifest theme_color equals --brand', () => {
-    expect(literalFor(MANIFEST, 'theme_color')).toBe(resolveToken('brand'));
+  it('manifest theme_color equals --accent (the mark coral)', () => {
+    expect(literalFor(MANIFEST, 'theme_color')).toBe(resolveToken('accent'));
   });
 
   it('manifest background_color equals --paper', () => {

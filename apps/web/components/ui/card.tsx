@@ -8,7 +8,8 @@ import { cn } from '@/lib/utils';
  * components/data-display/Card). Radius lg. `media` renders flush at the top,
  * `footer` below a divider, `interactive` lifts one shadow step on hover.
  */
-const cardVariants = cva('overflow-hidden rounded-card border border-line bg-surface shadow-sm', {
+const cardVariants = cva(
+'overflow-hidden rounded-card border border-line bg-surface shadow-sm', {
   variants: {
     interactive: {
       true: 'cursor-pointer transition-[box-shadow,transform] duration-150 ease-standard hover:-translate-y-0.5 hover:shadow-lg',

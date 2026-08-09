@@ -10,6 +10,7 @@
  * it is what lands in `apps/web/var/mail` for inspection in development.
  */
 
+import { brandEmailHtml } from './html.js';
 import type { MailMessage } from './mailer.js';
 
 /** One row of the digest, already resolved and ordered by the caller. */
@@ -124,11 +125,13 @@ export function renderWeeklyDigest(
   // Every message carries its own unsubscribe link — one click, no sign-in.
   lines.push(`${strings.unsubscribe}: ${data.unsubscribeUrl}`);
 
+  const text = lines.join('\n');
   return {
     to: '',
     // The subject names the city, never the recipient: subjects end up in
     // notification previews, logs and bounce reports.
     subject: fill(strings.subject, { city: data.cityName }),
-    text: lines.join('\n'),
+    text,
+    html: brandEmailHtml(text),
   };
 }

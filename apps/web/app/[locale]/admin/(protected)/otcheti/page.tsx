@@ -118,7 +118,7 @@ export default async function AdminReportsPage({
             ))}
           </select>
         </label>
-        <button type="submit" className="rounded-pill bg-brand px-3 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover">
+        <button type="submit" className="min-h-11 rounded-pill bg-brand px-4 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover">
           {t('generate')}
         </button>
       </form>
@@ -135,13 +135,13 @@ export default async function AdminReportsPage({
         <>
           <div className="flex flex-wrap gap-3">
             <a
-              className="rounded border border-line-strong px-3 py-1.5 text-body-sm"
+              className="inline-flex min-h-11 items-center rounded-pill border border-line-strong px-4 text-body-sm font-semibold text-ink-soft hover:bg-surface-2"
               href={`/api/admin/otcheti?${scopeQuery}&format=csv`}
             >
               {t('downloadCsv')}
             </a>
             <a
-              className="rounded border border-line-strong px-3 py-1.5 text-body-sm"
+              className="inline-flex min-h-11 items-center rounded-pill border border-line-strong px-4 text-body-sm font-semibold text-ink-soft hover:bg-surface-2"
               href={`/api/admin/otcheti?${scopeQuery}&format=html`}
               target="_blank"
               rel="noreferrer"

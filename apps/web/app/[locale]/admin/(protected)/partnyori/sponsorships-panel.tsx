@@ -99,7 +99,7 @@ export async function SponsorshipsPanel({
                   className="ml-auto"
                 >
                   <ConfirmButton
-                    className="rounded border border-line-strong px-3 py-1.5 text-body-sm text-danger"
+                    className="rounded-md border border-line-strong px-3 py-1.5 text-body-sm text-danger"
                     message={t('adoptDeleteConfirm')}
                   >
                     {t('adoptDelete')}

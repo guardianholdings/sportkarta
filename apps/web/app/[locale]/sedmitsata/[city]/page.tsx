@@ -87,9 +87,16 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
     month: 'long',
     timeZone: 'UTC',
   });
+  // week.weekStart is the ledger's civil YYYY-MM-DD; readers get a real date.
+  const weekStartLabel = new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'bg-BG', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${week.weekStart}T00:00:00Z`));
 
   return (
-    <AppShell>
+    <AppShell active="/sesii">
       <main className="mx-auto max-w-3xl space-y-6 p-4">
       <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
         {t('backToMap')}
@@ -97,7 +104,7 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
 
       <header className="space-y-2">
         <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('h1', { city: name })}</h1>
-        <p className="text-body-sm text-text-muted">{t('weekOf', { date: week.weekStart })}</p>
+        <p className="text-body-sm text-text-muted">{t('weekOf', { date: weekStartLabel })}</p>
         {week.occurrences.length > 0 && (
           <p className="text-ink-soft">{t('intro', { count: week.occurrences.length })}</p>
         )}
@@ -115,15 +122,19 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
         <div className="space-y-6">
           {byDay(week.occurrences).map(([day, entries]) => (
             <section key={day} aria-label={day}>
-              <h2 className="mb-2 border-b border-line pb-1 text-h4 font-bold text-ink capitalize">
+              <h2 className="mb-2 border-b border-line pb-1 text-h4 font-bold text-ink">
                 {/* The date is a civil date; parsing it as UTC and formatting in
-                    UTC keeps it a calendar date and never shifts it. */}
-                {weekdayFormat.format(new Date(`${day}T00:00:00Z`))}
+                    UTC keeps it a calendar date and never shifts it.
+                    first-letter, not `capitalize`: capitalizing every word turns
+                    „понеделник, 10 август" into wrong-Bulgarian „…10 Август". */}
+                <span className="inline-block first-letter:uppercase">
+                  {weekdayFormat.format(new Date(`${day}T00:00:00Z`))}
+                </span>
               </h2>
               <ul className="divide-y divide-line">
                 {entries.map((entry) => (
                   <li key={entry.occurrenceId} className="flex flex-wrap gap-x-3 gap-y-1 py-2">
-                    <span className="w-12 shrink-0 font-mono text-sm tabular-nums">
+                    <span className="w-12 shrink-0 font-mono text-body-sm tabular-nums">
                       {timeOf(entry.startsAtLocal)}
                     </span>
                     <span className="min-w-0 flex-1">

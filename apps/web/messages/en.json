@@ -1,10 +1,11 @@
 {
   "Metadata": {
-    "title": "SportKarta — Play Outside",
+    "title": "POPS — More than just sport. Bulgaria's map of free sport",
+    "titleTemplate": "%s — POPS",
     "description": "A national map of free public sports facilities in Bulgaria."
   },
   "Manifest": {
-    "shortName": "SportKarta"
+    "shortName": "POPS"
   },
   "AdminNav": {
     "title": "Admin panel",
@@ -23,7 +24,8 @@
     "campaigns": "Campaigns",
     "reports": "Reports",
     "municipalImport": "Municipal data",
-    "partners": "Partners"
+    "partners": "Partners",
+    "accounts": "Accounts"
   },
   "AdminDashboard": {
     "title": "Administration",
@@ -236,7 +238,11 @@
     "navSessions": "Sessions",
     "navLeaderboards": "Rankings",
     "navProfile": "Profile",
-    "navAdd": "Add"
+    "navAdd": "Add",
+    "navBrand": "POPS — home",
+    "navPrimary": "Primary navigation",
+    "skipToContent": "Skip to content",
+    "loading": "Loading…"
   },
   "Map": {
     "discoverTitle": "Discover places",
@@ -349,15 +355,15 @@
   "Places": {
     "cityH1": "Sports facilities in {city}",
     "cityIntro": "{city} has {count} free public sports facilities. Explore them on the map or in the list below.",
-    "cityMetaTitle": "Sports facilities in {city} — SportKarta",
+    "cityMetaTitle": "Sports facilities in {city}",
     "cityMetaDescription": "Map and list of {count} free public sports facilities in {city}.",
     "sportH1": "{sport} in {city}",
     "sportIntro": "{city} has {count} places for {sport}. See them on the map or in the list.",
-    "sportMetaTitle": "{sport} in {city} — SportKarta",
+    "sportMetaTitle": "{sport} in {city}",
     "sportMetaDescription": "{count} places for {sport} in {city} — free public facilities.",
     "quarterH1": "Sports facilities in {quarter}, {city}",
     "quarterIntro": "The {quarter} quarter ({city}) has {count} sports facilities.",
-    "quarterMetaTitle": "Sports facilities in {quarter}, {city} — SportKarta",
+    "quarterMetaTitle": "Sports facilities in {quarter}, {city}",
     "quarterMetaDescription": "{count} sports facilities in {quarter}, {city}.",
     "facilitiesHeading": "Facilities",
     "bySportHeading": "By sport",
@@ -372,7 +378,7 @@
   "Stats": {
     "h1": "Statistics",
     "intro": "Open data on Bulgaria's public sports facilities, aggregated by municipality and sport. Every published number reconciles with a direct database query.",
-    "metaTitle": "Statistics — SportKarta",
+    "metaTitle": "Statistics",
     "metaDescription": "Bulgaria's public sports facilities by municipality and sport: counts, access, lighting, verification status.",
     "generatedAt": "Data as of {date}",
     "na": "n/a",
@@ -403,7 +409,7 @@
   "Privacy": {
     "back": "← Home",
     "title": "Privacy",
-    "intro": "SportKarta is a non-profit project. We collect as little data as possible and do not track users.",
+    "intro": "POPS (“More than just sport”) is a non-profit project. We collect as little data as possible and do not track users.",
     "storeTitle": "What we store",
     "storeBody": "We store data about sports facilities (location, type, condition) and moderator-approved photos with metadata stripped. Browsing the map needs no account and creates no profile.",
     "accountsTitle": "Accounts",
@@ -423,10 +429,15 @@
     "mapLayersBody": "The default map is served entirely from our own server. If you pick an external layer (CyclOSM, Thunderforest Transport, Tracestrack Topo), your browser loads map tiles directly from that provider — it sees your IP address and the viewed area, as it would if you visited their site. The choice is explicit, is not stored, and the default layer never sends anything to third parties."
   },
   "SignIn": {
-    "title": "Sign in to SportKarta",
+    "title": "Sign in to POPS",
     "intro": "Enter your email — we send a one-time sign-in code. No password.",
     "emailLabel": "Email",
     "codeLabel": "Code from the email",
+    "codeSentTo": "We sent a code to <addr>{email}</addr>.",
+    "resend": "Send a new code",
+    "changeEmail": "Use another email",
+    "sending": "Sending…",
+    "verifying": "Signing in…",
     "codeHint": "The code is valid for 10 minutes.",
     "submitEmail": "Send code",
     "submitCode": "Sign in",
@@ -441,7 +452,7 @@
     "error_unknown": "Something went wrong. Try again."
   },
   "AuthEmail": {
-    "otpSubject": "Your SportKarta sign-in code",
+    "otpSubject": "Your POPS sign-in code",
     "otpBody": "Your sign-in code is {code}. It is valid for {minutes} minutes. If you did not request it, just delete this email."
   },
   "Profile": {
@@ -568,7 +579,12 @@
     "error_duplicate_nearby": "There is already such a facility nearby.",
     "error_name_too_long": "That text is too long.",
     "error_unknown": "Something went wrong. Try again.",
-    "error_own_facility": "You cannot confirm a facility you added yourself — another member has to."
+    "error_own_facility": "You cannot confirm a facility you added yourself — another member has to.",
+    "locating": "Finding your location…",
+    "locationGranted": "Your contribution will publish straight away, because you are on site.",
+    "locationDenied": "Location is off. We will still accept your contribution, but it will wait for review and earn no points — turn location on if you are at the spot.",
+    "offSiteNotice": "You were {distance} from the facility, so your contribution is waiting for review.",
+    "offSiteNoLocation": "Without location on, your contribution is waiting for review."
   },
   "Points": {
     "title": "My points",
@@ -611,7 +627,7 @@
   "Digest": {
     "h1": "This week in {city}",
     "intro": "{count, plural, one {# session} other {# sessions}} this week — Monday to Sunday.",
-    "metaTitle": "This week's sessions in {city} — SportKarta",
+    "metaTitle": "This week's sessions in {city}",
     "metaDescription": "What is being played in {city} this week: free sessions and places, by day.",
     "empty": "No sessions are scheduled in {city} this week.",
     "emptyHint": "See all facilities on the map.",
@@ -652,7 +668,7 @@
     "spotsUnlimited": "{going} going",
     "viewWeek": "See the whole week",
     "unsubscribe": "Unsubscribe",
-    "footer": "You are receiving this because you subscribed to the weekly programme on SportKarta."
+    "footer": "You are receiving this because you subscribed to the weekly programme on POPS."
   },
   "AdminBulkSessions": {
     "intro": "Create the same slot at many facilities at once, or upload a CSV with different slots.",
@@ -824,9 +840,9 @@
     "activityExplainer": "Optionally show your activity by month too — counts of contributions and sessions only, with no places or dates.",
     "showActivity": "Show activity by month",
     "hideActivity": "Hide activity by month",
-    "publicMetaTitle": "{name}’s sports passport — SportKarta",
-    "publicSubtitle": "On SportKarta since {since}",
-    "publicSubtitleWithCity": "{city} · on SportKarta since {since}",
+    "publicMetaTitle": "{name}’s sports passport",
+    "publicSubtitle": "On POPS since {since}",
+    "publicSubtitleWithCity": "{city} · on POPS since {since}",
     "streak_atRisk": "No attendance recorded yet this week — your streak continues if you show up before Sunday."
   },
   "Badge": {
@@ -891,12 +907,16 @@
     }
   },
   "Leaderboard": {
-    "metaTitle": "Leaderboard — SportKarta",
+    "metaTitle": "Leaderboard",
     "headingNational": "National leaderboard",
     "headingCity": "Leaderboard for {city}",
     "headingSport": "Leaderboard: {sport}",
     "intro": "Two boards: who is training, and who is building the map. Both list only members with a public sports passport.",
     "filtersLabel": "Leaderboard filters",
+    "filterScopeLabel": "Place",
+    "filterSportLabel": "Sport",
+    "filterSportAll": "All sports",
+    "filterPeriodLabel": "Period",
     "scopeNational": "Whole country",
     "periodAllTime": "All time",
     "periodMonth": "This month",
@@ -917,7 +937,7 @@
     "contributionsSectionBody": "Points from added, verified and checked facilities."
   },
   "Campaign": {
-    "listMetaTitle": "Campaigns — SportKarta",
+    "listMetaTitle": "Campaigns",
     "listTitle": "Campaigns",
     "listIntro": "Short initiatives with a clear deadline: add and verify facilities, play, and win for your town.",
     "listEmpty": "There are no announced campaigns right now.",
@@ -960,7 +980,7 @@
     "finishedBody": "The standings are final and no longer change.",
     "seeResults": "See the results",
     "resultsEyebrow": "Final results",
-    "resultsMetaTitle": "Results: {campaign} — SportKarta",
+    "resultsMetaTitle": "Results: {campaign}",
     "resultsFrozenNote": "The standings were frozen when the campaign closed and are not recomputed.",
     "finalStandings": "Final standings",
     "backToCampaign": "Back to the campaign",
@@ -1119,7 +1139,7 @@
     "statOldestOpen": "Oldest open",
     "statResolved": "Reports handled",
     "statMedianResponse": "Median time to decision",
-    "responseCaveat": "These figures measure OUR moderation, not the municipal administration: a report is triaged by a SportKarta volunteer. We publish them so that it is visible when we are the slow ones.",
+    "responseCaveat": "These figures measure OUR moderation, not the municipal administration: a report is triaged by a POPS volunteer. We publish them so that it is visible when we are the slow ones.",
     "embedHeading": "Embed on a municipal website",
     "embedIntro": "A municipality can publish the same figures on its own site. Copy the snippet below — it updates itself.",
     "embedNoScript": "No JavaScript: the embedded widget executes no code on your site.",
@@ -1132,7 +1152,7 @@
     "methodCondition": "Condition is the most recent visitor report for each facility, not an assessment of ours. “Not reported” means nobody has reported yet.",
     "methodResponse": "The median runs from a report being filed to a moderator's decision, over the last {days} days, taken from the decision log. Median rather than mean: one forgotten report drags a mean anywhere.",
     "methodPrivacy": "The contributor count is withheld below {n} — the number is decoration, and the risk is identifying a specific person.",
-    "attribution": "Data: SportKarta and OpenStreetMap, ODbL 1.0.",
+    "attribution": "Data: POPS and OpenStreetMap, ODbL 1.0.",
     "widgetTitle": "Free sports infrastructure",
     "widgetMore": "Full figures and methodology",
     "widgetUnavailable": "The data is temporarily unavailable. Try again in a minute."
@@ -1140,6 +1160,7 @@
   "Session": {
     "metaTitle": "{title} — session",
     "metaDescription": "{title} at {facility}. See when it is, how many places are left, and sign up.",
+    "metaDescriptionNoPlace": "{title} — a free play session. See when it is, how many places are left, and sign up.",
     "backToFacility": "← Back to the facility",
     "cancelledNotice": "This session has been cancelled.",
     "startedNotice": "This session has already started.",
@@ -1220,7 +1241,7 @@
     "addToCalendar": "Add to calendar",
     "withdraw": "Cannot make it? Withdraw here",
     "calendarFeed": "Subscribe your calendar to all your sessions",
-    "footer": "SportKarta — play outside."
+    "footer": "POPS — play outside."
   },
   "Checkin": {
     "disabled": "QR check-in is unavailable right now. Ask the organiser.",
@@ -1261,7 +1282,7 @@
     "title": "Open data",
     "intro": "The complete register of Bulgaria's public sports facilities — free to download and free to use through a documented API. No fee, no approval, and no registration to read.",
     "back": "← Home",
-    "attributionNotice": "Published under ODbL 1.0. Any public use requires the attribution: “© OpenStreetMap contributors + SportKarta community”.",
+    "attributionNotice": "Published under ODbL 1.0. Any public use requires the attribution: “© OpenStreetMap contributors + POPS community”.",
     "licenseLink": "Full licence terms",
     "keysLink": "Get a free key",
     "apiTitle": "API",
@@ -1473,7 +1494,7 @@
   "DesignSystem": {
     "overline": "BG · Design system",
     "title": "Design system",
-    "subtitle": "SportKarta's foundation — the tokens, type and primitives from the seed authority.",
+    "subtitle": "The foundation of POPS — the tokens, type and primitives from the seed authority.",
     "internalNote": "Internal reference: every component in every state.",
     "sections": {
       "color": "Colour",
@@ -1483,8 +1504,8 @@
       "categoryMap": "Sports → family & icon"
     },
     "groups": {
-      "brand": "Brand (pine)",
-      "accent": "Accent (clay)",
+      "brand": "Brand (green)",
+      "accent": "Accent (coral)",
       "neutral": "Neutrals",
       "text": "Text",
       "semantic": "Semantic",
@@ -1499,7 +1520,7 @@
     },
     "type": {
       "display": "Discover, climb, meet people outside",
-      "heading": "A heading set in Manrope",
+      "heading": "A heading set in Unbounded",
       "body": "Body copy: warm, clear, human — never corporate or cold.",
       "bodySmall": "Moderate · secondary text at a smaller size.",
       "dataSample": "12.4 km · 640 m · 4 h 20 min · 42.6977, 23.3219",
@@ -1595,6 +1616,7 @@
     "refreshHint": "The list refreshes itself every few seconds."
   },
   "Footer": {
+    "wordmark": "POPS",
     "stats": "Statistics",
     "openData": "Open data",
     "privacy": "Privacy",
@@ -1646,7 +1668,7 @@
     "metaDescription": "The organisations that make free outdoor sport possible — and how we partner with them.",
     "back": "← Back to the map",
     "title": "Partners & sponsors",
-    "intro": "SportKarta is a non-profit project. The map, the sessions and the sports passport stay free for everyone — thanks to the organisations listed here. We publish every partnership and exactly how we partner.",
+    "intro": "POPS is a non-profit project. The map, the sessions and the sports passport stay free for everyone — thanks to the organisations listed here. We publish every partnership and exactly how we partner.",
     "empty": "Our first partners will appear here soon. Want to be among them? Write to us below.",
     "tierTitle_headline": "Headline partners",
     "tierIntro_headline": "Long-term partners who support the whole platform and its mission.",
@@ -1662,11 +1684,11 @@
     "stripLabel": "supported by"
   },
   "Podkrepi": {
-    "metaTitle": "Support SportKarta",
+    "metaTitle": "Support POPS",
     "metaDescription": "Donations that keep the national map of free public sports facilities running — bank transfer, donor tax relief and donation contracts.",
     "back": "← Back to the map",
     "title": "Support us",
-    "intro": "SportKarta is a non-profit association. The platform is free for everybody and stays that way — there are no paid features and there will not be. Your donation pays for the server, the map data and the work of verifying facilities.",
+    "intro": "POPS is a non-profit association. The platform is free for everybody and stays that way — there are no paid features and there will not be. Your donation pays for the server, the map data and the work of verifying facilities.",
     "fundsTitle": "What a donation pays for",
     "fundsBody": "Hosting on our own server in the European Union, map layers and backups; on-the-ground verification and work with municipalities; maintaining the open data anybody can download for free.",
     "bankTitle": "Bank transfer",
@@ -1793,7 +1815,7 @@
     "error_label_too_long": "The plaque line is too long (200 characters max)."
   },
   "Og": {
-    "wordmark": "SportKarta",
+    "wordmark": "POPS",
     "attribution": "© OpenStreetMap · Protomaps",
     "facility": {
       "unnamed": "Sports facility"
@@ -1831,7 +1853,7 @@
     "logLink": "Open your log"
   },
   "Training": {
-    "metaTitle": "My training — SportKarta",
+    "metaTitle": "My training",
     "title": "My training",
     "intro": "Log a training even when it is not part of an organised session. This log is yours alone.",
     "statSessions": "trainings (30 days)",
@@ -1915,18 +1937,18 @@
     "triggerFacility": "Share the facility",
     "triggerSession": "Invite friends",
     "triggerCampaign": "Share the campaign",
-    "textTraining": "{sport} · {minutes} min. Logged a training on SportKarta.",
-    "textTrainingKm": "{sport} · {km} km in {minutes} min. Logged a training on SportKarta.",
+    "textTraining": "{sport} · {minutes} min. Logged a training on POPS.",
+    "textTrainingKm": "{sport} · {km} km in {minutes} min. Logged a training on POPS.",
     "textWeek": "{sessions} trainings in the last 30 days. We count turning up, not performance.",
     "textPassport": "{points} points for contributions to the map of free sports facilities.",
     "textDivision": "{tier}, {rank}th place this week.",
     "textLegend": "{place}: the most regular person here has come {days} days.",
-    "textFacility": "{place} — a free sports facility on SportKarta.",
+    "textFacility": "{place} — a free sports facility on POPS.",
     "textSession": "{title} — {day}. Come along.",
     "textCampaign": "{title} — join in."
   },
   "Story": {
-    "callToAction": "Find your place at sportnakarta.bg",
+    "callToAction": "Find your place at pops.bg",
     "label": {
       "minutes": "minutes",
       "km": "km",
@@ -1969,7 +1991,7 @@
     },
     "session": {
       "heroLabel": "start",
-      "callToAction": "Come along — sportnakarta.bg"
+      "callToAction": "Come along — pops.bg"
     },
     "campaign": {
       "eyebrow": "campaign",
@@ -1980,10 +2002,154 @@
   "Share": {
     "weekTitle": "Share your week",
     "weekBody": "A short block you can paste into Viber, Messenger or SMS. It contains no name, place or time.",
-    "weekHeading": "SportKarta · my week",
+    "weekHeading": "POPS · my week",
     "weekDays": "{count, plural, one {# active day} other {# active days}}",
     "copy": "Copy the text",
     "copied": "Copied",
     "share": "Share"
+  },
+  "AdminAccounts": {
+    "metaTitle": "Accounts — Admin",
+    "title": "Accounts",
+    "intro": "Everything the platform has recorded about one member. Access is logged.",
+    "searchLabel": "Search by email or name",
+    "searchPlaceholder": "email or name",
+    "search": "Search",
+    "filterRole": "Role",
+    "filterVisibility": "Passport",
+    "filterConsent": "Consent",
+    "all": "All",
+    "roleUser": "Member",
+    "roleAmbassador": "Ambassador",
+    "roleAdmin": "Admin",
+    "visibilityPublic": "Public",
+    "visibilityPrivate": "Private",
+    "consentRoute": "GPS routes",
+    "consentHealth": "Heart rate and calories",
+    "columnMember": "Member",
+    "columnRole": "Role",
+    "columnCity": "City",
+    "columnPoints": "Points",
+    "columnEdits": "Edits",
+    "columnTrainings": "Trainings",
+    "columnCheckins": "Check-ins",
+    "columnJoined": "Joined",
+    "columnLastActive": "Last active",
+    "empty": "No accounts match.",
+    "resultCount": "{count} accounts",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {page} of {pages}",
+    "open": "Open",
+    "back": "← Back to accounts",
+    "notFound": "No such account.",
+    "noName": "(no name)",
+    "none": "—",
+    "unitMin": "{v} min",
+    "unitKm": "{v} km",
+    "yes": "yes",
+    "no": "no",
+    "identityTitle": "Account",
+    "fieldEmail": "Email",
+    "fieldEmailVerified": "Email verified",
+    "fieldName": "Display name",
+    "fieldCity": "City",
+    "fieldRole": "Role",
+    "fieldJoined": "Joined",
+    "fieldUpdated": "Last changed",
+    "fieldMinor": "Age category",
+    "minorYes": "under 18 (derived; gates nothing)",
+    "minorNo": "over 18",
+    "noDobNote": "Date of birth is never stored — only the category is kept.",
+    "consentTitle": "Consent and visibility",
+    "consentNote": "These are consent records, not settings. Only the member can withdraw, and withdrawal deletes the data the consent covers.",
+    "consentPassport": "Public passport",
+    "consentActivity": "Shows activity publicly",
+    "consentHandle": "Has a share address",
+    "consentHandleNote": "The address survives a return to private so an already-shared link keeps working.",
+    "consentRouteAt": "Consent for GPS routes",
+    "consentHealthAt": "Consent for heart rate and calories",
+    "consentGivenAt": "given on {date}",
+    "consentNotRecorded": "no consent recorded",
+    "art9Note": "Heart rate and calories are Art. 9 health data. This panel shows only that a record exists, never a value.",
+    "authorityTitle": "Authority",
+    "authorityScope": "Municipalities they moderate",
+    "authorityScopeEmpty": "No municipalities — an ambassador without scope can decide nothing.",
+    "authorityGrantsIssued": "Grants issued to others",
+    "authorityDecisions": "Moderation decisions made",
+    "passportTitle": "Passport",
+    "passportNote": "Badges and streaks are derived from history on every read — they are not stored records.",
+    "statPoints": "points",
+    "statAdded": "facilities added",
+    "statVerified": "verified",
+    "statConditions": "condition reports",
+    "statCheckins": "check-ins",
+    "statBadges": "badges",
+    "streakDays": "Day streak",
+    "streakWeeks": "Week streak",
+    "streakCurrentLongest": "{current} now · {longest} longest",
+    "ledgerTitle": "Points",
+    "ledgerNote": "The ledger is append-only — there is no edit and no revocation.",
+    "ledgerEvent": "Event",
+    "ledgerPoints": "Points",
+    "ledgerFacility": "Facility",
+    "ledgerWhen": "When",
+    "contributionsTitle": "Contributions to the map",
+    "contributionsField": "Field",
+    "contributionsSource": "Source",
+    "contributionsNote": "The edit journal is append-only and survives account deletion.",
+    "photosUploaded": "Photos uploaded",
+    "conditionReports": "Condition reports",
+    "decisionsAboutTitle": "Decisions about their content",
+    "decisionsAboutNote": "These are decisions about the member's content, not their contributions.",
+    "decisionsAboutEmpty": "No decisions about this member's content.",
+    "playTitle": "Play sessions",
+    "playSeries": "Series organised",
+    "playSeriesNote": "A series is “every Tuesday”, not a single evening.",
+    "playRsvpActive": "Active RSVPs",
+    "playRsvpWithdrawn": "Withdrawals",
+    "playVouched": "Marked others present",
+    "playResultsRecorded": "Results entered",
+    "playResultsAbout": "Results about them",
+    "playCheckinMethod": "Check-ins by method",
+    "trainingTitle": "Training log",
+    "trainingNote": "Routes and health data are not shown here — only whether they exist.",
+    "trainingSport": "Sport",
+    "trainingWhen": "When",
+    "trainingDuration": "Duration",
+    "trainingDistance": "Distance",
+    "trainingPlace": "Place",
+    "trainingHasRoute": "Route",
+    "trainingHasMetrics": "Health data",
+    "trainingEmpty": "No trainings recorded.",
+    "commsTitle": "Messages",
+    "commsDigestCities": "Weekly digest subscriptions",
+    "commsDigestSends": "Weekly digests sent",
+    "commsSessionMail": "Session emails",
+    "commsNote": "We keep only that we wrote — never what we wrote.",
+    "credentialsTitle": "Access and devices",
+    "credentialsNote": "Keys and addresses are not shown — they are live credentials. IP addresses are never stored at all.",
+    "credentialsSessions": "Active sessions",
+    "credentialsDevice": "Device",
+    "credentialsExpires": "Valid until",
+    "credentialsProviders": "Linked providers",
+    "credentialsApiKeys": "API keys",
+    "credentialsKeyRevoked": "revoked",
+    "credentialsKeyActive": "active",
+    "credentialsCalendar": "Calendar address",
+    "credentialsCalendarIssued": "issued on {date}",
+    "credentialsCalendarRotated": "rotated on {date}",
+    "credentialsCalendarNone": "none issued",
+    "accessTitle": "Who has opened this account",
+    "accessNote": "Every view of this screen is recorded. The record cannot be edited or deleted.",
+    "accessEmpty": "No access recorded.",
+    "accessWho": "Admin",
+    "accessScope": "What",
+    "accessWhen": "When",
+    "scopeOverview": "Overview",
+    "scopeTraining": "Training",
+    "scopeHealth": "Health data",
+    "scopeExport": "Export",
+    "formerUser": "deleted profile"
   }
 }

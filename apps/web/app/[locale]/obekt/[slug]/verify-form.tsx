@@ -11,6 +11,7 @@ import { Select } from '@/components/ui/select';
 import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 
 import { verifyFacilityAction, type ContributionState } from './contribution-actions';
+import { PositionFields, PositionNotice, usePosition } from '@/components/facility/position-fields';
 
 const ACCESS_VALUES = ['free', 'paid', 'restricted', 'school'] as const;
 const INITIAL: ContributionState = { status: 'idle' };
@@ -34,6 +35,7 @@ const FIELD_LABEL = 'font-mono text-overline uppercase tracking-overline text-te
  */
 export function VerifyForm(props: VerifyFormProps) {
   const t = useTranslations('Contribute');
+  const { phase, latRef, lonRef } = usePosition();
   const tSport = useTranslations('Sport');
   const tAccess = useTranslations('Access');
   const tSurface = useTranslations('Surface');
@@ -45,6 +47,15 @@ export function VerifyForm(props: VerifyFormProps) {
 
   return (
     <form action={action} className="flex flex-col gap-5">
+      <PositionFields latRef={latRef} lonRef={lonRef} />
+      <PositionNotice
+        phase={phase}
+        labels={{
+          locating: t('locating'),
+          granted: t('locationGranted'),
+          denied: t('locationDenied'),
+        }}
+      />
       <input type="hidden" name="slug" value={props.slug} />
       {/* Declares which checklist fields this form presented; the action ignores
           anything not listed, so an omitted field can never be read as an

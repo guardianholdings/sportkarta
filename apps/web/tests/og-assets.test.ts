@@ -51,11 +51,24 @@ describe('OG font assets', () => {
     }
   });
 
-  it('uses the CYRILLIC subsets, not the latin ones', () => {
+  it('every latin subset rides along a cyrillic sibling, never alone', () => {
     // The single most likely wrong choice: @fontsource ships latin by default
-    // and the latin file renders every Bulgarian title as tofu.
-    for (const file of Object.values(OG_FONT_FILES)) {
-      expect(file, `${file} must be a cyrillic subset`).toContain('cyrillic');
+    // and a latin-only file renders every Bulgarian title as tofu. Latin
+    // subsets are allowed (they shape "POPS", digits and units in the brand
+    // faces) but only NEXT TO the same family+weight cyrillic file.
+    const files = Object.values(OG_FONT_FILES) as string[];
+    expect(files.some((f) => f.includes('cyrillic'))).toBe(true);
+    for (const file of files) {
+      expect(
+        /-(cyrillic|latin)-/.test(file),
+        `${file} must be an explicit cyrillic or latin subset`,
+      ).toBe(true);
+      if (file.includes('-latin-')) {
+        expect(
+          files,
+          `${file} has no cyrillic sibling — a latin-only family renders Bulgarian as tofu`,
+        ).toContain(file.replace('-latin-', '-cyrillic-'));
+      }
     }
   });
 

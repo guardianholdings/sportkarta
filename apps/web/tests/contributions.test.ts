@@ -105,13 +105,14 @@ describe('addFacility', () => {
       [], // slug candidates
       [], // slug update
       [], // photo insert
-      [], // audit insert
+      [{ distance_m: 12 }], // audit insert returns the measured distance
       [{ id: 1 }], // award
     ]);
     const result = await addFacility(db, {
       userId: USER,
       input,
       photoStoragePath: 'facilities/2026/07/x.webp',
+      position: { lat: 42.6819, lon: 23.3593 },
     });
 
     expect(result.facilityId).toBe(FACILITY);
@@ -167,6 +168,10 @@ describe('verifyFacility', () => {
       covered: false,
       sport_types: ['basketball'],
       status: 'needs_verification',
+      // On site. Proximity now decides whether a confirmation PUBLISHES and
+      // whether it pays (operator decision 2026-08-07), so the fixture has to
+      // say where the contributor was standing.
+      distance_m: 12,
     },
   ];
 
@@ -271,7 +276,7 @@ describe('verifyFacility', () => {
 describe('reportCondition', () => {
   it('stores the report, updates the facility and audits the change', async () => {
     const db = fakeDb([
-      [{ condition: 'good' }], // current condition
+      [{ condition: 'good', distance_m: 12 }], // current condition, contributor on site
       [{ id: 'report-1' }], // report insert
       [], // facility update
       [], // audit row
@@ -317,5 +322,147 @@ describe('reportCondition', () => {
       }),
     ).rejects.toMatchObject({ code: 'invalid_state' });
     expect(db.statements).toEqual([]);
+  });
+});
+
+/**
+ * On-the-spot proximity (operator decision 2026-08-07).
+ *
+ * The rule everywhere: the contribution is ALWAYS recorded, and only the trust
+ * is withheld — publishing and points. These tests pin the withholding, because
+ * the failure mode nobody would notice is the opposite one: a change that
+ * quietly starts paying for remote edits again looks like nothing at all.
+ */
+describe('contribution proximity', () => {
+  const input = {
+    name: 'Ново игрище',
+    quarter: 'Лозенец',
+    sportTypes: ['basketball'],
+    access: 'free',
+    ...SOFIA,
+  };
+  const farAway = [
+    {
+      access: 'free',
+      surface: 'asphalt',
+      lighting: null,
+      covered: false,
+      sport_types: ['basketball'],
+      status: 'needs_verification',
+      distance_m: 4200,
+    },
+  ];
+  const noFix = [
+    {
+      access: 'free',
+      surface: 'asphalt',
+      lighting: null,
+      covered: false,
+      sport_types: ['basketball'],
+      status: 'needs_verification',
+      distance_m: null,
+    },
+  ];
+
+  it('does not publish or pay for a confirmation made from far away', async () => {
+    const db = fakeDb([farAway, [], [], [], [], [{ id: 1 }]]);
+    const result = await verifyFacility(db, {
+      userId: USER,
+      facilityId: FACILITY,
+      checklist: { exists: true, access: 'free', surface: 'asphalt', lighting: null, covered: false },
+      position: { lat: 42.1, lon: 23.9 },
+    });
+
+    expect(result.activated).toBe(false);
+    expect(result.awarded).toBe(false);
+    expect(result.distanceM).toBe(4200);
+    // The confirmation itself is still on the record — that is the whole design.
+    expect(db.text()).toMatch(/'verified'/);
+    // …but the facility stays in the queue.
+    expect(db.text()).not.toMatch(/status = 'active'/);
+  });
+
+  it('treats a missing fix exactly like being far away', async () => {
+    const db = fakeDb([noFix, [], [], [], [], [{ id: 1 }]]);
+    const result = await verifyFacility(db, {
+      userId: USER,
+      facilityId: FACILITY,
+      checklist: { exists: true, access: 'free', surface: 'asphalt', lighting: null, covered: false },
+    });
+
+    // A contribution with no position is exactly as unverifiable as one from
+    // the next city, so it must not be treated more kindly.
+    expect(result.activated).toBe(false);
+    expect(result.awarded).toBe(false);
+    expect(result.distanceM).toBeNull();
+    expect(db.text()).toMatch(/'verified'/);
+  });
+
+  it('records a remote condition report but does not repaint the map', async () => {
+    const db = fakeDb([
+      [{ condition: 'good', distance_m: 9000 }],
+      [{ id: 'report-1' }], // the report still lands
+      [], // audit row
+      [{ id: 1 }],
+    ]);
+    const result = await reportCondition(db, {
+      userId: USER,
+      facilityId: FACILITY,
+      input: { state: 'unusable', tags: [] },
+      position: { lat: 42.1, lon: 23.9 },
+    });
+
+    expect(result.awarded).toBe(false);
+    expect(result.onSite).toBe(false);
+    // Public-interest data is never discarded…
+    expect(db.text()).toMatch(/INSERT INTO facility_condition_reports/i);
+    // …but one remote submission cannot repaint a working pitch as unusable.
+    expect(db.text()).not.toMatch(/SET condition = /i);
+  });
+
+  it('accepts a remote addition without paying for it', async () => {
+    const db = fakeDb([
+      [], // no duplicate
+      [{ id: FACILITY }],
+      [], [], [],
+      [{ distance_m: 51000 }], // audit insert measures the distance
+      [{ id: 1 }],
+    ]);
+    const result = await addFacility(db, {
+      userId: USER,
+      input,
+      photoStoragePath: 'facilities/2026/07/x.webp',
+      position: { lat: 43.2, lon: 24.6 },
+    });
+
+    // The pin still reaches the queue — a moderator judges it on its merits.
+    expect(result.facilityId).toBe(FACILITY);
+    expect(result.awarded).toBe(false);
+    expect(result.onSite).toBe(false);
+    expect(db.text()).toMatch(/'needs_verification'/);
+  });
+
+  it('never writes a coordinate, only metres', async () => {
+    const db = fakeDb([
+      [], [{ id: FACILITY }], [], [], [],
+      [{ distance_m: 12 }],
+      [{ id: 1 }],
+    ]);
+    await addFacility(db, {
+      userId: USER,
+      input,
+      photoStoragePath: 'facilities/2026/07/x.webp',
+      position: { lat: 42.6819, lon: 23.3593 },
+    });
+
+    // The contributor's own latitude may appear ONLY inside ST_MakePoint, as an
+    // argument to the distance computation — never in an INSERT column list.
+    // A `lat`/`lon` column on any contribution table would be a record of where
+    // named people physically were, which this platform does not keep.
+    const text = db.text();
+    expect(text).not.toMatch(/INSERT INTO facility_edits[^)]*\blat\b/i);
+    expect(text).not.toMatch(/INSERT INTO facility_edits[^)]*\blon\b/i);
+    expect(text).toMatch(/ST_Distance/i);
+    expect(text).toMatch(/distance_m/);
   });
 });

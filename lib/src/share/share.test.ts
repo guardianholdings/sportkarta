@@ -16,7 +16,7 @@ import {
   type ShareKind,
 } from './index.js';
 
-const ORIGIN = 'https://sportnakarta.bg';
+const ORIGIN = 'https://pops.bg';
 
 describe('the share catalogue', () => {
   it('covers every moment the product can talk about', () => {
@@ -115,7 +115,7 @@ describe('cardPath', () => {
 
 describe('networkUrl', () => {
   const TEXT = '5 км тичане · СпортКарта';
-  const URL = 'https://sportnakarta.bg/trenirovki';
+  const URL = 'https://pops.bg/trenirovki';
 
   it('produces an absolute URL for every network, with nothing unescaped', () => {
     for (const network of NETWORKS) {

@@ -1,5 +1,6 @@
-import { CalendarDays, Map as MapIcon, MapPin, Plus, Trophy, User } from 'lucide-react';
+import { CalendarDays, Map as MapIcon, Plus, Trophy, User } from 'lucide-react';
 
+import { PopsMark } from '@/components/shell/pops-mark';
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
 
@@ -18,13 +19,18 @@ export const NAV = [
 ] as const;
 
 export type NavItem = (typeof NAV)[number];
-export type NavKey = NavItem['key'] | 'navAdd';
+export type NavKey = NavItem['key'] | 'navAdd' | 'navBrand' | 'navPrimary' | 'skipToContent';
 export type ActiveHref = NavItem['href'];
 
-export function BrandMark() {
+/**
+ * The brand mark („Усмивката") in raw coral — the mark's own colour, never a
+ * tile: the brand rules forbid boxing or recolouring it. `label` is the
+ * accessible name (Nav.navBrand), passed in because this file stays pure.
+ */
+export function BrandMark({ label }: { label: string }) {
   return (
-    <Link href="/" aria-label="SportKarta" className="grid size-9 place-items-center rounded-md bg-brand text-on-brand">
-      <MapPin size={20} />
+    <Link href="/" aria-label={label} className="grid size-11 place-items-center text-accent">
+      <PopsMark size={40} />
     </Link>
   );
 }
@@ -43,12 +49,13 @@ export function NavRail({
 }) {
   return (
     <nav
+      aria-label={labelFor('navPrimary')}
       className={cn(
         'flex w-[76px] shrink-0 flex-col items-center gap-1 border-r border-line bg-surface py-4',
         className,
       )}
     >
-      <BrandMark />
+      <BrandMark label={labelFor('navBrand')} />
       <div className="mt-4 flex flex-1 flex-col gap-1">
         {NAV.map((n) => (
           <NavRailItem key={n.key} item={n} active={n.href === active} label={labelFor(n.key)} />
@@ -95,7 +102,16 @@ export function BottomNav({
   className?: string;
 }) {
   return (
-    <div className={cn('flex h-14 items-center border-t border-line bg-surface', className)}>
+    <nav
+      aria-label={labelFor('navPrimary')}
+      className={cn(
+        // min-h + safe-area padding, not a fixed h-14: in the installed PWA the
+        // iOS/Android home indicator overlays the bottom edge, and the inset
+        // keeps the tabs above it.
+        'flex min-h-14 items-center border-t border-line bg-surface pb-[env(safe-area-inset-bottom)]',
+        className,
+      )}
+    >
       {NAV.slice(0, 2).map((n) => (
         <TabItem key={n.key} item={n} active={n.href === active} label={labelFor(n.key)} />
       ))}
@@ -106,11 +122,11 @@ export function BottomNav({
       <Link
         href="/dobavi"
         aria-label={labelFor('navAdd')}
-        className="absolute left-1/2 top-[-22px] grid size-[54px] -translate-x-1/2 place-items-center rounded-full border-[3px] border-surface bg-accent text-on-accent shadow-lg active:scale-[0.97]"
+        className="absolute left-1/2 top-[-22px] grid size-[54px] -translate-x-1/2 place-items-center rounded-full border-[3px] border-surface bg-accent text-on-accent shadow-lg transition-[transform,box-shadow] duration-150 ease-standard focus-visible:shadow-[var(--ring-accent)] active:scale-[0.97]"
       >
         <Plus size={26} />
       </Link>
-    </div>
+    </nav>
   );
 }
 
@@ -120,8 +136,12 @@ function TabItem({ item, active, label }: { item: NavItem; active: boolean; labe
     <Link
       href={item.href}
       aria-current={active ? 'page' : undefined}
-      className={`flex flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${
-        active ? 'text-brand' : 'text-text-muted'
+      // `h-full justify-center` rather than letting the content size the link:
+      // icon + label measured 42px inside the 56px bar, leaving 7px of dead
+      // strip above and below each tab and putting the primary navigation under
+      // the 44px touch floor. The bar is unchanged; the hit area now fills it.
+      className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 self-stretch text-[11px] font-semibold ${
+        active ? 'text-brand' : 'text-ink-soft'
       }`}
     >
       <Icon size={23} />

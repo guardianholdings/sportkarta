@@ -96,7 +96,9 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     return renderOgCard({
       eyebrow: day,
       title: view.title,
-      subtitle: view.facilityName ?? tOg('session.cta'),
+      // null, not the CTA: the footnote already carries it, and a missing
+      // facility must not print the same line twice on one card.
+      subtitle: view.facilityName ?? null,
       stats: [{ value: (timePart ?? '').slice(0, 5) || OG_MISSING, label: tOg('session.startsAt') }],
       footnote: tOg('session.cta'),
       wordmark,

@@ -95,11 +95,11 @@ function stat(value: string, label: string): string {
  */
 function conditionBar(data: MunicipalityAccountability, strings: WidgetStrings): string {
   const segments: [number, string, string][] = [
-    [data.conditionExcellent, '#059669', strings.conditionExcellent],
-    [data.conditionGood, '#84cc16', strings.conditionGood],
-    [data.conditionPoor, '#f59e0b', strings.conditionPoor],
-    [data.conditionUnusable, '#dc2626', strings.conditionUnusable],
-    [data.conditionUnreported, '#e5e7eb', strings.conditionUnreported],
+    [data.conditionExcellent, '#0B7A40', strings.conditionExcellent],
+    [data.conditionGood, '#0FA958', strings.conditionGood],
+    [data.conditionPoor, '#DD7C21', strings.conditionPoor],
+    [data.conditionUnusable, '#BB4333', strings.conditionUnusable],
+    [data.conditionUnreported, '#CFC9BC', strings.conditionUnreported],
   ];
   const whole = segments.reduce((sum, [n]) => sum + n, 0);
   if (whole === 0) return '';
@@ -137,10 +137,10 @@ export function renderWidget(input: WidgetInput): string {
 <meta name="robots" content="noindex">
 <title>${escapeHtml(input.cityName)} — ${escapeHtml(strings.title)}</title>
 <style>
-:root{color-scheme:light dark;--fg:#111827;--muted:#6b7280;--line:#e5e7eb;--bg:#fff}
-@media (prefers-color-scheme:dark){:root{--fg:#f3f4f6;--muted:#9ca3af;--line:#374151;--bg:#111827}}
+:root{color-scheme:light dark;--fg:#101418;--muted:#646A73;--line:#E3DFD4;--bg:#FEFDFB;--accent:#FF4A2B}
+@media (prefers-color-scheme:dark){:root{--fg:#F5F3EE;--muted:#8A9099;--line:#313D49;--bg:#101418}}
 *{box-sizing:border-box}
-body{margin:0;padding:12px;background:var(--bg);color:var(--fg);
+body{margin:0;padding:12px;background:var(--bg);color:var(--fg);border-top:3px solid var(--accent);
 font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 h1{margin:0 0 2px;font-size:15px;font-weight:600}
 .sub{margin:0 0 10px;font-size:12px;color:var(--muted)}

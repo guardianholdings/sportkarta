@@ -20,11 +20,24 @@
   --space-24:  6rem;     /* 96 */
   --space-32:  8rem;     /* 128 */
 
-  /* Layout */
-  --container-sm:  640px;
-  --container-md:  840px;
-  --container-lg:  1120px;
-  --container-xl:  1320px;
+  /* Layout
+     NAMED --layout-*, NOT --container-*, and that matters.
+
+     Tailwind v4 derives the `max-w-sm|md|lg|xl` utilities from the
+     `--container-*` namespace. These seed values are page-shell widths that
+     happen to reuse the same t-shirt names, and because they are declared in an
+     UNLAYERED :root they beat Tailwind's own `@layer theme` defaults — so
+     `max-w-sm` silently became 640px instead of 384px, `max-w-md` 840px instead
+     of 448px and `max-w-lg` 1120px instead of 512px, across the sign-in screen,
+     the QR check-in page, the roster and the desktop filter sheet.
+     Nothing ever read these tokens by name (they have zero `var(--container-*)`
+     consumers), so the collision was pure side effect. This is the same class of
+     bug RECONCILIATION C7 resolved for --radius-*, which was caught only because
+     someone noticed the corners. */
+  --layout-sm:  640px;
+  --layout-md:  840px;
+  --layout-lg:  1120px;
+  --layout-xl:  1320px;
   --gutter:        var(--space-6);
   --gutter-mobile: var(--space-4);
 

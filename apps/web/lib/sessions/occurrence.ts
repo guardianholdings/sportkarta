@@ -127,7 +127,10 @@ export async function occurrenceView(
     JOIN facilities f ON f.id = s.facility_id
     LEFT JOIN users u ON u.id = s.organizer_id
     WHERE o.id = ${occurrenceId}::uuid
-      AND s.visibility = 'public'
+      -- By-id read: the id IS the capability. 'unlisted' means reachable by
+      -- link while absent from listings (db/schema), so the page must resolve
+      -- it; only list/digest/sitemap queries stay public-only.
+      AND s.visibility IN ('public', 'unlisted')
   `);
   const row = result.rows[0];
   if (!row) return null;

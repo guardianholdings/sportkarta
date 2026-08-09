@@ -113,7 +113,7 @@ export default async function ResultsEditorPage({
       <p className="max-w-prose text-body-sm text-ink-soft">{t('intro')}</p>
 
       {anonymised > 0 && (
-        <p className="rounded bg-paper-sunk px-3 py-2 text-body-sm text-ink-soft">
+        <p className="rounded-md bg-paper-sunk px-3 py-2 text-body-sm text-ink-soft">
           {t('anonymisedPreserved', { count: anonymised })}
         </p>
       )}

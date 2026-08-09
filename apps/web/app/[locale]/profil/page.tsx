@@ -24,7 +24,7 @@ export const metadata = { robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
 
 const pillLink =
-  'inline-flex items-center gap-1.5 rounded-pill border border-line-strong bg-surface px-3 py-1.5 text-caption font-semibold text-ink-soft hover:bg-surface-2';
+  'inline-flex min-h-11 items-center gap-1.5 rounded-pill border border-line-strong bg-surface px-4 py-1.5 text-caption font-semibold text-ink-soft hover:bg-surface-2';
 
 export default async function ProfilePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;

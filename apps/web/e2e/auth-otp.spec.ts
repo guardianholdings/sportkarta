@@ -164,10 +164,22 @@ test.describe('role boundaries', () => {
     // their own scope. Both are admin-only, page as well as action.
     expect((await page.request.get('/admin/import')).status()).toBe(404);
     expect((await page.request.get('/admin/ambasadori')).status()).toBe(404);
-    // And neither link is dangled in front of them.
+    // Account management reads one member's ENTIRE record — contributions, play
+    // history, trainings, consent receipts. An ambassador's authority is a set
+    // of municipalities and has nothing to do with that, so both screens call
+    // requireRole('admin') rather than the panel-level gate that let them in
+    // here. The detail route is checked with a real id: a 404 from a missing
+    // account would pass this assertion for the wrong reason.
+    expect((await page.request.get('/admin/akaunti')).status()).toBe(404);
+    const ownId = (await query<{ id: string }>(`SELECT id FROM users WHERE email = $1`, [email]))[0]
+      ?.id;
+    expect(ownId, 'the ambassador fixture should exist').toBeTruthy();
+    expect((await page.request.get(`/admin/akaunti/${String(ownId)}`)).status()).toBe(404);
+    // And no link is dangled in front of them.
     await page.goto('/admin');
     await expect(page.getByRole('link', { name: /импорт|import/i })).toHaveCount(0);
     await expect(page.getByRole('link', { name: /амбасадори|ambassadors/i })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /акаунти|accounts/i })).toHaveCount(0);
   });
 
   test('the retired moderator role cannot be set at all', async ({ page }, testInfo) => {

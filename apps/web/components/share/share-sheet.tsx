@@ -90,7 +90,7 @@ export function ShareSheet({
       const response = await fetch(payload.storyPath, { credentials: 'same-origin' });
       if (!response.ok) return null;
       const blob = await response.blob();
-      return new File([blob], `sportnakarta-${payload.kind}.png`, { type: 'image/png' });
+      return new File([blob], `pops-${payload.kind}.png`, { type: 'image/png' });
     } catch {
       return null;
     }
@@ -174,8 +174,8 @@ export function ShareSheet({
             <div className="space-y-1">
               <a
                 href={payload.storyPath}
-                download={`sportnakarta-${payload.kind}.png`}
-                className="inline-flex items-center gap-1.5 rounded-pill border border-line-strong px-3 py-1.5 text-body-sm font-medium text-ink hover:bg-paper-sunk"
+                download={`pops-${payload.kind}.png`}
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-pill border border-line-strong px-4 py-1.5 text-body-sm font-medium text-ink hover:bg-paper-sunk"
                 data-umami-event={ANALYTICS_EVENTS.shareDownload}
               >
                 <Download size={16} />

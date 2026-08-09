@@ -31,16 +31,30 @@ export default async function SignInPage({
 
   return (
     <AppShell active="/profil">
-      <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center p-4">
-      <h1 className="mb-2 text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
-      <p className="mb-6 text-body-sm text-ink-soft">{t('intro')}</p>
-      {available ? (
-        <SignInForm googleEnabled={resolveGoogleAuth(process.env).enabled} next={next ?? ''} />
-      ) : (
-        <p role="alert" className="text-body-sm text-danger">
-          {t('error_auth_unavailable')}
-        </p>
-      )}
+      {/*
+        `min-h-screen` + `justify-center` used to live here, INSIDE AppShell's own
+        `min-h-dvh` shell and above its 56px tab bar — so the page was one
+        viewport plus a tab bar tall, always scrolled, and the form sat pushed
+        into the lower half under roughly 490px of empty paper at 390x844. It is
+        top-aligned with generous breathing room instead: the field a visitor
+        came here to fill is the first thing on the screen.
+
+        (`max-w-sm` also silently rendered at 640px until the --container-*
+        collision was resolved in design-tokens/spacing.css; it is 384px now,
+        which is the width this line always meant.)
+      */}
+      <main className="mx-auto w-full max-w-sm space-y-6 px-4 pt-10 pb-8 sm:pt-16">
+        <header className="space-y-2">
+          <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
+          <p className="text-body-sm text-ink-soft">{t('intro')}</p>
+        </header>
+        {available ? (
+          <SignInForm googleEnabled={resolveGoogleAuth(process.env).enabled} next={next ?? ''} />
+        ) : (
+          <p role="alert" className="text-body-sm text-danger">
+            {t('error_auth_unavailable')}
+          </p>
+        )}
       </main>
     </AppShell>
   );

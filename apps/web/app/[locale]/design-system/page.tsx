@@ -26,12 +26,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Chip } from '@/components/ui/chip';
 import { IconButton } from '@/components/ui/icon-button';
 import { Input } from '@/components/ui/input';
-import { MapMarker } from '@/components/ui/map-marker';
+import { Textarea } from '@/components/ui/textarea';
 import { Radio } from '@/components/ui/radio';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Select } from '@/components/ui/select';
 import { Stat } from '@/components/ui/stat';
 import { Switch } from '@/components/ui/switch';
+import { LoadingMark } from '@/components/shell/loading-mark';
 import { SPORT_VISUALS } from '@/lib/design/sport-visuals';
 import { CANONICAL_SPORTS, type CanonicalSport } from '@sportkarta/lib/sports';
 
@@ -66,6 +67,34 @@ function Swatch({ token, label }: { token: string; label?: string }) {
       />
       <code className="font-mono text-overline text-text-muted">{label ?? token}</code>
     </div>
+  );
+}
+
+/**
+ * The POPS smile pin, exactly as components/map/markers.ts draws it (same
+ * geometry, tip at the viewBox bottom-centre). `flat` renders the busy state's
+ * straight mouth — the mouth carries the information, the colour confirms it.
+ */
+function PopsPinDemo({ fill, flat = false }: { fill: string; flat?: boolean }) {
+  return (
+    <svg viewBox="0 0 100 100" width={36} height={36} aria-hidden="true">
+      <path
+        d="M50 96 C50 96 16 60 16 38 A34 34 0 1 1 84 38 C84 60 50 96 50 96 Z"
+        fill={fill}
+        stroke="var(--surface)"
+        strokeWidth={6}
+        paintOrder="stroke"
+      />
+      <circle cx={39} cy={flat ? 32 : 30} r={5} fill="var(--text-on-brand)" />
+      <circle cx={61} cy={flat ? 32 : 30} r={5} fill="var(--text-on-brand)" />
+      <path
+        d={flat ? 'M35 48 H65' : 'M32 42 A18 18 0 0 0 68 42'}
+        fill="none"
+        stroke="var(--text-on-brand)"
+        strokeWidth={7}
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 
@@ -109,12 +138,12 @@ export default function DesignSystemPage() {
         <Section id="color" title={t('sections.color')}>
           <Row label={t('groups.brand')}>
             {RAMP.map((step) => (
-              <Swatch key={step} token={`--pine-${step}`} label={`pine-${step}`} />
+              <Swatch key={step} token={`--green-${step}`} label={`green-${step}`} />
             ))}
           </Row>
           <Row label={t('groups.accent')}>
             {['50', '100', '200', '300', '400', '500', '600', '700'].map((step) => (
-              <Swatch key={step} token={`--clay-${step}`} label={`clay-${step}`} />
+              <Swatch key={step} token={`--coral-${step}`} label={`coral-${step}`} />
             ))}
           </Row>
           <Row label={t('groups.neutral')}>
@@ -175,7 +204,7 @@ export default function DesignSystemPage() {
         {/* ── Typography ─────────────────────────────────────────── */}
         <Section id="type" title={t('sections.type')}>
           <div className="flex flex-col gap-4">
-            <p className="text-display-lg font-extrabold tracking-tighter text-ink">{t('type.display')}</p>
+            <p className="t-display-lg text-ink">{t('type.display')}</p>
             <p className="text-h1 font-bold tracking-tight text-ink">{t('type.heading')}</p>
             <p className="text-body-lg text-ink">{t('type.body')}</p>
             <p className="text-body-sm text-ink-soft">{t('type.bodySmall')}</p>
@@ -280,6 +309,10 @@ export default function DesignSystemPage() {
           </Row>
           <Row label={t('states.invalid')}>
             <Input invalid defaultValue={t('demo.invalidValue')} className="max-w-xs" />
+          </Row>
+          <Row label="Textarea">
+            <Textarea placeholder={t('demo.search')} className="max-w-xs" rows={3} />
+            <Textarea invalid defaultValue={t('demo.invalidValue')} className="max-w-xs" rows={3} />
           </Row>
           <Row label="Select">
             <Select defaultValue="all" className="max-w-xs">
@@ -443,19 +476,26 @@ export default function DesignSystemPage() {
           </Row>
         </Section>
 
-        {/* ── MapMarker ──────────────────────────────────────────── */}
-        <Section id="map-marker" title="MapMarker">
-          <Row label={t('states.variants')}>
-            {filterSports.map((sport) => {
-              const { color, Icon } = SPORT_VISUALS[sport];
-              return <MapMarker key={sport} color={color} icon={<Icon size={18} />} />;
-            })}
+        {/* ── Loading (the animated mark) ────────────────────────── */}
+        <Section id="loading" title="Loading">
+          <Row label={t('states.default')}>
+            <LoadingMark size={64} label={t('title')} className="text-accent" />
           </Row>
+        </Section>
+
+        {/* ── Map pin (POPS smile pin) ───────────────────────────── */}
+        {/* The shipped pin from components/map/markers.ts: state lives in the
+            mouth + fill (free green / active coral / busy grey — busy has a
+            token and an asset but no data source yet). Family colours moved to
+            the list layer; the pin itself is monochrome-per-state. */}
+        <Section id="map-pin" title="Map pin">
           <Row label={t('states.states')}>
-            <MapMarker color="var(--cat-swim)" icon={<SPORT_VISUALS.swimming.Icon size={18} />} />
-            <MapMarker active color="var(--cat-swim)" icon={<SPORT_VISUALS.swimming.Icon size={18} />} />
-            <MapMarker variant="dot" color="var(--cat-run)" />
-            <MapMarker variant="cluster" color="var(--brand)" count={12} />
+            <PopsPinDemo fill="var(--pin-free)" />
+            <PopsPinDemo fill="var(--pin-active)" />
+            <PopsPinDemo flat fill="var(--pin-busy)" />
+            <span className="sk-cluster" style={{ width: 34, height: 34 }}>
+              12
+            </span>
           </Row>
         </Section>
 

@@ -71,14 +71,14 @@ export async function GET(
 
   return new Response(
     renderCalendar({
-      name: 'SportKarta',
-      prodId: '-//SportKarta//Play sessions//BG',
+      name: 'POPS',
+      prodId: '-//POPS//Play sessions//BG',
       events,
     }),
     {
       headers: {
         'Content-Type': 'text/calendar; charset=utf-8',
-        'Content-Disposition': 'inline; filename="sportkarta.ics"',
+        'Content-Disposition': 'inline; filename="pops.ics"',
         // Bearer-authenticated and personal: never a shared cache.
         'Cache-Control': 'private, no-store',
         'X-Robots-Tag': 'noindex, nofollow',

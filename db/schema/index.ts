@@ -518,10 +518,27 @@ export const facilityEdits = pgTable(
     // A change TO null is recorded as 'null'::jsonb; SQL NULL = "no value side".
     oldValue: jsonb('old_value'),
     newValue: jsonb('new_value'),
+    /**
+     * Metres between the contributor and the place, when the claim was made
+     * (0029). NULL = no position was offered, which is a DIFFERENT fact from a
+     * large number and must stay distinguishable from it.
+     *
+     * Never a coordinate: the browser's latitude and longitude live for the one
+     * statement that turns them into metres, exactly as
+     * `playSessionCheckins.distanceM` does. Evidence, not proof — see
+     * apps/web/lib/contributions/proximity.ts.
+     */
+    distanceM: integer('distance_m'),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
   },
   (t) => [
     index('facility_edits_facility_created_idx').on(t.facilityId, t.createdAt),
+    // Backstop for the application-side clamp; an unclamped spoofed coordinate
+    // would otherwise abort the transaction and destroy the contribution.
+    check(
+      'facility_edits_distance_sane',
+      sql`${t.distanceM} IS NULL OR ${t.distanceM} BETWEEN 0 AND 1000000`,
+    ),
     // GDPR erasure counts a person's audit rows by actor, and this table grows
     // without bound (every import writes one row per changed field). Indexing
     // it keeps a legally time-bound operation from getting slower every import.
@@ -549,9 +566,16 @@ export const facilityReports = pgTable(
     body: text('body'),
     photoId: uuid('photo_id').references(() => facilityPhotos.id, { onDelete: 'set null' }),
     status: reportStatus('status').notNull().default('pending'),
+    /** Metres between the reporter and the facility (0029). NULL = no position
+     *  offered. Never a coordinate — see facilityEdits.distanceM. */
+    distanceM: integer('distance_m'),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
   },
   (t) => [
+    check(
+      'facility_reports_distance_sane',
+      sql`${t.distanceM} IS NULL OR ${t.distanceM} BETWEEN 0 AND 1000000`,
+    ),
     index('facility_reports_pending_created_idx')
       .on(t.createdAt)
       .where(sql`${t.status} = 'pending'`),
@@ -2560,3 +2584,67 @@ export type DivisionGroup = typeof divisionGroups.$inferSelect;
 export type NewDivisionGroup = typeof divisionGroups.$inferInsert;
 export type DivisionMember = typeof divisionMembers.$inferSelect;
 export type NewDivisionMember = typeof divisionMembers.$inferInsert;
+
+/**
+ * Who read whose account, and when (0028).
+ *
+ * The accountability trail for the admin account-management module. See the
+ * migration header for the full reasoning; the three properties that must not
+ * be relaxed are:
+ *
+ *  - APPEND-ONLY, by trigger. A log an admin can edit is not a log.
+ *  - NO FOREIGN KEYS. `actorId` and `subjectId` are `users.id` carried BY VALUE.
+ *    A FK would let the subject's own erasure delete the evidence that their
+ *    data was read while it existed — silently, under CASCADE. After erasure the
+ *    id resolves to nothing, exactly like `moderationDecisions.actorId`.
+ *  - NARROW. Four columns. No note, no query, no address, no IP, no user agent:
+ *    an access log that accumulated those would become a second store of the
+ *    personal data it exists to protect, and the one store nobody would think to
+ *    include in an erasure. It records THAT a scope was opened, never what was
+ *    in it.
+ */
+export const accountAccessScope = pgEnum('account_access_scope', [
+  'overview',
+  'training',
+  'health',
+  'export',
+]);
+
+export const accountAccessLog = pgTable(
+  'account_access_log',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    /** The admin who looked. No FK — survives their own erasure. */
+    actorId: text('actor_id').notNull(),
+    /** The person whose data was read. No FK — survives THEIR erasure, which is
+     *  the point: erasing an account must not erase the record of access to it. */
+    subjectId: text('subject_id').notNull(),
+    scope: accountAccessScope('scope').notNull(),
+    viewedAt: timestamptz('viewed_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // "who has read this person's data" — the member-facing question.
+    index('account_access_log_subject_viewed_idx').on(t.subjectId, t.viewedAt.desc()),
+    // "what has this admin been reading" — the supervision question.
+    index('account_access_log_actor_viewed_idx').on(t.actorId, t.viewedAt.desc()),
+    // "who opened a health panel, ever" — a scan small enough to answer without
+    // naming an account first. Partial, because the other three scopes are
+    // routine and would bloat an index whose only purpose is the exceptional
+    // read. Declared here as well as in the migration: an index drizzle cannot
+    // see is one it will try to CREATE again the day somebody adds it.
+    index('account_access_log_health_idx')
+      .on(t.viewedAt.desc())
+      .where(sql`${t.scope} = 'health'`),
+    check('account_access_log_actor_not_blank', sql`btrim(${t.actorId}) <> ''`),
+    check('account_access_log_subject_not_blank', sql`btrim(${t.subjectId}) <> ''`),
+    // Both indexes are `viewed_at DESC` and the table is append-only, so a
+    // single 'infinity' row would head every "who read this person's data"
+    // answer forever and could never be corrected. The default is now(), but
+    // the column is insertable. Same bound 0027 introduced one migration ago.
+    check('account_access_log_viewed_at_finite', sql`isfinite(${t.viewedAt})`),
+  ],
+);
+
+export type AccountAccessLogRow = typeof accountAccessLog.$inferSelect;
+export type NewAccountAccessLogRow = typeof accountAccessLog.$inferInsert;
+export type AccountAccessScopeValue = (typeof accountAccessScope.enumValues)[number];

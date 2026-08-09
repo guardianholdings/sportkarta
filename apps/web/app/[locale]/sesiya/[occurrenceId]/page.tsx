@@ -1,11 +1,14 @@
+import { buildShare } from '@sportkarta/lib/share';
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
+import { ShareSheet } from '@/components/share/share-sheet';
 import { Link } from '@/i18n/navigation';
 import { getCurrentUser } from '@/lib/auth-session';
 import { occurrenceView } from '@/lib/sessions/occurrence';
 import { siteUrl } from '@/lib/seo';
+import { shareSheetStrings } from '@/lib/share/sheet-strings';
 
 import { cancelOccurrenceAction, cancelSeriesAction } from './actions';
 import { RsvpForm } from './rsvp-form';
@@ -49,10 +52,11 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   const card = `/og/${locale}/sesiya/${occurrenceId}/card.png`;
   return {
     title: t('metaTitle', { title: view.title }),
-    description: t('metaDescription', {
-      title: view.title,
-      facility: view.facilityName ?? '',
-    }),
+    // Without a facility the {facility} template would render a dangling
+    // „{title} в ." — fall back to the place-free variant instead.
+    description: view.facilityName
+      ? t('metaDescription', { title: view.title, facility: view.facilityName })
+      : t('metaDescriptionNoPlace', { title: view.title }),
     robots: { index: false, follow: false },
     openGraph: {
       title: t('metaTitle', { title: view.title }),
@@ -84,11 +88,12 @@ export default async function SessionPage({ params }: { params: PageParams }) {
   const view = await occurrenceView(occurrenceId, user?.id ?? null);
   if (!view) notFound();
 
-  const [t, tSport, tSkill, tCheckin] = await Promise.all([
+  const [t, tSport, tSkill, tCheckin, tShareSheet] = await Promise.all([
     getTranslations('Session'),
     getTranslations('Sport'),
     getTranslations('SessionSkill'),
     getTranslations('Checkin'),
+    getTranslations('ShareSheet'),
   ]);
 
   const dayFormat = new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'bg-BG', {
@@ -122,7 +127,10 @@ export default async function SessionPage({ params }: { params: PageParams }) {
       <header className="space-y-2">
         <h1 className="text-h2 font-extrabold tracking-tight text-ink">{view.title}</h1>
         {view.cancelled && (
-          <p role="status" className="rounded border border-danger-border bg-danger-bg p-3 text-danger">
+          <p
+            role="status"
+            className="rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-danger"
+          >
             {t('cancelledNotice')}
           </p>
         )}
@@ -183,6 +191,7 @@ export default async function SessionPage({ params }: { params: PageParams }) {
               <RsvpForm
                 occurrenceId={view.occurrenceId}
                 attending={view.viewerStatus !== null}
+                full={view.capacity !== null && view.going >= view.capacity}
                 labels={{
                   join: t('join'),
                   joinFull: t('joinFull'),
@@ -216,7 +225,7 @@ export default async function SessionPage({ params }: { params: PageParams }) {
 
       {view.viewerIsOrganizer && !view.cancelled && (
         <section aria-labelledby="org-h" className="space-y-3 rounded-card border border-line bg-surface p-3 shadow-sm">
-          <h2 id="org-h" className="text-body-sm font-semibold">
+          <h2 id="org-h" className="font-sans text-body-sm font-semibold">
             {t('labelOrganizer')}
           </h2>
           {/* Stage 5.4 + 4.3. Only the organiser of THIS series sees these, and
@@ -253,8 +262,25 @@ export default async function SessionPage({ params }: { params: PageParams }) {
         </section>
       )}
 
+      {!view.cancelled && (
+        /* C6: the session invite is the one share with an ACTION attached — it
+           recruits. Nothing person-scoped rides along: title, sport and day are
+           the public page's own content. */
+        <ShareSheet
+          payload={buildShare({
+            kind: 'session',
+            locale,
+            origin: siteUrl(),
+            page: `/sesiya/${view.occurrenceId}`,
+            ref: view.occurrenceId,
+            text: tShareSheet('textSession', { title: view.title, day }),
+          })}
+          strings={await shareSheetStrings('session')}
+        />
+      )}
+
       <section aria-labelledby="cal-h" className="space-y-2 border-t border-line pt-4">
-        <h2 id="cal-h" className="text-body-sm font-semibold">
+        <h2 id="cal-h" className="font-sans text-body-sm font-semibold">
           {t('calendarHeading')}
         </h2>
         <p className="text-body-sm">

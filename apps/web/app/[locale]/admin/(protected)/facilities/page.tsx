@@ -153,7 +153,7 @@ export default async function AdminFacilitiesPage({
                 <th scope="col" className="t-overline px-3 py-2.5 font-semibold">{t('colStatus')}</th>
                 <th scope="col" className="t-overline px-3 py-2.5 font-semibold">{t('colSource')}</th>
                 <th scope="col" className="t-overline px-3 py-2.5 font-semibold">{t('colUpdated')}</th>
-                <th scope="col" className="px-3 py-2.5" />
+                <th scope="col" className="t-overline px-3 py-2.5" />
               </tr>
             </thead>
             <tbody className="divide-y divide-line">

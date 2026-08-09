@@ -6,6 +6,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { localizedText } from '@/lib/campaigns';
 import { AppShell } from '@/components/shell/app-shell';
+import { campaignWindowLabel } from '@/lib/campaign-window';
 import { HeadlineStrip } from '@/components/partners/headline-strip';
 
 /**
@@ -62,12 +63,12 @@ export default async function CampaignsPage({
                       {localizedText(campaign.titleBg, campaign.titleEn, locale)}
                     </Link>
                   </h2>
-                  <span className="rounded bg-paper-sunk px-2 py-0.5 text-caption">
+                  <span className="rounded-pill bg-paper-sunk px-2.5 py-0.5 text-caption">
                     {t(`phase_${phase}`)}
                   </span>
                 </div>
                 <p className="mt-1 text-body-sm text-ink-soft">
-                  {campaign.window.startsOn} → {campaign.window.endsOn}
+                  {campaignWindowLabel(locale, campaign.window)}
                   {phase === 'running' && ` · ${t('daysLeft', { count: left })}`}
                 </p>
                 {campaign.blurbBg && (

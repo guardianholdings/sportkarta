@@ -15,6 +15,7 @@ import { SPORT_VISUALS } from '@/lib/design/sport-visuals';
 import { Link } from '@/i18n/navigation';
 
 import { addFacilityAction, type AddFacilityState } from './actions';
+import { PositionFields, PositionNotice, usePosition } from '@/components/facility/position-fields';
 
 const ACCESS_VALUES = ['free', 'paid', 'restricted', 'school'] as const;
 const INITIAL: AddFacilityState = { error: null };
@@ -29,6 +30,8 @@ export function AddFacilityForm({
   initialLat: number;
 }) {
   const t = useTranslations('AddFacility');
+  const tContribute = useTranslations('Contribute');
+  const { phase, latRef, lonRef } = usePosition();
   const tSport = useTranslations('Sport');
   const tAccess = useTranslations('Access');
   const [state, action, pending] = useActionState<AddFacilityState, FormData>(
@@ -48,6 +51,15 @@ export function AddFacilityForm({
 
   return (
     <form action={action} className="flex flex-col gap-6">
+      <PositionFields latRef={latRef} lonRef={lonRef} />
+      <PositionNotice
+        phase={phase}
+        labels={{
+          locating: tContribute('locating'),
+          granted: tContribute('locationGranted'),
+          denied: tContribute('locationDenied'),
+        }}
+      />
       <fieldset className="flex flex-col gap-2">
         <legend className={`mb-1 ${LEGEND}`}>{t('locationLegend')}</legend>
         <div className="overflow-hidden rounded-card border border-line">

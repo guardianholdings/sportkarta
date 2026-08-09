@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 
 import { OG_PALETTE } from '@/lib/og/palette';
 import { renderStoryCard } from '@/lib/og/story';
+import { OG_MISSING } from '@/lib/og/card';
 import { getFacilityBySlug } from '@/lib/public-data';
 import { occurrenceView } from '@/lib/sessions/occurrence';
 
@@ -106,7 +107,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     }).format(new Date(`${datePart ?? ''}T00:00:00`));
     return renderStoryCard({
       eyebrow: day,
-      hero: (timePart ?? '').slice(0, 5) || '—',
+      hero: (timePart ?? '').slice(0, 5) || OG_MISSING,
       heroLabel: tStory('session.heroLabel'),
       title: view.title,
       subtitle: view.facilityName,
@@ -130,7 +131,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     // would be the Wrapped-2024 failure.
     // Title-led for the same reason: no figure means anything before anyone has
     // joined, and an invented one would be the Wrapped-2024 failure.
-    title: title || '—',
+    title: title || OG_MISSING,
     subtitle: blurb ?? null,
     wordmark,
     callToAction,

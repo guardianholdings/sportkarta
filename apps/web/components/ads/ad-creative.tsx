@@ -25,7 +25,7 @@ export function AdCreative({
 }) {
   return (
     <aside aria-label={label} className="space-y-1">
-      <p className="text-caption uppercase tracking-wide text-text-faint">{label}</p>
+      <p className="t-overline">{label}</p>
       <a
         href={url}
         target="_blank"

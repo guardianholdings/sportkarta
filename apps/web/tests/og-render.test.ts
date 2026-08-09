@@ -35,7 +35,7 @@ describe('OG card rendering', () => {
         eyebrow: 'София · Триадица',
         title: 'Фитнес на открито — Южен парк',
         subtitle: 'фитнес · стрийт фитнес',
-        wordmark: 'СпортКарта',
+        wordmark: 'Повече от просто спорт',
         attribution: '© OpenStreetMap · Protomaps',
       }) as unknown as Response,
     );
@@ -54,14 +54,14 @@ describe('OG card rendering', () => {
   it('renders with every optional row omitted', { timeout: 30_000 }, async () => {
     // A missing field must remove its ROW, never print an empty band or "null".
     const png = await bytesOf(
-      renderOgCard({ title: 'Без допълнения', wordmark: 'СпортКарта' }) as unknown as Response,
+      renderOgCard({ title: 'Без допълнения', wordmark: 'POPS' }) as unknown as Response,
     );
     expect(png.subarray(0, 4).equals(PNG_MAGIC)).toBe(true);
     expect(png.readUInt32BE(16)).toBe(1200);
   });
 
   it('carries a long-lived cache header — correct for PUBLIC cards only', { timeout: 30_000 }, () => {
-    const res = renderOgCard({ title: 'Кампания', wordmark: 'СпортКарта' }) as unknown as Response;
+    const res = renderOgCard({ title: 'Кампания', wordmark: 'Повече от просто спорт' }) as unknown as Response;
     const cache = res.headers.get('cache-control') ?? '';
     expect(cache).toContain('public');
     // Pinned deliberately: this default is RIGHT here (a facility card names no

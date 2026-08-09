@@ -5,8 +5,10 @@ import { useActionState, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Radio } from '@/components/ui/radio';
+import { Textarea } from '@/components/ui/textarea';
 import { Link } from '@/i18n/navigation';
 import { submitReport, type ReportState } from '@/app/[locale]/obekt/[slug]/report-actions';
+import { PositionFields, PositionNotice, usePosition } from '@/components/facility/position-fields';
 
 const ISSUES = [
   'broken_equipment',
@@ -27,6 +29,8 @@ interface ReportFormProps {
 
 export function ReportForm({ slug, formToken }: ReportFormProps) {
   const t = useTranslations('Report');
+  const tContribute = useTranslations('Contribute');
+  const { phase, latRef, lonRef } = usePosition();
   const [open, setOpen] = useState(false);
   const [bodyLen, setBodyLen] = useState(0);
   const [state, formAction, pending] = useActionState(submitReport, initialState);
@@ -49,6 +53,15 @@ export function ReportForm({ slug, formToken }: ReportFormProps) {
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
+      <PositionFields latRef={latRef} lonRef={lonRef} />
+      <PositionNotice
+        phase={phase}
+        labels={{
+          locating: tContribute('locating'),
+          granted: tContribute('locationGranted'),
+          denied: tContribute('locationDenied'),
+        }}
+      />
       <h2 className="text-h4 font-bold text-ink">{t('title')}</h2>
 
       <input type="hidden" name="slug" value={slug} />
@@ -81,13 +94,12 @@ export function ReportForm({ slug, formToken }: ReportFormProps) {
         <span className="font-mono text-overline uppercase tracking-overline text-text-muted">
           {t('bodyLabel')}
         </span>
-        <textarea
+        <Textarea
           name="body"
           maxLength={MAX_BODY}
           rows={3}
           placeholder={t('bodyPlaceholder')}
           onChange={(e) => setBodyLen(e.target.value.length)}
-          className="w-full rounded-input border border-line-strong bg-surface px-3.5 py-2.5 text-body placeholder:text-text-faint focus-visible:border-brand"
         />
         <span className="font-mono text-caption text-text-muted">
           {t('charCount', { n: bodyLen, max: MAX_BODY })}

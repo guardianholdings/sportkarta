@@ -11,6 +11,7 @@ import { getCurrentUser } from '@/lib/auth-session';
 import { localizedText } from '@/lib/campaigns';
 import { cityDisplayName, loadCityCatalog } from '@/lib/places';
 import { AppShell } from '@/components/shell/app-shell';
+import { campaignWindowLabel } from '@/lib/campaign-window';
 
 /**
  * A campaign's landing page (docs/ROADMAP.md §7, Stage 5.3).
@@ -91,7 +92,7 @@ export default async function CampaignPage({ params }: { params: PageParams }) {
       <main className="mx-auto max-w-2xl space-y-8 p-4">
       <header className="space-y-3 border-b border-line pb-4">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded bg-paper-sunk px-2 py-0.5 text-caption">{t(`phase_${phase}`)}</span>
+          <span className="rounded-pill bg-paper-sunk px-2.5 py-0.5 text-caption">{t(`phase_${phase}`)}</span>
           {phase === 'running' && leadWithCountdown && (
             <span className="rounded-pill bg-brand px-2 py-0.5 text-caption font-semibold text-on-brand">
               {t('daysLeft', { count: daysRemaining(campaign.window, now) })}
@@ -100,7 +101,7 @@ export default async function CampaignPage({ params }: { params: PageParams }) {
         </div>
         <h1 className="text-h2 font-extrabold tracking-tight text-ink">{title}</h1>
         <p className="text-body-sm text-text-muted">
-          {campaign.window.startsOn} → {campaign.window.endsOn}
+          {campaignWindowLabel(locale, campaign.window)}
           {phase === 'running' && !leadWithCountdown &&
             ` · ${t('daysLeft', { count: daysRemaining(campaign.window, now) })}`}
         </p>
@@ -109,7 +110,7 @@ export default async function CampaignPage({ params }: { params: PageParams }) {
 
       {prize && (
         <section className="rounded-card border border-brand-border bg-brand-subtle p-4">
-          <h2 className="text-body-sm font-semibold uppercase text-text-muted">{t('prizeTitle')}</h2>
+          <h2 className="t-overline">{t('prizeTitle')}</h2>
           <p className="mt-1 text-body-sm">{prize}</p>
         </section>
       )}
@@ -145,7 +146,7 @@ export default async function CampaignPage({ params }: { params: PageParams }) {
           <p className="text-body-sm text-ink-soft">{t('finishedBody')}</p>
           <Link
             href={`/kampanii/${campaign.slug}/rezultati`}
-            className="inline-block rounded-pill bg-brand px-3 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover"
+            className="inline-flex min-h-11 items-center rounded-pill bg-brand px-5 text-body-sm font-semibold text-on-brand shadow-xs transition-[background-color,box-shadow] duration-150 ease-standard hover:bg-brand-hover focus-visible:shadow-[var(--ring)]"
           >
             {t('seeResults')}
           </Link>

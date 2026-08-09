@@ -329,7 +329,7 @@ function GridForm({
       <button
         type="submit"
         disabled={pending || selected.size === 0}
-        className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-50"
+        className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover disabled:opacity-50"
       >
         {L('create')} ({selected.size})
       </button>
@@ -361,7 +361,7 @@ function CsvForm({ labels }: { labels: Labels }) {
       <button
         type="submit"
         disabled={pending}
-        className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-50"
+        className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover disabled:opacity-50"
       >
         {L('csvParse')}
       </button>
@@ -443,7 +443,7 @@ function MappingForm({ state, labels }: { state: BulkState; labels: Labels }) {
       <button
         type="submit"
         disabled={pending}
-        className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-50"
+        className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover disabled:opacity-50"
       >
         {L('preview')}
       </button>
@@ -468,7 +468,7 @@ function PreviewForm({ state, labels }: { state: BulkState; labels: Labels }) {
       <button
         type="submit"
         disabled={pending || (state.validCount ?? 0) === 0}
-        className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-50"
+        className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover disabled:opacity-50"
       >
         {L('confirmImport').replace('{count}', String(state.validCount ?? 0))}
       </button>

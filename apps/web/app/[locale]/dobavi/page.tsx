@@ -4,6 +4,7 @@ import { requireUser } from '@/lib/auth-session';
 import { Link } from '@/i18n/navigation';
 
 import { AddFacilityForm } from './add-facility-form';
+import { AppShell } from '@/components/shell/app-shell';
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -45,7 +46,8 @@ export default async function AddFacilityPage({
   const lat = coordinate(sp.lat, 90) ?? DEFAULT_CENTRE.lat;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-5">
+    <AppShell>
+      <main className="mx-auto max-w-2xl px-4 py-5">
       <Link
         href="/"
         className="mb-4 inline-flex text-body-sm font-medium text-ink-soft hover:text-brand"
@@ -58,5 +60,6 @@ export default async function AddFacilityPage({
         <AddFacilityForm initialLon={lon} initialLat={lat} />
       </div>
     </main>
+    </AppShell>
   );
 }

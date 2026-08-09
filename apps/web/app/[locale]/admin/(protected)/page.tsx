@@ -35,7 +35,7 @@ export default async function AdminDashboardPage({
       </div>
       <Link
         href="/admin/verify"
-        className="inline-flex h-11 items-center gap-2 rounded-pill bg-brand px-5 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover"
+        className="inline-flex h-11 items-center gap-2 rounded-pill bg-brand px-5 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover"
       >
         {t('verifyCta')}
         <ArrowRight size={18} />

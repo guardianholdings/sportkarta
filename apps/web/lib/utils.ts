@@ -5,7 +5,7 @@ import { extendTailwindMerge } from 'tailwind-merge';
 // (text-body-sm, text-overline, text-h1 …). Tailwind-merge must know these are
 // FONT SIZES, not colours — otherwise `text-body-sm` and `text-on-brand` look
 // like the same `text-*` group and it drops one, silently killing a button's
-// text colour (pine-on-pine). Teaching it the size names keeps them distinct.
+// text colour (brand-on-brand). Teaching it the size names keeps them distinct.
 const twMerge = extendTailwindMerge({
   extend: {
     classGroups: {

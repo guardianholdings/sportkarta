@@ -11,7 +11,7 @@ export async function FacilityList({ facilities }: { facilities: ScopedFacility[
   ]);
 
   return (
-    <ul className="divide-y divide-line rounded-card border border-line">
+    <ul className="divide-y divide-line overflow-hidden rounded-card border border-line">
       {facilities.map((f) => {
         const name = f.name ?? tFacility('unnamed');
         const sports = f.sportTypes.slice(0, 3).map((s) => tSport(s));

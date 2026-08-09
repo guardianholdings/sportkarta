@@ -5,6 +5,7 @@ import maplibregl from 'maplibre-gl';
 import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
 
+import { createStaticPin } from '@/components/map/markers';
 import { ensurePmtilesProtocol } from '@/lib/map/pmtiles';
 import { buildMapStyle, mapAssetUrls } from '@/lib/map/style';
 
@@ -64,7 +65,11 @@ export function PinPicker({ initialLon, initialLat }: PinPickerProps) {
     }
     mapRef.current = map;
 
-    const marker = new maplibregl.Marker({ draggable: true, color: '#0f766e' })
+    const marker = new maplibregl.Marker({
+      draggable: true,
+      element: createStaticPin(44),
+      anchor: 'bottom',
+    })
       .setLngLat([initialLon, initialLat])
       .addTo(map);
     markerRef.current = marker;
@@ -121,7 +126,7 @@ export function PinPicker({ initialLon, initialLat }: PinPickerProps) {
         ref={containerRef}
         role="application"
         aria-label={t('mapLabel')}
-        className="h-72 w-full rounded border border-line-strong bg-paper-sunk"
+        className="h-72 w-full overflow-hidden rounded-lg border border-line-strong bg-paper-sunk"
       />
       <input type="hidden" name="lon" value={position.lon} />
       <input type="hidden" name="lat" value={position.lat} />
@@ -131,7 +136,7 @@ export function PinPicker({ initialLon, initialLat }: PinPickerProps) {
           type="button"
           onClick={locateMe}
           disabled={locating}
-          className="rounded-pill border border-line-strong bg-surface px-3 py-1.5 font-semibold text-ink-soft hover:bg-surface-2 disabled:opacity-50"
+          className="min-h-11 rounded-pill border border-line-strong bg-surface px-4 py-1.5 font-semibold text-ink-soft hover:bg-surface-2 disabled:opacity-50"
         >
           {locating ? t('locating') : t('useMyLocation')}
         </button>

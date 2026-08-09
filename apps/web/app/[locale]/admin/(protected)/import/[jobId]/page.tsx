@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { Link } from '@/i18n/navigation';
 import { getImportJob } from '@/lib/admin-data';
+import { requireRole } from '@/lib/auth-session';
 
 export default async function AdminImportJobPage({
   params,
@@ -11,6 +12,9 @@ export default async function AdminImportJobPage({
 }) {
   const { locale, jobId } = await params;
   setRequestLocale(locale);
+  // Imports rewrite national data: admin-only, like the index page — the
+  // (protected) layout alone admits ambassadors.
+  await requireRole('admin');
   const [t, job] = await Promise.all([getTranslations('AdminImport'), getImportJob(jobId)]);
   if (!job) notFound();
 

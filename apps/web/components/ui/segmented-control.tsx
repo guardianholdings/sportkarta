@@ -51,7 +51,7 @@ export function SegmentedControl({
             aria-selected={active}
             onClick={() => onChange?.(item.value)}
             className={cn(
-              'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-pill font-medium transition-[background-color,color,box-shadow] duration-150 ease-standard [&_svg]:shrink-0',
+              'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-pill font-medium transition-[background-color,color,box-shadow] duration-150 ease-standard focus-visible:shadow-[var(--ring)] [&_svg]:shrink-0',
               size === 'sm' ? 'h-8 px-3 text-body-sm' : 'h-9 px-4 text-body-sm',
               fullWidth && 'flex-1',
               active

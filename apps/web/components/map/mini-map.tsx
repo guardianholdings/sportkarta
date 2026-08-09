@@ -3,6 +3,7 @@
 import maplibregl from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
 
+import { createStaticPin } from '@/components/map/markers';
 import { ensurePmtilesProtocol } from '@/lib/map/pmtiles';
 import { buildMapStyle, mapAssetUrls } from '@/lib/map/style';
 
@@ -39,7 +40,9 @@ export default function MiniMap({ lon, lat, label }: MiniMapProps) {
       console.error('MapLibre mini-map init failed', error);
       return;
     }
-    const marker = new maplibregl.Marker({ color: '#059669' }).setLngLat([lon, lat]).addTo(map);
+    const marker = new maplibregl.Marker({ element: createStaticPin(36), anchor: 'bottom' })
+      .setLngLat([lon, lat])
+      .addTo(map);
     map.getCanvas().setAttribute('aria-label', label);
 
     return () => {

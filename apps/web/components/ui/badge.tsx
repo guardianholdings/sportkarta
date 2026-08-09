@@ -32,7 +32,7 @@ const TONE: Record<BadgeTone, Record<BadgeVariant, string>> = {
   },
   accent: {
     soft: 'bg-accent-subtle text-accent-active',
-    solid: 'bg-accent text-on-accent',
+    solid: 'bg-accent-active text-on-accent',
     outline: 'border border-accent-border text-accent-active',
   },
   success: {

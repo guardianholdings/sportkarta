@@ -1,6 +1,7 @@
 import { Map as MapIcon } from 'lucide-react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
+import { AdminNav } from '@/components/shell/admin-nav';
 import { BrandMark } from '@/components/shell/app-nav';
 import { Link } from '@/i18n/navigation';
 import { requireAdmin } from '@/lib/auth-session';
@@ -28,6 +29,7 @@ export default async function AdminLayout({
   // Show the person, not the opaque id that audit rows carry.
   const actor = user.displayName || user.email;
   const t = await getTranslations('AdminNav');
+  const tNav = await getTranslations('Nav');
 
   // Ambassadors get the review tools (scoped to their municipalities); imports
   // rewrite national data and stay admin-only, so that link is hidden instead.
@@ -36,6 +38,9 @@ export default async function AdminLayout({
     { href: '/admin/facilities', label: t('facilities'), minRole: 'ambassador' },
     { href: '/admin/verify', label: t('verify'), minRole: 'ambassador' },
     { href: '/admin/moderation', label: t('moderation'), minRole: 'ambassador' },
+    // Admin-only: reading one member's whole record is not an ambassador's job,
+    // and both screens enforce that with requireRole('admin') themselves.
+    { href: '/admin/akaunti', label: t('accounts'), minRole: 'admin' },
     { href: '/admin/sesii', label: t('bulkSessions'), minRole: 'admin' },
     { href: '/admin/rezultati', label: t('results'), minRole: 'admin' },
     { href: '/admin/kampanii', label: t('campaigns'), minRole: 'admin' },
@@ -53,7 +58,7 @@ export default async function AdminLayout({
       <header className="mb-6 border-b border-line pb-4">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="flex items-center gap-2.5">
-            <BrandMark />
+            <BrandMark label={tNav('navBrand')} />
             <span className="t-overline">{t('title')}</span>
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -75,17 +80,7 @@ export default async function AdminLayout({
             </form>
           </div>
         </div>
-        <nav className="mt-3 flex flex-wrap gap-1">
-          {visibleItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="rounded-pill px-3 py-1.5 text-body-sm font-medium text-ink-soft hover:bg-brand-subtle hover:text-brand"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <AdminNav items={visibleItems.map(({ href, label }) => ({ href, label }))} />
       </header>
       {children}
     </div>

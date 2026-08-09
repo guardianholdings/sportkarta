@@ -82,7 +82,7 @@ export async function DivisionLadder({
         </p>
       </header>
 
-      <ol className="divide-y divide-line rounded-card border border-line bg-surface">
+      <ol className="divide-y divide-line overflow-hidden rounded-card border border-line bg-surface">
         {sections.map((section) => {
           const heading = headingFor(section.zone);
           return (

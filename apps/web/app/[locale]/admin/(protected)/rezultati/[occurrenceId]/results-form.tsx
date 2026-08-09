@@ -121,14 +121,14 @@ function ManualForm({
                       name="participant"
                       defaultValue={row?.participant ?? ''}
                       placeholder={L('participantHint')}
-                      className="w-full rounded border border-line-strong p-1.5"
+                      className="w-full rounded-md border border-line-strong p-1.5"
                     />
                   </td>
                   <td className="p-1">
                     <input
                       name="team"
                       defaultValue={row?.team ?? ''}
-                      className="w-full rounded border border-line-strong p-1.5"
+                      className="w-full rounded-md border border-line-strong p-1.5"
                     />
                   </td>
                   <td className="p-1">
@@ -137,7 +137,7 @@ function ManualForm({
                       type="number"
                       min={1}
                       defaultValue={row?.position ?? ''}
-                      className="w-20 rounded border border-line-strong p-1.5"
+                      className="w-20 rounded-md border border-line-strong p-1.5"
                     />
                   </td>
                   <td className="p-1">
@@ -145,7 +145,7 @@ function ManualForm({
                       name="score"
                       defaultValue={row?.score ?? ''}
                       placeholder={L('scoreHint')}
-                      className="w-full rounded border border-line-strong p-1.5"
+                      className="w-full rounded-md border border-line-strong p-1.5"
                     />
                   </td>
                   <td className="p-1">
@@ -153,7 +153,7 @@ function ManualForm({
                       name="note"
                       defaultValue={row?.note ?? ''}
                       placeholder={L('noteHint')}
-                      className="w-full rounded border border-line-strong p-1.5"
+                      className="w-full rounded-md border border-line-strong p-1.5"
                     />
                   </td>
                 </tr>
@@ -176,7 +176,7 @@ function ManualForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-pill bg-brand px-4 py-2 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-50"
+          className="rounded-pill bg-brand px-4 py-2 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover disabled:opacity-50"
         >
           {L('save')}
         </button>
@@ -214,7 +214,7 @@ function CsvFlow({ occurrenceId, labels }: { occurrenceId: string; labels: Label
       <button
         type="submit"
         disabled={pending}
-        className="rounded-pill bg-brand px-4 py-2 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-50"
+        className="rounded-pill bg-brand px-4 py-2 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover disabled:opacity-50"
       >
         {L('csvImport')}
       </button>
@@ -262,7 +262,7 @@ function MappingStep({
       <button
         type="submit"
         disabled={pending}
-        className="rounded-pill bg-brand px-4 py-2 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-50"
+        className="rounded-pill bg-brand px-4 py-2 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover disabled:opacity-50"
       >
         {L('save')}
       </button>
@@ -306,7 +306,7 @@ function PreviewStep({
       <button
         type="submit"
         disabled={pending || (state.validCount ?? 0) === 0}
-        className="rounded-pill bg-brand px-4 py-2 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-50"
+        className="rounded-pill bg-brand px-4 py-2 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover disabled:opacity-50"
       >
         {L('save')} ({state.validCount ?? 0})
       </button>

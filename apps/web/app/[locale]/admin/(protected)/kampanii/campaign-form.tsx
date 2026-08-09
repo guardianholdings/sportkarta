@@ -65,7 +65,7 @@ export function CampaignForm({
       {campaign && <input type="hidden" name="id" value={campaign.id} />}
 
       <section className="space-y-4">
-        <h2 className="text-body-sm font-semibold uppercase text-text-muted">{t('sectionBasics')}</h2>
+        <h2 className="t-overline">{t('sectionBasics')}</h2>
 
         <label className="block space-y-1">
           <span className="text-body-sm font-medium">{t('slugLabel')}</span>
@@ -145,7 +145,7 @@ export function CampaignForm({
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-body-sm font-semibold uppercase text-text-muted">{t('sectionWindow')}</h2>
+        <h2 className="t-overline">{t('sectionWindow')}</h2>
         <div className="flex flex-wrap gap-4">
           <label className="space-y-1">
             <span className="block text-caption font-medium text-ink-soft">{t('startsOnLabel')}</span>
@@ -160,7 +160,7 @@ export function CampaignForm({
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-body-sm font-semibold uppercase text-text-muted">{t('sectionScope')}</h2>
+        <h2 className="t-overline">{t('sectionScope')}</h2>
         <label className="block space-y-1">
           <span className="text-body-sm font-medium">{t('scopeLabel')}</span>
           <select
@@ -205,7 +205,7 @@ export function CampaignForm({
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-body-sm font-semibold uppercase text-text-muted">{t('sectionScoring')}</h2>
+        <h2 className="t-overline">{t('sectionScoring')}</h2>
         <p className="text-caption text-text-muted">{t('scoringHint')}</p>
 
         <ul className="space-y-2">
@@ -260,7 +260,7 @@ export function CampaignForm({
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-body-sm font-semibold uppercase text-text-muted">{t('sectionBoard')}</h2>
+        <h2 className="t-overline">{t('sectionBoard')}</h2>
         <label className="block space-y-1">
           <span className="text-body-sm font-medium">{t('leaderboardTypeLabel')}</span>
           <select
@@ -307,7 +307,7 @@ export function CampaignForm({
       <button
         type="submit"
         disabled={pending}
-        className="rounded-pill bg-brand px-4 py-2 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-50"
+        className="rounded-pill bg-brand px-4 py-2 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover disabled:opacity-50"
       >
         {campaign ? t('save') : t('create')}
       </button>

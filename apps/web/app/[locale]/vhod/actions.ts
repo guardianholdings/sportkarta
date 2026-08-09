@@ -54,7 +54,18 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
     .trim()
     .toLowerCase();
   const locale = resolveLocale(formData.get('locale'));
-  const step = formData.get('step') === 'code' ? 'code' : 'email';
+  /**
+   * Two escape hatches from the code step, both plain submit buttons so the
+   * form still works without JavaScript. Without them a member whose code never
+   * arrives — or who mistyped the address — has no way forward but the browser
+   * back button, on the screen with the highest drop-off in the product.
+   *
+   * `restart` returns to the email step (nothing is sent). `resend` re-runs the
+   * email step, so it goes through the same rate limiters as a first request.
+   */
+  if (formData.get('restart') === '1') return { step: 'email', email, error: null };
+  const resend = formData.get('resend') === '1';
+  const step = resend ? 'email' : formData.get('step') === 'code' ? 'code' : 'email';
 
   if (!auth) return { step: 'email', email, error: 'auth_unavailable' };
   if (!EMAIL_PATTERN.test(email)) return { step: 'email', email, error: 'invalid_email' };
@@ -62,7 +73,17 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
   if (step === 'email') {
     const ip = await clientKey();
     if (!otpIpRateLimiter.check(ip).allowed || !otpEmailRateLimiter.check(email).allowed) {
-      return { step: 'email', email, error: 'throttled' };
+      /**
+       * A REFUSED RESEND MUST NOT EVICT THE MEMBER FROM THE CODE STEP.
+       *
+       * The email limiter allows 5 sends per 10 minutes. Somebody tapping
+       * "resend" a couple of times while slow mail is in flight would otherwise
+       * be thrown back to the email screen — where they are throttled too — with
+       * no way to return, while a perfectly valid code sits in their inbox for
+       * up to ten minutes. The throttle is reported in place: they still have
+       * the code field, and the code they already have still works.
+       */
+      return { step: resend ? 'code' : 'email', email, error: 'throttled' };
     }
 
     try {

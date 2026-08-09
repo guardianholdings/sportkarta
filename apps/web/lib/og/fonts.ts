@@ -35,32 +35,47 @@ import { join } from 'node:path';
 const FONT_DIR = join(process.cwd(), 'public', 'fonts', 'og');
 
 export const OG_FONT_FILES = {
-  manrope400: 'manrope-cyrillic-400-normal.woff',
-  manrope600: 'manrope-cyrillic-600-normal.woff',
-  manrope800: 'manrope-cyrillic-800-normal.woff',
+  golos400: 'golos-text-cyrillic-400-normal.woff',
+  golos400latin: 'golos-text-latin-400-normal.woff',
+  golos600: 'golos-text-cyrillic-600-normal.woff',
+  golos600latin: 'golos-text-latin-600-normal.woff',
+  unbounded700: 'unbounded-cyrillic-700-normal.woff',
+  unbounded700latin: 'unbounded-latin-700-normal.woff',
+  unbounded800: 'unbounded-cyrillic-800-normal.woff',
+  unbounded800latin: 'unbounded-latin-800-normal.woff',
   mono500: 'jetbrains-mono-cyrillic-500-normal.woff',
 } as const;
 
 export const OG_FONT_DIR = FONT_DIR;
 
 /** Satori's font descriptor list. Read at module scope — a 1200×630 render must
- *  not re-read four files per request. */
+ *  not re-read nine files per request. */
 let cached: OgFont[] | null = null;
 
 export interface OgFont {
   name: string;
   data: Buffer;
-  weight: 400 | 500 | 600 | 800;
+  weight: 400 | 500 | 600 | 700 | 800;
   style: 'normal';
 }
 
 export function ogFonts(): OgFont[] {
   if (cached) return cached;
   const read = (file: string): Buffer => readFileSync(join(FONT_DIR, file));
+  // Two buffers per family+weight: satori resolves glyphs per-run across the
+  // whole list, so the cyrillic subset shapes Bulgarian and the latin subset
+  // shapes "POPS", digits and units — without the latin file those fell back
+  // to the vendored Latin-only Noto Sans, i.e. the EN wordmark was never
+  // actually Unbounded. Cyrillic first, mirroring app/fonts.css.
   cached = [
-    { name: 'Manrope', data: read(OG_FONT_FILES.manrope400), weight: 400, style: 'normal' },
-    { name: 'Manrope', data: read(OG_FONT_FILES.manrope600), weight: 600, style: 'normal' },
-    { name: 'Manrope', data: read(OG_FONT_FILES.manrope800), weight: 800, style: 'normal' },
+    { name: 'Golos Text', data: read(OG_FONT_FILES.golos400), weight: 400, style: 'normal' },
+    { name: 'Golos Text', data: read(OG_FONT_FILES.golos400latin), weight: 400, style: 'normal' },
+    { name: 'Golos Text', data: read(OG_FONT_FILES.golos600), weight: 600, style: 'normal' },
+    { name: 'Golos Text', data: read(OG_FONT_FILES.golos600latin), weight: 600, style: 'normal' },
+    { name: 'Unbounded', data: read(OG_FONT_FILES.unbounded700), weight: 700, style: 'normal' },
+    { name: 'Unbounded', data: read(OG_FONT_FILES.unbounded700latin), weight: 700, style: 'normal' },
+    { name: 'Unbounded', data: read(OG_FONT_FILES.unbounded800), weight: 800, style: 'normal' },
+    { name: 'Unbounded', data: read(OG_FONT_FILES.unbounded800latin), weight: 800, style: 'normal' },
     { name: 'JetBrains Mono', data: read(OG_FONT_FILES.mono500), weight: 500, style: 'normal' },
   ];
   return cached;

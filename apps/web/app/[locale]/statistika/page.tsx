@@ -108,9 +108,9 @@ export default async function StatsPage({ params }: { params: PageParams }) {
 
       <section className="grid gap-6 md:grid-cols-2">
         <BarChart title={t('chartTopMunicipalities')} bars={topMunicipalities} />
-        <BarChart title={t('chartTopSports')} bars={topSports} color="#059669" />
-        <BarChart title={t('chartAccess')} bars={accessBars} color="#0f766e" />
-        <BarChart title={t('chartPer10k')} bars={per10kBars} color="#2563eb" />
+        <BarChart title={t('chartTopSports')} bars={topSports} color="var(--brand)" />
+        <BarChart title={t('chartAccess')} bars={accessBars} color="var(--accent)" />
+        <BarChart title={t('chartPer10k')} bars={per10kBars} color="var(--sky-500)" />
       </section>
 
       <section aria-labelledby="table-h">
@@ -136,13 +136,7 @@ export default async function StatsPage({ params }: { params: PageParams }) {
         <h2 id="dl-h" className="mb-2 text-h4 font-bold text-ink">
           {t('downloadHeading')}
         </h2>
-        <button
-          type="button"
-          disabled
-          className="cursor-not-allowed rounded-md border border-line-strong px-4 py-2 text-sm text-text-faint"
-        >
-          {t('downloadComingSoon')}
-        </button>
+        <p className="text-body-sm text-text-muted">{t('downloadComingSoon')}</p>
       </section>
       </main>
     </AppShell>

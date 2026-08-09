@@ -23,6 +23,7 @@ import { Link } from '@/i18n/navigation';
 
 import { ConditionForm } from './condition-form';
 import { VerifyForm } from './verify-form';
+import { AppShell } from '@/components/shell/app-shell';
 
 type PageParams = Promise<{ locale: string; slug: string }>;
 type PageSearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -107,7 +108,8 @@ export default async function FacilityPage({
   };
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-5">
+    <AppShell>
+      <main className="mx-auto max-w-2xl px-4 py-5">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
@@ -235,5 +237,6 @@ export default async function FacilityPage({
         <AdSlot slot="facility_page" />
       </div>
     </main>
+    </AppShell>
   );
 }

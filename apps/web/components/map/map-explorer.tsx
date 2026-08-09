@@ -20,6 +20,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { AdCreative } from '@/components/ads/ad-creative';
 import { BottomNav, NavRail } from '@/components/shell/app-nav';
+import { LoadingMark } from '@/components/shell/loading-mark';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
@@ -45,8 +46,20 @@ import type { MapBounds, MapPoint, MapView, NearMe } from './map-canvas';
 
 const MapCanvas = dynamic(() => import('./map-canvas'), {
   ssr: false,
-  loading: () => <div className="h-full w-full bg-paper-sunk" />,
+  loading: () => <CanvasLoading />,
 });
+
+/** The animated mark over the canvas slot while MapLibre's chunk loads —
+ *  module-level because dynamic() wants a component, its own component
+ *  because the loading callback has no access to the page's translations. */
+function CanvasLoading() {
+  const t = useTranslations('Map');
+  return (
+    <div className="grid h-full w-full place-items-center bg-paper-sunk">
+      <LoadingMark size={72} label={t('loading')} className="text-accent" />
+    </div>
+  );
+}
 
 // Quick chips shown inline; the full 29 live in the filter sheet.
 const QUICK_SPORTS: CanonicalSport[] = [
@@ -189,11 +202,19 @@ export function MapExplorer({
 
   const mapPadding = useMemo(() => {
     if (viewport.width === 0) return {};
-    // Desktop: the nav rail is always there; the list only when unfolded.
-    if (viewport.desktop) return { left: 76 + (listOpen ? 384 : 0) };
-    // Mobile: the sheet plus the 56px tab bar beneath it.
+    /**
+     * Desktop needs NO padding, and that is the counterpart of the container
+     * inset below: the canvas now starts where the chrome ends, so the whole
+     * canvas is already the visible map. The old `{ left: 76 + 384 }` was
+     * correct only while the map was full-bleed underneath — kept now, it would
+     * inset the camera a second time inside an already-inset canvas and push
+     * every fit-to-bounds 460px to the right of where it belongs.
+     */
+    if (viewport.desktop) return {};
+    // Mobile IS still full-bleed — the sheet floats over the map — so the sheet
+    // plus the 56px tab bar beneath it is genuinely covered canvas.
     return { bottom: SNAP_PX[snap](viewport.height) + 56 };
-  }, [viewport, listOpen, snap]);
+  }, [viewport, snap]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [activeLayer, setActiveLayer] = useState<string>(DEFAULT_LAYER);
   const [layerMenuOpen, setLayerMenuOpen] = useState(false);
@@ -403,7 +424,7 @@ export function MapExplorer({
         onMouseEnter={() => setHoveredSlug(point.slug)}
         onMouseLeave={() => setHoveredSlug((h) => (h === point.slug ? null : h))}
         onClick={() => select(point.slug)}
-        className={`flex w-full items-center gap-3 rounded-card border bg-surface p-2.5 text-left transition-[box-shadow,border-color,transform] duration-150 ease-standard ${
+        className={`flex w-full items-center gap-3 rounded-card border bg-surface p-2.5 text-left transition-[box-shadow,border-color,transform] duration-150 ease-standard focus-visible:shadow-[var(--ring)] ${
           isSel
             ? 'border-brand shadow-md -translate-y-px'
             : hoveredSlug === point.slug
@@ -542,8 +563,43 @@ export function MapExplorer({
         </div>
       )}
 
-      {/* ── Map (fills the screen; behind the panels) ── */}
-      <div className="absolute inset-0">
+      {/* ── Map ──
+          ON DESKTOP THE CANVAS STOPS WHERE THE CHROME STOPS, and that is a
+          correctness fix rather than a cosmetic one.
+
+          It used to be `absolute inset-0` at every width, i.e. full-bleed
+          underneath an OPAQUE 76px rail and an OPAQUE 384px list. Camera padding
+          kept the centring honest, so the map looked right — but MapLibre was
+          still drawing 460px of a 1280px laptop that nobody could ever see, and
+          the markers it drew there were not merely invisible, they were
+          UNCLICKABLE: measured on the default view, 15 of 91 markers sat behind
+          the chrome, one of them a cluster of 23 facilities whose hit test
+          returned a list card. A cluster you can see the count of nowhere and
+          click never is a bug, not a layout preference.
+
+          Insetting the container instead means the canvas IS the visible map:
+          nothing is rendered under the panel, every marker on screen can be hit,
+          and folding the list genuinely GROWS the canvas rather than uncovering
+          what was already being drawn. `mapPadding` drops its desktop term to
+          match — see the memo, which would otherwise inset a second time inside
+          an already-inset canvas.
+
+          Mobile is unchanged and must stay full-bleed: the sheet floats over the
+          map there by design, and its height moves with the snap.
+
+          No transition on `left`: MapLibre observes its container, and animating
+          the edge would fire a resize (and a zoom-floor recompute) on every
+          frame of it — the same thrash the padding memo above avoids.
+
+          `sk-map-primary` is a styling hook, not a layout class: globals.css
+          uses it to move MapLibre's attribution out from under the mobile tab
+          bar and bottom sheet, which cover the canvas's own bottom-right corner
+          at every sheet snap. The /obekt mini-map and the /dobavi pin-picker are
+          small framed maps whose bottom-right is visible, so they keep the
+          default placement. */}
+      <div
+        className={`sk-map-primary absolute inset-0 ${listOpen ? 'lg:left-[460px]' : 'lg:left-[76px]'}`}
+      >
         <MapCanvas
           points={points}
           userLocation={userLocation}
@@ -555,6 +611,15 @@ export function MapExplorer({
           unnamedLabel={tFacility('unnamed')}
           onSelect={select}
           onHoverMarker={onHoverMarker}
+          // Mobile lifts the national zoom/pan frame (operator request
+          // 2026-08-07). It is a phone-only change because the reason is
+          // phone-only: the zoom floor fits Bulgaria into the VISIBLE canvas,
+          // and on a phone the sheet plus the tab bar leave a strip, so the
+          // country could not be pulled back into view. On desktop the panel
+          // sits beside the map rather than over it, the floor is already
+          // computed against nearly the whole canvas, and the frame costs
+          // nothing.
+          unrestricted={!viewport.desktop}
           onMoveEnd={(v) => onMoveEndRef.current(v)}
           externalLayers={externalLayers}
           activeLayer={activeLayer}
@@ -633,7 +698,7 @@ export function MapExplorer({
             onClick={() => { setListOpen(true); }}
             aria-expanded={false}
             aria-controls="facility-list-desktop"
-            className="pointer-events-auto absolute left-[88px] top-4 z-30 inline-flex items-center gap-1.5 rounded-pill border border-line bg-surface px-3 py-2 text-body-sm font-semibold text-ink shadow-float hover:bg-surface-2"
+            className="pointer-events-auto absolute left-[88px] top-4 z-30 inline-flex items-center gap-1.5 rounded-pill border border-line bg-surface px-3 py-2 text-body-sm font-semibold text-ink shadow-float hover:bg-surface-2 focus-visible:shadow-[var(--ring)]"
           >
             <PanelLeftOpen size={18} />
             {t('showList')}
@@ -713,7 +778,7 @@ export function MapExplorer({
       <div className="lg:hidden">
         {selected ? (
           <div
-            className="absolute inset-x-0 bottom-14 z-30 flex h-[calc(100dvh-3.5rem)] flex-col rounded-t-[20px] border-t border-line-strong bg-surface shadow-float"
+            className="absolute inset-x-0 bottom-14 z-30 flex h-[calc(100dvh-3.5rem)] flex-col rounded-t-xl border-t border-line-strong bg-surface shadow-float"
             role="dialog"
             aria-label={selected.name ?? tFacility('unnamed')}
           >
@@ -722,7 +787,7 @@ export function MapExplorer({
         ) : (
           <section
             id="facility-list-mobile"
-            className={`absolute inset-x-0 bottom-14 z-30 flex flex-col rounded-t-[20px] border-t border-line-strong bg-surface shadow-float transition-[height] duration-200 ease-standard ${SNAP_H[snap]}`}
+            className={`absolute inset-x-0 bottom-14 z-30 flex flex-col rounded-t-xl border-t border-line-strong bg-surface shadow-float transition-[height] duration-200 ease-standard ${SNAP_H[snap]}`}
           >
             <button
               type="button"
@@ -837,7 +902,7 @@ function FacilityPreview({
 }) {
   const v = primaryVisual(point.sports);
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-t-[20px] lg:rounded-sheet">
+    <div className="flex h-full flex-col overflow-hidden rounded-t-xl lg:rounded-sheet">
       <div
         className="relative flex h-36 items-center justify-center"
         style={{
@@ -918,7 +983,7 @@ function FilterSheet({
         onClick={onClose}
         className="absolute inset-0 bg-overlay-scrim"
       />
-      <div className="relative flex max-h-[86dvh] w-full flex-col rounded-t-[20px] bg-surface shadow-float lg:max-w-md lg:rounded-sheet">
+      <div className="relative flex max-h-[86dvh] w-full flex-col rounded-t-xl bg-surface shadow-float lg:max-w-md lg:rounded-sheet">
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
           <h2 className="text-h3 font-extrabold tracking-tight text-ink">{t('filters')}</h2>
           <IconButton aria-label={t('close')} variant="surface" round onClick={onClose}>

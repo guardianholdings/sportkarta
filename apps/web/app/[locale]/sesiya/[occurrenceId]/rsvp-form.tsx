@@ -16,6 +16,8 @@ import { rsvpAction, withdrawAction, type RsvpState } from './actions';
 interface Props {
   occurrenceId: string;
   attending: boolean;
+  /** Session at capacity — joining takes a waitlist place, and the button says so. */
+  full: boolean;
   labels: {
     join: string;
     joinFull: string;
@@ -29,7 +31,7 @@ interface Props {
 
 const initial: RsvpState = { status: 'idle' };
 
-export function RsvpForm({ occurrenceId, attending, labels }: Props) {
+export function RsvpForm({ occurrenceId, attending, full, labels }: Props) {
   const [joinState, join, joining] = useActionState(rsvpAction, initial);
   const [leaveState, leave, leaving] = useActionState(withdrawAction, initial);
   const state = attending ? leaveState : joinState;
@@ -50,7 +52,13 @@ export function RsvpForm({ occurrenceId, attending, labels }: Props) {
             attending ? ANALYTICS_EVENTS.sessionRsvpLeave : ANALYTICS_EVENTS.sessionRsvpJoin
           }
         >
-          {joining || leaving ? labels.pending : attending ? labels.leave : labels.join}
+          {joining || leaving
+            ? labels.pending
+            : attending
+              ? labels.leave
+              : full
+                ? labels.joinFull
+                : labels.join}
         </Button>
       </form>
       {state.status === 'error' && (

@@ -64,7 +64,7 @@ export default async function EditCampaignPage({
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">
             {localizedText(campaign.titleBg, campaign.titleEn, locale)}
           </h1>
-          <span className="rounded bg-paper-sunk px-2 py-0.5 text-caption">{t(`phase_${phase}`)}</span>
+          <span className="rounded-md bg-paper-sunk px-2 py-0.5 text-caption">{t(`phase_${phase}`)}</span>
           <Link href={`/kampanii/${campaign.slug}`} className="ml-auto text-body-sm font-medium text-link hover:text-link-hover">
             {t('viewPublic')}
           </Link>
@@ -78,7 +78,7 @@ export default async function EditCampaignPage({
         {(campaign.status === 'draft' || campaign.status === 'cancelled') && (
           <form action={publishCampaignAction}>
             <input type="hidden" name="id" value={campaign.id} />
-            <button type="submit" className="rounded-pill bg-brand px-3 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover">
+            <button type="submit" className="min-h-11 rounded-pill bg-brand px-4 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover">
               {t('publish')}
             </button>
           </form>
@@ -87,7 +87,7 @@ export default async function EditCampaignPage({
           <form action={cancelCampaignAction}>
             <input type="hidden" name="id" value={campaign.id} />
             <ConfirmButton
-              className="rounded border border-line-strong px-3 py-1.5 text-body-sm"
+              className="rounded-md border border-line-strong px-3 py-1.5 text-body-sm"
               message={t('cancelConfirm')}
             >
               {t('cancel')}
@@ -132,10 +132,10 @@ export default async function EditCampaignPage({
           <table className="w-full text-body-sm">
             <thead>
               <tr className="border-b border-line text-left text-caption text-text-muted">
-                <th scope="col" className="py-2 pr-3 font-medium">{t('columnRank')}</th>
-                <th scope="col" className="py-2 pr-3 font-medium">{t('columnMember')}</th>
-                <th scope="col" className="py-2 pr-3 font-medium">{t('columnVisibility')}</th>
-                <th scope="col" className="py-2 text-right font-medium">{t('columnScore')}</th>
+                <th scope="col" className="t-overline py-2 pr-3 font-medium">{t('columnRank')}</th>
+                <th scope="col" className="t-overline py-2 pr-3 font-medium">{t('columnMember')}</th>
+                <th scope="col" className="t-overline py-2 pr-3 font-medium">{t('columnVisibility')}</th>
+                <th scope="col" className="t-overline py-2 text-right font-medium">{t('columnScore')}</th>
               </tr>
             </thead>
             <tbody>

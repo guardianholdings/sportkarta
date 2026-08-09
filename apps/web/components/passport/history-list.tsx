@@ -37,7 +37,9 @@ export async function HistoryList({ entries }: { entries: PassportHistoryEntry[]
             )}
           </span>
           <span className="text-text-muted">{t(`event_${entry.kind}`)}</span>
-          {entry.points > 0 && <span className="ml-auto font-medium">+{entry.points}</span>}
+          {entry.points > 0 && (
+            <span className="ml-auto font-mono font-medium tabular-nums text-brand">+{entry.points}</span>
+          )}
         </li>
       ))}
     </ul>

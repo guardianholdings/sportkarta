@@ -70,7 +70,7 @@ export default async function WeeklyIndexPage({ params }: { params: PageParams }
     );
 
   return (
-    <AppShell>
+    <AppShell active="/sesii">
       <main className="mx-auto max-w-2xl px-4 py-5">
         <header className="mb-5">
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('indexTitle')}</h1>

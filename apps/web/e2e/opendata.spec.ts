@@ -28,7 +28,7 @@ test.describe('open-data API', () => {
     expect(headers['x-license']).toBe('ODbL-1.0');
     // ASCII: an HTTP header value is latin-1, so the © form would arrive as
     // "Â©". The body below carries the authoritative string.
-    expect(headers['x-attribution']).toBe('(c) OpenStreetMap contributors + SportKarta community');
+    expect(headers['x-attribution']).toBe('(c) OpenStreetMap contributors + POPS community');
     expect(headers['link']).toContain('rel="license"');
 
     // CORS-open, and deliberately NOT credentialed: a wildcard origin plus
@@ -53,7 +53,7 @@ test.describe('open-data API', () => {
     };
     expect(body.type).toBe('FeatureCollection');
     expect(body.license).toBe('ODbL-1.0');
-    expect(body.attribution).toBe('© OpenStreetMap contributors + SportKarta community');
+    expect(body.attribution).toBe('© OpenStreetMap contributors + POPS community');
 
     // The declared catalogue and nothing else. A feature carrying an `email`
     // or an `uploaded_by` is the failure this whole stage exists to prevent,
@@ -130,7 +130,7 @@ test.describe('open-data API', () => {
     const response = await request.get(`${API}/dumps/2026-07-23/LICENSE.txt`);
     expect(response.status()).toBe(200);
     const text = await response.text();
-    expect(text).toContain('© OpenStreetMap contributors + SportKarta community');
+    expect(text).toContain('© OpenStreetMap contributors + POPS community');
     expect(text).toContain('ODbL-1.0');
   });
 });
@@ -155,7 +155,7 @@ test.describe('open-data portal pages', () => {
     const response = await page.goto('/danni/litsenz');
     expect(response?.status()).toBe(200);
     await expect(
-      page.getByText('© OpenStreetMap contributors + SportKarta community'),
+      page.getByText('© OpenStreetMap contributors + POPS community'),
     ).toBeVisible();
     await expect(
       page.getByRole('heading', { name: bg.OpenData.licenseShareAlikeTitle }),

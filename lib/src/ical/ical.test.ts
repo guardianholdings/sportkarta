@@ -6,21 +6,21 @@ import { escapeText, foldLine, formatUtc, renderCalendar, type IcalEvent } from 
 const encoder = new TextEncoder();
 
 const EVENT: IcalEvent = {
-  uid: 'occurrence-11111111-1111-4111-8111-111111111111@sportkarta.bg',
+  uid: 'occurrence-11111111-1111-4111-8111-111111111111@pops.bg',
   startsAt: new Date('2026-07-23T15:00:00Z'),
   endsAt: new Date('2026-07-23T16:30:00Z'),
   summary: 'Футбол в Борисовата градина',
   description: 'Свободна тренировка; всички са добре дошли.',
   location: 'Игрище „Борисова градина“, София',
-  url: 'https://sportkarta.bg/sesiya/11111111-1111-4111-8111-111111111111',
+  url: 'https://pops.bg/sesiya/11111111-1111-4111-8111-111111111111',
   lat: 42.685,
   lon: 23.3423,
 };
 
 function render(events: IcalEvent[] = [EVENT]): string {
   return renderCalendar({
-    name: 'СпортКарта',
-    prodId: '-//SportKarta//Play sessions//BG',
+    name: 'POPS',
+    prodId: '-//POPS//Play sessions//BG',
     events,
     now: new Date('2026-07-20T08:00:00Z'),
   });
@@ -168,11 +168,11 @@ describe('renderCalendar', () => {
   it('renders every event in the feed', () => {
     const ics = render([
       EVENT,
-      { ...EVENT, uid: 'second@sportkarta.bg', summary: 'Баскетбол' },
-      { ...EVENT, uid: 'third@sportkarta.bg', summary: 'Тенис' },
+      { ...EVENT, uid: 'second@pops.bg', summary: 'Баскетбол' },
+      { ...EVENT, uid: 'third@pops.bg', summary: 'Тенис' },
     ]);
     expect(ics.match(/BEGIN:VEVENT/g)).toHaveLength(3);
-    expect(ics).toContain('second@sportkarta.bg');
+    expect(ics).toContain('second@pops.bg');
   });
 
   it('produces an empty but valid calendar when nothing is scheduled', () => {
@@ -186,8 +186,8 @@ describe('renderCalendar', () => {
     fc.assert(
       fc.property(fc.string({ minLength: 1, maxLength: 200, unit: 'binary' }), (summary) => {
         const ics = renderCalendar({
-          name: 'СпортКарта',
-          prodId: '-//SportKarta//Play sessions//BG',
+          name: 'POPS',
+          prodId: '-//POPS//Play sessions//BG',
           events: [{ ...EVENT, summary }],
           now: new Date('2026-07-20T08:00:00Z'),
         });

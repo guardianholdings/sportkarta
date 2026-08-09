@@ -42,7 +42,7 @@ export async function StreakPanel({
         // was. Words as well as colour, so the state does not depend on hue.
         <p
           role="status"
-          className="mb-3 rounded-card border border-warning-border bg-warning-bg px-3 py-2 text-body-sm text-warning-ink"
+          className="mb-3 rounded-card border border-warning-border bg-warning-bg px-3 py-2 text-body-sm text-warning"
         >
           {t('streak_atRisk')}
         </p>

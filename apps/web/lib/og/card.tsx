@@ -15,7 +15,7 @@ import { OG_PALETTE } from './palette';
  * worse than no card.
  *
  * TYPE IS IN LITERAL PX because no token resolves inside satori. The scale
- * mirrors the product's: eyebrow 24 mono, title 68 Manrope 800, subtitle 30,
+ * mirrors the product's: eyebrow 24 mono, title 58 Unbounded 700, subtitle 30,
  * stat 56 mono, label 22.
  *
  * SATORI CONSTRAINTS, all silent failures if broken: every element with more
@@ -84,7 +84,7 @@ export function renderOgCard(input: OgCardInput): ImageResponse {
           height: '630px',
           display: 'flex',
           background: OG_PALETTE.paper,
-          fontFamily: 'Manrope',
+          fontFamily: 'Golos Text',
         }}
       >
         {/* The one graphic constant that makes the six cards a set. */}
@@ -118,14 +118,20 @@ export function renderOgCard(input: OgCardInput): ImageResponse {
             <div
               style={{
                 display: 'flex',
-                fontSize: 68,
-                fontWeight: 800,
-                lineHeight: 1.05,
+                // Unbounded (the display face) runs ~25% wider than a text
+                // sans at the same size — 58px keeps roughly the char-per-line
+                // budget the 68px Manrope title had.
+                fontFamily: 'Unbounded',
+                fontSize: 58,
+                fontWeight: 700,
+                lineHeight: 1.1,
                 color: OG_PALETTE.ink,
-                // Two lines, then ellipsis: a third line would collide with the
-                // stat row at this type size.
+                // Two lines, then clip: a third line would collide with the
+                // stat row. 128 = ceil(2 lines × 58px × 1.1) — the old 150 was
+                // sized for the retired 68px face and clipped glyph tops of a
+                // third line.
                 overflow: 'hidden',
-                maxHeight: '150px',
+                maxHeight: '128px',
               }}
             >
               {input.title}
@@ -175,7 +181,9 @@ export function renderOgCard(input: OgCardInput): ImageResponse {
               style={{
                 display: 'flex',
                 flex: 1,
-                fontSize: 26,
+                // The wordmark is the LOGOTYPE: always the display face.
+                fontFamily: 'Unbounded',
+                fontSize: 24,
                 fontWeight: 800,
                 color: OG_PALETTE.brand,
               }}

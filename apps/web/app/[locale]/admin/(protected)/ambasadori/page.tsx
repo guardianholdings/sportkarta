@@ -47,7 +47,7 @@ export default async function AdminAmbassadorsPage({
       </div>
 
       <section className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm">
-        <h2 className="font-medium">{t('grantTitle')}</h2>
+        <h2 className="text-h4 font-bold text-ink">{t('grantTitle')}</h2>
         <GrantForm />
         <p className="text-caption text-text-muted">{t('grantHint')}</p>
       </section>
@@ -55,7 +55,7 @@ export default async function AdminAmbassadorsPage({
       <section className="space-y-3">
         <h2 className="font-medium">{t('listTitle')}</h2>
         {ambassadors.length === 0 ? (
-          <p className="rounded border border-dashed border-line-strong p-6 text-center text-body-sm text-text-muted">
+          <p className="rounded-card border border-dashed border-line-strong p-6 text-center text-body-sm text-text-muted">
             {t('empty')}
           </p>
         ) : (

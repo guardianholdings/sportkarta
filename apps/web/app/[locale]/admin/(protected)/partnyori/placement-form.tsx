@@ -65,7 +65,7 @@ export function PlacementForm({
         <select
           name="slot"
           required
-          className="rounded border border-line-strong bg-surface px-3 py-2 text-body-sm"
+          className="rounded-md border border-line-strong bg-surface px-3 py-2 text-body-sm"
         >
           {slots.map((slot) => (
             <option key={slot} value={slot}>

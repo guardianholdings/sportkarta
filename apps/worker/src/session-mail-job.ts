@@ -89,7 +89,7 @@ function sportLabels(locale: string): Record<string, string> {
 
 export interface SessionMailOptions {
   mailer: Mailer;
-  /** Absolute site base, e.g. https://sportkarta.bg. */
+  /** Absolute site base, e.g. https://pops.bg. */
   siteUrl: string;
   locale?: string;
 }

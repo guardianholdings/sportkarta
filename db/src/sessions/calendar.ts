@@ -185,7 +185,9 @@ export async function calendarOccurrence(
       JOIN play_sessions s ON s.id = o.session_id
       JOIN facilities f ON f.id = s.facility_id
      WHERE o.id = ${occurrenceId}::uuid
-       AND s.visibility = 'public'
+       -- By-id read: the id is the capability — unlisted sessions must
+       -- resolve here too (reachable by link, absent from listings).
+       AND s.visibility IN ('public', 'unlisted')
   `);
   const row = result.rows[0];
   return row ? toOccurrence(row) : null;

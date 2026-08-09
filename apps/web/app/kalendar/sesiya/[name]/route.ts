@@ -46,7 +46,7 @@ export async function GET(
   return new Response(
     renderCalendar({
       name: occurrence.title,
-      prodId: '-//SportKarta//Play sessions//BG',
+      prodId: '-//POPS//Play sessions//BG',
       events: [
         {
           // The SAME uid the subscription feed uses, deliberately: a member who

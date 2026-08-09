@@ -175,8 +175,8 @@ export default async function AccountabilityPage({ params }: { params: PageParam
           />
         </div>
         <div className="grid gap-6 md:grid-cols-2">
-          <BarChart title={t('conditionHeading')} bars={conditionBars} color="#0f766e" />
-          <BarChart title={t('provenanceHeading')} bars={provenanceBars} color="#2563eb" />
+          <BarChart title={t('conditionHeading')} bars={conditionBars} color="var(--brand)" />
+          <BarChart title={t('provenanceHeading')} bars={provenanceBars} color="var(--sky-500)" />
         </div>
       </section>
 
@@ -209,7 +209,7 @@ export default async function AccountabilityPage({ params }: { params: PageParam
           {t('embedHeading')}
         </h2>
         <p className="text-body-sm text-ink-soft">{t('embedIntro')}</p>
-        <pre className="overflow-x-auto rounded-card border border-line bg-surface bg-paper-sunk p-3 text-caption">
+        <pre className="overflow-x-auto rounded-card border border-line bg-paper-sunk p-3 text-caption">
           <code>{embedSnippet}</code>
         </pre>
         <ul className="list-disc space-y-1 pl-5 text-body-sm text-ink-soft">

@@ -2,7 +2,7 @@ import 'server-only';
 
 import { getDb } from '@sportkarta/db';
 import { accounts, sessions, users, verifications } from '@sportkarta/db/schema';
-import { createMailer, type Mailer } from '@sportkarta/lib/email';
+import { brandEmailHtml, createMailer, type Mailer } from '@sportkarta/lib/email';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { nextCookies } from 'better-auth/next-js';
@@ -89,7 +89,7 @@ function createAuthInstance(
   adminEmails: ReadonlySet<string>,
 ) {
   return betterAuth({
-    appName: 'SportKarta',
+    appName: 'POPS',
     secret,
     baseURL: resolveAuthBaseUrl(process.env),
     database: drizzleAdapter(getDb(), {
@@ -169,10 +169,12 @@ function createAuthInstance(
         sendVerificationOTP: async ({ email, otp }, ctx) => {
           const locale = resolveEmailLocale(ctx?.request?.headers.get(LOCALE_HEADER));
           const t = await getTranslations({ locale, namespace: 'AuthEmail' });
+          const text = t('otpBody', { code: otp, minutes: OTP_TTL_SECONDS / 60 });
           await mailer.send({
             to: email,
             subject: t('otpSubject'),
-            text: t('otpBody', { code: otp, minutes: OTP_TTL_SECONDS / 60 }),
+            text,
+            html: brandEmailHtml(text),
           });
         },
       }),

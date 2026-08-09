@@ -38,10 +38,10 @@ export default async function AdminPartnersPage({ params }: { params: PageParams
   return (
     <main className="space-y-6">
       <header className="flex items-center justify-between">
-        <h1 className="text-h3 font-bold text-ink">{t('title')}</h1>
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
         <Link
           href="/admin/partnyori/nova"
-          className="rounded-md bg-brand px-4 py-2 text-body-sm font-semibold text-on-brand"
+          className="inline-flex min-h-11 items-center rounded-pill bg-brand px-5 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover"
         >
           {t('newPartner')}
         </Link>
@@ -56,11 +56,11 @@ export default async function AdminPartnersPage({ params }: { params: PageParams
           <table className="w-full text-body-sm">
             <thead>
               <tr className="border-b border-line text-left text-caption text-text-muted">
-                <th className="py-2 pr-3">{t('colName')}</th>
-                <th className="py-2 pr-3">{t('colTier')}</th>
-                <th className="py-2 pr-3">{t('colWindow')}</th>
-                <th className="py-2 pr-3">{t('colVisible')}</th>
-                <th className="py-2" />
+                <th className="t-overline py-2 pr-3">{t('colName')}</th>
+                <th className="t-overline py-2 pr-3">{t('colTier')}</th>
+                <th className="t-overline py-2 pr-3">{t('colWindow')}</th>
+                <th className="t-overline py-2 pr-3">{t('colVisible')}</th>
+                <th className="t-overline py-2" />
               </tr>
             </thead>
             <tbody>

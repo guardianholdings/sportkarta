@@ -76,7 +76,7 @@ function MunicipalImportWizard({
   return (
     <div className="space-y-6">
       {state.error && (
-        <p role="alert" className="rounded border border-danger-border bg-danger-bg p-2 text-body-sm text-danger">
+        <p role="alert" className="rounded-md border border-danger-border bg-danger-bg p-2 text-body-sm text-danger">
           {L(labels, `error_${state.error}`)}
         </p>
       )}
@@ -111,9 +111,9 @@ function MunicipalImportWizard({
           </label>
           <details className="text-caption text-ink-soft">
             <summary className="cursor-pointer">{L(labels, 'templateHint')}</summary>
-            <pre className="mt-2 overflow-x-auto rounded bg-paper-sunk p-2">{sampleCsv}</pre>
+            <pre className="mt-2 overflow-x-auto rounded-md bg-paper-sunk p-2">{sampleCsv}</pre>
           </details>
-          <button type="submit" className="rounded-pill bg-brand px-4 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover">
+          <button type="submit" className="min-h-11 rounded-pill bg-brand px-4 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover">
             {L(labels, 'next')}
           </button>
         </form>
@@ -169,7 +169,7 @@ function MunicipalImportWizard({
               </table>
             </div>
           )}
-          <button type="submit" className="rounded-pill bg-brand px-4 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover">
+          <button type="submit" className="min-h-11 rounded-pill bg-brand px-4 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover">
             {L(labels, 'preview')}
           </button>
         </form>
@@ -195,10 +195,10 @@ function MunicipalImportWizard({
             <table className="w-full text-body-sm">
               <thead className="bg-paper-sunk">
                 <tr>
-                  <th className="px-2 py-1 text-left">{L(labels, 'rowNumber')}</th>
-                  <th className="px-2 py-1 text-left">{L(labels, 'name')}</th>
-                  <th className="px-2 py-1 text-left">{L(labels, 'status')}</th>
-                  <th className="px-2 py-1 text-left">{L(labels, 'resolution')}</th>
+                  <th className="t-overline px-2 py-1 text-left">{L(labels, 'rowNumber')}</th>
+                  <th className="t-overline px-2 py-1 text-left">{L(labels, 'name')}</th>
+                  <th className="t-overline px-2 py-1 text-left">{L(labels, 'status')}</th>
+                  <th className="t-overline px-2 py-1 text-left">{L(labels, 'resolution')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -247,7 +247,7 @@ function MunicipalImportWizard({
             </table>
           </div>
 
-          <button type="submit" className="rounded-pill bg-brand px-4 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover">
+          <button type="submit" className="min-h-11 rounded-pill bg-brand px-4 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover">
             {L(labels, 'confirmImport')}
           </button>
         </form>

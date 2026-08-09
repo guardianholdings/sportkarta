@@ -1,6 +1,7 @@
 import { getTranslations } from 'next-intl/server';
 
 import { setPassportVisibilityAction } from '@/app/[locale]/pasport/actions';
+import { Button } from '@/components/ui/button';
 import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 import type { OwnPassport } from '@/lib/passport';
 
@@ -41,16 +42,12 @@ export async function VisibilityPanel({
           name="showActivity"
           value={visibility.showActivity ? 'true' : 'false'}
         />
-        <button
-          type="submit"
-          className={
-            visibility.isPublic
-              ? 'rounded border border-line-strong px-3 py-1.5 text-sm'
-              : 'rounded-pill bg-brand px-3 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover'
-          }
-        >
+        {/* The Button primitive, not hand-rolled twins: the old pair had no
+            visible focus ring, a 34px height and an off-scale radius — on the
+            CONSENT control of the whole passport. */}
+        <Button type="submit" variant={visibility.isPublic ? 'secondary' : 'primary'}>
           {visibility.isPublic ? t('makePrivate') : t('makePublic')}
-        </button>
+        </Button>
       </form>
 
       {visibility.isPublic && publicUrl && (
@@ -78,9 +75,9 @@ export async function VisibilityPanel({
             value={visibility.showActivity ? 'false' : 'true'}
           />
           <p className="text-body-sm text-ink-soft">{t('activityExplainer')}</p>
-          <button type="submit" className="rounded border border-line-strong px-3 py-1.5 text-body-sm">
+          <Button type="submit" variant="secondary" size="sm">
             {visibility.showActivity ? t('hideActivity') : t('showActivity')}
-          </button>
+          </Button>
         </form>
       )}
     </section>

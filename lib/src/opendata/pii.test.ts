@@ -274,14 +274,14 @@ describe('open-data serializers always state the licence', () => {
     if (!facilities) throw new Error('facilities dataset missing');
     const collection = serializeGeoJSON(facilities, []);
     expect(collection.license).toBe('ODbL-1.0');
-    expect(collection.attribution).toBe('© OpenStreetMap contributors + SportKarta community');
+    expect(collection.attribution).toBe('© OpenStreetMap contributors + POPS community');
   });
 
   it('JSON carries the ODbL and the attribution', () => {
     if (!stats) throw new Error('stats-sports dataset missing');
     const json = serializeJson(stats, []);
     expect(json.license).toBe('ODbL-1.0');
-    expect(json.attribution).toBe('© OpenStreetMap contributors + SportKarta community');
+    expect(json.attribution).toBe('© OpenStreetMap contributors + POPS community');
   });
 
   it('CSV is left parseable, with the licence carried out of band', () => {

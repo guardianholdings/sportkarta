@@ -104,7 +104,7 @@ export function renderStoryCard(input: StoryCardInput): ImageResponse {
           display: 'flex',
           flexDirection: 'column',
           background: OG_PALETTE.paper,
-          fontFamily: 'Manrope',
+          fontFamily: 'Golos Text',
         }}
       >
         {/* A full-bleed accent band at the very top: the one graphic constant
@@ -173,16 +173,21 @@ export function renderStoryCard(input: StoryCardInput): ImageResponse {
               style={{
                 display: 'flex',
                 // Title-led when there is no hero: it becomes the large element
-                // rather than sitting small under an empty space.
-                fontSize: input.hero ? 76 : 116,
-                fontWeight: 800,
-                lineHeight: 1.1,
+                // rather than sitting small under an empty space. Unbounded
+                // (the display face) runs ~25% wider than a text sans, so the
+                // sizes drop accordingly (76→64, 116→96) to keep the same
+                // char-per-line budget inside the unchanged clip boxes.
+                fontFamily: 'Unbounded',
+                fontSize: input.hero ? 64 : 96,
+                fontWeight: 700,
+                lineHeight: 1.2,
                 color: OG_PALETTE.ink,
                 marginTop: input.hero ? '64px' : '0px',
-                // Three lines at this size, then clip — a fourth collides with
-                // the stat row.
+                // Whole lines only: 231 = 3 lines × 64px × 1.2 and
+                // 461 = 4 lines × 96px × 1.2 — the old 260/520 boxes sliced a
+                // strip of chopped glyph tops off the next line.
                 overflow: 'hidden',
-                maxHeight: input.hero ? '260px' : '520px',
+                maxHeight: input.hero ? '231px' : '461px',
               }}
             >
               {input.title}
@@ -250,8 +255,14 @@ export function renderStoryCard(input: StoryCardInput): ImageResponse {
                 style={{
                   display: 'flex',
                   flex: 1,
-                  fontSize: 44,
+                  // The wordmark is the LOGOTYPE: always the display face.
+                  // 30px + nowrap: „Повече от просто спорт" in Unbounded 800
+                  // measures ~495px here and must share the row with the
+                  // attribution without ever wrapping to two lines.
+                  fontFamily: 'Unbounded',
+                  fontSize: 30,
                   fontWeight: 800,
+                  whiteSpace: 'nowrap',
                   color: OG_PALETTE.brand,
                 }}
               >

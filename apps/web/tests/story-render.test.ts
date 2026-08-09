@@ -42,7 +42,7 @@ describe('story rendering', () => {
           { value: '52', label: 'минути' },
           { value: '120', label: 'м изкачване' },
         ],
-        wordmark: 'СпортКарта',
+        wordmark: 'Повече от просто спорт',
         callToAction: 'Намери своето място',
         attribution: '© OpenStreetMap · Protomaps',
       }) as unknown as Response,
@@ -63,7 +63,7 @@ describe('story rendering', () => {
         hero: '3',
         heroLabel: 'тренировки',
         title: 'Тази седмица',
-        wordmark: 'СпортКарта',
+        wordmark: 'Повече от просто спорт',
       }) as unknown as Response,
     );
     expect(png.subarray(0, 4)).toEqual(PNG_MAGIC);

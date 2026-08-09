@@ -98,7 +98,7 @@ export async function PlacementsPanel({
                   alt={placement.altBg}
                   width={64}
                   height={40}
-                  className="h-10 w-16 shrink-0 rounded border border-line object-contain"
+                  className="h-10 w-16 shrink-0 rounded-md border border-line object-contain"
                 />
                 <span className="font-medium text-ink">{t(`adSlot_${placement.slot}`)}</span>
                 <span className="tabular-nums text-text-muted">
@@ -124,14 +124,14 @@ export async function PlacementsPanel({
                 >
                   <button
                     type="submit"
-                    className="rounded border border-line-strong px-3 py-1.5 text-body-sm"
+                    className="rounded-md border border-line-strong px-3 py-1.5 text-body-sm"
                   >
                     {placement.visible ? t('adUnpublish') : t('adPublish')}
                   </button>
                 </form>
                 <form action={deletePlacementAction.bind(null, partnerSlug, placement.id)}>
                   <ConfirmButton
-                    className="rounded border border-line-strong px-3 py-1.5 text-body-sm text-danger"
+                    className="rounded-md border border-line-strong px-3 py-1.5 text-body-sm text-danger"
                     message={t('adDeleteConfirm')}
                   >
                     {t('adDelete')}

@@ -93,7 +93,7 @@ export default async function AdminPrivatePage({
                   <th scope="col" className="t-overline px-3 py-2.5 font-semibold">
                     {t('colStatus')}
                   </th>
-                  <th scope="col" className="px-3 py-2.5" />
+                  <th scope="col" className="t-overline px-3 py-2.5" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">

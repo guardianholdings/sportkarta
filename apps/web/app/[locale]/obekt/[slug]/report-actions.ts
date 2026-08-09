@@ -5,6 +5,11 @@ import { randomUUID } from 'node:crypto';
 import { getDb, sql } from '@sportkarta/db';
 import { headers } from 'next/headers';
 
+import {
+  type Coordinates,
+  distanceToGeomSql,
+  parseCoordinates,
+} from '@/lib/contributions/proximity';
 import { verifyFormToken } from '@/lib/form-token';
 import { InvalidPhotoError, MAX_PHOTO_BYTES, processReportPhoto } from '@/lib/image';
 import { clientIpFromForwardedFor } from '@/lib/rate-limit';
@@ -63,6 +68,12 @@ export async function submitReport(_prev: ReportState, formData: FormData): Prom
   const bodyRaw = String(formData.get('body') ?? '').trim();
   if (bodyRaw.length > MAX_BODY) return { status: 'error', error: 'invalid' };
   const body = bodyRaw.length > 0 ? bodyRaw : null;
+  // Optional and never required: an anonymous passer-by reporting a hazard must
+  // not be asked for a permission first. Absent or broken degrades to NULL.
+  const coords: Coordinates | null = parseCoordinates(
+    formData.get('lat'),
+    formData.get('lon'),
+  );
 
   const slug = String(formData.get('slug') ?? '');
   if (!SLUG_RE.test(slug)) return { status: 'error', error: 'invalid' };
@@ -107,9 +118,22 @@ export async function submitReport(_prev: ReportState, formData: FormData): Prom
         `);
         photoId = (photoRes.rows[0] as { id?: string } | undefined)?.id ?? null;
       }
+      /**
+       * The reporter's distance, when they offered a position.
+       *
+       * NOTHING IS GATED ON IT HERE and nothing should be: this is the anonymous
+       * flow, it has no account, it already lands as `pending` for a human, and
+       * it is the one path a passer-by uses to say "this is broken". Refusing or
+       * downgrading it would silence exactly the report the platform most wants.
+       * The distance is recorded so a moderator can weigh a report filed from
+       * the touchline differently from one filed from another city — evidence in
+       * the queue, not a gate on the door.
+       */
       await tx.execute(sql`
-        INSERT INTO facility_reports (facility_id, issue, body, photo_id, status)
-        VALUES (${facilityId}, ${issue}::report_issue, ${body}, ${photoId}, 'pending')
+        INSERT INTO facility_reports (facility_id, issue, body, photo_id, status, distance_m)
+        SELECT ${facilityId}, ${issue}::report_issue, ${body}, ${photoId}, 'pending',
+               ${distanceToGeomSql(sql`f.geom`, coords)}
+          FROM facilities f WHERE f.id = ${facilityId}
       `);
     });
   } catch (error) {

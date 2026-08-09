@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
  * global pine ring; `invalid` shows the rust border.
  */
 const inputVariants = cva(
-  'w-full rounded-input bg-surface text-ink border border-line-strong placeholder:text-text-faint transition-[border-color,box-shadow] duration-150 ease-standard focus-visible:border-brand disabled:opacity-50 disabled:pointer-events-none',
+  'w-full rounded-input bg-surface text-ink border border-line-strong placeholder:text-text-muted transition-[border-color,box-shadow] duration-150 ease-standard focus-visible:border-brand disabled:opacity-50 disabled:pointer-events-none',
   {
     variants: {
       size: {

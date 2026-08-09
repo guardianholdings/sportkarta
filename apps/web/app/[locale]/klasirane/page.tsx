@@ -10,6 +10,7 @@ import {
 import { divisionWeekStart, tierSlug } from '@sportkarta/lib/divisions';
 import { buildShare } from '@sportkarta/lib/share';
 import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
+import { ChevronRight } from 'lucide-react';
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
@@ -17,6 +18,7 @@ import { DivisionLadder } from '@/components/passport/division-ladder';
 import { LeaderboardTable } from '@/components/passport/leaderboard-table';
 import { ParticipationTable } from '@/components/passport/participation-table';
 import { ShareSheet } from '@/components/share/share-sheet';
+import { chipClass } from '@/components/ui/chip';
 import { getCurrentUser } from '@/lib/auth-session';
 import { resolveScope, scopeHref } from '@/lib/leaderboard';
 import { cityDisplayName, loadCityCatalog } from '@/lib/places';
@@ -144,10 +146,12 @@ export default async function LeaderboardPage({
       ? t('headingSport', { sport: sportName(resolved.sport) })
       : t('headingNational');
 
-  const filterClass = (active: boolean): string =>
-    active
-      ? 'rounded-pill bg-brand px-2.5 py-1 text-caption font-semibold text-on-brand'
-      : 'rounded border border-line-strong px-2.5 py-1 text-xs';
+  // One pill definition shared with the Chip primitive (components/ui/chip.tsx).
+  // These filters navigate, so they are links rather than buttons — but they are
+  // the same control and must not look like two.
+  const filterClass = (active: boolean): string => chipClass({ selected: active });
+
+  const activeSportLabel = resolved.sport ? sportName(resolved.sport) : t('filterSportAll');
 
   return (
     <AppShell active="/klasirane">
@@ -196,38 +200,77 @@ export default async function LeaderboardPage({
         </h2>
       )}
 
-      <nav aria-label={t('filtersLabel')} className="space-y-3">
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href={scopeHref({ period })}
-            className={filterClass(scope.kind === 'national')}
-          >
-            {t('scopeNational')}
-          </Link>
-          {cities.map((city) => (
-            <Link
-              key={city.id}
-              href={scopeHref({ citySlug: city.slug, period })}
-              className={filterClass(resolved.city?.id === city.id)}
-            >
-              {cityDisplayName(city.nameBg, city.nameEn, locale)}
+      {/*
+        THREE FILTERS, EACH SAYING WHAT IT FILTERS.
+
+        These were three unlabelled rows of identical pills: a visitor could not
+        tell that row 1 was places, row 2 sports and row 3 time. And row 2 listed
+        all 29 canonical sports flat — measured at 390px it wrapped to nine rows
+        and pushed both boards past 1100px, so the page opened on a wall of
+        filters with no content in sight. The sport list now sits behind a
+        disclosure that names the current selection, and opens itself when one is
+        active (so a shared /klasirane?sport=… link still shows its own state).
+        `<details>` keeps this a server component with no client JS.
+      */}
+      <nav aria-label={t('filtersLabel')} className="space-y-4">
+        <div className="space-y-2">
+          <p className="t-overline text-text-muted">{t('filterScopeLabel')}</p>
+          <div className="flex flex-wrap gap-2">
+            <Link href={scopeHref({ period })} className={filterClass(scope.kind === 'national')}>
+              {t('scopeNational')}
             </Link>
-          ))}
+            {cities.map((city) => (
+              <Link
+                key={city.id}
+                href={scopeHref({ citySlug: city.slug, period })}
+                className={filterClass(resolved.city?.id === city.id)}
+              >
+                {cityDisplayName(city.nameBg, city.nameEn, locale)}
+              </Link>
+            ))}
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {CANONICAL_SPORTS.map((sport) => (
+        <details open={resolved.sport !== null} className="group space-y-2">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-body-sm font-medium text-ink-soft marker:hidden hover:text-brand">
+            <ChevronRight
+              size={16}
+              className="shrink-0 transition-transform duration-150 ease-standard group-open:rotate-90"
+            />
+            <span className="t-overline text-text-muted">{t('filterSportLabel')}</span>
+            <span className="truncate font-semibold text-ink">{activeSportLabel}</span>
+          </summary>
+          <div className="flex flex-wrap gap-2 pt-1">
             <Link
-              key={sport}
-              href={scopeHref({ sport, period })}
-              className={filterClass(resolved.sport === sport)}
+              href={scopeHref({ citySlug: resolved.city?.slug ?? null, period })}
+              className={filterClass(resolved.sport === null)}
             >
-              {sportName(sport)}
+              {t('filterSportAll')}
             </Link>
-          ))}
-        </div>
+            {/*
+              No `citySlug` here, deliberately: a board's scope is national OR a
+              city OR a sport, never a combination — `scopeHref` writes `grad`
+              and `sport` in an either/or (lib/leaderboard.ts), and `resolveScope`
+              reads them the same way. Threading the city through would emit only
+              `grad` and turn every sport link into the city link. The reset above
+              DOES carry the city, and that is consistent: clearing the sport
+              returns you to the board you came from.
+            */}
+            {CANONICAL_SPORTS.map((sport) => (
+              <Link
+                key={sport}
+                href={scopeHref({ sport, period })}
+                className={filterClass(resolved.sport === sport)}
+              >
+                {sportName(sport)}
+              </Link>
+            ))}
+          </div>
+        </details>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="space-y-2">
+          <p className="t-overline text-text-muted">{t('filterPeriodLabel')}</p>
+          <div className="flex flex-wrap gap-2">
           <Link
             href={scopeHref({
               citySlug: resolved.city?.slug ?? null,
@@ -248,6 +291,7 @@ export default async function LeaderboardPage({
           >
             {t('periodMonth')}
           </Link>
+          </div>
         </div>
       </nav>
 

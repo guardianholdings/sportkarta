@@ -16,6 +16,7 @@ import {
 } from '@/lib/places';
 import { buildAlternates } from '@/lib/seo';
 import { AppShell } from '@/components/shell/app-shell';
+import { chipClass } from '@/components/ui/chip';
 
 // Programmatic SEO page: rendered on-demand + cached (ISR), never at build
 // (no DB during the Docker build). Thin-content guarded.
@@ -94,7 +95,7 @@ export default async function CityPage({ params }: { params: PageParams }) {
               <li key={s.sport}>
                 <Link
                   href={`/igrishta/${city.slug}/${s.sport}`}
-                  className="rounded-full border border-line-strong px-3 py-1 text-sm hover:bg-paper-sunk"
+                  className={chipClass()}
                 >
                   {tSport(s.sport)} <span className="text-text-muted">({s.count})</span>
                 </Link>

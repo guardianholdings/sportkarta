@@ -34,7 +34,7 @@ export default async function AdminCampaignsPage({
         <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
         <Link
           href="/admin/kampanii/nova"
-          className="ml-auto rounded-pill bg-brand px-3 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover"
+          className="ml-auto min-h-11 rounded-pill bg-brand px-4 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover"
         >
           {t('newCampaign')}
         </Link>
@@ -47,11 +47,11 @@ export default async function AdminCampaignsPage({
           <table className="w-full text-body-sm">
             <thead>
               <tr className="border-b border-line text-left text-caption text-text-muted">
-                <th scope="col" className="py-2 pr-3 font-medium">{t('columnTitle')}</th>
-                <th scope="col" className="py-2 pr-3 font-medium">{t('columnWindow')}</th>
-                <th scope="col" className="py-2 pr-3 font-medium">{t('columnScope')}</th>
-                <th scope="col" className="py-2 pr-3 font-medium">{t('columnBoard')}</th>
-                <th scope="col" className="py-2 font-medium">{t('columnPhase')}</th>
+                <th scope="col" className="t-overline py-2 pr-3 font-medium">{t('columnTitle')}</th>
+                <th scope="col" className="t-overline py-2 pr-3 font-medium">{t('columnWindow')}</th>
+                <th scope="col" className="t-overline py-2 pr-3 font-medium">{t('columnScope')}</th>
+                <th scope="col" className="t-overline py-2 pr-3 font-medium">{t('columnBoard')}</th>
+                <th scope="col" className="t-overline py-2 font-medium">{t('columnPhase')}</th>
               </tr>
             </thead>
             <tbody>
