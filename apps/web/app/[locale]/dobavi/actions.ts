@@ -48,7 +48,7 @@ export async function addFacilityAction(
       // The browser's fix, if it offered one. Passed straight through: the
       // coordinates are turned into metres inside the transaction and are never
       // written down (lib/contributions/proximity.ts).
-      position: { lat: formData.get('lat'), lon: formData.get('lon') },
+      position: { lat: formData.get('positionLat'), lon: formData.get('positionLon') },
       input: {
         name: String(formData.get('name') ?? ''),
         quarter: String(formData.get('quarter') ?? ''),

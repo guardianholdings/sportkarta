@@ -15,6 +15,27 @@ function dbClient(): pg.Client {
   return new pg.Client({ connectionString: url });
 }
 
+/**
+ * A hidden admin path must answer EXACTLY like a nonexistent one — same
+ * status, same not-found body. The literal-404 assertion this replaces became
+ * unrepresentable when the root loading boundary landed: Next streams the 200
+ * shell first, so notFound() cannot change the status line — uniformly for
+ * hidden and missing paths, which is the property that matters.
+ */
+async function expectHiddenLikeMissing(
+  page: import('@playwright/test').Page,
+  path: string,
+): Promise<void> {
+  const reference = await page.request.get(`/admin/nyama-takava-stranitsa-${String(Date.now())}`);
+  expect(
+    await reference.text(),
+    'the reference missing path must render the not-found UI',
+  ).toContain('This page could not be found');
+  const response = await page.request.get(path);
+  expect(response.status(), path).toBe(reference.status());
+  expect(await response.text(), path).toContain('This page could not be found');
+}
+
 async function query<T extends Record<string, unknown>>(
   sql: string,
   params: unknown[] = [],
@@ -189,9 +210,7 @@ test.describe('ambassadors', () => {
     // The editor can set status and rewrite every field, and it does not go
     // through the logged moderation path — so it must refuse out of scope.
     expect((await page.request.get(`/admin/facilities/${inScope?.id ?? ''}`)).status()).toBe(200);
-    expect((await page.request.get(`/admin/facilities/${outOfScope?.id ?? ''}`)).status()).toBe(
-      404,
-    );
+    await expectHiddenLikeMissing(page, `/admin/facilities/${outOfScope?.id ?? ''}`);
 
     // And the list must not advertise what it cannot open.
     await page.goto('/admin/facilities');
@@ -211,7 +230,7 @@ test.describe('ambassadors', () => {
     // Moderation yes, granting no — an ambassador widening their own scope
     // would make the municipality boundary decorative.
     expect((await page.request.get('/admin/moderation')).status(), testInfo.title).toBe(200);
-    expect((await page.request.get('/admin/ambasadori')).status()).toBe(404);
+    await expectHiddenLikeMissing(page, '/admin/ambasadori');
     await page.goto('/admin');
     await expect(page.getByRole('link', { name: /амбасадори|ambassadors/i })).toHaveCount(0);
   });

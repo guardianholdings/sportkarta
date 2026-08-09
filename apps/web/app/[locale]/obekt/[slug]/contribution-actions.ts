@@ -84,7 +84,7 @@ export async function verifyFacilityAction(
       // The browser's fix, if it offered one. Passed straight through: the
       // coordinates are turned into metres inside the transaction and are never
       // written down (lib/contributions/proximity.ts).
-      position: { lat: formData.get('lat'), lon: formData.get('lon') },
+      position: { lat: formData.get('positionLat'), lon: formData.get('positionLon') },
       checklist: {
         exists,
         ...(exists
@@ -144,7 +144,7 @@ export async function reportConditionAction(
       // The browser's fix, if it offered one. Passed straight through: the
       // coordinates are turned into metres inside the transaction and are never
       // written down (lib/contributions/proximity.ts).
-      position: { lat: formData.get('lat'), lon: formData.get('lon') },
+      position: { lat: formData.get('positionLat'), lon: formData.get('positionLon') },
       input: {
         state: String(formData.get('state') ?? ''),
         tags: formData.getAll('tags').map(String),

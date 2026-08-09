@@ -123,6 +123,29 @@ test.describe('admin bootstrap', () => {
   });
 });
 
+/**
+ * A hidden admin path must answer EXACTLY like a nonexistent one — same
+ * status, same not-found body — so an unprivileged member cannot learn which
+ * routes exist. The literal-404 assertion this replaces stopped being
+ * representable when the root loading boundary landed: Next streams the 200
+ * shell before the page resolves, and notFound() can no longer change the
+ * status line — for hidden and nonexistent paths alike, which is exactly the
+ * uniformity the security property needs.
+ */
+async function expectHiddenLikeMissing(
+  page: import('@playwright/test').Page,
+  path: string,
+): Promise<void> {
+  const reference = await page.request.get(`/admin/nyama-takava-stranitsa-${String(Date.now())}`);
+  expect(
+    await reference.text(),
+    'the reference missing path must render the not-found UI',
+  ).toContain('This page could not be found');
+  const response = await page.request.get(path);
+  expect(response.status(), path).toBe(reference.status());
+  expect(await response.text(), path).toContain('This page could not be found');
+}
+
 test.describe('role boundaries', () => {
   /** Force a role the way an in-app grant would, then reload as that person. */
   async function setRole(email: string, role: string): Promise<void> {
@@ -140,10 +163,9 @@ test.describe('role boundaries', () => {
     // page.request shares the browser context's cookies, so this is the same
     // signed-in identity.
     for (const path of ['/admin', '/admin/facilities', '/admin/verify', '/admin/import']) {
-      const response = await page.request.get(path);
-      // 404, not a redirect to sign-in: an unprivileged member should not learn
-      // which admin routes exist.
-      expect(response.status(), path).toBe(404);
+      // Indistinguishable from a missing page, never a redirect to sign-in: an
+      // unprivileged member should not learn which admin routes exist.
+      await expectHiddenLikeMissing(page, path);
     }
   });
 
@@ -162,19 +184,19 @@ test.describe('role boundaries', () => {
     expect((await page.request.get('/admin/moderation')).status()).toBe(200);
     // Imports rewrite national data; granting ambassadors would let one widen
     // their own scope. Both are admin-only, page as well as action.
-    expect((await page.request.get('/admin/import')).status()).toBe(404);
-    expect((await page.request.get('/admin/ambasadori')).status()).toBe(404);
+    await expectHiddenLikeMissing(page, '/admin/import');
+    await expectHiddenLikeMissing(page, '/admin/ambasadori');
     // Account management reads one member's ENTIRE record — contributions, play
     // history, trainings, consent receipts. An ambassador's authority is a set
     // of municipalities and has nothing to do with that, so both screens call
     // requireRole('admin') rather than the panel-level gate that let them in
-    // here. The detail route is checked with a real id: a 404 from a missing
-    // account would pass this assertion for the wrong reason.
-    expect((await page.request.get('/admin/akaunti')).status()).toBe(404);
+    // here. The detail route is checked with a real id: a not-found from a
+    // missing account would pass this assertion for the wrong reason.
+    await expectHiddenLikeMissing(page, '/admin/akaunti');
     const ownId = (await query<{ id: string }>(`SELECT id FROM users WHERE email = $1`, [email]))[0]
       ?.id;
     expect(ownId, 'the ambassador fixture should exist').toBeTruthy();
-    expect((await page.request.get(`/admin/akaunti/${String(ownId)}`)).status()).toBe(404);
+    await expectHiddenLikeMissing(page, `/admin/akaunti/${String(ownId)}`);
     // And no link is dangled in front of them.
     await page.goto('/admin');
     await expect(page.getByRole('link', { name: /импорт|import/i })).toHaveCount(0);

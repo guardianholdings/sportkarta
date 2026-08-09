@@ -67,8 +67,12 @@ export function PositionFields({
 }) {
   return (
     <>
-      <input type="hidden" name="lat" ref={latRef} />
-      <input type="hidden" name="lon" ref={lonRef} />
+      {/* NEVER name these lat/lon: the add-facility form also posts the
+          FACILITY's pin under those names, and FormData.get() returns the
+          first match — the member's fix (or an empty string, headless) would
+          silently replace the coordinates the contributor actually picked. */}
+      <input type="hidden" name="positionLat" ref={latRef} />
+      <input type="hidden" name="positionLon" ref={lonRef} />
     </>
   );
 }

@@ -50,6 +50,11 @@ const PIXEL_JPEG = Buffer.from(
 );
 
 test.describe('authenticated contributions', () => {
+  // Proximity gates POINTS (never the contribution itself): a member who
+  // shares no position files into the queue but earns nothing. These specs
+  // assert the full award path, so each test stands its browser AT its
+  // facility with setGeolocation before acting.
+  test.use({ permissions: ['geolocation'] });
   // eslint-disable-next-line no-empty-pattern -- Playwright passes testInfo second
   test.beforeEach(async ({}, testInfo) => {
     await query(`DELETE FROM users WHERE email = $1`, [contributorEmail(testInfo)]);
@@ -99,6 +104,8 @@ test.describe('authenticated contributions', () => {
     // the facility the previous one created.
     const lon = (23.4 + (stamp % 5000) / 100000).toFixed(5);
     const lat = (42.6 + (Math.floor(stamp / 5000) % 5000) / 100000).toFixed(5);
+    // Standing at the pin: proximity awards points only on site (≤250 m).
+    await page.context().setGeolocation({ longitude: Number(lon), latitude: Number(lat) });
     await page.goto(`/dobavi?lon=${lon}&lat=${lat}`);
     await page.locator('input[name="photo"]').setInputFiles({
       name: 'pitch.jpg',
@@ -194,6 +201,7 @@ test.describe('authenticated contributions', () => {
       )
     )[0];
 
+    await page.context().setGeolocation({ longitude: 23.3401, latitude: 42.6901 });
     await page.goto(`/obekt/${facility?.slug ?? ''}`);
     await page.getByRole('button', { name: /^(потвърди|confirm)$/i }).click();
     await expect(page.getByRole('status')).toBeVisible();
@@ -230,6 +238,7 @@ test.describe('authenticated contributions', () => {
       )
     )[0];
 
+    await page.context().setGeolocation({ longitude: 23.3501, latitude: 42.7001 });
     await page.goto(`/obekt/${facility?.slug ?? ''}`);
     // State/tag controls are label-wrapped sr-only inputs with a styled proxy
     // span, so the real user clicks the label — `force` checks the hidden input
@@ -283,6 +292,7 @@ test.describe('authenticated contributions', () => {
       )
     )[0];
 
+    await page.context().setGeolocation({ longitude: 23.3601, latitude: 42.7101 });
     await page.goto(`/obekt/${facility?.slug ?? ''}`);
     await page.getByRole('button', { name: /^(потвърди|confirm)$/i }).click();
     await expect(page.getByRole('status')).toBeVisible();
