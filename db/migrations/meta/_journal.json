@@ -211,6 +211,13 @@
       "when": 1785102000000,
       "tag": "0029_contribution_proximity",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1785105600000,
+      "tag": "0030_seed_rows_honest_status",
+      "breakpoints": true
     }
   ]
 }

@@ -34,6 +34,23 @@ const nextConfig: NextConfig = {
         headers: [
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          // A facility photo or an open-data CSV is served from our own origin;
+          // without nosniff a browser may re-interpret an uploaded file as
+          // something executable on the strength of its bytes alone.
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          // Passport and session URLs carry a member's handle or a token. The
+          // default policy would send the full URL to any third party the page
+          // links out to — the partner links on /partnyori are exactly that.
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          // Deliberately NOT denied here: geolocation, which the proximity
+          // check and the check-in flow both need, and camera — the photo
+          // inputs use `capture="environment"`, and some browsers apply this
+          // policy to that attribute, which would silently break the mobile
+          // contribution flow this product depends on.
+          {
+            key: 'Permissions-Policy',
+            value: 'microphone=(), payment=(), interest-cohort=()',
+          },
         ],
       },
     ];

@@ -19,6 +19,14 @@ interface SeedFacility {
   quarter: string;
   lon: number;
   lat: number;
+  /**
+   * `active` claims somebody stood there and confirmed it. The two rows that
+   * exist only so the db-backed tests have facilities in a SECOND and THIRD
+   * municipality were written from a map, not from the ground, so they enter
+   * as `needs_verification` like any other unconfirmed crowd claim — visible,
+   * honestly labelled, and in the verification queue for a human.
+   */
+  status: 'active' | 'needs_verification';
 }
 
 // Minimal municipality set so a seed-only database has the world the
@@ -51,6 +59,7 @@ const SEED_FACILITIES: SeedFacility[] = [
     quarter: 'Средец',
     lon: 23.3389,
     lat: 42.6839,
+    status: 'active',
   },
   {
     id: '00000000-0000-4000-8000-000000000002',
@@ -61,6 +70,7 @@ const SEED_FACILITIES: SeedFacility[] = [
     quarter: 'Триадица',
     lon: 23.3106,
     lat: 42.6712,
+    status: 'active',
   },
   {
     id: '00000000-0000-4000-8000-000000000003',
@@ -71,6 +81,7 @@ const SEED_FACILITIES: SeedFacility[] = [
     quarter: 'Гео Милев',
     lon: 23.3593,
     lat: 42.6819,
+    status: 'active',
   },
   {
     id: '00000000-0000-4000-8000-000000000004',
@@ -81,6 +92,7 @@ const SEED_FACILITIES: SeedFacility[] = [
     quarter: 'Оборище',
     lon: 23.3441,
     lat: 42.6926,
+    status: 'active',
   },
   {
     id: '00000000-0000-4000-8000-000000000005',
@@ -91,6 +103,7 @@ const SEED_FACILITIES: SeedFacility[] = [
     quarter: 'Студентски град',
     lon: 23.3465,
     lat: 42.6506,
+    status: 'active',
   },
   {
     id: '00000000-0000-4000-8000-000000000006',
@@ -101,6 +114,7 @@ const SEED_FACILITIES: SeedFacility[] = [
     quarter: 'Западен',
     lon: 24.7398,
     lat: 42.1354,
+    status: 'needs_verification',
   },
   {
     id: '00000000-0000-4000-8000-000000000007',
@@ -111,6 +125,7 @@ const SEED_FACILITIES: SeedFacility[] = [
     quarter: 'Приморски',
     lon: 27.926,
     lat: 43.2141,
+    status: 'needs_verification',
   },
 ];
 
@@ -163,7 +178,7 @@ async function main(): Promise<void> {
              access, status, quarter, source, attrs, municipality_id)
           VALUES
             ($1::uuid, ST_SetSRID(ST_MakePoint($2, $3), 4326), $4, $5::text[],
-             $6, $7, false, 'free', 'active', $8, 'crowd', '{"seed": true}'::jsonb,
+             $6, $7, false, 'free', $9, $8, 'crowd', '{"seed": true}'::jsonb,
              (SELECT m.id FROM municipalities m
                WHERE ST_Contains(m.geom, ST_SetSRID(ST_MakePoint($2, $3), 4326))
                ORDER BY m.id LIMIT 1))
@@ -174,7 +189,7 @@ async function main(): Promise<void> {
         SELECT id, NULL, 'crowd', 'created', NULL, '{"seed": true}'::jsonb FROM ins
         RETURNING facility_id
         `,
-        [f.id, f.lon, f.lat, f.name, f.sportTypes, f.surface, f.lighting, f.quarter],
+        [f.id, f.lon, f.lat, f.name, f.sportTypes, f.surface, f.lighting, f.quarter, f.status],
       );
       inserted += result.rowCount ?? 0;
     }
