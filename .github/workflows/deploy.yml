@@ -169,7 +169,15 @@ jobs:
             && docker compose -f compose.prod.yml --profile ops run --rm migrate \
             && docker compose -f compose.prod.yml --profile ops run --rm migrate pnpm db:seed \
             && docker compose -f compose.prod.yml up -d --remove-orphans \
-            && docker compose -f compose.prod.yml restart caddy'
+            && docker compose -f compose.prod.yml restart caddy \
+            && docker image prune -af'
+          # Every deploy pulls four fresh images and strands the previous four.
+          # Nothing was reclaiming them: 27 images / 19 GB had accumulated on
+          # the same filesystem as pgdata, and a `--filter until=…` prune is no
+          # use here because the images stranded by THIS deploy are minutes old.
+          # A bare `-af` is safe — it keeps every image referenced by a
+          # container, running or stopped — and rollback still works because the
+          # tags live in GHCR and are re-pulled.
           # The seed is idempotent dev/prod (fixed UUIDs, ON CONFLICT DO
           # NOTHING) and the health gate below depends on it: /api/health
           # smoke-queries the _health row, which migrations never create.
