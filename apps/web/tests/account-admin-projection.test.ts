@@ -117,6 +117,27 @@ describe('admin account module projection', () => {
     ).toBe(false);
   });
 
+  it('both akaunti pages gate on requireRole(admin), never requireAdmin', () => {
+    // requireAdmin() means "ambassador or admin" (apps/web/lib/roles.ts). This
+    // surface shows member emails, consent receipts and Art. 9-adjacent
+    // metadata — admin-only by decision, and nothing but this assertion stops
+    // a future refactor from quietly widening it to ambassadors.
+    for (const page of [
+      join('app', '[locale]', 'admin', '(protected)', 'akaunti', 'page.tsx'),
+      join('app', '[locale]', 'admin', '(protected)', 'akaunti', '[id]', 'page.tsx'),
+    ]) {
+      const code = stripComments(readFileSync(join(WEB_ROOT, page), 'utf8'));
+      expect(
+        /requireRole\(\s*['"]admin['"]\s*\)/.test(code),
+        `${page} must call requireRole('admin')`,
+      ).toBe(true);
+      expect(
+        /\brequireAdmin\s*\(/.test(code),
+        `${page} calls requireAdmin(), which admits ambassadors — this surface is admin-only`,
+      ).toBe(false);
+    }
+  });
+
   it('never writes a consent column', () => {
     const code = stripComments(readFileSync(join(WEB_ROOT, 'lib', 'account-admin.ts'), 'utf8'));
     // Consent is the member's to give and withdraw, and withdrawal is also what

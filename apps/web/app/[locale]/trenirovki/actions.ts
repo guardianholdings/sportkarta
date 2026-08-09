@@ -27,6 +27,39 @@ export interface TrainingFormState {
 
 const EMPTY: TrainingFormState = { problems: [] };
 
+/**
+ * Interpret a zoneless `YYYY-MM-DDTHH:mm` wall clock as Europe/Sofia,
+ * resolving the real offset for that date (+02:00 winter, +03:00 summer).
+ * Two-step: pretend the wall clock is UTC, ask Intl what Sofia shows at that
+ * instant, and the difference is the offset. Within the ambiguous autumn
+ * fold this deterministically picks the post-transition offset.
+ */
+function sofiaWallClockToInstant(raw: string): Date {
+  const pretendUtc = new Date(`${raw}:00Z`);
+  if (Number.isNaN(pretendUtc.getTime())) return pretendUtc;
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Sofia',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(pretendUtc);
+  const num = (type: string): number =>
+    Number(parts.find((p) => p.type === type)?.value ?? Number.NaN);
+  const shownAsUtc = Date.UTC(
+    num('year'),
+    num('month') - 1,
+    num('day'),
+    num('hour') % 24,
+    num('minute'),
+    num('second'),
+  );
+  return new Date(pretendUtc.getTime() - (shownAsUtc - pretendUtc.getTime()));
+}
+
 function optionalInt(raw: FormDataEntryValue | null): number | null {
   const text = String(raw ?? '').trim();
   if (text === '') return null;
@@ -54,8 +87,12 @@ export async function logTrainingAction(
   // A `datetime-local` value has no zone. It is a wall clock the member read off
   // their own life, so it is interpreted as Sofia — the same civil timezone
   // every other boundary in this product uses — rather than as UTC, which would
-  // silently shift an evening training into the next day.
-  const startedAt = rawDate === '' ? new Date(Number.NaN) : new Date(`${rawDate}:00+03:00`);
+  // silently shift an evening training into the next day. The offset must be
+  // RESOLVED for the entered date, never pinned: Sofia is +02:00 from late
+  // October to late March, and a pinned +03:00 stores winter trainings an hour
+  // early — an entry between 00:00 and 00:59 then buckets to the previous
+  // civil day, breaking the stored-Sofia-day guarantee of migration 0027.
+  const startedAt = rawDate === '' ? new Date(Number.NaN) : sofiaWallClockToInstant(rawDate);
 
   const distanceKm = optionalInt(formData.get('distanceKm'));
 

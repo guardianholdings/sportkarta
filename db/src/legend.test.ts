@@ -25,6 +25,8 @@ const hasDb = Boolean(process.env.DATABASE_URL);
 
 const A = 'e2e_legend_a';
 const B = 'e2e_legend_b';
+const ORG = 'e2e_legend_org';
+const TITLE = 'Легенда — тестова сесия';
 
 interface Runner {
   execute(query: { queryChunks?: unknown }): Promise<{ rows: Record<string, unknown>[] }>;
@@ -42,13 +44,41 @@ describe.skipIf(!hasDb)('facilityLegend (requires running database)', () => {
     const { drizzle } = await import('drizzle-orm/node-postgres');
     db = drizzle(client) as unknown as Runner;
 
-    // A facility that actually has occurrences to check into.
-    const row = await client.query<{ facility_id: string }>(
-      `SELECT s.facility_id FROM play_sessions s
-         JOIN play_session_occurrences o ON o.session_id = s.id
-        GROUP BY s.facility_id HAVING count(*) >= 3 LIMIT 1`,
+    // The legend needs a facility with occurrences to check into. Create our
+    // own session world instead of borrowing one — a seed-only database (CI)
+    // has facilities but no sessions, and the sibling sessions-*.test.ts
+    // suites already establish this create-and-clean idiom.
+    const facility = await client.query<{ id: string }>(
+      `SELECT id FROM facilities WHERE status <> 'gone' ORDER BY created_at, id LIMIT 1`,
     );
-    facilityId = row.rows[0]?.facility_id ?? '';
+    facilityId = facility.rows[0]?.id ?? '';
+    if (!facilityId) throw new Error('fixture: seed provides no facility');
+    await client.query(
+      `INSERT INTO users (id, display_name, email)
+       VALUES ($1, 'Тест', 'legend-org@example.org')
+       ON CONFLICT (id) DO NOTHING`,
+      [ORG],
+    );
+    const session = await client.query<{ id: string }>(
+      `INSERT INTO play_sessions
+         (facility_id, sport, organizer_id, title, starts_at_local, duration_minutes, capacity, visibility, status)
+       VALUES ($1::uuid, 'football', $2, $3, '2026-09-01T18:00:00'::timestamp, 90, 10,
+               'public'::play_session_visibility, 'scheduled'::play_session_status)
+       RETURNING id`,
+      [facilityId, ORG, TITLE],
+    );
+    const sessionId = session.rows[0]?.id;
+    for (let i = 0; i < 4; i += 1) {
+      await client.query(
+        `INSERT INTO play_session_occurrences (session_id, starts_at, ends_at, starts_at_local, status)
+         VALUES ($1::uuid,
+                 (('2026-09-01T18:00:00'::timestamp + make_interval(days => $2)) AT TIME ZONE 'Europe/Sofia'),
+                 (('2026-09-01T18:00:00'::timestamp + make_interval(days => $2)) AT TIME ZONE 'Europe/Sofia') + interval '90 minutes',
+                 '2026-09-01T18:00:00'::timestamp + make_interval(days => $2),
+                 'scheduled'::play_session_status)`,
+        [sessionId, i],
+      );
+    }
     const occ = await client.query<{ id: string }>(
       `SELECT o.id FROM play_session_occurrences o
          JOIN play_sessions s ON s.id = o.session_id
@@ -60,6 +90,7 @@ describe.skipIf(!hasDb)('facilityLegend (requires running database)', () => {
 
   afterAll(async () => {
     await cleanup();
+    await teardownSessions();
     await client.end();
   });
 
@@ -78,6 +109,16 @@ describe.skipIf(!hasDb)('facilityLegend (requires running database)', () => {
 
   async function cleanup(): Promise<void> {
     await client.query(`DELETE FROM users WHERE id = ANY($1::text[])`, [[A, B]]);
+  }
+
+  // The session world is torn down once, after the suite — beforeEach's
+  // cleanup() must not delete it, since every test checks into it.
+  async function teardownSessions(): Promise<void> {
+    await client.query(`DELETE FROM play_sessions WHERE organizer_id = $1 OR title = $2`, [
+      ORG,
+      TITLE,
+    ]);
+    await client.query(`DELETE FROM users WHERE id = $1`, [ORG]);
   }
 
   /** A check-in `daysAgo` days back, at a chosen occurrence and method. */

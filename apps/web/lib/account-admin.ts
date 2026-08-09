@@ -82,7 +82,13 @@ export async function listAccounts(
   const conditions = [sql`TRUE`];
 
   if (filters.q) {
-    const needle = filters.q.trim().toLowerCase();
+    // LIKE metacharacters in the operator's search would otherwise act as
+    // wildcards ("%" alone matches everyone; "_" per character) — escape them
+    // so the search always means the literal text typed.
+    const needle = filters.q
+      .trim()
+      .toLowerCase()
+      .replace(/[\\%_]/g, (m) => `\\${m}`);
     if (needle) {
       const prefix = `${needle}%`;
       const anywhere = `%${needle}%`;

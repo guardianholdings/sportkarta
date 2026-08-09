@@ -85,4 +85,7 @@ ALTER TABLE "facility_reports" ADD CONSTRAINT "facility_reports_distance_sane"
 COMMENT ON COLUMN "facility_edits"."distance_m" IS
   'Metres between the contributor and the facility when the claim was made. NULL = no position offered; never a coordinate. Evidence, not proof — see apps/web/lib/contributions/proximity.ts.';--> statement-breakpoint
 COMMENT ON COLUMN "facility_reports"."distance_m" IS
-  'Metres between the reporter and the facility when the report was filed. NULL = no position offered; never a coordinate.';
+  'Metres between the reporter and the facility when the report was filed. NULL = no position offered; never a coordinate.';--> statement-breakpoint
+-- The migrator runs the whole pending batch in ONE transaction, so a
+-- SET LOCAL leaks into the next migration file; reset like 0020..0027 do.
+SET LOCAL lock_timeout = DEFAULT;
