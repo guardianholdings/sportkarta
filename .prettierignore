@@ -1,6 +1,10 @@
 # Operator's planning document — never reformat
 docs/ROADMAP.md
 
+# Audit evidence is raw captured output (some deliberately truncated or
+# concatenated) — formatting would falsify it, and prettier errors on it
+docs/audit/evidence
+
 node_modules
 .next
 dist
