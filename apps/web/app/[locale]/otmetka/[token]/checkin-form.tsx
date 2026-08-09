@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useActionState, useEffect, useRef, useState } from 'react';
+import { useCallback, useActionState, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
@@ -83,7 +83,10 @@ export function CheckinForm({ token, occurrenceId }: Props) {
   const latRef = useRef<HTMLInputElement>(null);
   const lonRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  // Callable, not just an effect: Safari refuses a gesture-less geolocation
+  // request and does so silently, so on an iPhone the button below is the only
+  // form of this question the member ever sees. See position-fields.tsx.
+  const requestPosition = useCallback(() => {
     if (!('geolocation' in navigator)) {
       setPermission('unsupported');
       return;
@@ -113,6 +116,10 @@ export function CheckinForm({ token, occurrenceId }: Props) {
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 60_000 },
     );
   }, []);
+
+  useEffect(() => {
+    requestPosition();
+  }, [requestPosition]);
 
   if (state.status === 'ok') {
     const points = state.pointsAwarded ?? 0;
@@ -151,6 +158,15 @@ export function CheckinForm({ token, occurrenceId }: Props) {
       {permission === 'asking' && <p className="text-body-sm text-text-muted">{t('locating')}</p>}
       {permission === 'insecure' && (
         <p className="text-body-sm text-warning">{t('locationInsecure')}</p>
+      )}
+      {permission === 'denied' && (
+        <button
+          type="button"
+          onClick={requestPosition}
+          className="min-h-11 self-start rounded-md border border-warning-border px-3 text-body-sm font-medium text-warning"
+        >
+          {t('locationRetry')}
+        </button>
       )}
       {(permission === 'denied' || permission === 'unsupported') && (
         <p className="text-body-sm text-warning">{t('locationDenied')}</p>

@@ -21,7 +21,7 @@ const INITIAL: ContributionState = { status: 'idle' };
  */
 export function ConditionForm({ slug }: { slug: string }) {
   const t = useTranslations('Contribute');
-  const { phase, latRef, lonRef } = usePosition();
+  const { phase, latRef, lonRef, request } = usePosition();
   const tState = useTranslations('Condition');
   const tTag = useTranslations('ConditionTag');
   const [state, action, pending] = useActionState<ContributionState, FormData>(
@@ -39,7 +39,9 @@ export function ConditionForm({ slug }: { slug: string }) {
           granted: t('locationGranted'),
           denied: t('locationDenied'),
           insecure: t('locationInsecure'),
+          retry: t('locationRetry'),
         }}
+        onRequest={request}
       />
       <input type="hidden" name="slug" value={slug} />
 

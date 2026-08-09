@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
  * The two hidden lat/lon inputs every contribution form posts, plus the one-line
@@ -30,12 +30,28 @@ export function usePosition(): {
   phase: PositionPhase;
   latRef: React.RefObject<HTMLInputElement | null>;
   lonRef: React.RefObject<HTMLInputElement | null>;
+  request: () => void;
 } {
   const latRef = useRef<HTMLInputElement>(null);
   const lonRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<PositionPhase>('asking');
 
-  useEffect(() => {
+  /**
+   * SAFARI NEEDS A USER GESTURE, AND THAT IS WHY THIS IS CALLABLE.
+   *
+   * The automatic attempt below runs on mount, with no tap behind it. Chrome
+   * honours that and prompts; Safari — on iOS especially — refuses a
+   * gesture-less geolocation request and does so SILENTLY, so an iPhone
+   * contributor saw no prompt, no error, and a contribution that quietly
+   * scored nothing. The map and the pin picker were unaffected the whole time
+   * precisely because they ask from a button.
+   *
+   * So: still attempt on mount (it costs nothing where it works and keeps the
+   * happy path one step shorter), but always expose the same request behind a
+   * control the member can tap, which is the only form of the question Safari
+   * will actually put to them.
+   */
+  const request = useCallback(() => {
     if (!('geolocation' in navigator)) {
       setPhase('unsupported');
       return;
@@ -50,6 +66,7 @@ export function usePosition(): {
       setPhase('insecure');
       return;
     }
+    setPhase('asking');
     navigator.geolocation.getCurrentPosition(
       (position) => {
         if (latRef.current) latRef.current.value = String(position.coords.latitude);
@@ -65,7 +82,11 @@ export function usePosition(): {
     );
   }, []);
 
-  return { phase, latRef, lonRef };
+  useEffect(() => {
+    request();
+  }, [request]);
+
+  return { phase, latRef, lonRef, request };
 }
 
 export function PositionFields({
@@ -96,9 +117,23 @@ export function PositionFields({
 export function PositionNotice({
   phase,
   labels,
+  onRequest,
 }: {
   phase: PositionPhase;
-  labels: { locating: string; granted: string; denied: string; insecure?: string };
+  labels: {
+    locating: string;
+    granted: string;
+    denied: string;
+    insecure?: string;
+    retry?: string;
+  };
+  /**
+   * Passing this renders the tap target that makes the request a GESTURE.
+   * Safari refuses the automatic on-mount attempt without one and says
+   * nothing, so on an iPhone this button is not a retry affordance — it is
+   * the only way the question ever reaches the member.
+   */
+  onRequest?: () => void;
 }) {
   if (phase === 'asking') {
     return <p className="text-caption text-text-muted">{labels.locating}</p>;
@@ -107,8 +142,21 @@ export function PositionNotice({
     return <p className="text-caption text-text-muted">{labels.granted}</p>;
   }
   return (
-    <p className="rounded-md border border-warning-border bg-warning-bg p-3 text-caption text-warning">
-      {phase === 'insecure' ? (labels.insecure ?? labels.denied) : labels.denied}
-    </p>
+    <div className="rounded-md border border-warning-border bg-warning-bg p-3">
+      <p className="text-caption text-warning">
+        {phase === 'insecure' ? (labels.insecure ?? labels.denied) : labels.denied}
+      </p>
+      {/* Not offered when the origin is insecure: there the browser refuses
+          before it ever asks, so a button would only fail again. */}
+      {onRequest && labels.retry && phase !== 'insecure' && phase !== 'unsupported' && (
+        <button
+          type="button"
+          onClick={onRequest}
+          className="mt-2 min-h-11 rounded-md border border-warning-border px-3 text-caption font-medium text-warning underline-offset-2 hover:underline"
+        >
+          {labels.retry}
+        </button>
+      )}
+    </div>
   );
 }

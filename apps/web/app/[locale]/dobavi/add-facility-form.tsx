@@ -31,7 +31,7 @@ export function AddFacilityForm({
 }) {
   const t = useTranslations('AddFacility');
   const tContribute = useTranslations('Contribute');
-  const { phase, latRef, lonRef } = usePosition();
+  const { phase, latRef, lonRef, request } = usePosition();
   const tSport = useTranslations('Sport');
   const tAccess = useTranslations('Access');
   const [state, action, pending] = useActionState<AddFacilityState, FormData>(
@@ -59,7 +59,9 @@ export function AddFacilityForm({
           granted: tContribute('locationGranted'),
           denied: tContribute('locationDenied'),
           insecure: tContribute('locationInsecure'),
+          retry: tContribute('locationRetry'),
         }}
+        onRequest={request}
       />
       <fieldset className="flex flex-col gap-2">
         <legend className={`mb-1 ${LEGEND}`}>{t('locationLegend')}</legend>

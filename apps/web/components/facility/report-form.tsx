@@ -30,7 +30,7 @@ interface ReportFormProps {
 export function ReportForm({ slug, formToken }: ReportFormProps) {
   const t = useTranslations('Report');
   const tContribute = useTranslations('Contribute');
-  const { phase, latRef, lonRef } = usePosition();
+  const { phase, latRef, lonRef, request } = usePosition();
   const [open, setOpen] = useState(false);
   const [bodyLen, setBodyLen] = useState(0);
   const [state, formAction, pending] = useActionState(submitReport, initialState);
@@ -61,7 +61,9 @@ export function ReportForm({ slug, formToken }: ReportFormProps) {
           granted: tContribute('locationGranted'),
           denied: tContribute('locationDenied'),
           insecure: tContribute('locationInsecure'),
+          retry: tContribute('locationRetry'),
         }}
+        onRequest={request}
       />
       <h2 className="text-h4 font-bold text-ink">{t('title')}</h2>
 
