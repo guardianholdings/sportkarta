@@ -60,6 +60,7 @@ export function ReportForm({ slug, formToken }: ReportFormProps) {
           locating: tContribute('locating'),
           granted: tContribute('locationGranted'),
           denied: tContribute('locationDenied'),
+          insecure: tContribute('locationInsecure'),
         }}
       />
       <h2 className="text-h4 font-bold text-ink">{t('title')}</h2>

@@ -24,7 +24,7 @@ import { useEffect, useRef, useState } from 'react';
  * publish or score. Blocking would trade a large number of honest edits for a
  * faker's thirty seconds in devtools.
  */
-export type PositionPhase = 'asking' | 'granted' | 'denied' | 'unsupported';
+export type PositionPhase = 'asking' | 'granted' | 'denied' | 'unsupported' | 'insecure';
 
 export function usePosition(): {
   phase: PositionPhase;
@@ -38,6 +38,16 @@ export function usePosition(): {
   useEffect(() => {
     if (!('geolocation' in navigator)) {
       setPhase('unsupported');
+      return;
+    }
+    // Geolocation is a secure-context API. Over plain HTTP the object still
+    // EXISTS — so the check above passes — but every call fails immediately
+    // with PERMISSION_DENIED and the browser never shows a prompt. Reported
+    // as 'denied', that produced the one message a contributor cannot act on:
+    // "turn location on" to somebody who was never asked and has nothing to
+    // turn on. Name the real reason instead.
+    if (!window.isSecureContext) {
+      setPhase('insecure');
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -88,7 +98,7 @@ export function PositionNotice({
   labels,
 }: {
   phase: PositionPhase;
-  labels: { locating: string; granted: string; denied: string };
+  labels: { locating: string; granted: string; denied: string; insecure?: string };
 }) {
   if (phase === 'asking') {
     return <p className="text-caption text-text-muted">{labels.locating}</p>;
@@ -98,7 +108,7 @@ export function PositionNotice({
   }
   return (
     <p className="rounded-md border border-warning-border bg-warning-bg p-3 text-caption text-warning">
-      {labels.denied}
+      {phase === 'insecure' ? (labels.insecure ?? labels.denied) : labels.denied}
     </p>
   );
 }

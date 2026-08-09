@@ -583,6 +583,7 @@
     "locating": "Finding your location…",
     "locationGranted": "Your contribution will publish straight away, because you are on site.",
     "locationDenied": "Location is off. We will still accept your contribution, but it will wait for review and earn no points — turn location on if you are at the spot.",
+    "locationInsecure": "Your browser will not share your location because this site is not on a secure (https) connection yet. Your contribution is still accepted, but it will wait for review and will not earn points. There is nothing to change on your phone.",
     "offSiteNotice": "You were {distance} from the facility, so your contribution is waiting for review.",
     "offSiteNoLocation": "Without location on, your contribution is waiting for review."
   },
@@ -1253,6 +1254,7 @@
     "pending": "One moment…",
     "locating": "Finding your location…",
     "locationDenied": "Without location access your attendance is still recorded — it just does not earn points.",
+    "locationInsecure": "Your browser will not share your location because this site is not on a secure (https) connection yet. Your attendance is recorded, but it does not earn points.",
     "locationHint": "We use your location only to check you are at the facility. We do not store it.",
     "viewSession": "Go to the session",
     "attendance": "{checkedIn} checked in of {going} signed up",

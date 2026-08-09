@@ -58,6 +58,7 @@ export function AddFacilityForm({
           locating: tContribute('locating'),
           granted: tContribute('locationGranted'),
           denied: tContribute('locationDenied'),
+          insecure: tContribute('locationInsecure'),
         }}
       />
       <fieldset className="flex flex-col gap-2">

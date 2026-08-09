@@ -33,7 +33,7 @@ import { redeemCheckinAction, type CheckinState } from './actions';
  * obekt/[slug]/verify-form.tsx already does this.
  */
 
-type Permission = 'idle' | 'asking' | 'granted' | 'denied' | 'unsupported';
+type Permission = 'idle' | 'asking' | 'granted' | 'denied' | 'unsupported' | 'insecure';
 
 interface Props {
   token: string;
@@ -86,6 +86,13 @@ export function CheckinForm({ token, occurrenceId }: Props) {
   useEffect(() => {
     if (!('geolocation' in navigator)) {
       setPermission('unsupported');
+      return;
+    }
+    // Secure-context API: over plain HTTP the object exists but every call is
+    // denied without a prompt, so "turn location on" is advice the member
+    // cannot act on. Say what is actually true instead.
+    if (!window.isSecureContext) {
+      setPermission('insecure');
       return;
     }
     setPermission('asking');
@@ -142,6 +149,9 @@ export function CheckinForm({ token, occurrenceId }: Props) {
       </Button>
 
       {permission === 'asking' && <p className="text-body-sm text-text-muted">{t('locating')}</p>}
+      {permission === 'insecure' && (
+        <p className="text-body-sm text-warning">{t('locationInsecure')}</p>
+      )}
       {(permission === 'denied' || permission === 'unsupported') && (
         <p className="text-body-sm text-warning">{t('locationDenied')}</p>
       )}

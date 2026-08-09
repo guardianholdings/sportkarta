@@ -54,6 +54,7 @@ export function VerifyForm(props: VerifyFormProps) {
           locating: t('locating'),
           granted: t('locationGranted'),
           denied: t('locationDenied'),
+          insecure: t('locationInsecure'),
         }}
       />
       <input type="hidden" name="slug" value={props.slug} />
