@@ -234,6 +234,16 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD}
       RESTIC_REPOSITORY: ${RESTIC_REPOSITORY:-}
       RESTIC_PASSWORD: ${RESTIC_PASSWORD:-}
+      # restic authenticates to the remote itself, and WITHOUT these it fails
+      # at the push while the local dump still succeeds — the failure mode that
+      # produces a backup everybody believes in and nobody can restore. S3-style
+      # credentials cover Backblaze B2's S3 endpoint, AWS, and any S3-compatible
+      # host; the B2_* pair covers restic's native b2: driver. All empty by
+      # default, so an unconfigured deployment behaves exactly as before.
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      B2_ACCOUNT_ID: ${B2_ACCOUNT_ID:-}
+      B2_ACCOUNT_KEY: ${B2_ACCOUNT_KEY:-}
       TZ: Europe/Sofia
     volumes:
       - backups:/backups
