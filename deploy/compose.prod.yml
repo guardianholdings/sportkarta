@@ -119,6 +119,22 @@ services:
       db:
         condition: service_healthy
 
+  # One-shot; run by the deploy workflow before the app starts.
+  #
+  # Docker creates a named volume owned by root, but the web and worker images
+  # run as uid 1000 (node), so every write to /data/uploads fails with EACCES.
+  # That failure is quiet in the worst way: photo uploads 500, and the nightly
+  # opendata.dump job writes nothing while still recording a completed run —
+  # a dataset that looks published and does not exist. Idempotent, so it costs
+  # a second on every deploy and saves the one deploy where the volume is new.
+  init-storage:
+    image: alpine:3.20
+    profiles: [ops]
+    restart: 'no'
+    command: ['chown', '-R', '1000:1000', '/data/uploads']
+    volumes:
+      - uploads:/data/uploads
+
   # One-shot; run by the deploy workflow only:
   #   docker compose -f compose.prod.yml --profile ops run --rm migrate
   migrate:

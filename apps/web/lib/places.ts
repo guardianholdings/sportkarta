@@ -1,4 +1,4 @@
-import { getDb, sql, type SQL } from '@sportkarta/db';
+import { getDb, publicFacilityVisible, sql, type SQL } from '@sportkarta/db';
 import { assignCitySlugs, type City, type MunicipalityRow } from '@sportkarta/lib/cities';
 import { slugify } from '@sportkarta/lib/slug';
 import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
@@ -61,11 +61,7 @@ export interface ScopeOptions {
 
 // Public base + city scope + optional sport (array-overlap) / quarter filter.
 function scopeConditions(cityId: number, opts: ScopeOptions): SQL {
-  const conditions: SQL[] = [
-    sql`f.status <> 'gone'`,
-    sql`f.slug IS NOT NULL`,
-    sql`f.municipality_id = ${cityId}`,
-  ];
+  const conditions: SQL[] = [publicFacilityVisible, sql`f.municipality_id = ${cityId}`];
   if (opts.sport) conditions.push(sql`f.sport_types && ARRAY[${opts.sport}]::text[]`);
   if (opts.quarter) conditions.push(sql`f.quarter = ${opts.quarter}`);
   return sql.join(conditions, sql` AND `);
@@ -130,7 +126,7 @@ export async function citySportCounts(cityId: number): Promise<SportCount[]> {
   const result = await db.execute(sql`
     SELECT s.sport, count(*)::int AS n
     FROM facilities f, LATERAL unnest(f.sport_types) AS s(sport)
-    WHERE f.status <> 'gone' AND f.slug IS NOT NULL AND f.municipality_id = ${cityId}
+    WHERE ${publicFacilityVisible} AND f.municipality_id = ${cityId}
     GROUP BY s.sport
     ORDER BY n DESC, s.sport
   `);
@@ -154,7 +150,7 @@ export async function citiesForSport(
   const result = await db.execute(sql`
     SELECT f.municipality_id AS id, count(*)::int AS n
     FROM facilities f
-    WHERE f.status <> 'gone' AND f.slug IS NOT NULL AND f.municipality_id IS NOT NULL
+    WHERE ${publicFacilityVisible} AND f.municipality_id IS NOT NULL
       AND f.municipality_id <> ${exceptId}
       AND f.sport_types && ARRAY[${sport}]::text[]
     GROUP BY f.municipality_id
@@ -180,10 +176,10 @@ export async function citiesForSport(
 export async function resolveQuarterSlug(cityId: number, slug: string): Promise<string | null> {
   const db = getDb();
   const result = await db.execute(sql`
-    SELECT DISTINCT quarter FROM facilities
-    WHERE municipality_id = ${cityId} AND quarter IS NOT NULL
-      AND status <> 'gone' AND slug IS NOT NULL
-    ORDER BY quarter
+    SELECT DISTINCT f.quarter FROM facilities f
+    WHERE f.municipality_id = ${cityId} AND f.quarter IS NOT NULL
+      AND ${publicFacilityVisible}
+    ORDER BY f.quarter
   `);
   for (const r of result.rows) {
     const quarter = String((r as { quarter: string }).quarter);
@@ -204,10 +200,10 @@ export async function sitemapCities(min = 3): Promise<SitemapEntry[]> {
   const db = getDb();
   const { byId } = await loadCityCatalog();
   const result = await db.execute(sql`
-    SELECT municipality_id AS id, max(updated_at) AS lastmod
-    FROM facilities
-    WHERE status <> 'gone' AND slug IS NOT NULL AND municipality_id IS NOT NULL
-    GROUP BY municipality_id
+    SELECT f.municipality_id AS id, max(f.updated_at) AS lastmod
+    FROM facilities f
+    WHERE ${publicFacilityVisible} AND f.municipality_id IS NOT NULL
+    GROUP BY f.municipality_id
     HAVING count(*) >= ${min}
   `);
   const entries: SitemapEntry[] = [];
@@ -243,7 +239,7 @@ export async function sitemapCitySports(min = 3): Promise<SitemapEntry[]> {
   const result = await db.execute(sql`
     SELECT f.municipality_id AS id, s.sport, max(f.updated_at) AS lastmod
     FROM facilities f, LATERAL unnest(f.sport_types) AS s(sport)
-    WHERE f.status <> 'gone' AND f.slug IS NOT NULL AND f.municipality_id IS NOT NULL
+    WHERE ${publicFacilityVisible} AND f.municipality_id IS NOT NULL
     GROUP BY f.municipality_id, s.sport
     HAVING count(*) >= ${min}
   `);
@@ -265,10 +261,10 @@ export async function sitemapCitySports(min = 3): Promise<SitemapEntry[]> {
 export async function sitemapFacilities(): Promise<SitemapEntry[]> {
   const db = getDb();
   const result = await db.execute(sql`
-    SELECT slug, updated_at AS lastmod
-    FROM facilities
-    WHERE status <> 'gone' AND slug IS NOT NULL
-    ORDER BY slug
+    SELECT f.slug, f.updated_at AS lastmod
+    FROM facilities f
+    WHERE ${publicFacilityVisible}
+    ORDER BY f.slug
   `);
   return result.rows.map((r) => {
     const row = r as { slug: string; lastmod: string };

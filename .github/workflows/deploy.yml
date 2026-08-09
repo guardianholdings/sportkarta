@@ -165,6 +165,7 @@ jobs:
           ssh vps 'cd /opt/sportkarta \
             && docker compose -f compose.prod.yml pull -q \
             && docker compose -f compose.prod.yml up -d --wait db \
+            && docker compose -f compose.prod.yml --profile ops run --rm init-storage \
             && docker compose -f compose.prod.yml --profile ops run --rm migrate \
             && docker compose -f compose.prod.yml --profile ops run --rm migrate pnpm db:seed \
             && docker compose -f compose.prod.yml up -d --remove-orphans \
