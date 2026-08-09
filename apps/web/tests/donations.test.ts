@@ -103,7 +103,9 @@ describe('donationDetails', () => {
   });
 
   it('defaults to bank transfer only — no payment link unless one is configured', () => {
-    expect(donationDetails({ DONATION_IBAN: IBAN, DONATION_BENEFICIARY: 'X' })?.paymentUrl).toBeNull();
+    expect(
+      donationDetails({ DONATION_IBAN: IBAN, DONATION_BENEFICIARY: 'X' })?.paymentUrl,
+    ).toBeNull();
   });
 
   it('carries an optional transfer reference, bounded in length', () => {

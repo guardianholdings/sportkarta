@@ -74,9 +74,9 @@ describe('buildAdPlacementInput', () => {
     expect(() => buildAdPlacementInput(form({ ...VALID, altBg: '   ' }))).toThrowError(
       new AdPlacementError('alt_required'),
     );
-    expect(() =>
-      buildAdPlacementInput(form({ ...VALID, altBg: 'x'.repeat(201) })),
-    ).toThrowError(new AdPlacementError('alt_too_long'));
+    expect(() => buildAdPlacementInput(form({ ...VALID, altBg: 'x'.repeat(201) }))).toThrowError(
+      new AdPlacementError('alt_too_long'),
+    );
   });
 
   it('requires an http(s) advertiser URL', () => {

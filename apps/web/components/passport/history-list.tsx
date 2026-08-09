@@ -29,7 +29,10 @@ export async function HistoryList({ entries }: { entries: PassportHistoryEntry[]
           <span className="text-text-muted">{formatDate(entry.at)}</span>
           <span>
             {entry.facilitySlug ? (
-              <Link href={`/obekt/${entry.facilitySlug}`} className="font-medium text-link hover:text-link-hover">
+              <Link
+                href={`/obekt/${entry.facilitySlug}`}
+                className="font-medium text-link hover:text-link-hover"
+              >
                 {entry.facilityName ?? t(`event_${entry.kind}`)}
               </Link>
             ) : (
@@ -38,7 +41,9 @@ export async function HistoryList({ entries }: { entries: PassportHistoryEntry[]
           </span>
           <span className="text-text-muted">{t(`event_${entry.kind}`)}</span>
           {entry.points > 0 && (
-            <span className="ml-auto font-mono font-medium tabular-nums text-brand">+{entry.points}</span>
+            <span className="ml-auto font-mono font-medium tabular-nums text-brand">
+              +{entry.points}
+            </span>
           )}
         </li>
       ))}

@@ -94,7 +94,18 @@ describe('addedPoints — a forgeable query parameter', () => {
     // Number() accepts far more than "an integer": '0x0A', '1e1' and ' 10 ' all
     // coerce to 10. The parser matches digits instead, so the accepted set is
     // exactly the documented one.
-    for (const bad of ['1.5', 'abc', '1e1', 'NaN', 'Infinity', '0x0A', '10 ', ' 10', '+10', '-10']) {
+    for (const bad of [
+      '1.5',
+      'abc',
+      '1e1',
+      'NaN',
+      'Infinity',
+      '0x0A',
+      '10 ',
+      ' 10',
+      '+10',
+      '-10',
+    ]) {
       expect(addedPoints(bad), `${bad} should not be accepted`).toBeNull();
     }
   });

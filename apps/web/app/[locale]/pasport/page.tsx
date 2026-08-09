@@ -58,42 +58,47 @@ export default async function PassportPage({ params }: { params: Promise<{ local
   return (
     <AppShell active="/profil">
       <main className="mx-auto max-w-2xl space-y-10 p-4">
-      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line pb-3">
-        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
-        <div className="ml-auto flex items-center gap-3 text-caption">
-          <Link href="/klasirane" className="font-medium text-link hover:text-link-hover">
-            {t('leaderboardLink')}
-          </Link>
-          <Link href="/profil" className="font-medium text-link hover:text-link-hover">
-            {t('profileLink')}
-          </Link>
-        </div>
-      </header>
+        <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line pb-3">
+          <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
+          <div className="ml-auto flex items-center gap-3 text-caption">
+            <Link href="/klasirane" className="font-medium text-link hover:text-link-hover">
+              {t('leaderboardLink')}
+            </Link>
+            <Link href="/profil" className="font-medium text-link hover:text-link-hover">
+              {t('profileLink')}
+            </Link>
+          </div>
+        </header>
 
-      <section aria-labelledby="totals-h" className="space-y-3">
-        <h2 id="totals-h" className="text-h4 font-bold text-ink">
-          {t('totalsTitle')}
-        </h2>
-        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {totals.map((total) => (
-            <div key={total.key} className="rounded-card border border-line bg-surface p-3 shadow-sm">
-              <dt className="text-caption text-text-muted">{t(`total_${total.key}`)}</dt>
-              <dd className="mt-1 font-mono text-h3 font-bold text-ink tabular-nums">{total.value}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
+        <section aria-labelledby="totals-h" className="space-y-3">
+          <h2 id="totals-h" className="text-h4 font-bold text-ink">
+            {t('totalsTitle')}
+          </h2>
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {totals.map((total) => (
+              <div
+                key={total.key}
+                className="rounded-card border border-line bg-surface p-3 shadow-sm"
+              >
+                <dt className="text-caption text-text-muted">{t(`total_${total.key}`)}</dt>
+                <dd className="mt-1 font-mono text-h3 font-bold text-ink tabular-nums">
+                  {total.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
 
-      <section aria-labelledby="streaks-h" className="space-y-3">
-        <h2 id="streaks-h" className="text-h4 font-bold text-ink">
-          {t('streaksTitle')}
-        </h2>
-        {/* The OWNER's page, so it may say the week is still empty. The public
+        <section aria-labelledby="streaks-h" className="space-y-3">
+          <h2 id="streaks-h" className="text-h4 font-bold text-ink">
+            {t('streaksTitle')}
+          </h2>
+          {/* The OWNER's page, so it may say the week is still empty. The public
             one at /pasport/[handle] deliberately cannot — see StreakPanel. */}
-        <StreakPanel streaks={passport.streaks} atRisk={passport.streaks.weeksAtRisk} />
-      </section>
+          <StreakPanel streaks={passport.streaks} atRisk={passport.streaks.weeksAtRisk} />
+        </section>
 
-      {/*
+        {/*
         THE PASSPORT STORY — the image share, beside the text one.
         Offered to EVERY member regardless of passport visibility, for the same
         reason C3's text week is: the story image carries no name and no handle,
@@ -102,59 +107,62 @@ export default async function PassportPage({ params }: { params: Promise<{ local
         about a separate artifact (the public page and its scraper-fetchable
         card); posting your own totals to your own story is not a publication.
       */}
-      {passport.totals.points > 0 && (
-        <ShareSheet
-          variant="primary"
-          payload={buildShare({
-            kind: 'passport',
-            locale,
-            origin: siteUrl(),
-            page: '/klasirane',
-            text: tShare2('textPassport', { points: passport.totals.points }),
-          })}
-          strings={sheetPassport}
-        />
-      )}
+        {passport.totals.points > 0 && (
+          <ShareSheet
+            variant="primary"
+            payload={buildShare({
+              kind: 'passport',
+              locale,
+              origin: siteUrl(),
+              page: '/klasirane',
+              text: tShare2('textPassport', { points: passport.totals.points }),
+            })}
+            strings={sheetPassport}
+          />
+        )}
 
-      {/* C3: the Viber-native share. Offered to EVERY member, whatever their
+        {/* C3: the Viber-native share. Offered to EVERY member, whatever their
           passport visibility (operator decision 2026-07-26) — the text carries
           no name, no handle, no place and no time, and the link goes to the
           site rather than to a profile. */}
-      {passport.week.activeDays > 0 && (
-      <WeekShare
-        text={[
-          tShare('weekHeading'),
-          renderWeekGrid(passport.week),
-          tShare('weekDays', { count: passport.week.activeDays }),
-          siteUrl(),
-        ].join('\n')}
-      />
-      )}
+        {passport.week.activeDays > 0 && (
+          <WeekShare
+            text={[
+              tShare('weekHeading'),
+              renderWeekGrid(passport.week),
+              tShare('weekDays', { count: passport.week.activeDays }),
+              siteUrl(),
+            ].join('\n')}
+          />
+        )}
 
-      <section aria-labelledby="badges-h" className="space-y-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 id="badges-h" className="text-h4 font-bold text-ink">
-            {t('badgesTitle')}
+        <section aria-labelledby="badges-h" className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 id="badges-h" className="text-h4 font-bold text-ink">
+              {t('badgesTitle')}
+            </h2>
+            {passport.newBadges.length > 0 && (
+              <form action={acknowledgeBadgesAction} className="ml-auto">
+                <button
+                  type="submit"
+                  className="text-caption font-medium text-link hover:text-link-hover"
+                >
+                  {t('acknowledgeBadges')}
+                </button>
+              </form>
+            )}
+          </div>
+          <BadgeGrid badges={passport.badges} newBadges={passport.newBadges} />
+        </section>
+
+        <section aria-labelledby="history-h" className="space-y-3">
+          <h2 id="history-h" className="text-h4 font-bold text-ink">
+            {t('historyTitle')}
           </h2>
-          {passport.newBadges.length > 0 && (
-            <form action={acknowledgeBadgesAction} className="ml-auto">
-              <button type="submit" className="text-caption font-medium text-link hover:text-link-hover">
-                {t('acknowledgeBadges')}
-              </button>
-            </form>
-          )}
-        </div>
-        <BadgeGrid badges={passport.badges} newBadges={passport.newBadges} />
-      </section>
+          <HistoryList entries={passport.history} />
+        </section>
 
-      <section aria-labelledby="history-h" className="space-y-3">
-        <h2 id="history-h" className="text-h4 font-bold text-ink">
-          {t('historyTitle')}
-        </h2>
-        <HistoryList entries={passport.history} />
-      </section>
-
-      <VisibilityPanel visibility={passport.visibility} publicUrl={publicUrl} />
+        <VisibilityPanel visibility={passport.visibility} publicUrl={publicUrl} />
       </main>
     </AppShell>
   );

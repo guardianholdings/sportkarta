@@ -7,14 +7,7 @@ import { cn } from '@/lib/utils';
  * components/data-display/Badge). For clickable filters use Chip. Difficulty,
  * open/closed, "new", ranks. Pill radius, sans label, 13px icon slot.
  */
-export type BadgeTone =
-  | 'neutral'
-  | 'brand'
-  | 'accent'
-  | 'success'
-  | 'warning'
-  | 'danger'
-  | 'info';
+export type BadgeTone = 'neutral' | 'brand' | 'accent' | 'success' | 'warning' | 'danger' | 'info';
 export type BadgeVariant = 'soft' | 'solid' | 'outline';
 
 // tone × variant. Kept as a lookup (not 21 cva compounds) so the matrix reads

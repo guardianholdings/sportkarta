@@ -42,20 +42,20 @@ export default async function AdminVerifyPage({
             {t('municipalityFilter')}
           </label>
           <div className="w-56">
-          <Select
-            id="municipality"
-            name="municipality"
-            size="sm"
-            defaultValue={municipality === 'none' ? 'none' : (municipality ?? '')}
-          >
-            <option value="">{t('allMunicipalities')}</option>
-            <option value="none">{t('noMunicipality')}</option>
-            {municipalities.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.nameBg}
-              </option>
-            ))}
-          </Select>
+            <Select
+              id="municipality"
+              name="municipality"
+              size="sm"
+              defaultValue={municipality === 'none' ? 'none' : (municipality ?? '')}
+            >
+              <option value="">{t('allMunicipalities')}</option>
+              <option value="none">{t('noMunicipality')}</option>
+              {municipalities.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.nameBg}
+                </option>
+              ))}
+            </Select>
           </div>
           <Button type="submit" size="sm">
             {t('apply')}

@@ -14,12 +14,12 @@ reading the code and driving:
 - **"Жив импорт" (live import) DOES confirm** — it is a `ConfirmButton`
   (`window.confirm(t('liveConfirm'))` → `preventDefault` on cancel). The prior
   "no confirmation" was wrong.
-- **Import DOES give feedback** — after enqueue the page shows *`?enqueued`* (a
-  green "queued" message) or *`?conflict`* ("already queued"). The prior "silent
+- **Import DOES give feedback** — after enqueue the page shows _`?enqueued`_ (a
+  green "queued" message) or _`?conflict`_ ("already queued"). The prior "silent
   no-op" was wrong; the real gap is worker-health visibility (below, P2).
 
 Also already fixed in `00707c1`: the occluded locate control (repositioned
-top-right, verified un-occluded), the *Сесии* → empty-Campaigns mislabel (now
+top-right, verified un-occluded), the _Сесии_ → empty-Campaigns mislabel (now
 `/sesii`), and the dead "предложи тренировка" weekly copy (reworded).
 
 ## Fixed this pass
@@ -30,7 +30,7 @@ top-right, verified un-occluded), the *Сесии* → empty-Campaigns mislabel 
    event stream and has no `event_session_attended` label. Rendering
    `/admin/kampanii/nova` (or any campaign edit) threw `MISSING_MESSAGE`; being a
    client-component throw, the form never drew. The key is absent in **both**
-   locales, so the i18n parity test could not catch it. *Fix:* a new
+   locales, so the i18n parity test could not catch it. _Fix:_ a new
    `CAMPAIGN_EVENT_KINDS` (`lib/src/campaigns/rules.ts`) = the passport kinds
    minus `session_attended`; the form renders it and `validateCampaignRules` now
    refuses it — the same call badges already make (a QR check-in scores once as
@@ -45,9 +45,9 @@ top-right, verified un-occluded), the *Сесии* → empty-Campaigns mislabel 
    - **Remove a municipality from an ambassador** (`ambasadori/page.tsx`).
    - **Cancel a campaign** (`kampanii/[slug]/page.tsx`).
    - **"Няма го"** (moderation → mark facility `gone`) (`moderation/page.tsx`).
-   Type-to-confirm (campaign close, account delete) is unchanged — it stays the
-   guard for the irreversible ones. Verified by driving: cancelling the revoke
-   dialog leaves the row untouched and fires no action.
+     Type-to-confirm (campaign close, account delete) is unchanged — it stays the
+     guard for the irreversible ones. Verified by driving: cancelling the revoke
+     dialog leaves the row untouched and fires no action.
 3. **SEO facility-card accessible name.** `components/places/facility-list.tsx`
    now gives each `/obekt/[slug]` link an explicit `aria-label`
    (`<name> — <sport, sport>`), so a screen reader hears name and sports as
@@ -63,7 +63,7 @@ top-right, verified un-occluded), the *Сесии* → empty-Campaigns mislabel 
   per-job state (queued/running/failed) — a feature, not a one-line fix.
 - **Native file inputs read "Choose File" (English)** on add-facility,
   condition and report; the surrounding label/hint are Bulgarian. Cosmetic
-  i18n. *Fix (optional):* a button proxying a hidden `<input type=file>`.
+  i18n. _Fix (optional):_ a button proxying a hidden `<input type=file>`.
 - **"Направи публичен" (passport visibility)** publishes a member's activity on
   one tap, no confirm — left as-is deliberately: it is reversible and the state
   flip is its own feedback, so a confirm would only add friction to a safe

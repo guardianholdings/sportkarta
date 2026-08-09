@@ -47,27 +47,38 @@ export default async function AdminCampaignsPage({
           <table className="w-full text-body-sm">
             <thead>
               <tr className="border-b border-line text-left text-caption text-text-muted">
-                <th scope="col" className="t-overline py-2 pr-3 font-medium">{t('columnTitle')}</th>
-                <th scope="col" className="t-overline py-2 pr-3 font-medium">{t('columnWindow')}</th>
-                <th scope="col" className="t-overline py-2 pr-3 font-medium">{t('columnScope')}</th>
-                <th scope="col" className="t-overline py-2 pr-3 font-medium">{t('columnBoard')}</th>
-                <th scope="col" className="t-overline py-2 font-medium">{t('columnPhase')}</th>
+                <th scope="col" className="t-overline py-2 pr-3 font-medium">
+                  {t('columnTitle')}
+                </th>
+                <th scope="col" className="t-overline py-2 pr-3 font-medium">
+                  {t('columnWindow')}
+                </th>
+                <th scope="col" className="t-overline py-2 pr-3 font-medium">
+                  {t('columnScope')}
+                </th>
+                <th scope="col" className="t-overline py-2 pr-3 font-medium">
+                  {t('columnBoard')}
+                </th>
+                <th scope="col" className="t-overline py-2 font-medium">
+                  {t('columnPhase')}
+                </th>
               </tr>
             </thead>
             <tbody>
               {campaigns.map((campaign) => (
                 <tr key={campaign.id} className="border-b border-line">
                   <td className="py-2 pr-3">
-                    <Link href={`/admin/kampanii/${campaign.slug}`} className="font-medium text-link hover:text-link-hover">
+                    <Link
+                      href={`/admin/kampanii/${campaign.slug}`}
+                      className="font-medium text-link hover:text-link-hover"
+                    >
                       {localizedText(campaign.titleBg, campaign.titleEn, locale)}
                     </Link>
                   </td>
                   <td className="py-2 pr-3 tabular-nums text-text-muted">
                     {campaign.window.startsOn} → {campaign.window.endsOn}
                   </td>
-                  <td className="py-2 pr-3 text-text-muted">
-                    {t(`scope_${campaign.scope.kind}`)}
-                  </td>
+                  <td className="py-2 pr-3 text-text-muted">{t(`scope_${campaign.scope.kind}`)}</td>
                   <td className="py-2 pr-3 text-text-muted">
                     {t(`leaderboardType_${campaign.leaderboardType}`)}
                   </td>

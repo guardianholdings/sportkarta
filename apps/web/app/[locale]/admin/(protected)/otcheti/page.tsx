@@ -80,7 +80,10 @@ export default async function AdminReportsPage({
       <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
       <p className="max-w-prose text-body-sm text-ink-soft">{t('intro')}</p>
 
-      <form method="get" className="flex flex-wrap items-end gap-3 rounded-card border border-line bg-surface p-4 shadow-sm">
+      <form
+        method="get"
+        className="flex flex-wrap items-end gap-3 rounded-card border border-line bg-surface p-4 shadow-sm"
+      >
         <label className="flex flex-col gap-1 text-body-sm">
           <span className="font-medium">{t('from')}</span>
           <input
@@ -118,7 +121,10 @@ export default async function AdminReportsPage({
             ))}
           </select>
         </label>
-        <button type="submit" className="min-h-11 rounded-pill bg-brand px-4 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover">
+        <button
+          type="submit"
+          className="min-h-11 rounded-pill bg-brand px-4 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover"
+        >
           {t('generate')}
         </button>
       </form>

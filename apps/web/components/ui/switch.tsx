@@ -33,7 +33,8 @@ const thumbVariants = cva(
 );
 
 export interface SwitchProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'size'>,
+  extends
+    Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'size'>,
     VariantProps<typeof trackVariants> {
   label?: React.ReactNode;
 }

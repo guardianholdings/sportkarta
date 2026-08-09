@@ -112,7 +112,7 @@ services:
       # Every link in every worker-sent mail is built from this. Unset, the
       # worker falls back to http://localhost:3000 (apps/worker/src/index.ts),
       # so a digest would ship with links to the reader's own machine.
-      NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
+      NEXT_PUBLIC_SITE_URL: ${SITE_URL:?SITE_URL is rendered into .env by deploy.yml}
     volumes:
       - uploads:/data/uploads
     depends_on:

@@ -102,9 +102,9 @@ describe.skipIf(!hasDb)('facility sponsorships (requires running database)', () 
 
   it('REFUSES a second adoption overlapping the same facility', async () => {
     await adopt({});
-    await expect(adopt({ partner: otherPartnerId, from: '2026-06-01', to: '2027-05-31' })).rejects.toThrow(
-      /facility_sponsorships_one_per_facility/,
-    );
+    await expect(
+      adopt({ partner: otherPartnerId, from: '2026-06-01', to: '2027-05-31' }),
+    ).rejects.toThrow(/facility_sponsorships_one_per_facility/);
   });
 
   it('treats ends_on as INCLUSIVE — the last day is still sponsored', async () => {

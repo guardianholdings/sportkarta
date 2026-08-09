@@ -72,7 +72,9 @@ export async function FacilitySponsorBlock({ facilityId }: { facilityId: string 
       {/* The end date is shown on purpose: an adoption is an annual arrangement
           over public infrastructure, and saying when it runs out is the
           difference between an acknowledgment and an implied claim. */}
-      <p className="mt-2 text-caption text-text-muted">{t('sponsorUntil', { date: sponsor.endsOn })}</p>
+      <p className="mt-2 text-caption text-text-muted">
+        {t('sponsorUntil', { date: sponsor.endsOn })}
+      </p>
     </section>
   );
 }

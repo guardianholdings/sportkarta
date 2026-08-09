@@ -119,73 +119,73 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
   return (
     <AppShell>
       <main className="mx-auto max-w-3xl space-y-6 p-4">
-      <Link href={`/igrishta/${city.slug}`} className="text-body-sm font-medium text-link hover:text-link-hover">
-        {t('backToCity', { city: name })}
-      </Link>
+        <Link
+          href={`/igrishta/${city.slug}`}
+          className="text-body-sm font-medium text-link hover:text-link-hover"
+        >
+          {t('backToCity', { city: name })}
+        </Link>
 
-      <header className="space-y-2">
-        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{heading}</h1>
-        <p className="text-ink-soft">{intro}</p>
-      </header>
+        <header className="space-y-2">
+          <h1 className="text-h2 font-extrabold tracking-tight text-ink">{heading}</h1>
+          <p className="text-ink-soft">{intro}</p>
+        </header>
 
-      <section aria-labelledby="map-h">
-        <h2 id="map-h" className="mb-2 text-h4 font-bold text-ink">
-          {t('mapHeading')}
-        </h2>
-        <PlaceMap facilities={facilities} />
-      </section>
+        <section aria-labelledby="map-h">
+          <h2 id="map-h" className="mb-2 text-h4 font-bold text-ink">
+            {t('mapHeading')}
+          </h2>
+          <PlaceMap facilities={facilities} />
+        </section>
 
-      <section aria-labelledby="list-h">
-        <h2 id="list-h" className="mb-2 text-h4 font-bold text-ink">
-          {t('facilitiesHeading')}
-        </h2>
-        <FacilityList facilities={facilities.slice(0, LIST_LIMIT)} />
-        {count > LIST_LIMIT && (
-          <p className="mt-2 text-body-sm text-text-muted">
-            {t('showingLimited', { shown: Math.min(LIST_LIMIT, facilities.length), total: count })}
-          </p>
+        <section aria-labelledby="list-h">
+          <h2 id="list-h" className="mb-2 text-h4 font-bold text-ink">
+            {t('facilitiesHeading')}
+          </h2>
+          <FacilityList facilities={facilities.slice(0, LIST_LIMIT)} />
+          {count > LIST_LIMIT && (
+            <p className="mt-2 text-body-sm text-text-muted">
+              {t('showingLimited', {
+                shown: Math.min(LIST_LIMIT, facilities.length),
+                total: count,
+              })}
+            </p>
+          )}
+        </section>
+
+        {otherSports.length > 0 && (
+          <section aria-labelledby="others-h">
+            <h2 id="others-h" className="mb-2 text-h4 font-bold text-ink">
+              {t('otherSportsHeading', { city: name })}
+            </h2>
+            <ul className="flex flex-wrap gap-2">
+              {otherSports.map((s) => (
+                <li key={s.sport}>
+                  <Link href={`/igrishta/${city.slug}/${s.sport}`} className={chipClass()}>
+                    {tSport(s.sport)} <span className="text-text-muted">({s.count})</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
-      </section>
 
-      {otherSports.length > 0 && (
-        <section aria-labelledby="others-h">
-          <h2 id="others-h" className="mb-2 text-h4 font-bold text-ink">
-            {t('otherSportsHeading', { city: name })}
-          </h2>
-          <ul className="flex flex-wrap gap-2">
-            {otherSports.map((s) => (
-              <li key={s.sport}>
-                <Link
-                  href={`/igrishta/${city.slug}/${s.sport}`}
-                  className={chipClass()}
-                >
-                  {tSport(s.sport)} <span className="text-text-muted">({s.count})</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {scope.kind === 'sport' && sameSportCities.length > 0 && (
-        <section aria-labelledby="cities-h">
-          <h2 id="cities-h" className="mb-2 text-h4 font-bold text-ink">
-            {t('sameSportOtherCitiesHeading', { sport: tSport(scope.sport) })}
-          </h2>
-          <ul className="flex flex-wrap gap-2">
-            {sameSportCities.map(({ city: other, count: n }) => (
-              <li key={other.slug}>
-                <Link
-                  href={`/igrishta/${other.slug}/${scope.sport}`}
-                  className={chipClass()}
-                >
-                  {cityName(other, locale)} <span className="text-text-muted">({n})</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+        {scope.kind === 'sport' && sameSportCities.length > 0 && (
+          <section aria-labelledby="cities-h">
+            <h2 id="cities-h" className="mb-2 text-h4 font-bold text-ink">
+              {t('sameSportOtherCitiesHeading', { sport: tSport(scope.sport) })}
+            </h2>
+            <ul className="flex flex-wrap gap-2">
+              {sameSportCities.map(({ city: other, count: n }) => (
+                <li key={other.slug}>
+                  <Link href={`/igrishta/${other.slug}/${scope.sport}`} className={chipClass()}>
+                    {cityName(other, locale)} <span className="text-text-muted">({n})</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </main>
     </AppShell>
   );

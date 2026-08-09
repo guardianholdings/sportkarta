@@ -75,54 +75,59 @@ export default async function PublicPassportPage({ params }: { params: PageParam
   return (
     <AppShell>
       <main className="mx-auto max-w-2xl space-y-10 p-4">
-      <header className="space-y-1 border-b border-line pb-3">
-        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{passport.displayName}</h1>
-        <p className="text-body-sm text-text-muted">
-          {passport.homeCity
-            ? t('publicSubtitleWithCity', {
-                city: passport.homeCity,
-                since: passport.memberSince,
-              })
-            : t('publicSubtitle', { since: passport.memberSince })}
-        </p>
-      </header>
+        <header className="space-y-1 border-b border-line pb-3">
+          <h1 className="text-h2 font-extrabold tracking-tight text-ink">{passport.displayName}</h1>
+          <p className="text-body-sm text-text-muted">
+            {passport.homeCity
+              ? t('publicSubtitleWithCity', {
+                  city: passport.homeCity,
+                  since: passport.memberSince,
+                })
+              : t('publicSubtitle', { since: passport.memberSince })}
+          </p>
+        </header>
 
-      <section aria-labelledby="public-totals-h" className="space-y-3">
-        <h2 id="public-totals-h" className="text-h4 font-bold text-ink">
-          {t('totalsTitle')}
-        </h2>
-        <dl className="grid grid-cols-3 gap-3">
-          {totals.map((total) => (
-            <div key={total.key} className="rounded-card border border-line bg-surface p-3 shadow-sm">
-              <dt className="text-caption text-text-muted">{t(`total_${total.key}`)}</dt>
-              <dd className="mt-1 font-mono text-h3 font-bold text-ink tabular-nums">{total.value}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-
-      <section aria-labelledby="public-streaks-h" className="space-y-3">
-        <h2 id="public-streaks-h" className="text-h4 font-bold text-ink">
-          {t('streaksTitle')}
-        </h2>
-        <StreakPanel streaks={passport.streaks} />
-      </section>
-
-      <section aria-labelledby="public-badges-h" className="space-y-3">
-        <h2 id="public-badges-h" className="text-h4 font-bold text-ink">
-          {t('badgesTitle')}
-        </h2>
-        <PublicBadgeGrid badges={passport.badges} />
-      </section>
-
-      {passport.activity && (
-        <section aria-labelledby="public-activity-h" className="space-y-3">
-          <h2 id="public-activity-h" className="text-h4 font-bold text-ink">
-            {t('activityTitle')}
+        <section aria-labelledby="public-totals-h" className="space-y-3">
+          <h2 id="public-totals-h" className="text-h4 font-bold text-ink">
+            {t('totalsTitle')}
           </h2>
-          <PublicActivityList months={passport.activity} />
+          <dl className="grid grid-cols-3 gap-3">
+            {totals.map((total) => (
+              <div
+                key={total.key}
+                className="rounded-card border border-line bg-surface p-3 shadow-sm"
+              >
+                <dt className="text-caption text-text-muted">{t(`total_${total.key}`)}</dt>
+                <dd className="mt-1 font-mono text-h3 font-bold text-ink tabular-nums">
+                  {total.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
         </section>
-      )}
+
+        <section aria-labelledby="public-streaks-h" className="space-y-3">
+          <h2 id="public-streaks-h" className="text-h4 font-bold text-ink">
+            {t('streaksTitle')}
+          </h2>
+          <StreakPanel streaks={passport.streaks} />
+        </section>
+
+        <section aria-labelledby="public-badges-h" className="space-y-3">
+          <h2 id="public-badges-h" className="text-h4 font-bold text-ink">
+            {t('badgesTitle')}
+          </h2>
+          <PublicBadgeGrid badges={passport.badges} />
+        </section>
+
+        {passport.activity && (
+          <section aria-labelledby="public-activity-h" className="space-y-3">
+            <h2 id="public-activity-h" className="text-h4 font-bold text-ink">
+              {t('activityTitle')}
+            </h2>
+            <PublicActivityList months={passport.activity} />
+          </section>
+        )}
       </main>
     </AppShell>
   );

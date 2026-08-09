@@ -122,7 +122,11 @@ describe('admin account module projection', () => {
     // Consent is the member's to give and withdraw, and withdrawal is also what
     // DELETES the data it covers (db/src/training.ts setTrainingConsent). An
     // admin UPDATE of the flag alone would leave Art. 9 rows behind it.
-    for (const column of ['training_route_consent_at', 'training_health_consent_at', 'profile_visibility']) {
+    for (const column of [
+      'training_route_consent_at',
+      'training_health_consent_at',
+      'profile_visibility',
+    ]) {
       const writes = new RegExp(`(?:UPDATE|SET)[^;]*\\b${column}\\b`, 'i');
       expect(
         writes.test(code),

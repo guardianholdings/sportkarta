@@ -77,135 +77,131 @@ export function renderOgCard(input: OgCardInput): ImageResponse {
   const stats = input.stats ?? [];
 
   return new ImageResponse(
-    (
+    <div
+      style={{
+        width: '1200px',
+        height: '630px',
+        display: 'flex',
+        background: OG_PALETTE.paper,
+        fontFamily: 'Golos Text',
+      }}
+    >
+      {/* The one graphic constant that makes the six cards a set. */}
+      <div style={{ width: '12px', height: '630px', background: accent, display: 'flex' }} />
+
       <div
         style={{
-          width: '1200px',
-          height: '630px',
           display: 'flex',
-          background: OG_PALETTE.paper,
-          fontFamily: 'Golos Text',
+          flexDirection: 'column',
+          flex: 1,
+          padding: '64px',
+          justifyContent: 'space-between',
         }}
       >
-        {/* The one graphic constant that makes the six cards a set. */}
-        <div style={{ width: '12px', height: '630px', background: accent, display: 'flex' }} />
-
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            padding: '64px',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {input.eyebrow ? (
-              <div
-                style={{
-                  display: 'flex',
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: 24,
-                  letterSpacing: '3.4px',
-                  color: OG_PALETTE.textMuted,
-                  marginBottom: '18px',
-                }}
-              >
-                {input.eyebrow.toUpperCase()}
-              </div>
-            ) : null}
-
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {input.eyebrow ? (
             <div
               style={{
                 display: 'flex',
-                // Unbounded (the display face) runs ~25% wider than a text
-                // sans at the same size — 58px keeps roughly the char-per-line
-                // budget the 68px Manrope title had.
-                fontFamily: 'Unbounded',
-                fontSize: 58,
-                fontWeight: 700,
-                lineHeight: 1.1,
-                color: OG_PALETTE.ink,
-                // Two lines, then clip: a third line would collide with the
-                // stat row. 128 = ceil(2 lines × 58px × 1.1) — the old 150 was
-                // sized for the retired 68px face and clipped glyph tops of a
-                // third line.
-                overflow: 'hidden',
-                maxHeight: '128px',
+                fontFamily: 'JetBrains Mono',
+                fontSize: 24,
+                letterSpacing: '3.4px',
+                color: OG_PALETTE.textMuted,
+                marginBottom: '18px',
               }}
             >
-              {input.title}
-            </div>
-
-            {input.subtitle ? (
-              <div
-                style={{
-                  display: 'flex',
-                  fontSize: 30,
-                  fontWeight: 400,
-                  color: OG_PALETTE.inkSoft,
-                  marginTop: '16px',
-                }}
-              >
-                {input.subtitle}
-              </div>
-            ) : null}
-          </div>
-
-          {stats.length > 0 ? (
-            <div style={{ display: 'flex', gap: '56px' }}>
-              {stats.map((stat) => (
-                <div key={stat.label} style={{ display: 'flex', flexDirection: 'column' }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 56,
-                      color: OG_PALETTE.ink,
-                    }}
-                  >
-                    {stat.value}
-                  </div>
-                  <div
-                    style={{ display: 'flex', fontSize: 22, color: OG_PALETTE.textMuted }}
-                  >
-                    {stat.label}
-                  </div>
-                </div>
-              ))}
+              {input.eyebrow.toUpperCase()}
             </div>
           ) : null}
 
-          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+          <div
+            style={{
+              display: 'flex',
+              // Unbounded (the display face) runs ~25% wider than a text
+              // sans at the same size — 58px keeps roughly the char-per-line
+              // budget the 68px Manrope title had.
+              fontFamily: 'Unbounded',
+              fontSize: 58,
+              fontWeight: 700,
+              lineHeight: 1.1,
+              color: OG_PALETTE.ink,
+              // Two lines, then clip: a third line would collide with the
+              // stat row. 128 = ceil(2 lines × 58px × 1.1) — the old 150 was
+              // sized for the retired 68px face and clipped glyph tops of a
+              // third line.
+              overflow: 'hidden',
+              maxHeight: '128px',
+            }}
+          >
+            {input.title}
+          </div>
+
+          {input.subtitle ? (
             <div
               style={{
                 display: 'flex',
-                flex: 1,
-                // The wordmark is the LOGOTYPE: always the display face.
-                fontFamily: 'Unbounded',
-                fontSize: 24,
-                fontWeight: 800,
-                color: OG_PALETTE.brand,
+                fontSize: 30,
+                fontWeight: 400,
+                color: OG_PALETTE.inkSoft,
+                marginTop: '16px',
               }}
             >
-              {input.wordmark}
+              {input.subtitle}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-              {input.footnote ? (
-                <div style={{ display: 'flex', fontSize: 22, color: OG_PALETTE.inkSoft }}>
-                  {input.footnote}
+          ) : null}
+        </div>
+
+        {stats.length > 0 ? (
+          <div style={{ display: 'flex', gap: '56px' }}>
+            {stats.map((stat) => (
+              <div key={stat.label} style={{ display: 'flex', flexDirection: 'column' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 56,
+                    color: OG_PALETTE.ink,
+                  }}
+                >
+                  {stat.value}
                 </div>
-              ) : null}
-              {input.attribution ? (
-                <div style={{ display: 'flex', fontSize: 20, color: OG_PALETTE.textMuted }}>
-                  {input.attribution}
+                <div style={{ display: 'flex', fontSize: 22, color: OG_PALETTE.textMuted }}>
+                  {stat.label}
                 </div>
-              ) : null}
-            </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+          <div
+            style={{
+              display: 'flex',
+              flex: 1,
+              // The wordmark is the LOGOTYPE: always the display face.
+              fontFamily: 'Unbounded',
+              fontSize: 24,
+              fontWeight: 800,
+              color: OG_PALETTE.brand,
+            }}
+          >
+            {input.wordmark}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+            {input.footnote ? (
+              <div style={{ display: 'flex', fontSize: 22, color: OG_PALETTE.inkSoft }}>
+                {input.footnote}
+              </div>
+            ) : null}
+            {input.attribution ? (
+              <div style={{ display: 'flex', fontSize: 20, color: OG_PALETTE.textMuted }}>
+                {input.attribution}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
-    ),
+    </div>,
     { ...OG_SIZE, fonts: ogFonts(), ...(input.headers ? { headers: input.headers } : {}) },
   );
 }

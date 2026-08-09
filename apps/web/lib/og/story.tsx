@@ -96,188 +96,186 @@ export function renderStoryCard(input: StoryCardInput): ImageResponse {
   const stats = (input.stats ?? []).slice(0, 3);
 
   return new ImageResponse(
-    (
-      <div
-        style={{
-          width: '1080px',
-          height: '1920px',
-          display: 'flex',
-          flexDirection: 'column',
-          background: OG_PALETTE.paper,
-          fontFamily: 'Golos Text',
-        }}
-      >
-        {/* A full-bleed accent band at the very top: the one graphic constant
+    <div
+      style={{
+        width: '1080px',
+        height: '1920px',
+        display: 'flex',
+        flexDirection: 'column',
+        background: OG_PALETTE.paper,
+        fontFamily: 'Golos Text',
+      }}
+    >
+      {/* A full-bleed accent band at the very top: the one graphic constant
             that makes every story read as the same product, and the only thing
             allowed inside the platform's own chrome reserve. */}
-        <div style={{ display: 'flex', width: '1080px', height: '24px', background: accent }} />
+      <div style={{ display: 'flex', width: '1080px', height: '24px', background: accent }} />
 
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            paddingTop: `${String(STORY_SAFE_TOP)}px`,
-            paddingBottom: `${String(STORY_SAFE_BOTTOM)}px`,
-            paddingLeft: '96px',
-            paddingRight: '96px',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {input.eyebrow ? (
-              <div
-                style={{
-                  display: 'flex',
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: 34,
-                  letterSpacing: '5px',
-                  color: OG_PALETTE.textMuted,
-                  marginBottom: '40px',
-                }}
-              >
-                {input.eyebrow.toUpperCase()}
-              </div>
-            ) : null}
-
-            {/* THE HERO. Mono so digits are the same width — a number that
-                reflows between renders reads as a different design. */}
-            {input.hero ? (
-              <div
-                style={{
-                  display: 'flex',
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: 260,
-                  lineHeight: 1,
-                  color: accent,
-                }}
-              >
-                {input.hero}
-              </div>
-            ) : null}
-            {input.hero && input.heroLabel ? (
-              <div
-                style={{
-                  display: 'flex',
-                  fontSize: 44,
-                  fontWeight: 600,
-                  color: OG_PALETTE.inkSoft,
-                  marginTop: '8px',
-                }}
-              >
-                {input.heroLabel}
-              </div>
-            ) : null}
-
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          paddingTop: `${String(STORY_SAFE_TOP)}px`,
+          paddingBottom: `${String(STORY_SAFE_BOTTOM)}px`,
+          paddingLeft: '96px',
+          paddingRight: '96px',
+          justifyContent: 'space-between',
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {input.eyebrow ? (
             <div
               style={{
                 display: 'flex',
-                // Title-led when there is no hero: it becomes the large element
-                // rather than sitting small under an empty space. Unbounded
-                // (the display face) runs ~25% wider than a text sans, so the
-                // sizes drop accordingly (76→64, 116→96) to keep the same
-                // char-per-line budget inside the unchanged clip boxes.
-                fontFamily: 'Unbounded',
-                fontSize: input.hero ? 64 : 96,
-                fontWeight: 700,
-                lineHeight: 1.2,
-                color: OG_PALETTE.ink,
-                marginTop: input.hero ? '64px' : '0px',
-                // Whole lines only: 231 = 3 lines × 64px × 1.2 and
-                // 461 = 4 lines × 96px × 1.2 — the old 260/520 boxes sliced a
-                // strip of chopped glyph tops off the next line.
-                overflow: 'hidden',
-                maxHeight: input.hero ? '231px' : '461px',
+                fontFamily: 'JetBrains Mono',
+                fontSize: 34,
+                letterSpacing: '5px',
+                color: OG_PALETTE.textMuted,
+                marginBottom: '40px',
               }}
             >
-              {input.title}
-            </div>
-
-            {input.subtitle ? (
-              <div
-                style={{
-                  display: 'flex',
-                  fontSize: input.hero ? 40 : 48,
-                  color: OG_PALETTE.inkSoft,
-                  marginTop: '24px',
-                }}
-              >
-                {input.subtitle}
-              </div>
-            ) : null}
-          </div>
-
-          {stats.length > 0 ? (
-            <div
-              style={{
-                display: 'flex',
-                gap: '64px',
-                borderTop: `2px solid ${OG_PALETTE.line}`,
-                paddingTop: '40px',
-              }}
-            >
-              {stats.map((stat) => (
-                <div key={stat.label} style={{ display: 'flex', flexDirection: 'column' }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 66,
-                      color: OG_PALETTE.ink,
-                    }}
-                  >
-                    {stat.value}
-                  </div>
-                  <div style={{ display: 'flex', fontSize: 30, color: OG_PALETTE.textMuted }}>
-                    {stat.label}
-                  </div>
-                </div>
-              ))}
+              {input.eyebrow.toUpperCase()}
             </div>
           ) : null}
 
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {input.callToAction ? (
-              <div
-                style={{
-                  display: 'flex',
-                  fontSize: 36,
-                  fontWeight: 600,
-                  color: OG_PALETTE.inkSoft,
-                  marginBottom: '20px',
-                }}
-              >
-                {input.callToAction}
+          {/* THE HERO. Mono so digits are the same width — a number that
+                reflows between renders reads as a different design. */}
+          {input.hero ? (
+            <div
+              style={{
+                display: 'flex',
+                fontFamily: 'JetBrains Mono',
+                fontSize: 260,
+                lineHeight: 1,
+                color: accent,
+              }}
+            >
+              {input.hero}
+            </div>
+          ) : null}
+          {input.hero && input.heroLabel ? (
+            <div
+              style={{
+                display: 'flex',
+                fontSize: 44,
+                fontWeight: 600,
+                color: OG_PALETTE.inkSoft,
+                marginTop: '8px',
+              }}
+            >
+              {input.heroLabel}
+            </div>
+          ) : null}
+
+          <div
+            style={{
+              display: 'flex',
+              // Title-led when there is no hero: it becomes the large element
+              // rather than sitting small under an empty space. Unbounded
+              // (the display face) runs ~25% wider than a text sans, so the
+              // sizes drop accordingly (76→64, 116→96) to keep the same
+              // char-per-line budget inside the unchanged clip boxes.
+              fontFamily: 'Unbounded',
+              fontSize: input.hero ? 64 : 96,
+              fontWeight: 700,
+              lineHeight: 1.2,
+              color: OG_PALETTE.ink,
+              marginTop: input.hero ? '64px' : '0px',
+              // Whole lines only: 231 = 3 lines × 64px × 1.2 and
+              // 461 = 4 lines × 96px × 1.2 — the old 260/520 boxes sliced a
+              // strip of chopped glyph tops off the next line.
+              overflow: 'hidden',
+              maxHeight: input.hero ? '231px' : '461px',
+            }}
+          >
+            {input.title}
+          </div>
+
+          {input.subtitle ? (
+            <div
+              style={{
+                display: 'flex',
+                fontSize: input.hero ? 40 : 48,
+                color: OG_PALETTE.inkSoft,
+                marginTop: '24px',
+              }}
+            >
+              {input.subtitle}
+            </div>
+          ) : null}
+        </div>
+
+        {stats.length > 0 ? (
+          <div
+            style={{
+              display: 'flex',
+              gap: '64px',
+              borderTop: `2px solid ${OG_PALETTE.line}`,
+              paddingTop: '40px',
+            }}
+          >
+            {stats.map((stat) => (
+              <div key={stat.label} style={{ display: 'flex', flexDirection: 'column' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: 66,
+                    color: OG_PALETTE.ink,
+                  }}
+                >
+                  {stat.value}
+                </div>
+                <div style={{ display: 'flex', fontSize: 30, color: OG_PALETTE.textMuted }}>
+                  {stat.label}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {input.callToAction ? (
+            <div
+              style={{
+                display: 'flex',
+                fontSize: 36,
+                fontWeight: 600,
+                color: OG_PALETTE.inkSoft,
+                marginBottom: '20px',
+              }}
+            >
+              {input.callToAction}
+            </div>
+          ) : null}
+          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+            <div
+              style={{
+                display: 'flex',
+                flex: 1,
+                // The wordmark is the LOGOTYPE: always the display face.
+                // 30px + nowrap: „Повече от просто спорт" in Unbounded 800
+                // measures ~495px here and must share the row with the
+                // attribution without ever wrapping to two lines.
+                fontFamily: 'Unbounded',
+                fontSize: 30,
+                fontWeight: 800,
+                whiteSpace: 'nowrap',
+                color: OG_PALETTE.brand,
+              }}
+            >
+              {input.wordmark}
+            </div>
+            {input.attribution ? (
+              <div style={{ display: 'flex', fontSize: 24, color: OG_PALETTE.textMuted }}>
+                {input.attribution}
               </div>
             ) : null}
-            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  flex: 1,
-                  // The wordmark is the LOGOTYPE: always the display face.
-                  // 30px + nowrap: „Повече от просто спорт" in Unbounded 800
-                  // measures ~495px here and must share the row with the
-                  // attribution without ever wrapping to two lines.
-                  fontFamily: 'Unbounded',
-                  fontSize: 30,
-                  fontWeight: 800,
-                  whiteSpace: 'nowrap',
-                  color: OG_PALETTE.brand,
-                }}
-              >
-                {input.wordmark}
-              </div>
-              {input.attribution ? (
-                <div style={{ display: 'flex', fontSize: 24, color: OG_PALETTE.textMuted }}>
-                  {input.attribution}
-                </div>
-              ) : null}
-            </div>
           </div>
         </div>
       </div>
-    ),
+    </div>,
     {
       ...STORY_SIZE,
       fonts: ogFonts(),

@@ -20,7 +20,9 @@ export function Chip({
 
   const bg = selected
     ? `color-mix(in srgb, ${color} 14%, var(--surface))`
-    : hover && !disabled ? 'var(--surface-2)' : 'var(--surface)';
+    : hover && !disabled
+      ? 'var(--surface-2)'
+      : 'var(--surface)';
 
   return (
     <button
@@ -46,14 +48,19 @@ export function Chip({
         border: `1px solid ${selected ? color : 'var(--border-strong)'}`,
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.5 : 1,
-        transition: 'background var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard)',
+        transition:
+          'background var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard)',
         ...style,
       }}
       {...rest}
     >
-      {icon
-        ? <span style={{ display: 'inline-flex', width: 16, height: 16, color }}>{icon}</span>
-        : <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, flex: 'none' }} />}
+      {icon ? (
+        <span style={{ display: 'inline-flex', width: 16, height: 16, color }}>{icon}</span>
+      ) : (
+        <span
+          style={{ width: 9, height: 9, borderRadius: '50%', background: color, flex: 'none' }}
+        />
+      )}
       {children}
     </button>
   );

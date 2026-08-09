@@ -49,10 +49,7 @@ export default async function AdminAccountPage({
   setRequestLocale(locale);
   const admin = await requireRole('admin');
 
-  const [t, activeLocale] = await Promise.all([
-    getTranslations('AdminAccounts'),
-    getLocale(),
-  ]);
+  const [t, activeLocale] = await Promise.all([getTranslations('AdminAccounts'), getLocale()]);
 
   // Recorded first, and never inside a try/catch — see the header.
   await recordAccountAccess(admin.id, id, 'overview');
@@ -87,7 +84,10 @@ export default async function AdminAccountPage({
   return (
     <main className="space-y-6">
       <div>
-        <Link href="/admin/akaunti" className="text-body-sm font-medium text-link hover:text-link-hover">
+        <Link
+          href="/admin/akaunti"
+          className="text-body-sm font-medium text-link hover:text-link-hover"
+        >
           {t('back')}
         </Link>
         <h1 className="mt-2 text-h2 font-extrabold tracking-tight text-ink">
@@ -147,7 +147,9 @@ export default async function AdminAccountPage({
             <ul className="flex flex-wrap gap-2">
               {authority.scope.map((row) => (
                 <li key={row.municipalityId}>
-                  <Badge tone="brand">{cityDisplayName(row.nameBg, row.nameEn, activeLocale)}</Badge>
+                  <Badge tone="brand">
+                    {cityDisplayName(row.nameBg, row.nameEn, activeLocale)}
+                  </Badge>
                 </li>
               ))}
             </ul>
@@ -288,7 +290,9 @@ export default async function AdminAccountPage({
               dateTimeFmt.format(row.startedAt),
               row.sport,
               t('unitMin', { v: Math.round(row.durationS / 60) }),
-              row.distanceM === null ? t('none') : t('unitKm', { v: (row.distanceM / 1000).toFixed(1) }),
+              row.distanceM === null
+                ? t('none')
+                : t('unitKm', { v: (row.distanceM / 1000).toFixed(1) }),
               row.facilityName ?? t('none'),
               row.hasRoute ? t('yes') : t('no'),
               row.hasMetrics ? t('yes') : t('no'),
@@ -462,7 +466,9 @@ function Table({
                 <td
                   key={j}
                   className={`py-1.5 pr-3 ${
-                    j === 0 ? 'font-mono text-caption text-text-muted whitespace-nowrap' : 'text-ink'
+                    j === 0
+                      ? 'font-mono text-caption text-text-muted whitespace-nowrap'
+                      : 'text-ink'
                   } ${numericLast && j === row.length - 1 ? 'text-right font-mono tabular-nums' : ''}`}
                 >
                   {cell}

@@ -21,6 +21,7 @@ This is the single source of truth for how the product looks, feels, and reads. 
 **Design north star.** Modern, expensive, and techy — but close to nature, eco, and active. Warm and community-driven, never corporate or cold. Think premium outdoor gear brand crossed with a precise mapping/GPS tool. Restraint over decoration; real photography over illustration; data shown with confidence.
 
 ### Sources
+
 No existing codebase, Figma, brand assets, or logo were provided. This system was authored from scratch against the brief above. If/when the platform's real repo or brand assets exist, reconcile against them — the code is the ground truth, not this document.
 
 ---
@@ -39,6 +40,7 @@ No existing codebase, Figma, brand assets, or logo were provided. This system wa
 - **Emoji:** not used in the product UI. Category and status meaning is carried by icons + color, not emoji.
 
 **Examples**
+
 - Empty state: "Още никой не е добавил място тук. Бъди първият." / "No spots here yet. Be the first."
 - CTA: "Добави място" / "Add a spot" · "Запиши се за събитието" / "RSVP to the event"
 - Leaderboard: "3-то място този месец · 8 изкачвания" / "3rd this month · 8 summits"
@@ -50,6 +52,7 @@ No existing codebase, Figma, brand assets, or logo were provided. This system wa
 ## 3. Visual foundations
 
 ### 3.1 Color
+
 Warm, natural, and premium. The system is **light mode only**.
 
 - **Backgrounds** are warm paper (`--paper` `#FBF9F3`), never pure white for the page. Surfaces (cards, sheets) are a warm near-white (`--surface`). Recessed areas use `--paper-sunk`.
@@ -62,30 +65,36 @@ Warm, natural, and premium. The system is **light mode only**.
 Rule: at most one accent moment per view. Green does the structural work; clay is the spark.
 
 ### 3.2 Typography
+
 - **Manrope** — display, headings, and all UI/body. Modern humanist grotesque: geometric enough to feel techy, warm enough to feel human. Extrabold (800) with tight tracking for display; 700 for headings; 400/500 for body & UI. Full Cyrillic.
 - **JetBrains Mono** — all data and labels: distances, elevation, time, coordinates, stats, leaderboard figures, tags, and the uppercase **overline/eyebrow** style (`--ls-overline`, 12px). This mono layer is the "techy/GPS instrument" signal. Full Cyrillic.
 - Scale runs `--fs-overline` (12) → `--fs-display-2xl` (64). Headings use `text-wrap: balance`; paragraphs `text-wrap: pretty`.
 - Never below **14px** for body UI; **12px** floor for mono meta labels.
 
 ### 3.3 Space, layout & grid
+
 - 4px base grid via `--space-*`. Generous whitespace — premium comes from air, not density.
 - Containers: `--container-lg` (1120) for content, `--container-xl` (1320) for map-adjacent layouts. `--gutter` 24 desktop / 16 mobile.
 - **Map-first layout:** full-bleed map canvas with floating, shadowed controls (`--shadow-float`) and a docked panel/sheet for content. On mobile the content panel becomes a bottom sheet over the map.
 - Touch targets ≥ 44px (`--control-md`).
 
 ### 3.4 Shape & radius
+
 Restrained corners = premium. **Buttons, chips, and pills use `--radius-pill`** (the sporty, friendly, community warmth). **Inputs** `--radius-md` (10). **Cards & sheets** `--radius-lg`/`--radius-xl` (14/20). Avatars and marker dots are circular. Never mix many radii in one component.
 
 ### 3.5 Elevation & borders
+
 Borders do most of the separation work — a warm hairline (`--line`). Shadows are **soft, layered, and tinted with bark-green ink** (never pure black), so they sit naturally on paper. Floating map controls and sheets get `--shadow-float`. Avoid heavy drop shadows and glows.
 
 ### 3.6 Backgrounds & texture
+
 - Page: flat warm paper. No busy gradients.
 - **Signature motif:** a very subtle map-graticule/topographic grid on map-adjacent and hero surfaces — thin `--line` rules, low opacity, decorative only. Provided as a reusable treatment in the specimen cards; keep it faint.
 - **Route/GPS lines** (simple polylines) are an on-brand data graphic — pine or accent stroke, rounded caps — used on spot cards and detail heroes.
 - Imagery is the star: warm, sunlit, real photography of Bulgarian landscapes, trails, the Black Sea coast, and people being active. Placeholders in this kit are neutral striped fills labeled in mono — **drop real photography in production.** Never AI-illustrated or hand-drawn imagery.
 
 ### 3.7 Interaction & motion
+
 - **Hover:** subtle — darken fill one step (`--brand → --brand-hover`), or lift a card with a shadow step. ~120–180ms.
 - **Press:** shrink to `scale(0.97)` + darken. Immediate.
 - **Focus:** always visible — `--ring` (pine) or `--ring-accent` on accent controls. Never remove focus outlines.
@@ -119,6 +128,7 @@ No icon set was provided, so this system standardizes on **[Lucide](https://luci
 ## 6. Index / manifest
 
 **Root**
+
 - `styles.css` — global entry (import this)
 - `readme.md` — this guide
 - `SKILL.md` — makes this system usable as a downloadable Claude Skill
@@ -126,6 +136,7 @@ No icon set was provided, so this system standardizes on **[Lucide](https://luci
 **`tokens/`** — `fonts.css` · `colors.css` · `typography.css` · `spacing.css` · `radius.css` · `elevation.css` · `motion.css` · `base.css`
 
 **`components/`** (React `.jsx` + `.d.ts` + `.prompt.md`, grouped)
+
 - `actions/` — `Button`, `IconButton`
 - `forms/` — `Input`, `Select`, `Checkbox`, `Radio`, `Switch`
 - `data-display/` — `Card`, `Badge`, `Chip`, `Avatar`, `Stat`
@@ -143,6 +154,7 @@ No icon set was provided, so this system standardizes on **[Lucide](https://luci
 ## 7. Do & don't (quick rules)
 
 **Do**
+
 - Consume semantic tokens (`--brand`, `--text-primary`, `--space-4`).
 - Let the map and real photography lead; keep chrome quiet.
 - Show data in mono, honest and specific, metric units.
@@ -150,6 +162,7 @@ No icon set was provided, so this system standardizes on **[Lucide](https://luci
 - Write every string in Bulgarian + English, sentence case.
 
 **Don't**
+
 - Hard-code hex, use pure black/white, or invent new colors.
 - Use gradients-as-decoration, glows, emoji, or hand-drawn/AI imagery.
 - Mix icon families or stroke weights.

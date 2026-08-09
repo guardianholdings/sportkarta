@@ -7,7 +7,10 @@ export interface SegmentItem {
   icon?: React.ReactNode;
 }
 
-export interface SegmentedControlProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onChange'> {
+export interface SegmentedControlProps extends Omit<
+  React.HTMLAttributes<HTMLDivElement>,
+  'onChange'
+> {
   items: SegmentItem[];
   /** Selected value (controlled). */
   value: string;

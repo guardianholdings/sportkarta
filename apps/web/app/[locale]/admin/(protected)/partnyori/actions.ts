@@ -5,10 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { requireRole } from '@/lib/auth-session';
-import {
-  discardContributionPhoto,
-  storeContributionPhoto,
-} from '@/lib/contributions/photo-upload';
+import { discardContributionPhoto, storeContributionPhoto } from '@/lib/contributions/photo-upload';
 import { ContributionError } from '@/lib/contributions/errors';
 import {
   buildPartnerInput,

@@ -158,51 +158,51 @@ export default async function LeaderboardPage({
   return (
     <AppShell active="/klasirane">
       <main className="mx-auto max-w-2xl space-y-8 p-4">
-      <header className="space-y-2 border-b border-line pb-3">
-        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{heading}</h1>
-        <p className="text-body-sm text-ink-soft">{t('intro')}</p>
-      </header>
+        <header className="space-y-2 border-b border-line pb-3">
+          <h1 className="text-h2 font-extrabold tracking-tight text-ink">{heading}</h1>
+          <p className="text-body-sm text-ink-soft">{t('intro')}</p>
+        </header>
 
-      {/*
+        {/*
         The division leads, and renders nothing at all when the member has none.
         `DivisionLadder` highlights the viewer's own row, which is why the
         "your standing" card below is suppressed while it is showing: one
         self-reference per page, not two saying different things.
       */}
-      <DivisionLadder rows={ladder} viewerUserId={user?.id ?? null} />
+        <DivisionLadder rows={ladder} viewerUserId={user?.id ?? null} />
 
-      {/*
+        {/*
         The division share reads the member's OWN row out of the ladder that is
         already on screen — no second query, and nothing that could disagree
         with what they are looking at.
       */}
-      {(() => {
-        const mine = user ? ladder.find((row) => row.userId === user.id) : undefined;
-        if (!mine) return null;
-        return (
-          <ShareSheet
-            payload={buildShare({
-              kind: 'division',
-              locale,
-              origin: siteUrl(),
-              page: '/klasirane',
-              text: tShare('textDivision', {
-                tier: tDivision(`tier.${tierSlug(mine.tier)}`),
-                rank: mine.rank,
-              }),
-            })}
-            strings={sheetDivision}
-          />
-        );
-      })()}
+        {(() => {
+          const mine = user ? ladder.find((row) => row.userId === user.id) : undefined;
+          if (!mine) return null;
+          return (
+            <ShareSheet
+              payload={buildShare({
+                kind: 'division',
+                locale,
+                origin: siteUrl(),
+                page: '/klasirane',
+                text: tShare('textDivision', {
+                  tier: tDivision(`tier.${tierSlug(mine.tier)}`),
+                  rank: mine.rank,
+                }),
+              })}
+              strings={sheetDivision}
+            />
+          );
+        })()}
 
-      {ladder.length > 0 && (
-        <h2 className="border-t border-line pt-6 text-h3 font-extrabold tracking-tight text-ink">
-          {t('nationalSectionTitle')}
-        </h2>
-      )}
+        {ladder.length > 0 && (
+          <h2 className="border-t border-line pt-6 text-h3 font-extrabold tracking-tight text-ink">
+            {t('nationalSectionTitle')}
+          </h2>
+        )}
 
-      {/*
+        {/*
         THREE FILTERS, EACH SAYING WHAT IT FILTERS.
 
         These were three unlabelled rows of identical pills: a visitor could not
@@ -214,42 +214,42 @@ export default async function LeaderboardPage({
         active (so a shared /klasirane?sport=… link still shows its own state).
         `<details>` keeps this a server component with no client JS.
       */}
-      <nav aria-label={t('filtersLabel')} className="space-y-4">
-        <div className="space-y-2">
-          <p className="t-overline text-text-muted">{t('filterScopeLabel')}</p>
-          <div className="flex flex-wrap gap-2">
-            <Link href={scopeHref({ period })} className={filterClass(scope.kind === 'national')}>
-              {t('scopeNational')}
-            </Link>
-            {cities.map((city) => (
-              <Link
-                key={city.id}
-                href={scopeHref({ citySlug: city.slug, period })}
-                className={filterClass(resolved.city?.id === city.id)}
-              >
-                {cityDisplayName(city.nameBg, city.nameEn, locale)}
+        <nav aria-label={t('filtersLabel')} className="space-y-4">
+          <div className="space-y-2">
+            <p className="t-overline text-text-muted">{t('filterScopeLabel')}</p>
+            <div className="flex flex-wrap gap-2">
+              <Link href={scopeHref({ period })} className={filterClass(scope.kind === 'national')}>
+                {t('scopeNational')}
               </Link>
-            ))}
+              {cities.map((city) => (
+                <Link
+                  key={city.id}
+                  href={scopeHref({ citySlug: city.slug, period })}
+                  className={filterClass(resolved.city?.id === city.id)}
+                >
+                  {cityDisplayName(city.nameBg, city.nameEn, locale)}
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
 
-        <details open={resolved.sport !== null} className="group space-y-2">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-body-sm font-medium text-ink-soft marker:hidden hover:text-brand">
-            <ChevronRight
-              size={16}
-              className="shrink-0 transition-transform duration-150 ease-standard group-open:rotate-90"
-            />
-            <span className="t-overline text-text-muted">{t('filterSportLabel')}</span>
-            <span className="truncate font-semibold text-ink">{activeSportLabel}</span>
-          </summary>
-          <div className="flex flex-wrap gap-2 pt-1">
-            <Link
-              href={scopeHref({ citySlug: resolved.city?.slug ?? null, period })}
-              className={filterClass(resolved.sport === null)}
-            >
-              {t('filterSportAll')}
-            </Link>
-            {/*
+          <details open={resolved.sport !== null} className="group space-y-2">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-body-sm font-medium text-ink-soft marker:hidden hover:text-brand">
+              <ChevronRight
+                size={16}
+                className="shrink-0 transition-transform duration-150 ease-standard group-open:rotate-90"
+              />
+              <span className="t-overline text-text-muted">{t('filterSportLabel')}</span>
+              <span className="truncate font-semibold text-ink">{activeSportLabel}</span>
+            </summary>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Link
+                href={scopeHref({ citySlug: resolved.city?.slug ?? null, period })}
+                className={filterClass(resolved.sport === null)}
+              >
+                {t('filterSportAll')}
+              </Link>
+              {/*
               No `citySlug` here, deliberately: a board's scope is national OR a
               city OR a sport, never a combination — `scopeHref` writes `grad`
               and `sport` in an either/or (lib/leaderboard.ts), and `resolveScope`
@@ -258,104 +258,102 @@ export default async function LeaderboardPage({
               DOES carry the city, and that is consistent: clearing the sport
               returns you to the board you came from.
             */}
-            {CANONICAL_SPORTS.map((sport) => (
+              {CANONICAL_SPORTS.map((sport) => (
+                <Link
+                  key={sport}
+                  href={scopeHref({ sport, period })}
+                  className={filterClass(resolved.sport === sport)}
+                >
+                  {sportName(sport)}
+                </Link>
+              ))}
+            </div>
+          </details>
+
+          <div className="space-y-2">
+            <p className="t-overline text-text-muted">{t('filterPeriodLabel')}</p>
+            <div className="flex flex-wrap gap-2">
               <Link
-                key={sport}
-                href={scopeHref({ sport, period })}
-                className={filterClass(resolved.sport === sport)}
+                href={scopeHref({
+                  citySlug: resolved.city?.slug ?? null,
+                  sport: resolved.sport,
+                  period: 'all_time',
+                })}
+                className={filterClass(period === 'all_time')}
               >
-                {sportName(sport)}
+                {t('periodAllTime')}
               </Link>
-            ))}
+              <Link
+                href={scopeHref({
+                  citySlug: resolved.city?.slug ?? null,
+                  sport: resolved.sport,
+                  period: 'month',
+                })}
+                className={filterClass(period === 'month')}
+              >
+                {t('periodMonth')}
+              </Link>
+            </div>
           </div>
-        </details>
+        </nav>
 
-        <div className="space-y-2">
-          <p className="t-overline text-text-muted">{t('filterPeriodLabel')}</p>
-          <div className="flex flex-wrap gap-2">
-          <Link
-            href={scopeHref({
-              citySlug: resolved.city?.slug ?? null,
-              sport: resolved.sport,
-              period: 'all_time',
-            })}
-            className={filterClass(period === 'all_time')}
-          >
-            {t('periodAllTime')}
-          </Link>
-          <Link
-            href={scopeHref({
-              citySlug: resolved.city?.slug ?? null,
-              sport: resolved.sport,
-              period: 'month',
-            })}
-            className={filterClass(period === 'month')}
-          >
-            {t('periodMonth')}
-          </Link>
-          </div>
-        </div>
-      </nav>
-
-      {/*
+        {/*
         TWO BOARDS, EACH SAYING WHICH QUESTION IT ANSWERS. Participation leads,
         because "who plays this sport" is what a visitor reading a sport filter
         is actually asking; contributions follow under their own heading, so the
         older board stops being silently mistaken for the newer one.
       */}
-      <section className="space-y-2">
-        <h2 className="text-h3 font-extrabold tracking-tight text-ink">
-          {tp('sectionTitle')}
-        </h2>
-        <p className="text-body-sm text-ink-soft">{tp('intro')}</p>
-        <ParticipationTable entries={participation} />
-        <p className="text-caption text-text-muted">
-          {tp('logPrompt')}{' '}
-          <Link href="/trenirovki" className="font-medium text-link hover:text-link-hover">
-            {tp('logLink')}
-          </Link>
-        </p>
-      </section>
+        <section className="space-y-2">
+          <h2 className="text-h3 font-extrabold tracking-tight text-ink">{tp('sectionTitle')}</h2>
+          <p className="text-body-sm text-ink-soft">{tp('intro')}</p>
+          <ParticipationTable entries={participation} />
+          <p className="text-caption text-text-muted">
+            {tp('logPrompt')}{' '}
+            <Link href="/trenirovki" className="font-medium text-link hover:text-link-hover">
+              {tp('logLink')}
+            </Link>
+          </p>
+        </section>
 
-      <section className="space-y-2">
-        <h2 className="text-h3 font-extrabold tracking-tight text-ink">
-          {t('contributionsSectionTitle')}
-        </h2>
-        <p className="text-body-sm text-ink-soft">{t('contributionsSectionBody')}</p>
-        <LeaderboardTable entries={entries} />
-      </section>
+        <section className="space-y-2">
+          <h2 className="text-h3 font-extrabold tracking-tight text-ink">
+            {t('contributionsSectionTitle')}
+          </h2>
+          <p className="text-body-sm text-ink-soft">{t('contributionsSectionBody')}</p>
+          <LeaderboardTable entries={entries} />
+        </section>
 
-      {ladder.length === 0 && (
-        <section className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm text-body-sm">
-          <h2 className="font-semibold">{t('yourStandingTitle')}</h2>
-          {!user && <p className="text-ink-soft">{t('standingSignedOut')}</p>}
-          {user && standing && (
-            <p className="text-ink-soft">
-              {t('standingRanked', {
-                rank: standing.rank,
-                total: standing.total,
-                points: standing.points,
-              })}
-            </p>
-          )}
-          {/*
+        {ladder.length === 0 && (
+          <section className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm text-body-sm">
+            <h2 className="font-semibold">{t('yourStandingTitle')}</h2>
+            {!user && <p className="text-ink-soft">{t('standingSignedOut')}</p>}
+            {user && standing && (
+              <p className="text-ink-soft">
+                {t('standingRanked', {
+                  rank: standing.rank,
+                  total: standing.total,
+                  points: standing.points,
+                })}
+              </p>
+            )}
+            {/*
             There is now ONE reason to be unranked — the passport is not public —
             and it is something the member can change, so the copy points at the
             control. The second branch that used to be here told minors the rule
             did not apply to them; migration 0020 removed the rule.
           */}
-          {user && !standing && (
-            <p className="text-ink-soft">
-              {t('standingNotPublic')}{' '}
-              <Link href="/pasport" className="font-medium text-link hover:text-link-hover">
-                {t('standingPassportLink')}
-              </Link>
-            </p>
-          )}
-        </section>
-      )}
+            {user && !standing && (
+              <p className="text-ink-soft">
+                {t('standingNotPublic')}{' '}
+                <Link href="/pasport" className="font-medium text-link hover:text-link-hover">
+                  {t('standingPassportLink')}
+                </Link>
+              </p>
+            )}
+          </section>
+        )}
 
-      <p className="text-caption text-text-muted">{t('eligibilityNote')}</p>
+        <p className="text-caption text-text-muted">{t('eligibilityNote')}</p>
       </main>
     </AppShell>
   );

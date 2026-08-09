@@ -19,21 +19,21 @@ re-confirming before you edit the file.
 
 ## Status log
 
-| Phase | State | Notes |
-|---|---|---|
-| 0 — Truth repairs | ✅ **done 2026-07-26** | All five items, each with a gate proven to fail on the bug it guards. |
-| 1 — Show the number (A2) | ✅ **done 2026-07-26** | Verified in-browser (bg + en) and by the QR + contributions e2e suites. |
-| 2 — Instrument + framing rule (C1, C7) | ✅ **done 2026-07-26** | 9 events across 8 files, closed vocabulary, privacy copy updated. |
-| 3 — Badge evaluation off the render path (A1) | ✅ **done 2026-07-26** | **No migration needed.** Verified end-to-end against the real worker + database. |
-| 4 — Streak freezes + at-risk (A4) | ✅ **done 2026-07-26** | Engine, migration `0025`, granting job, read wiring and the at-risk banner. Nudge mail deferred. |
-| 5 — Unbury /kampanii and /sedmitsata (A6) | ✅ **done 2026-07-26** | Footer + /sesii entry points, new `/sedmitsata` index, and a **reachability** gate. A7/A5 still blocked on mail. |
-| 6 — OG foundation (C2a, C2b) | ✅ **done 2026-07-26** | Facility, session and campaign cards. Public only — person-scoped is phase 8. |
-| 7 — Place identity (B1, B3a) | ✅ **done 2026-07-26** | Local Legend names NOBODY (operator decision); five milestone rungs; new badge↔i18n gate. |
-| 8 — Person-scoped sharing (C2c, C4, C3) | ✅ **done 2026-07-26** | Card, share payload and the Viber plain-text week. C6's text half deferred. |
-| 9 — Divisions (B2) | ✅ **done 2026-07-26** | Migration `0026`, pure core, rollover job, ladder on `/klasirane`, and the **consent registry** gate §7 asked for. No separate bootstrap job. |
-| 10 — Later | not started | B4 per-capita city board · C5 recap · B5 clubs · B3b volunteering (blocked on blocker 19). |
-| **T — Training logs** | ✅ **done 2026-07-26** | Not in the original plan. Migration `0027`, `/trenirovki`, the sport participation board, and the seams for Strava/Garmin/Apple Health. |
-| **S — Social sharing** | ✅ **done 2026-07-26** | Not in the original plan. 1080×1920 story renderer, nine share kinds, per-network intents, `ShareSheet` on five surfaces. |
+| Phase                                         | State                  | Notes                                                                                                                                         |
+| --------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0 — Truth repairs                             | ✅ **done 2026-07-26** | All five items, each with a gate proven to fail on the bug it guards.                                                                         |
+| 1 — Show the number (A2)                      | ✅ **done 2026-07-26** | Verified in-browser (bg + en) and by the QR + contributions e2e suites.                                                                       |
+| 2 — Instrument + framing rule (C1, C7)        | ✅ **done 2026-07-26** | 9 events across 8 files, closed vocabulary, privacy copy updated.                                                                             |
+| 3 — Badge evaluation off the render path (A1) | ✅ **done 2026-07-26** | **No migration needed.** Verified end-to-end against the real worker + database.                                                              |
+| 4 — Streak freezes + at-risk (A4)             | ✅ **done 2026-07-26** | Engine, migration `0025`, granting job, read wiring and the at-risk banner. Nudge mail deferred.                                              |
+| 5 — Unbury /kampanii and /sedmitsata (A6)     | ✅ **done 2026-07-26** | Footer + /sesii entry points, new `/sedmitsata` index, and a **reachability** gate. A7/A5 still blocked on mail.                              |
+| 6 — OG foundation (C2a, C2b)                  | ✅ **done 2026-07-26** | Facility, session and campaign cards. Public only — person-scoped is phase 8.                                                                 |
+| 7 — Place identity (B1, B3a)                  | ✅ **done 2026-07-26** | Local Legend names NOBODY (operator decision); five milestone rungs; new badge↔i18n gate.                                                     |
+| 8 — Person-scoped sharing (C2c, C4, C3)       | ✅ **done 2026-07-26** | Card, share payload and the Viber plain-text week. C6's text half deferred.                                                                   |
+| 9 — Divisions (B2)                            | ✅ **done 2026-07-26** | Migration `0026`, pure core, rollover job, ladder on `/klasirane`, and the **consent registry** gate §7 asked for. No separate bootstrap job. |
+| 10 — Later                                    | not started            | B4 per-capita city board · C5 recap · B5 clubs · B3b volunteering (blocked on blocker 19).                                                    |
+| **T — Training logs**                         | ✅ **done 2026-07-26** | Not in the original plan. Migration `0027`, `/trenirovki`, the sport participation board, and the seams for Strava/Garmin/Apple Health.       |
+| **S — Social sharing**                        | ✅ **done 2026-07-26** | Not in the original plan. 1080×1920 story renderer, nine share kinds, per-network intents, `ShareSheet` on five surfaces.                     |
 
 ### Social sharing (S) — added 2026-07-26, outside the original plan
 
@@ -119,7 +119,7 @@ it looked like it was asking.** `/klasirane?sport=football` narrows
 `points_ledger` by the sport of the FACILITY a contribution was about, so it
 ranks who edited football pitches. It works — the heading changes and rows
 filter — but only 5 of 29 sports had any ranked points in dev and most had zero
-*eligible* members, so 24 of 29 pills rendered an empty board and the whole
+_eligible_ members, so 24 of 29 pills rendered an empty board and the whole
 control read as dead. No amount of fixing that query makes it answer "who plays
 football", because the dataset does not contain participation. That was the
 missing dataset.
@@ -142,7 +142,7 @@ the training history stands; and neither table is on the open-data
 `ALLOWED_RELATIONS` allowlist, which is default-deny and now has a test saying so.
 
 **Consent is two timestamps, not one boolean.** Timestamps because the Art. 9
-obligation is to *demonstrate* consent, and "true" answers none of the questions
+obligation is to _demonstrate_ consent, and "true" answers none of the questions
 a regulator or the member would ask. Two, because a member may reasonably want
 their route and not their heart rate — bundling two Art. 9 questions into one
 control is what makes consent non-specific and therefore invalid.
@@ -157,7 +157,7 @@ findings, all real:**
 
 1. **A cross-account data-corruption path.** The import dedupe key was
    `(source, external_id)` with no member. External ids are provider-local and
-   often *device*-local — Apple Health and Google Fit hand out per-device
+   often _device_-local — Apple Health and Google Fit hand out per-device
    ordinals — so two members genuinely collide. Member B's import would have
    taken the ON CONFLICT path against member A's row, overwritten A's sport,
    time, duration and place while leaving `user_id` as A, then handed B the id of
@@ -200,7 +200,7 @@ decision. Its absence keeps that cost visible.
 **Two claims of mine that were false and are now true rather than deleted.** The
 migration header justified enforcing consent in the application by saying a
 trigger would fire inside the erasure cascade; that is the 0006 trap for a
-DELETE-*refusing* trigger, and a BEFORE INSERT trigger would never fire during a
+DELETE-_refusing_ trigger, and a BEFORE INSERT trigger would never fire during a
 cascade — the header now gives the real reason (a standing preference, which a
 future author may reverse). And two code comments claimed `/trenirovki`'s entry
 points were covered by the reachability gate; that gate is anonymous-only and
@@ -218,7 +218,7 @@ consent independently ungranted. Fixture removed afterwards.
 **Deliberately not built:** the actual Strava/Garmin/Apple Health OAuth and sync.
 That needs client registrations, secrets in `.env.example` and the VPS, a write
 API with real authentication (today's API keys "raise the rate limit and never
-gate access"), and a per-provider rate-limit budget. The *seams* are built and
+gate access"), and a per-provider rate-limit budget. The _seams_ are built and
 tested — `source`, `external_id`, member-scoped idempotent upsert, and the two
 consent-gated attach functions — so the mobile app has a contract to write
 against.
@@ -237,7 +237,7 @@ whole population, which is the single thing divisions exist to stop saying.
 
 **Points, not check-ins**, and the third reason is the one that mattered: the
 ledger already carries both halves of the product (`session_attended` is written
-only for a QR-verified check-in), it was hardened against farming *before*
+only for a QR-verified check-in), it was hardened against farming _before_
 anything ranked it, and it is the unit `/klasirane` already shows — so a member
 is never shown two numbers that disagree about what their week was worth.
 Ranking check-ins directly would also have been empty at launch.
@@ -250,7 +250,7 @@ the entry tier for everybody. Week one is the general case with an empty
 left-hand side. A dedicated seeder would have been a code path that runs exactly
 once, in production, unrehearsed — the same trap phase 3 avoided by making the
 badge backfill a cutoff rather than a flag. **A missed week also degrades
-correctly**: `previousTier` reads the last week a member was *assigned*, not last
+correctly**: `previousTier` reads the last week a member was _assigned_, not last
 week specifically, so an outage costs a round of promotions and resets nobody.
 
 **Inactivity protection is one line in the pure core**, and it is the promise
@@ -262,12 +262,12 @@ copy says so on the page.
 **Three things found by building rather than by planning:**
 
 1. **The zone bands overlapped in a short group.** Applying 7 and 5 literally to
-   a group of eight makes ranks 1–7 promote *and* 4–8 relegate, and whichever
+   a group of eight makes ranks 1–7 promote _and_ 4–8 relegate, and whichever
    test runs first silently wins — seven of eight promoted out of a competition.
    Fixed at both ends: `zoneCounts` scales the bands proportionally (exact at 30,
    provably disjoint at every size), and `planDivisions` now **balances** group
    sizes instead of filling greedily, so a tier of 65 is 22/22/21 rather than
-   30/30/5. The greedy version put the *least active* members — the people the
+   30/30/5. The greedy version put the _least active_ members — the people the
    mechanic exists to keep — in the most volatile field on the ladder.
 2. **The ladder tinted a relegation zone that could not happen.** At the entry
    tier the bottom rows were recessed with the heading suppressed (announcing it
@@ -281,7 +281,7 @@ copy says so on the page.
    selects every eligible member with recent points — as it must, since that is
    the production query — so a test week near today sweeps in whatever the dev
    database holds and the exact-count assertions drift. Moved to a far-future
-   week with a `guardEmptyWindow` that *asserts* the isolation rather than
+   week with a `guardEmptyWindow` that _asserts_ the isolation rather than
    assuming it, so a future fixture landing there fails loudly with a reason.
 
 **Migration `0026` went through `db-migration-reviewer`: no blocking findings,
@@ -292,13 +292,13 @@ one row per active member per week forever. Adding it later could not have used
 `CREATE INDEX CONCURRENTLY` (drizzle runs a migration inside one transaction), so
 it went in while the table was empty. Also dropped a single-column FK fully
 implied by the composite one, and **corrected a header claim**: re-running a week
-*completes* it (ON CONFLICT DO NOTHING), it does not rewrite it — correcting a
+_completes_ it (ON CONFLICT DO NOTHING), it does not rewrite it — correcting a
 bad ladder means deleting that week's rows first.
 
 **The consent registry gate now exists** (`db/src/consent-registry.test.ts`),
 which §7 called for and nothing implemented. It scans **per exported function**,
 not per file, because per-file scanning is already defeated in this repo —
-`campaigns.ts` mentions the view several times *and* contains `adminStandings`,
+`campaigns.ts` mentions the view several times _and_ contains `adminStandings`,
 which joins `users` directly. Any function that builds SQL and selects
 `public_handle` or `display_name` must name `leaderboard_eligible_members` in its
 own body, or sit on an allowlist with a written reason (three entries: the admin
@@ -462,7 +462,7 @@ panel. `docs/design/COVERAGE-MATRIX.md:87-97` decided otherwise, and says so
 explicitly: a **«Кампании» card on `/sesii`**, under the sessions list ("the two
 are the play/compete pair and belong on one surface"), plus **«Тази седмица»
 linked from the `/sesii` header**. The map/leaderboard pairing came from
-`ENGAGEMENT.md`, written *after* the audit. The audit wins.
+`ENGAGEMENT.md`, written _after_ the audit. The audit wins.
 
 **The entry point must render UNCONDITIONALLY, which kills the strip idea.** A
 strip that appears only while a campaign is running renders nothing today, and
@@ -474,7 +474,7 @@ a delay. So the entry points are a card and a footer link that are always there.
 **The gate that matters was missing from my §7 test list entirely.**
 `crawl.spec.ts` visits `/kampanii` from a hardcoded `PUBLIC_ROUTES` array, so the
 suite was **green with zero inbound links** and would have stayed green if every
-link A6 added were deleted. The new test asserts *reachability* — that an
+link A6 added were deleted. The new test asserts _reachability_ — that an
 anonymous visitor can FIND these pages by following links — and was proven to go
 red when both campaign entry points are removed.
 
@@ -500,7 +500,7 @@ take an optional set of frozen week keys, and `StreakSummary` gained `atRisk`.
 Three decisions, each now enforced rather than documented:
 
 - **A frozen week BRIDGES but does not COUNT.** Two active weeks with a frozen gap
-  is a streak of *two*, not three. A freeze forgives a week you missed; it must
+  is a streak of _two_, not three. A freeze forgives a week you missed; it must
   never manufacture one you did not show up for, which is the opposite of the
   product's whole framing.
 - **Weeks only, by CHECK.** A day-streak freeze would be the daily loss-pressure
@@ -509,7 +509,7 @@ Three decisions, each now enforced rather than documented:
 - **A cap, not a balance.** CLAUDE.md fixes the economy as earning-only with no
   spending mechanics, so a freeze cannot be a currency the member holds and
   spends. It is forgiveness the system applies, capped per rolling year. The copy
-  must say *applied*, never *used up*.
+  must say _applied_, never _used up_.
 
 `bridged()` generalises the old adjacency test — with an empty freeze set it is
 the identical function, which is why the DST suite still passes unchanged and is
@@ -519,7 +519,7 @@ still testing what it always tested.
 blocking findings, all fixed and re-verified against the live database:**
 
 1. `extract(isodow from 'infinity'::date)` is **NULL** since PG14, and `NULL = 1`
-   is NULL — which a CHECK *accepts*. An infinite key would have sat in the table
+   is NULL — which a CHECK _accepts_. An infinite key would have sat in the table
    forever, matched no key the fold looks up (so the freeze silently does
    nothing) and still consumed one of the year's allowance. Fixed with an
    `isfinite()` guard; rejection confirmed in psql.
@@ -533,7 +533,7 @@ blocking findings, all fixed and re-verified against the live database:**
    omit a counter stands; the justification was corrected.
 
 Also dropped a redundant `(user_id)` index — a strict prefix of the unique index,
-which would have cost an extra index on every insert *and* forced a heap fetch on
+which would have cost an extra index on every insert _and_ forced a heap fetch on
 the one read path it claimed to serve.
 
 **Completed after the engine:** `freezeCandidate` (the pure grant decision, cap
@@ -558,9 +558,9 @@ Two things the end-to-end check caught that every unit test had missed:
   built field by field, and `StreakPanel` takes the public shape with `atRisk`
   as a separate prop only the owner's page passes.
 
-**Still deliberately not built:** the at-risk *nudge mail*. It needs the
+**Still deliberately not built:** the at-risk _nudge mail_. It needs the
 frequency cap and its own unsubscribe route, neither of which is decided. The
-at-risk *state* is now computed, so it can be surfaced in-app with no mail at all.
+at-risk _state_ is now computed, so it can be surfaced in-app with no mail at all.
 
 **Phase 3 came in smaller than planned: no migration at all.** The plan budgeted
 `0025` for a shared notification ledger, but `user_badges` already carries
@@ -621,7 +621,7 @@ worth knowing:
   rather than policing values inside it.
 
 `Privacy.analyticsBody` was updated in the same commit, in both catalogues, to
-say plainly that action *kinds* are now recorded and that they carry no
+say plainly that action _kinds_ are now recorded and that they carry no
 identifier of person, facility, session or check-in. **That copy is a published
 promise and should be read by the operator before deploy.**
 
@@ -653,7 +653,7 @@ Three things found during implementation that the plan above did not predict:
 
 1. **The stale-minors copy was in THREE places, not two.** `AdminCampaigns.leaderboardIndividualNote`
    carried the same withdrawn claim on the admin campaign form. Also: the
-   leaderboard and campaign notes needed *different* corrections, because the
+   leaderboard and campaign notes needed _different_ corrections, because the
    surfaces genuinely differ — `db/src/leaderboard.ts` inner-joins the eligibility
    view inside the ranking CTE (a private member gets no rank at all), while
    campaigns score everyone and gate only display. Writing "everyone's points
@@ -755,7 +755,7 @@ Correct replacement framing — and note the two pages need **different** copy,
 because the two surfaces behave differently:
 
 - **Leaderboard**: appearing requires a public passport; age is not a condition.
-  Stop there. Do *not* add "everyone's points count" — on the leaderboard they
+  Stop there. Do _not_ add "everyone's points count" — on the leaderboard they
   don't: `memberStanding` joins the eligibility view inside the ranking CTE and
   returns `null` for a private member (`leaderboard-authz.test.ts:197`).
 - **Campaign**: scoring counts everyone, only display is gated. That sentence is
@@ -763,8 +763,8 @@ because the two surfaces behave differently:
 
 ### P0.3 — A code comment now asserts the opposite of what we're about to do
 
-`db/src/leaderboard.ts:29-31`: *"Check-ins are deliberately NOT ranked… until
-Stage 4.3's signed QR exists."* That precondition has been met — the signed
+`db/src/leaderboard.ts:29-31`: _"Check-ins are deliberately NOT ranked… until
+Stage 4.3's signed QR exists."_ That precondition has been met — the signed
 expiring QR shipped in Stage 5.4, 4.3 completed 2026-07-25 — but the comment was
 never amended. B1 (Local Legend) is the first feature to rank check-ins and must
 amend that paragraph in the same commit.
@@ -776,7 +776,7 @@ only — `WEB_ROOT = process.cwd()`. The workspace package at `/lib` (`lib/src/*
 and `apps/worker/src/**` are scanned by nothing. `lib/src/reports/quarterly.ts:38`
 already holds hardcoded Bulgarian with a green suite.
 
-That matters *directly*: the streak-nudge email, the campaign-close email and
+That matters _directly_: the streak-nudge email, the campaign-close email and
 the Wordle-style share text are all natural residents of `lib/src` or
 `apps/worker/src`. All three were verified clean of non-comment Cyrillic today,
 so a second gate over those roots can ship now with a genuinely empty allowlist.
@@ -791,7 +791,7 @@ is `#FBF9F3`). `RECONCILIATION.md` C6 called for this and it was never applied.
 
 Every share preview that opens in an installed PWA shows teal chrome around a
 pine-and-clay page. Neither file is inside the design-token gate's scanned dirs,
-which is how it survived — so fix all three in one commit *and* add a drift test
+which is how it survived — so fix all three in one commit _and_ add a drift test
 parsing `app/design-tokens/colors.css`.
 
 ---
@@ -801,17 +801,17 @@ parsing `app/design-tokens/colors.css`.
 `docs/ENGAGEMENT.md` was written on 2026-07-25, one day after migration 0020.
 Its §4 guardrails section is its weakest part.
 
-| Proposal says | Reality |
-|---|---|
+| Proposal says                                                                                    | Reality                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | §4: minors locked out by `users_minor_profile_not_public` CHECK + `is_minor = false` in the view | **Both removed by 0020.** The CHECK is dropped; the view's only predicates are `profile_visibility = 'public' AND public_handle IS NOT NULL` ✔. MUST-NEVER-BE-WIDENED survives but now guards **consent alone**. This is the single most load-bearing error in the document — all of Tier B was reasoned from it. |
-| B3: "10 as the first rung for under-18s" | **Unbuildable, twice.** A predicate on `is_minor` is forbidden without an operator decision reversing 0020; and `BadgeDefinition` is `{slug, group, rule}` with no per-member variation anywhere in the engine. Ship 10 as the first rung for everyone — `regular_10` already exists. |
-| B4: city boards are "minor-safe by construction" | Conclusion right, reason stale. What makes them safe is **k-anonymity** (`HAVING count(*) >= CITY_BOARD_MIN_MEMBERS`), not an age rule. |
-| B1: "show it on the facility page and the map pin" | Facility page yes. **Map pin no, in v1** — it is the 9-touch-point chain deliberately deferred at ROADMAP 8.5, and `facilitiesGeoJSON` returns the whole 12k corpus in one response, so a per-pin rolling aggregate is a materialized-view problem. |
-| A1: "into the contribution paths **or** a light post-write job" | Not equivalent. `passportEvents` is deliberately unbounded (`db/src/passport.ts:44-47`) — inlining puts a full-history scan inside the transaction that adds a facility, and inside `checkIn` it could roll back an attendance, breaking *"nothing refuses a check-in."* **Job only.** |
-| A5: "the query engine for all of this already exists" | Three of four. **Rank movement has no data source** — `memberStanding` has no upper time bound and no historical rank is stored anywhere. |
-| A4: streak freeze is "the cheapest anti-churn mechanic" | Not in this repo. `lib/src/badges/streaks.ts` is deliberately **pure and stateless**; a freeze introduces persistent state into a fold over history. It is the *second-largest* Tier A item. |
-| §0: `/sedmitsata` has zero links | It had no nav entry and no index route, but `digest-panel.tsx:37` links every offered city — behind `requireUser()`, so a signed-out visitor could not reach it. The genuinely link-less page was `/kampanii`: zero anchors anywhere. **Both fixed by A6 (phase 5).** |
-| §0: check-in shows no number | Correct, and **narrower than implied** — verify and condition already interpolate via `Contribute.thanksWithPoints`. A2 is two specific gaps, with a working pattern to copy. |
+| B3: "10 as the first rung for under-18s"                                                         | **Unbuildable, twice.** A predicate on `is_minor` is forbidden without an operator decision reversing 0020; and `BadgeDefinition` is `{slug, group, rule}` with no per-member variation anywhere in the engine. Ship 10 as the first rung for everyone — `regular_10` already exists.                             |
+| B4: city boards are "minor-safe by construction"                                                 | Conclusion right, reason stale. What makes them safe is **k-anonymity** (`HAVING count(*) >= CITY_BOARD_MIN_MEMBERS`), not an age rule.                                                                                                                                                                           |
+| B1: "show it on the facility page and the map pin"                                               | Facility page yes. **Map pin no, in v1** — it is the 9-touch-point chain deliberately deferred at ROADMAP 8.5, and `facilitiesGeoJSON` returns the whole 12k corpus in one response, so a per-pin rolling aggregate is a materialized-view problem.                                                               |
+| A1: "into the contribution paths **or** a light post-write job"                                  | Not equivalent. `passportEvents` is deliberately unbounded (`db/src/passport.ts:44-47`) — inlining puts a full-history scan inside the transaction that adds a facility, and inside `checkIn` it could roll back an attendance, breaking _"nothing refuses a check-in."_ **Job only.**                            |
+| A5: "the query engine for all of this already exists"                                            | Three of four. **Rank movement has no data source** — `memberStanding` has no upper time bound and no historical rank is stored anywhere.                                                                                                                                                                         |
+| A4: streak freeze is "the cheapest anti-churn mechanic"                                          | Not in this repo. `lib/src/badges/streaks.ts` is deliberately **pure and stateless**; a freeze introduces persistent state into a fold over history. It is the _second-largest_ Tier A item.                                                                                                                      |
+| §0: `/sedmitsata` has zero links                                                                 | It had no nav entry and no index route, but `digest-panel.tsx:37` links every offered city — behind `requireUser()`, so a signed-out visitor could not reach it. The genuinely link-less page was `/kampanii`: zero anchors anywhere. **Both fixed by A6 (phase 5).**                                             |
+| §0: check-in shows no number                                                                     | Correct, and **narrower than implied** — verify and condition already interpolate via `Contribute.thanksWithPoints`. A2 is two specific gaps, with a working pattern to copy.                                                                                                                                     |
 
 ---
 
@@ -825,23 +825,23 @@ These are the ones that would have been discovered mid-build.
    and `/klasirane` are noindex — but `app/robots.ts:11` disallows only `/admin`
    and `/api/`. Bolting a card onto a noindex page **mints a new indexable URL
    whose pixels contain a member's name.** Fix: `X-Robots-Tag: noindex,
-   noimageindex, noarchive` on the image *response*. Never a robots.txt Disallow —
+noimageindex, noarchive` on the image _response_. Never a robots.txt Disallow —
    Facebook's crawler honours robots.txt and the preview would silently die.
 2. **Therefore OG images must not live under `/api/`** — already disallowed. Use
    `/og/...`.
 3. **`ImageResponse` defaults to `cache-control: public, immutable, max-age=31536000`.**
-   A one-year immutable cache of a named card *is* the materialised named artifact
+   A one-year immutable cache of a named card _is_ the materialised named artifact
    migration 0012 forbade — an erased member cannot revoke it. Person-scoped cards
    need `private, no-store` **and** `export const dynamic = 'force-dynamic'`, so
    Next's ISR cache never writes the PNG to disk either.
-4. **The middleware matcher `/((?!api|_next|_vercel|.*\..*).*)`  locale-rewrites any
+4. **The middleware matcher `/((?!api|_next|_vercel|.*\..*).*)` locale-rewrites any
    dotless path.** An `/og/` route needs a dotted final segment (a directory
    literally named `card.png`), exactly as `/tiles/*.pmtiles` and
    `sitemap.xml/route.ts` already do. Using Next's `opengraph-image.tsx` file
    convention under `app/[locale]/` instead emits a `/bg`-prefixed URL that 307s
    on every scrape.
 5. **No locale channel for `/og` routes.** Dotted paths skip middleware, so
-   next-intl never sets a request locale and *every* card renders in Bulgarian —
+   next-intl never sets a request locale and _every_ card renders in Bulgarian —
    including cards referenced from `/en/` pages. Decide: a locale segment
    (`/og/[locale]/...`), or declare cards bg-only and drop `locale` from the
    catalogue signature.
@@ -850,14 +850,14 @@ These are the ones that would have been discovered mid-build.
 7. Font strategy: **copy the woff into `apps/web/public/fonts/manrope/`**, not
    `outputFileTracingIncludes`. The Dockerfile copies `public/` verbatim,
    `public/fonts/` already holds binary assets, and standalone `server.js` calls
-   `process.chdir(__dirname)` so `process.cwd()` is `apps/web` in dev *and* in the
+   `process.chdir(__dirname)` so `process.cwd()` is `apps/web` in dev _and_ in the
    container. nft following pnpm's symlinked store with no `outputFileTracingRoot`
    is the fragile case, and its failure is prod-only and silent.
 8. **False alarm, do not chase it:** one agent flagged `NEXT_PUBLIC_SITE_URL` as
    baked to localhost in the prod image. Refuted at the Next source — the
    DefinePlugin substitution only fires for `NEXT_PUBLIC_*` keys actually set at
    build time, and the Dockerfile sets none, so it stays a live runtime read.
-   `metadataBase` will be correct. The *real* residue is smaller: `app/robots.ts`
+   `metadataBase` will be correct. The _real_ residue is smaller: `app/robots.ts`
    is a static route with no `dynamic` export, so its `sitemap:` URL does bake the
    localhost fallback at build.
 
@@ -891,13 +891,13 @@ These are the ones that would have been discovered mid-build.
     then hand-edit the SQL header and hand-bump `when`.
 14. **Journal `when` ✔.** Current max is **1785084000000** (idx 24,
     `0024_harden_sponsorship_windows`). `db/src/journal.test.ts` asserts strictly
-    increasing stamps; drizzle-kit's real-time stamp would be *lower* and the
+    increasing stamps; drizzle-kit's real-time stamp would be _lower_ and the
     migration is silently skipped — exit 0, deploy green, table absent.
 15. **`account_deletions` counters are a four-place change**, not a list append: a
     `DeletionSummary` field, the INSERT column list, an integer column in
     `db/schema/auth.ts`, **and** the `account_deletions_counts_non_negative` CHECK
     that enumerates every counter by name. The migration must DROP and re-ADD that
-    CHECK. `apps/web/tests/account-deletion.test.ts` answers counts *positionally*
+    CHECK. `apps/web/tests/account-deletion.test.ts` answers counts _positionally_
     from a fixed array and will break on insertion order.
 16. **`lib/package.json` exports is a closed list of 20 subpaths, no wildcard.**
     `@sportkarta/lib/share`, `/legend`, `/divisions` do not resolve until added —
@@ -912,7 +912,7 @@ These are the ones that would have been discovered mid-build.
     Adding milestone badges fails it — the kind of hardcoded count that reads as a
     broken build.
 19. **Adding a `PassportEventKind` is not inert.** `CAMPAIGN_EVENT_KINDS` is
-    `PASSPORT_EVENT_KINDS.filter(k => k !== 'session_attended')` — a *subtractive*
+    `PASSPORT_EVENT_KINDS.filter(k => k !== 'session_attended')` — a _subtractive_
     filter. A new kind auto-renders a checkbox on the admin campaign form, passes
     validation, and compiles to SQL matching a `points_event` value that doesn't
     exist: **the campaign scores zero, with no error and no failing test.**
@@ -929,11 +929,13 @@ These are the ones that would have been discovered mid-build.
 Effort: **S** <1d · **M** 1–3d · **L** ~1wk · **XL** more.
 
 ### Phase 0 — Truth repairs · S+M · blocking
+
 P0.1 worker mail env (M, unblocks all mail) · P0.2 eligibility copy (S) ·
 P0.3 leaderboard comment (S) · P0.4 Cyrillic gate widening (S) ·
 P0.5 theme colours + drift test (S).
 
 ### Phase 1 — Show the number · S
+
 **A2.** Check-in: `CheckinState.pointsAwarded` **already exists** and is already
 returned (`otmetka/[token]/actions.ts:31,80`) — only the render drops it
 (`checkin-form.tsx:76-80`). Note the plumbing: `page.tsx:109` pre-resolves all six
@@ -947,6 +949,7 @@ Do **not** touch verify/condition — they already print the figure
 (`verify-form.tsx:141`, `condition-form.tsx:76`); adding a pill there prints it twice.
 
 ### Phase 2 — Instrument & frame · S
+
 **C1** Umami `data-umami-event` attributes (v2 autotracks; no new dependency,
 no client component). Corrections to the naive list: the public-passport anchor
 is in `visibility-panel.tsx:57`, not `pasport/page.tsx`; the directions link is
@@ -964,6 +967,7 @@ share copy exists (denylist in a `.json`, not a `.ts` — the gate would flag th
 Bulgarian tokens themselves).
 
 ### Phase 3 — Notification spine · M+L
+
 **A0** migration `0025` — one shared `member_notifications` ledger carrying badge,
 streak, campaign-close, division and legend mail, with the same two-partial-unique-index
 shape `play_session_notifications` uses. Three separate ledgers would be three
@@ -979,7 +983,8 @@ night. A one-shot `badges.backfill` queue must run to completion **before**
 `badges.sweep` is ever scheduled.
 
 ### Phase 4 — Streaks · L
-**A3** at-risk sweep. **A4** freeze as a *fold parameter plus consumption ledger*,
+
+**A3** at-risk sweep. **A4** freeze as a _fold parameter plus consumption ledger_,
 not a column — `streakBuckets(events, unit, timeZone)` does not take
 `StreakOptions`, so threading `frozen` changes its signature and both other call
 sites (`summarizeStreak`, `evaluateStreak` at `rules.ts:235`).
@@ -996,9 +1001,10 @@ DELETE escape hatch and a pinned `search_path`. Either copy that verbatim or omi
 the trigger — `user_badges`, the closest analogue, has none.
 
 ### Phase 5 — Unbury & digest · M+L
+
 **A6** `/kampanii` strip + a `/sedmitsata` index route (which does not exist; the
 nav half alone isn't enough). Any new cached locale route needs `setRequestLocale`
-*and* `buildAlternates`, per every other public page.
+_and_ `buildAlternates`, per every other public page.
 **A7** campaign-close mail. **A5** personal digest blocks — with two hazards:
 `digestRecipients` returns one row per (user, municipality), so a member
 subscribed to two cities gets the same streak block **twice**; and
@@ -1006,26 +1012,29 @@ subscribed to two cities gets the same streak block **twice**; and
 most members get no mail at all and the personal block never ships. Both need an
 explicit decision.
 Rank movement: `memberStanding` joins the **live** consent view, so bounding
-points by `asOf` does not bound *membership* — "you dropped 3 places" can be
+points by `asOf` does not bound _membership_ — "you dropped 3 places" can be
 reported for a member who did nothing, because a rival published their passport.
 Either reframe as points-since-Monday, or store a weekly rank snapshot.
 
 ### Phase 6 — OG foundation · L+M
+
 **C2a** `metadataBase`, checked-in woff subsets, shared renderer, first public
 card. **C2b** session / campaign / results / weekly. Public cards only — nothing
 person-scoped yet.
 
 ### Phase 7 — Place identity · M+S
+
 **B1** Local Legend, `method='qr'` only, distinct-Sofia-day counted.
 **Unresolved and escalated:** the facility page is in the sitemap (~6.6k rows,
 `sitemaps/[name]/route.ts:10`) and sets no `robots`. Naming the holder there
 publishes a named person tied to one place with a 90-day frequency count — on the
-one page where noindex is not an option because it *is* the SEO product. That is
+one page where noindex is not an option because it _is_ the SEO product. That is
 both the indexing rule and the pattern-of-life rule at once. Three buildable
 options in §8.
 **B3a** milestones — pure catalogue config, but see blocker 18.
 
 ### Phase 8 — Person-scoped sharing · M+L
+
 **C2c** no-store / force-dynamic / `X-Robots-Tag` card route · **C4** passport
 payload + exact-key test · **C3** the Viber plain-text week · **C6** session
 invite.
@@ -1036,6 +1045,7 @@ and no proposed test would catch it. Pin the loader in the catalogue entry and
 assert no file under `lib/og/` contains a raw ``sql` `` template.
 
 ### Phase 9 — Divisions · L/XL ✅ done 2026-07-26
+
 **B2.** Needs the consent decision in §8 first, plus a first-week bootstrap path
 (the rollover job closes "last week" and assigns "next" — nothing creates week
 one, so it is a no-op forever without it).
@@ -1047,6 +1057,7 @@ one, so it is a no-op forever without it).
 > section in the status log.
 
 ### Phase 10 — Later
+
 **B4** evergreen per-capita city board (needs the `ekatte_code` hop through
 `municipalities` — `municipality_population` is not keyed by `municipality_id`) ·
 **C5** recap (needs a real page at `pasport/[handle]/godina/`, which does not
@@ -1063,11 +1074,13 @@ The good news: **Trail & Summit already reserves the vocabulary.** `DESIGN_SYSTE
 of the two blessed overshoot animations and names the other.
 
 ### D0 — Tokens · S
+
 **Exactly one new hex in the entire design workstream:**
 
 ```
 --warning-ink: #7E5310;   /* hsl(37,77%,28%) — same hue as --warning, darkened until AA */
 ```
+
 Measured: 6.37:1 on `--paper`, 5.91:1 on `--warning-bg`, 6.65:1 on `--surface`,
 white-on-it 6.71:1. It exists because an at-risk streak must read amber-caution,
 and `--warning #C9891F` cannot carry text (2.82:1).
@@ -1078,12 +1091,12 @@ Everything else is **aliases, no new hex**: `--streak-1..5` → `--clay-100..500
 colours, all clearing the 3:1 non-text floor); `--zone-promote-*` → success,
 `--zone-relegate-*` → `--paper-sunk` + `--text-muted`.
 
-**Relegation is deliberately not `--danger`.** ENGAGEMENT §1.3 exists *because*
+**Relegation is deliberately not `--danger`.** ENGAGEMENT §1.3 exists _because_
 absolute boards demoralise the bottom; painting the bottom five rows red is that
 failure rendered in CSS.
 
 Deliberate non-additions, each with a reason: no separate celebration accent
-(`--accent` *is* the celebration token; a second festive hue puts two accents on
+(`--accent` _is_ the celebration token; a second festive hue puts two accents on
 the passport at once); no streak-fire ramp (clay 100–500 already is one); no
 bronze/silver/gold (cannot be expressed in a warm-paper pine/clay palette without
 importing a foreign grey — rungs use four depths and encode the fifth step with a
@@ -1091,8 +1104,9 @@ importing a foreign grey — rungs use four depths and encode the fifth step wit
 ladder is legible with no colour perception at all); no dark mode.
 
 ### D1 — Achievement celebration: inline banner, not toast · M
+
 Decided by three architectural facts, not taste. (1) The award is written
-server-side and observed on the *next* render — there is no client event to fire
+server-side and observed on the _next_ render — there is no client event to fire
 a toast from, and no portal/store/timer exists to build one. (2) A toast
 auto-dismisses, but this is the primary share desire path — the share trigger
 must persist. (3) A modal interrupts a member who just tapped check-in, which
@@ -1113,14 +1127,16 @@ existing status region) · dismissed (server-side, honest across reload).
 error.
 
 ### D2 — Nav dot · S
+
 Arrives as a **prop**, not a hook — `app-nav.tsx` is pure and props-driven by
 design so the client map explorer and the server shell share one source of truth.
 Copies `avatar.tsx:59-67`'s presence dot (`border-2 border-surface`) so the two
 dots are one language. 10px on the 76px rail, 8px on the 56px tab bar. Clay, not
 danger-red: an unseen achievement is an invitation. A visually-hidden count makes
-the accessible name *"Профил, 2 нови отличия"* — the dot is never the only signal.
+the accessible name _"Профил, 2 нови отличия"_ — the dot is never the only signal.
 
 ### D3 — StreakPanel: at-risk / frozen / broken · M
+
 One file, one added prop, no new component. Today it is four visually identical
 tiles — right for "here are four numbers", wrong for "your streak is about to
 break". Promote **weeks** to a hero spanning two columns (ENGAGEMENT A3: the week
@@ -1128,8 +1144,8 @@ is the natural unit for sport), fill from the streak ramp bucketed by value.
 
 Every state carries **two** carriers so colour is never alone: safe = fill +
 numeral · at-risk = amber pill + Clock + deadline words (no red anywhere —
-`--danger` means *broken*, and the point of at-risk is that it isn't yet) ·
-frozen = sky fill + Snowflake + count · broken = flat fill, and the *longest* run
+`--danger` means _broken_, and the point of at-risk is that it isn't yet) ·
+frozen = sky fill + Snowflake + count · broken = flat fill, and the _longest_ run
 promoted into the hero, finally realising the argument the component's own header
 comment has been making in prose since it was written · none = em dashes, not
 zeros.
@@ -1138,6 +1154,7 @@ CLAUDE.md: earning only, no spending mechanics.
 Motion: none. A panel that animates on every passport visit is decoration.
 
 ### D4 — ProgressRung · S
+
 `components/ui/progress-rung.tsx`. 44px disc (= `--control-md`, the touch floor,
 sized so it can later become a Link without relayout), ring in the rung colour,
 target count printed inside in mono. Track fill width is set inline as a
@@ -1145,9 +1162,10 @@ target count printed inside in mono. Track fill width is set inline as a
 `var()` contains no hex, so both design-token gate regexes are satisfied and the
 file can legally live in `components/ui`.
 `role=progressbar` with `aria-valuetext` set to the sentence, so a screen reader
-hears *"2 more check-ins"*, not *"80 percent"*.
+hears _"2 more check-ins"_, not _"80 percent"_.
 
 ### D5 — Local Legend crest · M
+
 `legend-crest.tsx` (the mark alone, reusable by the OG card) +
 `facility-legend.tsx` (the page block). Renders **nothing** when vacant — never a
 "be the first" placeholder, which would make all ~6,600 facilities look like a
@@ -1162,13 +1180,14 @@ A challenger within one visit shows a caption in `--warning-ink` with a Clock �
 never red, because losing a legend is not a failure.
 
 ### D6 — Division ladder · L
+
 An `<ol>` with three regions and one pinned self-reference — **not** a fifth
 column on `leaderboard-table.tsx`, which is a four-column ranked index of public
 passports with a contributions column a division doesn't have and no zone
 semantics at all.
 390px degradation, spelled out because this is where it breaks: 358px content;
 rank 36px / name flex / points ~45px leaves ~250px for the name, truncated. The
-zone chevron sits *inside* the rank cell, not as a fourth column. Avatars omitted
+zone chevron sits _inside_ the rank cell, not as a fourth column. Avatars omitted
 below `sm` — 30 avatars is 30 requests for decoration. 30 rows ≈ 1560px ≈ 2.5
 screens, which is why the docked own-row island exists. At `lg` the ladder
 becomes two columns of 15, which is the second reason zone headers are `<li>`
@@ -1177,10 +1196,10 @@ Zones are stated in **words** in group headers, never carried by tint alone.
 
 > ⚠️ **The anonymous-row design is contradicted by the repo and must not ship as
 > drafted.** `db/src/campaigns.ts:317-320` on `publicStandings`: ranks are computed
-> *after* the eligibility join specifically so the board reads 1,2,3 "without gaps
+> _after_ the eligibility join specifically so the board reads 1,2,3 "without gaps
 > that would otherwise advertise the existence of hidden competitors." The one
 > place a withheld row does render (`frozenResults`) is justified for a member who
-> has *since* gone private keeping an already-frozen placing — not a
+> has _since_ gone private keeping an already-frozen placing — not a
 > never-consented member inserted into a live ladder. And mechanically, a query
 > that joins the view yields **no row at all** for a non-consenting member, so
 > rendering one means reading `users` directly and having JSX decide not to print
@@ -1190,6 +1209,7 @@ Zones are stated in **words** in group headers, never carried by tint alone.
 > in this division"), never as per-member rows.
 
 ### D7 — Share affordance · M
+
 The trigger must be **labelled** — the UX audit's cross-cutting P1 is
 discoverability and an unlabelled icon is the least discoverable control there
 is. `Button size=md` (h-11, the touch floor) with a visible label, never a bare
@@ -1206,6 +1226,7 @@ Copied state: label swaps for 2400ms **and** a visually-hidden `role=status`
 announces it — a label swap alone is not announced by every screen reader.
 
 ### D8 — PointsAward · S
+
 Returns **null** at zero. This is the design contract, not an optimisation: an
 unscored check-in must never render "+0", because a zero reads as a punishment
 for a fact the system has already promised always to record. The caller owns the
@@ -1213,6 +1234,7 @@ live region (matching `condition-form.tsx:75`), so a check-in that both scores
 and earns a badge announces **once**.
 
 ### D9 — OG cards · L
+
 Everything under `apps/web/lib/og/` — **never** `lib/design/` (blocker 9).
 `palette.ts` transcribes each hex with its `colors.css` source line and ships a
 test parsing that file, so the duplication cannot drift. `fonts.ts` reads the
@@ -1225,7 +1247,7 @@ scale, since no token resolves here: eyebrow 24 mono / title 68 Manrope 800 at
 1.05 clamped to two lines / subtitle 30 / stat 56 mono / label 22.
 Satori constraints: `display:flex` on every multi-child element, no CSS variables,
 no external stylesheet, no `url()` beyond a data URI, **no emoji** (DESIGN_SYSTEM
-§2 forbids emoji in product UI — the emoji grid belongs to the C3 *text* share).
+§2 forbids emoji in product UI — the emoji grid belongs to the C3 _text_ share).
 Uniform fallback policy: a missing field removes its **row**; a missing stat
 prints an em dash — never "null", never 0.
 Attribution: OSM + Protomaps on any card naming a mapped place (facility,
@@ -1237,6 +1259,7 @@ events — Wrapped 2024 failed by printing things that weren't true, and a card 
 zeroes is the same failure in the other direction.
 
 ### D10 — Accessibility contract · M
+
 Passing on the real backgrounds: `--ink` 15.05 · `--ink-soft` 10.03 · `--brand`
 6.63 · `--accent-active` 5.67 · `--success` 4.77 · `--warning-ink` 6.37 ·
 `--sky-700` 5.78.
@@ -1248,6 +1271,7 @@ soft → `text-warning-ink` (5.91), solid → `bg-warning-ink` (6.71).
 but **no new accent CTA should ship before it is resolved**.
 
 ### D11 — Screen tweaks
+
 **T1 (highest priority, a bug):** wrap `/obekt/[slug]` in `AppShell`.
 **T2:** `/pasport` is five sections of identical weight — promote points to a
 single hero stat, drop the other four to a 2×2, banner first, share moved up out
@@ -1257,7 +1281,7 @@ becomes the ladder's docked row so there is one self-reference, not two.
 **T5:** the filter nav renders 29 sport pills + every ranked city + two periods as
 three undifferentiated wrapped rows — a wall at 390px. Collapse sports behind a
 disclosure and reuse the map's FilterSheet rather than inventing a second one.
-**T7:** the live-campaign strip goes *inside* the list panel header, never floating
+**T7:** the live-campaign strip goes _inside_ the list panel header, never floating
 over the canvas (UX-AUDIT P1 was an occluded floating control), and is
 brand-toned rather than clay (RECONCILIATION C9).
 **T9/T10:** the session header goes two-column at `sm` with the accent share on
@@ -1267,6 +1291,7 @@ exactly one accent moment.
 decided it goes. Don't invent a different placement.
 
 ### D12 — Register on `/design-system` · S
+
 In the **same commit** as each primitive — the catalogue's value is that it is
 never behind. Note `design-system/page.tsx` is `'use client'`, so
 `AchievementBanner` and `DivisionLadder` (async server components reading
@@ -1281,13 +1306,13 @@ presentational core or leave them out. `PointsAward`, `ProgressRung`,
 **Four migrations**, `0025`–`0028`, each hand-stamped above 1785084000000 ✔ and
 each with its generated snapshot (blocker 13).
 
-| # | Contents | Notes |
-|---|---|---|
-| **0025** ✅ | `streak_freezes` | **Landed 2026-07-26.** Trigger decision stated in the header (there is none, and why) |
-| **0026** ✅ | `division_groups` + `division_members` | **Landed 2026-07-26.** "One group per member per week" is a composite FK + unique index, not app code — exactly as planned |
-| **0027** ✅ | `training_logs` + `training_routes` + `training_metrics` + two consent columns on `users` | **Landed 2026-07-26.** Not in the original plan — see the training-log section in the status log |
-| 0028 | `member_notifications` (shared ledger, two partial unique indexes) + notification prefs | Still deferred until mail actually ships — it is only needed by the notifier |
-| 0029 | `facility_legends` (announcement ledger; the title itself stays a live query) | Only needed once legend mail exists |
+| #           | Contents                                                                                  | Notes                                                                                                                      |
+| ----------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **0025** ✅ | `streak_freezes`                                                                          | **Landed 2026-07-26.** Trigger decision stated in the header (there is none, and why)                                      |
+| **0026** ✅ | `division_groups` + `division_members`                                                    | **Landed 2026-07-26.** "One group per member per week" is a composite FK + unique index, not app code — exactly as planned |
+| **0027** ✅ | `training_logs` + `training_routes` + `training_metrics` + two consent columns on `users` | **Landed 2026-07-26.** Not in the original plan — see the training-log section in the status log                           |
+| 0028        | `member_notifications` (shared ledger, two partial unique indexes) + notification prefs   | Still deferred until mail actually ships — it is only needed by the notifier                                               |
+| 0029        | `facility_legends` (announcement ledger; the title itself stays a live query)             | Only needed once legend mail exists                                                                                        |
 
 > Numbering changed three times from the original plan, every time because the
 > notification ledger kept being overtaken: it is blocked on the mail decisions
@@ -1328,7 +1353,7 @@ written by the caller.
 
 **Jobs**: payloads carry **account ids, never addresses** (a job row outlives the
 account it names); Sofia-timezone schedules copied from the digest's, or the
-nudge drifts an hour twice a year; no PII in logs, counts and error *categories*
+nudge drifts an hour twice a year; no PII in logs, counts and error _categories_
 only.
 
 ---
@@ -1358,12 +1383,13 @@ All **nested**, never dotted.
 ## 7. Tests & Definition of Done
 
 New gates:
+
 - **Cyrillic gate #2** over `lib/src` + `apps/worker/src` (P0.4).
 - **Catalogue↔i18n parity** — nothing today ties `LAUNCH_BADGES` to its two
   required message keys, so a milestone badge can ship with no name.
   `badge-grid.tsx:8-11` claims the parity test catches this; it does not.
 - **Consent registry** for public rankings. Per-file scanning is already defeated:
-  `db/src/campaigns.ts` contains `leaderboard_eligible_members` five times *and*
+  `db/src/campaigns.ts` contains `leaderboard_eligible_members` five times _and_
   `adminStandings` joining `users` directly. The assertion must be
   per-`sql` template or per-exported-function.
 - **OG**: Chromium-free render test asserting non-empty PNG bytes **from a
@@ -1394,7 +1420,7 @@ for any new flag · `deploy/compose.prod.yml` updated for any worker-read variab
 
 1. **Local Legend renders a crest, a count and the window — NEVER a name** on
    `/obekt/[slug]`. That page is indexed (~6,600 in the sitemap) and cannot be
-   noindex because it *is* the SEO product, so naming the holder would publish a
+   noindex because it _is_ the SEO product, so naming the holder would publish a
    named person tied to one place with a 90-day frequency count. The holder is
    named only on noindex surfaces. No new consent column is needed, and
    `leaderboard_eligible_members` is not touched.
@@ -1461,10 +1487,10 @@ for any new flag · `deploy/compose.prod.yml` updated for any worker-read variab
    **no name**, on `/obekt/[slug]`, naming the holder only on noindex surfaces;
    (b) named block only for signed-in viewers, unnamed for the crawler (the page
    is already dynamic and already calls `getCurrentUser()`); (c) a third explicit
-   opt-in — which would be a *new consent column*, not a widening of the view.
+   opt-in — which would be a _new consent column_, not a widening of the view.
    Recommendation: (a) for v1.
 2. ~~**Division consent.**~~ **Resolved** as RESOLVED 3 above and shipped in
-   phase 9: the view is joined at assignment *and* again at display, and ranks
+   phase 9: the view is joined at assignment _and_ again at display, and ranks
    are computed after the join. The second join is the one that matters — a
    member may publish on Monday and unpublish on Wednesday.
 3. **Streak-nudge unsubscribe** — own preference + route, or redefine the existing

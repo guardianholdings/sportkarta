@@ -81,7 +81,10 @@ export default async function CheckinPage({ params }: { params: PageParams }) {
         {/* The token is carried through sign-in so the scan is not wasted —
             it may well have expired by the time they are back, which the page
             will then say plainly. */}
-        <Link href={`/vhod?next=${encodeURIComponent(`/otmetka/${token}`)}`} className="font-medium text-link hover:text-link-hover">
+        <Link
+          href={`/vhod?next=${encodeURIComponent(`/otmetka/${token}`)}`}
+          className="font-medium text-link hover:text-link-hover"
+        >
           {t('signInLink')}
         </Link>
       </Shell>
@@ -101,7 +104,10 @@ export default async function CheckinPage({ params }: { params: PageParams }) {
       <CheckinForm token={token} occurrenceId={verified.occurrenceId} />
 
       <p className="border-t border-line pt-3 text-body-sm">
-        <Link href={`/sesiya/${verified.occurrenceId}`} className="font-medium text-link hover:text-link-hover">
+        <Link
+          href={`/sesiya/${verified.occurrenceId}`}
+          className="font-medium text-link hover:text-link-hover"
+        >
           {t('viewSession')}
         </Link>
       </p>

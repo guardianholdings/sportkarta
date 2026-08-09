@@ -25,7 +25,8 @@ const selectVariants = cva(
 );
 
 export interface SelectProps
-  extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'size'>,
+  extends
+    Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'size'>,
     VariantProps<typeof selectVariants> {
   children?: React.ReactNode;
 }
@@ -33,7 +34,11 @@ export interface SelectProps
 export function Select({ className, size, invalid, children, ...props }: SelectProps) {
   return (
     <span className="relative inline-flex w-full items-center">
-      <select data-slot="select" className={cn(selectVariants({ size, invalid }), className)} {...props}>
+      <select
+        data-slot="select"
+        className={cn(selectVariants({ size, invalid }), className)}
+        {...props}
+      >
         {children}
       </select>
       <ChevronDown

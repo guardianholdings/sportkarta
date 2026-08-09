@@ -36,7 +36,9 @@ export async function CampaignStandings({
       <table className="w-full text-body-sm">
         <thead>
           <tr className="border-b border-line text-left text-caption text-text-muted">
-            <th scope="col" className="py-2 pr-3 font-medium">{t('columnRank')}</th>
+            <th scope="col" className="py-2 pr-3 font-medium">
+              {t('columnRank')}
+            </th>
             <th scope="col" className="py-2 pr-3 font-medium">
               {leaderboardType === 'city' ? t('columnCity') : t('columnMember')}
             </th>
@@ -61,7 +63,10 @@ export async function CampaignStandings({
                 {leaderboardType === 'city' ? (
                   (cityNames[row.municipalityId ?? -1] ?? '—')
                 ) : row.handle ? (
-                  <Link href={`/pasport/${row.handle}`} className="font-medium text-link hover:text-link-hover">
+                  <Link
+                    href={`/pasport/${row.handle}`}
+                    className="font-medium text-link hover:text-link-hover"
+                  >
                     {row.displayName}
                   </Link>
                 ) : (
@@ -118,15 +123,18 @@ export async function FrozenStandings({
         >
           <span className="w-8 font-mono text-h4 font-bold text-ink tabular-nums">{row.rank}</span>
           <span className="flex-1">
-            {leaderboardType === 'city'
-              ? (cityNames[row.municipalityId ?? -1] ?? '—')
-              : row.handle
-                ? (
-                    <Link href={`/pasport/${row.handle}`} className="font-medium text-link hover:text-link-hover">
-                      {row.displayName}
-                    </Link>
-                  )
-                : t('withheld')}
+            {leaderboardType === 'city' ? (
+              (cityNames[row.municipalityId ?? -1] ?? '—')
+            ) : row.handle ? (
+              <Link
+                href={`/pasport/${row.handle}`}
+                className="font-medium text-link hover:text-link-hover"
+              >
+                {row.displayName}
+              </Link>
+            ) : (
+              t('withheld')
+            )}
             {leaderboardType === 'city' && (
               <span className="ml-2 text-caption text-text-muted">
                 {t('memberCount', { count: row.memberCount })}

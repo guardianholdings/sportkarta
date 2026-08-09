@@ -114,7 +114,10 @@ export const appSettings = pgTable(
     updatedAt: timestamptz('updated_at').notNull().defaultNow(),
   },
   (t) => [
-    check('app_settings_bool_keys', sql`${t.key} <> 'public_show_paid' OR ${t.value} IN ('true', 'false')`),
+    check(
+      'app_settings_bool_keys',
+      sql`${t.key} <> 'public_show_paid' OR ${t.value} IN ('true', 'false')`,
+    ),
   ],
 );
 
@@ -136,7 +139,10 @@ export const businesses = pgTable(
   },
   (t) => [
     check('businesses_name_not_blank', sql`btrim(${t.name}) <> ''`),
-    check('businesses_key_normalized', sql`${t.normalizedKey} = lower(btrim(${t.normalizedKey})) AND ${t.normalizedKey} <> ''`),
+    check(
+      'businesses_key_normalized',
+      sql`${t.normalizedKey} = lower(btrim(${t.normalizedKey})) AND ${t.normalizedKey} <> ''`,
+    ),
   ],
 );
 
@@ -172,7 +178,10 @@ export const partners = pgTable(
     updatedAt: timestamptz('updated_at').notNull().defaultNow(),
   },
   (t) => [
-    check('partners_slug_shape', sql`${t.slug} ~ '^[a-z0-9]+(-[a-z0-9]+)*$' AND char_length(${t.slug}) <= 60`),
+    check(
+      'partners_slug_shape',
+      sql`${t.slug} ~ '^[a-z0-9]+(-[a-z0-9]+)*$' AND char_length(${t.slug}) <= 60`,
+    ),
     // 'advertiser' arrived with 0021 (ad slots): an advertiser lives in the
     // SAME registry as a sponsor — same creative pipeline, same acceptance
     // policy, same no-contact-columns rule — and only its tier differs. TEXT +
@@ -181,11 +190,26 @@ export const partners = pgTable(
       'partners_tier_known',
       sql`${t.tier} IN ('headline', 'category', 'supporter', 'institutional', 'advertiser')`,
     ),
-    check('partners_name_sane', sql`btrim(${t.nameBg}) <> '' AND char_length(${t.nameBg}) <= 120 AND (${t.nameEn} IS NULL OR (btrim(${t.nameEn}) <> '' AND char_length(${t.nameEn}) <= 120))`),
-    check('partners_blurb_sane', sql`(${t.blurbBg} IS NULL OR (btrim(${t.blurbBg}) <> '' AND char_length(${t.blurbBg}) <= 2000)) AND (${t.blurbEn} IS NULL OR (btrim(${t.blurbEn}) <> '' AND char_length(${t.blurbEn}) <= 2000))`),
-    check('partners_url_shape', sql`${t.url} IS NULL OR (${t.url} ~ '^https?://[^[:space:]]+$' AND char_length(${t.url}) <= 300)`),
-    check('partners_logo_path_sane', sql`${t.logoPath} IS NULL OR (${t.logoPath} <> '' AND ${t.logoPath} !~ '^/' AND ${t.logoPath} !~ '(^|/)\\.\\.(/|$)')`),
-    check('partners_window_order', sql`${t.startsOn} IS NULL OR ${t.endsOn} IS NULL OR ${t.endsOn} >= ${t.startsOn}`),
+    check(
+      'partners_name_sane',
+      sql`btrim(${t.nameBg}) <> '' AND char_length(${t.nameBg}) <= 120 AND (${t.nameEn} IS NULL OR (btrim(${t.nameEn}) <> '' AND char_length(${t.nameEn}) <= 120))`,
+    ),
+    check(
+      'partners_blurb_sane',
+      sql`(${t.blurbBg} IS NULL OR (btrim(${t.blurbBg}) <> '' AND char_length(${t.blurbBg}) <= 2000)) AND (${t.blurbEn} IS NULL OR (btrim(${t.blurbEn}) <> '' AND char_length(${t.blurbEn}) <= 2000))`,
+    ),
+    check(
+      'partners_url_shape',
+      sql`${t.url} IS NULL OR (${t.url} ~ '^https?://[^[:space:]]+$' AND char_length(${t.url}) <= 300)`,
+    ),
+    check(
+      'partners_logo_path_sane',
+      sql`${t.logoPath} IS NULL OR (${t.logoPath} <> '' AND ${t.logoPath} !~ '^/' AND ${t.logoPath} !~ '(^|/)\\.\\.(/|$)')`,
+    ),
+    check(
+      'partners_window_order',
+      sql`${t.startsOn} IS NULL OR ${t.endsOn} IS NULL OR ${t.endsOn} >= ${t.startsOn}`,
+    ),
   ],
 );
 
@@ -2391,10 +2415,7 @@ export const trainingLogs = pgTable(
     uniqueIndex('training_logs_user_source_external_unique')
       .on(t.userId, t.source, t.externalId)
       .where(sql`${t.externalId} IS NOT NULL`),
-    check(
-      'training_logs_duration_sane',
-      sql`${t.durationS} BETWEEN 60 AND 86400`,
-    ),
+    check('training_logs_duration_sane', sql`${t.durationS} BETWEEN 60 AND 86400`),
     /**
      * `sport` is free text on a PUBLIC surface — `participationSports` returns
      * it raw as the board's own filter menu. It is text rather than an enum so

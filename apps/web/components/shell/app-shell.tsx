@@ -30,7 +30,11 @@ export async function AppShell({
       >
         {t('skipToContent')}
       </a>
-      <NavRail active={active} labelFor={(k) => t(k)} className="sticky top-0 hidden h-dvh lg:flex" />
+      <NavRail
+        active={active}
+        labelFor={(k) => t(k)}
+        className="sticky top-0 hidden h-dvh lg:flex"
+      />
       <div className="flex min-w-0 flex-1 flex-col">
         {/*
           `pb-9` on mobile: the bottom bar's add-facility FAB is 54px and sits at

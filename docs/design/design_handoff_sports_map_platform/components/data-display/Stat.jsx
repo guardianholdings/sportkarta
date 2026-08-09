@@ -7,7 +7,8 @@ import React from 'react';
  */
 
 export function Stat({ value, label, icon, tone = 'default', align = 'left', style, ...rest }) {
-  const color = tone === 'brand' ? 'var(--brand)' : tone === 'accent' ? 'var(--accent)' : 'var(--ink)';
+  const color =
+    tone === 'brand' ? 'var(--brand)' : tone === 'accent' ? 'var(--accent)' : 'var(--ink)';
 
   return (
     <div
@@ -21,7 +22,9 @@ export function Stat({ value, label, icon, tone = 'default', align = 'left', sty
       {...rest}
     >
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-        {icon && <span style={{ display: 'inline-flex', width: 18, height: 18, color }}>{icon}</span>}
+        {icon && (
+          <span style={{ display: 'inline-flex', width: 18, height: 18, color }}>{icon}</span>
+        )}
         <span
           style={{
             fontFamily: 'var(--font-mono)',
@@ -36,7 +39,9 @@ export function Stat({ value, label, icon, tone = 'default', align = 'left', sty
           {value}
         </span>
       </span>
-      <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--text-muted)' }}>{label}</span>
+      <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--text-muted)' }}>
+        {label}
+      </span>
     </div>
   );
 }

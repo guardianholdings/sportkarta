@@ -15,23 +15,23 @@ is load-bearing.
 The engine is built, correct, and anti-abuse-hardened — and almost none of it
 ever reaches a member:
 
-| Built | What the member experiences today |
-|---|---|
-| 10 badges, derived + retroactive | **Nothing.** `recordEarnedBadges()` is called from exactly one place — `ownPassport()` — so a badge row does not exist until the member personally opens `/pasport`. No email, no toast, no nav dot. |
-| DST-correct day + week streaks | **Nothing.** `summarizeStreak` runs only during a passport page render. No job, no email, no banner. The member is never told a streak is at risk, or that it broke. |
-| National / city / sport leaderboards | Visible, but only if you find `/klasirane` — the one engagement surface with real nav placement. |
-| Campaigns with scoring, prizes, frozen standings | `/kampanii` has **zero inbound links** from the public site. Already logged as buried in `docs/audit/BROKEN-CHAINS.md:145`. Closing a campaign notifies nobody. |
-| Adding a facility = 10 points, the largest award | **No acknowledgement at all.** `dobavi/actions.ts` redirects with `?added=1`, which nothing reads. (Verify and condition flows *do* thank you.) |
-| QR check-in scoring | "Получихте точки." — **with no number**, though the action returns `pointsAwarded`. |
-| Weekly digest email | City programming only. No points, no badge, no streak, no standing. |
-| `/sedmitsata/[city]` weekly page | Buried — no nav entry, no index route. |
-| Sharing | **Zero affordances repo-wide.** No `navigator.share`, no clipboard, no OG image anywhere, no "сподели" string. |
+| Built                                            | What the member experiences today                                                                                                                                                                    |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 10 badges, derived + retroactive                 | **Nothing.** `recordEarnedBadges()` is called from exactly one place — `ownPassport()` — so a badge row does not exist until the member personally opens `/pasport`. No email, no toast, no nav dot. |
+| DST-correct day + week streaks                   | **Nothing.** `summarizeStreak` runs only during a passport page render. No job, no email, no banner. The member is never told a streak is at risk, or that it broke.                                 |
+| National / city / sport leaderboards             | Visible, but only if you find `/klasirane` — the one engagement surface with real nav placement.                                                                                                     |
+| Campaigns with scoring, prizes, frozen standings | `/kampanii` has **zero inbound links** from the public site. Already logged as buried in `docs/audit/BROKEN-CHAINS.md:145`. Closing a campaign notifies nobody.                                      |
+| Adding a facility = 10 points, the largest award | **No acknowledgement at all.** `dobavi/actions.ts` redirects with `?added=1`, which nothing reads. (Verify and condition flows _do_ thank you.)                                                      |
+| QR check-in scoring                              | "Получихте точки." — **with no number**, though the action returns `pointsAwarded`.                                                                                                                  |
+| Weekly digest email                              | City programming only. No points, no badge, no streak, no standing.                                                                                                                                  |
+| `/sedmitsata/[city]` weekly page                 | Buried — no nav entry, no index route.                                                                                                                                                               |
+| Sharing                                          | **Zero affordances repo-wide.** No `navigator.share`, no clipboard, no OG image anywhere, no "сподели" string.                                                                                       |
 
-Duolingo's own conclusion after instrumenting where users screenshot: *"Stop
-building share buttons. Start paving desire paths."* Their investment in three
+Duolingo's own conclusion after instrumenting where users screenshot: _"Stop
+building share buttons. Start paving desire paths."_ Their investment in three
 already-screenshotted moments produced a **5–10× increase in organic sharing**
 ([startupspells.com](https://startupspells.com/p/duolingo-screenshot-tracking-viral-strategy)).
-SportKarta's desire paths are currently unpaved *and* unlit.
+SportKarta's desire paths are currently unpaved _and_ unlit.
 
 ---
 
@@ -47,7 +47,7 @@ users, one of very few countries where this is true).
 **Design consequence:** an Instagram-Stories-first 1080×1920 image card would
 miss the country's main sharing surface. What travels on Viber and Facebook is
 **a pasteable link with a good preview** and **plain text**. Wordle went viral
-because of its *format* — a spoiler-free emoji grid that was plain text and
+because of its _format_ — a spoiler-free emoji grid that was plain text and
 therefore crossed every messenger simultaneously with no app, link or account.
 
 → Priority order for SportKarta: **(1) OG link previews, (2) a Wordle-style
@@ -61,6 +61,7 @@ training daily — Strava KOM, Peloton live output — exclude exactly the peopl
 the NGO exists to reach.
 
 The two mechanics that fit are both attendance-based:
+
 - **Strava Local Legend** (2020): awarded to whoever completes a segment the
   **most times in a rolling 90 days**. Rewards consistency, not speed; winnable
   by anyone; and it **decays** — you must keep showing up or lose it.
@@ -72,18 +73,18 @@ The two mechanics that fit are both attendance-based:
 - **Zhang et al. 2016** (Preventive Medicine Reports, 4-arm RCT, n=790, 13 weeks):
   weekly exercise-class attendance was **35.7 and 38.5** in the arms containing
   social comparison vs **20.3** control — ~90% higher (p=0.003). **Social support
-  alone was ineffective** — numerically *worse* than control (16.8).
+  alone was ineffective** — numerically _worse_ than control (16.8).
   ([PMC5008041](https://pmc.ncbi.nlm.nih.gov/articles/PMC5008041/))
 - **Absolute leaderboards demoralise the bottom** — the gap reads as
   insurmountable; top-third motivation did not translate into engagement.
   **Relative leaderboards** (you see only near neighbours) produced higher
   engagement, better performance and "constructive competitiveness".
 - Duolingo's league is exactly that: **30 players, top 7 promote, bottom 5
-  relegate, middle 18 stay** — promotion deliberately *more likely* than
+  relegate, middle 18 stay** — promotion deliberately _more likely_ than
   relegation, with automatic "league pause" protecting inactive users.
 
 → SportKarta's current national leaderboard is **absolute** — the strongest
-single upgrade available is to make competition *local and relative*.
+single upgrade available is to make competition _local and relative_.
 
 ---
 
@@ -105,13 +106,13 @@ that already exists and is already tested.
   add-facility flow, which today gives **zero** feedback for the platform's
   largest award (10 points).
 - **A3. Warn before a streak breaks.** A streak nobody is told about cannot
-  motivate. Duolingo's model: a reminder derived from the member's *own*
+  motivate. Duolingo's model: a reminder derived from the member's _own_
   behaviour (they use 23.5h after last activity), plus an at-risk nudge — never
   a fixed marketing clock. For a sport platform the natural unit is the **week**
   streak, not the day.
 - **A4. Give the streak slack — "замразяване" (streak freeze).** Duolingo tested
   1/2/3 freezes: two beat one, three added nothing; two simultaneous freezes
-  raised DAU **+0.38%**, and freezes apply *silently*. Slack during goal pursuit
+  raised DAU **+0.38%**, and freezes apply _silently_. Slack during goal pursuit
   beats rigid rules. This is the single cheapest anti-churn mechanic available.
 - **A5. Make the weekly digest personal.** It currently contains city programming
   only. Add: your streak, your rank movement, your nearest badge ("2 more
@@ -128,7 +129,7 @@ that already exists and is already tested.
 ### TIER B — Make the competition winnable and local
 
 - **B1. «Господар на игрището» — Local Legend per facility.** Most check-ins at a
-  given facility over a rolling 90 days. This is *the* mechanic for a facilities
+  given facility over a rolling 90 days. This is _the_ mechanic for a facilities
   platform: it is winnable by a beginner, it decays so it must be defended, and
   it attaches identity to a **place** — which is the product's entire subject.
   Show it on the facility page and the map pin.
@@ -140,11 +141,11 @@ that already exists and is already tested.
   each visually distinct, with **10 as the first rung for under-18s**. Counts
   attendance, not ability. Add a volunteering/organising count so the person who
   runs the session is also rewarded — parkrun's evidence is that continued
-  participation is driven by achievement, community *and volunteering*.
+  participation is driven by achievement, community _and volunteering_.
 - **B4. City vs city.** Campaign city boards already exist (`CITY_BOARD_MIN_MEMBERS
-  = 5`, nobody named) — they are **minor-safe by construction** and therefore the
+= 5`, nobody named) — they are **minor-safe by construction** and therefore the
   one competitive surface that can include everyone. Chipotle × Strava's 2025
-  City Challenge ran exactly this: collective city mileage *and* individual Local
+  City Challenge ran exactly this: collective city mileage _and_ individual Local
   Legend over the same activity — two nested competitions, one action.
 - **B5. Clubs / teams.** Strava's 2025 Year in Sport: **1M clubs, nearly
   quadrupled YoY**, running clubs +3.5×, club-organised events +1.5×. Gen Z is
@@ -156,7 +157,7 @@ that already exists and is already tested.
 
 - **C1. Instrument before you build (Duolingo's method).** Umami currently has
   **zero custom events**. Add `data-umami-event` attributes to find where people
-  already linger, copy, and screenshot. Build cards for *those* moments only.
+  already linger, copy, and screenshot. Build cards for _those_ moments only.
   This costs almost nothing and prevents building three cards nobody posts.
 - **C2. OG images everywhere — the highest-leverage sharing work.** Only two
   files in the entire app set `openGraph`, none set `images`, and `metadataBase`
@@ -165,7 +166,7 @@ that already exists and is already tested.
   `.woff` subsets. Cover facility pages, session pages, campaigns, leaderboards,
   the weekly page.
 - **C3. The Viber-native plain-text result.** A short, pasteable, emoji-marked
-  block — the Wordle format, which is *why* Wordle spread. Something like a
+  block — the Wordle format, which is _why_ Wordle spread. Something like a
   week's activity as a compact grid plus a link. No image, no app, no account;
   it crosses Viber, Messenger, Facebook and SMS simultaneously.
 - **C4. Passport share card.** Constrained to exactly the `PublicPassport`
@@ -180,12 +181,12 @@ that already exists and is already tested.
   use.
 - **C6. Session invite cards.** "Играем в четвъртък 18:00 — ела." The session
   page already has a good Bulgarian description and no OG image. This is the
-  share with the clearest *action* attached, and the only one that recruits
+  share with the clearest _action_ attached, and the only one that recruits
   rather than brags.
 - **C7. Make sharing identity-expressing, not bragging.** Sezer/Gino/Norton (JPSP)
   found humblebragging makes people **less liked and less trusted** than plain
   bragging; self-promoters systematically overestimate how positively their
-  sharing lands. Frame cards around *showing up* and *belonging to a place*
+  sharing lands. Frame cards around _showing up_ and _belonging to a place_
   ("50 тренировки", "Господар на Южен парк"), not superiority.
 
 ### TIER D — Recruitment loops
@@ -207,16 +208,16 @@ that already exists and is already tested.
 
 ## 3. What we will NOT do, and why
 
-| Rejected | Reason |
-|---|---|
-| Daily-streak loss pressure aimed at minors | Streaks are Octalysis Core Drive 8 — pure Black Hat (loss aversion). The EU **Digital Fairness Act** (proposal expected Q4 2026) explicitly targets addictive design with **minors named** as a protected group. Week-streaks with freezes, yes; daily guilt loops on children, no. |
-| Absolute national ranking as the primary board | Demoralises the bottom, which here is most of the addressable population. Keep it, but make divisions the default view. |
-| Third-party share SDKs / Facebook pixel | Would require a consent banner, breaking a published privacy promise and the cookieless architecture. All sharing must be plain links, `navigator.share`, and self-hosted images. |
-| Indexing person-naming pages | `/pasport/[handle]` and `/klasirane` are noindex *deliberately*: "Public means anyone I send the link to, not indexed against your name forever." Shareable ≠ indexable. |
-| Storing a rendered share image containing a name | Migration 0012's lesson: a frozen name is "retaining personal data in a table erasure cannot reach." Generate share images **on demand** from live data; never materialise a named artifact. |
-| Cheapening the streak to boost DAU | Duolingo tried letting a single exercise extend the streak: DAU did not rise, it captured only the least-engaged, and their PM calls cheapening the streak "an extinction-level event" for long-term retention. |
-| Fabricated or embellished stats in recaps | The Wrapped 2024 failure. A recap is only shareable if it is true. |
-| Rewarding late-night or remote check-ins for minors | The Strava/Kim Flint precedent: a "most visits" leaderboard creates incentives to travel at times and in ways the operator would not endorse. Needs hazard awareness built in from day one. |
+| Rejected                                            | Reason                                                                                                                                                                                                                                                                              |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Daily-streak loss pressure aimed at minors          | Streaks are Octalysis Core Drive 8 — pure Black Hat (loss aversion). The EU **Digital Fairness Act** (proposal expected Q4 2026) explicitly targets addictive design with **minors named** as a protected group. Week-streaks with freezes, yes; daily guilt loops on children, no. |
+| Absolute national ranking as the primary board      | Demoralises the bottom, which here is most of the addressable population. Keep it, but make divisions the default view.                                                                                                                                                             |
+| Third-party share SDKs / Facebook pixel             | Would require a consent banner, breaking a published privacy promise and the cookieless architecture. All sharing must be plain links, `navigator.share`, and self-hosted images.                                                                                                   |
+| Indexing person-naming pages                        | `/pasport/[handle]` and `/klasirane` are noindex _deliberately_: "Public means anyone I send the link to, not indexed against your name forever." Shareable ≠ indexable.                                                                                                            |
+| Storing a rendered share image containing a name    | Migration 0012's lesson: a frozen name is "retaining personal data in a table erasure cannot reach." Generate share images **on demand** from live data; never materialise a named artifact.                                                                                        |
+| Cheapening the streak to boost DAU                  | Duolingo tried letting a single exercise extend the streak: DAU did not rise, it captured only the least-engaged, and their PM calls cheapening the streak "an extinction-level event" for long-term retention.                                                                     |
+| Fabricated or embellished stats in recaps           | The Wrapped 2024 failure. A recap is only shareable if it is true.                                                                                                                                                                                                                  |
+| Rewarding late-night or remote check-ins for minors | The Strava/Kim Flint precedent: a "most visits" leaderboard creates incentives to travel at times and in ways the operator would not endorse. Needs hazard awareness built in from day one.                                                                                         |
 
 ---
 
@@ -226,7 +227,7 @@ that already exists and is already tested.
   `users_minor_profile_not_public` CHECK (written as an allowlist, so future
   visibility values stay forbidden until deliberately permitted) and the
   `leaderboard_eligible_members` view whose comment reads **"MUST NEVER BE
-  WIDENED."** Minors *are* counted in campaign scoring and aggregate city boards.
+  WIDENED."** Minors _are_ counted in campaign scoring and aggregate city boards.
   Every new competitive surface must join that view, not `users`.
 - **The passport payload is a whitelist with an exact-key test**
   (`apps/web/tests/passport-privacy.test.ts`). Any share payload should be a
@@ -237,7 +238,7 @@ that already exists and is already tested.
   "places I've played" map card **has no data source, by construction**.
 - **Anti-farming already holds**: `points_ledger` unique idempotency keys,
   `points BETWEEN 1 AND 100`, append-only triggers, `ATTENDANCE_AWARDS_PER_DAY =
-  3`, and the `play_session_checkins_only_qr_scores` CHECK. The invariant a new
+3`, and the `play_session_checkins_only_qr_scores` CHECK. The invariant a new
   mechanic must not break: **"nothing in the anti-abuse layer refuses a check-in.
   Attendance is a fact and is always recorded; only the payment stops."**
 - **Bulgarian share-card text must come from `messages/*.json`** — the

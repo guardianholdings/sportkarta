@@ -369,7 +369,13 @@ describe('contribution proximity', () => {
     const result = await verifyFacility(db, {
       userId: USER,
       facilityId: FACILITY,
-      checklist: { exists: true, access: 'free', surface: 'asphalt', lighting: null, covered: false },
+      checklist: {
+        exists: true,
+        access: 'free',
+        surface: 'asphalt',
+        lighting: null,
+        covered: false,
+      },
       position: { lat: 42.1, lon: 23.9 },
     });
 
@@ -387,7 +393,13 @@ describe('contribution proximity', () => {
     const result = await verifyFacility(db, {
       userId: USER,
       facilityId: FACILITY,
-      checklist: { exists: true, access: 'free', surface: 'asphalt', lighting: null, covered: false },
+      checklist: {
+        exists: true,
+        access: 'free',
+        surface: 'asphalt',
+        lighting: null,
+        covered: false,
+      },
     });
 
     // A contribution with no position is exactly as unverifiable as one from
@@ -424,7 +436,9 @@ describe('contribution proximity', () => {
     const db = fakeDb([
       [], // no duplicate
       [{ id: FACILITY }],
-      [], [], [],
+      [],
+      [],
+      [],
       [{ distance_m: 51000 }], // audit insert measures the distance
       [{ id: 1 }],
     ]);
@@ -443,11 +457,7 @@ describe('contribution proximity', () => {
   });
 
   it('never writes a coordinate, only metres', async () => {
-    const db = fakeDb([
-      [], [{ id: FACILITY }], [], [], [],
-      [{ distance_m: 12 }],
-      [{ id: 1 }],
-    ]);
+    const db = fakeDb([[], [{ id: FACILITY }], [], [], [], [{ distance_m: 12 }], [{ id: 1 }]]);
     await addFacility(db, {
       userId: USER,
       input,

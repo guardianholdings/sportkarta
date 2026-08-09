@@ -102,20 +102,44 @@ export function CampaignForm({
 
         <label className="block space-y-1">
           <span className="text-body-sm font-medium">{t('blurbBgLabel')}</span>
-          <textarea name="blurbBg" rows={3} maxLength={2000} defaultValue={campaign?.blurbBg ?? ''} className={field} />
+          <textarea
+            name="blurbBg"
+            rows={3}
+            maxLength={2000}
+            defaultValue={campaign?.blurbBg ?? ''}
+            className={field}
+          />
         </label>
         <label className="block space-y-1">
           <span className="text-body-sm font-medium">{t('blurbEnLabel')}</span>
-          <textarea name="blurbEn" rows={3} maxLength={2000} defaultValue={campaign?.blurbEn ?? ''} className={field} />
+          <textarea
+            name="blurbEn"
+            rows={3}
+            maxLength={2000}
+            defaultValue={campaign?.blurbEn ?? ''}
+            className={field}
+          />
         </label>
 
         <label className="block space-y-1">
           <span className="text-body-sm font-medium">{t('prizeBgLabel')}</span>
-          <textarea name="prizeBg" rows={2} maxLength={2000} defaultValue={campaign?.prizeBg ?? ''} className={field} />
+          <textarea
+            name="prizeBg"
+            rows={2}
+            maxLength={2000}
+            defaultValue={campaign?.prizeBg ?? ''}
+            className={field}
+          />
         </label>
         <label className="block space-y-1">
           <span className="text-body-sm font-medium">{t('prizeEnLabel')}</span>
-          <textarea name="prizeEn" rows={2} maxLength={2000} defaultValue={campaign?.prizeEn ?? ''} className={field} />
+          <textarea
+            name="prizeEn"
+            rows={2}
+            maxLength={2000}
+            defaultValue={campaign?.prizeEn ?? ''}
+            className={field}
+          />
         </label>
 
         {/*
@@ -127,7 +151,11 @@ export function CampaignForm({
         */}
         <label className="block space-y-1">
           <span className="text-body-sm font-medium">{t('partnerLabel')}</span>
-          <select name="partnerId" defaultValue={campaign?.partnerId ? String(campaign.partnerId) : ''} className={field}>
+          <select
+            name="partnerId"
+            defaultValue={campaign?.partnerId ? String(campaign.partnerId) : ''}
+            className={field}
+          >
             <option value="">{t('partnerNone')}</option>
             {partners.map((partner) => (
               <option key={partner.id} value={String(partner.id)}>
@@ -143,12 +171,26 @@ export function CampaignForm({
         <h2 className="t-overline">{t('sectionWindow')}</h2>
         <div className="flex flex-wrap gap-4">
           <label className="space-y-1">
-            <span className="block text-caption font-medium text-ink-soft">{t('startsOnLabel')}</span>
-            <input type="date" name="startsOn" required defaultValue={campaign?.window.startsOn ?? ''} className="rounded-md border border-line-strong bg-surface px-3 py-2" />
+            <span className="block text-caption font-medium text-ink-soft">
+              {t('startsOnLabel')}
+            </span>
+            <input
+              type="date"
+              name="startsOn"
+              required
+              defaultValue={campaign?.window.startsOn ?? ''}
+              className="rounded-md border border-line-strong bg-surface px-3 py-2"
+            />
           </label>
           <label className="space-y-1">
             <span className="block text-caption font-medium text-ink-soft">{t('endsOnLabel')}</span>
-            <input type="date" name="endsOn" required defaultValue={campaign?.window.endsOn ?? ''} className="rounded-md border border-line-strong bg-surface px-3 py-2" />
+            <input
+              type="date"
+              name="endsOn"
+              required
+              defaultValue={campaign?.window.endsOn ?? ''}
+              className="rounded-md border border-line-strong bg-surface px-3 py-2"
+            />
           </label>
         </div>
         <p className="text-caption text-text-muted">{t('windowHint')}</p>
@@ -173,7 +215,15 @@ export function CampaignForm({
         {scopeKind !== 'national' && (
           <label className="block space-y-1">
             <span className="text-body-sm font-medium">{t('municipalityLabel')}</span>
-            <select name="municipalityId" defaultValue={campaign?.scope.kind !== 'national' ? String(campaign?.scope.municipalityId ?? '') : ''} className={field}>
+            <select
+              name="municipalityId"
+              defaultValue={
+                campaign?.scope.kind !== 'national'
+                  ? String(campaign?.scope.municipalityId ?? '')
+                  : ''
+              }
+              className={field}
+            >
               <option value="">{t('choose')}</option>
               {cities.map((city) => (
                 <option key={city.id} value={city.id}>
@@ -209,7 +259,11 @@ export function CampaignForm({
             return (
               <li key={kind} className="flex flex-wrap items-center gap-3">
                 <label className="flex items-center gap-2">
-                  <input type="checkbox" name={`event_${kind}`} defaultChecked={weight !== undefined} />
+                  <input
+                    type="checkbox"
+                    name={`event_${kind}`}
+                    defaultChecked={weight !== undefined}
+                  />
                   <span className="text-body-sm">{t(`event_${kind}`)}</span>
                 </label>
                 <label className="flex items-center gap-2">
@@ -246,7 +300,12 @@ export function CampaignForm({
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             {CANONICAL_SPORTS.map((sport) => (
               <label key={sport} className="flex items-center gap-1.5 text-body-sm">
-                <input type="checkbox" name="sports" value={sport} defaultChecked={selectedSports.has(sport)} />
+                <input
+                  type="checkbox"
+                  name="sports"
+                  value={sport}
+                  defaultChecked={selectedSports.has(sport)}
+                />
                 {sportLabels[sport] ?? sport}
               </label>
             ))}

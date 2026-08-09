@@ -24,7 +24,8 @@ const textareaVariants = cva(
 );
 
 export interface TextareaProps
-  extends React.TextareaHTMLAttributes<HTMLTextAreaElement>,
+  extends
+    React.TextareaHTMLAttributes<HTMLTextAreaElement>,
     VariantProps<typeof textareaVariants> {}
 
 export function Textarea({ className, size, invalid, rows = 4, ...props }: TextareaProps) {

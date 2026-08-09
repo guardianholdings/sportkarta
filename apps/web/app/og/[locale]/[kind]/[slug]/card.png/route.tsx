@@ -99,7 +99,9 @@ export async function GET(_request: Request, { params }: { params: Params }) {
       // null, not the CTA: the footnote already carries it, and a missing
       // facility must not print the same line twice on one card.
       subtitle: view.facilityName ?? null,
-      stats: [{ value: (timePart ?? '').slice(0, 5) || OG_MISSING, label: tOg('session.startsAt') }],
+      stats: [
+        { value: (timePart ?? '').slice(0, 5) || OG_MISSING, label: tOg('session.startsAt') },
+      ],
       footnote: tOg('session.cta'),
       wordmark,
       // A session happens at a mapped facility.

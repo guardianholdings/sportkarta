@@ -25,10 +25,7 @@ function escapeHtml(value: string): string {
 
 /** Escape, then turn bare URLs into green links (the app's own link colour). */
 function linkify(escapedLine: string): string {
-  return escapedLine.replace(
-    URL_RE,
-    (url) => `<a href="${url}" style="color:#0B7A40">${url}</a>`,
-  );
+  return escapedLine.replace(URL_RE, (url) => `<a href="${url}" style="color:#0B7A40">${url}</a>`);
 }
 
 /**
@@ -53,7 +50,7 @@ export function brandEmailHtml(text: string): string {
     '<div style="max-width:560px;margin:0 auto;padding:16px">' +
     '<div style="height:4px;border-radius:2px;background:#FF4A2B"></div>' +
     '<div style="background:#FEFDFB;border:1px solid #E3DFD4;border-radius:14px;margin-top:12px;padding:20px;' +
-    'color:#101418;font:15px/1.5 system-ui,-apple-system,\'Segoe UI\',Roboto,sans-serif">' +
+    "color:#101418;font:15px/1.5 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif\">" +
     paragraphs +
     '</div></div></body></html>'
   );

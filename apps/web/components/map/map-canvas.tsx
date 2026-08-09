@@ -124,7 +124,8 @@ const NEARME_ID = 'nearme';
  * (`maxBounds`). Without the second, a member at the zoom floor could still drag
  * the country off screen and sit looking at Greece.
  */
-const BG_BOUNDS: maplibregl.LngLatBoundsLike = BULGARIA_BOUNDS as unknown as maplibregl.LngLatBoundsLike;
+const BG_BOUNDS: maplibregl.LngLatBoundsLike =
+  BULGARIA_BOUNDS as unknown as maplibregl.LngLatBoundsLike;
 
 function toFeatureCollection(points: MapPoint[]): FeatureCollection<Point> {
   return {
@@ -260,7 +261,9 @@ export default function MapCanvas({
   function syncMarkers() {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
-    const features = map.queryRenderedFeatures({ layers: ['facilities-clusters', 'facilities-points'] });
+    const features = map.queryRenderedFeatures({
+      layers: ['facilities-clusters', 'facilities-points'],
+    });
     const next = new Set<string>();
 
     for (const f of features) {
@@ -478,7 +481,12 @@ export default function MapCanvas({
         id: 'nearme-line',
         type: 'line',
         source: NEARME_ID,
-        paint: { 'line-color': accent, 'line-width': 2, 'line-dasharray': [2, 2], 'line-opacity': 0.9 },
+        paint: {
+          'line-color': accent,
+          'line-width': 2,
+          'line-dasharray': [2, 2],
+          'line-opacity': 0.9,
+        },
       });
 
       loadedRef.current = true;
@@ -545,7 +553,6 @@ export default function MapCanvas({
   useEffect(() => {
     applyLayerVisibility();
     // Ref-based helper; re-run only when the choice changes.
-     
   }, [activeLayer]);
 
   useEffect(() => {

@@ -23,7 +23,11 @@ describe('enrichment 2026-07 mms-name-fills.csv', () => {
     const mapping = new Map<number, (typeof MUNICIPAL_FIELDS)[number]>();
     for (const [idx, header] of parsed.headers.entries()) {
       const field = guessColumn(header, aliases);
-      if (field && (MUNICIPAL_FIELDS as readonly string[]).includes(field) && ![...mapping.values()].includes(field as (typeof MUNICIPAL_FIELDS)[number])) {
+      if (
+        field &&
+        (MUNICIPAL_FIELDS as readonly string[]).includes(field) &&
+        ![...mapping.values()].includes(field as (typeof MUNICIPAL_FIELDS)[number])
+      ) {
         mapping.set(idx, field as (typeof MUNICIPAL_FIELDS)[number]);
       }
     }

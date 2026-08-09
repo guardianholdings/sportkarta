@@ -434,7 +434,10 @@ export function MapExplorer({
       >
         <span
           className="grid size-12 shrink-0 place-items-center rounded-md text-on-brand"
-          style={{ background: `color-mix(in srgb, ${v.color} 16%, var(--surface))`, color: v.color }}
+          style={{
+            background: `color-mix(in srgb, ${v.color} 16%, var(--surface))`,
+            color: v.color,
+          }}
         >
           <v.Icon size={22} />
         </span>
@@ -685,7 +688,12 @@ export function MapExplorer({
       <div className="pointer-events-none absolute inset-0 z-20 hidden lg:flex">
         {/* The add-facility FAB lives on the map itself here (bottom-left of
             the visible map, below), so the rail's copy is off. */}
-        <NavRail active="/" labelFor={(k) => tNav(k)} className="pointer-events-auto" showAdd={false} />
+        <NavRail
+          active="/"
+          labelFor={(k) => tNav(k)}
+          className="pointer-events-auto"
+          showAdd={false}
+        />
 
         {/*
           FOLDED AWAY ENTIRELY rather than narrowed: the map is full-bleed
@@ -695,7 +703,9 @@ export function MapExplorer({
         {!listOpen && (
           <button
             type="button"
-            onClick={() => { setListOpen(true); }}
+            onClick={() => {
+              setListOpen(true);
+            }}
             aria-expanded={false}
             aria-controls="facility-list-desktop"
             className="pointer-events-auto absolute left-[88px] top-4 z-30 inline-flex items-center gap-1.5 rounded-pill border border-line bg-surface px-3 py-2 text-body-sm font-semibold text-ink shadow-float hover:bg-surface-2 focus-visible:shadow-[var(--ring)]"
@@ -715,7 +725,9 @@ export function MapExplorer({
               <h2 className="text-h4 font-bold text-ink">{t('discoverTitle')}</h2>
               <button
                 type="button"
-                onClick={() => { setListOpen(false); }}
+                onClick={() => {
+                  setListOpen(false);
+                }}
                 aria-expanded
                 aria-controls="facility-list-desktop"
                 aria-label={t('hideList')}
@@ -827,7 +839,11 @@ export function MapExplorer({
           </section>
         )}
 
-        <BottomNav active="/" labelFor={(k) => tNav(k)} className="absolute inset-x-0 bottom-0 z-40" />
+        <BottomNav
+          active="/"
+          labelFor={(k) => tNav(k)}
+          className="absolute inset-x-0 bottom-0 z-40"
+        />
       </div>
 
       {/* ── Filter sheet (shared) ── */}
@@ -1013,7 +1029,12 @@ function FilterSheet({
 
           <FilterGroup label={t('nearby')}>
             <div className="flex items-center gap-3">
-              <Chip color="var(--accent)" selected={nearMeOn} icon={<MapPin size={15} />} onClick={onToggleNearMe}>
+              <Chip
+                color="var(--accent)"
+                selected={nearMeOn}
+                icon={<MapPin size={15} />}
+                onClick={onToggleNearMe}
+              >
                 {t('nearMe')}
               </Chip>
               <span className="font-mono text-caption text-ink-soft">

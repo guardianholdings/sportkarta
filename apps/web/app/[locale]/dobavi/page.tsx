@@ -48,18 +48,18 @@ export default async function AddFacilityPage({
   return (
     <AppShell>
       <main className="mx-auto max-w-2xl px-4 py-5">
-      <Link
-        href="/"
-        className="mb-4 inline-flex text-body-sm font-medium text-ink-soft hover:text-brand"
-      >
-        {tFacility('backToMap')}
-      </Link>
-      <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
-      <p className="mt-1.5 text-body-sm text-ink-soft">{t('intro')}</p>
-      <div className="mt-5 rounded-card border border-line bg-surface p-4 shadow-sm sm:p-5">
-        <AddFacilityForm initialLon={lon} initialLat={lat} />
-      </div>
-    </main>
+        <Link
+          href="/"
+          className="mb-4 inline-flex text-body-sm font-medium text-ink-soft hover:text-brand"
+        >
+          {tFacility('backToMap')}
+        </Link>
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
+        <p className="mt-1.5 text-body-sm text-ink-soft">{t('intro')}</p>
+        <div className="mt-5 rounded-card border border-line bg-surface p-4 shadow-sm sm:p-5">
+          <AddFacilityForm initialLon={lon} initialLat={lat} />
+        </div>
+      </main>
     </AppShell>
   );
 }

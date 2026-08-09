@@ -48,12 +48,12 @@ export async function StreakPanel({
         </p>
       )}
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {stats.map((stat) => (
-        <div key={stat.key} className="rounded-card border border-line bg-surface p-3 shadow-sm">
-          <dt className="text-caption text-text-muted">{t(`streak_${stat.key}`)}</dt>
-          <dd className="mt-1 font-mono text-h3 font-bold text-ink tabular-nums">{stat.value}</dd>
-        </div>
-      ))}
+        {stats.map((stat) => (
+          <div key={stat.key} className="rounded-card border border-line bg-surface p-3 shadow-sm">
+            <dt className="text-caption text-text-muted">{t(`streak_${stat.key}`)}</dt>
+            <dd className="mt-1 font-mono text-h3 font-bold text-ink tabular-nums">{stat.value}</dd>
+          </div>
+        ))}
       </dl>
     </>
   );

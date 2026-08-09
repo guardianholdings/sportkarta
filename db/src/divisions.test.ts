@@ -105,10 +105,10 @@ describe.skipIf(!hasDb)('divisions (requires running database)', () => {
 
   async function cleanup(): Promise<void> {
     await client.query(`DELETE FROM division_members WHERE user_id LIKE 'e2e_div_%'`);
-    await client.query(
-      `DELETE FROM division_groups WHERE week_start IN ($1::date, $2::date)`,
-      [WEEK, PREV],
-    );
+    await client.query(`DELETE FROM division_groups WHERE week_start IN ($1::date, $2::date)`, [
+      WEEK,
+      PREV,
+    ]);
     // points_ledger is append-only: `forbid_points_ledger_mutation()` refuses a
     // direct DELETE and permits one only when the owning account is already
     // going. So the fixture leaves through the SAME door a real erasure uses —

@@ -139,7 +139,8 @@ export async function listAccounts(
       id: String(row.id),
       email: String(row.email),
       displayName: String(row.display_name ?? ''),
-      homeCity: row.home_city === null || row.home_city === undefined ? null : String(row.home_city),
+      homeCity:
+        row.home_city === null || row.home_city === undefined ? null : String(row.home_city),
       role: toRole(row.role),
       isPublic: row.is_public === true,
       createdAt: new Date(String(row.created_at)).toISOString(),
@@ -259,7 +260,13 @@ export interface CredentialSummary {
   sessions: { userAgent: string | null; createdAt: string; expiresAt: string }[];
   /** Linked OAuth identities. Never a token — provider and creation date only. */
   providers: { providerId: string; createdAt: string }[];
-  apiKeys: { label: string; prefix: string; createdAt: string; lastUsedAt: string | null; revokedAt: string | null }[];
+  apiKeys: {
+    label: string;
+    prefix: string;
+    createdAt: string;
+    lastUsedAt: string | null;
+    revokedAt: string | null;
+  }[];
   /** Whether a calendar feed URL exists, and when it was last rotated. Never the token. */
   calendar: { issuedAt: string; rotatedAt: string | null } | null;
 }
@@ -462,9 +469,7 @@ export async function accountDetail(userId: string): Promise<AccountDetail | nul
       FROM api_keys WHERE user_id = ${userId}
       ORDER BY created_at DESC
     `),
-    db.execute(
-      sql`SELECT created_at, rotated_at FROM calendar_tokens WHERE user_id = ${userId}`,
-    ),
+    db.execute(sql`SELECT created_at, rotated_at FROM calendar_tokens WHERE user_id = ${userId}`),
     memberTrainings(db, userId, 100),
   ]);
 

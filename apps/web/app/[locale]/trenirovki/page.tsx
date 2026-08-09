@@ -11,10 +11,7 @@ import { TrainingForm } from '@/components/training/training-form';
 import { requireUser } from '@/lib/auth-session';
 import { siteUrl } from '@/lib/seo';
 import { shareSheetStrings } from '@/lib/share/sheet-strings';
-import {
-  deleteTrainingAction,
-  setTrainingConsentAction,
-} from './actions';
+import { deleteTrainingAction, setTrainingConsentAction } from './actions';
 
 /**
  * «Моите тренировки» — a member's own training log (operator request 2026-07-26).
@@ -76,9 +73,7 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
   // never appear in the picker without a label — and the labels come from the
   // existing `Sport` namespace rather than a duplicate set of 29 keys, which is
   // what the leaderboard filters already do.
-  const sportNames = Object.fromEntries(
-    CANONICAL_SPORTS.map((slug) => [slug, sportName(slug)]),
-  );
+  const sportNames = Object.fromEntries(CANONICAL_SPORTS.map((slug) => [slug, sportName(slug)]));
 
   const dateFormat = new Intl.DateTimeFormat(locale === 'bg' ? 'bg-BG' : 'en-GB', {
     dateStyle: 'medium',

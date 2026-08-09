@@ -472,13 +472,13 @@ describe('freezeCandidate', () => {
 
   it('forgives the week just closed when a live run would otherwise end', () => {
     // Active 29 Jun and 6 Jul, missed 13 Jul.
-    expect(freezeCandidate([W('2026-06-29'), W('2026-07-06')], [], { now: NOW })).toBe('2026-07-13');
+    expect(freezeCandidate([W('2026-06-29'), W('2026-07-06')], [], { now: NOW })).toBe(
+      '2026-07-13',
+    );
   });
 
   it('returns null when the member was active in that week — nothing to save', () => {
-    expect(
-      freezeCandidate([W('2026-07-06'), W('2026-07-13')], [], { now: NOW }),
-    ).toBeNull();
+    expect(freezeCandidate([W('2026-07-06'), W('2026-07-13')], [], { now: NOW })).toBeNull();
   });
 
   it('returns null when no run was in progress — freezes are not handed out for free', () => {

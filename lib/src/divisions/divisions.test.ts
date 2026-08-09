@@ -70,7 +70,9 @@ describe('zoneFor', () => {
 
   it('relegates the bottom five', () => {
     expect(zoneFor({ rank: DIVISION_SIZE, score: 1 }, mid)).toBe('relegate');
-    expect(zoneFor({ rank: DIVISION_SIZE - DIVISION_RELEGATE + 1, score: 1 }, mid)).toBe('relegate');
+    expect(zoneFor({ rank: DIVISION_SIZE - DIVISION_RELEGATE + 1, score: 1 }, mid)).toBe(
+      'relegate',
+    );
     expect(zoneFor({ rank: DIVISION_SIZE - DIVISION_RELEGATE, score: 1 }, mid)).toBe('hold');
   });
 

@@ -98,87 +98,98 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
   return (
     <AppShell active="/sesii">
       <main className="mx-auto max-w-3xl space-y-6 p-4">
-      <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
-        {t('backToMap')}
-      </Link>
+        <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
+          {t('backToMap')}
+        </Link>
 
-      <header className="space-y-2">
-        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('h1', { city: name })}</h1>
-        <p className="text-body-sm text-text-muted">{t('weekOf', { date: weekStartLabel })}</p>
-        {week.occurrences.length > 0 && (
-          <p className="text-ink-soft">{t('intro', { count: week.occurrences.length })}</p>
-        )}
-      </header>
+        <header className="space-y-2">
+          <h1 className="text-h2 font-extrabold tracking-tight text-ink">
+            {t('h1', { city: name })}
+          </h1>
+          <p className="text-body-sm text-text-muted">{t('weekOf', { date: weekStartLabel })}</p>
+          {week.occurrences.length > 0 && (
+            <p className="text-ink-soft">{t('intro', { count: week.occurrences.length })}</p>
+          )}
+        </header>
 
-      {week.occurrences.length === 0 ? (
-        <section className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm">
-          <p className="text-ink-soft">{t('empty', { city: name })}</p>
-          <p className="text-body-sm text-text-muted">{t('emptyHint')}</p>
-          <Link href={`/igrishta/${city.slug}`} className="text-body-sm font-medium text-link hover:text-link-hover">
-            {t('backToMap')}
-          </Link>
-        </section>
-      ) : (
-        <div className="space-y-6">
-          {byDay(week.occurrences).map(([day, entries]) => (
-            <section key={day} aria-label={day}>
-              <h2 className="mb-2 border-b border-line pb-1 text-h4 font-bold text-ink">
-                {/* The date is a civil date; parsing it as UTC and formatting in
+        {week.occurrences.length === 0 ? (
+          <section className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm">
+            <p className="text-ink-soft">{t('empty', { city: name })}</p>
+            <p className="text-body-sm text-text-muted">{t('emptyHint')}</p>
+            <Link
+              href={`/igrishta/${city.slug}`}
+              className="text-body-sm font-medium text-link hover:text-link-hover"
+            >
+              {t('backToMap')}
+            </Link>
+          </section>
+        ) : (
+          <div className="space-y-6">
+            {byDay(week.occurrences).map(([day, entries]) => (
+              <section key={day} aria-label={day}>
+                <h2 className="mb-2 border-b border-line pb-1 text-h4 font-bold text-ink">
+                  {/* The date is a civil date; parsing it as UTC and formatting in
                     UTC keeps it a calendar date and never shifts it.
                     first-letter, not `capitalize`: capitalizing every word turns
                     „понеделник, 10 август" into wrong-Bulgarian „…10 Август". */}
-                <span className="inline-block first-letter:uppercase">
-                  {weekdayFormat.format(new Date(`${day}T00:00:00Z`))}
-                </span>
-              </h2>
-              <ul className="divide-y divide-line">
-                {entries.map((entry) => (
-                  <li key={entry.occurrenceId} className="flex flex-wrap gap-x-3 gap-y-1 py-2">
-                    <span className="w-12 shrink-0 font-mono text-body-sm tabular-nums">
-                      {timeOf(entry.startsAtLocal)}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      {/* Stage 4.2: the week is now a way in, not just a
+                  <span className="inline-block first-letter:uppercase">
+                    {weekdayFormat.format(new Date(`${day}T00:00:00Z`))}
+                  </span>
+                </h2>
+                <ul className="divide-y divide-line">
+                  {entries.map((entry) => (
+                    <li key={entry.occurrenceId} className="flex flex-wrap gap-x-3 gap-y-1 py-2">
+                      <span className="w-12 shrink-0 font-mono text-body-sm tabular-nums">
+                        {timeOf(entry.startsAtLocal)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        {/* Stage 4.2: the week is now a way in, not just a
                           listing — each entry leads to the page where you can
                           actually sign up. */}
-                      <Link href={`/sesiya/${entry.occurrenceId}`} className="font-medium text-link hover:text-link-hover">
-                        {entry.title}
-                      </Link>
-                      <span className="text-text-muted"> · {tSport(entry.sport)}</span>
-                      {entry.facilityName && (
-                        <span className="block text-body-sm text-ink-soft">
-                          {entry.facilitySlug ? (
-                            <Link href={`/obekt/${entry.facilitySlug}`} className="font-medium text-link hover:text-link-hover">
-                              {entry.facilityName}
-                            </Link>
-                          ) : (
-                            entry.facilityName
-                          )}
-                        </span>
-                      )}
-                    </span>
-                    <span className="shrink-0 self-start text-body-sm text-text-muted">
-                      {entry.capacity === null
-                        ? t('spotsUnlimited', { going: entry.going })
-                        : t('spots', { going: entry.going, capacity: entry.capacity })}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
-      )}
+                        <Link
+                          href={`/sesiya/${entry.occurrenceId}`}
+                          className="font-medium text-link hover:text-link-hover"
+                        >
+                          {entry.title}
+                        </Link>
+                        <span className="text-text-muted"> · {tSport(entry.sport)}</span>
+                        {entry.facilityName && (
+                          <span className="block text-body-sm text-ink-soft">
+                            {entry.facilitySlug ? (
+                              <Link
+                                href={`/obekt/${entry.facilitySlug}`}
+                                className="font-medium text-link hover:text-link-hover"
+                              >
+                                {entry.facilityName}
+                              </Link>
+                            ) : (
+                              entry.facilityName
+                            )}
+                          </span>
+                        )}
+                      </span>
+                      <span className="shrink-0 self-start text-body-sm text-text-muted">
+                        {entry.capacity === null
+                          ? t('spotsUnlimited', { going: entry.going })
+                          : t('spots', { going: entry.going, capacity: entry.capacity })}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        )}
 
-      <p className="border-t border-line pt-4 text-body-sm text-ink-soft">
-        <Link href="/profil" className="font-medium text-link hover:text-link-hover">
-          {t('subscribe')}
-        </Link>
-      </p>
+        <p className="border-t border-line pt-4 text-body-sm text-ink-soft">
+          <Link href="/profil" className="font-medium text-link hover:text-link-hover">
+            {t('subscribe')}
+          </Link>
+        </p>
 
-      {/* MONETISATION §S5 ad surface: local, activity-minded audience. Renders
+        {/* MONETISATION §S5 ad surface: local, activity-minded audience. Renders
           nothing when the slot is unsold. */}
-      <AdSlot slot="weekly_page" />
+        <AdSlot slot="weekly_page" />
       </main>
     </AppShell>
   );

@@ -111,7 +111,11 @@ export default async function AdminPrivatePage({
                     <td className="px-3 py-2.5 text-right">
                       <form action={setBusinessVisibleAction}>
                         <input type="hidden" name="id" value={business.id} />
-                        <input type="hidden" name="visible" value={business.visible ? 'false' : 'true'} />
+                        <input
+                          type="hidden"
+                          name="visible"
+                          value={business.visible ? 'false' : 'true'}
+                        />
                         <Button type="submit" variant="secondary" size="sm">
                           {business.visible ? t('hide') : t('show')}
                         </Button>

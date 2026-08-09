@@ -172,9 +172,7 @@ describe('every response states its licence', () => {
   it('uses one attribution constant everywhere', () => {
     // The header, the licence page, the GeoJSON member and every dump's
     // LICENSE.txt all render from this. Two copies would be one wrong copy.
-    expect(OPEN_DATA_LICENSE.attribution).toBe(
-      '© OpenStreetMap contributors + POPS community',
-    );
+    expect(OPEN_DATA_LICENSE.attribution).toBe('© OpenStreetMap contributors + POPS community');
     expect(licenseHeaders()['X-Attribution']).toBe(OPEN_DATA_LICENSE.attributionAscii);
     // The two differ only in the copyright sign — same attribution, one of
     // them transportable in a header.

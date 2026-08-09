@@ -14,8 +14,10 @@ export interface SegmentItem {
   icon?: React.ReactNode;
 }
 
-export interface SegmentedControlProps
-  extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onChange'> {
+export interface SegmentedControlProps extends Omit<
+  React.HTMLAttributes<HTMLDivElement>,
+  'onChange'
+> {
   items: SegmentItem[];
   /** Selected value (controlled). */
   value: string;
@@ -38,7 +40,11 @@ export function SegmentedControl({
     <div
       role="tablist"
       data-slot="segmented-control"
-      className={cn('inline-flex items-center gap-1 rounded-pill bg-paper-sunk p-1', fullWidth && 'flex w-full', className)}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-pill bg-paper-sunk p-1',
+        fullWidth && 'flex w-full',
+        className,
+      )}
       {...props}
     >
       {items.map((item) => {
@@ -54,9 +60,7 @@ export function SegmentedControl({
               'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-pill font-medium transition-[background-color,color,box-shadow] duration-150 ease-standard focus-visible:shadow-[var(--ring)] [&_svg]:shrink-0',
               size === 'sm' ? 'h-8 px-3 text-body-sm' : 'h-9 px-4 text-body-sm',
               fullWidth && 'flex-1',
-              active
-                ? 'bg-surface text-brand shadow-sm'
-                : 'text-ink-soft hover:text-ink',
+              active ? 'bg-surface text-brand shadow-sm' : 'text-ink-soft hover:text-ink',
             )}
           >
             {item.icon}

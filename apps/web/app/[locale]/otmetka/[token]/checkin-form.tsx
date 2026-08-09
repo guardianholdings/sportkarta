@@ -119,7 +119,9 @@ export function CheckinForm({ token, occurrenceId }: Props) {
       <p role="status" className="rounded-card border border-line bg-paper-sunk p-4">
         {scoredWithPoints
           ? t(OUTCOME_KEYS.scored, { points })
-          : t(state.outcome === 'scored' ? OUTCOME_KEYS.unscored_method : outcomeKey(state.outcome))}
+          : t(
+              state.outcome === 'scored' ? OUTCOME_KEYS.unscored_method : outcomeKey(state.outcome),
+            )}
       </p>
     );
   }
@@ -135,11 +137,7 @@ export function CheckinForm({ token, occurrenceId }: Props) {
           results (out of range, daily cap) describe the anti-abuse layer's
           behaviour toward one person, which is a behavioural record rather than
           a product metric — see rule 2 in lib/analytics-events.ts. */}
-      <Button
-        type="submit"
-        disabled={pending}
-        data-umami-event={ANALYTICS_EVENTS.checkinSubmit}
-      >
+      <Button type="submit" disabled={pending} data-umami-event={ANALYTICS_EVENTS.checkinSubmit}>
         {pending ? t('pending') : t('submit')}
       </Button>
 

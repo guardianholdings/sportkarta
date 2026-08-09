@@ -9,97 +9,105 @@
 
 :root {
   /* ---- Neutrals (warm, low-chroma green-grey) ---- */
-  --paper:          #FBF9F3; /* app background */
-  --paper-sunk:     #F4F1E8; /* recessed areas, wells */
-  --surface:        #FFFEFB; /* cards, sheets, menus */
-  --surface-2:      #F8F5EE; /* subtle raised fill */
-  --overlay-scrim:  rgba(24, 32, 22, 0.44); /* modal / sheet backdrop */
+  --paper: #fbf9f3; /* app background */
+  --paper-sunk: #f4f1e8; /* recessed areas, wells */
+  --surface: #fffefb; /* cards, sheets, menus */
+  --surface-2: #f8f5ee; /* subtle raised fill */
+  --overlay-scrim: rgba(24, 32, 22, 0.44); /* modal / sheet backdrop */
 
-  --border:         #E8E3D8; /* hairline dividers, card edges */
-  --border-strong:  #D6CFC0; /* inputs, emphasized edges */
+  --border: #e8e3d8; /* hairline dividers, card edges */
+  --border-strong: #d6cfc0; /* inputs, emphasized edges */
 
-  --ink:            #1E241D; /* primary text (deep bark-green black) */
-  --ink-soft:       #3A4136; /* secondary text */
-  --text-muted:     #7C7668; /* tertiary / meta text */
-  --text-faint:     #A79F8E; /* placeholders, disabled text */
+  --ink: #1e241d; /* primary text (deep bark-green black) */
+  --ink-soft: #3a4136; /* secondary text */
+  --text-muted: #7c7668; /* tertiary / meta text */
+  --text-faint: #a79f8e; /* placeholders, disabled text */
 
   /* ---- Pine (primary / brand) ---- */
-  --pine-50:  #ECF4EE;
-  --pine-100: #D6EADD;
-  --pine-200: #AFD6BC;
-  --pine-300: #7FBE96;
-  --pine-400: #4E9E70;
-  --pine-500: #2E7D55;
+  --pine-50: #ecf4ee;
+  --pine-100: #d6eadd;
+  --pine-200: #afd6bc;
+  --pine-300: #7fbe96;
+  --pine-400: #4e9e70;
+  --pine-500: #2e7d55;
   --pine-600: #216543;
-  --pine-700: #1A5036;
-  --pine-800: #163E2B;
-  --pine-900: #132F22;
+  --pine-700: #1a5036;
+  --pine-800: #163e2b;
+  --pine-900: #132f22;
 
   /* ---- Clay / Amber (accent / activity / energy) ---- */
-  --clay-50:  #FBF0E4;
-  --clay-100: #F7E1C9;
-  --clay-200: #F0C79A;
-  --clay-300: #E9A867;
-  --clay-400: #E28C3C;
-  --clay-500: #D5762A;
-  --clay-600: #BC6120;
-  --clay-700: #9C4E1B;
+  --clay-50: #fbf0e4;
+  --clay-100: #f7e1c9;
+  --clay-200: #f0c79a;
+  --clay-300: #e9a867;
+  --clay-400: #e28c3c;
+  --clay-500: #d5762a;
+  --clay-600: #bc6120;
+  --clay-700: #9c4e1b;
 
   /* ---- Sky (water / info secondary) ---- */
-  --sky-100: #E1EFF9;
-  --sky-300: #90C2E6;
-  --sky-500: #3E8FC9;
-  --sky-700: #2A6698;
+  --sky-100: #e1eff9;
+  --sky-300: #90c2e6;
+  --sky-500: #3e8fc9;
+  --sky-700: #2a6698;
 
   /* ---- Activity category colors (trail-blaze set) ---- */
-  --cat-hike:         #2E7D55; /* pine */
-  --cat-run:          #E15A4A; /* coral */
-  --cat-bike:         #E28C3C; /* clay/amber */
-  --cat-climb:        #BB5A2E; /* rust */
-  --cat-swim:         #3E8FC9; /* glacier blue */
-  --cat-team:         #6E5CC4; /* violet */
-  --cat-calisthenics: #2E9EA0; /* teal */
+  --cat-hike: #2e7d55; /* pine */
+  --cat-run: #e15a4a; /* coral */
+  --cat-bike: #e28c3c; /* clay/amber */
+  --cat-climb: #bb5a2e; /* rust */
+  --cat-swim: #3e8fc9; /* glacier blue */
+  --cat-team: #6e5cc4; /* violet */
+  --cat-calisthenics: #2e9ea0; /* teal */
 
   /* ---- Semantic status ---- */
-  --success:     #2E7D55;  --success-bg: #ECF4EE;  --success-border: #AFD6BC;
-  --warning:     #C9891F;  --warning-bg: #FAF0D8;  --warning-border: #EBCB84;
-  --danger:      #CE4A38;  --danger-bg:  #FBEAE6;  --danger-border:  #F0B7AC;
-  --info:        #3E8FC9;  --info-bg:    #E7F1FA;  --info-border:    #AECFEA;
+  --success: #2e7d55;
+  --success-bg: #ecf4ee;
+  --success-border: #afd6bc;
+  --warning: #c9891f;
+  --warning-bg: #faf0d8;
+  --warning-border: #ebcb84;
+  --danger: #ce4a38;
+  --danger-bg: #fbeae6;
+  --danger-border: #f0b7ac;
+  --info: #3e8fc9;
+  --info-bg: #e7f1fa;
+  --info-border: #aecfea;
 
   /* ============================================================
      SEMANTIC ALIASES — use these in product code
      ============================================================ */
-  --color-bg:            var(--paper);
-  --color-bg-sunk:       var(--paper-sunk);
-  --color-surface:       var(--surface);
-  --color-surface-2:     var(--surface-2);
+  --color-bg: var(--paper);
+  --color-bg-sunk: var(--paper-sunk);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
 
-  --text-primary:        var(--ink);
-  --text-secondary:      var(--ink-soft);
-  --text-tertiary:       var(--text-muted);
-  --text-on-brand:       #FFFFFF;
-  --text-on-accent:      #FFFFFF;
+  --text-primary: var(--ink);
+  --text-secondary: var(--ink-soft);
+  --text-tertiary: var(--text-muted);
+  --text-on-brand: #ffffff;
+  --text-on-accent: #ffffff;
 
-  --brand:               var(--pine-600);
-  --brand-hover:         var(--pine-700);
-  --brand-active:        var(--pine-800);
-  --brand-subtle:        var(--pine-50);
-  --brand-subtle-hover:  var(--pine-100);
-  --brand-border:        var(--pine-200);
+  --brand: var(--pine-600);
+  --brand-hover: var(--pine-700);
+  --brand-active: var(--pine-800);
+  --brand-subtle: var(--pine-50);
+  --brand-subtle-hover: var(--pine-100);
+  --brand-border: var(--pine-200);
 
-  --accent:              var(--clay-500);
-  --accent-hover:        var(--clay-600);
-  --accent-active:       var(--clay-700);
-  --accent-subtle:       var(--clay-50);
-  --accent-border:       var(--clay-200);
+  --accent: var(--clay-500);
+  --accent-hover: var(--clay-600);
+  --accent-active: var(--clay-700);
+  --accent-subtle: var(--clay-50);
+  --accent-border: var(--clay-200);
 
-  --line:                var(--border);
-  --line-strong:         var(--border-strong);
+  --line: var(--border);
+  --line-strong: var(--border-strong);
 
-  --focus-ring:          rgba(33, 101, 67, 0.32);   /* pine */
-  --focus-ring-accent:   rgba(213, 118, 42, 0.34);  /* clay */
+  --focus-ring: rgba(33, 101, 67, 0.32); /* pine */
+  --focus-ring-accent: rgba(213, 118, 42, 0.34); /* clay */
 
   /* Links */
-  --link:                var(--pine-600);
-  --link-hover:          var(--clay-600);
+  --link: var(--pine-600);
+  --link-hover: var(--clay-600);
 }

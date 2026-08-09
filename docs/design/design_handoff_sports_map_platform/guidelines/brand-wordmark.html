@@ -1,30 +1,71 @@
 <!-- @dsCard group="Brand" viewport="700x240" subtitle="Type wordmark — no logo supplied yet" name="Wordmark" -->
 <!doctype html>
 <html lang="bg">
-<head>
-<meta charset="utf-8">
-<link rel="stylesheet" href="../styles.css">
-<style>
-  .wrap{padding:28px 30px;display:flex;flex-direction:column;gap:24px;}
-  .lockup{display:flex;flex-direction:column;gap:4px;}
-  .eyebrow{font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:var(--ls-overline);text-transform:uppercase;color:var(--accent);}
-  .mark{font-family:var(--font-display);font-weight:800;letter-spacing:-0.03em;font-size:30px;color:var(--ink);line-height:1;}
-  .row{display:flex;gap:26px;align-items:center;flex-wrap:wrap;}
-  .on-dark{background:var(--ink);border-radius:var(--radius-lg);padding:20px 24px;}
-  .on-dark .mark{color:var(--surface);}
-  .note{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <div class="row">
-    <div class="lockup">
-      <span class="eyebrow">BG · Outdoor</span>
-      <span class="mark">Повече от <span style="color:var(--brand)">просто спорт</span></span>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../styles.css" />
+    <style>
+      .wrap {
+        padding: 28px 30px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+      .lockup {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .eyebrow {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: var(--ls-overline);
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      .mark {
+        font-family: var(--font-display);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        font-size: 30px;
+        color: var(--ink);
+        line-height: 1;
+      }
+      .row {
+        display: flex;
+        gap: 26px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .on-dark {
+        background: var(--ink);
+        border-radius: var(--radius-lg);
+        padding: 20px 24px;
+      }
+      .on-dark .mark {
+        color: var(--surface);
+      }
+      .note {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="row">
+        <div class="lockup">
+          <span class="eyebrow">BG · Outdoor</span>
+          <span class="mark">Повече от <span style="color: var(--brand)">просто спорт</span></span>
+        </div>
+        <div class="on-dark"><span class="mark">Повече от просто спорт</span></div>
+      </div>
+      <div class="note">
+        Manrope 800 · -3% tracking · ink or pine on paper; surface on ink. ⚠ Provide a logo to build
+        a proper lockup + marker badge.
+      </div>
     </div>
-    <div class="on-dark"><span class="mark">Повече от просто спорт</span></div>
-  </div>
-  <div class="note">Manrope 800 · -3% tracking · ink or pine on paper; surface on ink. ⚠ Provide a logo to build a proper lockup + marker badge.</div>
-</div>
-</body>
+  </body>
 </html>

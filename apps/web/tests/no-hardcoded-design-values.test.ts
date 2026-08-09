@@ -103,7 +103,12 @@ function walk(dir: string): string[] {
   return out;
 }
 
-interface Offense { file: string; line: number; kind: 'hex' | 'px'; text: string }
+interface Offense {
+  file: string;
+  line: number;
+  kind: 'hex' | 'px';
+  text: string;
+}
 
 function scanFile(file: string, checkPx: boolean, offenses: Offense[]): void {
   const rel = file.slice(WEB_ROOT.length + 1);
@@ -145,9 +150,7 @@ function scan(): Offense[] {
 describe('design-token gate', () => {
   it('no hardcoded hex colours or raw px in the design surface', () => {
     const offenses = scan();
-    const report = offenses
-      .map((o) => `  ${o.file}:${o.line} [${o.kind}] ${o.text}`)
-      .join('\n');
+    const report = offenses.map((o) => `  ${o.file}:${o.line} [${o.kind}] ${o.text}`).join('\n');
     expect(offenses, `Hardcoded design values found — use a token instead:\n${report}`).toEqual([]);
   });
 
@@ -155,6 +158,9 @@ describe('design-token gate', () => {
   // half of the gate silently. Both lists are asserted, per directory — not
   // `.some()`, which one healthy entry would satisfy for all of them.
   it.each([...SCANNED_DIRS, ...COLOR_ONLY_DIRS])('scans %s', (dir) => {
-    expect(walk(dir).length, `${dir} matched no .ts/.tsx — the gate is not running there`).toBeGreaterThan(0);
+    expect(
+      walk(dir).length,
+      `${dir} matched no .ts/.tsx — the gate is not running there`,
+    ).toBeGreaterThan(0);
   });
 });

@@ -129,7 +129,14 @@ export function TrainingForm({
             {strings.elevationM}{' '}
             <span className="font-normal text-text-muted">{strings.optional}</span>
           </label>
-          <input id="elevationM" name="elevationM" type="number" min={0} max={30000} className={field} />
+          <input
+            id="elevationM"
+            name="elevationM"
+            type="number"
+            min={0}
+            max={30000}
+            className={field}
+          />
         </div>
 
         <div className="space-y-1">

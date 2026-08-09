@@ -6,7 +6,15 @@ import React from 'react';
  * segment rides a white pill inside a sunken track.
  */
 
-export function SegmentedControl({ items = [], value, onChange, size = 'md', fullWidth = false, style, ...rest }) {
+export function SegmentedControl({
+  items = [],
+  value,
+  onChange,
+  size = 'md',
+  fullWidth = false,
+  style,
+  ...rest
+}) {
   const h = size === 'sm' ? 36 : 44;
   const fs = size === 'sm' ? 13 : 14;
 
@@ -52,10 +60,13 @@ export function SegmentedControl({ items = [], value, onChange, size = 'md', ful
               color: sel ? 'var(--brand)' : 'var(--text-secondary)',
               background: sel ? 'var(--surface)' : 'transparent',
               boxShadow: sel ? 'var(--shadow-sm)' : 'none',
-              transition: 'color var(--dur-fast) var(--ease-standard), background var(--dur-fast) var(--ease-standard)',
+              transition:
+                'color var(--dur-fast) var(--ease-standard), background var(--dur-fast) var(--ease-standard)',
             }}
           >
-            {it.icon && <span style={{ display: 'inline-flex', width: 18, height: 18 }}>{it.icon}</span>}
+            {it.icon && (
+              <span style={{ display: 'inline-flex', width: 18, height: 18 }}>{it.icon}</span>
+            )}
             {it.label}
           </button>
         );

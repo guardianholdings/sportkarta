@@ -152,9 +152,9 @@ export function validateCampaignRules(input: unknown): CampaignRules {
     byKind.set(kind as PassportEventKind, weight);
   }
 
-  const events: CampaignEventWeight[] = CAMPAIGN_EVENT_KINDS.filter((kind) =>
-    byKind.has(kind),
-  ).map((kind) => ({ kind, weight: byKind.get(kind) as number }));
+  const events: CampaignEventWeight[] = CAMPAIGN_EVENT_KINDS.filter((kind) => byKind.has(kind)).map(
+    (kind) => ({ kind, weight: byKind.get(kind) as number }),
+  );
 
   const rules: CampaignRules = { events };
 

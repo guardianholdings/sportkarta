@@ -5,13 +5,5 @@
       "issue": "broken_equipment"
     }
   ],
-  "columns": [
-    "created_at",
-    "facility_id",
-    "issue",
-    "id",
-    "photo_id",
-    "status",
-    "body"
-  ]
+  "columns": ["created_at", "facility_id", "issue", "id", "photo_id", "status", "body"]
 }

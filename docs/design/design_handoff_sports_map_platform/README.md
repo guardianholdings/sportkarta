@@ -17,6 +17,7 @@ The files in this bundle are **design references created in HTML** — a working
 Your task is to **recreate these designs in the target codebase's environment**, using its established framework, component library, and patterns. If no codebase exists yet, choose the most appropriate stack for a map-first responsive web app (the design system ships React `.jsx` reference components, so React + a mapping SDK like MapLibre/Mapbox GL is a natural fit) and implement there.
 
 Concretely:
+
 - `Platform.dc.html` is a self-contained prototype built on a small in-house template runtime (`support.js`). **Do not ship the runtime.** Read it to understand structure, state, and interactions, then rebuild with real components.
 - The **map is a placeholder** (a static SVG grid with fake pins). In production, replace it with a real map SDK; the prototype documents how markers, the near-me radius, and hover-sync should behave on top of it.
 - All **imagery is placeholder** (striped fills labeled in mono). Drop in real photography of Bulgarian landscapes, trails, coast, and people being active.
@@ -33,6 +34,7 @@ Concretely:
 The app shell is a **fixed full-viewport layout**: a left sidebar (nav) + a main column (top bar + screen body). Four primary screens swap in the main column; onboarding is a full-screen overlay shown when logged out.
 
 ### 0. Onboarding / Login (logged-out overlay)
+
 - **Purpose:** Sign in or create an account; sell the community.
 - **Layout:** Two panes, full viewport. Left pane `flex:1`, deep-forest background (`#1A3E2B`) with two radial glows (pine + clay) and a faint 40px white graticule grid; 56px padding; content top-and-bottom justified. Right pane fixed `452px`, centered form, 48px padding, `--paper` background.
 - **Left pane content:** mono overline "BG · Outdoor" in clay; display headline 46px/800/-.03em white ("Открий, изкачи, посрещни хора навън." / "Discover, climb, meet people outside."); 17px subhead at 80% white; a row of three mono stats (2 400+ places · 38 000 active people · 7 sports).
@@ -40,6 +42,7 @@ The app shell is a **fixed full-viewport layout**: a left sidebar (nav) + a main
 - **Behavior:** any button calls `login()` → sets `authed:true` → reveals the app.
 
 ### 1. App shell (persists across screens 1–4)
+
 - **Sidebar** — width `236px`, `--surface`, right hairline, `20px 16px` padding, 4px vertical gaps.
   - Brand lockup (top): mono overline "BG · Outdoor" (clay, 10px, .14em, uppercase) + stacked wordmark "Повече от / просто спорт" (Manrope 800, 17px, -.02em).
   - Nav list (4 items): Карта/Map, Емисия/Feed, Класации/Leaderboards, Профил/Profile. Each 44px tall, `--radius-md`, icon (20px) + label, gap 12px. Active = `--pine-50` fill + `--pine-700` text; inactive = transparent + `--text-secondary`.
@@ -49,6 +52,7 @@ The app shell is a **fixed full-viewport layout**: a left sidebar (nav) + a main
   - Titles per screen: map "Открий места", feed "Емисия", compete "Състезавай се", profile "Профил".
 
 ### 2. Map discovery (screen: `map`) — the home screen
+
 Three columns inside the main body: **list panel · map canvas · (optional) spot-detail panel**.
 
 - **List panel** — width `384px`, `--paper`, right hairline, column.
@@ -73,20 +77,23 @@ Three columns inside the main body: **list panel · map canvas · (optional) spo
   - Footer (hairline top): primary "Запиши посещение/Log a visit" pill (brand, footprints icon) + two 44px icon buttons (navigation, share).
 
 ### 3. Activity feed (screen: `feed`)
+
 - **Purpose:** Social feed of community activity.
 - **Layout:** centered column, `max-width:640px`, 16px gaps, 24px page padding.
 - **Composer** (top): avatar + a faux input "Сподели своята активност…/Share your activity…" + a 44px accent camera button.
 - **Post cards** (`--radius-lg`, `--surface`, `--shadow-sm`): header (avatar + name + mono "action · category · time" + either an "Събитие/Event" accent badge or a more-menu); spot title; optional 260px photo; optional stat strip (Дистанция/Изкачване/Време); action bar (Like/Comment/Share — 40px pill buttons). **Like** toggles: fills `--warning-bg`/`--cat-run` and increments the count.
 
 ### 4. Competitions / Leaderboard (screen: `compete`)
+
 - **Purpose:** Rankings by elevation climbed + active challenges.
 - **Layout:** centered, `max-width:760px`, 24px padding.
 - **Header:** mono overline "Класация · изкачени метри/Leaderboard · meters climbed" + 22px/800 title "София · Хайкинг"; a period segmented control (Седмица/Week · Месец/Month · Година/Year).
 - **Podium:** three cards, center (1st) raised `translateY(-14px)` and larger (64px avatar, clay border) vs sides (52px). Each shows rank, name, mono meters.
-- **Leaderboard rows:** rank number (mono) · avatar · name (the "Ти/You" row gets a pine "Ти/You" badge + pine-tinted row) · mono "{n} акт./activities" · mono meters. 
+- **Leaderboard rows:** rank number (mono) · avatar · name (the "Ти/You" row gets a pine "Ти/You" badge + pine-tinted row) · mono "{n} акт./activities" · mono meters.
 - **Active challenges:** 2-col grid of cards, each with title, mono progress ("6 / 10 завършени"), a reward/status badge, and a progress bar (accent or category color fill).
 
 ### 5. Profile (screen: `profile`)
+
 - **Purpose:** The user's identity, stats, badges, and history.
 - **Layout:** centered, `max-width:760px`, 24px padding.
 - **Header:** 92px avatar (initials, brand ring) + mono handle/city overline + 26px/800 name + bio line + a "Редактирай/Edit" outline button (settings icon).
@@ -99,6 +106,7 @@ Three columns inside the main body: **list panel · map canvas · (optional) spo
 ## Interactions & Behavior
 
 **Global**
+
 - **Navigation:** clicking a sidebar item sets `screen`; leaving `map` clears the selected spot. No routing in the prototype — implement real routes (`/map`, `/feed`, `/leaderboards`, `/profile`, `/spot/:id`).
 - **Auth gate:** `authed:false` shows the onboarding overlay; `login()`/`logout()` flip it.
 - **Hover:** darken fill one step (`--brand → --brand-hover`) or lift a card one shadow step, ~120–180ms. **Press:** `scale(0.97)` + darken. **Focus:** always-visible pine ring (never removed).
@@ -122,24 +130,24 @@ Three columns inside the main body: **list panel · map canvas · (optional) spo
 
 All state is local to the root component (prototype). Map these to your app/store/route layer:
 
-| State | Type | Meaning / trigger |
-|---|---|---|
-| `authed` | bool | Logged in; toggled by `login()`/`logout()`. |
-| `screen` | `'map'\|'feed'\|'compete'\|'profile'` | Active primary screen (→ route). |
-| `selected` | spot id \| null | Open spot detail (→ `/spot/:id`). |
-| `view` | `'map'\|'list'` | Map canvas vs card grid. |
-| `active` | string[] | Selected category filter keys (multi). |
-| `maxDist` | int 1–30 | Distance-max filter (km). |
-| `diff` | int 0–3 | Difficulty-max filter (0 = all). |
-| `nearMe` | bool | Near-me radius on. |
-| `radiusKm` | int 3–30 | Near-me radius (km). |
-| `hovered` | spot id \| null | Card↔marker hover sync. |
-| `scrubFrac` | float 0–1 | Elevation scrub position. |
-| `recording` / `paused` | bool | Recorder state. |
-| `sec` / `km` | number | Live recorder elapsed time / distance. |
-| `likes` | bool[] | Per-feed-post like toggle. |
-| `period` | `'week'\|'month'\|'year'` | Leaderboard range. |
-| `tab` | `'acts'\|'spots'\|'clubs'` | Profile tab. |
+| State                  | Type                                  | Meaning / trigger                           |
+| ---------------------- | ------------------------------------- | ------------------------------------------- |
+| `authed`               | bool                                  | Logged in; toggled by `login()`/`logout()`. |
+| `screen`               | `'map'\|'feed'\|'compete'\|'profile'` | Active primary screen (→ route).            |
+| `selected`             | spot id \| null                       | Open spot detail (→ `/spot/:id`).           |
+| `view`                 | `'map'\|'list'`                       | Map canvas vs card grid.                    |
+| `active`               | string[]                              | Selected category filter keys (multi).      |
+| `maxDist`              | int 1–30                              | Distance-max filter (km).                   |
+| `diff`                 | int 0–3                               | Difficulty-max filter (0 = all).            |
+| `nearMe`               | bool                                  | Near-me radius on.                          |
+| `radiusKm`             | int 3–30                              | Near-me radius (km).                        |
+| `hovered`              | spot id \| null                       | Card↔marker hover sync.                     |
+| `scrubFrac`            | float 0–1                             | Elevation scrub position.                   |
+| `recording` / `paused` | bool                                  | Recorder state.                             |
+| `sec` / `km`           | number                                | Live recorder elapsed time / distance.      |
+| `likes`                | bool[]                                | Per-feed-post like toggle.                  |
+| `period`               | `'week'\|'month'\|'year'`             | Leaderboard range.                          |
+| `tab`                  | `'acts'\|'spots'\|'clubs'`            | Profile tab.                                |
 
 **Data fetching (production):** spots (with geo, category, difficulty, distance, ascent, rating, reviews, hours, elevation series, amenities, photos), feed posts, leaderboard/challenges, profile + badges. The prototype uses hard-coded sample arrays (`SPOTS`, `FEED`, `LB`, `BADGES`) — treat these as the data shape, not real content.
 
@@ -150,6 +158,7 @@ All state is local to the root component (prototype). Map these to your app/stor
 Authoritative source: **`styles.css`** (entry) → **`tokens/*.css`**. Consume as CSS custom properties. Values below are the ground truth (also inlined in the prototype's `:root`).
 
 **Color — neutrals & surface**
+
 - `--paper` `#FBF9F3` (page) · `--paper-sunk` `#F4F1E8` · `--surface` `#FFFEFB` · `--surface-2` `#F8F5EE`
 - `--border` `#E8E3D8` · `--border-strong` `#D6CFC0`
 - `--ink` `#1E241D` · `--ink-soft` `#3A4136` · `--text-secondary` `#3A4136` · `--text-muted` `#7C7668` · `--text-faint` `#A79F8E`
@@ -158,14 +167,17 @@ Authoritative source: **`styles.css`** (entry) → **`tokens/*.css`**. Consume a
 Scale: `--pine-50` `#ECF4EE` · `-100` `#D6EADD` · `-200` `#AFD6BC` · `-300` `#7FBE96` · `-500` `#2E7D55` · `-600` `#216543` · `-700` `#1A5036`
 
 **Color — accent (Clay)** `--accent`/`--clay-500` `#D5762A` · `--accent-hover`/`--clay-600` `#BC6120` · `--clay-200` `#F0C79A` · `--clay-300` `#E9A867`
+
 > One accent moment per view. Green does the structural work; clay is the spark. Alternate accents used in the prototype's theme tweak: `#E15A4A`, `#3E8FC9`, `#6E5CC4`.
 
 **Color — categories** (marker/chip/filter, one per activity)
+
 - hike `#2E7D55` · run `#E15A4A` · bike `#E28C3C` · climb `#BB5A2E` · swim `#3E8FC9` · team `#6E5CC4` · calisthenics `#2E9EA0`
 
 **Color — semantic** `--success` `#2E7D55` (bg `#ECF4EE`, border `#AFD6BC`) · `--warning` `#C9891F` (bg `#FAF0D8`, border `#EBCB84`)
 
 **Typography**
+
 - Sans (display/heading/UI/body): **Manrope** — weights 400/500/600/700/800. Display 800 tight tracking (-.02 to -.03em); headings 700; body/UI 400/500.
 - Mono (all data & the uppercase overline/eyebrow): **JetBrains Mono** — 400/500/600/700.
 - Both ship full **Cyrillic** — never introduce a face without it. Body floor 14px; mono meta floor 12px. Headings `text-wrap: balance`, paragraphs `text-wrap: pretty`.
@@ -174,6 +186,7 @@ Scale: `--pine-50` `#ECF4EE` · `-100` `#D6EADD` · `-200` `#AFD6BC` · `-300` `
 **Radius** `--radius-md` 10px (inputs) · `--radius-lg` 14px (cards) · `--radius-xl` 20px (sheets) · pills/buttons/chips `999px` · avatars & marker dots circular.
 
 **Elevation** (soft, bark-green-tinted — never pure black)
+
 - `--shadow-xs` `0 1px 2px rgba(24,32,22,.06)`
 - `--shadow-sm` `0 1px 2px rgba(24,32,22,.05),0 2px 6px rgba(24,32,22,.05)`
 - `--shadow-md` `0 2px 4px rgba(24,32,22,.05),0 6px 16px rgba(24,32,22,.08)`
@@ -198,12 +211,13 @@ Scale: `--pine-50` `#ECF4EE` · `-100` `#D6EADD` · `-200` `#AFD6BC` · `-300` `
 ## Files
 
 **In this handoff bundle**
+
 - `Platform.dc.html` — the interactive prototype (all screens + the five map interactions). Open in a browser to explore; read the source for structure, state, and behavior. Built on an in-house template runtime — **reference only, do not ship.**
 - `support.js` — the prototype's runtime (lets `Platform.dc.html` open standalone). **Not for production.**
 - `styles.css` — design-system entry point (imports the token files).
 - `tokens/` — the token definitions: `fonts.css`, `colors.css`, `typography.css`, `spacing.css`, `radius.css`, `elevation.css`, `motion.css`, `base.css`. **This is the styling source of truth.**
 - `components/` — React reference components with `.jsx`, TypeScript `.d.ts`, and `.prompt.md` per component: `actions/` (Button, IconButton), `forms/` (Input, Select, Checkbox, Radio, Switch), `data-display/` (Card, Badge, Chip, Avatar, Stat), `navigation/` (SegmentedControl), `map/` (MapMarker). Use these as the component contract.
 - `guidelines/` — foundation specimen cards (type, colors, spacing, elevation, motion, brand) — visual reference for the tokens.
-- `DESIGN_SYSTEM.md` — the full design-system guide (voice/copy, color, type, layout, iconography, do/don't). Read this first for the *why*; read this handoff for the *what to build*.
+- `DESIGN_SYSTEM.md` — the full design-system guide (voice/copy, color, type, layout, iconography, do/don't). Read this first for the _why_; read this handoff for the _what to build_.
 
 **Recommended reading order:** `DESIGN_SYSTEM.md` (principles) → this README (screens, interactions, state, tokens) → `Platform.dc.html` in a browser (see it move) → `Platform.dc.html` source + `components/` (implementation detail).

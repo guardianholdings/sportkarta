@@ -12,10 +12,7 @@ import {
   AdPlacementError,
 } from '@/lib/ads';
 import { ContributionError } from '@/lib/contributions/errors';
-import {
-  discardContributionPhoto,
-  storeContributionPhoto,
-} from '@/lib/contributions/photo-upload';
+import { discardContributionPhoto, storeContributionPhoto } from '@/lib/contributions/photo-upload';
 
 /**
  * Ad-placement actions (docs/MONETISATION.md M4). `requireRole('admin')` on

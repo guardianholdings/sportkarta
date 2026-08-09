@@ -204,23 +204,35 @@
     text-rendering: optimizeLegibility;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: var(--font-display);
     color: var(--text-primary);
     letter-spacing: var(--ls-tight);
     text-wrap: balance;
   }
 
-  p { text-wrap: pretty; }
+  p {
+    text-wrap: pretty;
+  }
 
   a {
     color: var(--link);
     text-decoration: none;
     transition: color var(--dur-fast) var(--ease-standard);
   }
-  a:hover { color: var(--link-hover); }
+  a:hover {
+    color: var(--link-hover);
+  }
 
-  ::selection { background: var(--green-100); color: var(--green-900); }
+  ::selection {
+    background: var(--green-100);
+    color: var(--green-900);
+  }
 
   /* Focus ring is ALWAYS visible and never removable (seed binding rule). */
   :focus-visible {
@@ -228,33 +240,50 @@
     box-shadow: var(--ring);
   }
 
-  code, kbd, samp { font-family: var(--font-mono); }
+  code,
+  kbd,
+  samp {
+    font-family: var(--font-mono);
+  }
 
   /* One stroke weight everywhere (seed rule; RECONCILIATION C13). A CSS
      rule beats Lucide's stroke-width="2" presentation attribute, so every
      icon — Lucide or our custom app-glyphs — renders at 1.75 regardless of
      how it is called. Enforced here, not by convention. */
   svg.lucide,
-  svg.app-glyph { stroke-width: 1.75; }
+  svg.app-glyph {
+    stroke-width: 1.75;
+  }
 
   /* --text-muted, not --text-faint: a placeholder is content somebody has to
      read, and --text-faint is 3.2:1 on --surface — sub-AA. --text-faint stays the
      disabled/decorative tone. */
   input::placeholder,
-  textarea::placeholder { color: var(--text-muted); opacity: 1; }
+  textarea::placeholder {
+    color: var(--text-muted);
+    opacity: 1;
+  }
 
   /* Native checkboxes/radios (admin forms use them unwrapped): brand green,
      not the OS default blue — one rule instead of a styled-checkbox component
      for controls that must work before hydration. */
   input[type='checkbox'],
-  input[type='radio'] { accent-color: var(--brand); }
+  input[type='radio'] {
+    accent-color: var(--brand);
+  }
 }
 
 /* Marker drop — one of the two sanctioned trail-overshoot moments (the other is
    badge unlock). Core UI never bounces; this does, on purpose. */
 @keyframes marker-drop {
-  from { transform: translateY(-35%) scale(0.85); opacity: 0; }
-  to { transform: translateY(0) scale(1); opacity: 1; }
+  from {
+    transform: translateY(-35%) scale(0.85);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
 }
 
 @utility animate-marker-drop {
@@ -307,7 +336,9 @@
   stroke-width: 6;
   paint-order: stroke;
 }
-.sk-marker__pin-face { fill: var(--text-on-brand); }
+.sk-marker__pin-face {
+  fill: var(--text-on-brand);
+}
 .sk-marker__pin-mouth {
   fill: none;
   stroke: var(--text-on-brand);
@@ -315,14 +346,30 @@
   stroke-linecap: round;
 }
 /* The picker/mini-map pin: always the ACTIVE coral („твоят спот"). */
-.sk-marker--active { --pin-fill: var(--pin-active); }
-.sk-marker:focus-visible { outline: none; }
-.sk-marker:focus-visible .sk-marker__pin { box-shadow: var(--ring); }
-.sk-marker.is-hover { z-index: 2; }
-.sk-marker.is-hover .sk-marker__body { transform: scale(1.11); }
-.sk-marker.is-selected { z-index: 3; }
-.sk-marker.is-selected { --pin-fill: var(--pin-active); }
-.sk-marker.is-selected .sk-marker__body { transform: scale(1.22); }
+.sk-marker--active {
+  --pin-fill: var(--pin-active);
+}
+.sk-marker:focus-visible {
+  outline: none;
+}
+.sk-marker:focus-visible .sk-marker__pin {
+  box-shadow: var(--ring);
+}
+.sk-marker.is-hover {
+  z-index: 2;
+}
+.sk-marker.is-hover .sk-marker__body {
+  transform: scale(1.11);
+}
+.sk-marker.is-selected {
+  z-index: 3;
+}
+.sk-marker.is-selected {
+  --pin-fill: var(--pin-active);
+}
+.sk-marker.is-selected .sk-marker__body {
+  transform: scale(1.22);
+}
 .sk-marker.is-selected .sk-marker__pin {
   filter: drop-shadow(0 3px 6px color-mix(in srgb, var(--ink) 34%, transparent))
     drop-shadow(0 0 8px color-mix(in srgb, var(--pin-active) 55%, transparent));
@@ -393,44 +440,96 @@
   stroke-dasharray: 100;
   animation: loading-lane 4.4s var(--ease-standard) infinite;
 }
-.sk-loading-mark__lane--inner { animation-name: loading-lane-inner; }
+.sk-loading-mark__lane--inner {
+  animation-name: loading-lane-inner;
+}
 .sk-loading-mark__eye {
   transform-box: fill-box;
   transform-origin: center;
   animation: loading-eye 4.4s var(--ease-standard) infinite;
 }
-.sk-loading-mark__eye--right { animation-name: loading-eye-right; }
+.sk-loading-mark__eye--right {
+  animation-name: loading-eye-right;
+}
 
 /* dashoffset 100 → 0 draws the arc; 0 → -100 erases it FORWARD — a lap, not
    a rewind. pathLength="100" on the paths makes the units path-relative. */
 @keyframes loading-lane {
-  0%   { stroke-dashoffset: 100; }
-  30%  { stroke-dashoffset: 0; }
-  72%  { stroke-dashoffset: 0; }
-  96%  { stroke-dashoffset: -100; }
-  100% { stroke-dashoffset: -100; }
+  0% {
+    stroke-dashoffset: 100;
+  }
+  30% {
+    stroke-dashoffset: 0;
+  }
+  72% {
+    stroke-dashoffset: 0;
+  }
+  96% {
+    stroke-dashoffset: -100;
+  }
+  100% {
+    stroke-dashoffset: -100;
+  }
 }
 @keyframes loading-lane-inner {
-  0%, 8% { stroke-dashoffset: 100; }
-  38%  { stroke-dashoffset: 0; }
-  76%  { stroke-dashoffset: 0; }
-  98%, 100% { stroke-dashoffset: -100; }
+  0%,
+  8% {
+    stroke-dashoffset: 100;
+  }
+  38% {
+    stroke-dashoffset: 0;
+  }
+  76% {
+    stroke-dashoffset: 0;
+  }
+  98%,
+  100% {
+    stroke-dashoffset: -100;
+  }
 }
 @keyframes loading-eye {
-  0%, 30%  { opacity: 0; transform: scale(0.4); }
-  40%      { opacity: 1; transform: scale(1); }
-  82%      { opacity: 1; }
-  92%, 100% { opacity: 0; transform: scale(0.6); }
+  0%,
+  30% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  82% {
+    opacity: 1;
+  }
+  92%,
+  100% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
 }
 @keyframes loading-eye-right {
-  0%, 36%  { opacity: 0; transform: scale(0.4); }
-  46%      { opacity: 1; transform: scale(1); }
-  82%      { opacity: 1; }
-  92%, 100% { opacity: 0; transform: scale(0.6); }
+  0%,
+  36% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  46% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  82% {
+    opacity: 1;
+  }
+  92%,
+  100% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .sk-loading-mark__lane,
-  .sk-loading-mark__eye { animation: none; }
+  .sk-loading-mark__eye {
+    animation: none;
+  }
 }
 
 /* Neutral striped placeholder — stands in for photography (seed motif). Real,

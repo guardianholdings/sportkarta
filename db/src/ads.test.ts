@@ -127,10 +127,9 @@ describe.skipIf(!hasDb)('ad placement exclusivity (requires running database)', 
     await place({ visible: true });
     await place({ partner: otherPartnerId, from: '2026-08-10', to: '2026-08-20', visible: false });
     await expect(
-      client.query(
-        `UPDATE ad_placements SET visible = true WHERE partner_id = $1`,
-        [otherPartnerId],
-      ),
+      client.query(`UPDATE ad_placements SET visible = true WHERE partner_id = $1`, [
+        otherPartnerId,
+      ]),
     ).rejects.toThrow(/ad_placements_one_visible_per_slot/);
   });
 

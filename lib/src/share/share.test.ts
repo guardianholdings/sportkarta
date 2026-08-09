@@ -209,8 +209,9 @@ describe('buildShare', () => {
   });
 
   it('flags person-scoped kinds so the caller cannot forget the no-store rule', () => {
-    expect(buildShare({ kind: 'week', locale: 'bg', origin: ORIGIN, page: '/', text: 'x' })
-      .personScoped).toBe(true);
+    expect(
+      buildShare({ kind: 'week', locale: 'bg', origin: ORIGIN, page: '/', text: 'x' }).personScoped,
+    ).toBe(true);
     expect(
       buildShare({ kind: 'facility', locale: 'bg', origin: ORIGIN, page: '/', text: 'x', ref: 'p' })
         .personScoped,

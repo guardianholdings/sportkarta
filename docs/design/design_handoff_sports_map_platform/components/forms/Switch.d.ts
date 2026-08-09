@@ -1,6 +1,9 @@
 import * as React from 'react';
 
-export interface SwitchProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'size'> {
+export interface SwitchProps extends Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  'type' | 'size'
+> {
   checked?: boolean;
   defaultChecked?: boolean;
   onChange?: React.ChangeEventHandler<HTMLInputElement>;

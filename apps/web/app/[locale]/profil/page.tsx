@@ -50,7 +50,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
       <main className="mx-auto w-full max-w-2xl space-y-6 px-4 py-5">
         <header>
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
-          <p className="mt-1.5 text-body-sm text-ink-soft">{t('emailLine', { email: user.email })}</p>
+          <p className="mt-1.5 text-body-sm text-ink-soft">
+            {t('emailLine', { email: user.email })}
+          </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Link href="/pasport" className={pillLink}>
               <BookOpenCheck size={15} />

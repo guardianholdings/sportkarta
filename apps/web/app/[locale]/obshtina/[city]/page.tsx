@@ -126,117 +126,125 @@ export default async function AccountabilityPage({ params }: { params: PageParam
   return (
     <AppShell>
       <main className="mx-auto max-w-4xl space-y-8 p-4">
-      <Link href={`/igrishta/${city.slug}`} className="text-body-sm font-medium text-link hover:text-link-hover">
-        {t('backToCity')}
-      </Link>
+        <Link
+          href={`/igrishta/${city.slug}`}
+          className="text-body-sm font-medium text-link hover:text-link-hover"
+        >
+          {t('backToCity')}
+        </Link>
 
-      <header className="space-y-2">
-        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('h1', { city: name })}</h1>
-        <p className="text-ink-soft">{t('intro', { city: name })}</p>
-        <p className="text-caption text-text-muted">{t('generatedAt', { date: generated })}</p>
-      </header>
+        <header className="space-y-2">
+          <h1 className="text-h2 font-extrabold tracking-tight text-ink">
+            {t('h1', { city: name })}
+          </h1>
+          <p className="text-ink-soft">{t('intro', { city: name })}</p>
+          <p className="text-caption text-text-muted">{t('generatedAt', { date: generated })}</p>
+        </header>
 
-      <section aria-labelledby="coverage-h" className="space-y-3">
-        <h2 id="coverage-h" className="text-h4 font-bold text-ink">
-          {t('coverageHeading')}
-        </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          <StatCard label={t('statTotal')} value={String(data.total)} />
-          <StatCard
-            label={t('statPer10k')}
-            value={data.per10k === null ? na : data.per10k.toFixed(1)}
-            note={
-              data.per10kRank === null || data.per10kOf === null
-                ? t('noPopulation')
-                : t('rankOf', { rank: data.per10kRank, of: data.per10kOf })
-            }
-          />
-          <StatCard label={t('statFreeShare')} value={fmtPct(data.free, data.total)} />
-          <StatCard label={t('statLit')} value={String(data.lit)} />
-        </div>
-      </section>
+        <section aria-labelledby="coverage-h" className="space-y-3">
+          <h2 id="coverage-h" className="text-h4 font-bold text-ink">
+            {t('coverageHeading')}
+          </h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            <StatCard label={t('statTotal')} value={String(data.total)} />
+            <StatCard
+              label={t('statPer10k')}
+              value={data.per10k === null ? na : data.per10k.toFixed(1)}
+              note={
+                data.per10kRank === null || data.per10kOf === null
+                  ? t('noPopulation')
+                  : t('rankOf', { rank: data.per10kRank, of: data.per10kOf })
+              }
+            />
+            <StatCard label={t('statFreeShare')} value={fmtPct(data.free, data.total)} />
+            <StatCard label={t('statLit')} value={String(data.lit)} />
+          </div>
+        </section>
 
-      <section aria-labelledby="quality-h" className="space-y-3">
-        <h2 id="quality-h" className="text-h4 font-bold text-ink">
-          {t('qualityHeading')}
-        </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          <StatCard label={t('statVerified')} value={fmtPct(data.active, data.total)} />
-          <StatCard label={t('statNeedsVerification')} value={String(data.needsVerification)} />
-          <StatCard label={t('statWithPhoto')} value={fmtPct(data.withPhoto, data.total)} />
-          <StatCard
-            label={t('statContributors')}
-            value={
-              data.contributors === null
-                ? t('fewerThan', { n: MIN_DISCLOSED_CONTRIBUTORS })
-                : String(data.contributors)
-            }
-            note={t('windowDays', { days: ACTIVITY_WINDOW_DAYS })}
-          />
-        </div>
-        <div className="grid gap-6 md:grid-cols-2">
-          <BarChart title={t('conditionHeading')} bars={conditionBars} color="var(--brand)" />
-          <BarChart title={t('provenanceHeading')} bars={provenanceBars} color="var(--sky-500)" />
-        </div>
-      </section>
+        <section aria-labelledby="quality-h" className="space-y-3">
+          <h2 id="quality-h" className="text-h4 font-bold text-ink">
+            {t('qualityHeading')}
+          </h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            <StatCard label={t('statVerified')} value={fmtPct(data.active, data.total)} />
+            <StatCard label={t('statNeedsVerification')} value={String(data.needsVerification)} />
+            <StatCard label={t('statWithPhoto')} value={fmtPct(data.withPhoto, data.total)} />
+            <StatCard
+              label={t('statContributors')}
+              value={
+                data.contributors === null
+                  ? t('fewerThan', { n: MIN_DISCLOSED_CONTRIBUTORS })
+                  : String(data.contributors)
+              }
+              note={t('windowDays', { days: ACTIVITY_WINDOW_DAYS })}
+            />
+          </div>
+          <div className="grid gap-6 md:grid-cols-2">
+            <BarChart title={t('conditionHeading')} bars={conditionBars} color="var(--brand)" />
+            <BarChart title={t('provenanceHeading')} bars={provenanceBars} color="var(--sky-500)" />
+          </div>
+        </section>
 
-      <section aria-labelledby="response-h" className="space-y-3">
-        <h2 id="response-h" className="text-h4 font-bold text-ink">
-          {t('responseHeading')}
-        </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label={t('statOpenReports')} value={String(data.reportsOpen)} />
-          <StatCard
-            label={t('statOldestOpen')}
-            value={
-              data.reportsOldestOpenDays === null
-                ? na
-                : `${data.reportsOldestOpenDays.toFixed(0)} ${t('unitDays')}`
-            }
-          />
-          <StatCard
-            label={t('statResolved')}
-            value={String(data.reportsResolvedInWindow)}
-            note={t('windowDays', { days: RESOLUTION_WINDOW_DAYS })}
-          />
-          <StatCard label={t('statMedianResponse')} value={median} />
-        </div>
-        <p className="text-body-sm text-ink-soft">{t('responseCaveat')}</p>
-      </section>
+        <section aria-labelledby="response-h" className="space-y-3">
+          <h2 id="response-h" className="text-h4 font-bold text-ink">
+            {t('responseHeading')}
+          </h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatCard label={t('statOpenReports')} value={String(data.reportsOpen)} />
+            <StatCard
+              label={t('statOldestOpen')}
+              value={
+                data.reportsOldestOpenDays === null
+                  ? na
+                  : `${data.reportsOldestOpenDays.toFixed(0)} ${t('unitDays')}`
+              }
+            />
+            <StatCard
+              label={t('statResolved')}
+              value={String(data.reportsResolvedInWindow)}
+              note={t('windowDays', { days: RESOLUTION_WINDOW_DAYS })}
+            />
+            <StatCard label={t('statMedianResponse')} value={median} />
+          </div>
+          <p className="text-body-sm text-ink-soft">{t('responseCaveat')}</p>
+        </section>
 
-      <section aria-labelledby="embed-h" className="space-y-3">
-        <h2 id="embed-h" className="text-h4 font-bold text-ink">
-          {t('embedHeading')}
-        </h2>
-        <p className="text-body-sm text-ink-soft">{t('embedIntro')}</p>
-        <pre className="overflow-x-auto rounded-card border border-line bg-paper-sunk p-3 text-caption">
-          <code>{embedSnippet}</code>
-        </pre>
-        <ul className="list-disc space-y-1 pl-5 text-body-sm text-ink-soft">
-          <li>{t('embedNoScript')}</li>
-          <li>{t('embedNoCookies')}</li>
-          <li>{t('embedAggregate')}</li>
-          <li>
-            <a href={`${embedUrl}&format=json`} className="font-medium text-link hover:text-link-hover">
-              {t('embedJson')}
-            </a>
-          </li>
-        </ul>
-      </section>
+        <section aria-labelledby="embed-h" className="space-y-3">
+          <h2 id="embed-h" className="text-h4 font-bold text-ink">
+            {t('embedHeading')}
+          </h2>
+          <p className="text-body-sm text-ink-soft">{t('embedIntro')}</p>
+          <pre className="overflow-x-auto rounded-card border border-line bg-paper-sunk p-3 text-caption">
+            <code>{embedSnippet}</code>
+          </pre>
+          <ul className="list-disc space-y-1 pl-5 text-body-sm text-ink-soft">
+            <li>{t('embedNoScript')}</li>
+            <li>{t('embedNoCookies')}</li>
+            <li>{t('embedAggregate')}</li>
+            <li>
+              <a
+                href={`${embedUrl}&format=json`}
+                className="font-medium text-link hover:text-link-hover"
+              >
+                {t('embedJson')}
+              </a>
+            </li>
+          </ul>
+        </section>
 
-      <section aria-labelledby="method-h" className="space-y-2">
-        <h2 id="method-h" className="text-h4 font-bold text-ink">
-          {t('methodologyHeading')}
-        </h2>
-        <ul className="list-disc space-y-1 pl-5 text-body-sm text-ink-soft">
-          <li>{t('methodVisibility')}</li>
-          <li>{t('methodPer10k')}</li>
-          <li>{t('methodCondition')}</li>
-          <li>{t('methodResponse', { days: RESOLUTION_WINDOW_DAYS })}</li>
-          <li>{t('methodPrivacy', { n: MIN_DISCLOSED_CONTRIBUTORS })}</li>
-          <li>{t('attribution')}</li>
-        </ul>
-      </section>
+        <section aria-labelledby="method-h" className="space-y-2">
+          <h2 id="method-h" className="text-h4 font-bold text-ink">
+            {t('methodologyHeading')}
+          </h2>
+          <ul className="list-disc space-y-1 pl-5 text-body-sm text-ink-soft">
+            <li>{t('methodVisibility')}</li>
+            <li>{t('methodPer10k')}</li>
+            <li>{t('methodCondition')}</li>
+            <li>{t('methodResponse', { days: RESOLUTION_WINDOW_DAYS })}</li>
+            <li>{t('methodPrivacy', { n: MIN_DISCLOSED_CONTRIBUTORS })}</li>
+            <li>{t('attribution')}</li>
+          </ul>
+        </section>
       </main>
     </AppShell>
   );

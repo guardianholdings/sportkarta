@@ -67,7 +67,13 @@ export function BarChart({ title, bars, color = 'var(--brand)', emptyLabel }: Ba
           return (
             // Index key: labels aren't guaranteed unique and bars never reorder.
             <g key={i}>
-              <text x={0} y={y + ROW_H / 2} dominantBaseline="central" fontSize="12" fill="var(--ink-soft)">
+              <text
+                x={0}
+                y={y + ROW_H / 2}
+                dominantBaseline="central"
+                fontSize="12"
+                fill="var(--ink-soft)"
+              >
                 {truncate(b.label)}
               </text>
               <rect x={LABEL_W} y={y} width={Math.max(1, w)} height={ROW_H} rx={3} fill={color} />

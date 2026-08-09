@@ -1,5 +1,10 @@
 import type { DivisionStandingRow } from '@sportkarta/db';
-import { divisionSections, tierSlug, zoneCounts, type DivisionZone } from '@sportkarta/lib/divisions';
+import {
+  divisionSections,
+  tierSlug,
+  zoneCounts,
+  type DivisionZone,
+} from '@sportkarta/lib/divisions';
 import { getTranslations } from 'next-intl/server';
 
 import { Badge } from '@/components/ui/badge';

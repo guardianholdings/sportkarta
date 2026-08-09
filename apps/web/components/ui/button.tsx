@@ -14,15 +14,15 @@ import { cn } from '@/lib/utils';
  * accent switches it to the clay ring). `asChild` is retained beyond the seed
  * contract for text-link buttons that render an <a>/<Link>.
  */
-  // `focus-visible:shadow-[var(--ring)]` is NOT redundant with the global
-  // `:focus-visible { box-shadow: var(--ring) }` in globals.css. That rule lives
-  // in `@layer base`; every `shadow-*` utility below lives in `@layer utilities`
-  // and wins by layer order — so the base rule's `outline: none` still applied
-  // while its ring was discarded, leaving these controls with NO visible focus
-  // indicator at all. Verified in the browser: a focused primary button computed
-  // `outline: none` and a box-shadow containing only shadow-xs. The `accent`
-  // variant already carried its own focus shadow, which is why it was the only
-  // one that worked.
+// `focus-visible:shadow-[var(--ring)]` is NOT redundant with the global
+// `:focus-visible { box-shadow: var(--ring) }` in globals.css. That rule lives
+// in `@layer base`; every `shadow-*` utility below lives in `@layer utilities`
+// and wins by layer order — so the base rule's `outline: none` still applied
+// while its ring was discarded, leaving these controls with NO visible focus
+// indicator at all. Verified in the browser: a focused primary button computed
+// `outline: none` and a box-shadow containing only shadow-xs. The `accent`
+// variant already carried its own focus shadow, which is why it was the only
+// one that worked.
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-pill font-semibold leading-none select-none transition-[background-color,color,box-shadow,transform] duration-150 ease-standard focus-visible:shadow-[var(--ring)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
   {
@@ -52,8 +52,7 @@ const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
   /** Icon node before the label (20px Lucide line icon, currentColor). */
   iconLeft?: React.ReactNode;
   /** Icon node after the label. */

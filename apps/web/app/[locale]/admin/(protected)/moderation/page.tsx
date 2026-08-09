@@ -92,21 +92,28 @@ export default async function AdminModerationPage({
         )}
       </div>
 
-      <section aria-labelledby="sla-h" className="rounded-card border border-line bg-surface p-4 shadow-sm">
+      <section
+        aria-labelledby="sla-h"
+        className="rounded-card border border-line bg-surface p-4 shadow-sm"
+      >
         <h2 id="sla-h" className="t-overline mb-3">
           {t('slaTitle')}
         </h2>
         <dl className="grid grid-cols-2 gap-4 text-body-sm sm:grid-cols-4">
           <div>
             <dt className="text-caption text-text-muted">{t('slaMedian')}</dt>
-            <dd className="font-mono text-h4 font-bold text-ink tabular-nums">{formatHours(sla.medianHours)}</dd>
+            <dd className="font-mono text-h4 font-bold text-ink tabular-nums">
+              {formatHours(sla.medianHours)}
+            </dd>
             <dd className="text-caption text-text-muted">
               {t('slaWindow', { days: sla.windowDays, decisions: sla.decisionsInWindow })}
             </dd>
           </div>
           <div>
             <dt className="text-caption text-text-muted">{t('slaOldest')}</dt>
-            <dd className="font-mono text-h4 font-bold text-ink tabular-nums">{formatHours(sla.oldestPendingHours)}</dd>
+            <dd className="font-mono text-h4 font-bold text-ink tabular-nums">
+              {formatHours(sla.oldestPendingHours)}
+            </dd>
           </div>
           <div>
             <dt className="text-caption text-text-muted">{t('slaQueue')}</dt>
@@ -190,7 +197,10 @@ export default async function AdminModerationPage({
                   className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-surface p-3 text-body-sm shadow-sm"
                 >
                   <div className="min-w-0 flex-1 space-y-1">
-                    <Link href={`/admin/facilities/${photo.facilityId}`} className="font-medium text-link hover:text-link-hover">
+                    <Link
+                      href={`/admin/facilities/${photo.facilityId}`}
+                      className="font-medium text-link hover:text-link-hover"
+                    >
                       {photo.facilityName ?? tFacilities('unnamed')}
                     </Link>
                     <div className="truncate text-caption text-text-muted">

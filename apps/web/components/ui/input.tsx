@@ -24,7 +24,8 @@ const inputVariants = cva(
 );
 
 export interface InputProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'>,
+  extends
+    Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'>,
     VariantProps<typeof inputVariants> {
   /** Leading icon (18px, currentColor) — pass a Search icon for search fields. */
   iconLeft?: React.ReactNode;

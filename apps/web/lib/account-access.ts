@@ -85,9 +85,7 @@ export async function accountAccessHistory(
     actorId: String(row.actor_id),
     actorEmail: row.email === null || row.email === undefined ? null : String(row.email),
     actorDisplayName:
-      row.display_name === null || row.display_name === undefined
-        ? null
-        : String(row.display_name),
+      row.display_name === null || row.display_name === undefined ? null : String(row.display_name),
     scope: String(row.scope) as AccountAccessScope,
     viewedAt: new Date(String(row.viewed_at)).toISOString(),
   }));

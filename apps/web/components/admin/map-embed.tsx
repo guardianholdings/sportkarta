@@ -21,7 +21,12 @@ export function MapEmbed({ lon, lat, heightClass = 'h-56' }: MapEmbedProps) {
         className={`w-full ${heightClass} rounded-card border border-line`}
       />
       <figcaption className="text-caption text-text-muted">
-        <a href={link} target="_blank" rel="noreferrer" className="font-medium text-link hover:text-link-hover">
+        <a
+          href={link}
+          target="_blank"
+          rel="noreferrer"
+          className="font-medium text-link hover:text-link-hover"
+        >
           {t('openInOsm')}
         </a>{' '}
         · {t('attribution')}

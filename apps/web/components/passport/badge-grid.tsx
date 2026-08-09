@@ -38,7 +38,10 @@ export async function BadgeGrid({
         const art = badgeArt(badge.slug, { locked: !badge.earned });
         const pct = badge.earned
           ? 100
-          : Math.min(100, Math.round((badge.progress.have / Math.max(1, badge.progress.need)) * 100));
+          : Math.min(
+              100,
+              Math.round((badge.progress.have / Math.max(1, badge.progress.need)) * 100),
+            );
         return (
           <li
             key={badge.slug}
@@ -61,7 +64,11 @@ export async function BadgeGrid({
                 <img src={art} alt="" className="block size-16" />
                 {/* Partial progress rides the coin's own dashed edge-track. */}
                 {!badge.earned && pct > 0 && (
-                  <svg viewBox="0 0 100 100" className="absolute inset-0 size-16" aria-hidden="true">
+                  <svg
+                    viewBox="0 0 100 100"
+                    className="absolute inset-0 size-16"
+                    aria-hidden="true"
+                  >
                     <circle
                       cx="50"
                       cy="50"

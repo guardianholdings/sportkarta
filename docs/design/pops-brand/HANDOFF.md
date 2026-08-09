@@ -32,18 +32,21 @@ tokens.json                  същото в JSON, за JS/Tailwind
 
 ## Дизайн токени
 
-| роля | hex | употреба |
-|---|---|---|
-| Корал | `#FF4A2B` | знакът, акценти, игри/тренировки |
+| роля    | hex       | употреба                         |
+| ------- | --------- | -------------------------------- |
+| Корал   | `#FF4A2B` | знакът, акценти, игри/тренировки |
 | Мастило | `#101418` | текст, тъмни фонове, постоянство |
-| Зелено | `#0FA958` | картата, свободни обекти, принос |
-| Хартия | `#F5F3EE` | светъл фон |
-| Сиво | `#8A9099` | заето / неактивно |
+| Зелено  | `#0FA958` | картата, свободни обекти, принос |
+| Хартия  | `#F5F3EE` | светъл фон                       |
+| Сиво    | `#8A9099` | заето / неактивно                |
 
 Шрифтове: **Unbounded** 700–800 (дисплей, логотип, заглавия на значки), **Golos Text** 400–600 (текст).
 
 ```html
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;700;800&family=Golos+Text:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link
+  href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;700;800&family=Golos+Text:wght@400;500;600;700&display=swap"
+  rel="stylesheet"
+/>
 ```
 
 ## Приложение в платформата
@@ -51,10 +54,11 @@ tokens.json                  същото в JSON, за JS/Tailwind
 **Хедър** — `lockup-horizontal` или HTML локъп (виж `README.md`); височина на знака 40–48px.
 
 **Фавикон / иконки**
+
 ```html
-<link rel="icon" href="/assets/logo/favicon.svg" type="image/svg+xml">
-<link rel="icon" href="/assets/logo/png/icon-32.png" sizes="32x32">
-<link rel="apple-touch-icon" href="/assets/logo/png/icon-180.png">
+<link rel="icon" href="/assets/logo/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="/assets/logo/png/icon-32.png" sizes="32x32" />
+<link rel="apple-touch-icon" href="/assets/logo/png/icon-180.png" />
 ```
 
 **Пинове на картата** — трите състояния са семантични: **устата** носи информацията, цветът само я потвърждава. Размери: 26–34px нормален, 44px избран/hover. Котвата на пина е в долния връх (viewBox 50,96).
@@ -63,22 +67,22 @@ tokens.json                  същото в JSON, за JS/Tailwind
 
 Съответствие slug → отличие:
 
-| slug | отличие | цел |
-|---|---|---|
-| `first-step` | Първа крачка | 1 принос |
-| `cartographer` | Картограф | 5 съоръжения |
-| `verifier` | Проверяващ | 10 потвърждения |
-| `guardian` | Пазител | 15 съобщения за състояние |
-| `beyond-my-city` | Отвъд моя град | 3 общини |
-| `allrounder` | Многоборец | 5 спорта |
-| `first-game` | Първа игра | 1 тренировка |
-| `regular` | Редовен | 10 тренировки |
-| `persistent` | Постоянен | 25 тренировки |
-| `half-century` | Половин стотица | 50 тренировки |
-| `century` | Стотица | 100 тренировки |
-| `double-half-century` | Двеста и петдесет | 250 тренировки |
-| `seven-in-a-row` | Седем поред | 7 дни подред |
-| `month-in-motion` | Месец в движение | 4 седмици |
+| slug                  | отличие           | цел                       |
+| --------------------- | ----------------- | ------------------------- |
+| `first-step`          | Първа крачка      | 1 принос                  |
+| `cartographer`        | Картограф         | 5 съоръжения              |
+| `verifier`            | Проверяващ        | 10 потвърждения           |
+| `guardian`            | Пазител           | 15 съобщения за състояние |
+| `beyond-my-city`      | Отвъд моя град    | 3 общини                  |
+| `allrounder`          | Многоборец        | 5 спорта                  |
+| `first-game`          | Първа игра        | 1 тренировка              |
+| `regular`             | Редовен           | 10 тренировки             |
+| `persistent`          | Постоянен         | 25 тренировки             |
+| `half-century`        | Половин стотица   | 50 тренировки             |
+| `century`             | Стотица           | 100 тренировки            |
+| `double-half-century` | Двеста и петдесет | 250 тренировки            |
+| `seven-in-a-row`      | Седем поред       | 7 дни подред              |
+| `month-in-motion`     | Месец в движение  | 4 седмици                 |
 
 ## Забрани
 

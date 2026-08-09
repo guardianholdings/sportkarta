@@ -60,89 +60,89 @@ export default async function ApiKeysPage({ params }: { params: PageParams }) {
   return (
     <AppShell>
       <main className="mx-auto max-w-2xl space-y-6 p-4">
-      <Link href="/danni" className="text-body-sm font-medium text-link hover:text-link-hover">
-        {t('back')}
-      </Link>
-      <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('keysTitle')}</h1>
-      <p className="text-ink-soft">
-        {t('keysIntro', {
-          anon: OPEN_DATA_LIMITS.anonPerMinute,
-          keyed: OPEN_DATA_LIMITS.keyedPerMinute,
-        })}
-      </p>
+        <Link href="/danni" className="text-body-sm font-medium text-link hover:text-link-hover">
+          {t('back')}
+        </Link>
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('keysTitle')}</h1>
+        <p className="text-ink-soft">
+          {t('keysIntro', {
+            anon: OPEN_DATA_LIMITS.anonPerMinute,
+            keyed: OPEN_DATA_LIMITS.keyedPerMinute,
+          })}
+        </p>
 
-      <CreateKeyForm
-        strings={{
-          labelField: t('keysLabelField'),
-          labelHint: t('keysLabelHint'),
-          create: t('keysCreate'),
-          created: t('keysCreated'),
-          copyHint: t('keysCopyHint'),
-          errors: {
-            keysLabelRequired: t('keysLabelRequired'),
-            keysLimitReached: t('keysLimitReached', { max: MAX_KEYS_PER_ACCOUNT }),
-            keysLabelLooksLikeKey: t('keysLabelLooksLikeKey'),
-          },
-        }}
-      />
+        <CreateKeyForm
+          strings={{
+            labelField: t('keysLabelField'),
+            labelHint: t('keysLabelHint'),
+            create: t('keysCreate'),
+            created: t('keysCreated'),
+            copyHint: t('keysCopyHint'),
+            errors: {
+              keysLabelRequired: t('keysLabelRequired'),
+              keysLimitReached: t('keysLimitReached', { max: MAX_KEYS_PER_ACCOUNT }),
+              keysLabelLooksLikeKey: t('keysLabelLooksLikeKey'),
+            },
+          }}
+        />
 
-      <section className="space-y-2">
-        {keys.length === 0 ? (
-          <p className="text-body-sm text-ink-soft">{t('keysEmpty')}</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-body-sm">
-              <thead className="text-ink-soft">
-                <tr>
-                  <th className="py-1 pr-3 font-medium">{t('keysColumnLabel')}</th>
-                  <th className="py-1 pr-3 font-medium">{t('keysColumnPrefix')}</th>
-                  <th className="py-1 pr-3 font-medium">{t('keysColumnCreated')}</th>
-                  <th className="py-1 pr-3 font-medium">{t('keysColumnLastUsed')}</th>
-                  <th className="py-1" />
-                </tr>
-              </thead>
-              <tbody>
-                {keys.map((key) => (
-                  <tr key={key.id} className="border-t border-line">
-                    <td className="py-2 pr-3">{key.label}</td>
-                    <td className="py-2 pr-3">
-                      <code className="text-caption">{key.prefix}…</code>
-                    </td>
-                    <td className="py-2 pr-3 text-ink-soft">
-                      {formatDate(key.createdAt, locale)}
-                    </td>
-                    <td className="py-2 pr-3 text-ink-soft">
-                      {key.lastUsedAt ? formatDate(key.lastUsedAt, locale) : t('keysNeverUsed')}
-                    </td>
-                    <td className="py-2">
-                      {/* Plain form: revocation must work before hydration —
-                          it is the one action somebody takes in a hurry. */}
-                      <form action={revokeApiKeyAction}>
-                        <input type="hidden" name="keyId" value={key.id} />
-                        <button
-                          type="submit"
-                          className="min-h-11 rounded-pill border border-line-strong bg-surface px-4 text-caption font-semibold text-ink-soft hover:bg-surface-2"
-                        >
-                          {t('keysRevoke')}
-                        </button>
-                      </form>
-                    </td>
+        <section className="space-y-2">
+          {keys.length === 0 ? (
+            <p className="text-body-sm text-ink-soft">{t('keysEmpty')}</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-body-sm">
+                <thead className="text-ink-soft">
+                  <tr>
+                    <th className="py-1 pr-3 font-medium">{t('keysColumnLabel')}</th>
+                    <th className="py-1 pr-3 font-medium">{t('keysColumnPrefix')}</th>
+                    <th className="py-1 pr-3 font-medium">{t('keysColumnCreated')}</th>
+                    <th className="py-1 pr-3 font-medium">{t('keysColumnLastUsed')}</th>
+                    <th className="py-1" />
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+                </thead>
+                <tbody>
+                  {keys.map((key) => (
+                    <tr key={key.id} className="border-t border-line">
+                      <td className="py-2 pr-3">{key.label}</td>
+                      <td className="py-2 pr-3">
+                        <code className="text-caption">{key.prefix}…</code>
+                      </td>
+                      <td className="py-2 pr-3 text-ink-soft">
+                        {formatDate(key.createdAt, locale)}
+                      </td>
+                      <td className="py-2 pr-3 text-ink-soft">
+                        {key.lastUsedAt ? formatDate(key.lastUsedAt, locale) : t('keysNeverUsed')}
+                      </td>
+                      <td className="py-2">
+                        {/* Plain form: revocation must work before hydration —
+                          it is the one action somebody takes in a hurry. */}
+                        <form action={revokeApiKeyAction}>
+                          <input type="hidden" name="keyId" value={key.id} />
+                          <button
+                            type="submit"
+                            className="min-h-11 rounded-pill border border-line-strong bg-surface px-4 text-caption font-semibold text-ink-soft hover:bg-surface-2"
+                          >
+                            {t('keysRevoke')}
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
 
-      <section className="space-y-1">
-        <h2 className="text-h4 font-bold text-ink">{t('keysUsageTitle')}</h2>
-        <p className="text-body-sm text-ink-soft">{t('keysHeaderOnly')}</p>
-        {/* Shell, not UI text — deliberately not translated. */}
-        <pre className="overflow-x-auto rounded-md bg-paper-sunk p-3 font-mono text-caption text-ink">
-          {'curl -H "Authorization: Bearer skbg_…" \\\n  ".../api/opendata/v1/facilities"'}
-        </pre>
-      </section>
+        <section className="space-y-1">
+          <h2 className="text-h4 font-bold text-ink">{t('keysUsageTitle')}</h2>
+          <p className="text-body-sm text-ink-soft">{t('keysHeaderOnly')}</p>
+          {/* Shell, not UI text — deliberately not translated. */}
+          <pre className="overflow-x-auto rounded-md bg-paper-sunk p-3 font-mono text-caption text-ink">
+            {'curl -H "Authorization: Bearer skbg_…" \\\n  ".../api/opendata/v1/facilities"'}
+          </pre>
+        </section>
       </main>
     </AppShell>
   );

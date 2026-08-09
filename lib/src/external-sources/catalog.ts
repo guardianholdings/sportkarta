@@ -71,7 +71,8 @@ export const EXTERNAL_SOURCES: readonly ExternalSource[] = [
     use: 'Official club directory → club profiles, "clubs training at this facility", partnership outreach lists.',
     ingestPath: 'entities',
     status: 'candidate',
-    notes: 'Entities, not facilities: never becomes facility rows directly. (Corrected 2026-07-25: staff.mpes is the COACHES register, not clubs.)',
+    notes:
+      'Entities, not facilities: never becomes facility rows directly. (Corrected 2026-07-25: staff.mpes is the COACHES register, not clubs.)',
   },
   {
     id: 'wikidata',
@@ -84,7 +85,8 @@ export const EXTERNAL_SOURCES: readonly ExternalSource[] = [
     use: 'Coordinate-verified name crosscheck/fills for notable venues; P18/P373 as the curated photo-discovery route.',
     ingestPath: 'assistive',
     status: 'ready',
-    notes: 'ADOPTED 2026-07-25 (crosscheck only). ~2% of the corpus by size — big named venues, not neighbourhood facilities.',
+    notes:
+      'ADOPTED 2026-07-25 (crosscheck only). ~2% of the corpus by size — big named venues, not neighbourhood facilities.',
   },
   {
     id: 'wikimedia-commons',
@@ -98,14 +100,16 @@ export const EXTERNAL_SOURCES: readonly ExternalSource[] = [
     use: 'Facility photos for matched venues (54 candidates in docs/enrichment/2026-07/wikidata-matches.csv).',
     ingestPath: 'assistive',
     status: 'candidate',
-    notes: 'BLOCKED on schema: facility_photos has no license/attribution/source columns — importing before that migration would strip legally required attribution.',
+    notes:
+      'BLOCKED on schema: facility_photos has no license/attribution/source columns — importing before that migration would strip legally required attribution.',
   },
   {
     id: 'data-egov-bg',
     nameBg: 'Портал за отворени данни',
     operator: 'Министерство на електронното управление',
     url: 'https://data.egov.bg',
-    access: 'CKAN-style portal with API; category „Образование, култура и спорт“; HVD program ramping up.',
+    access:
+      'CKAN-style portal with API; category „Образование, култура и спорт“; HVD program ramping up.',
     license: 'Per-dataset — mostly free reuse; record the license string per adopted dataset here.',
     use: 'Sport-facility datasets → municipal inbox; cleaned ЕКАТТЕ + postal codes (≈5,257 territorial units) as reference.',
     ingestPath: 'municipal-inbox',
@@ -116,7 +120,8 @@ export const EXTERNAL_SOURCES: readonly ExternalSource[] = [
     nameBg: 'НСИ — население и ЕКАТТЕ',
     operator: 'Национален статистически институт',
     url: 'https://www.nsi.bg/nrnm',
-    access: 'Infostat + open tables (annual population by област/община/населено място); Национален регистър на населените места (265 общини, 5,256 населени места, updated Dec 2025).',
+    access:
+      'Infostat + open tables (annual population by област/община/населено място); Национален регистър на населените места (265 общини, 5,256 населени места, updated Dec 2025).',
     license: 'Free reuse with attribution (НСИ).',
     use: 'Replaces the checked-in municipality_population CSV (per-10k stats) and the hand-maintained EKATTE reference.',
     ingestPath: 'reference',
@@ -127,7 +132,8 @@ export const EXTERNAL_SOURCES: readonly ExternalSource[] = [
     nameBg: 'Софияплан — отворени данни',
     operator: 'ОП „Софияплан“, Столична община',
     url: 'https://sofiaplan.bg/api',
-    access: 'GIS portal with a documented JSON API; ~399 datasets incl. спортни и детски площадки, училища, детски градини, паркове.',
+    access:
+      'GIS portal with a documented JSON API; ~399 datasets incl. спортни и детски площадки, училища, детски градини, паркове.',
     license: 'Free license (per portal); record the exact string per adopted dataset.',
     use: 'The single best municipal seed for Sofia; the template request for other municipalities. Their „София спортува“ strategy work makes them an institutional ally.',
     ingestPath: 'municipal-inbox',
@@ -139,7 +145,8 @@ export const EXTERNAL_SOURCES: readonly ExternalSource[] = [
     nameBg: 'МОН — Регистър на институциите',
     operator: 'Министерство на образованието и науката',
     url: 'https://ri.mon.bg',
-    access: 'Web register (every state/municipal/private school and kindergarten with addresses); scrape + ЗДОИ for export.',
+    access:
+      'Web register (every state/municipal/private school and kindergarten with addresses); scrape + ЗДОИ for export.',
     license: 'Public register; reuse terms unstated — record per ЗДОИ response.',
     use: 'Geocode via Photon → candidate school-yard facilities (access=school, status=needs_verification) + the school-vs-school challenge layer.',
     ingestPath: 'municipal-inbox',
@@ -150,7 +157,8 @@ export const EXTERNAL_SOURCES: readonly ExternalSource[] = [
     nameBg: 'Национален портал за пространствени данни',
     operator: 'Държавна агенция „Електронно управление“ (INSPIRE)',
     url: 'https://inspire.egov.bg',
-    access: 'INSPIRE national spatial data portal — administrative boundaries and orthophoto layers.',
+    access:
+      'INSPIRE national spatial data portal — administrative boundaries and orthophoto layers.',
     license: 'INSPIRE terms per layer; record per adopted layer.',
     use: 'Secondary source: administrative boundaries cross-check, orthophoto for verification.',
     ingestPath: 'reference',

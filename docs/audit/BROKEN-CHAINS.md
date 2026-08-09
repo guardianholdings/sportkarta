@@ -18,6 +18,7 @@ see E2E-RESULTS.md.
 > state-selection bug that also silently discarded the operator's pasted CSV.
 
 ### AUDIT-F1 — Session creation is blind to ~70% of facilities · **P1 · FIXED**
+
 - **WIRED** ✓ · **CONNECTED** ✓ · **PRESENTED** ✗ · **EXPOSED** ✗
 - `/admin/sesii` loads the facility picker with `LIMIT 2000` ordered by municipality
   name (`sesii/page.tsx` `FACILITY_LIMIT`), against **6,672** non-gone facilities. Any
@@ -30,7 +31,7 @@ see E2E-RESULTS.md.
 - **Fix:** server-side search (the box already exists; make it query the DB) or paginate;
   at minimum surface "showing 2000 of 6672".
 - **FIXED:** the blindness was the predicate living in the wrong layer — the page
-  fetched 2000 rows *including unnamed ones* and dropped the unnamed client-side,
+  fetched 2000 rows _including unnamed ones_ and dropped the unnamed client-side,
   so the cap swallowed named facilities while the list looked complete. Only
   **882** of 6,677 non-gone facilities are named, so `f.name IS NOT NULL` moved
   into the SQL (`sesii/page.tsx`), which makes the full national pickable set fit
@@ -41,6 +42,7 @@ see E2E-RESULTS.md.
   picker by name search, and the city filter spans А–Ямбол.
 
 ### AUDIT-F3 — Municipal CSV rejects Bulgarian sport names · **P1 · FIXED**
+
 - **WIRED** ✓ (English tokens) · **PRESENTED** ✓ (per-row reasons) · **EXPOSED** ✓ ·
   **CONNECTED** ✗ for real input
 - `normalize.ts` maps Bulgarian synonyms for **access** and **lighting** but not for
@@ -62,6 +64,7 @@ see E2E-RESULTS.md.
   row previews as **Нови: 1, Невалидни: 0**.
 
 ### AUDIT-F2 — Stats do not reconcile with the map on a null-slug row · **P2 · FIXED**
+
 - **CONNECTED** ✗ (edge)
 - `mv_national_stats` counts `status <> 'gone'`; the map/API/export predicate is
   `status <> 'gone' AND slug IS NOT NULL`. One active null-slug row (an e2e leftover)
@@ -83,7 +86,8 @@ see E2E-RESULTS.md.
   the leftover null-slug row excluded.
 
 ### AUDIT-F4 — Malformed CSV refused safely but feedback unverified · **P2 → real P1 bug · FIXED**
-- **WIRED** ✓ (safe refusal) · **PRESENTED** ? 
+
+- **WIRED** ✓ (safe refusal) · **PRESENTED** ?
 - An unterminated-quote CSV is correctly refused (nothing imported, wizard does not
   advance). But under automation the form reset to an empty textarea with **no visible
   red error** — the code path (`import-form.tsx:56`) says the message should render, so
@@ -98,7 +102,7 @@ see E2E-RESULTS.md.
   19's post-action form reset restored `defaultValue` from the EMPTY state,
   silently discarding the operator's CSV. `pickState` now skips states that are
   still the initial EMPTY object (a server action's result is deserialized, so
-  it can never *be* that object). Verified live (red alert renders, paste and
+  it can never _be_ that object). Verified live (red alert renders, paste and
   registry label survive) and locked in by `e2e/municipal-import.spec.ts`.
 - **Post-review hardening (same day), same failure family:** (a) a >5000-row
   paste used to reach the mapping step and then die silently — preview's
@@ -128,7 +132,7 @@ leaves a user uninformed.
    between visits (P6).
 4. **No worker-health indicator** (P2). A job queued with the worker down sits `created`
    forever and self-heals on restart (proven), but nothing tells the operator the worker
-   is dead vs merely slow. Job *state* is visible; worker *liveness* is not.
+   is dead vs merely slow. Job _state_ is visible; worker _liveness_ is not.
 5. **Materialize / stats-refresh failures surface nowhere in the admin UI** (P2). A
    failed matview refresh leaves `/statistika` quietly stale.
 
@@ -136,20 +140,21 @@ leaves a user uninformed.
 
 ## ORPHANED / BURIED confirmed by driving
 
-| Item | Status | Placement proposal |
-|---|---|---|
-| `/api/widget/obshtina/[city]` | ORPHANED **by design** (external embed) | none |
-| Digest unsubscribe (`/sedmitsata/otpisvane/[token]`) | Email-only **by design** | none |
-| QR check-in (`/otmetka/[token]`) | Scan-only **by design** | none |
-| `googleSignInAction` | Dormant behind `AUTH_GOOGLE_ENABLED` (ships off) | none |
-| `/kampanii`, `/kampanii/[slug]` | **BURIED** — no nav entry since the Сесии tab was fixed to `/sesii` | a "Кампании" card/sub-tab on `/sesii` |
-| `/sedmitsata/[city]` | **BURIED** — email/SEO only | link "Тази седмица" from `/sesii` header |
-| `/obshtina/[city]` | **BURIED** — reachable only via `/igrishta/[city]`; no index | a `/obshtina` picker + footer "Отчетност" |
-| **Organizer roster / manual check-in deck (Stage 4.3)** | **NOT BUILT** | the only unbuilt roadmap item; QR screen exists, roster does not — an organizer cannot manually mark attendance or see who is coming beyond the count |
+| Item                                                    | Status                                                              | Placement proposal                                                                                                                                    |
+| ------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/widget/obshtina/[city]`                           | ORPHANED **by design** (external embed)                             | none                                                                                                                                                  |
+| Digest unsubscribe (`/sedmitsata/otpisvane/[token]`)    | Email-only **by design**                                            | none                                                                                                                                                  |
+| QR check-in (`/otmetka/[token]`)                        | Scan-only **by design**                                             | none                                                                                                                                                  |
+| `googleSignInAction`                                    | Dormant behind `AUTH_GOOGLE_ENABLED` (ships off)                    | none                                                                                                                                                  |
+| `/kampanii`, `/kampanii/[slug]`                         | **BURIED** — no nav entry since the Сесии tab was fixed to `/sesii` | a "Кампании" card/sub-tab on `/sesii`                                                                                                                 |
+| `/sedmitsata/[city]`                                    | **BURIED** — email/SEO only                                         | link "Тази седмица" from `/sesii` header                                                                                                              |
+| `/obshtina/[city]`                                      | **BURIED** — reachable only via `/igrishta/[city]`; no index        | a `/obshtina` picker + footer "Отчетност"                                                                                                             |
+| **Organizer roster / manual check-in deck (Stage 4.3)** | **NOT BUILT**                                                       | the only unbuilt roadmap item; QR screen exists, roster does not — an organizer cannot manually mark attendance or see who is coming beyond the count |
 
 ---
 
 ## Everything that passed all four (summary)
+
 Auth+roles, minor derivation, crowd contribution + points, verify/condition, photo
 moderation, ambassador scope (view **and** write), OSM import, municipal merge policy
 (English input), the full 12-hop session lifecycle incl. DST, RSVP/waitlist/promotion

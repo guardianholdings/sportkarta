@@ -123,10 +123,7 @@ test.describe('authenticated contributions', () => {
     // number nothing reads. This is the whole point of A2.
     await expect(
       page.getByText(
-        bg.Contribute.thanksWithPoints.replace(
-          '{points}',
-          String(POINTS_BY_EVENT.facility_added),
-        ),
+        bg.Contribute.thanksWithPoints.replace('{points}', String(POINTS_BY_EVENT.facility_added)),
       ),
     ).toBeVisible();
 

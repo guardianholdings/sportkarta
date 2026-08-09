@@ -38,7 +38,15 @@ import { CANONICAL_SPORTS, type CanonicalSport } from '@sportkarta/lib/sports';
 
 // ── Small layout helpers (presentation only) ────────────────────────────────
 
-function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+function Section({
+  id,
+  title,
+  children,
+}: {
+  id: string;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <section id={id} className="scroll-mt-6">
       <h2 className="mb-4 text-h3 font-bold tracking-tight text-ink">{title}</h2>
@@ -106,7 +114,9 @@ export default function DesignSystemPage() {
 
   const [view, setView] = React.useState('map');
   const [period, setPeriod] = React.useState('month');
-  const [filters, setFilters] = React.useState<Set<CanonicalSport>>(new Set(['hiking', 'swimming']));
+  const [filters, setFilters] = React.useState<Set<CanonicalSport>>(
+    new Set(['hiking', 'swimming']),
+  );
   const [layers, setLayers] = React.useState(true);
   const [notify, setNotify] = React.useState(false);
 
@@ -120,7 +130,14 @@ export default function DesignSystemPage() {
 
   const tones: BadgeTone[] = ['neutral', 'brand', 'accent', 'success', 'warning', 'danger', 'info'];
   const badgeVariants: BadgeVariant[] = ['soft', 'solid', 'outline'];
-  const filterSports: CanonicalSport[] = ['hiking', 'running', 'cycling', 'swimming', 'football', 'tennis'];
+  const filterSports: CanonicalSport[] = [
+    'hiking',
+    'running',
+    'cycling',
+    'swimming',
+    'football',
+    'tennis',
+  ];
 
   return (
     <div className="mx-auto max-w-[70rem] px-6 py-10">
@@ -128,7 +145,9 @@ export default function DesignSystemPage() {
         <p className="font-mono text-overline uppercase tracking-overline text-accent">
           {t('overline')}
         </p>
-        <h1 className="mt-2 text-display-lg font-extrabold tracking-tighter text-ink">{t('title')}</h1>
+        <h1 className="mt-2 text-display-lg font-extrabold tracking-tighter text-ink">
+          {t('title')}
+        </h1>
         <p className="mt-3 max-w-2xl text-body-lg text-ink-soft">{t('subtitle')}</p>
         <p className="mt-2 text-body-sm text-text-muted">{t('internalNote')}</p>
       </header>
@@ -147,11 +166,16 @@ export default function DesignSystemPage() {
             ))}
           </Row>
           <Row label={t('groups.neutral')}>
-            {['--paper', '--paper-sunk', '--surface', '--surface-2', '--border', '--border-strong'].map(
-              (tk) => (
-                <Swatch key={tk} token={tk} />
-              ),
-            )}
+            {[
+              '--paper',
+              '--paper-sunk',
+              '--surface',
+              '--surface-2',
+              '--border',
+              '--border-strong',
+            ].map((tk) => (
+              <Swatch key={tk} token={tk} />
+            ))}
           </Row>
           <Row label={t('groups.text')}>
             {['--ink', '--ink-soft', '--text-muted', '--text-faint'].map((tk) => (
@@ -208,7 +232,9 @@ export default function DesignSystemPage() {
             <p className="text-h1 font-bold tracking-tight text-ink">{t('type.heading')}</p>
             <p className="text-body-lg text-ink">{t('type.body')}</p>
             <p className="text-body-sm text-ink-soft">{t('type.bodySmall')}</p>
-            <p className="font-mono text-body-sm tabular-nums text-ink-soft">{t('type.dataSample')}</p>
+            <p className="font-mono text-body-sm tabular-nums text-ink-soft">
+              {t('type.dataSample')}
+            </p>
             <p className="font-mono text-overline uppercase tracking-overline text-text-muted">
               {t('type.overline')}
             </p>
@@ -229,14 +255,23 @@ export default function DesignSystemPage() {
             ))}
           </Row>
           <Row label={t('groups.elevation')}>
-            {(['--shadow-xs', '--shadow-sm', '--shadow-md', '--shadow-lg', '--shadow-float'] as const).map(
-              (tk) => (
-                <div key={tk} className="flex flex-col gap-1.5">
-                  <div className="size-16 rounded-md bg-surface" style={{ boxShadow: `var(${tk})` }} />
-                  <code className="font-mono text-overline text-text-muted">{tk}</code>
-                </div>
-              ),
-            )}
+            {(
+              [
+                '--shadow-xs',
+                '--shadow-sm',
+                '--shadow-md',
+                '--shadow-lg',
+                '--shadow-float',
+              ] as const
+            ).map((tk) => (
+              <div key={tk} className="flex flex-col gap-1.5">
+                <div
+                  className="size-16 rounded-md bg-surface"
+                  style={{ boxShadow: `var(${tk})` }}
+                />
+                <code className="font-mono text-overline text-text-muted">{tk}</code>
+              </div>
+            ))}
           </Row>
         </Section>
 
@@ -300,7 +335,11 @@ export default function DesignSystemPage() {
         {/* ── Input & Select ─────────────────────────────────────── */}
         <Section id="input" title="Input · Select">
           <Row label={t('states.default')}>
-            <Input placeholder={t('demo.search')} iconLeft={<Search size={18} />} className="max-w-xs" />
+            <Input
+              placeholder={t('demo.search')}
+              iconLeft={<Search size={18} />}
+              className="max-w-xs"
+            />
           </Row>
           <Row label={t('states.sizes')}>
             <Input size="sm" placeholder="sm" className="max-w-40" />
@@ -336,8 +375,16 @@ export default function DesignSystemPage() {
             <Radio name="ds-diff" label={t('demo.hard')} />
           </Row>
           <Row label="Switch">
-            <Switch label={t('demo.satellite')} checked={layers} onChange={(e) => setLayers(e.target.checked)} />
-            <Switch label={t('demo.notifications')} checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+            <Switch
+              label={t('demo.satellite')}
+              checked={layers}
+              onChange={(e) => setLayers(e.target.checked)}
+            />
+            <Switch
+              label={t('demo.notifications')}
+              checked={notify}
+              onChange={(e) => setNotify(e.target.checked)}
+            />
             <Switch label={t('demo.disabled')} disabled />
           </Row>
         </Section>
@@ -368,7 +415,9 @@ export default function DesignSystemPage() {
                 <Avatar name={t('demo.names.you')} ring />
                 <div>
                   <p className="text-body-sm font-semibold text-ink">{t('demo.member')}</p>
-                  <p className="font-mono text-caption tabular-nums text-text-muted">{t('demo.memberMeta')}</p>
+                  <p className="font-mono text-caption tabular-nums text-text-muted">
+                    {t('demo.memberMeta')}
+                  </p>
                 </div>
               </div>
             </Card>
@@ -442,8 +491,18 @@ export default function DesignSystemPage() {
         <Section id="stat" title="Stat">
           <Row label={t('states.default')}>
             <Stat value={t('demo.distanceValue')} label={t('demo.distance')} />
-            <Stat value={t('demo.ascentValue')} label={t('demo.ascent')} tone="brand" icon={<TrendingUp size={18} />} />
-            <Stat value={t('demo.rankValue')} label={t('demo.thisMonth')} tone="accent" align="center" />
+            <Stat
+              value={t('demo.ascentValue')}
+              label={t('demo.ascent')}
+              tone="brand"
+              icon={<TrendingUp size={18} />}
+            />
+            <Stat
+              value={t('demo.rankValue')}
+              label={t('demo.thisMonth')}
+              tone="accent"
+              align="center"
+            />
           </Row>
         </Section>
 

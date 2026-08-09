@@ -36,30 +36,33 @@ export default async function PrivacyPage({ params }: { params: PageParams }) {
   return (
     <AppShell>
       <main className="mx-auto max-w-2xl space-y-6 p-4">
-      <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
-        {t('back')}
-      </Link>
-      <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
-      <p className="text-ink-soft">{t('intro')}</p>
-      {sections.map((s) => (
-        <section key={s} className="space-y-1">
-          <h2 className="text-h4 font-bold text-ink">{t(`${s}Title`)}</h2>
-          <p className="text-ink-soft">{t(`${s}Body`)}</p>
+        <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
+          {t('back')}
+        </Link>
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
+        <p className="text-ink-soft">{t('intro')}</p>
+        {sections.map((s) => (
+          <section key={s} className="space-y-1">
+            <h2 className="text-h4 font-bold text-ink">{t(`${s}Title`)}</h2>
+            <p className="text-ink-soft">{t(`${s}Body`)}</p>
+          </section>
+        ))}
+        <section className="space-y-1">
+          <h2 className="text-h4 font-bold text-ink">{t('contactTitle')}</h2>
+          <p className="text-ink-soft">{t('contactIntro')}</p>
+          {contactEmail ? (
+            <p>
+              <a
+                href={`mailto:${contactEmail}`}
+                className="font-medium text-link hover:text-link-hover"
+              >
+                {contactEmail}
+              </a>
+            </p>
+          ) : (
+            <p className="text-ink-soft">{t('contactFallback')}</p>
+          )}
         </section>
-      ))}
-      <section className="space-y-1">
-        <h2 className="text-h4 font-bold text-ink">{t('contactTitle')}</h2>
-        <p className="text-ink-soft">{t('contactIntro')}</p>
-        {contactEmail ? (
-          <p>
-            <a href={`mailto:${contactEmail}`} className="font-medium text-link hover:text-link-hover">
-              {contactEmail}
-            </a>
-          </p>
-        ) : (
-          <p className="text-ink-soft">{t('contactFallback')}</p>
-        )}
-      </section>
       </main>
     </AppShell>
   );

@@ -154,9 +154,7 @@ test.describe('open-data portal pages', () => {
   test('the licence page states the exact attribution string', async ({ page }) => {
     const response = await page.goto('/danni/litsenz');
     expect(response?.status()).toBe(200);
-    await expect(
-      page.getByText('© OpenStreetMap contributors + POPS community'),
-    ).toBeVisible();
+    await expect(page.getByText('© OpenStreetMap contributors + POPS community')).toBeVisible();
     await expect(
       page.getByRole('heading', { name: bg.OpenData.licenseShareAlikeTitle }),
     ).toBeVisible();

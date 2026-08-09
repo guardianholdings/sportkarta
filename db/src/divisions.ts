@@ -302,9 +302,10 @@ export async function divisionCandidates(
   return result.rows.map((row) => ({
     userId: String(row.user_id),
     recentScore: Number(row.recent_score ?? 0),
-    previousTier: row.previous_tier === null || row.previous_tier === undefined
-      ? null
-      : Number(row.previous_tier),
+    previousTier:
+      row.previous_tier === null || row.previous_tier === undefined
+        ? null
+        : Number(row.previous_tier),
     place: null,
     previousSize: undefined,
   }));

@@ -25,7 +25,8 @@ test.describe('municipal CSV inbox', () => {
   test('a corrupt CSV is refused with a visible error and the paste survives (AUDIT-F4)', async ({
     page,
   }) => {
-    const corrupt = 'име,спорт,достъп,дължина,ширина\n"Площадка без край,футбол,свободен,23.36,42.67';
+    const corrupt =
+      'име,спорт,достъп,дължина,ширина\n"Площадка без край,футбол,свободен,23.36,42.67';
     await page.getByLabel(/източник на данните|data source/i).fill('Одит e2e регистър');
     await page.getByLabel(/постави съдържанието|paste/i).fill(corrupt);
     await page.getByRole('button', { name: /^(напред|next)$/i }).click();

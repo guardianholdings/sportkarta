@@ -60,14 +60,21 @@ describe('OG card rendering', () => {
     expect(png.readUInt32BE(16)).toBe(1200);
   });
 
-  it('carries a long-lived cache header — correct for PUBLIC cards only', { timeout: 30_000 }, () => {
-    const res = renderOgCard({ title: 'Кампания', wordmark: 'Повече от просто спорт' }) as unknown as Response;
-    const cache = res.headers.get('cache-control') ?? '';
-    expect(cache).toContain('public');
-    // Pinned deliberately: this default is RIGHT here (a facility card names no
-    // person) and WRONG for the person-scoped cards in C4/C5, where a one-year
-    // immutable copy of a card naming a member is the frozen named artifact
-    // migration 0012 forbids. Those need their own route with no-store.
-    expect(cache).toMatch(/max-age=\d{7,}/);
-  });
+  it(
+    'carries a long-lived cache header — correct for PUBLIC cards only',
+    { timeout: 30_000 },
+    () => {
+      const res = renderOgCard({
+        title: 'Кампания',
+        wordmark: 'Повече от просто спорт',
+      }) as unknown as Response;
+      const cache = res.headers.get('cache-control') ?? '';
+      expect(cache).toContain('public');
+      // Pinned deliberately: this default is RIGHT here (a facility card names no
+      // person) and WRONG for the person-scoped cards in C4/C5, where a one-year
+      // immutable copy of a card naming a member is the frozen named artifact
+      // migration 0012 forbids. Those need their own route with no-store.
+      expect(cache).toMatch(/max-age=\d{7,}/);
+    },
+  );
 });

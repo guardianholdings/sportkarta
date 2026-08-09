@@ -71,12 +71,7 @@ export function VerifyForm(props: VerifyFormProps) {
           defaultChecked
           onChange={() => setExists(true)}
         />
-        <Radio
-          name="exists"
-          value="no"
-          label={t('existsNo')}
-          onChange={() => setExists(false)}
-        />
+        <Radio name="exists" value="no" label={t('existsNo')} onChange={() => setExists(false)} />
         {!exists && <p className="text-caption text-text-muted">{t('existsNoHint')}</p>}
       </fieldset>
 

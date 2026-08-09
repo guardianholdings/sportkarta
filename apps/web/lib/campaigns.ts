@@ -139,7 +139,10 @@ function partnerIdFromForm(formData: FormData): number | null {
   return id;
 }
 
-function scopeColumns(scope: CampaignScope): { municipalityId: number | null; quarter: string | null } {
+function scopeColumns(scope: CampaignScope): {
+  municipalityId: number | null;
+  quarter: string | null;
+} {
   if (scope.kind === 'national') return { municipalityId: null, quarter: null };
   if (scope.kind === 'city') return { municipalityId: scope.municipalityId, quarter: null };
   return { municipalityId: scope.municipalityId, quarter: scope.quarter };

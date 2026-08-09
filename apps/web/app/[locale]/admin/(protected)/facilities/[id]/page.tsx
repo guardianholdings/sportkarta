@@ -44,7 +44,10 @@ export default async function AdminFacilityEditPage({
 
   return (
     <main className="space-y-4">
-      <Link href="/admin/facilities" className="text-body-sm font-medium text-link hover:text-link-hover">
+      <Link
+        href="/admin/facilities"
+        className="text-body-sm font-medium text-link hover:text-link-hover"
+      >
         {t('back')}
       </Link>
       <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
@@ -164,7 +167,10 @@ export default async function AdminFacilityEditPage({
               <ul className="space-y-1 text-caption">
                 {history.map((edit) => (
                   <li key={edit.id} className="rounded-md border border-line bg-surface p-2">
-                    <span className="font-mono text-text-muted tabular-nums">{edit.createdAt.slice(0, 16)}</span> ·{' '}
+                    <span className="font-mono text-text-muted tabular-nums">
+                      {edit.createdAt.slice(0, 16)}
+                    </span>{' '}
+                    ·{' '}
                     <span className="font-medium">
                       {edit.actor === null
                         ? tSource(edit.source)

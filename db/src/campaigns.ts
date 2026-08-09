@@ -106,9 +106,8 @@ function toCampaign(row: Record<string, unknown>): CampaignRow {
     blurbEn: row.blurb_en === null ? null : String(row.blurb_en),
     prizeBg: row.prize_bg === null ? null : String(row.prize_bg),
     prizeEn: row.prize_en === null ? null : String(row.prize_en),
-    partnerId: row.partner_id === null || row.partner_id === undefined
-      ? null
-      : Number(row.partner_id),
+    partnerId:
+      row.partner_id === null || row.partner_id === undefined ? null : Number(row.partner_id),
     closedAt: row.closed_at === null ? null : String(row.closed_at),
   };
 }

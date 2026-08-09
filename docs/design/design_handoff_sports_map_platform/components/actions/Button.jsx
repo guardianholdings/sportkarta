@@ -15,16 +15,46 @@ const SIZES = {
 function palette(variant) {
   switch (variant) {
     case 'accent':
-      return { bg: 'var(--accent)', bgHover: 'var(--accent-hover)', bgActive: 'var(--accent-active)', fg: 'var(--text-on-accent)', border: 'transparent' };
+      return {
+        bg: 'var(--accent)',
+        bgHover: 'var(--accent-hover)',
+        bgActive: 'var(--accent-active)',
+        fg: 'var(--text-on-accent)',
+        border: 'transparent',
+      };
     case 'secondary':
-      return { bg: 'var(--surface)', bgHover: 'var(--surface-2)', bgActive: 'var(--paper-sunk)', fg: 'var(--text-primary)', border: 'var(--border-strong)' };
+      return {
+        bg: 'var(--surface)',
+        bgHover: 'var(--surface-2)',
+        bgActive: 'var(--paper-sunk)',
+        fg: 'var(--text-primary)',
+        border: 'var(--border-strong)',
+      };
     case 'ghost':
-      return { bg: 'transparent', bgHover: 'var(--pine-50)', bgActive: 'var(--pine-100)', fg: 'var(--brand)', border: 'transparent' };
+      return {
+        bg: 'transparent',
+        bgHover: 'var(--pine-50)',
+        bgActive: 'var(--pine-100)',
+        fg: 'var(--brand)',
+        border: 'transparent',
+      };
     case 'danger':
-      return { bg: 'var(--danger)', bgHover: '#B93E2E', bgActive: '#A03626', fg: '#fff', border: 'transparent' };
+      return {
+        bg: 'var(--danger)',
+        bgHover: '#B93E2E',
+        bgActive: '#A03626',
+        fg: '#fff',
+        border: 'transparent',
+      };
     case 'primary':
     default:
-      return { bg: 'var(--brand)', bgHover: 'var(--brand-hover)', bgActive: 'var(--brand-active)', fg: 'var(--text-on-brand)', border: 'transparent' };
+      return {
+        bg: 'var(--brand)',
+        bgHover: 'var(--brand-hover)',
+        bgActive: 'var(--brand-active)',
+        fg: 'var(--text-on-brand)',
+        border: 'transparent',
+      };
   }
 }
 
@@ -52,7 +82,10 @@ export function Button({
       type={type}
       disabled={disabled}
       onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => { setHover(false); setPress(false); }}
+      onMouseLeave={() => {
+        setHover(false);
+        setPress(false);
+      }}
       onMouseDown={() => setPress(true)}
       onMouseUp={() => setPress(false)}
       style={{
@@ -74,16 +107,21 @@ export function Button({
         borderRadius: 'var(--radius-pill)',
         cursor: disabled ? 'not-allowed' : 'pointer',
         transform: press && !disabled ? 'scale(0.97)' : 'scale(1)',
-        transition: 'background var(--dur-fast) var(--ease-standard), transform var(--dur-micro) var(--ease-standard)',
+        transition:
+          'background var(--dur-fast) var(--ease-standard), transform var(--dur-micro) var(--ease-standard)',
         whiteSpace: 'nowrap',
         userSelect: 'none',
         ...style,
       }}
       {...rest}
     >
-      {iconLeft && <span style={{ display: 'inline-flex', width: s.icon, height: s.icon }}>{iconLeft}</span>}
+      {iconLeft && (
+        <span style={{ display: 'inline-flex', width: s.icon, height: s.icon }}>{iconLeft}</span>
+      )}
       {children}
-      {iconRight && <span style={{ display: 'inline-flex', width: s.icon, height: s.icon }}>{iconRight}</span>}
+      {iconRight && (
+        <span style={{ display: 'inline-flex', width: s.icon, height: s.icon }}>{iconRight}</span>
+      )}
     </button>
   );
 }

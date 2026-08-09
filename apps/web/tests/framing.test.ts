@@ -142,10 +142,18 @@ describe('C7 framing rule — showing up, not superiority', () => {
   }
 
   it('the matcher is word-boundary aware (the "Сателитен" regression)', () => {
-    const stem: DenyEntry = { token: 'елит', stem: true, why: 'test fixture for boundary matching' };
+    const stem: DenyEntry = {
+      token: 'елит',
+      stem: true,
+      why: 'test fixture for boundary matching',
+    };
     expect(matcher(stem).test('Сателитен изглед')).toBe(false);
     expect(matcher(stem).test('елитен отбор')).toBe(true);
-    const beat: DenyEntry = { token: 'beat', stem: true, why: 'test fixture for boundary matching' };
+    const beat: DenyEntry = {
+      token: 'beat',
+      stem: true,
+      why: 'test fixture for boundary matching',
+    };
     expect(matcher(beat).test('a heartbeat monitor')).toBe(false);
     expect(matcher(beat).test('beat your rivals')).toBe(true);
   });

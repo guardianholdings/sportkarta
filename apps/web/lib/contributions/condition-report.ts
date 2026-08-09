@@ -2,12 +2,7 @@ import { sql, type SQL } from '@sportkarta/db';
 import { isConditionState, normalizeConditionTags, type ConditionState } from '@sportkarta/lib';
 
 import { awardPoints } from '../points';
-import {
-  type Coordinates,
-  distanceToGeomSql,
-  isOnSite,
-  parseCoordinates,
-} from './proximity';
+import { type Coordinates, distanceToGeomSql, isOnSite, parseCoordinates } from './proximity';
 
 import { ContributionError } from './errors';
 

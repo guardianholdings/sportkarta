@@ -28,14 +28,14 @@ items are in MANUAL STEPS.
 
 ## 0. Executive summary
 
-| # | Stream | What is sold | Legal form | Revenue potential | Build effort | Phase |
-|---|---|---|---|---|---|---|
-| S1 | Partners & sponsors programme + `/partnyori` page | Tiered acknowledgment: logo, link, blurb on a public page (+ optional footer strip) | Дарение (acknowledgment) or invoiced sponsorship — per deal | Medium — the enabler for everything else | S–M (~2 sessions) | M1 |
-| S2 | Sponsored campaigns | "Кампанията се осъществява с подкрепата на X" on `/kampanii/[slug]` + prize provision | Invoiced sponsorship (deliverables defined) | Medium, recurring per campaign | S (1 session) | M2 |
-| S3 | Adopt-a-facility («Осинови игрище») | Per-facility digital acknowledgment: "Поддържа се от X" block on the facility page (+ optional map-pin badge later, on sponsor demand); sponsor funds documented real-world upkeep, with the municipality's consent | Invoiced sponsorship or дарение with acknowledgment | Medium-high (scales per facility; US analogues $1k–2.5k/asset) | S (M3a: 1 session; map badge M3b deferred) | M3 |
-| S4 | Donations page («Подкрепи ни») | Nothing — asks for support; explains donor tax relief | Дарение | Low but zero marginal cost | XS (part of M1) | M1 |
-| S5 | Display advertising in key spots | Direct-sold, flat-rate, labelled slots (first-party served, untracked): facility pages, city pages, weekly pages, map panel | Реклама (invoiced) | Medium — one direct-sold slot beats Bulgarian network RPMs by orders of magnitude; scales with traffic | S (1 session) | M4 |
-| S6 | Grants | — | Грант | Erasmus+ Sport small partnerships are lump-sum €30k/€60k; ММС + corporate grants | None (reports engine is the evidence base) | ongoing |
+| #   | Stream                                            | What is sold                                                                                                                                                                                                        | Legal form                                                  | Revenue potential                                                                                      | Build effort                               | Phase   |
+| --- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------ | ------- |
+| S1  | Partners & sponsors programme + `/partnyori` page | Tiered acknowledgment: logo, link, blurb on a public page (+ optional footer strip)                                                                                                                                 | Дарение (acknowledgment) or invoiced sponsorship — per deal | Medium — the enabler for everything else                                                               | S–M (~2 sessions)                          | M1      |
+| S2  | Sponsored campaigns                               | "Кампанията се осъществява с подкрепата на X" on `/kampanii/[slug]` + prize provision                                                                                                                               | Invoiced sponsorship (deliverables defined)                 | Medium, recurring per campaign                                                                         | S (1 session)                              | M2      |
+| S3  | Adopt-a-facility («Осинови игрище»)               | Per-facility digital acknowledgment: "Поддържа се от X" block on the facility page (+ optional map-pin badge later, on sponsor demand); sponsor funds documented real-world upkeep, with the municipality's consent | Invoiced sponsorship or дарение with acknowledgment         | Medium-high (scales per facility; US analogues $1k–2.5k/asset)                                         | S (M3a: 1 session; map badge M3b deferred) | M3      |
+| S4  | Donations page («Подкрепи ни»)                    | Nothing — asks for support; explains donor tax relief                                                                                                                                                               | Дарение                                                     | Low but zero marginal cost                                                                             | XS (part of M1)                            | M1      |
+| S5  | Display advertising in key spots                  | Direct-sold, flat-rate, labelled slots (first-party served, untracked): facility pages, city pages, weekly pages, map panel                                                                                         | Реклама (invoiced)                                          | Medium — one direct-sold slot beats Bulgarian network RPMs by orders of magnitude; scales with traffic | S (1 session)                              | M4      |
+| S6  | Grants                                            | —                                                                                                                                                                                                                   | Грант                                                       | Erasmus+ Sport small partnerships are lump-sum €30k/€60k; ММС + corporate grants                       | None (reports engine is the evidence base) | ongoing |
 
 **Explicitly rejected** (see §5): behaviourally-targeted/personalised ads
 and tracking pixels (never, under any setting), betting/gambling
@@ -58,7 +58,7 @@ never instead of it.** Concretely:
 
 - **No third-party scripts, pixels, or tracking.** The platform is cookieless
   (self-hosted Umami, no consent banner anywhere) and the privacy page
-  *promises* "не проследяваме потребителите". Any ad network, remarketing
+  _promises_ "не проследяваме потребителите". Any ad network, remarketing
   pixel, or sponsor-hosted creative with tracking parameters would require a
   consent banner (EDPB Guidelines 2/2023 scope) and break a published promise.
   All sponsor creatives must be **self-hosted** (storage adapter), sponsor
@@ -95,7 +95,7 @@ never instead of it.** Concretely:
   no viewer attribute at all; no sponsor access to participant identities,
   because campaign public boards join `leaderboard_eligible_members` (now a
   pure consent record) and admin standings are `requireRole('admin')` and exist
-  so *the operator* can hand over a prize. A sponsor never receives a
+  so _the operator_ can hand over a prize. A sponsor never receives a
   participant list. What DID change is that a member under 18 who opts in can
   appear on a public board — which is a consent question, not a sponsor
   question, and the creative rules below (no direct exhortation to children,
@@ -108,7 +108,7 @@ never instead of it.** Concretely:
   API tier" is unbuildable by design (and the data-services stream was
   dropped by operator decision — §5).
 - **Sponsorship never touches facility rows.** Adopt-a-facility is an
-  *adjacent* table, not fields on `facilities` — so the merge policy,
+  _adjacent_ table, not fields on `facilities` — so the merge policy,
   `facility_edits` provenance, and crowd-data protections are never in the
   blast radius, and a sponsor acquires zero authority over facility data or
   moderation (no per-facility authority concept exists; keep it that way).
@@ -138,7 +138,7 @@ never instead of it.** Concretely:
   registration. **Every package in §2 is designed as clearly one or the
   other; vague mixtures are where НАП reclassification risk lives.**
 - **VAT headroom is large but cross-stream**: mandatory registration from
-  €51,130 *invoiced* taxable turnover per calendar year (2026 rule, tracked
+  €51,130 _invoiced_ taxable turnover per calendar year (2026 rule, tracked
   daily). Donations and grants don't count — but the threshold counts ALL
   invoiced streams combined (S1 + S2 + S3 + S5 ad slots); a headline
   sponsor plus several sold slots adds up. The revenue register (§Ongoing)
@@ -146,7 +146,7 @@ never instead of it.** Concretely:
 - **Prizes** (relevant to S2): free-entry, effort-based campaigns are outside
   Закона за хазарта (no stake). Prize tax: non-cash random-draw prizes ≤100
   лв (≈€51 — post-euro figure to verify) are exempt; otherwise the
-  *organiser* withholds 10% окончателен данък (ЗДДФЛ чл. 38, ал. 14) and
+  _organiser_ withholds 10% окончателен данък (ЗДДФЛ чл. 38, ал. 14) and
   files декларация по чл. 55 — and for skill-based standings the exemption
   likely does not apply at all, so assume withholding from the first lev
   until the accountant confirms. Prefer non-cash prizes; never cash.
@@ -168,12 +168,12 @@ What is sold, in tiers (names/prices are anchors for the operator to set;
 no published Bulgarian rate-card data exists — tiers designed from parkrun's
 headline+category structure and corporate-grant sizes):
 
-| Tier | Suggested anchor | Deliverable |
-|---|---|---|
-| Генерален партньор (headline, max 1–2) | €5,000–15,000/yr | Logo+blurb top of `/partnyori`, optional strip on the allowlisted surfaces (M1), named in press/report materials |
-| Партньор (category, e.g. "движение", "оборудване") | €1,500–5,000/yr | Logo+link on `/partnyori`, eligibility to sponsor campaigns (S2) |
-| Поддръжник (supporter) | €500–1,500/yr or in-kind | Name listing on `/partnyori` |
-| Институционален партньор | non-commercial | Municipalities, ММС, federations — listed separately, never invoiced |
+| Tier                                               | Suggested anchor         | Deliverable                                                                                                      |
+| -------------------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Генерален партньор (headline, max 1–2)             | €5,000–15,000/yr         | Logo+blurb top of `/partnyori`, optional strip on the allowlisted surfaces (M1), named in press/report materials |
+| Партньор (category, e.g. "движение", "оборудване") | €1,500–5,000/yr          | Logo+link on `/partnyori`, eligibility to sponsor campaigns (S2)                                                 |
+| Поддръжник (supporter)                             | €500–1,500/yr or in-kind | Name listing on `/partnyori`                                                                                     |
+| Институционален партньор                           | non-commercial           | Municipalities, ММС, federations — listed separately, never invoiced                                             |
 
 Pitch targets from the market research: Decathlon (runs an open partnership
 programme, mission-aligned), Lidl/Kaufland CSR, banks (DSK, Postbank),
@@ -182,6 +182,7 @@ naming precedent: "Парк Арена ОЗК" Burgas). Companies are Bulgaria's
 donor class (66.3 млн лв in 2023, ~48% of registered giving).
 
 **Sponsor acceptance policy** (write it down before the first deal):
+
 - Exclusion list beyond the legally-forced gambling ban: alcohol, tobacco/
   vaping, energy drinks, political parties, religious organisations —
   operator/board to confirm the exact list; the platform serves children.
@@ -232,7 +233,7 @@ flow is the natural evidence trail, and "your renovation is verified by the
 same crowd machinery as everything else" is a pitch line, not overhead.
 
 Deliberate limits: logos render on the facility page and `/partnyori` only;
-the eventual map badge (M3b) is a *marker variant*, never a logo pin — the
+the eventual map badge (M3b) is a _marker variant_, never a logo pin — the
 map stays a public-infrastructure map, not an ad surface. Sponsorship is
 time-bounded (annual) and lapses visibly.
 
@@ -259,12 +260,12 @@ intact.
 The slots (each is a deliberate placement decision; every surface not
 listed stays ad-free):
 
-| Slot key | Surface | Note |
-|---|---|---|
-| `facility_page` | `/obekt/[slug]`, below the detail card | the highest-volume SEO surface |
-| `city_page` | `/igrishta/[city]`, after the facility list | ISR 3600 — a creative change appears within the hour |
-| `weekly_page` | `/sedmitsata/[city]` | contextual fit: local, activity-minded audience |
-| `map_panel` | a card inside the map explorer's list panel | the map CANVAS stays ad-free forever — the panel sits beside the map, not on it |
+| Slot key        | Surface                                     | Note                                                                            |
+| --------------- | ------------------------------------------- | ------------------------------------------------------------------------------- |
+| `facility_page` | `/obekt/[slug]`, below the detail card      | the highest-volume SEO surface                                                  |
+| `city_page`     | `/igrishta/[city]`, after the facility list | ISR 3600 — a creative change appears within the hour                            |
+| `weekly_page`   | `/sedmitsata/[city]`                        | contextual fit: local, activity-minded audience                                 |
+| `map_panel`     | a card inside the map explorer's list panel | the map CANVAS stays ad-free forever — the panel sits beside the map, not on it |
 
 Excluded surfaces, permanently: passport pages, `/obshtina` accountability
 pages, `/danni`, the embed widget, auth/admin, and all e-mail. One
@@ -279,7 +280,7 @@ exhortations to children (UCPD), creative self-hosted through the same
 image pipeline, `rel="sponsored noopener"` on the link.
 
 **AD-2 — the network-fill gate (default OFF).** If the operator ever wants
-programmatic fill (AdSense-class), *that* is the architecture change, and
+programmatic fill (AdSense-class), _that_ is the architecture change, and
 it is priced here so the decision is made once, eyes open: a consent
 banner/CMP (the first consent machinery on the site), a rewrite of the
 privacy-page promise ("не проследяваме потребителите" cannot stay as
@@ -606,11 +607,12 @@ the **combined** invoiced total across all streams against the VAT threshold
 дейност profit; a one-page **media kit** (audience + impact figures from
 `/statistika` and aggregate Umami traffic — the SQL-traceable figures are
 the pitch asset); a defined **deliverable report** for renewals (screenshots
-+ page views; explicitly no per-sponsor click tracking — that keeps every
-deal inside the no-tracking posture); **annual funder disclosure** — names
-always, amounts by tier band — on `/partnyori` and in the NGO's annual
-report (the ЗЮЛНЦ public-benefit annual filing will surface the revenue
-anyway; choosing the narrative beats being read from a registry).
+
+- page views; explicitly no per-sponsor click tracking — that keeps every
+  deal inside the no-tracking posture); **annual funder disclosure** — names
+  always, amounts by tier band — on `/partnyori` and in the NGO's annual
+  report (the ЗЮЛНЦ public-benefit annual filing will surface the revenue
+  anyway; choosing the narrative beats being read from a registry).
 
 **Honest ops estimate**: sales conversations, contract admin, invoicing,
 tax filings, renewal chasing and deliverable reports are ~8–15 h/month once
@@ -643,49 +645,49 @@ dictates.
 
 ## 5. What we will NOT do (and why, for the record)
 
-| Rejected | Reason |
-|---|---|
-| Behaviourally-targeted / personalised ads, remarketing, tracking pixels | Never, under any setting — minors + GDPR + the privacy promise. Not even under AD-2. |
-| Third-party network fill (contextual) | Not rejected outright — gated behind AD-2 (§S5), which prices the consent banner, third-party scripts, and privacy-page rewrite it forces. Default OFF; BG network RPMs make it a bad trade at current traffic anyway. |
-| Municipal service contracts (the "pro model") | Dropped by operator decision 2026-07-25 — do not re-propose. |
-| Betting/gambling sponsors or advertisers | ЗХ 2024 ad ban on websites; minors on the platform. Categorically closed. |
-| Paid API tiers gating data | Keys may only raise rate limits (Stage 6.1 design); no request log exists to bill against; data is ODbL-open regardless. |
-| Selling the dataset / exclusive data deals | ODbL — anyone may take the same export; exclusivity is unsellable and contrary to mission. |
-| Sponsor content in the embed widget | CSP `script-src 'none'`, no external requests — structurally excluded, deliberately kept so. |
-| Points shop / redeemable rewards | Ledger is earn-only by design; changing that reopens the anti-abuse surface for no proven revenue. |
-| Sponsor moderation/edit rights or "curated" facilities | No per-facility authority concept exists; provenance and crowd-protection rules stay sponsor-free. |
-| Cash prizes | Always taxable, worst optics, no upside over non-cash. |
-| Merchandise | Inventory, VAT on goods, fulfillment — the worst effort-to-revenue ratio available to a one-operator NGO. |
-| Paid event/tournament entry | An entry fee is a *stake* — it demolishes the plan's own "free-entry campaigns are outside Закона за хазарта" analysis, besides contradicting the mission. |
-| Premium member features | Points are earn-only, users include minors, and the mission is free access; a paywall inside the product is unsellable and wrong. |
+| Rejected                                                                | Reason                                                                                                                                                                                                                 |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Behaviourally-targeted / personalised ads, remarketing, tracking pixels | Never, under any setting — minors + GDPR + the privacy promise. Not even under AD-2.                                                                                                                                   |
+| Third-party network fill (contextual)                                   | Not rejected outright — gated behind AD-2 (§S5), which prices the consent banner, third-party scripts, and privacy-page rewrite it forces. Default OFF; BG network RPMs make it a bad trade at current traffic anyway. |
+| Municipal service contracts (the "pro model")                           | Dropped by operator decision 2026-07-25 — do not re-propose.                                                                                                                                                           |
+| Betting/gambling sponsors or advertisers                                | ЗХ 2024 ad ban on websites; minors on the platform. Categorically closed.                                                                                                                                              |
+| Paid API tiers gating data                                              | Keys may only raise rate limits (Stage 6.1 design); no request log exists to bill against; data is ODbL-open regardless.                                                                                               |
+| Selling the dataset / exclusive data deals                              | ODbL — anyone may take the same export; exclusivity is unsellable and contrary to mission.                                                                                                                             |
+| Sponsor content in the embed widget                                     | CSP `script-src 'none'`, no external requests — structurally excluded, deliberately kept so.                                                                                                                           |
+| Points shop / redeemable rewards                                        | Ledger is earn-only by design; changing that reopens the anti-abuse surface for no proven revenue.                                                                                                                     |
+| Sponsor moderation/edit rights or "curated" facilities                  | No per-facility authority concept exists; provenance and crowd-protection rules stay sponsor-free.                                                                                                                     |
+| Cash prizes                                                             | Always taxable, worst optics, no upside over non-cash.                                                                                                                                                                 |
+| Merchandise                                                             | Inventory, VAT on goods, fulfillment — the worst effort-to-revenue ratio available to a one-operator NGO.                                                                                                              |
+| Paid event/tournament entry                                             | An entry fee is a _stake_ — it demolishes the plan's own "free-entry campaigns are outside Закона за хазарта" analysis, besides contradicting the mission.                                                             |
+| Premium member features                                                 | Points are earn-only, users include minors, and the mission is free access; a paywall inside the product is unsellable and wrong.                                                                                      |
 
 ---
 
 ## 6. Risk register
 
-| Risk | Likelihood | Mitigation |
-|---|---|---|
-| Reputational: "the NGO map is going corporate" | Medium | Sponsor acceptance policy (§S1); no map badge in v1 (M3b deferred); strip surfaces allowlisted; funder disclosure (§Ongoing); the map itself stays logo-free forever. |
-| Community: crowd contributors resent brands on facilities they verified | Medium | Announce before the first logo (§S1); acknowledgment follows documented upkeep (§S3) so a badge means real value delivered to *their* facility. |
-| Ad clutter dilutes the public-infrastructure identity | Medium | Four slots only, on allowlisted surfaces; one advertiser per slot; the map canvas is ad-free forever; unsold slots collapse to nothing; adding a slot requires editing this doc's table, not just code. |
-| Regulatory: НАП reclassifies a vague deal; VAT threshold crossed unnoticed | Low-medium | Every package pre-typed as дарение OR invoiced service (§1.2); combined-stream revenue register; accountant on retainer for the first deals. |
-| Operator bandwidth: sales+admin crowd out the product | High | Honest hours line (§Ongoing); fewer/larger deals; M3b exists only behind a signed sponsor's demand. |
-| Sponsor becomes embarrassing mid-term | Low | Reputational termination clause in every contract (§S1). |
+| Risk                                                                       | Likelihood | Mitigation                                                                                                                                                                                              |
+| -------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reputational: "the NGO map is going corporate"                             | Medium     | Sponsor acceptance policy (§S1); no map badge in v1 (M3b deferred); strip surfaces allowlisted; funder disclosure (§Ongoing); the map itself stays logo-free forever.                                   |
+| Community: crowd contributors resent brands on facilities they verified    | Medium     | Announce before the first logo (§S1); acknowledgment follows documented upkeep (§S3) so a badge means real value delivered to _their_ facility.                                                         |
+| Ad clutter dilutes the public-infrastructure identity                      | Medium     | Four slots only, on allowlisted surfaces; one advertiser per slot; the map canvas is ad-free forever; unsold slots collapse to nothing; adding a slot requires editing this doc's table, not just code. |
+| Regulatory: НАП reclassifies a vague deal; VAT threshold crossed unnoticed | Low-medium | Every package pre-typed as дарение OR invoiced service (§1.2); combined-stream revenue register; accountant on retainer for the first deals.                                                            |
+| Operator bandwidth: sales+admin crowd out the product                      | High       | Honest hours line (§Ongoing); fewer/larger deals; M3b exists only behind a signed sponsor's demand.                                                                                                     |
+| Sponsor becomes embarrassing mid-term                                      | Low        | Reputational termination clause in every contract (§S1).                                                                                                                                                |
 
 ---
 
 ## 7 — status (2026-07-25, after the build)
 
-| # | Decision | Status |
-|---|---|---|
-| 1 | Tier names / price anchors | **OPEN — sales, no code.** The four tiers plus `advertiser` exist as data; renaming a tier is two i18n keys, repricing is a rate-card document. |
-| 2 | Headline strip yes/no | **BUILT, SHIPPED OFF.** `PARTNER_STRIP_ENABLED=false` by default (documented in `.env.example`). Surfaces are allowlisted by import site: `/kampanii` index and `/igrishta/[city]` only. Turning it on is one env var; it is still your decision. |
-| 3 | `/podkrepi` bank-only vs hosted payment link | **BUILT BOTH WAYS, defaulting to the recommendation.** Bank transfer only unless `DONATION_PAYMENT_URL` is set, which renders a link OUT to a processor-hosted page. No on-site payment code exists. |
-| 4 | "adopted by" as a declared open-data field | **DECIDED NO** (the plan's own default). `facility_sponsorships` is off `ALLOWED_RELATIONS` and a live-DB test asserts the facility export is byte-identical with and without an adoption. Reversing this would be a deliberate catalogue entry. |
-| 5 | Which streams to sell first | **OPEN — sales.** All of S1/S2/S3/S5 are now buildable-to-sellable; the recommendation (S1 + M4 slots together, S3 as the flagship pitch) is unchanged. |
-| 6 | Sponsor exclusion list | **OPEN — board.** No code depends on it; it is a policy document plus operator judgement at the point of creating a partner row. |
-| 7 | Confirm the four ad slots | **BUILT AS SPECIFIED.** `facility_page`, `city_page`, `weekly_page`, `map_panel`. The list is closed in three agreeing places (the `AD_SLOTS` constant, the `ad_placements_slot_known` CHECK, and §S5's table), so adding or removing one is a deliberate edit in all three. |
-| 8 | AD-2 network fill | **OFF, and nothing was built toward it.** The `AdSlot` component's own header states that making it fetch, measure or personalise is buying the consent banner and the privacy-page rewrite. |
+| #   | Decision                                     | Status                                                                                                                                                                                                                                                                       |
+| --- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Tier names / price anchors                   | **OPEN — sales, no code.** The four tiers plus `advertiser` exist as data; renaming a tier is two i18n keys, repricing is a rate-card document.                                                                                                                              |
+| 2   | Headline strip yes/no                        | **BUILT, SHIPPED OFF.** `PARTNER_STRIP_ENABLED=false` by default (documented in `.env.example`). Surfaces are allowlisted by import site: `/kampanii` index and `/igrishta/[city]` only. Turning it on is one env var; it is still your decision.                            |
+| 3   | `/podkrepi` bank-only vs hosted payment link | **BUILT BOTH WAYS, defaulting to the recommendation.** Bank transfer only unless `DONATION_PAYMENT_URL` is set, which renders a link OUT to a processor-hosted page. No on-site payment code exists.                                                                         |
+| 4   | "adopted by" as a declared open-data field   | **DECIDED NO** (the plan's own default). `facility_sponsorships` is off `ALLOWED_RELATIONS` and a live-DB test asserts the facility export is byte-identical with and without an adoption. Reversing this would be a deliberate catalogue entry.                             |
+| 5   | Which streams to sell first                  | **OPEN — sales.** All of S1/S2/S3/S5 are now buildable-to-sellable; the recommendation (S1 + M4 slots together, S3 as the flagship pitch) is unchanged.                                                                                                                      |
+| 6   | Sponsor exclusion list                       | **OPEN — board.** No code depends on it; it is a policy document plus operator judgement at the point of creating a partner row.                                                                                                                                             |
+| 7   | Confirm the four ad slots                    | **BUILT AS SPECIFIED.** `facility_page`, `city_page`, `weekly_page`, `map_panel`. The list is closed in three agreeing places (the `AD_SLOTS` constant, the `ad_placements_slot_known` CHECK, and §S5's table), so adding or removing one is a deliberate edit in all three. |
+| 8   | AD-2 network fill                            | **OFF, and nothing was built toward it.** The `AdSlot` component's own header states that making it fetch, measure or personalise is buying the consent banner and the privacy-page rewrite.                                                                                 |
 
 ## 7. Decisions needed from the operator before M1
 

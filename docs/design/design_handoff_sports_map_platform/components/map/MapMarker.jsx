@@ -111,7 +111,9 @@ export function MapMarker({
           color: '#fff',
         }}
       >
-        <span style={{ display: 'inline-flex', width: size * 0.44, height: size * 0.44 }}>{icon}</span>
+        <span style={{ display: 'inline-flex', width: size * 0.44, height: size * 0.44 }}>
+          {icon}
+        </span>
       </span>
     </span>
   );

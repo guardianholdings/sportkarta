@@ -24,10 +24,7 @@ import { describe, expect, it } from 'vitest';
  * 3:1 non-text threshold instead.
  */
 
-const TOKENS = readFileSync(
-  join(__dirname, '..', 'app', 'design-tokens', 'colors.css'),
-  'utf8',
-);
+const TOKENS = readFileSync(join(__dirname, '..', 'app', 'design-tokens', 'colors.css'), 'utf8');
 
 /**
  * Resolve a token to its hex. The semantic layer is deliberately indirect

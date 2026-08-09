@@ -12,26 +12,26 @@
 
 :root {
   /* ---- Neutrals (POPS paper + cool blue-grey ink) ---- */
-  --paper:          #F5F3EE; /* app background — raw brand paper */
-  --paper-sunk:     #EDEAE2; /* recessed areas, wells */
-  --surface:        #FEFDFB; /* cards, sheets, menus */
-  --surface-2:      #F1EEE7; /* subtle raised fill */
-  --overlay-scrim:  rgba(16, 20, 24, 0.46); /* modal / sheet backdrop (ink) */
+  --paper: #f5f3ee; /* app background — raw brand paper */
+  --paper-sunk: #edeae2; /* recessed areas, wells */
+  --surface: #fefdfb; /* cards, sheets, menus */
+  --surface-2: #f1eee7; /* subtle raised fill */
+  --overlay-scrim: rgba(16, 20, 24, 0.46); /* modal / sheet backdrop (ink) */
 
-  --border:         #E3DFD4; /* hairline dividers, card edges */
-  --border-strong:  #CFC9BC; /* inputs, emphasized edges */
+  --border: #e3dfd4; /* hairline dividers, card edges */
+  --border-strong: #cfc9bc; /* inputs, emphasized edges */
 
-  --ink:            #101418; /* primary text — raw brand ink */
-  --ink-soft:       #313D49; /* secondary text (ink hue, lifted) */
+  --ink: #101418; /* primary text — raw brand ink */
+  --ink-soft: #313d49; /* secondary text (ink hue, lifted) */
   /* Derived from brand grey #8A9099 (2.9:1 on --paper — decorative only) by
      the house recipe: darkened at constant hue by the smallest step that
      clears AA on the DARKEST surface it is used on (--paper-sunk 4.54:1;
      --paper 4.92:1; --surface 5.36:1). Pinned by tests/token-contrast.test.ts. */
-  --text-muted:     #646A73; /* tertiary / meta text */
+  --text-muted: #646a73; /* tertiary / meta text */
   /* Decorative + DISABLED only — raw brand grey; it does not meet AA and is
      not meant to carry content. Placeholders use --text-muted (globals.css). */
-  --grey:           #8A9099; /* raw brand grey — busy / inactive */
-  --text-faint:     var(--grey); /* disabled text, decorative rules */
+  --grey: #8a9099; /* raw brand grey — busy / inactive */
+  --text-faint: var(--grey); /* disabled text, decorative rules */
 
   /* ---- Green (primary / brand — „картата") ----
      green-500 is the RAW brand green: the map's colour, free facilities,
@@ -39,63 +39,63 @@
      GRAPHIC (pins, illustration). green-600/700/800 are the text/fill
      steps, darkened by the smallest step that clears every pinned pair
      (white-on-fill 4.5, on --paper, on --surface, on --brand-subtle). */
-  --green-50:  #E2F3E9;
+  --green-50: #e2f3e9;
   /* green-100 sits close to green-50 ON PURPOSE: it is the ghost button's
      :active fill, and --brand (green-600) must keep 4.5:1 on it — 4.53 here;
      the intuitive darker tint measured 4.20. Pinned by token-contrast. */
-  --green-100: #DAF0E3;
-  --green-200: #9BD9B9;
-  --green-300: #63C393;
-  --green-400: #2FB273;
-  --green-500: #0FA958;
-  --green-600: #0B7A40;
-  --green-700: #09623A;
-  --green-800: #084F2F;
-  --green-900: #063C24;
+  --green-100: #daf0e3;
+  --green-200: #9bd9b9;
+  --green-300: #63c393;
+  --green-400: #2fb273;
+  --green-500: #0fa958;
+  --green-600: #0b7a40;
+  --green-700: #09623a;
+  --green-800: #084f2f;
+  --green-900: #063c24;
 
   /* ---- Coral (accent / the mark — „Усмивката") ----
      coral-500 is the RAW brand coral: the logo, the FAB, energy. 3.35:1
      under white — icon fills only (the test pins white-on-accent at ≥3).
      coral-700 is the step that carries TEXT (white-on-fill and
      accent-active-on-accent-subtle both ≥4.5). */
-  --coral-50:  #FFE7E1;
-  --coral-100: #FFD1C7;
-  --coral-200: #FFB0A0;
-  --coral-300: #FF8A73;
-  --coral-400: #FF6A4E;
-  --coral-500: #FF4A2B;
-  --coral-600: #E13A1A;
-  --coral-700: #B02F12;
-  --coral-800: #8F2408;
+  --coral-50: #ffe7e1;
+  --coral-100: #ffd1c7;
+  --coral-200: #ffb0a0;
+  --coral-300: #ff8a73;
+  --coral-400: #ff6a4e;
+  --coral-500: #ff4a2b;
+  --coral-600: #e13a1a;
+  --coral-700: #b02f12;
+  --coral-800: #8f2408;
 
   /* ---- Sky (water / info secondary) ---- */
-  --sky-100: #E1EFF9;
-  --sky-300: #90C2E6;
-  --sky-500: #3E8FC9;
-  --sky-700: #2A6698;
+  --sky-100: #e1eff9;
+  --sky-300: #90c2e6;
+  --sky-500: #3e8fc9;
+  --sky-700: #2a6698;
 
   /* ---- Activity category colors (trail-blaze set) ----
      Unchanged by the POPS rebrand: blazes answer "which sport", not
      "which brand", and every value already clears its pinned ratio. */
-  --cat-hike:         #2E7D55; /* pine */
-  --cat-run:          #E15A4A; /* coral */
+  --cat-hike: #2e7d55; /* pine */
+  --cat-run: #e15a4a; /* coral */
   /* Darkened from the seed's #E28C3C (2.61:1 under white) to clear the 3:1
      non-text bar. The seed kept the deficit because repairing it collided
      with the old amber accent; the POPS accent is coral (hue 9°, this is
      29°), so the collision is gone and the exception is retired. */
-  --cat-bike:         #DD7C21; /* amber */
-  --cat-climb:        #BB5A2E; /* rust */
-  --cat-swim:         #3E8FC9; /* glacier blue */
-  --cat-team:         #6E5CC4; /* violet */
-  --cat-calisthenics: #2E9EA0; /* teal */
+  --cat-bike: #dd7c21; /* amber */
+  --cat-climb: #bb5a2e; /* rust */
+  --cat-swim: #3e8fc9; /* glacier blue */
+  --cat-team: #6e5cc4; /* violet */
+  --cat-calisthenics: #2e9ea0; /* teal */
 
   /* ---- DERIVED family members (SportKarta) ----
      Our 29 canonical sports (lib/src/sports.ts) map onto the 7 seed blazes plus
      these three; see docs/design/RECONCILIATION.md §3. Each derived hue sits in
      the seed's mid-chroma band (S ≈ 40–55%, L ≈ 45–58%) so it reads as family. */
-  --cat-racket:    #BF638D; /* berry-rose  · tennis · table_tennis · badminton · squash */
-  --cat-precision: #5C738A; /* steel-slate · archery · shooting · petanque · chess (chroma dropped: reads "aim/still") */
-  --cat-multi:     #6E7268; /* warm neutral · multi-sport facilities — deliberately un-blazed */
+  --cat-racket: #bf638d; /* berry-rose  · tennis · table_tennis · badminton · squash */
+  --cat-precision: #5c738a; /* steel-slate · archery · shooting · petanque · chess (chroma dropped: reads "aim/still") */
+  --cat-multi: #6e7268; /* warm neutral · multi-sport facilities — deliberately un-blazed */
 
   /* ---- Map pin states (POPS smile pins) ----
      The MOUTH carries the information; the colour only confirms it
@@ -104,9 +104,9 @@
      these fills are non-text (≥3:1 holds for green 3.07≈3 and coral 3.35;
      the pin reads by shape first). --danger must never be a marker colour
      (RECONCILIATION C10) — busy has its own token for the same reason. */
-  --pin-free:   var(--green-500);
+  --pin-free: var(--green-500);
   --pin-active: var(--coral-500);
-  --pin-busy:   var(--grey);
+  --pin-busy: var(--grey);
 
   /* ---- Semantic status ----
      Values carried over from the Trail&Summit derivation (each hue darkened
@@ -116,49 +116,57 @@
      --danger is deliberately NOT the accent coral: the accent is now red-ish,
      so the danger hue stays darker and lower-chroma to keep the two roles
      distinguishable (RECONCILIATION C10 still forbids --danger as a marker). */
-  --success:     #2C7851;  --success-bg: #ECF4EE;  --success-border: #9BD9B9;
-  --warning:     #936417;  --warning-bg: #FAF0D8;  --warning-border: #EBCB84;
-  --danger:      #BB4333;  --danger-bg:  #FBEAE6;  --danger-border:  #F0B7AC;
-  --info:        #3272A1;  --info-bg:    #E7F1FA;  --info-border:    #AECFEA;
+  --success: #2c7851;
+  --success-bg: #ecf4ee;
+  --success-border: #9bd9b9;
+  --warning: #936417;
+  --warning-bg: #faf0d8;
+  --warning-border: #ebcb84;
+  --danger: #bb4333;
+  --danger-bg: #fbeae6;
+  --danger-border: #f0b7ac;
+  --info: #3272a1;
+  --info-bg: #e7f1fa;
+  --info-border: #aecfea;
 
   /* ============================================================
      SEMANTIC ALIASES — use these in product code
      ============================================================ */
-  --color-bg:            var(--paper);
-  --color-bg-sunk:       var(--paper-sunk);
-  --color-surface:       var(--surface);
-  --color-surface-2:     var(--surface-2);
+  --color-bg: var(--paper);
+  --color-bg-sunk: var(--paper-sunk);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
 
-  --text-primary:        var(--ink);
-  --text-secondary:      var(--ink-soft);
-  --text-tertiary:       var(--text-muted);
-  --text-on-brand:       #FFFFFF;
-  --text-on-accent:      #FFFFFF;
+  --text-primary: var(--ink);
+  --text-secondary: var(--ink-soft);
+  --text-tertiary: var(--text-muted);
+  --text-on-brand: #ffffff;
+  --text-on-accent: #ffffff;
 
-  --brand:               var(--green-600);
-  --brand-hover:         var(--green-700);
-  --brand-active:        var(--green-800);
-  --brand-subtle:        var(--green-50);
-  --brand-subtle-hover:  var(--green-100);
-  --brand-border:        var(--green-200);
+  --brand: var(--green-600);
+  --brand-hover: var(--green-700);
+  --brand-active: var(--green-800);
+  --brand-subtle: var(--green-50);
+  --brand-subtle-hover: var(--green-100);
+  --brand-border: var(--green-200);
 
-  --accent:              var(--coral-500);
-  --accent-hover:        var(--coral-600);
-  --accent-active:       var(--coral-700);
+  --accent: var(--coral-500);
+  --accent-hover: var(--coral-600);
+  --accent-active: var(--coral-700);
   /* Hover/pressed step for LABELLED accent fills: --accent itself is the
      icons-only raw coral (3:1), so a button with a text label rests on
      --accent-active and darkens further here (white stays ≥4.5 throughout). */
   --accent-active-hover: var(--coral-800);
-  --accent-subtle:       var(--coral-50);
-  --accent-border:       var(--coral-200);
+  --accent-subtle: var(--coral-50);
+  --accent-border: var(--coral-200);
 
-  --line:                var(--border);
-  --line-strong:         var(--border-strong);
+  --line: var(--border);
+  --line-strong: var(--border-strong);
 
-  --focus-ring:          rgba(11, 122, 64, 0.32);  /* green-600 */
-  --focus-ring-accent:   rgba(255, 74, 43, 0.34);  /* coral-500 */
+  --focus-ring: rgba(11, 122, 64, 0.32); /* green-600 */
+  --focus-ring-accent: rgba(255, 74, 43, 0.34); /* coral-500 */
 
   /* Links */
-  --link:                var(--green-600);
-  --link-hover:          var(--coral-700);
+  --link: var(--green-600);
+  --link-hover: var(--coral-700);
 }

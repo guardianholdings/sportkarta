@@ -160,7 +160,9 @@ describe('consent registry', () => {
   });
 
   it('the allowlist has no stale entries — every exemption still names a real function', () => {
-    const all = new Set(modules().flatMap(({ file, source }) => exportedFunctions(source, file).map((f) => f.key)));
+    const all = new Set(
+      modules().flatMap(({ file, source }) => exportedFunctions(source, file).map((f) => f.key)),
+    );
     for (const key of Object.keys(ALLOWED)) {
       expect(all.has(key), `${key} is allowlisted but no longer exists`).toBe(true);
     }

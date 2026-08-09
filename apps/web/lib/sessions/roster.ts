@@ -146,7 +146,6 @@ export async function occurrenceRoster(
     capacity: head.capacity === null || head.capacity === undefined ? null : Number(head.capacity),
     members,
     walkIns,
-    checkedInCount:
-      members.filter((m) => m.checkinMethod !== null).length + walkIns.length,
+    checkedInCount: members.filter((m) => m.checkinMethod !== null).length + walkIns.length,
   };
 }

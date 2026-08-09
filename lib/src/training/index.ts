@@ -180,8 +180,7 @@ export type TrainingProblem =
   | 'external_id_missing';
 
 export type TrainingResult =
-  | { ok: true; value: NormalizedTraining }
-  | { ok: false; problems: TrainingProblem[] };
+  { ok: true; value: NormalizedTraining } | { ok: false; problems: TrainingProblem[] };
 
 /**
  * Validate and normalise one log. Pure — takes `now` so the future check is
@@ -221,7 +220,10 @@ export function normalizeTraining(
 
   const distanceM =
     input.distanceM === undefined || input.distanceM === null ? null : Math.trunc(input.distanceM);
-  if (distanceM !== null && (!Number.isFinite(distanceM) || distanceM < 0 || distanceM > MAX_DISTANCE_M)) {
+  if (
+    distanceM !== null &&
+    (!Number.isFinite(distanceM) || distanceM < 0 || distanceM > MAX_DISTANCE_M)
+  ) {
     problems.push('distance_out_of_range');
   }
 

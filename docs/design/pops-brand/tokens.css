@@ -1,15 +1,15 @@
 :root {
   /* POPS — Повече от просто спорт */
-  --pops-coral: #FF4A2B;
+  --pops-coral: #ff4a2b;
   --pops-ink: #101418;
-  --pops-green: #0FA958;
-  --pops-paper: #F5F3EE;
-  --pops-grey: #8A9099;
+  --pops-green: #0fa958;
+  --pops-paper: #f5f3ee;
+  --pops-grey: #8a9099;
 
-  --pops-tint-coral: #FFE7E1;
-  --pops-tint-green: #E2F3E9;
-  --pops-tint-ink: #E6E7E9;
-  --pops-tint-locked: #EDECE8;
+  --pops-tint-coral: #ffe7e1;
+  --pops-tint-green: #e2f3e9;
+  --pops-tint-ink: #e6e7e9;
+  --pops-tint-locked: #edece8;
 
   --pops-font-display: 'Unbounded', system-ui, sans-serif;
   --pops-font-text: 'Golos Text', system-ui, sans-serif;

@@ -48,7 +48,8 @@ type Params = Promise<{ locale: string; kind: string }>;
 
 export async function GET(_request: Request, { params }: { params: Params }) {
   const { locale, kind } = await params;
-  if (!isKind(kind)) return new Response('Not found', { status: 404, headers: PERSON_SCOPED_HEADERS });
+  if (!isKind(kind))
+    return new Response('Not found', { status: 404, headers: PERSON_SCOPED_HEADERS });
   const lang = locale === 'en' ? 'en' : 'bg';
 
   // No session, no story. 404 rather than 401: an unauthenticated probe learns

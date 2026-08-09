@@ -1,12 +1,7 @@
 import type { PassportEvent } from '@sportkarta/lib/badges';
 import { describe, expect, it } from 'vitest';
 
-import {
-  dayIndexInWeek,
-  renderWeekGrid,
-  weekGrid,
-  WEEK_GLYPHS,
-} from '../lib/share/week-grid';
+import { dayIndexInWeek, renderWeekGrid, weekGrid, WEEK_GLYPHS } from '../lib/share/week-grid';
 
 /**
  * The Viber-native week grid (C3).
@@ -41,11 +36,7 @@ describe('weekGrid', () => {
 
   it('collapses several events on one day into one active day', () => {
     const grid = weekGrid(
-      [
-        event('2026-07-20T07:00:00Z'),
-        event('2026-07-20T12:00:00Z'),
-        event('2026-07-20T19:00:00Z'),
-      ],
+      [event('2026-07-20T07:00:00Z'), event('2026-07-20T12:00:00Z'), event('2026-07-20T19:00:00Z')],
       NOW,
     );
     expect(grid.activeDays).toBe(1);
@@ -68,7 +59,10 @@ describe('weekGrid', () => {
     // Mapping is showing up. A grid that is empty for everyone who contributes
     // but has not yet played is not worth pasting.
     const grid = weekGrid(
-      [event('2026-07-20T09:00:00Z', 'facility_added'), event('2026-07-21T09:00:00Z', 'session_checkin')],
+      [
+        event('2026-07-20T09:00:00Z', 'facility_added'),
+        event('2026-07-21T09:00:00Z', 'session_checkin'),
+      ],
       NOW,
     );
     expect(grid.activeDays).toBe(2);

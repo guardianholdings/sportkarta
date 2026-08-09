@@ -73,9 +73,19 @@ export function ogFonts(): OgFont[] {
     { name: 'Golos Text', data: read(OG_FONT_FILES.golos600), weight: 600, style: 'normal' },
     { name: 'Golos Text', data: read(OG_FONT_FILES.golos600latin), weight: 600, style: 'normal' },
     { name: 'Unbounded', data: read(OG_FONT_FILES.unbounded700), weight: 700, style: 'normal' },
-    { name: 'Unbounded', data: read(OG_FONT_FILES.unbounded700latin), weight: 700, style: 'normal' },
+    {
+      name: 'Unbounded',
+      data: read(OG_FONT_FILES.unbounded700latin),
+      weight: 700,
+      style: 'normal',
+    },
     { name: 'Unbounded', data: read(OG_FONT_FILES.unbounded800), weight: 800, style: 'normal' },
-    { name: 'Unbounded', data: read(OG_FONT_FILES.unbounded800latin), weight: 800, style: 'normal' },
+    {
+      name: 'Unbounded',
+      data: read(OG_FONT_FILES.unbounded800latin),
+      weight: 800,
+      style: 'normal',
+    },
     { name: 'JetBrains Mono', data: read(OG_FONT_FILES.mono500), weight: 500, style: 'normal' },
   ];
   return cached;

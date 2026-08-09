@@ -31,9 +31,7 @@ export default async function AdminPartnersPage({ params }: { params: PageParams
     listPartners(getDb()),
   ]);
 
-  const soon = new Date(Date.now() + EXPIRY_SOON_DAYS * 86_400_000)
-    .toISOString()
-    .slice(0, 10);
+  const soon = new Date(Date.now() + EXPIRY_SOON_DAYS * 86_400_000).toISOString().slice(0, 10);
 
   return (
     <main className="space-y-6">

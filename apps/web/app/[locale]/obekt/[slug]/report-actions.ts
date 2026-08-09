@@ -70,10 +70,7 @@ export async function submitReport(_prev: ReportState, formData: FormData): Prom
   const body = bodyRaw.length > 0 ? bodyRaw : null;
   // Optional and never required: an anonymous passer-by reporting a hazard must
   // not be asked for a permission first. Absent or broken degrades to NULL.
-  const coords: Coordinates | null = parseCoordinates(
-    formData.get('lat'),
-    formData.get('lon'),
-  );
+  const coords: Coordinates | null = parseCoordinates(formData.get('lat'), formData.get('lon'));
 
   const slug = String(formData.get('slug') ?? '');
   if (!SLUG_RE.test(slug)) return { status: 'error', error: 'invalid' };

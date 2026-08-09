@@ -35,16 +35,23 @@ export default async function AdminImportPage({
       <p className="max-w-prose text-body-sm text-ink-soft">{t('intro')}</p>
 
       {sp.enqueued && (
-        <p className="rounded-md border border-success-border bg-success-bg px-3 py-2 text-body-sm text-success">{t('enqueued')}</p>
+        <p className="rounded-md border border-success-border bg-success-bg px-3 py-2 text-body-sm text-success">
+          {t('enqueued')}
+        </p>
       )}
       {sp.conflict && (
-        <p className="rounded-md border border-warning-border bg-warning-bg px-3 py-2 text-body-sm text-warning">{t('alreadyQueued')}</p>
+        <p className="rounded-md border border-warning-border bg-warning-bg px-3 py-2 text-body-sm text-warning">
+          {t('alreadyQueued')}
+        </p>
       )}
 
       <div className="flex flex-wrap gap-3">
         <form action={enqueueImport}>
           <input type="hidden" name="mode" value="dry-run" />
-          <button type="submit" className="rounded-md border border-line-strong px-4 py-3 font-medium">
+          <button
+            type="submit"
+            className="rounded-md border border-line-strong px-4 py-3 font-medium"
+          >
             {t('dryRun')}
           </button>
         </form>
@@ -86,7 +93,9 @@ export default async function AdminImportPage({
                   </td>
                   <td className="py-2 pr-3">
                     {job.dryRun ? t('modeDry') : <strong>{t('modeLive')}</strong>}
-                    {job.actor && <span className="text-caption text-text-muted"> · {job.actor}</span>}
+                    {job.actor && (
+                      <span className="text-caption text-text-muted"> · {job.actor}</span>
+                    )}
                   </td>
                   <td className="py-2 pr-3 text-caption whitespace-nowrap">
                     {job.createdOn.slice(0, 16)}
@@ -95,7 +104,10 @@ export default async function AdminImportPage({
                     {job.completedOn ? job.completedOn.slice(0, 16) : '—'}
                   </td>
                   <td className="py-2">
-                    <Link href={`/admin/import/${job.id}`} className="text-caption font-medium text-link hover:text-link-hover">
+                    <Link
+                      href={`/admin/import/${job.id}`}
+                      className="text-caption font-medium text-link hover:text-link-hover"
+                    >
                       {t('report')}
                     </Link>
                   </td>

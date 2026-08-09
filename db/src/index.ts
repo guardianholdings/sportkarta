@@ -83,12 +83,7 @@ export {
   trainingConsents,
   TrainingConsentError,
 } from './training.js';
-export type {
-  DayKey,
-  ParticipationEntry,
-  ParticipationOptions,
-  TrainingRow,
-} from './training.js';
+export type { DayKey, ParticipationEntry, ParticipationOptions, TrainingRow } from './training.js';
 export {
   divisionCandidates,
   divisionsExist,

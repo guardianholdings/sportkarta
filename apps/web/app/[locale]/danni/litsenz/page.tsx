@@ -51,39 +51,39 @@ export default async function OpenDataLicensePage({ params }: { params: PagePara
   return (
     <AppShell>
       <main className="mx-auto max-w-2xl space-y-6 p-4">
-      <Link href="/danni" className="text-body-sm font-medium text-link hover:text-link-hover">
-        {t('back')}
-      </Link>
-      <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('licenseTitle')}</h1>
+        <Link href="/danni" className="text-body-sm font-medium text-link hover:text-link-hover">
+          {t('back')}
+        </Link>
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('licenseTitle')}</h1>
 
-      <p className="text-ink-soft">
-        {t('licenseIntro')}{' '}
-        <a
-          className="font-medium text-link hover:text-link-hover"
-          href={OPEN_DATA_LICENSE.url}
-          rel="license noopener noreferrer"
-          target="_blank"
-        >
-          {OPEN_DATA_LICENSE.name}
-        </a>
-      </p>
-
-      <section className="space-y-2">
-        <h2 className="text-h4 font-bold text-ink">{t('licenseAttributionTitle')}</h2>
-        <p className="text-ink-soft">{t('licenseAttributionBody')}</p>
-        {/* The one string a reuser is here to copy — rendered from the same
-            constant the API headers and the dumps carry. */}
-        <p className="rounded-md border border-line-strong bg-paper-sunk p-3 font-medium">
-          {OPEN_DATA_LICENSE.attribution}
+        <p className="text-ink-soft">
+          {t('licenseIntro')}{' '}
+          <a
+            className="font-medium text-link hover:text-link-hover"
+            href={OPEN_DATA_LICENSE.url}
+            rel="license noopener noreferrer"
+            target="_blank"
+          >
+            {OPEN_DATA_LICENSE.name}
+          </a>
         </p>
-      </section>
 
-      {sections.map(([title, body]) => (
-        <section key={title} className="space-y-1">
-          <h2 className="text-h4 font-bold text-ink">{t(title)}</h2>
-          <p className="text-ink-soft">{t(body)}</p>
+        <section className="space-y-2">
+          <h2 className="text-h4 font-bold text-ink">{t('licenseAttributionTitle')}</h2>
+          <p className="text-ink-soft">{t('licenseAttributionBody')}</p>
+          {/* The one string a reuser is here to copy — rendered from the same
+            constant the API headers and the dumps carry. */}
+          <p className="rounded-md border border-line-strong bg-paper-sunk p-3 font-medium">
+            {OPEN_DATA_LICENSE.attribution}
+          </p>
         </section>
-      ))}
+
+        {sections.map(([title, body]) => (
+          <section key={title} className="space-y-1">
+            <h2 className="text-h4 font-bold text-ink">{t(title)}</h2>
+            <p className="text-ink-soft">{t(body)}</p>
+          </section>
+        ))}
       </main>
     </AppShell>
   );

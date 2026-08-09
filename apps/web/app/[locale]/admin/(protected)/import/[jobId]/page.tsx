@@ -20,7 +20,10 @@ export default async function AdminImportJobPage({
 
   return (
     <main className="space-y-4">
-      <Link href="/admin/import" className="text-body-sm font-medium text-link hover:text-link-hover">
+      <Link
+        href="/admin/import"
+        className="text-body-sm font-medium text-link hover:text-link-hover"
+      >
         {t('back')}
       </Link>
       <h1 className="text-h2 font-extrabold tracking-tight text-ink">

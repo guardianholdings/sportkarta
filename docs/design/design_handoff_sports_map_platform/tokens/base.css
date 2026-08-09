@@ -3,9 +3,16 @@
    Kept minimal; consumes the token layer above.
    ============================================================ */
 
-*, *::before, *::after { box-sizing: border-box; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
-html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
 
 body {
   margin: 0;
@@ -20,33 +27,63 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   margin: 0;
   font-family: var(--font-display);
   color: var(--text-primary);
   letter-spacing: var(--ls-tight);
   text-wrap: balance;
 }
-p { margin: 0; text-wrap: pretty; }
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
 
 a {
   color: var(--link);
   text-decoration: none;
   transition: color var(--dur-fast) var(--ease-standard);
 }
-a:hover { color: var(--link-hover); }
+a:hover {
+  color: var(--link-hover);
+}
 
-img, svg, video { display: block; max-width: 100%; }
+img,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+}
 
-::selection { background: var(--pine-200); color: var(--pine-900); }
+::selection {
+  background: var(--pine-200);
+  color: var(--pine-900);
+}
 
 :focus-visible {
   outline: none;
   box-shadow: var(--ring);
 }
 
-hr { border: none; border-top: 1px solid var(--line); margin: var(--space-6) 0; }
+hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: var(--space-6) 0;
+}
 
-code, kbd, samp { font-family: var(--font-mono); }
+code,
+kbd,
+samp {
+  font-family: var(--font-mono);
+}
 
-input::placeholder, textarea::placeholder { color: var(--text-faint); opacity: 1; }
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-faint);
+  opacity: 1;
+}

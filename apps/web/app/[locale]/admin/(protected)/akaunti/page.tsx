@@ -80,7 +80,8 @@ export default async function AdminAccountsPage({
   ]);
 
   const dateFmt = new Intl.DateTimeFormat(activeLocale, { dateStyle: 'medium' });
-  const fmt = (value: string | null): string => (value ? dateFmt.format(new Date(value)) : t('none'));
+  const fmt = (value: string | null): string =>
+    value ? dateFmt.format(new Date(value)) : t('none');
   const pages = Math.max(1, Math.ceil(total / ACCOUNTS_PAGE_SIZE));
 
   const roleLabel: Record<Role, string> = {
@@ -179,14 +180,30 @@ export default async function AdminAccountsPage({
           <table className="w-full min-w-[52rem] border-collapse text-body-sm">
             <thead>
               <tr className="border-b border-line text-left text-caption text-text-muted">
-                <th scope="col" className="t-overline py-2 pr-3 font-medium">{t('columnMember')}</th>
-                <th scope="col" className="t-overline py-2 pr-3 font-medium">{t('columnRole')}</th>
-                <th scope="col" className="t-overline py-2 pr-3 font-medium">{t('columnCity')}</th>
-                <th scope="col" className="t-overline py-2 pr-3 text-right font-medium">{t('columnPoints')}</th>
-                <th scope="col" className="t-overline py-2 pr-3 text-right font-medium">{t('columnEdits')}</th>
-                <th scope="col" className="t-overline py-2 pr-3 text-right font-medium">{t('columnTrainings')}</th>
-                <th scope="col" className="t-overline py-2 pr-3 text-right font-medium">{t('columnCheckins')}</th>
-                <th scope="col" className="t-overline py-2 pr-3 font-medium">{t('columnLastActive')}</th>
+                <th scope="col" className="t-overline py-2 pr-3 font-medium">
+                  {t('columnMember')}
+                </th>
+                <th scope="col" className="t-overline py-2 pr-3 font-medium">
+                  {t('columnRole')}
+                </th>
+                <th scope="col" className="t-overline py-2 pr-3 font-medium">
+                  {t('columnCity')}
+                </th>
+                <th scope="col" className="t-overline py-2 pr-3 text-right font-medium">
+                  {t('columnPoints')}
+                </th>
+                <th scope="col" className="t-overline py-2 pr-3 text-right font-medium">
+                  {t('columnEdits')}
+                </th>
+                <th scope="col" className="t-overline py-2 pr-3 text-right font-medium">
+                  {t('columnTrainings')}
+                </th>
+                <th scope="col" className="t-overline py-2 pr-3 text-right font-medium">
+                  {t('columnCheckins')}
+                </th>
+                <th scope="col" className="t-overline py-2 pr-3 font-medium">
+                  {t('columnLastActive')}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -199,7 +216,9 @@ export default async function AdminAccountsPage({
                     >
                       {row.displayName || t('noName')}
                     </Link>
-                    <span className="block break-all text-caption text-text-muted">{row.email}</span>
+                    <span className="block break-all text-caption text-text-muted">
+                      {row.email}
+                    </span>
                   </th>
                   <td className="py-2 pr-3">
                     {row.role === 'user' ? (

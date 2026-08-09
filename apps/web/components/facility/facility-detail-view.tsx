@@ -67,7 +67,9 @@ export function FacilityDetailView({
     facility.lighting === null ? t('unknown') : facility.lighting ? t('yes') : t('no');
   const surface = facility.surface ? tSurface(facility.surface) : t('unknown');
   const lastVerified = facility.lastVerifiedAt
-    ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(facility.lastVerifiedAt))
+    ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(
+        new Date(facility.lastVerifiedAt),
+      )
     : null;
   const coords = `${facility.lat.toFixed(4)}, ${facility.lon.toFixed(4)}`;
 

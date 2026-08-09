@@ -62,8 +62,13 @@ describe.skipIf(!hasDb)('training logs (requires running database)', () => {
        VALUES ($1, $2, $3, true, $4, $5)
        ON CONFLICT (id) DO UPDATE SET public_handle = EXCLUDED.public_handle,
                                       profile_visibility = EXCLUDED.profile_visibility`,
-      [id, `Trn ${String(n)}`, `${id}@example.test`, visible ? handleFor(n) : null,
-       visible ? 'public' : 'private'],
+      [
+        id,
+        `Trn ${String(n)}`,
+        `${id}@example.test`,
+        visible ? handleFor(n) : null,
+        visible ? 'public' : 'private',
+      ],
     );
   }
 
@@ -129,11 +134,7 @@ describe.skipIf(!hasDb)('training logs (requires running database)', () => {
    * their watch doubles their entire history and every board they appear on.
    */
   it('re-syncing the same external activity updates rather than duplicates', async () => {
-    const first = await recordTraining(
-      db,
-      A,
-      training({ source: 'strava', externalId: 'act-1' }),
-    );
+    const first = await recordTraining(db, A, training({ source: 'strava', externalId: 'act-1' }));
     const second = await recordTraining(
       db,
       A,
@@ -167,7 +168,12 @@ describe.skipIf(!hasDb)('training logs (requires running database)', () => {
     const b = await recordTraining(
       db,
       B,
-      training({ source: 'apple_health', externalId: 'workout-1', sport: 'cycling', durationS: 90 * 60 }),
+      training({
+        source: 'apple_health',
+        externalId: 'workout-1',
+        sport: 'cycling',
+        durationS: 90 * 60,
+      }),
     );
 
     expect(b).not.toBe(a);
@@ -341,10 +347,14 @@ describe.skipIf(!hasDb)('training logs (requires running database)', () => {
       { lat: 42.69, lon: 23.32 },
       { lat: 42.7, lon: 23.33 },
     ]);
-    expect(Number((await client.query(`SELECT count(*)::int n FROM training_routes`)).rows[0].n)).toBe(1);
+    expect(
+      Number((await client.query(`SELECT count(*)::int n FROM training_routes`)).rows[0].n),
+    ).toBe(1);
 
     await setTrainingConsent(db, A, 'route', false);
-    expect(Number((await client.query(`SELECT count(*)::int n FROM training_routes`)).rows[0].n)).toBe(0);
+    expect(
+      Number((await client.query(`SELECT count(*)::int n FROM training_routes`)).rows[0].n),
+    ).toBe(0);
     expect(await memberTrainings(db, A)).toHaveLength(1);
     expect((await trainingConsents(db, A)).routeAt).toBeNull();
   });
@@ -360,13 +370,21 @@ describe.skipIf(!hasDb)('training logs (requires running database)', () => {
     await attachMetrics(db, A, id, { avgHeartRate: 148, maxHeartRate: 176, caloriesKcal: 420 });
 
     await setTrainingConsent(db, A, 'health', false);
-    expect(Number((await client.query(`SELECT count(*)::int n FROM training_metrics`)).rows[0].n)).toBe(0);
-    expect(Number((await client.query(`SELECT count(*)::int n FROM training_routes`)).rows[0].n)).toBe(1);
+    expect(
+      Number((await client.query(`SELECT count(*)::int n FROM training_metrics`)).rows[0].n),
+    ).toBe(0);
+    expect(
+      Number((await client.query(`SELECT count(*)::int n FROM training_routes`)).rows[0].n),
+    ).toBe(1);
   });
 
   it('one member’s withdrawal does not touch another member’s data', async () => {
     for (const id of [A, B]) {
-      const log = await recordTraining(db, id, training({ source: 'garmin', externalId: `g-${id}` }));
+      const log = await recordTraining(
+        db,
+        id,
+        training({ source: 'garmin', externalId: `g-${id}` }),
+      );
       await setTrainingConsent(db, id, 'route', true);
       await attachRoute(db, id, log, [
         { lat: 42.69, lon: 23.32 },
@@ -374,7 +392,9 @@ describe.skipIf(!hasDb)('training logs (requires running database)', () => {
       ]);
     }
     await setTrainingConsent(db, A, 'route', false);
-    expect(Number((await client.query(`SELECT count(*)::int n FROM training_routes`)).rows[0].n)).toBe(1);
+    expect(
+      Number((await client.query(`SELECT count(*)::int n FROM training_routes`)).rows[0].n),
+    ).toBe(1);
   });
 
   it('erasing the account takes the routes and the metrics with it', async () => {
@@ -388,9 +408,15 @@ describe.skipIf(!hasDb)('training logs (requires running database)', () => {
     await attachMetrics(db, A, id, { avgHeartRate: 150 });
 
     await client.query(`DELETE FROM users WHERE id = $1`, [A]);
-    expect(Number((await client.query(`SELECT count(*)::int n FROM training_routes`)).rows[0].n)).toBe(0);
-    expect(Number((await client.query(`SELECT count(*)::int n FROM training_metrics`)).rows[0].n)).toBe(0);
-    expect(Number((await client.query(`SELECT count(*)::int n FROM training_logs`)).rows[0].n)).toBe(0);
+    expect(
+      Number((await client.query(`SELECT count(*)::int n FROM training_routes`)).rows[0].n),
+    ).toBe(0);
+    expect(
+      Number((await client.query(`SELECT count(*)::int n FROM training_metrics`)).rows[0].n),
+    ).toBe(0);
+    expect(
+      Number((await client.query(`SELECT count(*)::int n FROM training_logs`)).rows[0].n),
+    ).toBe(0);
   });
 
   /* ------------------------------------------------------------------ board */
@@ -405,7 +431,11 @@ describe.skipIf(!hasDb)('training logs (requires running database)', () => {
       training({ startedAt: new Date('2028-05-09T07:00:00Z'), durationS: 20 * 60 }),
     );
 
-    const board = await sportParticipationBoard(db, { sport: 'running', now: new Date('2028-05-12T00:00:00Z'), days: 30 });
+    const board = await sportParticipationBoard(db, {
+      sport: 'running',
+      now: new Date('2028-05-12T00:00:00Z'),
+      days: 30,
+    });
     const mine = board.filter((row) => row.handle === handleFor(1) || row.handle === handleFor(2));
     expect(mine[0]?.handle).toBe(handleFor(2));
     expect(mine[0]?.sessions).toBe(2);
@@ -433,10 +463,14 @@ describe.skipIf(!hasDb)('training logs (requires running database)', () => {
     await recordTraining(db, B, training({ source: 'strava', externalId: 'ev1' }));
 
     const all = await sportParticipationBoard(db, {
-      sport: 'running', now: new Date('2028-05-12T00:00:00Z'), days: 30,
+      sport: 'running',
+      now: new Date('2028-05-12T00:00:00Z'),
+      days: 30,
     });
     const strict = await sportParticipationBoard(db, {
-      sport: 'running', now: new Date('2028-05-12T00:00:00Z'), days: 30,
+      sport: 'running',
+      now: new Date('2028-05-12T00:00:00Z'),
+      days: 30,
       minEvidence: 'connected_app',
     });
     expect(all.length).toBeGreaterThan(strict.length);
@@ -446,7 +480,9 @@ describe.skipIf(!hasDb)('training logs (requires running database)', () => {
   it('respects the rolling civil-day window', async () => {
     await recordTraining(db, A, training({ startedAt: new Date('2028-01-02T09:00:00Z') }));
     const recent = await sportParticipationBoard(db, {
-      sport: 'running', now: new Date('2028-05-12T00:00:00Z'), days: 30,
+      sport: 'running',
+      now: new Date('2028-05-12T00:00:00Z'),
+      days: 30,
     });
     expect(recent.map((r) => r.handle)).not.toContain(handleFor(1));
   });

@@ -90,9 +90,7 @@ describe('base URL', () => {
         NEXT_PUBLIC_SITE_URL: 'https://x',
       }),
     ).toBe('https://auth.example.org');
-    expect(resolveAuthBaseUrl({ NEXT_PUBLIC_SITE_URL: 'https://pops.bg' })).toBe(
-      'https://pops.bg',
-    );
+    expect(resolveAuthBaseUrl({ NEXT_PUBLIC_SITE_URL: 'https://pops.bg' })).toBe('https://pops.bg');
     expect(resolveAuthBaseUrl({})).toBe('http://localhost:3000');
   });
 });

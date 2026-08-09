@@ -34,7 +34,9 @@ export default async function AdminResultsPage({
       {/* The no-timing-hardware boundary, said where an operator will read it. */}
       <p className="max-w-prose text-body-sm text-ink-soft">{t('intro')}</p>
 
-      {occurrences.length === 0 && <p className="text-body-sm text-text-muted">{t('noOccurrences')}</p>}
+      {occurrences.length === 0 && (
+        <p className="text-body-sm text-text-muted">{t('noOccurrences')}</p>
+      )}
 
       {[
         { heading: t('pending'), rows: pending },
@@ -49,9 +51,15 @@ export default async function AdminResultsPage({
                 <thead className="bg-paper-sunk">
                   <tr>
                     <th className="t-overline px-3 py-2.5 text-left font-semibold">{t('when')}</th>
-                    <th className="t-overline px-3 py-2.5 text-left font-semibold">{t('occurrence')}</th>
-                    <th className="t-overline px-3 py-2.5 text-left font-semibold">{t('facility')}</th>
-                    <th className="t-overline px-3 py-2.5 text-right font-semibold">{t('title')}</th>
+                    <th className="t-overline px-3 py-2.5 text-left font-semibold">
+                      {t('occurrence')}
+                    </th>
+                    <th className="t-overline px-3 py-2.5 text-left font-semibold">
+                      {t('facility')}
+                    </th>
+                    <th className="t-overline px-3 py-2.5 text-right font-semibold">
+                      {t('title')}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>

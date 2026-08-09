@@ -13,7 +13,14 @@ const SIZES = {
 
 const Chevron = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-    <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+    <path
+      d="M4 6l4 4 4-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
@@ -30,7 +37,9 @@ export function Select({
   const borderColor = invalid ? 'var(--danger)' : focus ? 'var(--brand)' : 'var(--border-strong)';
 
   return (
-    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', width: '100%' }}>
+    <div
+      style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', width: '100%' }}
+    >
       <select
         disabled={disabled}
         onFocus={() => setFocus(true)}
@@ -50,14 +59,23 @@ export function Select({
           color: 'var(--text-primary)',
           cursor: disabled ? 'not-allowed' : 'pointer',
           outline: 'none',
-          transition: 'border-color var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard)',
+          transition:
+            'border-color var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard)',
           ...style,
         }}
         {...rest}
       >
         {children}
       </select>
-      <span style={{ position: 'absolute', right: s.px, pointerEvents: 'none', display: 'inline-flex', color: 'var(--text-muted)' }}>
+      <span
+        style={{
+          position: 'absolute',
+          right: s.px,
+          pointerEvents: 'none',
+          display: 'inline-flex',
+          color: 'var(--text-muted)',
+        }}
+      >
         <Chevron />
       </span>
     </div>

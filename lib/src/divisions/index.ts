@@ -97,13 +97,7 @@ export const DIVISION_ACTIVE_WEEKS = 4;
  * SLUGS ONLY HERE. The Bulgarian names live in `messages/*.json` under
  * `Division.tier.*`, like every other string in the product.
  */
-export const DIVISION_TIERS = [
-  'rodopi',
-  'vitosha',
-  'stara_planina',
-  'pirin',
-  'rila',
-] as const;
+export const DIVISION_TIERS = ['rodopi', 'vitosha', 'stara_planina', 'pirin', 'rila'] as const;
 
 export type DivisionTier = (typeof DIVISION_TIERS)[number];
 
@@ -307,11 +301,15 @@ export interface DivisionAssignment {
 export function tierFor(candidate: DivisionCandidate): number {
   const previous = candidate.previousTier;
   if (previous === null) return DIVISION_ENTRY_TIER;
-  if (!candidate.place) return Math.min(Math.max(previous, DIVISION_ENTRY_TIER), DIVISION_TIER_COUNT);
-  return nextTier(previous, zoneFor(candidate.place, {
-    size: candidate.previousSize ?? DIVISION_SIZE,
-    tier: previous,
-  }));
+  if (!candidate.place)
+    return Math.min(Math.max(previous, DIVISION_ENTRY_TIER), DIVISION_TIER_COUNT);
+  return nextTier(
+    previous,
+    zoneFor(candidate.place, {
+      size: candidate.previousSize ?? DIVISION_SIZE,
+      tier: previous,
+    }),
+  );
 }
 
 export interface PlanOptions {
@@ -361,8 +359,9 @@ export function planDivisions(
 
   const assignments: DivisionAssignment[] = [];
   for (const [tier, members] of [...byTier.entries()].sort(([a], [b]) => a - b)) {
-    members.sort((a, b) =>
-      b.recentScore - a.recentScore || (a.userId < b.userId ? -1 : a.userId > b.userId ? 1 : 0),
+    members.sort(
+      (a, b) =>
+        b.recentScore - a.recentScore || (a.userId < b.userId ? -1 : a.userId > b.userId ? 1 : 0),
     );
     // Balanced: `groups` groups differing in size by at most one, the larger
     // ones first, each a contiguous slice of the activity-ordered list.

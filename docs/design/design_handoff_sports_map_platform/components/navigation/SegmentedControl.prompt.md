@@ -6,11 +6,11 @@ const [view, setView] = useState('map');
   value={view}
   onChange={setView}
   items={[
-    { value: 'map',  label: 'Карта',   icon: <Map size={18} /> },
-    { value: 'list', label: 'Списък',  icon: <List size={18} /> },
-    { value: 'feed', label: 'Емисия',  icon: <Rss size={18} /> },
+    { value: 'map', label: 'Карта', icon: <Map size={18} /> },
+    { value: 'list', label: 'Списък', icon: <List size={18} /> },
+    { value: 'feed', label: 'Емисия', icon: <Rss size={18} /> },
   ]}
-/>
+/>;
 ```
 
 Controlled via `value`+`onChange`. `fullWidth` stretches segments evenly. Sizes sm|md.

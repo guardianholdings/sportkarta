@@ -1,30 +1,63 @@
 <!-- @dsCard group="Colors" viewport="700x160" subtitle="Primary / brand · --brand = pine-600" name="Pine (primary)" -->
 <!doctype html>
 <html lang="bg">
-<head>
-<meta charset="utf-8">
-<link rel="stylesheet" href="../styles.css">
-<style>
-  .row{display:flex;gap:0;padding:24px 26px 20px;}
-  .sw{flex:1;height:64px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px;font-family:var(--font-mono);font-size:11px;font-weight:600;}
-  .sw:first-child{border-radius:var(--radius-md) 0 0 var(--radius-md);}
-  .sw:last-child{border-radius:0 var(--radius-md) var(--radius-md) 0;}
-  .tag{margin:0 26px;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);}
-</style>
-</head>
-<body>
-<div class="row">
-  <div class="sw" style="background:var(--pine-50);color:var(--pine-800)">50</div>
-  <div class="sw" style="background:var(--pine-100);color:var(--pine-800)">100</div>
-  <div class="sw" style="background:var(--pine-200);color:var(--pine-800)">200</div>
-  <div class="sw" style="background:var(--pine-300);color:var(--pine-900)">300</div>
-  <div class="sw" style="background:var(--pine-400);color:#fff">400</div>
-  <div class="sw" style="background:var(--pine-500);color:#fff">500</div>
-  <div class="sw" style="background:var(--pine-600);color:#fff;outline:2px solid var(--ink);outline-offset:-2px">600</div>
-  <div class="sw" style="background:var(--pine-700);color:#fff">700</div>
-  <div class="sw" style="background:var(--pine-800);color:#fff">800</div>
-  <div class="sw" style="background:var(--pine-900);color:#fff">900</div>
-</div>
-<div class="tag">--brand = pine-600 · --brand-hover = pine-700 · outlined = default brand</div>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../styles.css" />
+    <style>
+      .row {
+        display: flex;
+        gap: 0;
+        padding: 24px 26px 20px;
+      }
+      .sw {
+        flex: 1;
+        height: 64px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        padding-bottom: 6px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .sw:first-child {
+        border-radius: var(--radius-md) 0 0 var(--radius-md);
+      }
+      .sw:last-child {
+        border-radius: 0 var(--radius-md) var(--radius-md) 0;
+      }
+      .tag {
+        margin: 0 26px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="row">
+      <div class="sw" style="background: var(--pine-50); color: var(--pine-800)">50</div>
+      <div class="sw" style="background: var(--pine-100); color: var(--pine-800)">100</div>
+      <div class="sw" style="background: var(--pine-200); color: var(--pine-800)">200</div>
+      <div class="sw" style="background: var(--pine-300); color: var(--pine-900)">300</div>
+      <div class="sw" style="background: var(--pine-400); color: #fff">400</div>
+      <div class="sw" style="background: var(--pine-500); color: #fff">500</div>
+      <div
+        class="sw"
+        style="
+          background: var(--pine-600);
+          color: #fff;
+          outline: 2px solid var(--ink);
+          outline-offset: -2px;
+        "
+      >
+        600
+      </div>
+      <div class="sw" style="background: var(--pine-700); color: #fff">700</div>
+      <div class="sw" style="background: var(--pine-800); color: #fff">800</div>
+      <div class="sw" style="background: var(--pine-900); color: #fff">900</div>
+    </div>
+    <div class="tag">--brand = pine-600 · --brand-hover = pine-700 · outlined = default brand</div>
+  </body>
 </html>

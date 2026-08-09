@@ -3,12 +3,7 @@ import { CANONICAL_SPORTS, facilitySlug, slugify } from '@sportkarta/lib';
 import { BULGARIA_BBOX, insideBulgaria } from '@sportkarta/lib/geo';
 
 import { awardPoints } from '../points';
-import {
-  type Coordinates,
-  distanceToPointSql,
-  isOnSite,
-  parseCoordinates,
-} from './proximity';
+import { type Coordinates, distanceToPointSql, isOnSite, parseCoordinates } from './proximity';
 
 import { ContributionError } from './errors';
 

@@ -35,8 +35,7 @@ export interface PartnerFormLabels {
 
 const INITIAL: PartnerState = { error: null };
 
-const field =
-  'w-full rounded-md border border-line bg-surface px-3 py-2 text-body-sm text-ink';
+const field = 'w-full rounded-md border border-line bg-surface px-3 py-2 text-body-sm text-ink';
 const label = 'block text-body-sm font-semibold text-ink';
 
 export function PartnerForm({
@@ -71,7 +70,12 @@ export function PartnerForm({
           <label className={label} htmlFor="p-tier">
             {labels.tier}
           </label>
-          <select id="p-tier" name="tier" defaultValue={partner?.tier ?? 'supporter'} className={field}>
+          <select
+            id="p-tier"
+            name="tier"
+            defaultValue={partner?.tier ?? 'supporter'}
+            className={field}
+          >
             {Object.entries(labels.tiers).map(([value, text]) => (
               <option key={value} value={value}>
                 {text}
@@ -155,7 +159,13 @@ export function PartnerForm({
           <label className={label} htmlFor="p-logo">
             {labels.logo}
           </label>
-          <input id="p-logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp" className={field} />
+          <input
+            id="p-logo"
+            name="logo"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className={field}
+          />
           <p className="text-caption text-text-muted">{labels.logoHint}</p>
         </div>
       </div>

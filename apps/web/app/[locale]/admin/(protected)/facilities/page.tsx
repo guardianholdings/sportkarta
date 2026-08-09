@@ -101,39 +101,39 @@ export default async function AdminFacilitiesPage({
           className="w-56"
         />
         <div className="w-56">
-        <Select
-          name="municipality"
-          size="sm"
-          defaultValue={filters.municipality === 'none' ? 'none' : (filters.municipality ?? '')}
-        >
-          <option value="">{t('allMunicipalities')}</option>
-          <option value="none">{t('noMunicipality')}</option>
-          {municipalities.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.nameBg}
-            </option>
-          ))}
-        </Select>
+          <Select
+            name="municipality"
+            size="sm"
+            defaultValue={filters.municipality === 'none' ? 'none' : (filters.municipality ?? '')}
+          >
+            <option value="">{t('allMunicipalities')}</option>
+            <option value="none">{t('noMunicipality')}</option>
+            {municipalities.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.nameBg}
+              </option>
+            ))}
+          </Select>
         </div>
         <div className="w-48">
-        <Select name="status" size="sm" defaultValue={filters.status ?? ''}>
-          <option value="">{t('allStatuses')}</option>
-          {STATUS_VALUES.map((s) => (
-            <option key={s} value={s}>
-              {tStatus(s)}
-            </option>
-          ))}
-        </Select>
+          <Select name="status" size="sm" defaultValue={filters.status ?? ''}>
+            <option value="">{t('allStatuses')}</option>
+            {STATUS_VALUES.map((s) => (
+              <option key={s} value={s}>
+                {tStatus(s)}
+              </option>
+            ))}
+          </Select>
         </div>
         <div className="w-48">
-        <Select name="source" size="sm" defaultValue={filters.source ?? ''}>
-          <option value="">{t('allSources')}</option>
-          {SOURCE_VALUES.map((s) => (
-            <option key={s} value={s}>
-              {tSource(s)}
-            </option>
-          ))}
-        </Select>
+          <Select name="source" size="sm" defaultValue={filters.source ?? ''}>
+            <option value="">{t('allSources')}</option>
+            {SOURCE_VALUES.map((s) => (
+              <option key={s} value={s}>
+                {tSource(s)}
+              </option>
+            ))}
+          </Select>
         </div>
         <Button type="submit" size="sm">
           {t('search')}
@@ -147,12 +147,24 @@ export default async function AdminFacilitiesPage({
           <table className="w-full text-body-sm">
             <thead>
               <tr className="border-b border-line bg-paper-sunk text-left">
-                <th scope="col" className="t-overline px-3 py-2.5 font-semibold">{t('colName')}</th>
-                <th scope="col" className="t-overline px-3 py-2.5 font-semibold">{t('colMunicipality')}</th>
-                <th scope="col" className="t-overline px-3 py-2.5 font-semibold">{t('colSports')}</th>
-                <th scope="col" className="t-overline px-3 py-2.5 font-semibold">{t('colStatus')}</th>
-                <th scope="col" className="t-overline px-3 py-2.5 font-semibold">{t('colSource')}</th>
-                <th scope="col" className="t-overline px-3 py-2.5 font-semibold">{t('colUpdated')}</th>
+                <th scope="col" className="t-overline px-3 py-2.5 font-semibold">
+                  {t('colName')}
+                </th>
+                <th scope="col" className="t-overline px-3 py-2.5 font-semibold">
+                  {t('colMunicipality')}
+                </th>
+                <th scope="col" className="t-overline px-3 py-2.5 font-semibold">
+                  {t('colSports')}
+                </th>
+                <th scope="col" className="t-overline px-3 py-2.5 font-semibold">
+                  {t('colStatus')}
+                </th>
+                <th scope="col" className="t-overline px-3 py-2.5 font-semibold">
+                  {t('colSource')}
+                </th>
+                <th scope="col" className="t-overline px-3 py-2.5 font-semibold">
+                  {t('colUpdated')}
+                </th>
                 <th scope="col" className="t-overline px-3 py-2.5" />
               </tr>
             </thead>
@@ -161,7 +173,9 @@ export default async function AdminFacilitiesPage({
                 <tr key={row.id} className="align-top">
                   <td className="px-3 py-2.5">
                     {row.name ?? <span className="text-text-faint">{t('unnamed')}</span>}
-                    {row.quarter && <div className="text-caption text-text-muted">{row.quarter}</div>}
+                    {row.quarter && (
+                      <div className="text-caption text-text-muted">{row.quarter}</div>
+                    )}
                   </td>
                   <td className="px-3 py-2.5">{row.municipalityName ?? '—'}</td>
                   <td className="px-3 py-2.5">

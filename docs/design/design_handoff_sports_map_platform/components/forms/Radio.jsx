@@ -27,7 +27,16 @@ export function Radio({
   };
 
   return (
-    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.55 : 1, ...style }}>
+    <label
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 10,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.55 : 1,
+        ...style,
+      }}
+    >
       <input
         type="radio"
         name={name}
@@ -66,7 +75,13 @@ export function Radio({
           }}
         />
       </span>
-      {label && <span style={{ fontFamily: 'var(--font-sans)', fontSize: 15, color: 'var(--text-primary)' }}>{label}</span>}
+      {label && (
+        <span
+          style={{ fontFamily: 'var(--font-sans)', fontSize: 15, color: 'var(--text-primary)' }}
+        >
+          {label}
+        </span>
+      )}
     </label>
   );
 }

@@ -38,11 +38,24 @@ export function Input({
         border: `1px solid ${borderColor}`,
         borderRadius: 'var(--radius-md)',
         boxShadow: ring,
-        transition: 'border-color var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard)',
+        transition:
+          'border-color var(--dur-fast) var(--ease-standard), box-shadow var(--dur-fast) var(--ease-standard)',
         ...style,
       }}
     >
-      {iconLeft && <span style={{ display: 'inline-flex', width: 18, height: 18, color: 'var(--text-muted)', flex: 'none' }}>{iconLeft}</span>}
+      {iconLeft && (
+        <span
+          style={{
+            display: 'inline-flex',
+            width: 18,
+            height: 18,
+            color: 'var(--text-muted)',
+            flex: 'none',
+          }}
+        >
+          {iconLeft}
+        </span>
+      )}
       <input
         disabled={disabled}
         onFocus={() => setFocus(true)}
@@ -59,7 +72,19 @@ export function Input({
         }}
         {...rest}
       />
-      {iconRight && <span style={{ display: 'inline-flex', width: 18, height: 18, color: 'var(--text-muted)', flex: 'none' }}>{iconRight}</span>}
+      {iconRight && (
+        <span
+          style={{
+            display: 'inline-flex',
+            width: 18,
+            height: 18,
+            color: 'var(--text-muted)',
+            flex: 'none',
+          }}
+        >
+          {iconRight}
+        </span>
+      )}
     </div>
   );
 }

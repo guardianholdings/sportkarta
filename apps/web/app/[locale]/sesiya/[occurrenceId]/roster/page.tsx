@@ -4,10 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Badge } from '@/components/ui/badge';
 import { requireUser } from '@/lib/auth-session';
-import {
-  CHECKIN_CLOSES_AFTER_MINUTES,
-  CHECKIN_OPENS_BEFORE_MINUTES,
-} from '@/lib/sessions/checkin';
+import { CHECKIN_CLOSES_AFTER_MINUTES, CHECKIN_OPENS_BEFORE_MINUTES } from '@/lib/sessions/checkin';
 import { SessionError } from '@/lib/sessions/errors';
 import { occurrenceRoster, type OccurrenceRoster } from '@/lib/sessions/roster';
 import { Link } from '@/i18n/navigation';

@@ -33,7 +33,16 @@ export function Switch({
   };
 
   return (
-    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.55 : 1, ...style }}>
+    <label
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 10,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.55 : 1,
+        ...style,
+      }}
+    >
       <input
         type="checkbox"
         role="switch"
@@ -72,7 +81,13 @@ export function Switch({
           }}
         />
       </span>
-      {label && <span style={{ fontFamily: 'var(--font-sans)', fontSize: 15, color: 'var(--text-primary)' }}>{label}</span>}
+      {label && (
+        <span
+          style={{ fontFamily: 'var(--font-sans)', fontSize: 15, color: 'var(--text-primary)' }}
+        >
+          {label}
+        </span>
+      )}
     </label>
   );
 }

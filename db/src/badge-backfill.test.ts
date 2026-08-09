@@ -1,7 +1,11 @@
 import pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { badgeEvaluationCandidates, evaluateAndRecordBadges, recordEarnedBadges } from './passport.js';
+import {
+  badgeEvaluationCandidates,
+  evaluateAndRecordBadges,
+  recordEarnedBadges,
+} from './passport.js';
 
 /**
  * The retroactive backfill must be SILENT (docs/ENGAGEMENT-IMPLEMENTATION.md,

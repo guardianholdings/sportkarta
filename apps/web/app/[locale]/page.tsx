@@ -30,12 +30,7 @@ function parseView(sp: SearchParams): MapView {
   const z = Number(sp.z);
   const lat = Number(sp.lat);
   const lng = Number(sp.lng);
-  if (
-    Number.isFinite(z) &&
-    z >= 0 &&
-    z <= 20 &&
-    insideBulgaria({ lon: lng, lat })
-  ) {
+  if (Number.isFinite(z) && z >= 0 && z <= 20 && insideBulgaria({ lon: lng, lat })) {
     return { lng, lat, zoom: z };
   }
   return { ...BULGARIA_CENTER };

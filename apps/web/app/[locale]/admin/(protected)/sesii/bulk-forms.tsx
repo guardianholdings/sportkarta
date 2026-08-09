@@ -137,7 +137,11 @@ function GridForm({
     <form action={action} className="space-y-6">
       <fieldset className="grid gap-3 sm:grid-cols-2">
         <Field label={L('sport')}>
-          <select name="sport" required className="w-full rounded-md border border-line-strong bg-surface p-2">
+          <select
+            name="sport"
+            required
+            className="w-full rounded-md border border-line-strong bg-surface p-2"
+          >
             {sports.map((sport) => (
               <option key={sport} value={sport}>
                 {F(sport)}
@@ -190,7 +194,10 @@ function GridForm({
           />
         </Field>
         <Field label={L('skillLevel')}>
-          <select name="skillLevel" className="w-full rounded-md border border-line-strong bg-surface p-2">
+          <select
+            name="skillLevel"
+            className="w-full rounded-md border border-line-strong bg-surface p-2"
+          >
             {['any', 'beginner', 'intermediate', 'advanced'].map((level) => (
               <option key={level} value={level}>
                 {F(level)}
@@ -199,7 +206,10 @@ function GridForm({
           </select>
         </Field>
         <Field label={L('visibility')}>
-          <select name="visibility" className="w-full rounded-md border border-line-strong bg-surface p-2">
+          <select
+            name="visibility"
+            className="w-full rounded-md border border-line-strong bg-surface p-2"
+          >
             {['public', 'unlisted'].map((value) => (
               <option key={value} value={value}>
                 {F(value)}
@@ -419,7 +429,10 @@ function MappingForm({ state, labels }: { state: BulkState; labels: Labels }) {
             <thead className="bg-paper-sunk">
               <tr>
                 {(state.headers ?? []).map((header, i) => (
-                  <th key={`${header}-${String(i)}`} className="t-overline px-2 py-1.5 text-left font-semibold">
+                  <th
+                    key={`${header}-${String(i)}`}
+                    className="t-overline px-2 py-1.5 text-left font-semibold"
+                  >
                     {header}
                   </th>
                 ))}

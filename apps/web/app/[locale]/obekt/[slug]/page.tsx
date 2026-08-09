@@ -110,133 +110,133 @@ export default async function FacilityPage({
   return (
     <AppShell>
       <main className="mx-auto max-w-2xl px-4 py-5">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
-      />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
+        />
 
-      {justAdded !== null && (
-        <div
-          role="status"
-          className="mb-4 rounded-card border border-accent-border bg-accent-subtle p-4"
+        {justAdded !== null && (
+          <div
+            role="status"
+            className="mb-4 rounded-card border border-accent-border bg-accent-subtle p-4"
+          >
+            <p className="text-h4 font-bold text-accent-active">
+              {tContribute('thanksWithPoints', { points: justAdded })}
+            </p>
+            <p className="mt-1 text-body-sm text-ink-soft">{tAdd('moderationNote')}</p>
+          </div>
+        )}
+
+        <Link
+          href="/"
+          className="mb-4 inline-flex items-center gap-1.5 text-body-sm font-medium text-ink-soft hover:text-brand"
         >
-          <p className="text-h4 font-bold text-accent-active">
-            {tContribute('thanksWithPoints', { points: justAdded })}
-          </p>
-          <p className="mt-1 text-body-sm text-ink-soft">{tAdd('moderationNote')}</p>
-        </div>
-      )}
+          {t('backToMap')}
+        </Link>
 
-      <Link
-        href="/"
-        className="mb-4 inline-flex items-center gap-1.5 text-body-sm font-medium text-ink-soft hover:text-brand"
-      >
-        {t('backToMap')}
-      </Link>
+        <div className="flex flex-col gap-4">
+          <div className="overflow-hidden rounded-card border border-line bg-surface shadow-sm">
+            <FacilityDetailView facility={facility} />
+          </div>
 
-      <div className="flex flex-col gap-4">
-        <div className="overflow-hidden rounded-card border border-line bg-surface shadow-sm">
-          <FacilityDetailView facility={facility} />
-        </div>
-
-        {/* Adopt-a-facility (MONETISATION S3): high on the page, because it is
+          {/* Adopt-a-facility (MONETISATION S3): high on the page, because it is
             about this facility, and never inside FacilityDetailView — sponsorship
             stays out of the shape the provenance line and JSON-LD read. Renders
             nothing when the facility is unadopted. */}
-        <FacilitySponsorBlock facilityId={facility.id} />
+          <FacilitySponsorBlock facilityId={facility.id} />
 
-        {/* B1. A sibling, never inside FacilityDetailView — that component's
+          {/* B1. A sibling, never inside FacilityDetailView — that component's
             prop shape is read by the JSON-LD block and the provenance line,
             and a legend is a fact ABOUT the place rather than part of its
             record. Names nobody: this page is indexed. */}
-        <FacilityLegendBlock facilityId={facility.id} viewerId={currentUser?.id ?? null} />
+          <FacilityLegendBlock facilityId={facility.id} viewerId={currentUser?.id ?? null} />
 
-        {/*
+          {/*
           The facility share — the one that RECRUITS rather than announces, and
           the reason it sits on the highest-traffic public page. Nothing here is
           person-scoped: a place, its sports and its story image are all already
           public, so this share is cacheable and scraper-fetchable, unlike every
           share on /pasport or /trenirovki.
         */}
-        <ShareSheet
-          payload={buildShare({
-            kind: 'facility',
-            locale,
-            origin: siteUrl(),
-            page: `/obekt/${slug}`,
-            ref: slug,
-            text: tShareSheet('textFacility', { place: facility.name ?? slug }),
-          })}
-          strings={await shareSheetStrings('facility')}
-        />
+          <ShareSheet
+            payload={buildShare({
+              kind: 'facility',
+              locale,
+              origin: siteUrl(),
+              page: `/obekt/${slug}`,
+              ref: slug,
+              text: tShareSheet('textFacility', { place: facility.name ?? slug }),
+            })}
+            strings={await shareSheetStrings('facility')}
+          />
 
-        {facility.photos.length > 1 && (
-          <SectionCard title={t('photos')}>
-            <div className="grid grid-cols-3 gap-2">
-              {facility.photos.slice(1).map((path) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={path}
-                  src={`${UPLOADS_PREFIX}/${path}`}
-                  alt={t('photoAlt', { name })}
-                  loading="lazy"
-                  className="aspect-square w-full rounded-md object-cover"
-                />
-              ))}
+          {facility.photos.length > 1 && (
+            <SectionCard title={t('photos')}>
+              <div className="grid grid-cols-3 gap-2">
+                {facility.photos.slice(1).map((path) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={path}
+                    src={`${UPLOADS_PREFIX}/${path}`}
+                    alt={t('photoAlt', { name })}
+                    loading="lazy"
+                    className="aspect-square w-full rounded-md object-cover"
+                  />
+                ))}
+              </div>
+            </SectionCard>
+          )}
+
+          <SectionCard title={t('location')}>
+            <div className="overflow-hidden rounded-md">
+              <MiniMapLoader lon={facility.lon} lat={facility.lat} label={name} />
             </div>
           </SectionCard>
-        )}
 
-        <SectionCard title={t('location')}>
-          <div className="overflow-hidden rounded-md">
-            <MiniMapLoader lon={facility.lon} lat={facility.lat} label={name} />
-          </div>
-        </SectionCard>
-
-        <SectionCard title={tContribute('title')}>
-          {currentUser ? (
-            <div className="flex flex-col gap-6">
-              <div>
-                <h3 className="mb-3 text-body-sm font-bold text-ink">
-                  {tContribute('verifyHeading')}
-                </h3>
-                <VerifyForm
-                  slug={facility.slug}
-                  access={facility.access}
-                  surface={facility.surface}
-                  lighting={facility.lighting}
-                  covered={facility.covered}
-                  sportTypes={facility.sportTypes}
-                />
+          <SectionCard title={tContribute('title')}>
+            {currentUser ? (
+              <div className="flex flex-col gap-6">
+                <div>
+                  <h3 className="mb-3 text-body-sm font-bold text-ink">
+                    {tContribute('verifyHeading')}
+                  </h3>
+                  <VerifyForm
+                    slug={facility.slug}
+                    access={facility.access}
+                    surface={facility.surface}
+                    lighting={facility.lighting}
+                    covered={facility.covered}
+                    sportTypes={facility.sportTypes}
+                  />
+                </div>
+                <div className="border-t border-line pt-6">
+                  <h3 className="mb-3 text-body-sm font-bold text-ink">
+                    {tContribute('conditionHeading')}
+                  </h3>
+                  <ConditionForm slug={facility.slug} />
+                </div>
               </div>
-              <div className="border-t border-line pt-6">
-                <h3 className="mb-3 text-body-sm font-bold text-ink">
-                  {tContribute('conditionHeading')}
-                </h3>
-                <ConditionForm slug={facility.slug} />
-              </div>
-            </div>
-          ) : (
-            <p className="text-body-sm text-ink-soft">
-              <Link
-                href={{ pathname: '/vhod', query: { next: `/obekt/${facility.slug}` } }}
-                className="font-medium text-brand hover:text-brand-hover"
-              >
-                {tContribute('signInToContribute')}
-              </Link>
-            </p>
-          )}
-        </SectionCard>
+            ) : (
+              <p className="text-body-sm text-ink-soft">
+                <Link
+                  href={{ pathname: '/vhod', query: { next: `/obekt/${facility.slug}` } }}
+                  className="font-medium text-brand hover:text-brand-hover"
+                >
+                  {tContribute('signInToContribute')}
+                </Link>
+              </p>
+            )}
+          </SectionCard>
 
-        <SectionCard>
-          <ReportForm slug={facility.slug} formToken={issueFormToken()} />
-        </SectionCard>
+          <SectionCard>
+            <ReportForm slug={facility.slug} formToken={issueFormToken()} />
+          </SectionCard>
 
-        {/* One of the four ad surfaces in MONETISATION §S5 — the highest-volume
+          {/* One of the four ad surfaces in MONETISATION §S5 — the highest-volume
             SEO page. Renders nothing when the slot is unsold. */}
-        <AdSlot slot="facility_page" />
-      </div>
-    </main>
+          <AdSlot slot="facility_page" />
+        </div>
+      </main>
     </AppShell>
   );
 }

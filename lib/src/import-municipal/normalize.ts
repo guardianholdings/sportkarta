@@ -159,13 +159,15 @@ function cleanText(value: string | undefined): string {
  * row's own error.
  */
 function splitSports(value: string | undefined): string[] {
-  return (value ?? '')
-    .split(/[,;/]+/)
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean)
-    // hasOwn, not plain indexing: a cell token like "__proto__" or "toString"
-    // must fall through to invalid_sport, not resolve an inherited property.
-    .map((s) => (Object.hasOwn(SPORT_ALIASES, s) ? (SPORT_ALIASES[s] ?? s) : s));
+  return (
+    (value ?? '')
+      .split(/[,;/]+/)
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean)
+      // hasOwn, not plain indexing: a cell token like "__proto__" or "toString"
+      // must fall through to invalid_sport, not resolve an inherited property.
+      .map((s) => (Object.hasOwn(SPORT_ALIASES, s) ? (SPORT_ALIASES[s] ?? s) : s))
+  );
 }
 
 const TRUE_WORDS = new Set(['да', 'yes', 'true', '1', 'y', 'истина', 'има']);

@@ -69,7 +69,12 @@ function PartnerCard({ partner, locale }: { partner: PartnerRow; locale: string 
   return (
     <article className="rounded-card border border-line bg-surface p-4 shadow-sm">
       {partner.url ? (
-        <a href={partner.url} target="_blank" rel="sponsored noopener" className="block hover:opacity-90">
+        <a
+          href={partner.url}
+          target="_blank"
+          rel="sponsored noopener"
+          className="block hover:opacity-90"
+        >
           {body}
         </a>
       ) : (
@@ -138,7 +143,10 @@ export default async function PartnersPage({ params }: { params: PageParams }) {
           <p className="text-body-sm text-ink-soft">{t('becomeBody')}</p>
           {contactEmail && (
             <p className="text-body-sm">
-              <a href={`mailto:${contactEmail}`} className="font-semibold text-link hover:text-link-hover">
+              <a
+                href={`mailto:${contactEmail}`}
+                className="font-semibold text-link hover:text-link-hover"
+              >
                 {contactEmail}
               </a>
             </p>

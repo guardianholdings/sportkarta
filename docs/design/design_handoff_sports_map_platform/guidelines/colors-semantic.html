@@ -1,23 +1,85 @@
 <!-- @dsCard group="Colors" viewport="700x210" subtitle="Status · text / bg / border trios" name="Semantic" -->
 <!doctype html>
 <html lang="bg">
-<head>
-<meta charset="utf-8">
-<link rel="stylesheet" href="../styles.css">
-<style>
-  .wrap{display:flex;flex-direction:column;gap:12px;padding:22px 26px;}
-  .row{display:flex;align-items:center;gap:14px;}
-  .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:var(--radius-pill);font-size:13px;font-weight:600;border:1px solid;}
-  .dot{width:10px;height:10px;border-radius:50%;}
-  .vr{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <div class="row"><span class="pill" style="background:var(--success-bg);border-color:var(--success-border);color:var(--success)"><span class="dot" style="background:var(--success)"></span>Мястото е добавено</span><span class="vr">--success</span></div>
-  <div class="row"><span class="pill" style="background:var(--warning-bg);border-color:var(--warning-border);color:var(--warning)"><span class="dot" style="background:var(--warning)"></span>Затворено през зимата</span><span class="vr">--warning</span></div>
-  <div class="row"><span class="pill" style="background:var(--danger-bg);border-color:var(--danger-border);color:var(--danger)"><span class="dot" style="background:var(--danger)"></span>Опасно ниво на водата</span><span class="vr">--danger</span></div>
-  <div class="row"><span class="pill" style="background:var(--info-bg);border-color:var(--info-border);color:var(--info)"><span class="dot" style="background:var(--info)"></span>Ново събитие наблизо</span><span class="vr">--info</span></div>
-</div>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../styles.css" />
+    <style>
+      .wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 22px 26px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        border-radius: var(--radius-pill);
+        font-size: 13px;
+        font-weight: 600;
+        border: 1px solid;
+      }
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+      .vr {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="row">
+        <span
+          class="pill"
+          style="
+            background: var(--success-bg);
+            border-color: var(--success-border);
+            color: var(--success);
+          "
+          ><span class="dot" style="background: var(--success)"></span>Мястото е добавено</span
+        ><span class="vr">--success</span>
+      </div>
+      <div class="row">
+        <span
+          class="pill"
+          style="
+            background: var(--warning-bg);
+            border-color: var(--warning-border);
+            color: var(--warning);
+          "
+          ><span class="dot" style="background: var(--warning)"></span>Затворено през зимата</span
+        ><span class="vr">--warning</span>
+      </div>
+      <div class="row">
+        <span
+          class="pill"
+          style="
+            background: var(--danger-bg);
+            border-color: var(--danger-border);
+            color: var(--danger);
+          "
+          ><span class="dot" style="background: var(--danger)"></span>Опасно ниво на водата</span
+        ><span class="vr">--danger</span>
+      </div>
+      <div class="row">
+        <span
+          class="pill"
+          style="background: var(--info-bg); border-color: var(--info-border); color: var(--info)"
+          ><span class="dot" style="background: var(--info)"></span>Ново събитие наблизо</span
+        ><span class="vr">--info</span>
+      </div>
+    </div>
+  </body>
 </html>

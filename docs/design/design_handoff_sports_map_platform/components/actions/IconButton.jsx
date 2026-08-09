@@ -15,14 +15,42 @@ const SIZES = {
 function palette(variant) {
   switch (variant) {
     case 'solid':
-      return { bg: 'var(--brand)', bgHover: 'var(--brand-hover)', bgActive: 'var(--brand-active)', fg: '#fff', border: 'transparent', shadow: 'none' };
+      return {
+        bg: 'var(--brand)',
+        bgHover: 'var(--brand-hover)',
+        bgActive: 'var(--brand-active)',
+        fg: '#fff',
+        border: 'transparent',
+        shadow: 'none',
+      };
     case 'floating': // sits on the map / imagery
-      return { bg: 'var(--surface)', bgHover: 'var(--surface-2)', bgActive: 'var(--paper-sunk)', fg: 'var(--text-primary)', border: 'var(--border)', shadow: 'var(--shadow-float)' };
+      return {
+        bg: 'var(--surface)',
+        bgHover: 'var(--surface-2)',
+        bgActive: 'var(--paper-sunk)',
+        fg: 'var(--text-primary)',
+        border: 'var(--border)',
+        shadow: 'var(--shadow-float)',
+      };
     case 'ghost':
-      return { bg: 'transparent', bgHover: 'var(--pine-50)', bgActive: 'var(--pine-100)', fg: 'var(--text-secondary)', border: 'transparent', shadow: 'none' };
+      return {
+        bg: 'transparent',
+        bgHover: 'var(--pine-50)',
+        bgActive: 'var(--pine-100)',
+        fg: 'var(--text-secondary)',
+        border: 'transparent',
+        shadow: 'none',
+      };
     case 'surface':
     default:
-      return { bg: 'var(--surface)', bgHover: 'var(--surface-2)', bgActive: 'var(--paper-sunk)', fg: 'var(--text-primary)', border: 'var(--border-strong)', shadow: 'none' };
+      return {
+        bg: 'var(--surface)',
+        bgHover: 'var(--surface-2)',
+        bgActive: 'var(--paper-sunk)',
+        fg: 'var(--text-primary)',
+        border: 'var(--border-strong)',
+        shadow: 'none',
+      };
   }
 }
 
@@ -48,7 +76,10 @@ export function IconButton({
       aria-label={ariaLabel}
       disabled={disabled}
       onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => { setHover(false); setPress(false); }}
+      onMouseLeave={() => {
+        setHover(false);
+        setPress(false);
+      }}
       onMouseDown={() => setPress(true)}
       onMouseUp={() => setPress(false)}
       style={{
@@ -64,7 +95,8 @@ export function IconButton({
         boxShadow: disabled ? 'none' : p.shadow,
         cursor: disabled ? 'not-allowed' : 'pointer',
         transform: press && !disabled ? 'scale(0.94)' : 'scale(1)',
-        transition: 'background var(--dur-fast) var(--ease-standard), transform var(--dur-micro) var(--ease-standard)',
+        transition:
+          'background var(--dur-fast) var(--ease-standard), transform var(--dur-micro) var(--ease-standard)',
         ...style,
       }}
       {...rest}

@@ -39,7 +39,11 @@ export function Stat({
   return (
     <div
       data-slot="stat"
-      className={cn('inline-flex flex-col gap-1', align === 'center' && 'items-center text-center', className)}
+      className={cn(
+        'inline-flex flex-col gap-1',
+        align === 'center' && 'items-center text-center',
+        className,
+      )}
       {...props}
     >
       <span className={cn('inline-flex items-center gap-1.5 [&_svg]:shrink-0', TONE[tone])}>

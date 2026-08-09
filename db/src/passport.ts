@@ -325,8 +325,7 @@ export async function recordEarnedBadges(
     earned.map((badge) => {
       // `seen_at` non-null means "already shown"; NULL is what unseenBadges and
       // the partial index user_badges_user_unseen_idx look for.
-      const seenAt =
-        cutoff && badge.earnedAt < cutoff ? sql`now()` : sql`NULL::timestamptz`;
+      const seenAt = cutoff && badge.earnedAt < cutoff ? sql`now()` : sql`NULL::timestamptz`;
       return sql`(${userId}, ${badge.slug}, ${badge.earnedAt.toISOString()}::timestamptz, ${seenAt})`;
     }),
     sql`, `,

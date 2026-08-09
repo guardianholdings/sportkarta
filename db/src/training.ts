@@ -99,12 +99,16 @@ function mapTraining(row: Record<string, unknown>): TrainingRow {
     startedAt: new Date(String(row.started_at)),
     sofiaDay: String(row.sofia_day),
     durationS: Number(row.duration_s),
-    distanceM: row.distance_m === null || row.distance_m === undefined ? null : Number(row.distance_m),
+    distanceM:
+      row.distance_m === null || row.distance_m === undefined ? null : Number(row.distance_m),
     elevationM:
       row.elevation_m === null || row.elevation_m === undefined ? null : Number(row.elevation_m),
-    facilityId: row.facility_id === null || row.facility_id === undefined ? null : String(row.facility_id),
+    facilityId:
+      row.facility_id === null || row.facility_id === undefined ? null : String(row.facility_id),
     facilityName:
-      row.facility_name === null || row.facility_name === undefined ? null : String(row.facility_name),
+      row.facility_name === null || row.facility_name === undefined
+        ? null
+        : String(row.facility_name),
     municipalityId:
       row.municipality_id === null || row.municipality_id === undefined
         ? null
@@ -425,7 +429,9 @@ export async function trainingConsents(
   `);
   const row = result.rows[0];
   return {
-    routeAt: row?.training_route_consent_at ? new Date(String(row.training_route_consent_at)) : null,
+    routeAt: row?.training_route_consent_at
+      ? new Date(String(row.training_route_consent_at))
+      : null,
     healthAt: row?.training_health_consent_at
       ? new Date(String(row.training_health_consent_at))
       : null,
@@ -448,7 +454,8 @@ export async function setTrainingConsent(
   granted: boolean,
   now: Date = new Date(),
 ): Promise<void> {
-  const column = kind === 'route' ? sql`training_route_consent_at` : sql`training_health_consent_at`;
+  const column =
+    kind === 'route' ? sql`training_route_consent_at` : sql`training_health_consent_at`;
   await db.execute(sql`
     UPDATE users SET ${column} = ${granted ? now.toISOString() : null}, updated_at = now()
     WHERE id = ${userId}
@@ -521,7 +528,11 @@ export async function attachMetrics(
   db: SqlRunner,
   userId: string,
   trainingLogId: string,
-  metrics: { avgHeartRate?: number | null; maxHeartRate?: number | null; caloriesKcal?: number | null },
+  metrics: {
+    avgHeartRate?: number | null;
+    maxHeartRate?: number | null;
+    caloriesKcal?: number | null;
+  },
 ): Promise<void> {
   const consents = await trainingConsents(db, userId);
   if (!consents.healthAt) throw new TrainingConsentError('health');

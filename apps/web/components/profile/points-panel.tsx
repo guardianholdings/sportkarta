@@ -64,7 +64,10 @@ export async function PointsPanel({ summary }: { summary: PointsSummary }) {
         </div>
       )}
 
-      <Link href="/dobavi" className="inline-block text-body-sm font-medium text-link hover:text-link-hover">
+      <Link
+        href="/dobavi"
+        className="inline-block text-body-sm font-medium text-link hover:text-link-hover"
+      >
         {t('addFacilityLink')}
       </Link>
     </section>

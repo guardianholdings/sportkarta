@@ -34,7 +34,8 @@ export function Card({
         overflow: 'hidden',
         boxShadow: lifted ? 'var(--shadow-lg)' : 'var(--shadow-sm)',
         transform: lifted ? 'translateY(-2px)' : 'none',
-        transition: 'box-shadow var(--dur-base) var(--ease-standard), transform var(--dur-base) var(--ease-standard)',
+        transition:
+          'box-shadow var(--dur-base) var(--ease-standard), transform var(--dur-base) var(--ease-standard)',
         cursor: interactive ? 'pointer' : 'default',
         ...style,
       }}
@@ -43,7 +44,11 @@ export function Card({
       {media && <div style={{ flex: 'none' }}>{media}</div>}
       <div style={{ padding: PAD[padding], flex: 1 }}>{children}</div>
       {footer && (
-        <div style={{ padding: 'var(--space-3) var(--space-4)', borderTop: '1px solid var(--border)' }}>{footer}</div>
+        <div
+          style={{ padding: 'var(--space-3) var(--space-4)', borderTop: '1px solid var(--border)' }}
+        >
+          {footer}
+        </div>
       )}
     </div>
   );

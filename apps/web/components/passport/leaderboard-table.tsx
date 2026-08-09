@@ -59,7 +59,10 @@ export async function LeaderboardTable({
             >
               <td className="py-2 pr-3 tabular-nums text-text-muted">{entry.rank}</td>
               <td className="py-2 pr-3">
-                <Link href={`/pasport/${entry.handle}`} className="font-medium text-link hover:text-link-hover">
+                <Link
+                  href={`/pasport/${entry.handle}`}
+                  className="font-medium text-link hover:text-link-hover"
+                >
                   {entry.displayName}
                 </Link>
                 {entry.homeCity && (

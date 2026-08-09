@@ -27,7 +27,10 @@ export default async function AdminDashboardPage({
       <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {stats.map((stat) => (
-          <div key={stat.label} className="rounded-card border border-line bg-surface p-4 shadow-sm">
+          <div
+            key={stat.label}
+            className="rounded-card border border-line bg-surface p-4 shadow-sm"
+          >
             <div className="font-mono text-h2 font-bold text-ink tabular-nums">{stat.value}</div>
             <div className="mt-1 text-caption text-text-muted">{stat.label}</div>
           </div>

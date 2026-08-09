@@ -66,10 +66,7 @@ export interface Coordinates {
  * valid coordinate range becomes "no location" rather than an error: a broken
  * fix must degrade to unscored, never to a failed submission.
  */
-export function parseCoordinates(
-  lat: unknown,
-  lon: unknown,
-): Coordinates | null {
+export function parseCoordinates(lat: unknown, lon: unknown): Coordinates | null {
   const latitude = Number(lat);
   const longitude = Number(lon);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
@@ -99,10 +96,7 @@ export function distanceToGeomSql(geom: SQL, coords: Coordinates | null): SQL {
 }
 
 /** The same, for a bare lon/lat pair the caller is about to insert (add-facility). */
-export function distanceToPointSql(
-  target: Coordinates,
-  coords: Coordinates | null,
-): SQL {
+export function distanceToPointSql(target: Coordinates, coords: Coordinates | null): SQL {
   return distanceToGeomSql(
     sql`ST_SetSRID(ST_MakePoint(${target.lon}::float8, ${target.lat}::float8), 4326)`,
     coords,

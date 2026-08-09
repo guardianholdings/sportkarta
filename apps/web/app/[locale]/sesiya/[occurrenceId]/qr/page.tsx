@@ -88,7 +88,10 @@ export default async function CheckinQrPage({ params }: { params: PageParams }) 
     return (
       <main className="mx-auto max-w-md space-y-4 p-4">
         <h1 className="text-h2 font-extrabold tracking-tight text-ink">{view.title}</h1>
-        <p role="alert" className="rounded border border-warning-border bg-warning-bg p-3 text-warning">
+        <p
+          role="alert"
+          className="rounded border border-warning-border bg-warning-bg p-3 text-warning"
+        >
           {t('disabled')}
         </p>
       </main>

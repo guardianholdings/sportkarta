@@ -4,7 +4,11 @@ import { getTranslations } from 'next-intl/server';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { AD_SLOTS, partnerPlacements } from '@/lib/ads';
 
-import { createPlacementAction, deletePlacementAction, setPlacementVisibleAction } from './ad-actions';
+import {
+  createPlacementAction,
+  deletePlacementAction,
+  setPlacementVisibleAction,
+} from './ad-actions';
 import { PlacementForm, type PlacementFormLabels } from './placement-form';
 
 /**

@@ -172,9 +172,10 @@ async function readVisibility(db: SqlRunner, userId: string): Promise<Visibility
   return {
     isPublic: row.profile_visibility === 'public',
     showActivity: row.public_show_activity === true,
-    handle: row.public_handle === null || row.public_handle === undefined
-      ? null
-      : String(row.public_handle),
+    handle:
+      row.public_handle === null || row.public_handle === undefined
+        ? null
+        : String(row.public_handle),
   };
 }
 
@@ -292,7 +293,10 @@ export async function publicPassport(
     },
     badges: badges
       .filter((badge): badge is BadgeState & { earnedAt: Date } => badge.earnedAt !== null)
-      .map((badge) => ({ slug: badge.slug, earnedMonth: sofiaMonth(badge.earnedAt.toISOString()) })),
+      .map((badge) => ({
+        slug: badge.slug,
+        earnedMonth: sofiaMonth(badge.earnedAt.toISOString()),
+      })),
     streaks: {
       // Field by field, deliberately: spreading the owner's view is exactly how
       // weeksAtRisk and frozenWeeks reached this payload the first time.

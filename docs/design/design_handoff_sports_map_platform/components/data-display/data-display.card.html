@@ -1,93 +1,339 @@
 <!-- @dsCard group="Components" viewport="700x470" subtitle="Card (spot), Badge, Chip, Avatar, Stat" name="Data display" -->
 <!doctype html>
 <html lang="bg">
-<head>
-<meta charset="utf-8">
-<link rel="stylesheet" href="../../styles.css">
-<style>
-  body{padding:26px 28px;}
-  .layout{display:grid;grid-template-columns:300px 1fr;gap:26px;align-items:start;}
-  .lbl{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);margin:0 0 10px;}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-sm);}
-  .media{position:relative;height:158px;background:
-    repeating-linear-gradient(135deg,var(--paper-sunk) 0 11px,var(--surface-2) 11px 22px);}
-  .media svg{position:absolute;inset:0;width:100%;height:100%;}
-  .media .ph{position:absolute;left:12px;top:11px;font-family:var(--font-mono);font-size:10px;color:var(--text-faint);}
-  .fav{position:absolute;right:10px;top:10px;width:36px;height:36px;border-radius:50%;background:var(--surface);box-shadow:var(--shadow-float);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);}
-  .fav svg{width:18px;height:18px;}
-  .catpill{position:absolute;left:12px;bottom:12px;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:999px;background:var(--surface);box-shadow:var(--shadow-sm);font-size:12px;font-weight:600;color:var(--cat-hike);}
-  .catpill .d{width:9px;height:9px;border-radius:50%;background:var(--cat-hike);}
-  .body{padding:16px;}
-  .body h3{font-size:19px;font-weight:700;letter-spacing:-.01em;margin-bottom:3px;}
-  .meta{font-family:var(--font-mono);font-size:12px;color:var(--text-muted);}
-  .statrow{display:flex;gap:22px;padding:14px 16px;border-top:1px solid var(--border);}
-  .stat .v{font-family:var(--font-mono);font-weight:600;font-size:19px;color:var(--ink);}
-  .stat .k{font-size:12px;color:var(--text-muted);}
-  .col{display:flex;flex-direction:column;gap:20px;}
-  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
-  .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;font-size:12px;font-weight:600;border-radius:999px;border:1px solid;}
-  .b-success{background:var(--success-bg);color:var(--success);border-color:var(--success-border);}
-  .b-accent{background:var(--accent);color:#fff;border-color:transparent;}
-  .b-brand{background:transparent;color:var(--pine-700);border-color:var(--pine-200);}
-  .b-warn{background:var(--warning-bg);color:var(--warning);border-color:var(--warning-border);}
-  .chip{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;font-size:14px;font-weight:600;border-radius:999px;background:var(--surface);border:1px solid var(--border-strong);color:var(--text-secondary);cursor:pointer;}
-  .chip .dot{width:9px;height:9px;border-radius:50%;}
-  .chip.sel{border-color:var(--cat-bike);color:var(--cat-bike);background:color-mix(in srgb,var(--cat-bike) 14%,var(--surface));}
-  .av{width:40px;height:40px;border-radius:50%;background:var(--pine-100);color:var(--pine-700);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;border:1px solid var(--border);}
-  .av.ring{border:2px solid var(--brand);}
-  .stack{display:flex;}
-  .stack .av{margin-left:-10px;border:2px solid var(--surface);}
-  .stack .av:first-child{margin-left:0;}
-</style>
-</head>
-<body>
-<div class="layout">
-  <div>
-    <p class="lbl">Card · spot</p>
-    <div class="card">
-      <div class="media">
-        <span class="ph">spot photo — drop real imagery</span>
-        <svg viewBox="0 0 300 158" preserveAspectRatio="none"><polyline points="20,132 70,96 110,110 165,58 215,74 280,40" fill="none" stroke="var(--brand)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="20" cy="132" r="5" fill="var(--surface)" stroke="var(--brand)" stroke-width="3"/><circle cx="280" cy="40" r="6" fill="var(--accent)" stroke="var(--surface)" stroke-width="3"/></svg>
-        <span class="fav"><i data-lucide="heart"></i></span>
-        <span class="catpill"><span class="d"></span>Hiking</span>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../styles.css" />
+    <style>
+      body {
+        padding: 26px 28px;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 26px;
+        align-items: start;
+      }
+      .lbl {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-muted);
+        margin: 0 0 10px;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+      }
+      .media {
+        position: relative;
+        height: 158px;
+        background: repeating-linear-gradient(
+          135deg,
+          var(--paper-sunk) 0 11px,
+          var(--surface-2) 11px 22px
+        );
+      }
+      .media svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+      .media .ph {
+        position: absolute;
+        left: 12px;
+        top: 11px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--text-faint);
+      }
+      .fav {
+        position: absolute;
+        right: 10px;
+        top: 10px;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: var(--surface);
+        box-shadow: var(--shadow-float);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-secondary);
+      }
+      .fav svg {
+        width: 18px;
+        height: 18px;
+      }
+      .catpill {
+        position: absolute;
+        left: 12px;
+        bottom: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 28px;
+        padding: 0 11px;
+        border-radius: 999px;
+        background: var(--surface);
+        box-shadow: var(--shadow-sm);
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--cat-hike);
+      }
+      .catpill .d {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--cat-hike);
+      }
+      .body {
+        padding: 16px;
+      }
+      .body h3 {
+        font-size: 19px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        margin-bottom: 3px;
+      }
+      .meta {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+      .statrow {
+        display: flex;
+        gap: 22px;
+        padding: 14px 16px;
+        border-top: 1px solid var(--border);
+      }
+      .stat .v {
+        font-family: var(--font-mono);
+        font-weight: 600;
+        font-size: 19px;
+        color: var(--ink);
+      }
+      .stat .k {
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+      .col {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 999px;
+        border: 1px solid;
+      }
+      .b-success {
+        background: var(--success-bg);
+        color: var(--success);
+        border-color: var(--success-border);
+      }
+      .b-accent {
+        background: var(--accent);
+        color: #fff;
+        border-color: transparent;
+      }
+      .b-brand {
+        background: transparent;
+        color: var(--pine-700);
+        border-color: var(--pine-200);
+      }
+      .b-warn {
+        background: var(--warning-bg);
+        color: var(--warning);
+        border-color: var(--warning-border);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        height: 36px;
+        padding: 0 14px;
+        font-size: 14px;
+        font-weight: 600;
+        border-radius: 999px;
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
+        color: var(--text-secondary);
+        cursor: pointer;
+      }
+      .chip .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+      }
+      .chip.sel {
+        border-color: var(--cat-bike);
+        color: var(--cat-bike);
+        background: color-mix(in srgb, var(--cat-bike) 14%, var(--surface));
+      }
+      .av {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--pine-100);
+        color: var(--pine-700);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 15px;
+        border: 1px solid var(--border);
+      }
+      .av.ring {
+        border: 2px solid var(--brand);
+      }
+      .stack {
+        display: flex;
+      }
+      .stack .av {
+        margin-left: -10px;
+        border: 2px solid var(--surface);
+      }
+      .stack .av:first-child {
+        margin-left: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <div>
+        <p class="lbl">Card · spot</p>
+        <div class="card">
+          <div class="media">
+            <span class="ph">spot photo — drop real imagery</span>
+            <svg viewBox="0 0 300 158" preserveAspectRatio="none">
+              <polyline
+                points="20,132 70,96 110,110 165,58 215,74 280,40"
+                fill="none"
+                stroke="var(--brand)"
+                stroke-width="4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <circle
+                cx="20"
+                cy="132"
+                r="5"
+                fill="var(--surface)"
+                stroke="var(--brand)"
+                stroke-width="3"
+              />
+              <circle
+                cx="280"
+                cy="40"
+                r="6"
+                fill="var(--accent)"
+                stroke="var(--surface)"
+                stroke-width="3"
+              />
+            </svg>
+            <span class="fav"><i data-lucide="heart"></i></span>
+            <span class="catpill"><span class="d"></span>Hiking</span>
+          </div>
+          <div class="body">
+            <h3>Черни връх</h3>
+            <div class="meta">Витоша · 42.56° N, 23.28° E</div>
+          </div>
+          <div class="statrow">
+            <div class="stat">
+              <div class="v">8,2 км</div>
+              <div class="k">Дистанция</div>
+            </div>
+            <div class="stat">
+              <div class="v">640 m</div>
+              <div class="k">Изкачване</div>
+            </div>
+            <div class="stat">
+              <div class="v">4,8★</div>
+              <div class="k">128 ревюта</div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="body">
-        <h3>Черни връх</h3>
-        <div class="meta">Витоша · 42.56° N, 23.28° E</div>
-      </div>
-      <div class="statrow">
-        <div class="stat"><div class="v">8,2 км</div><div class="k">Дистанция</div></div>
-        <div class="stat"><div class="v">640 m</div><div class="k">Изкачване</div></div>
-        <div class="stat"><div class="v">4,8★</div><div class="k">128 ревюта</div></div>
+      <div class="col">
+        <div>
+          <p class="lbl">Badge</p>
+          <div class="row">
+            <span class="badge b-success"
+              ><i data-lucide="check" style="width: 13px; height: 13px"></i>Отворено</span
+            >
+            <span class="badge b-accent">Ново</span>
+            <span class="badge b-brand">Умерено</span>
+            <span class="badge b-warn">Затворено зимата</span>
+          </div>
+        </div>
+        <div>
+          <p class="lbl">Chip · activity filter</p>
+          <div class="row">
+            <span class="chip sel"
+              ><i data-lucide="bike" style="width: 16px; height: 16px; color: var(--cat-bike)"></i
+              >MTB</span
+            >
+            <span class="chip"
+              ><span class="dot" style="background: var(--cat-swim)"></span>Swimming</span
+            >
+            <span class="chip"
+              ><span class="dot" style="background: var(--cat-climb)"></span>Climbing</span
+            >
+            <span class="chip"
+              ><span class="dot" style="background: var(--cat-team)"></span>Team</span
+            >
+          </div>
+        </div>
+        <div>
+          <p class="lbl">Avatar · single, ring, stack</p>
+          <div class="row">
+            <span class="av">ИП</span>
+            <span class="av ring">ГК</span>
+            <span class="stack"
+              ><span class="av">ИП</span><span class="av">ГК</span><span class="av">МД</span
+              ><span class="av" style="background: var(--surface-2); color: var(--text-muted)"
+                >+9</span
+              ></span
+            >
+          </div>
+        </div>
+        <div>
+          <p class="lbl">Stat</p>
+          <div class="row" style="gap: 32px">
+            <div class="stat">
+              <div class="v" style="color: var(--brand)">128</div>
+              <div class="k">Изкачвания</div>
+            </div>
+            <div class="stat">
+              <div class="v" style="color: var(--accent)">3-ти</div>
+              <div class="k">Този месец</div>
+            </div>
+            <div class="stat">
+              <div class="v">42 ч</div>
+              <div class="k">Общо време</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-  <div class="col">
-    <div><p class="lbl">Badge</p><div class="row">
-      <span class="badge b-success"><i data-lucide="check" style="width:13px;height:13px"></i>Отворено</span>
-      <span class="badge b-accent">Ново</span>
-      <span class="badge b-brand">Умерено</span>
-      <span class="badge b-warn">Затворено зимата</span>
-    </div></div>
-    <div><p class="lbl">Chip · activity filter</p><div class="row">
-      <span class="chip sel"><i data-lucide="bike" style="width:16px;height:16px;color:var(--cat-bike)"></i>MTB</span>
-      <span class="chip"><span class="dot" style="background:var(--cat-swim)"></span>Swimming</span>
-      <span class="chip"><span class="dot" style="background:var(--cat-climb)"></span>Climbing</span>
-      <span class="chip"><span class="dot" style="background:var(--cat-team)"></span>Team</span>
-    </div></div>
-    <div><p class="lbl">Avatar · single, ring, stack</p><div class="row">
-      <span class="av">ИП</span>
-      <span class="av ring">ГК</span>
-      <span class="stack"><span class="av">ИП</span><span class="av">ГК</span><span class="av">МД</span><span class="av" style="background:var(--surface-2);color:var(--text-muted)">+9</span></span>
-    </div></div>
-    <div><p class="lbl">Stat</p><div class="row" style="gap:32px">
-      <div class="stat"><div class="v" style="color:var(--brand)">128</div><div class="k">Изкачвания</div></div>
-      <div class="stat"><div class="v" style="color:var(--accent)">3-ти</div><div class="k">Този месец</div></div>
-      <div class="stat"><div class="v">42 ч</div><div class="k">Общо време</div></div>
-    </div></div>
-  </div>
-</div>
-<script src="https://unpkg.com/lucide@latest"></script>
-<script>lucide.createIcons();</script>
-</body>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+      lucide.createIcons();
+    </script>
+  </body>
 </html>

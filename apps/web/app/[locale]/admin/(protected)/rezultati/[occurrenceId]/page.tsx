@@ -100,7 +100,10 @@ export default async function ResultsEditorPage({
 
   return (
     <main className="space-y-6">
-      <Link href="/admin/rezultati" className="text-body-sm font-medium text-link hover:text-link-hover">
+      <Link
+        href="/admin/rezultati"
+        className="text-body-sm font-medium text-link hover:text-link-hover"
+      >
         {t('backToList')}
       </Link>
       <header className="space-y-1">

@@ -88,56 +88,58 @@ export default async function StatsPage({ params }: { params: PageParams }) {
   return (
     <AppShell>
       <main className="mx-auto max-w-4xl space-y-8 p-4">
-      <header className="space-y-2">
-        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('h1')}</h1>
-        <p className="text-ink-soft">{t('intro')}</p>
+        <header className="space-y-2">
+          <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('h1')}</h1>
+          <p className="text-ink-soft">{t('intro')}</p>
+          {national && (
+            <p className="text-caption text-text-muted">
+              {t('generatedAt', { date: generatedDate })}
+            </p>
+          )}
+        </header>
+
         {national && (
-          <p className="text-caption text-text-muted">{t('generatedAt', { date: generatedDate })}</p>
+          <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <StatCard label={t('statTotal')} value={national.total} />
+            <StatCard label={t('statFree')} value={fmtPct(freeShare)} />
+            <StatCard label={t('statNeedsVerification')} value={fmtPct(needsShare)} />
+            <StatCard label={t('statMunicipalities')} value={national.municipalitiesCovered} />
+            <StatCard label={t('statSports')} value={national.sportsCount} />
+          </section>
         )}
-      </header>
 
-      {national && (
-        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <StatCard label={t('statTotal')} value={national.total} />
-          <StatCard label={t('statFree')} value={fmtPct(freeShare)} />
-          <StatCard label={t('statNeedsVerification')} value={fmtPct(needsShare)} />
-          <StatCard label={t('statMunicipalities')} value={national.municipalitiesCovered} />
-          <StatCard label={t('statSports')} value={national.sportsCount} />
+        <section className="grid gap-6 md:grid-cols-2">
+          <BarChart title={t('chartTopMunicipalities')} bars={topMunicipalities} />
+          <BarChart title={t('chartTopSports')} bars={topSports} color="var(--brand)" />
+          <BarChart title={t('chartAccess')} bars={accessBars} color="var(--accent)" />
+          <BarChart title={t('chartPer10k')} bars={per10kBars} color="var(--sky-500)" />
         </section>
-      )}
 
-      <section className="grid gap-6 md:grid-cols-2">
-        <BarChart title={t('chartTopMunicipalities')} bars={topMunicipalities} />
-        <BarChart title={t('chartTopSports')} bars={topSports} color="var(--brand)" />
-        <BarChart title={t('chartAccess')} bars={accessBars} color="var(--accent)" />
-        <BarChart title={t('chartPer10k')} bars={per10kBars} color="var(--sky-500)" />
-      </section>
+        <section aria-labelledby="table-h">
+          <h2 id="table-h" className="mb-2 text-h4 font-bold text-ink">
+            {t('tableHeading')}
+          </h2>
+          <StatsTable municipalities={municipalities} locale={locale} />
+        </section>
 
-      <section aria-labelledby="table-h">
-        <h2 id="table-h" className="mb-2 text-h4 font-bold text-ink">
-          {t('tableHeading')}
-        </h2>
-        <StatsTable municipalities={municipalities} locale={locale} />
-      </section>
+        <section aria-labelledby="method-h">
+          <h2 id="method-h" className="mb-2 text-h4 font-bold text-ink">
+            {t('methodologyHeading')}
+          </h2>
+          <ul className="list-disc space-y-1 pl-5 text-body-sm text-ink-soft">
+            <li>{t('sourceData')}</li>
+            <li>{t('sourcePopulation')}</li>
+            <li>{t('verificationNote')}</li>
+            <li>{t('computationNote')}</li>
+          </ul>
+        </section>
 
-      <section aria-labelledby="method-h">
-        <h2 id="method-h" className="mb-2 text-h4 font-bold text-ink">
-          {t('methodologyHeading')}
-        </h2>
-        <ul className="list-disc space-y-1 pl-5 text-body-sm text-ink-soft">
-          <li>{t('sourceData')}</li>
-          <li>{t('sourcePopulation')}</li>
-          <li>{t('verificationNote')}</li>
-          <li>{t('computationNote')}</li>
-        </ul>
-      </section>
-
-      <section aria-labelledby="dl-h">
-        <h2 id="dl-h" className="mb-2 text-h4 font-bold text-ink">
-          {t('downloadHeading')}
-        </h2>
-        <p className="text-body-sm text-text-muted">{t('downloadComingSoon')}</p>
-      </section>
+        <section aria-labelledby="dl-h">
+          <h2 id="dl-h" className="mb-2 text-h4 font-bold text-ink">
+            {t('downloadHeading')}
+          </h2>
+          <p className="text-body-sm text-text-muted">{t('downloadComingSoon')}</p>
+        </section>
       </main>
     </AppShell>
   );
