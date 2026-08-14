@@ -261,6 +261,7 @@
     "offline": "You’re offline — showing what loaded last.",
     "resize": "Resize the list",
     "directions": "Directions",
+    "directionsWith": "Directions with {app}",
     "title": "Facilities map",
     "intro": "Find free public sports facilities near you.",
     "filters": "Filters",
@@ -296,6 +297,7 @@
   },
   "Facility": {
     "directions": "Directions",
+    "directionsWith": "Directions with {app}",
     "notFound": "No such facility.",
     "backToMap": "← Back to the map",
     "attributes": "Attributes",

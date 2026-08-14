@@ -35,6 +35,7 @@ import {
   isDefaultAccess,
   type PublicFilters,
 } from '@/lib/filters';
+import { NAV_PROVIDERS } from '@/lib/directions';
 import { distanceKm, formatKm } from '@/lib/geo';
 import { DEFAULT_LAYER, type ExternalMapLayer } from '@/lib/map/layers';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
@@ -530,6 +531,7 @@ export function MapExplorer({
       labels={{
         unnamed: tFacility('unnamed'),
         directions: t('directions'),
+        directionsWith: (app: string) => t('directionsWith', { app }),
         viewDetails: t('viewDetails'),
         close: t('close'),
       }}
@@ -913,7 +915,13 @@ function FacilityPreview({
 }: {
   point: MapPoint;
   onClose: () => void;
-  labels: { unnamed: string; directions: string; viewDetails: string; close: string };
+  labels: {
+    unnamed: string;
+    directions: string;
+    directionsWith: (app: string) => string;
+    viewDetails: string;
+    close: string;
+  };
   sportLabels: (s: string[]) => string;
 }) {
   const v = primaryVisual(point.sports);
@@ -941,21 +949,23 @@ function FacilityPreview({
           <p className="mt-1 text-body-sm text-text-muted">{sportLabels(point.sports)}</p>
         )}
       </div>
-      <div className="flex items-center gap-2.5 border-t border-line p-3">
-        <Button
-          block
-          iconLeft={<Navigation size={19} />}
-          onClick={() => {
-            window.open(
-              `https://www.openstreetmap.org/directions?to=${String(point.lat)},${String(point.lon)}`,
-              '_blank',
-              'noopener',
-            );
-          }}
-        >
-          {labels.directions}
-        </Button>
-        <Button variant="secondary" asChild className="shrink-0">
+      <div className="flex flex-col gap-2.5 border-t border-line p-3">
+        <div className="flex items-center gap-2.5">
+          {NAV_PROVIDERS.map((provider) => (
+            <Button
+              key={provider.id}
+              block
+              iconLeft={<Navigation size={19} />}
+              aria-label={labels.directionsWith(provider.brand)}
+              onClick={() => {
+                window.open(provider.href(point.lat, point.lon), '_blank', 'noopener');
+              }}
+            >
+              {provider.brand}
+            </Button>
+          ))}
+        </div>
+        <Button variant="secondary" asChild block>
           <Link href={`/obekt/${point.slug}`}>{labels.viewDetails}</Link>
         </Button>
       </div>

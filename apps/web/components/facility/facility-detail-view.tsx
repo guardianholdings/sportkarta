@@ -6,6 +6,7 @@ import { Stat } from '@/components/ui/stat';
 import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 import { facilityFamily, FAMILY_COLOR } from '@/lib/design/families';
 import { SPORT_VISUALS } from '@/lib/design/sport-visuals';
+import { NAV_PROVIDERS } from '@/lib/directions';
 import type { CanonicalSport } from '@sportkarta/lib/sports';
 
 /** The read-only public detail; the source of truth is lib/public-data. */
@@ -170,20 +171,31 @@ export function FacilityDetailView({
         </p>
 
         {showDirections && (
-          <Button asChild>
-            <a
-              href={`https://www.openstreetmap.org/directions?to=${String(facility.lat)},${String(facility.lon)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              // C1: the strongest "I am actually going" signal in the product,
-              // on its highest-traffic page. Records THAT someone asked for
-              // directions, never to which facility (lib/analytics-events.ts).
-              data-umami-event={ANALYTICS_EVENTS.facilityDirections}
-            >
-              <Navigation size={19} />
+          <div className="flex flex-col gap-2">
+            <p className="text-caption text-text-muted">
+              <Navigation size={15} className="mr-1 inline align-[-2px]" />
               {t('directions')}
-            </a>
-          </Button>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {NAV_PROVIDERS.map((provider) => (
+                <Button key={provider.id} asChild>
+                  <a
+                    href={provider.href(facility.lat, facility.lon)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={t('directionsWith', { app: provider.brand })}
+                    // C1: the strongest "I am actually going" signal in the
+                    // product, on its highest-traffic page. Records THAT
+                    // someone asked for directions, never to which facility
+                    // and never which app (lib/analytics-events.ts).
+                    data-umami-event={ANALYTICS_EVENTS.facilityDirections}
+                  >
+                    {provider.brand}
+                  </a>
+                </Button>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </article>
