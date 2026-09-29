@@ -157,6 +157,16 @@ describe.skipIf(!url)('report figures against the real database', () => {
     );
 
     // Four active RSVPs across three distinct people: user 0 joins both.
+    // They were made while the occurrences were still ahead. The report period
+    // is a fixed September that is now in the past, and 0008's trigger rightly
+    // refuses to join a started occurrence — so the two occurrences are moved a
+    // day ahead for the inserts and put back on 15 September afterwards.
+    await client.query(
+      `UPDATE play_session_occurrences
+          SET starts_at = now() + interval '1 day', ends_at = now() + interval '1 day 90 minutes'
+        WHERE id = ANY($1::uuid[])`,
+      [occurrenceIds],
+    );
     for (const [occurrenceIndex, users] of [
       [0, [0, 1]],
       [1, [0, 2]],
@@ -168,6 +178,12 @@ describe.skipIf(!url)('report figures against the real database', () => {
         );
       }
     }
+    await client.query(
+      `UPDATE play_session_occurrences
+          SET starts_at = '2026-09-15T15:00:00Z', ends_at = '2026-09-15T16:30:00Z'
+        WHERE id = ANY($1::uuid[])`,
+      [occurrenceIds],
+    );
 
     // One check-in of each method, across two distinct people.
     await client.query(

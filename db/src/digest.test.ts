@@ -163,9 +163,27 @@ describe.skipIf(!hasDb)('weeklyDigest (requires running database)', () => {
   it('counts only members who are going, not the whole waitlist', async () => {
     // capacity 10 and one RSVP: that person is going.
     const occurrenceId = await seedOccurrence('2026-09-02T18:00:00');
+    // The RSVP happened while the occurrence was still ahead. The fixture's
+    // date is fixed (the digest is asked about a fixed week) and is now in the
+    // past, and 0008's trigger rightly refuses to join a started occurrence —
+    // so the occurrence is moved a day ahead for the insert and put back.
+    await client.query(
+      `UPDATE play_session_occurrences
+          SET starts_at = now() + interval '1 day',
+              ends_at = now() + interval '1 day 90 minutes'
+        WHERE id = $1::uuid`,
+      [occurrenceId],
+    );
     await client.query(
       `INSERT INTO play_session_rsvps (occurrence_id, user_id) VALUES ($1::uuid, $2)`,
       [occurrenceId, MEMBER_ID],
+    );
+    await client.query(
+      `UPDATE play_session_occurrences
+          SET starts_at = starts_at_local AT TIME ZONE 'Europe/Sofia',
+              ends_at = (starts_at_local AT TIME ZONE 'Europe/Sofia') + interval '90 minutes'
+        WHERE id = $1::uuid`,
+      [occurrenceId],
     );
     const week = await weeklyDigest(db, { municipalityId, weekStart: WEEK });
     expect(week.occurrences.find((o) => o.occurrenceId === occurrenceId)?.going).toBe(1);
