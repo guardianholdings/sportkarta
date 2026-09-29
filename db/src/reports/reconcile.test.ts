@@ -80,6 +80,47 @@ describe.skipIf(!url)('report figures against the real database', () => {
   });
 
   /**
+   * Run `insert` as if it happened while the occurrences were still ahead —
+   * which is when a real RSVP is made. The report period is fixed in the past,
+   * and 0008's trigger rightly refuses to join an occurrence that has started,
+   * so the occurrences are moved a day past now() for the insert and then put
+   * back exactly as they were. The local wall clock moves with the instant:
+   * 0008 also checks that the two agree.
+   */
+  async function whileUpcoming(
+    occurrenceIds: string[],
+    insert: () => Promise<void>,
+  ): Promise<void> {
+    const saved = await client.query<{
+      id: string;
+      starts_at: Date;
+      ends_at: Date;
+      starts_at_local: string;
+    }>(
+      `SELECT id, starts_at, ends_at, starts_at_local::text AS starts_at_local
+         FROM play_session_occurrences WHERE id = ANY($1::uuid[])`,
+      [occurrenceIds],
+    );
+    await client.query(
+      `UPDATE play_session_occurrences
+          SET starts_at = now() + interval '1 day',
+              ends_at = now() + interval '1 day' + (ends_at - starts_at),
+              starts_at_local = (now() + interval '1 day') AT TIME ZONE 'Europe/Sofia'
+        WHERE id = ANY($1::uuid[])`,
+      [occurrenceIds],
+    );
+    await insert();
+    for (const row of saved.rows) {
+      await client.query(
+        `UPDATE play_session_occurrences
+            SET starts_at = $2, ends_at = $3, starts_at_local = $4::timestamp
+          WHERE id = $1::uuid`,
+        [row.id, row.starts_at, row.ends_at, row.starts_at_local],
+      );
+    }
+  }
+
+  /**
    * A known world, built inside the caller's transaction.
    *
    * Deliberately lopsided so a metric that confuses two concepts fails: three
@@ -102,7 +143,7 @@ describe.skipIf(!url)('report figures against the real database', () => {
     for (let i = 0; i < 2; i += 1) {
       const facility = await client.query<{ id: string }>(
         `INSERT INTO facilities (geom, name, slug, sport_types, access, source, municipality_id, created_at)
-         VALUES (ST_SetSRID(ST_MakePoint(23.5, 42.5), 4326), $1, $2, '{football}', 'free', 'crowd', $3, '2026-09-10T09:00:00Z')
+         VALUES (ST_SetSRID(ST_MakePoint(23.5, 42.5), 4326), $1, $2, '{football}', 'free', 'crowd', $3, '2025-09-10T09:00:00Z')
          RETURNING id`,
         [`Отчетна площадка ${String(i)}`, `rpt-${stamp}-${String(i)}`, municipalityId],
       );
@@ -127,14 +168,14 @@ describe.skipIf(!url)('report figures against the real database', () => {
     for (let i = 0; i < 2; i += 1) {
       const session = await client.query<{ id: string }>(
         `INSERT INTO play_sessions (facility_id, sport, organizer_id, title, starts_at_local, duration_minutes)
-         VALUES ($1, 'football', $2, $3, '2026-09-15 18:00:00', 90) RETURNING id`,
+         VALUES ($1, 'football', $2, $3, '2025-09-15 18:00:00', 90) RETURNING id`,
         [facilityIds[i], userIds[0], `Тренировка ${String(i)}`],
       );
       const sessionId = session.rows[0]?.id;
       if (!sessionId) throw new Error('fixture session not created');
       const occurrence = await client.query<{ id: string }>(
         `INSERT INTO play_session_occurrences (session_id, starts_at, ends_at, starts_at_local)
-         VALUES ($1, '2026-09-15T15:00:00Z', '2026-09-15T16:30:00Z', '2026-09-15 18:00:00')
+         VALUES ($1, '2025-09-15T15:00:00Z', '2025-09-15T16:30:00Z', '2025-09-15 18:00:00')
          RETURNING id`,
         [sessionId],
       );
@@ -145,50 +186,31 @@ describe.skipIf(!url)('report figures against the real database', () => {
     // A cancelled occurrence on the first series.
     const cancelledSession = await client.query<{ id: string }>(
       `INSERT INTO play_sessions (facility_id, sport, organizer_id, title, starts_at_local, duration_minutes)
-       VALUES ($1, 'football', $2, 'Отменена', '2026-09-22 18:00:00', 90) RETURNING id`,
+       VALUES ($1, 'football', $2, 'Отменена', '2025-09-22 18:00:00', 90) RETURNING id`,
       [facilityIds[0], userIds[0]],
     );
     await client.query(
       `INSERT INTO play_session_occurrences
          (session_id, starts_at, ends_at, starts_at_local, status, cancelled_at, cancellation_scope)
-       VALUES ($1, '2026-09-22T15:00:00Z', '2026-09-22T16:30:00Z', '2026-09-22 18:00:00',
+       VALUES ($1, '2025-09-22T15:00:00Z', '2025-09-22T16:30:00Z', '2025-09-22 18:00:00',
                'cancelled', now(), 'occurrence')`,
       [cancelledSession.rows[0]?.id],
     );
 
     // Four active RSVPs across three distinct people: user 0 joins both.
-    // They were made while the occurrences were still ahead. The report period
-    // is a fixed September that is now in the past, and 0008's trigger rightly
-    // refuses to join a started occurrence — so the two occurrences are moved a
-    // day ahead for the inserts and put back on 15 September afterwards. The
-    // local wall clock moves with the instant: 0008 checks that they agree.
-    await client.query(
-      `UPDATE play_session_occurrences
-          SET starts_at = now() + interval '1 day',
-              ends_at = now() + interval '1 day 90 minutes',
-              starts_at_local = (now() + interval '1 day') AT TIME ZONE 'Europe/Sofia'
-        WHERE id = ANY($1::uuid[])`,
-      [occurrenceIds],
-    );
-    for (const [occurrenceIndex, users] of [
-      [0, [0, 1]],
-      [1, [0, 2]],
-    ] as [number, number[]][]) {
-      for (const userIndex of users) {
-        await client.query(
-          `INSERT INTO play_session_rsvps (occurrence_id, user_id) VALUES ($1, $2)`,
-          [occurrenceIds[occurrenceIndex], userIds[userIndex]],
-        );
+    await whileUpcoming(occurrenceIds, async () => {
+      for (const [occurrenceIndex, users] of [
+        [0, [0, 1]],
+        [1, [0, 2]],
+      ] as [number, number[]][]) {
+        for (const userIndex of users) {
+          await client.query(
+            `INSERT INTO play_session_rsvps (occurrence_id, user_id) VALUES ($1, $2)`,
+            [occurrenceIds[occurrenceIndex], userIds[userIndex]],
+          );
+        }
       }
-    }
-    await client.query(
-      `UPDATE play_session_occurrences
-          SET starts_at = '2026-09-15T15:00:00Z',
-              ends_at = '2026-09-15T16:30:00Z',
-              starts_at_local = '2026-09-15 18:00:00'
-        WHERE id = ANY($1::uuid[])`,
-      [occurrenceIds],
-    );
+    });
 
     // One check-in of each method, across two distinct people.
     await client.query(
@@ -210,12 +232,12 @@ describe.skipIf(!url)('report figures against the real database', () => {
     // One crowd verification and one condition report, inside the period.
     await client.query(
       `INSERT INTO facility_edits (facility_id, actor, source, field, new_value, created_at)
-       VALUES ($1, $2, 'crowd', 'verified', 'true'::jsonb, '2026-09-14T10:00:00Z')`,
+       VALUES ($1, $2, 'crowd', 'verified', 'true'::jsonb, '2025-09-14T10:00:00Z')`,
       [facilityIds[0], userIds[1]],
     );
     await client.query(
       `INSERT INTO facility_condition_reports (facility_id, reporter_id, state, created_at)
-       VALUES ($1, $2, 'good', '2026-09-16T10:00:00Z')`,
+       VALUES ($1, $2, 'good', '2025-09-16T10:00:00Z')`,
       [facilityIds[1], userIds[2]],
     );
 
@@ -223,7 +245,7 @@ describe.skipIf(!url)('report figures against the real database', () => {
   }
 
   async function grantValues(municipalityId: number | null): Promise<Map<string, number | null>> {
-    const period = dayRangePeriod('2026-09-01', '2026-09-30');
+    const period = dayRangePeriod('2025-09-01', '2025-09-30');
     const data = await runReport(
       asQueryable(client),
       GRANT_REPORT,
@@ -276,8 +298,8 @@ describe.skipIf(!url)('report figures against the real database', () => {
 
       // The fixture's sessions are on 15 September. A period ending on the 14th
       // must see none of them; one ending on the 15th must see both.
-      const before = dayRangePeriod('2026-09-01', '2026-09-14');
-      const including = dayRangePeriod('2026-09-01', '2026-09-15');
+      const before = dayRangePeriod('2025-09-01', '2025-09-14');
+      const including = dayRangePeriod('2025-09-01', '2025-09-15');
 
       const runFor = async (period: { from: Date; to: Date }): Promise<number | null> => {
         const data = await runReport(
@@ -330,7 +352,7 @@ describe.skipIf(!url)('report figures against the real database', () => {
       const stamp = String(Date.now()).slice(-8);
       await buildFixture(stamp);
 
-      const period = dayRangePeriod('2026-09-01', '2026-09-30');
+      const period = dayRangePeriod('2025-09-01', '2025-09-30');
       const national = await grantValues(null);
 
       const municipalities = await client.query<{ id: number }>(`SELECT id FROM municipalities`);
@@ -377,16 +399,23 @@ describe.skipIf(!url)('report figures against the real database', () => {
       // Give the same person activity in a second municipality, which is
       // exactly the situation that makes a distinct-person count non-additive.
       const second = await buildFixture(`${stamp}b`);
-      await client.query(
-        `INSERT INTO play_session_rsvps (occurrence_id, user_id)
-         SELECT o.id, $1
+      const target = await client.query<{ id: string }>(
+        `SELECT o.id
          FROM play_session_occurrences o
          JOIN play_sessions s ON s.id = o.session_id
          JOIN facilities f ON f.id = s.facility_id
-         WHERE f.municipality_id = $2 AND o.status <> 'cancelled'
+         WHERE f.municipality_id = $1 AND o.status <> 'cancelled'
          LIMIT 1`,
-        [`rpt-user-${stamp}-0`, second.municipalityId],
+        [second.municipalityId],
       );
+      const targetId = target.rows[0]?.id;
+      if (!targetId) throw new Error('second fixture has no open occurrence');
+      await whileUpcoming([targetId], async () => {
+        await client.query(
+          `INSERT INTO play_session_rsvps (occurrence_id, user_id) VALUES ($1, $2)`,
+          [targetId, `rpt-user-${stamp}-0`],
+        );
+      });
 
       const a = await grantValues(municipalityId);
       const b = await grantValues(second.municipalityId);
