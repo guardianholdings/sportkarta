@@ -27,6 +27,11 @@ ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build /app/apps/web/.next/standalone ./
 COPY --from=build /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build /app/apps/web/public ./apps/web/public
+# Next writes its runtime cache (optimised images, fetch cache) under .next/cache.
+# Everything above is copied as root, so without this the node user cannot create
+# it and every cache write is an unhandled EACCES. Only the cache is handed over —
+# the app code itself stays read-only to the runtime user.
+RUN mkdir -p apps/web/.next/cache && chown node:node apps/web/.next/cache
 USER node
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]

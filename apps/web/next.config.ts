@@ -12,6 +12,13 @@ const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 const nextConfig: NextConfig = {
   output: 'standalone',
   transpilePackages: ['@sportkarta/lib', '@sportkarta/db'],
+  // No component renders next/image — photos are re-encoded to WebP at upload
+  // (lib/image.ts) and served as-is — yet /_next/image was live, re-running
+  // sharp on every request with no cache, and it is where Next's image-
+  // optimizer advisories land. Unoptimized takes the endpoint out entirely.
+  images: { unoptimized: true },
+  // Do not advertise the framework (and so its version family) on every response.
+  poweredByHeader: false,
   experimental: {
     // Report photos are up to 8 MB (lib/image.ts MAX_PHOTO_BYTES); the default
     // server-action body limit (1 MB) would reject real phone photos before our

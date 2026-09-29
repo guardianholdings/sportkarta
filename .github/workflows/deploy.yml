@@ -3,15 +3,34 @@ name: Deploy
 # Push to main = deploy, but only after CI succeeds on that commit.
 # workflow_dispatch is the operator override: it deploys main HEAD without
 # waiting for a fresh CI run (first deploy, secret rotation, re-deploy after
-# flipping DEPLOY_ENABLED). Dispatching any other ref is refused below —
+# flipping DEPLOY_ENABLED), or — with `rollback_to` — redeploys an earlier
+# release's images as they are. Dispatching any other ref is refused below —
 # deploys happen only from main (CLAUDE.md), and a non-main dispatch would
 # also repoint the :latest image tags.
+#
+# SECURITY: `workflow_run` fires for EVERY completed CI run whose head branch
+# is called `main`, and that includes a pull request opened from a fork's own
+# `main` branch — CI runs on `pull_request`, and the fork controls its own
+# ci.yml. This workflow runs with every production secret, so the `gate` job
+# below admits a CI run only when it was a PUSH, to THIS repository, on main,
+# and its commit is still main HEAD. Without that, a stranger's PR would be
+# built, handed the server .env and started on the VPS.
 on:
   workflow_run:
     workflows: [CI]
     types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      rollback_to:
+        description: >-
+          Roll back: the full 40-character commit SHA of an earlier release to
+          redeploy exactly as it was (its images must still be in GHCR). Only
+          releases from 2026-09-29 on — older ones predate the dashboard lock
+          and would republish Umami/GlitchTip unprotected. Leave empty to
+          deploy main HEAD.
+        required: false
+        default: ''
 
 concurrency:
   group: deploy
@@ -20,19 +39,75 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   IMAGE_BASE: ghcr.io/${{ github.repository_owner }}/sportkarta
-  # The commit being deployed: the CI-validated sha on push-triggered runs,
-  # the dispatched ref's sha on manual runs.
-  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+  # Pinned by digest: this image hashes the admin-tools password on the runner.
+  CADDY_IMAGE: caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      deploy: ${{ steps.decide.outputs.deploy }}
+      build: ${{ steps.decide.outputs.build }}
+      sha: ${{ steps.decide.outputs.sha }}
+    steps:
+      - id: decide
+        # Every event field goes through env, never into the script text: a
+        # branch name is attacker-chosen on a fork PR.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          DISPATCH_SHA: ${{ github.sha }}
+          ROLLBACK: ${{ github.event.inputs.rollback_to }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_EVENT: ${{ github.event.workflow_run.event }}
+          RUN_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+          RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          skip() {
+            echo "::notice::Not deploying: $1"
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            [ "$REF" = "refs/heads/main" ] || skip "dispatched from $REF — deploys run from main only"
+            if [ -n "$ROLLBACK" ]; then
+              if ! printf '%s' "$ROLLBACK" | grep -Eq '^[0-9a-f]{40}$'; then
+                echo "::error::rollback_to must be a full 40-character lowercase commit SHA"
+                exit 1
+              fi
+              echo "::notice::Rolling back to $ROLLBACK (no build — its images are re-pulled from GHCR)"
+              { echo "deploy=true"; echo "build=false"; echo "sha=$ROLLBACK"; } >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sha="$DISPATCH_SHA"
+          else
+            [ "$RUN_CONCLUSION" = "success" ] || skip "CI concluded '$RUN_CONCLUSION'"
+            [ "$RUN_EVENT" = "push" ] || skip "the CI run was a '$RUN_EVENT', not a push to main"
+            [ "$RUN_REPO" = "$REPO" ] || skip "the CI run came from '$RUN_REPO', not $REPO"
+            [ "$RUN_BRANCH" = "main" ] || skip "the CI run was on '$RUN_BRANCH'"
+            sha="$RUN_SHA"
+          fi
+          # A slow CI run can finish after a newer push's run. Shipping it would
+          # put older code back over newer code; the run for HEAD deploys HEAD.
+          head=$(gh api "repos/$REPO/git/ref/heads/main" --jq .object.sha)
+          [ "$sha" = "$head" ] || skip "$sha is no longer main HEAD ($head)"
+          { echo "deploy=true"; echo "build=true"; echo "sha=$sha"; } >> "$GITHUB_OUTPUT"
+
   build-push:
-    if: >-
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    needs: gate
+    if: needs.gate.outputs.deploy == 'true' && needs.gate.outputs.build == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    env:
+      DEPLOY_SHA: ${{ needs.gate.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -85,29 +160,45 @@ jobs:
           cache-from: type=gha
 
   deploy:
-    needs: build-push
+    needs: [gate, build-push]
     # Skipped until the VPS exists: set the repository variable DEPLOY_ENABLED
     # to 'true' (gh variable set DEPLOY_ENABLED --body true) to activate.
-    if: vars.DEPLOY_ENABLED == 'true'
+    # `always()` lets a rollback (build-push skipped on purpose) through; a
+    # FAILED build never is.
+    if: >-
+      always() && vars.DEPLOY_ENABLED == 'true' && needs.gate.outputs.deploy == 'true' &&
+      (needs.build-push.result == 'success' ||
+       (needs.build-push.result == 'skipped' && needs.gate.outputs.build == 'false'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: read
+    env:
+      DEPLOY_SHA: ${{ needs.gate.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.DEPLOY_SHA }}
+      # The server's host key is pinned. `accept-new` on a fresh runner accepts
+      # whatever answers at DEPLOY_HOST — and the next steps pipe every
+      # production secret into that connection. If the server is ever rebuilt,
+      # this deploy fails with "Host key verification failed": replace the key
+      # below with the new one (ssh-keyscan -t ed25519 <ip>, checked against
+      # the Hetzner console) in the same commit that points at the new box.
       - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
           printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          echo 'sportkarta-prod ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAIqKmg1U69CxDz2Nd7YQHozf1wU3t/Wx3r7BI1RhVlt' > ~/.ssh/known_hosts
           {
             echo "Host vps"
             echo "  HostName ${{ secrets.DEPLOY_HOST }}"
+            echo "  HostKeyAlias sportkarta-prod"
             echo "  User deploy"
             echo "  IdentityFile ~/.ssh/deploy_key"
-            echo "  StrictHostKeyChecking accept-new"
+            echo "  StrictHostKeyChecking yes"
+            echo "  UserKnownHostsFile ~/.ssh/known_hosts"
           } > ~/.ssh/config
       # No PROD_DOMAIN secret yet = IP-only mode: plain HTTP on the server
       # address, Caddyfile.ip (no TLS, no subdomains). Setting PROD_DOMAIN
@@ -156,7 +247,69 @@ jobs:
           SMTP_USER=${{ secrets.SMTP_USER }}
           SMTP_PASS=${{ secrets.SMTP_PASS }}
           SMTP_FROM=${{ secrets.SMTP_FROM }}
+          # Public, non-secret settings: GitHub repository VARIABLES (Settings →
+          # Secrets and variables → Actions → Variables). Empty = feature off.
+          CONTACT_EMAIL=${{ vars.CONTACT_EMAIL }}
+          UMAMI_SRC=${{ vars.UMAMI_SRC }}
+          UMAMI_WEBSITE_ID=${{ vars.UMAMI_WEBSITE_ID }}
+          GLITCHTIP_DSN=${{ vars.GLITCHTIP_DSN }}
+          PARTNER_STRIP_ENABLED=${{ vars.PARTNER_STRIP_ENABLED }}
+          DONATION_IBAN=${{ vars.DONATION_IBAN }}
+          DONATION_BENEFICIARY=${{ vars.DONATION_BENEFICIARY }}
+          DONATION_BIC=${{ vars.DONATION_BIC }}
+          DONATION_REFERENCE=${{ vars.DONATION_REFERENCE }}
+          DONATION_PAYMENT_URL=${{ vars.DONATION_PAYMENT_URL }}
+          THUNDERFOREST_API_KEY=${{ secrets.THUNDERFOREST_API_KEY }}
+          TRACESTRACK_API_KEY=${{ secrets.TRACESTRACK_API_KEY }}
           EOF
+      # Values computed from other secrets rather than stored separately.
+      # Written single-quoted: compose interpolates `$` in unquoted .env values.
+      - name: Render derived settings
+        env:
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          CHECKIN_TOKEN_SECRET: ${{ secrets.CHECKIN_TOKEN_SECRET }}
+          ADMIN_TOOLS_PASSWORD: ${{ secrets.ADMIN_TOOLS_PASSWORD }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ vars.SMTP_PORT || '587' }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+        run: |
+          set -euo pipefail
+          # QR check-in signs its tokens with CHECKIN_TOKEN_SECRET, and with it
+          # unset the feature is OFF (apps/web/lib/checkin-config.ts, fail
+          # closed). Unless one is stored explicitly, derive a stable key from
+          # AUTH_SECRET — a separate key for a separate purpose, never the raw
+          # auth secret, and the same on every deploy so printed QR codes keep
+          # working. No AUTH_SECRET means no derivation: still fail closed.
+          checkin="${CHECKIN_TOKEN_SECRET:-}"
+          if [ -z "$checkin" ] && [ -n "${AUTH_SECRET:-}" ]; then
+            checkin=$(printf '%s' 'pops/checkin-token/v1' | openssl dgst -sha256 -hmac "$AUTH_SECRET" -r | cut -d' ' -f1)
+          fi
+          # The Umami and GlitchTip dashboards sit behind HTTP basic auth
+          # (user "admin"). With no ADMIN_TOOLS_PASSWORD secret the hash is of a
+          # random throwaway, so the dashboards are CLOSED to everyone — the
+          # safe default for two apps whose own logins were never set up.
+          pw="${ADMIN_TOOLS_PASSWORD:-}"
+          [ -n "$pw" ] || pw=$(openssl rand -hex 32)
+          hash=$(docker run --rm "$CADDY_IMAGE" caddy hash-password --plaintext "$pw" | tr -d '\r\n' | base64 -w0)
+          # GlitchTip mails its own password resets and alerts; without this it
+          # prints them to its console, where nobody reads them.
+          gt_mail=$(python3 - <<'PY'
+          import os, urllib.parse as u
+          env = os.environ.get
+          q = lambda s: u.quote(s, safe="")
+          host, user, pw = env("SMTP_HOST", ""), env("SMTP_USER", ""), env("SMTP_PASS", "")
+          port = env("SMTP_PORT") or "587"
+          print(f"smtp+tls://{q(user)}:{q(pw)}@{host}:{port}" if host and user else "consolemail://")
+          PY
+          )
+          {
+            printf "CHECKIN_TOKEN_SECRET='%s'\n" "$checkin"
+            printf "ADMIN_TOOLS_HASH='%s'\n" "$hash"
+            printf "GLITCHTIP_EMAIL_URL='%s'\n" "$gt_mail"
+            printf "GLITCHTIP_FROM_EMAIL='%s'\n" "${SMTP_FROM:-}"
+          } | ssh vps 'umask 077 && cat >> /opt/sportkarta/.env'
       - name: Log VPS into GHCR (private images)
         run: |
           ssh vps "echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin"
@@ -169,7 +322,8 @@ jobs:
             && docker compose -f compose.prod.yml --profile ops run --rm migrate \
             && docker compose -f compose.prod.yml --profile ops run --rm migrate pnpm db:seed \
             && docker compose -f compose.prod.yml up -d --remove-orphans \
-            && docker compose -f compose.prod.yml restart caddy \
+            && { docker compose -f compose.prod.yml exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile \
+                 || docker compose -f compose.prod.yml restart caddy; } \
             && docker image prune -af'
           # Every deploy pulls four fresh images and strands the previous four.
           # Nothing was reclaiming them: 27 images / 19 GB had accumulated on
@@ -177,7 +331,7 @@ jobs:
           # use here because the images stranded by THIS deploy are minutes old.
           # A bare `-af` is safe — it keeps every image referenced by a
           # container, running or stopped — and rollback still works because the
-          # tags live in GHCR and are re-pulled.
+          # tags live in GHCR and are re-pulled (see `rollback_to` above).
           # The seed is idempotent dev/prod (fixed UUIDs, ON CONFLICT DO
           # NOTHING) and the health gate below depends on it: /api/health
           # smoke-queries the _health row, which migrations never create.
@@ -185,7 +339,9 @@ jobs:
           # check with "st_dwithin smoke query found no rows".
           # The Caddyfile is a bind mount read at startup: compose only
           # recreates caddy when its SERVICE config changes, so a shipped
-          # Caddyfile edit (or the IP↔TLS flip) needs the explicit restart.
+          # Caddyfile edit needs an explicit reload. `caddy reload` swaps the
+          # config gracefully — a restart dropped every open connection on every
+          # deploy — and the restart remains as the fallback if reload fails.
       - name: Health check (fail loudly)
         run: |
           url="${{ steps.base.outputs.url }}/api/health"

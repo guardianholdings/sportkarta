@@ -1,7 +1,30 @@
 # Caddy v2 — automatic Let's Encrypt for all three hosts.
-# DOMAIN comes from /opt/sportkarta/.env via compose.
+# DOMAIN and ADMIN_TOOLS_HASH come from /opt/sportkarta/.env via compose.
+
+# Shared by every host. HSTS without includeSubDomains/preload on purpose: while
+# the site lives on a borrowed wildcard-DNS name (sslip.io), those flags would
+# make a promise about hosts we do not own.
+(hardening) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+}
+
+# The two operator dashboards (Umami, GlitchTip) are for the operator only.
+# Neither app's own login was ever set up — Umami shipped with its documented
+# default admin password, and GlitchTip lets whoever registers first own the
+# instance — so a second lock sits in front of both. deploy.yml renders the hash
+# from the ADMIN_TOOLS_PASSWORD secret (user "admin"); with that secret unset
+# the hash is of a random throwaway and the dashboards are closed to everyone.
+(operator_only) {
+	basic_auth {
+		admin {$ADMIN_TOOLS_HASH}
+	}
+}
 
 {$DOMAIN} {
+	import hardening
 	encode zstd gzip
 
 	# Self-served Protomaps tiles (Stage 2). file_server handles HTTP range
@@ -16,14 +39,61 @@
 	handle {
 		reverse_proxy web:3000
 	}
+
+	# While a deploy swaps the web container (or it restarts), the proxy has
+	# nothing to talk to. Without this the visitor gets Caddy's empty 502 — a
+	# blank page that reads as "the site is dead". This says what is happening,
+	# in both languages, and reloads itself.
+	handle_errors 502 503 504 {
+		header Content-Type "text/html; charset=utf-8"
+		header Cache-Control "no-store"
+		header Retry-After "20"
+		respond <<HTML
+			<!doctype html>
+			<html lang="bg"><head><meta charset="utf-8">
+			<meta name="viewport" content="width=device-width,initial-scale=1">
+			<meta http-equiv="refresh" content="15">
+			<title>POPS се обновява</title>
+			<style>body{font-family:system-ui,sans-serif;background:#faf7f2;color:#1d1b16;display:grid;place-items:center;min-height:100vh;margin:0;padding:24px;text-align:center}h1{font-size:1.4rem;margin:0 0 .5rem}p{margin:.25rem 0;color:#5c5647}</style>
+			</head><body><main>
+			<h1>POPS се обновява</h1>
+			<p>След няколко секунди сме отново тук — страницата ще се презареди сама.</p>
+			<p lang="en">POPS is updating — back in a few seconds. This page reloads by itself.</p>
+			</main></body></html>
+			HTML 503
+	}
 }
 
 umami.{$DOMAIN} {
-	reverse_proxy umami:3000
+	import hardening
+
+	# The tracker script and its beacon must stay public, or analytics would
+	# count nobody; they accept events and reveal nothing.
+	@tracker path /script.js /api/send /api/batch
+	handle @tracker {
+		reverse_proxy umami:3000
+	}
+
+	handle {
+		import operator_only
+		reverse_proxy umami:3000
+	}
 }
 
 glitchtip.{$DOMAIN} {
-	reverse_proxy glitchtip:8000
+	import hardening
+
+	# Error-report ingestion must stay public — browsers post their errors here
+	# — and each request is authenticated by the project's DSN key.
+	@ingest path_regexp ^/api/[0-9]+/(envelope|store|security|minidump)/
+	handle @ingest {
+		reverse_proxy glitchtip:8000
+	}
+
+	handle {
+		import operator_only
+		reverse_proxy glitchtip:8000
+	}
 }
 
 # Anything that arrives addressed to something other than the three hosts above

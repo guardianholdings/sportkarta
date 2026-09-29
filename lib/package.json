@@ -39,6 +39,6 @@
     "vitest": "^3.0.0"
   },
   "dependencies": {
-    "nodemailer": "^9.0.3"
+    "nodemailer": "^9.1.1"
   }
 }
