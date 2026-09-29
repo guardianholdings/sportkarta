@@ -166,11 +166,13 @@ describe.skipIf(!hasDb)('weeklyDigest (requires running database)', () => {
     // The RSVP happened while the occurrence was still ahead. The fixture's
     // date is fixed (the digest is asked about a fixed week) and is now in the
     // past, and 0008's trigger rightly refuses to join a started occurrence —
-    // so the occurrence is moved a day ahead for the insert and put back.
+    // so the occurrence is moved a day ahead for the insert and put back. The
+    // local wall clock moves with the instant: 0008 checks that they agree.
     await client.query(
       `UPDATE play_session_occurrences
           SET starts_at = now() + interval '1 day',
-              ends_at = now() + interval '1 day 90 minutes'
+              ends_at = now() + interval '1 day 90 minutes',
+              starts_at_local = (now() + interval '1 day') AT TIME ZONE 'Europe/Sofia'
         WHERE id = $1::uuid`,
       [occurrenceId],
     );
@@ -180,10 +182,11 @@ describe.skipIf(!hasDb)('weeklyDigest (requires running database)', () => {
     );
     await client.query(
       `UPDATE play_session_occurrences
-          SET starts_at = starts_at_local AT TIME ZONE 'Europe/Sofia',
-              ends_at = (starts_at_local AT TIME ZONE 'Europe/Sofia') + interval '90 minutes'
+          SET starts_at = $2::timestamp AT TIME ZONE 'Europe/Sofia',
+              ends_at = ($2::timestamp AT TIME ZONE 'Europe/Sofia') + interval '90 minutes',
+              starts_at_local = $2::timestamp
         WHERE id = $1::uuid`,
-      [occurrenceId],
+      [occurrenceId, '2026-09-02T18:00:00'],
     );
     const week = await weeklyDigest(db, { municipalityId, weekStart: WEEK });
     expect(week.occurrences.find((o) => o.occurrenceId === occurrenceId)?.going).toBe(1);

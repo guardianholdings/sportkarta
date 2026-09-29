@@ -160,10 +160,13 @@ describe.skipIf(!url)('report figures against the real database', () => {
     // They were made while the occurrences were still ahead. The report period
     // is a fixed September that is now in the past, and 0008's trigger rightly
     // refuses to join a started occurrence — so the two occurrences are moved a
-    // day ahead for the inserts and put back on 15 September afterwards.
+    // day ahead for the inserts and put back on 15 September afterwards. The
+    // local wall clock moves with the instant: 0008 checks that they agree.
     await client.query(
       `UPDATE play_session_occurrences
-          SET starts_at = now() + interval '1 day', ends_at = now() + interval '1 day 90 minutes'
+          SET starts_at = now() + interval '1 day',
+              ends_at = now() + interval '1 day 90 minutes',
+              starts_at_local = (now() + interval '1 day') AT TIME ZONE 'Europe/Sofia'
         WHERE id = ANY($1::uuid[])`,
       [occurrenceIds],
     );
@@ -180,7 +183,9 @@ describe.skipIf(!url)('report figures against the real database', () => {
     }
     await client.query(
       `UPDATE play_session_occurrences
-          SET starts_at = '2026-09-15T15:00:00Z', ends_at = '2026-09-15T16:30:00Z'
+          SET starts_at = '2026-09-15T15:00:00Z',
+              ends_at = '2026-09-15T16:30:00Z',
+              starts_at_local = '2026-09-15 18:00:00'
         WHERE id = ANY($1::uuid[])`,
       [occurrenceIds],
     );
