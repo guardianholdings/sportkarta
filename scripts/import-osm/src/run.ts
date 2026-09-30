@@ -13,6 +13,7 @@ import {
   loadOverrides,
   loadRegister,
   matchBoundaries,
+  municipalityLayerComplete,
   readBoundaries,
 } from './municipalities.js';
 import { buildReport, type ImportStats } from './report.js';
@@ -70,7 +71,13 @@ export async function runImport(options: RunOptions = {}): Promise<RunResult> {
   try {
     await client.query('BEGIN');
     const municipalityCounts = await importMunicipalities(client, matchResult.matched);
-    const counts = await importCandidates(client, candidates);
+    // Read after the boundary upsert, inside the same transaction: the gate
+    // judges the layer this run's facilities are actually assigned against.
+    const layerComplete = await municipalityLayerComplete(client, register);
+    const counts = await importCandidates(client, candidates, {
+      withdrawn: collection.withdrawn,
+      dropOutsideMunicipalities: layerComplete,
+    });
     const assignment = await assignMunicipalities(client);
     const distributions = await queryDistributions(client);
     stats = {
@@ -83,6 +90,7 @@ export async function runImport(options: RunOptions = {}): Promise<RunResult> {
         counts: municipalityCounts,
         unmatched: matchResult.unmatched,
         missingFromOsm: matchResult.missingFromOsm,
+        layerComplete,
       },
       assignment,
       featuresTotal: collection.featuresTotal,

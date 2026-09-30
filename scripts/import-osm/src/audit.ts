@@ -5,6 +5,7 @@ import { resolveCacheDir } from './cache-dir.js';
 import { ensureExtract } from './download.js';
 import { collectCandidates, runOsmium } from './extract.js';
 import { candidateAttrs, computeCentroids, loadLastEditSources } from './importer.js';
+import { municipalityOfSql } from './municipalities.js';
 import type { FacilityCandidate } from './normalize.js';
 
 /**
@@ -36,6 +37,8 @@ export interface AuditResult {
   thresholdPct: number;
   byField: Record<string, number>;
   protectedDiffs: number;
+  /** Sampled rows whose OSM object is now abandoned/disused — expected, not drift. */
+  withdrawnInOsm: number;
   examples: string[];
   report: string;
 }
@@ -72,7 +75,7 @@ export async function runAudit(options: AuditOptions = {}): Promise<AuditResult>
   const path = await import('node:path');
   const workDir = await mkdtemp(path.join(os.tmpdir(), 'sportkarta-audit-'));
   const featuresPath = await runOsmium(extract.pbfPath, workDir);
-  const { byKey } = await collectCandidates(featuresPath);
+  const { byKey, withdrawn } = await collectCandidates(featuresPath);
 
   const client = new pg.Client({ connectionString: databaseUrl });
   await client.connect();
@@ -81,8 +84,7 @@ export async function runAudit(options: AuditOptions = {}): Promise<AuditResult>
       `
       SELECT id, osm_type, osm_id, name, sport_types, surface, lighting, covered,
              access, attrs, ST_X(geom) AS lon, ST_Y(geom) AS lat, municipality_id,
-             (SELECT m.id FROM municipalities m WHERE ST_Contains(m.geom, facilities.geom) LIMIT 1)
-               AS expected_municipality_id
+             ${municipalityOfSql('facilities.geom')} AS expected_municipality_id
       FROM facilities
       WHERE source = 'osm'
       ORDER BY random()
@@ -116,6 +118,7 @@ export async function runAudit(options: AuditOptions = {}): Promise<AuditResult>
     const examples: string[] = [];
     let mismatchedRows = 0;
     let protectedDiffs = 0;
+    let withdrawnInOsm = 0;
 
     for (const row of rows) {
       const key = `${row.osm_type}:${row.osm_id}`;
@@ -127,7 +130,11 @@ export async function runAudit(options: AuditOptions = {}): Promise<AuditResult>
         return src !== undefined && SOURCE_PRIORITY[src] > SOURCE_PRIORITY.osm;
       };
 
-      if (!candidate) {
+      if (!candidate && withdrawn.has(key)) {
+        // OSM marks it abandoned/disused, so there is nothing to re-derive:
+        // the importer withdrew the row, or kept it because a person vouched.
+        withdrawnInOsm += 1;
+      } else if (!candidate) {
         byField['missing_from_extract'] = (byField['missing_from_extract'] ?? 0) + 1;
         rowMismatches.push('missing_from_extract');
       } else {
@@ -208,6 +215,7 @@ export async function runAudit(options: AuditOptions = {}): Promise<AuditResult>
 - Sample: ${String(rows.length)} of requested ${String(sampleSize)} (source='osm')
 - Rows with ≥1 mismatch: ${String(mismatchedRows)} → **${mismatchPct.toFixed(2)}%** (threshold ${String(thresholdPct)}%)
 - Merge-policy-protected diffs (intentional, not counted): ${String(protectedDiffs)}
+- Rows whose OSM object is now abandoned/disused (expected, not counted): ${String(withdrawnInOsm)}
 - Verdict: **${passed ? 'PASS' : 'FAIL'}**
 
 ## Mismatches by field
@@ -223,6 +231,7 @@ ${examples.length > 0 ? `## Examples\n\n${examples.map((e) => `- ${e}`).join('\n
       thresholdPct,
       byField,
       protectedDiffs,
+      withdrawnInOsm,
       examples,
       report,
     };

@@ -1,4 +1,5 @@
 import {
+  lifecycleState,
   mapAccess,
   mapCovered,
   mapLighting,
@@ -7,6 +8,7 @@ import {
   QUALIFYING_LEISURE,
   venueSkipReason,
   type Access,
+  type LifecycleState,
   type OsmTags,
 } from './mapping.js';
 import { BULGARIA_BBOX } from '@sportkarta/lib/geo';
@@ -46,9 +48,16 @@ export interface FacilityCandidate {
 
 export type NormalizeResult =
   | { kind: 'candidate'; candidate: FacilityCandidate }
-  | { kind: 'skip'; reason: string; detail?: string };
+  | { kind: 'skip'; reason: string; detail?: string }
+  /**
+   * OSM itself says the object is out of use. Never a candidate, but unlike a
+   * plain skip it carries the ref: a row imported before the mapper retagged
+   * it has to be found and withdrawn (importer.ts), not just left behind as
+   * "missing from extract".
+   */
+  | { kind: 'withdrawn'; osmType: OsmType; osmId: number; state: LifecycleState };
 
-const GEOMETRY_RANK: Record<string, number> = {
+export const GEOMETRY_RANK: Record<string, number> = {
   MultiPolygon: 3,
   Polygon: 3,
   Point: 2,
@@ -134,6 +143,11 @@ export function normalizeFeature(feature: OsmFeature): NormalizeResult {
       reason: 'invalid_feature',
       detail: `unparseable id ${String(feature.id)}`,
     };
+  }
+
+  const lifecycle = lifecycleState(tags);
+  if (lifecycle) {
+    return { kind: 'withdrawn', osmType: ref.type, osmId: ref.id, state: lifecycle };
   }
 
   const leisure = tags['leisure'];
