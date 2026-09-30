@@ -18,6 +18,8 @@
  *     attendee list is the sort of thing that gets forwarded.
  *   - The recipient's own address in the SUBJECT. Subjects land in notification
  *     previews on a lock screen and in bounce reports.
+ *   - A credential. The private calendar-feed URL is one, and these messages
+ *     are exactly what gets forwarded; they link to the profile instead.
  */
 
 import { brandEmailHtml } from './html.js';
@@ -41,10 +43,16 @@ export interface SessionMailStrings {
 
   /** `{name}` */
   greeting: string;
+  /**
+   * The same greeting with no name in it. Members who signed up by one-time
+   * code and never opened the profile have an empty display name, and
+   * «Здравейте, ,» is the first thing they would read from us.
+   */
+  greetingNoName: string;
 
   /** The one sentence that differs. `{title}` */
   leadConfirmed: string;
-  /** `{title}` `{position}` */
+  /** `{title}` `{position}` — the place ON THE WAITLIST, 1 for the first person waiting. */
   leadWaitlisted: string;
   /** `{title}` */
   leadPromoted: string;
@@ -81,12 +89,22 @@ export interface SessionMailData {
   sessionUrl: string;
   /** Per-occurrence .ics. Omitted for a cancellation — there is nothing to add. */
   calendarUrl?: string | undefined;
-  /** The member's private subscription feed, if they have one. */
-  feedUrl?: string | undefined;
+  /**
+   * Where the member manages their calendar feed — the PROFILE page, never the
+   * feed URL itself. The feed token is a credential (anyone holding the URL can
+   * read where this person plays, indefinitely), and a mail gets forwarded
+   * ("join me!") and sits in the relay's Sent folder; the profile link is
+   * worthless to anyone who is not signed in as the member.
+   */
+  calendarSettingsUrl?: string | undefined;
   capacity: number | null;
   going: number;
-  /** Waitlist position, for the waitlisted kind only. */
-  position?: number | undefined;
+  /**
+   * The member's place ON THE WAITLIST — 1 for the first person waiting — for
+   * the waitlisted kind only. Not the queue position: with 10 places, the first
+   * person waiting is 11th in the queue and 1st on the waitlist.
+   */
+  waitlistPlace?: number | undefined;
   /** Hours before the start, for the reminder kinds. */
   hoursBefore?: number | undefined;
 }
@@ -135,7 +153,7 @@ function leadFor(data: SessionMailData, strings: SessionMailStrings): string {
     case 'rsvp_waitlisted':
       return fill(strings.leadWaitlisted, {
         title: data.title,
-        position: data.position ?? 0,
+        position: data.waitlistPlace ?? 0,
       });
     case 'promoted':
       return fill(strings.leadPromoted, { title: data.title });
@@ -157,8 +175,9 @@ export function renderSessionMail(data: SessionMailData, strings: SessionMailStr
       ? fill(strings.spotsUnlimited, { going: data.going })
       : fill(strings.spots, { going: data.going, capacity: data.capacity });
 
+  const name = data.recipientName.trim();
   const lines: string[] = [
-    fill(strings.greeting, { name: data.recipientName }),
+    name === '' ? strings.greetingNoName : fill(strings.greeting, { name }),
     '',
     leadFor(data, strings),
     '',
@@ -177,7 +196,9 @@ export function renderSessionMail(data: SessionMailData, strings: SessionMailStr
   // The way out is in every message that put something in the calendar. A
   // reminder that cannot be acted on is how people stop opening reminders.
   if (!cancelled) lines.push(`${strings.withdraw}: ${data.sessionUrl}`);
-  if (data.feedUrl) lines.push('', `${strings.calendarFeed}: ${data.feedUrl}`);
+  if (data.calendarSettingsUrl) {
+    lines.push('', `${strings.calendarFeed}: ${data.calendarSettingsUrl}`);
+  }
 
   lines.push('', strings.footer);
 

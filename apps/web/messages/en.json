@@ -598,6 +598,7 @@
     "event_facility_added": "facility added",
     "event_facility_verified": "facility confirmed",
     "event_condition_reported": "condition reported",
+    "event_session_attended": "attendance confirmed",
     "addFacilityLink": "Add a facility"
   },
   "AdminAmbassadors": {
@@ -659,6 +660,7 @@
   "DigestEmail": {
     "subject": "This week in {city}",
     "greeting": "Hi {name}! Here is what is being played in {city} this week.",
+    "greetingNoName": "Hi! Here is what is being played in {city} this week.",
     "introOne": "{count} session this week.",
     "introOther": "{count} sessions this week.",
     "monday": "Monday",
@@ -833,6 +835,7 @@
     "event_facility_verified": "facility verified",
     "event_condition_reported": "condition reported",
     "event_session_checkin": "attended a session",
+    "event_session_attended": "attendance confirmed",
     "activityTitle": "Activity by month",
     "monthlyContributions": "{count, plural, one {# contribution} other {# contributions}}",
     "monthlyCheckins": "{count, plural, one {# session} other {# sessions}}",
@@ -1231,6 +1234,7 @@
     "subjectReminder": "Reminder: {title}",
     "subjectCancelled": "Cancelled: {title}",
     "greeting": "Hi {name},",
+    "greetingNoName": "Hi,",
     "leadConfirmed": "You are signed up for “{title}”.",
     "leadWaitlisted": "You are number {position} on the waitlist for “{title}”. If somebody drops out, we will write to you.",
     "leadPromoted": "A place opened up and you are now going to “{title}”.",

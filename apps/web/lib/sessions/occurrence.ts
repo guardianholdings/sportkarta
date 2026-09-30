@@ -1,4 +1,4 @@
-import { getDb, sql } from '@sportkarta/db';
+import { getDb, sql, waitlistPlaceSql } from '@sportkarta/db';
 
 /**
  * The read behind the public session page (docs/ROADMAP.md §6, Stage 4.2).
@@ -36,8 +36,14 @@ export interface OccurrenceView {
   capacity: number | null;
   going: number;
   waitlisted: number;
-  /** The viewer's own place, or null when they are not attending. */
-  viewerPosition: number | null;
+  /**
+   * The viewer's place ON THE WAITLIST — 1 for the first person waiting — or
+   * null when they are going or not attending. Not their queue position: with
+   * 10 places the first person waiting is 11th in the queue, and "you are
+   * number 11 on the waitlist" tells them to give up on a place they are next
+   * in line for. Same definition as the waitlist email (waitlistPlaceSql).
+   */
+  viewerWaitlistPlace: number | null;
   viewerStatus: 'going' | 'waitlisted' | null;
   viewerIsOrganizer: boolean;
 }
@@ -118,8 +124,8 @@ export async function occurrenceView(
         WHERE p.occurrence_id = o.id AND p.rsvp_status = 'going') AS going,
       (SELECT count(*)::int FROM play_session_rsvp_positions p
         WHERE p.occurrence_id = o.id AND p.rsvp_status = 'waitlisted') AS waitlisted,
-      (SELECT p.position::int FROM play_session_rsvp_positions p
-        WHERE p.occurrence_id = o.id AND p.user_id = ${viewerId}) AS viewer_position,
+      (SELECT ${waitlistPlaceSql('p')} FROM play_session_rsvp_positions p
+        WHERE p.occurrence_id = o.id AND p.user_id = ${viewerId}) AS viewer_waitlist_place,
       (SELECT p.rsvp_status FROM play_session_rsvp_positions p
         WHERE p.occurrence_id = o.id AND p.user_id = ${viewerId}) AS viewer_status
     FROM play_session_occurrences o
@@ -153,7 +159,10 @@ export async function occurrenceView(
     capacity: row.capacity === null || row.capacity === undefined ? null : Number(row.capacity),
     going: Number(row.going ?? 0),
     waitlisted: Number(row.waitlisted ?? 0),
-    viewerPosition: row.viewer_position === null ? null : Number(row.viewer_position),
+    viewerWaitlistPlace:
+      row.viewer_waitlist_place === null || row.viewer_waitlist_place === undefined
+        ? null
+        : Number(row.viewer_waitlist_place),
     viewerStatus:
       row.viewer_status === 'going' || row.viewer_status === 'waitlisted'
         ? row.viewer_status

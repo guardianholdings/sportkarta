@@ -10,6 +10,7 @@ import { renderWeeklyDigest, type DigestEntry, type DigestStrings } from './week
 const strings: DigestStrings = {
   subject: 'Тази седмица в {city}',
   greeting: 'Здравей, {name}! Ето какво се играе тази седмица в {city}.',
+  greetingNoName: 'Здравей! Ето какво се играе тази седмица в {city}.',
   introOne: '{count} тренировка тази седмица.',
   introOther: '{count} тренировки тази седмица.',
   weekdays: ['Понеделник', 'Вторник', 'Сряда', 'Четвъртък', 'Петък', 'Събота', 'Неделя'],
@@ -115,6 +116,31 @@ describe('renderWeeklyDigest', () => {
     expect(text).toContain('https://example.org/obekt/borisova');
     // The second entry has no URL, so nothing broken like "undefined" appears.
     expect(text).not.toContain('undefined');
+  });
+
+  it('greets a member who never set a name without «Здравей, !»', () => {
+    const text = renderWeeklyDigest({ ...data, recipientName: ' ' }, strings)?.text ?? '';
+    expect(text.split('\n')[0]).toBe('Здравей! Ето какво се играе тази седмица в София.');
+    expect(text).not.toMatch(/Здравей,\s*!/);
+  });
+
+  it('offers the mail client a one-click unsubscribe (RFC 8058)', () => {
+    const oneClick = 'https://example.org/api/digest/unsubscribe/tok3n';
+    const message = renderWeeklyDigest({ ...data, oneClickUnsubscribeUrl: oneClick }, strings);
+    // The pair Gmail and Yahoo require before they show their own
+    // "Unsubscribe" control next to the sender.
+    expect(message?.headers).toEqual({
+      'List-Unsubscribe': `<${oneClick}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    });
+    // The BODY keeps the human confirm page: a scanner that fetches it
+    // unsubscribes nobody.
+    expect(message?.text).toContain(data.unsubscribeUrl);
+    expect(message?.text).not.toContain(oneClick);
+  });
+
+  it('sends no List-Unsubscribe header it cannot back with an endpoint', () => {
+    expect(renderWeeklyDigest(data, strings)?.headers).toBeUndefined();
   });
 
   it('interpolates unknown placeholders literally rather than as undefined', () => {

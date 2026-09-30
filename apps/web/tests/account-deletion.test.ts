@@ -1,5 +1,6 @@
 import { renderSql, type SQL } from '@sportkarta/db';
-import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { describe, expect, it, vi } from 'vitest';
 
 import { deleteAccount } from '@/lib/account-deletion';
 
@@ -159,5 +160,83 @@ describe('deleteAccount', () => {
     };
     await deleteAccount(db, 'user_1');
     expect(opened).toBe(1);
+  });
+});
+
+describe('deleteAccount — an organiser’s members are told', () => {
+  /**
+   * The play_sessions_orphan_cancel trigger cancels an erased organiser's
+   * series SILENTLY. Everyone holding an RSVP used to get no cancellation and
+   * no more reminders, and turned up to a session that no longer existed. The
+   * erasure now hands each cancelled series to the same `series_cancelled`
+   * notification the organiser's own cancel button sends.
+   */
+  function organiserDb(sessionIds: string[], options: { failOnDelete?: boolean } = {}) {
+    const order: string[] = [];
+    const runner = {
+      execute(query: SQL) {
+        const { sql } = renderSql(query);
+        if (/FROM play_sessions/i.test(sql)) {
+          return Promise.resolve({ rows: [{ n: sessionIds.length, ids: sessionIds }] });
+        }
+        if (/DELETE FROM users/i.test(sql)) {
+          if (options.failOnDelete) return Promise.reject(new Error('rolled back'));
+          order.push('commit');
+        }
+        return Promise.resolve({ rows: [{ n: 0 }] });
+      },
+    };
+    return {
+      order,
+      ...runner,
+      transaction<T>(callback: (tx: typeof runner) => Promise<T>): Promise<T> {
+        return callback(runner);
+      },
+    };
+  }
+
+  it('enqueues series_cancelled for every series the erasure cancelled, after the commit', async () => {
+    const ids = ['8e4a1b8c-0d7e-4a8e-9c35-2b8f0c9d1e21', '0b6f3a54-7c1d-4f7e-8a2b-9d3c5e7f1a02'];
+    const db = organiserDb(ids);
+    const sent: { queue: string; data: Record<string, unknown> }[] = [];
+    const summary = await deleteAccount(db, 'user_1', {
+      enqueue: (queue, data) => {
+        db.order.push('enqueue');
+        sent.push({ queue, data });
+        return Promise.resolve();
+      },
+    });
+
+    expect(summary.sessionsCancelled).toBe(2);
+    expect(sent).toEqual(
+      ids.map((sessionId) => ({
+        queue: 'session.notify',
+        data: { reason: 'series_cancelled', sessionId },
+      })),
+    );
+    // Session ids only — the payload names nobody.
+    expect(JSON.stringify(sent)).not.toMatch(/user_1|@/);
+    expect(db.order).toEqual(['commit', 'enqueue', 'enqueue']);
+  });
+
+  it('enqueues nothing for an erasure that did not commit', async () => {
+    const db = organiserDb(['8e4a1b8c-0d7e-4a8e-9c35-2b8f0c9d1e21'], { failOnDelete: true });
+    const enqueue = vi.fn(() => Promise.resolve());
+    await expect(deleteAccount(db, 'user_1', { enqueue })).rejects.toThrow('rolled back');
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it('enqueues nothing for a member who organised nothing', async () => {
+    const enqueue = vi.fn(() => Promise.resolve());
+    await deleteAccount(organiserDb([]), 'user_1', { enqueue });
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it('is wired into the profile erasure action', () => {
+    const action = readFileSync(
+      new URL('../app/[locale]/profil/actions.ts', import.meta.url),
+      'utf8',
+    );
+    expect(action).toMatch(/deleteAccount\(getDb\(\), user\.id, \{\s*enqueue:/);
   });
 });

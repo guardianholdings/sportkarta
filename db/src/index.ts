@@ -30,6 +30,7 @@ export {
   recipientsFor,
   REMINDER_LEAD_HOURS,
   seriesCancellationRecipients,
+  waitlistPlaceSql,
 } from './sessions/notifications.js';
 export type {
   ReminderKind,

@@ -31,6 +31,8 @@ export interface DigestStrings {
   subject: string;
   /** `{name}` `{city}` */
   greeting: string;
+  /** `{city}` — for a member who never set a display name («Здравей, !» otherwise). */
+  greetingNoName: string;
   /**
    * Two explicit forms rather than an ICU plural: this renderer runs in the
    * worker, which has no next-intl, and a half-implemented ICU interpreter
@@ -55,7 +57,14 @@ export interface DigestData {
   recipientName: string;
   entries: readonly DigestEntry[];
   weekUrl: string;
+  /** The human confirm page, printed in the body. A GET that changes nothing. */
   unsubscribeUrl: string;
+  /**
+   * The RFC 8058 one-click endpoint for the List-Unsubscribe header: a POST
+   * there unsubscribes with no page in between, which is what Gmail's and
+   * Yahoo's native "Unsubscribe" control sends.
+   */
+  oneClickUnsubscribeUrl?: string | undefined;
 }
 
 /** Simple `{name}` interpolation — the same placeholder syntax next-intl uses. */
@@ -93,8 +102,11 @@ export function renderWeeklyDigest(
 ): MailMessage | undefined {
   if (data.entries.length === 0) return undefined;
 
+  const name = data.recipientName.trim();
   const lines: string[] = [
-    fill(strings.greeting, { name: data.recipientName, city: data.cityName }),
+    name === ''
+      ? fill(strings.greetingNoName, { city: data.cityName })
+      : fill(strings.greeting, { name, city: data.cityName }),
     '',
     fill(data.entries.length === 1 ? strings.introOne : strings.introOther, {
       count: data.entries.length,
@@ -133,5 +145,17 @@ export function renderWeeklyDigest(
     subject: fill(strings.subject, { city: data.cityName }),
     text,
     html: brandEmailHtml(text),
+    // A bulk mail with no native unsubscribe control gets "Report spam"
+    // instead — and complaints count against the same sending account the
+    // sign-in codes use. RFC 8058: the header names the POST endpoint, and
+    // List-Unsubscribe-Post says a bare POST is enough (no confirm page).
+    ...(data.oneClickUnsubscribeUrl
+      ? {
+          headers: {
+            'List-Unsubscribe': `<${data.oneClickUnsubscribeUrl}>`,
+            'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+          },
+        }
+      : {}),
   };
 }
