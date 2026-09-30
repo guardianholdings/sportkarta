@@ -1,5 +1,5 @@
 import { CANONICAL_SPORTS, CANONICAL_SURFACES } from '@sportkarta/lib';
-import { getTranslations, setRequestLocale } from 'next-intl/server';
+import { getLocale, getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
 import { Link } from '@/i18n/navigation';
@@ -9,7 +9,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Radio } from '@/components/ui/radio';
 import { Select } from '@/components/ui/select';
-import { ACCESS_VALUES, facilityHistory, getFacility, STATUS_VALUES } from '@/lib/admin-data';
+import {
+  ACCESS_VALUES,
+  CONDITION_VALUES,
+  facilityHistory,
+  getFacility,
+  STATUS_VALUES,
+} from '@/lib/admin-data';
 import { requireAdmin } from '@/lib/auth-session';
 
 import { saveFacility } from '../actions';
@@ -23,22 +29,44 @@ export default async function AdminFacilityEditPage({
 }) {
   const { locale, id } = await params;
   setRequestLocale(locale);
-  const savedRaw = (await searchParams).saved;
+  const sp = await searchParams;
+  const savedRaw = sp.saved;
   const saved = typeof savedRaw === 'string' ? Number(savedRaw) : null;
+  const error = sp.error === 'location' || sp.error === 'scope' ? sp.error : null;
 
   // Scoped: an ambassador may only open facilities in their municipalities.
   const user = await requireAdmin();
-  const [t, tStatus, tAccess, tSport, tSurface, tSource, facility, history] = await Promise.all([
+  const [
+    t,
+    tStatus,
+    tAccess,
+    tSport,
+    tSurface,
+    tSource,
+    tCondition,
+    activeLocale,
+    facility,
+    history,
+  ] = await Promise.all([
     getTranslations('AdminEdit'),
     getTranslations('AdminStatus'),
     getTranslations('Access'),
     getTranslations('Sport'),
     getTranslations('Surface'),
     getTranslations('Source'),
+    getTranslations('Condition'),
+    getLocale(),
     getFacility({ id: user.id, role: user.role }, id),
     facilityHistory(id),
   ]);
   if (!facility) notFound();
+
+  const dateFmt = new Intl.DateTimeFormat(activeLocale, {
+    dateStyle: 'short',
+    timeStyle: 'short',
+    timeZone: 'Europe/Sofia',
+  });
+  const numberFmt = new Intl.NumberFormat(activeLocale, { maximumFractionDigits: 1 });
 
   const saveWithId = saveFacility.bind(null, facility.id);
 
@@ -54,6 +82,11 @@ export default async function AdminFacilityEditPage({
       {saved !== null && (
         <p className="rounded-md border border-success-border bg-success-bg px-3 py-2 text-body-sm text-success">
           {saved > 0 ? t('saved', { count: saved }) : t('savedNone')}
+        </p>
+      )}
+      {error && (
+        <p className="rounded-md border border-danger-border bg-danger-bg px-3 py-2 text-body-sm text-danger">
+          {error === 'location' ? t('locationInvalid') : t('locationOutOfScope')}
         </p>
       )}
 
@@ -133,6 +166,47 @@ export default async function AdminFacilityEditPage({
           </label>
 
           <label className="flex flex-col gap-1.5">
+            <span className="text-caption font-medium text-ink-soft">{t('condition')}</span>
+            <Select name="condition" defaultValue={facility.condition ?? ''}>
+              <option value="">{t('conditionNone')}</option>
+              {CONDITION_VALUES.map((c) => (
+                <option key={c} value={c}>
+                  {tCondition(c)}
+                </option>
+              ))}
+            </Select>
+          </label>
+
+          <fieldset className="space-y-1">
+            <legend className="text-caption font-medium text-ink-soft">{t('location')}</legend>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-caption text-text-muted">{t('lat')}</span>
+                <Input
+                  name="lat"
+                  inputMode="decimal"
+                  defaultValue={facility.lat.toFixed(6)}
+                  autoComplete="off"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-caption text-text-muted">{t('lon')}</span>
+                <Input
+                  name="lon"
+                  inputMode="decimal"
+                  defaultValue={facility.lon.toFixed(6)}
+                  autoComplete="off"
+                />
+              </label>
+            </div>
+            <p className="text-caption text-text-muted">
+              {t('locationHelp', {
+                municipality: facility.municipalityName ?? t('noMunicipality'),
+              })}
+            </p>
+          </fieldset>
+
+          <label className="flex flex-col gap-1.5">
             <span className="text-caption font-medium text-ink-soft">{t('status')}</span>
             <Select name="status" defaultValue={facility.status}>
               {STATUS_VALUES.map((s) => (
@@ -168,7 +242,7 @@ export default async function AdminFacilityEditPage({
                 {history.map((edit) => (
                   <li key={edit.id} className="rounded-md border border-line bg-surface p-2">
                     <span className="font-mono text-text-muted tabular-nums">
-                      {edit.createdAt.slice(0, 16)}
+                      {dateFmt.format(new Date(edit.createdAt))}
                     </span>{' '}
                     ·{' '}
                     <span className="font-medium">
@@ -184,9 +258,26 @@ export default async function AdminFacilityEditPage({
                       t('historyCreated')
                     ) : (
                       <>
+                        {edit.field === 'access_proposed' && (
+                          // Filed for a moderator, never applied: a remote
+                          // "no longer free" (verify-facility.ts). Set Access
+                          // above if it is true.
+                          <span className="mr-1 rounded-pill bg-warning-bg px-1.5 text-warning">
+                            {t('historyProposal')}
+                          </span>
+                        )}
                         <code>{edit.field}</code>: {JSON.stringify(edit.oldValue)} →{' '}
                         {JSON.stringify(edit.newValue)}
                       </>
+                    )}
+                    {edit.distanceM !== null && (
+                      <span className="text-text-muted">
+                        {' '}
+                        ·{' '}
+                        {edit.distanceM >= 1000
+                          ? t('historyDistanceKm', { km: numberFmt.format(edit.distanceM / 1000) })
+                          : t('historyDistanceM', { m: edit.distanceM })}
+                      </span>
                     )}
                   </li>
                 ))}

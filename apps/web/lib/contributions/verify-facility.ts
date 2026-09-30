@@ -44,6 +44,11 @@ export interface VerifyResult {
   awarded: boolean;
   /** True when the member reported the facility as gone. */
   reportedMissing: boolean;
+  /**
+   * True when a remote change of access away from `free` was filed for a
+   * moderator instead of being applied (see gateRemoteAccessChange).
+   */
+  accessProposed?: boolean;
 }
 
 interface SqlRunner {
@@ -94,6 +99,35 @@ export function normalizeChecklist(checklist: VerifyChecklist): Record<string, J
   }
 
   return incoming;
+}
+
+/**
+ * A REMOTE CHANGE OF ACCESS AWAY FROM `free` IS A PROPOSAL, NOT AN EDIT.
+ *
+ * `access` is the one field whose wrong value hides a facility: the public
+ * visibility predicate drops `paid` rows while `public_show_paid` is off, so
+ * one armchair "it's paid now" took a free pitch off the map, the city pages,
+ * the sitemap and the open-data export — and crowd outranks every import, so
+ * no re-import would bring it back (pre-launch audit finding 53). Nobody
+ * reports a facility they cannot see.
+ *
+ * So the change applies only from somebody standing there (the same proximity
+ * rule that gates publishing). From anywhere else it is recorded as an
+ * `access_proposed` audit row — attributed, with its distance — and a pending
+ * moderation report is filed (one per facility), so a moderator sees it and
+ * decides in the editor. Every other correction, and any change TO free, still
+ * applies as before.
+ */
+function gateRemoteAccessChange(
+  incoming: Record<string, JsonValue>,
+  currentAccess: JsonValue,
+  onSite: boolean,
+): { proposed: JsonValue } | null {
+  const proposed = incoming.access;
+  if (proposed === undefined || onSite) return null;
+  if (currentAccess !== 'free' || proposed === 'free') return null;
+  delete incoming.access;
+  return { proposed };
 }
 
 /** Column writers, mirroring the admin edit path. Field names are never interpolated. */
@@ -176,6 +210,28 @@ export async function verifyFacility(
       sport_types: ((row.sport_types as string[] | null) ?? []) as JsonValue,
     };
 
+    const accessProposal = gateRemoteAccessChange(incoming, current.access ?? null, onSite);
+    if (accessProposal) {
+      await tx.execute(sql`
+        INSERT INTO facility_edits (facility_id, actor, source, field, old_value, new_value, distance_m)
+        VALUES (${params.facilityId}::uuid, ${params.userId}, 'crowd', 'access_proposed',
+                ${JSON.stringify(current.access)}::jsonb,
+                ${JSON.stringify(accessProposal.proposed)}::jsonb, ${distanceM})
+      `);
+      // Into the existing moderation queue, de-duplicated per facility so a
+      // repeat submission cannot flood it.
+      await tx.execute(sql`
+        INSERT INTO facility_reports (facility_id, issue, body, status, distance_m)
+        SELECT ${params.facilityId}::uuid, 'other', NULL, 'pending', ${distanceM}
+        WHERE NOT EXISTS (
+          SELECT 1 FROM facility_reports r
+          WHERE r.facility_id = ${params.facilityId}::uuid
+            AND r.issue = 'other'
+            AND r.status = 'pending'
+        )
+      `);
+    }
+
     // Crowd outranks every other source, so nothing can be frozen against this
     // edit; mergeFields is here for change detection and audit payloads.
     const merge = mergeFields({
@@ -225,7 +281,8 @@ export async function verifyFacility(
      * The field CORRECTIONS above are applied either way: those are ordinary
      * crowd edits under the merge policy, they are individually attributed, and
      * withholding them would lose real fixes to protect against a fake nobody
-     * has demonstrated.
+     * has demonstrated. The one exception is access away from `free`, which
+     * can hide a facility and is gated above (gateRemoteAccessChange).
      */
     const activated = row.status === 'needs_verification' && onSite;
     if (activated) {
@@ -256,6 +313,7 @@ export async function verifyFacility(
       reportedMissing: false,
       distanceM,
       onSite,
+      ...(accessProposal ? { accessProposed: true } : {}),
     };
   });
 }

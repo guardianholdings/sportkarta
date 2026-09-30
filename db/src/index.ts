@@ -1,6 +1,22 @@
 export { getDb, getPool } from './client.js';
 export { checkDbHealth } from './health.js';
 export type { DbHealth } from './health.js';
+export {
+  CROWD_FEED_PAGE_SIZE,
+  isRevertable,
+  listCrowdEdits,
+  MAX_BULK_REVERT,
+  REVERTABLE_FIELDS,
+  revertAccountEdits,
+  revertCrowdEdit,
+} from './crowd-edits.js';
+export type {
+  BulkRevertResult,
+  CrowdEditRow,
+  CrowdFeedFilters,
+  RevertOutcome,
+  RevertResult,
+} from './crowd-edits.js';
 export { refreshStats, STATS_MATVIEWS } from './stats.js';
 export { HORIZON_WEEKS, materializeSessions } from './sessions/materialize.js';
 export {

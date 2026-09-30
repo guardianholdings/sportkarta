@@ -265,6 +265,60 @@ describe('verifyFacility', () => {
     expect(db.text()).not.toContain('sportTypes');
   });
 
+  describe('access away from free (pre-launch audit finding 53)', () => {
+    const remote = [{ ...current[0], status: 'active', distance_m: 4200 }];
+
+    it('files a REMOTE change to paid for a moderator instead of hiding the facility', async () => {
+      const db = fakeDb([remote, [], [], [], []]);
+      const result = await verifyFacility(db, {
+        userId: USER,
+        facilityId: FACILITY,
+        checklist: { exists: true, access: 'paid' },
+      });
+
+      expect(result.accessProposed).toBe(true);
+      expect(result.changedFields).toEqual([]);
+      const text = db.text();
+      // The column is untouched: no UPDATE of access anywhere.
+      expect(text).not.toMatch(/access = /);
+      // Attributed, with its distance, under a field the merge policy ignores.
+      expect(text).toMatch(/'access_proposed'/);
+      expect(text).toContain(USER);
+      expect(text).toContain('4200');
+      // And it reaches the moderation queue.
+      expect(text).toMatch(/INSERT INTO facility_reports/);
+      expect(text).toMatch(/'other'/);
+    });
+
+    it('still applies the same change from somebody standing there', async () => {
+      const db = fakeDb([current, [], [], [], [], [], [{ id: 1 }]]);
+      const result = await verifyFacility(db, {
+        userId: USER,
+        facilityId: FACILITY,
+        checklist: { exists: true, access: 'paid' },
+      });
+
+      expect(result.accessProposed).toBeUndefined();
+      expect(result.changedFields).toEqual(['access']);
+      expect(db.text()).toMatch(/access = \$\d+::facility_access/);
+      expect(db.text()).not.toMatch(/access_proposed/);
+    });
+
+    it('applies a remote change TO free, and every other remote correction', async () => {
+      const paid = [{ ...remote[0], access: 'paid' }];
+      const db = fakeDb([paid, [], [], [], []]);
+      const result = await verifyFacility(db, {
+        userId: USER,
+        facilityId: FACILITY,
+        checklist: { exists: true, access: 'free', lighting: true },
+      });
+
+      expect(result.accessProposed).toBeUndefined();
+      expect(result.changedFields.sort()).toEqual(['access', 'lighting']);
+      expect(db.text()).not.toMatch(/facility_reports/);
+    });
+  });
+
   it('refuses to verify a facility that does not exist', async () => {
     const db = fakeDb([[]]);
     await expect(

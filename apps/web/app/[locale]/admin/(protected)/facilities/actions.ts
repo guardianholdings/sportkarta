@@ -5,8 +5,9 @@ import { CANONICAL_SPORTS, CANONICAL_SURFACES, mergeFields, type JsonValue } fro
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-import { ACCESS_VALUES, isUuid, STATUS_VALUES } from '@/lib/admin-data';
+import { ACCESS_VALUES, CONDITION_VALUES, isUuid, STATUS_VALUES } from '@/lib/admin-data';
 import { requireAdmin } from '@/lib/auth-session';
+import { locationChanged, parseLocation } from '@/lib/facility-editor';
 import { scopeClause } from '@/lib/moderation';
 
 function optionalText(value: FormDataEntryValue | null): string | null {
@@ -47,6 +48,9 @@ export async function saveFacility(facilityId: string, formData: FormData): Prom
     .sort();
   const surfaceRaw = optionalText(formData.get('surface'));
   const lightingRaw = String(formData.get('lighting') ?? 'unknown');
+  const conditionRaw = optionalText(formData.get('condition'));
+  const location = parseLocation(formData.get('lon'), formData.get('lat'));
+  if (location === 'invalid') redirect(`/admin/facilities/${facilityId}?error=location`);
 
   const incoming: Record<string, JsonValue> = {
     name: optionalText(formData.get('name')),
@@ -57,6 +61,9 @@ export async function saveFacility(facilityId: string, formData: FormData): Prom
     covered: formData.get('covered') === 'on',
     access: oneOf(formData.get('access'), ACCESS_VALUES),
     status: oneOf(formData.get('status'), STATUS_VALUES),
+    // The operator's answer to a disputed or remote condition report
+    // (finding 53/62): set it, or clear it back to "nobody has reported".
+    condition: conditionRaw === null ? null : oneOf(conditionRaw, CONDITION_VALUES),
   };
 
   // Safe-list of SET fragments — field names never interpolated dynamically.
@@ -72,22 +79,75 @@ export async function saveFacility(facilityId: string, formData: FormData): Prom
     covered: (v) => sql`covered = ${v}`,
     access: (v) => sql`access = ${String(v)}::facility_access`,
     status: (v) => sql`status = ${String(v)}::facility_status`,
+    // The condition and its timestamp travel together (facilities_condition_pair).
+    // An operator setting it is a fresh report as of now.
+    condition: (v) =>
+      v === null
+        ? sql`condition = NULL, condition_reported_at = NULL`
+        : sql`condition = ${String(v)}::facility_condition, condition_reported_at = now()`,
   };
 
   const db = getDb();
-  let appliedCount = 0;
 
-  await db.transaction(async (tx) => {
+  // A number of applied changes, or 'refused' when a pin move was out of scope.
+  const outcome = await db.transaction(async (tx): Promise<number | 'refused'> => {
     // The scope is part of the row lock: an out-of-scope facility simply is not
     // found, so the edit never begins.
     const currentResult = await tx.execute(sql`
       SELECT f.name, f.quarter, f.sport_types, f.surface, f.lighting, f.covered,
-             f.access, f.status
+             f.access, f.status, f.condition::text AS condition, f.municipality_id,
+             ST_X(f.geom) AS lon, ST_Y(f.geom) AS lat
       FROM facilities f WHERE f.id = ${facilityId} AND ${scope}
       FOR UPDATE
     `);
     const row = currentResult.rows[0] as Record<string, JsonValue> | undefined;
     if (!row) throw new Error('facility not found');
+
+    let appliedCount = 0;
+
+    /**
+     * MOVING THE PIN, first — so a refused move returns before anything else is
+     * written. The municipality is recomputed from the new point in the same
+     * statement (the importers' rule), so it can never disagree with the map.
+     * An ambassador may only move a facility to somewhere still inside their
+     * own municipalities: otherwise a move would hand a facility to (or take
+     * one from) another ambassador, or drop it outside every boundary, where
+     * nobody moderates it.
+     */
+    const was = { lon: Number(row.lon), lat: Number(row.lat) };
+    if (location && locationChanged(was, location)) {
+      const point = sql`ST_SetSRID(ST_MakePoint(${location.lon}::float8, ${location.lat}::float8), 4326)`;
+      const placed = sql`(SELECT m.id FROM municipalities m WHERE ST_Contains(m.geom, ${point}) ORDER BY m.id LIMIT 1)`;
+      const targetScope =
+        user.role === 'admin'
+          ? sql`TRUE`
+          : sql`${placed} IN (SELECT municipality_id FROM ambassador_municipalities WHERE user_id = ${user.id})`;
+      const moved = await tx.execute(sql`
+        UPDATE facilities f SET geom = ${point}, municipality_id = ${placed}
+        WHERE f.id = ${facilityId} AND ${scope} AND ${targetScope}
+        RETURNING f.municipality_id
+      `);
+      const movedRow = moved.rows[0] as Record<string, JsonValue> | undefined;
+      if (!movedRow) return 'refused';
+      // Same field name and value shape the OSM and municipal importers write,
+      // so the merge policy sees an operator's move as a crowd edit of `geom`
+      // and no later import drags the pin back.
+      await tx.execute(sql`
+        INSERT INTO facility_edits (facility_id, actor, source, field, old_value, new_value)
+        VALUES (${facilityId}, ${actor}, 'crowd', 'geom',
+                ${JSON.stringify(was)}::jsonb, ${JSON.stringify(location)}::jsonb)
+      `);
+      appliedCount += 1;
+      const before = row.municipality_id ?? null;
+      const after = movedRow.municipality_id ?? null;
+      if (before !== after) {
+        await tx.execute(sql`
+          INSERT INTO facility_edits (facility_id, actor, source, field, old_value, new_value)
+          VALUES (${facilityId}, ${actor}, 'crowd', 'municipality_id',
+                  ${JSON.stringify(before)}::jsonb, ${JSON.stringify(after)}::jsonb)
+        `);
+      }
+    }
 
     const current: Record<string, JsonValue> = {
       name: row.name ?? null,
@@ -98,13 +158,14 @@ export async function saveFacility(facilityId: string, formData: FormData): Prom
       covered: row.covered ?? false,
       access: row.access ?? null,
       status: row.status ?? null,
+      condition: row.condition ?? null,
     };
 
     // crowd outranks everything, so nothing can be frozen against this edit;
     // mergeFields still gives change detection + audit payloads.
     const merge = mergeFields({ incomingSource: 'crowd', current, incoming, lastEditSources: {} });
-    appliedCount = merge.applied.length;
-    if (merge.applied.length === 0) return;
+    appliedCount += merge.applied.length;
+    if (merge.applied.length === 0) return appliedCount;
 
     const fragments = merge.applied.map((change) => {
       const setter = setters[change.field];
@@ -123,8 +184,10 @@ export async function saveFacility(facilityId: string, formData: FormData): Prom
                 ${JSON.stringify(change.oldValue)}::jsonb, ${JSON.stringify(change.newValue)}::jsonb)
       `);
     }
+    return appliedCount;
   });
 
+  if (outcome === 'refused') redirect(`/admin/facilities/${facilityId}?error=scope`);
   revalidatePath('/admin/facilities');
-  redirect(`/admin/facilities/${facilityId}?saved=${String(appliedCount)}`);
+  redirect(`/admin/facilities/${facilityId}?saved=${String(outcome)}`);
 }

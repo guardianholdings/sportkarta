@@ -2,17 +2,24 @@ import { getDb, sql, type SQL } from '@sportkarta/db';
 
 import { scopeClause, type ModerationActor } from './moderation';
 import { jobErrorMessage } from './ops-health';
-import { facilityAccess, facilitySource, facilityStatus } from '@sportkarta/db/schema';
+import {
+  facilityAccess,
+  facilityCondition,
+  facilitySource,
+  facilityStatus,
+} from '@sportkarta/db/schema';
 
 /** Read-side queries for the admin screens. Server-only; callers are gated. */
 
 export const STATUS_VALUES = facilityStatus.enumValues;
 export const SOURCE_VALUES = facilitySource.enumValues;
 export const ACCESS_VALUES = facilityAccess.enumValues;
+export const CONDITION_VALUES = facilityCondition.enumValues;
 
 export type FacilityStatus = (typeof STATUS_VALUES)[number];
 export type FacilitySource = (typeof SOURCE_VALUES)[number];
 export type FacilityAccess = (typeof ACCESS_VALUES)[number];
+export type FacilityCondition = (typeof CONDITION_VALUES)[number];
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -221,6 +228,9 @@ export async function verifyQueue(
 
 export interface FacilityDetail extends VerifyCard {
   status: FacilityStatus;
+  /** Latest crowd condition, or null when nobody has reported one. */
+  condition: FacilityCondition | null;
+  municipalityId: number | null;
 }
 
 /**
@@ -240,6 +250,7 @@ export async function getFacility(
   const result = await db.execute(sql`
     SELECT f.id, f.name, f.quarter, m.name_bg AS municipality_name, f.sport_types,
            f.surface, f.lighting, f.covered, f.access, f.source, f.status,
+           f.condition, f.municipality_id,
            ST_X(f.geom) AS lon, ST_Y(f.geom) AS lat,
            f.attrs -> 'osm' -> 'tags' AS osm_tags
     FROM facilities f
@@ -260,6 +271,8 @@ export async function getFacility(
     access: row.access as FacilityAccess,
     source: row.source as FacilitySource,
     status: row.status as FacilityStatus,
+    condition: (row.condition as FacilityCondition | null) ?? null,
+    municipalityId: row.municipality_id === null ? null : Number(row.municipality_id),
     lon: Number(row.lon),
     lat: Number(row.lat),
     osmTags: (row.osm_tags as Record<string, string> | null) ?? null,
@@ -279,6 +292,8 @@ export interface EditHistoryRow {
   field: string;
   oldValue: unknown;
   newValue: unknown;
+  /** Metres from the place when a member made it; null = no position given. */
+  distanceM: number | null;
   createdAt: string;
 }
 
@@ -286,7 +301,8 @@ export async function facilityHistory(id: string): Promise<EditHistoryRow[]> {
   if (!isUuid(id)) return [];
   const db = getDb();
   const result = await db.execute(sql`
-    SELECT e.id, e.actor, u.display_name, e.source, e.field, e.old_value, e.new_value, e.created_at
+    SELECT e.id, e.actor, u.display_name, e.source, e.field, e.old_value, e.new_value,
+           e.distance_m, e.created_at
     FROM facility_edits e
     LEFT JOIN users u ON u.id = e.actor
     WHERE e.facility_id = ${id}
@@ -304,7 +320,12 @@ export async function facilityHistory(id: string): Promise<EditHistoryRow[]> {
       field: String(row.field),
       oldValue: row.old_value,
       newValue: row.new_value,
-      createdAt: String(row.created_at),
+      distanceM:
+        row.distance_m === null || row.distance_m === undefined ? null : Number(row.distance_m),
+      // ISO, so the page can format it in Sofia time rather than slicing
+      // whatever String(Date) happens to print.
+      createdAt:
+        row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     };
   });
 }

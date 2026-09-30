@@ -26,6 +26,7 @@
     "municipalImport": "Municipal data",
     "partners": "Partners",
     "accounts": "Accounts",
+    "crowdEdits": "Crowd edits",
     "health": "Health"
   },
   "AdminDashboard": {
@@ -145,7 +146,19 @@
     "history": "Edit history",
     "historyEmpty": "No recorded changes.",
     "historyCreated": "created",
-    "formerUser": "former user"
+    "formerUser": "former user",
+    "condition": "Condition",
+    "conditionNone": "(no report)",
+    "location": "Location",
+    "lat": "Latitude",
+    "lon": "Longitude",
+    "locationHelp": "The municipality is derived from the point automatically. Now: {municipality}.",
+    "noMunicipality": "outside every municipality",
+    "locationInvalid": "Those coordinates are not a point in Bulgaria — nothing was saved.",
+    "locationOutOfScope": "The new location is outside your municipalities — nothing was saved.",
+    "historyProposal": "proposal",
+    "historyDistanceKm": "{km} km",
+    "historyDistanceM": "{m} m"
   },
   "AdminVerify": {
     "title": "Verify facilities",
@@ -292,6 +305,71 @@
       "streaksFreeze": "Streak freezes",
       "divisionsRollover": "Weekly divisions"
     }
+  },
+  "AdminCrowdEdits": {
+    "title": "Crowd edits",
+    "intro": "Every change a community member made to a facility — newest first, with how far away they were. Reverting deletes nothing: it records a new edit in your name and the history stays. If somebody else has corrected the value since, a revert leaves it alone.",
+    "accountLabel": "Account (ID)",
+    "accountPlaceholder": "ID from “Accounts”",
+    "filter": "Show",
+    "clearAccount": "All accounts",
+    "windowLabel": "Period",
+    "windowAll": "All",
+    "window": {
+      "h1": "Last hour",
+      "h24": "Last 24 hours",
+      "h168": "Last 7 days",
+      "h720": "Last 30 days"
+    },
+    "bulkTitle": "Revert every edit by this account",
+    "bulkIntro": "For vandalism by one account: each of its changes in the chosen period is reverted, newest to oldest. Changes somebody else has corrected since are skipped.",
+    "bulkWindow": "Period",
+    "bulkConfirm": "Revert every edit by this account in the chosen period?",
+    "bulkSubmit": "Revert all",
+    "bulkResult": "Reverted: {reverted}. Skipped because somebody changed them since: {superseded}. Nothing to revert: {skipped}.",
+    "bulkTruncated": "There are more edits — submit again to continue.",
+    "outcome": {
+      "reverted": "The edit was reverted.",
+      "superseded": "Not reverted: somebody else has changed the value since this edit.",
+      "already": "Nothing to revert — the value is already the previous one.",
+      "not_revertable": "This edit changed no field, so there is nothing to revert.",
+      "not_found": "The edit was not found."
+    },
+    "empty": "No edits match this filter.",
+    "unnamed": "(unnamed)",
+    "proposal": "proposal — not applied",
+    "remoteCondition": "remote report — the map was not changed",
+    "field": {
+      "access": "Access",
+      "access_proposed": "Proposed access",
+      "surface": "Surface",
+      "lighting": "Lighting",
+      "covered": "Covered",
+      "sport_types": "Sports",
+      "status": "Status",
+      "condition": "Condition",
+      "created": "Facility added",
+      "verified": "Confirmation",
+      "reported_missing": "Reported as missing",
+      "name": "Name",
+      "quarter": "Neighbourhood",
+      "geom": "Location",
+      "municipality_id": "Municipality"
+    },
+    "valueNone": "none",
+    "valueYes": "yes",
+    "valueNo": "no",
+    "distanceNone": "no location",
+    "distanceKm": "{km} km from the place",
+    "distanceM": "{m} m from the place",
+    "role": {
+      "ambassador": "ambassador",
+      "admin": "admin"
+    },
+    "revertConfirm": "Revert this edit?",
+    "revert": "Revert",
+    "revertCreated": "Take off the map",
+    "older": "Older →"
   },
   "AdminMap": {
     "openInOsm": "Open in OpenStreetMap",
