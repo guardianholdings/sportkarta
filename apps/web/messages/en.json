@@ -1892,7 +1892,8 @@
       "startedAtFuture": "You cannot log a training in the future.",
       "startedAtTooOld": "That date is too far in the past.",
       "note": "The note is too long.",
-      "external": "Problem with the connected-app link."
+      "external": "Problem with the connected-app link.",
+      "rateLimited": "Too many trainings logged in a short time. Try again later."
     },
     "consentTitle": "Data from connected apps",
     "consentIntro": "Strava, Garmin and Apple Health connections are coming. Choose what we store — the two permissions are separate and you can withdraw either at any time.",

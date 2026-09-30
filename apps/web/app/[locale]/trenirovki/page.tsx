@@ -157,6 +157,7 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
                 note_too_long: t('problems.note'),
                 external_id_on_manual: t('problems.external'),
                 external_id_missing: t('problems.external'),
+                rate_limited: t('problems.rateLimited'),
               },
             }}
           />
