@@ -12,8 +12,9 @@ export * from './mailer.js';
 export { brandEmailHtml } from './html.js';
 export * from './weekly-digest.js';
 export * from './session-mail.js';
+export * from './delivery.js';
 export { FileMailer, ConsoleMailer } from './file.js';
-export { SmtpMailer } from './smtp.js';
+export { DEFAULT_FROM_NAME, formatFrom, SmtpMailer } from './smtp.js';
 
 const DEFAULT_OUTBOX_DIR = './var/mail';
 
