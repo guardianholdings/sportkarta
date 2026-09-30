@@ -41,15 +41,33 @@ export function canAccessAdminPanel(role: unknown): boolean {
   return hasAtLeast(role, ADMIN_PANEL_MIN_ROLE);
 }
 
+/**
+ * An admin row whose address is no longer on a configured allowlist — the
+ * revocation that must not wait for a sign-in. Pure, so the per-request check in
+ * getCurrentUser costs nothing unless it fires. An empty allowlist revokes
+ * nothing, for the same reason syncAdminRole ignores it.
+ */
+export function isRevokedAdmin(
+  role: unknown,
+  email: string,
+  adminEmails: ReadonlySet<string>,
+): boolean {
+  return (
+    adminEmails.size > 0 && toRole(role) === 'admin' && !adminEmails.has(email.trim().toLowerCase())
+  );
+}
+
 interface SqlRunner {
   execute(query: SQL): Promise<unknown>;
 }
 
 /**
- * Make `users.role = 'admin'` follow the ADMIN_EMAILS allowlist on every
- * sign-in. This is the bootstrap path for the very first admin — no terminal,
- * no manual UPDATE — and the revocation path: remove an address from the
- * environment and the next sign-in demotes it.
+ * Make `users.role = 'admin'` follow the ADMIN_EMAILS allowlist. Runs on every
+ * sign-in — the bootstrap path for the very first admin, no terminal, no manual
+ * UPDATE — and again from getCurrentUser whenever isRevokedAdmin() says an
+ * admin row has lost its address, so removing an address from the environment
+ * demotes it on that account's NEXT REQUEST (sessions slide for 30 days, so
+ * "next sign-in" could mean never).
  *
  * Only the 'admin' role is environment-managed. The ambassador role and its
  * municipality scope are granted in-app and are never touched here.

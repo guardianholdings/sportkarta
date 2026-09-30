@@ -8,7 +8,15 @@ import { notFound } from 'next/navigation';
 import { redirect } from '@/i18n/navigation';
 
 import { getAuth } from './auth';
-import { ADMIN_PANEL_MIN_ROLE, hasAtLeast, toRole, type Role } from './roles';
+import { resolveAdminEmails } from './auth-config';
+import {
+  ADMIN_PANEL_MIN_ROLE,
+  hasAtLeast,
+  isRevokedAdmin,
+  syncAdminRole,
+  toRole,
+  type Role,
+} from './roles';
 import { REQUEST_PATH_HEADER, signInHref } from './sign-in-destination';
 
 /**
@@ -30,6 +38,22 @@ export interface CurrentUser {
 }
 
 export { PROFILE_PATH, SIGN_IN_PATH } from './sign-in-destination';
+
+let adminEmails: ReadonlySet<string> | undefined;
+
+/**
+ * The admin role as of THIS request. ADMIN_EMAILS is re-checked on every
+ * authorization, not only at sign-in: a removed admin with a live 30-day
+ * sliding session would otherwise keep every right for as long as they kept
+ * visiting. The demotion is written back (syncAdminRole) rather than only
+ * computed here, because session-organiser checks read `users.role` in SQL.
+ */
+async function currentRole(userId: string, email: string, stored: unknown): Promise<Role> {
+  adminEmails ??= resolveAdminEmails(process.env);
+  if (!isRevokedAdmin(stored, email, adminEmails)) return toRole(stored);
+  await syncAdminRole(getDb(), userId, adminEmails);
+  return 'user';
+}
 
 /**
  * Verify the session, then read the profile from the database.
@@ -64,7 +88,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     displayName: String(row.display_name ?? ''),
     homeCity: (row.home_city as string | null) ?? null,
     isMinor: row.is_minor === true,
-    role: toRole(row.role),
+    role: await currentRole(String(row.id), String(row.email), row.role),
   };
 }
 
