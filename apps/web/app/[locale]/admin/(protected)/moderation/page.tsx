@@ -2,20 +2,56 @@ import { getLocale, getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Button } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
+import { Input } from '@/components/ui/input';
 import { Link } from '@/i18n/navigation';
 import { requireAdmin } from '@/lib/auth-session';
 import {
   actorMunicipalities,
   moderationSla,
+  publishedPhotos,
   queueFacilities,
   queuePhotos,
   queueReports,
+  type ModerationPhoto,
   type QueueFlag,
 } from '@/lib/moderation-data';
+import { photoUrl } from '@/lib/photo-url';
+import { parsePhotoLookup } from '@/lib/photos';
 
-import { decideFacility, decidePhoto, resolveReport } from './actions';
+import { decideFacility, decidePhoto, resolveReport, unpublishPhoto } from './actions';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * The image itself, from the row-decides route (lib/photos.ts): this screen is
+ * signed in, so a pending photo in the moderator's scope is served to them and
+ * to nobody else. A moderator deciding from a file name cannot enforce "no
+ * identifiable people", which is the whole point of the photo queue. Opens full
+ * size in a new tab — a thumbnail is too small to judge a face by.
+ */
+function PhotoThumb({
+  photoId,
+  alt,
+  openLabel,
+}: {
+  photoId: string;
+  alt: string;
+  openLabel: string;
+}) {
+  return (
+    <a
+      href={photoUrl(photoId)}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={openLabel}
+      className="shrink-0 overflow-hidden rounded-md border border-line bg-paper-sunk"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- served by our own
+          row-decides route; next/image is off (next.config.ts) */}
+      <img src={photoUrl(photoId)} alt={alt} className="size-24 object-cover" />
+    </a>
+  );
+}
 
 /** Pre-screen flags, shown next to the item they refer to — never a decision. */
 function Flags({
@@ -46,23 +82,29 @@ function Flags({
 
 export default async function AdminModerationPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
+  const sp = await searchParams;
+  const lookupRaw = typeof sp.published === 'string' ? sp.published : '';
+  const lookup = parsePhotoLookup(lookupRaw);
 
   // Ambassadors and admins both land here; everything below is scoped to what
   // this account may actually decide (lib/moderation.ts).
   const user = await requireAdmin();
   const actor = { id: user.id, role: user.role };
 
-  const [t, tFacilities, tIssue, photos, reports, facilities, sla, scope, activeLocale] =
+  const [t, tFacilities, tIssue, photos, published, reports, facilities, sla, scope, activeLocale] =
     await Promise.all([
       getTranslations('AdminModeration'),
       getTranslations('AdminFacilities'),
       getTranslations('Report'),
       queuePhotos(actor),
+      lookup === 'invalid' ? Promise.resolve([]) : publishedPhotos(actor, lookup),
       queueReports(actor),
       queueFacilities(actor),
       moderationSla(actor),
@@ -72,6 +114,28 @@ export default async function AdminModerationPage({
 
   const formatDate = (value: string): string =>
     new Intl.DateTimeFormat(activeLocale, { dateStyle: 'medium' }).format(new Date(value));
+  // Who uploaded it, by display name — a raw account id tells a moderator
+  // nothing, and a repeat uploader is what they most need to recognise. The
+  // account screen is admin-only (requireRole('admin')), so only an admin gets
+  // the link; an ambassador sees the name.
+  const uploader = (photo: ModerationPhoto) =>
+    t.rich('uploadedBy', {
+      name:
+        photo.uploadedBy === null
+          ? t('unknownUploader')
+          : (photo.uploaderName ?? t('uploaderUnnamed')),
+      who: (chunks) =>
+        photo.uploadedBy !== null && user.role === 'admin' ? (
+          <Link
+            href={`/admin/akaunti/${photo.uploadedBy}`}
+            className="font-medium text-link hover:text-link-hover"
+          >
+            {chunks}
+          </Link>
+        ) : (
+          <span className="font-medium text-ink-soft">{chunks}</span>
+        ),
+    });
   const formatHours = (hours: number | null): string =>
     hours === null ? t('noData') : t('hours', { hours: hours.toFixed(1) });
   // The pre-screen vocabulary is closed, but a flag written before the UI knows
@@ -181,7 +245,10 @@ export default async function AdminModerationPage({
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-h4 font-bold text-ink">{t('photosTitle')}</h2>
+        <div>
+          <h2 className="text-h4 font-bold text-ink">{t('photosTitle')}</h2>
+          <p className="text-caption text-text-muted">{t('rejectDeletes')}</p>
+        </div>
         {photos.length === 0 ? (
           <p className="rounded-card border border-dashed border-line-strong p-6 text-center text-body-sm text-text-muted">
             {t('photosEmpty')}
@@ -191,22 +258,26 @@ export default async function AdminModerationPage({
             {photos.map((photo) => {
               const approve = decidePhoto.bind(null, photo.id, 'approved' as const);
               const reject = decidePhoto.bind(null, photo.id, 'rejected' as const);
+              const facilityName = photo.facilityName ?? tFacilities('unnamed');
               return (
                 <li
                   key={photo.id}
                   className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-surface p-3 text-body-sm shadow-sm"
                 >
+                  <PhotoThumb
+                    photoId={photo.id}
+                    alt={t('photoAlt', { facility: facilityName })}
+                    openLabel={t('openFullSize')}
+                  />
                   <div className="min-w-0 flex-1 space-y-1">
                     <Link
                       href={`/admin/facilities/${photo.facilityId}`}
                       className="font-medium text-link hover:text-link-hover"
                     >
-                      {photo.facilityName ?? tFacilities('unnamed')}
+                      {facilityName}
                     </Link>
-                    <div className="truncate text-caption text-text-muted">
-                      <code>{photo.storagePath}</code> ·{' '}
-                      {t('uploadedBy', { who: photo.uploadedBy ?? t('unknownUploader') })} ·{' '}
-                      {formatDate(photo.createdAt)}
+                    <div className="text-caption text-text-muted">
+                      {uploader(photo)} · {formatDate(photo.createdAt)}
                     </div>
                     <Flags flags={photo.flags} label={t('flagsLabel')} labelFor={flagLabel} />
                   </div>
@@ -219,6 +290,87 @@ export default async function AdminModerationPage({
                     <Button type="submit" variant="danger" size="sm">
                       {t('reject')}
                     </Button>
+                  </form>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="published-h" className="space-y-3">
+        <div>
+          <h2 id="published-h" className="text-h4 font-bold text-ink">
+            {t('publishedTitle')}
+          </h2>
+          <p className="text-caption text-text-muted">{t('publishedNote')}</p>
+        </div>
+        <form method="get" className="flex flex-wrap items-end gap-2">
+          <label className="min-w-0 flex-1 space-y-1">
+            <span className="text-caption font-medium text-ink-soft">
+              {t('publishedLookupLabel')}
+            </span>
+            <Input
+              name="published"
+              size="sm"
+              defaultValue={lookupRaw}
+              placeholder={t('publishedLookupPlaceholder')}
+              invalid={lookup === 'invalid'}
+            />
+          </label>
+          <Button type="submit" size="sm">
+            {t('publishedLookupSubmit')}
+          </Button>
+          {lookup !== null && (
+            <Link
+              href="/admin/moderation"
+              className="inline-flex min-h-9 items-center text-body-sm font-medium text-link hover:text-link-hover"
+            >
+              {t('publishedLookupClear')}
+            </Link>
+          )}
+        </form>
+        {lookup === 'invalid' ? (
+          <p role="alert" className="text-body-sm text-danger">
+            {t('publishedLookupInvalid')}
+          </p>
+        ) : published.length === 0 ? (
+          <p className="rounded-card border border-dashed border-line-strong p-6 text-center text-body-sm text-text-muted">
+            {lookup === null ? t('publishedEmpty') : t('publishedNoMatch')}
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {published.map((photo) => {
+              const takeDown = unpublishPhoto.bind(null, photo.id);
+              const facilityName = photo.facilityName ?? tFacilities('unnamed');
+              return (
+                <li
+                  key={photo.id}
+                  className="flex flex-wrap items-center gap-3 rounded-card border border-line bg-surface p-3 text-body-sm shadow-sm"
+                >
+                  <PhotoThumb
+                    photoId={photo.id}
+                    alt={t('photoAlt', { facility: facilityName })}
+                    openLabel={t('openFullSize')}
+                  />
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <Link
+                      href={`/admin/facilities/${photo.facilityId}`}
+                      className="font-medium text-link hover:text-link-hover"
+                    >
+                      {facilityName}
+                    </Link>
+                    <div className="text-caption text-text-muted">
+                      {uploader(photo)} · {formatDate(photo.createdAt)}
+                    </div>
+                  </div>
+                  <form action={takeDown}>
+                    <ConfirmButton
+                      className="inline-flex min-h-11 items-center rounded-pill bg-danger px-4 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-[color-mix(in_oklab,var(--danger),black_12%)]"
+                      message={t('unpublishConfirm')}
+                    >
+                      {t('unpublish')}
+                    </ConfirmButton>
                   </form>
                 </li>
               );
@@ -243,6 +395,18 @@ export default async function AdminModerationPage({
                   key={report.id}
                   className="flex flex-wrap items-start gap-3 rounded-card border border-line bg-surface p-3 text-body-sm shadow-sm"
                 >
+                  {/* The report's own evidence. The same photo waits in the
+                      photo queue above for its publish decision; here it is
+                      what the visitor is pointing at. */}
+                  {report.photoId && (
+                    <PhotoThumb
+                      photoId={report.photoId}
+                      alt={t('reportPhotoAlt', {
+                        facility: report.facilityName ?? tFacilities('unnamed'),
+                      })}
+                      openLabel={t('openFullSize')}
+                    />
+                  )}
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Link

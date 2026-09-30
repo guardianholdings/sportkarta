@@ -9,10 +9,12 @@ import {
   decidePhoto as decidePhotoScoped,
   resolveReport as resolveReportScoped,
   decideFacility as decideFacilityScoped,
+  unpublishPhoto as unpublishPhotoScoped,
   type FacilityDecision,
   type PhotoDecision,
   type ReportDecision,
 } from '@/lib/moderation';
+import { getStorage } from '@/lib/storage';
 
 /**
  * Moderation v2 (Stage 3.3). These actions no longer decide anything
@@ -29,7 +31,28 @@ export async function decidePhoto(photoId: string, decision: PhotoDecision) {
   if (!isUuid(photoId)) return;
   if (decision !== 'approved' && decision !== 'rejected') return;
 
-  await decidePhotoScoped(getDb(), { id: user.id, role: user.role }, photoId, decision);
+  // The storage adapter goes in so a rejection deletes the file — after the
+  // decision has committed, never before (lib/moderation.ts).
+  await decidePhotoScoped(
+    getDb(),
+    { id: user.id, role: user.role },
+    photoId,
+    decision,
+    getStorage(),
+  );
+  revalidatePath('/admin/moderation');
+}
+
+/**
+ * Take a published photo down (notice-and-action). Scoped like every other
+ * decision: an ambassador can withdraw only photos in their municipalities, and
+ * an out-of-scope id changes nothing and logs nothing.
+ */
+export async function unpublishPhoto(photoId: string) {
+  const user = await requireAdmin();
+  if (!isUuid(photoId)) return;
+
+  await unpublishPhotoScoped(getDb(), { id: user.id, role: user.role }, photoId, getStorage());
   revalidatePath('/admin/moderation');
 }
 

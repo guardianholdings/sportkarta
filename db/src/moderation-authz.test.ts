@@ -1,3 +1,4 @@
+import { PUBLIC_FACILITY_PREDICATE } from '@sportkarta/lib/opendata';
 import pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -174,6 +175,38 @@ describe.skipIf(!hasDb)('moderation scope (requires running database)', () => {
     return result.rowCount ?? 0;
   }
 
+  /** apps/web/lib/moderation.ts unpublishPhoto, verbatim apart from the actor. */
+  async function unpublishPhoto(actor: string, photoId: string, isAdmin = false): Promise<number> {
+    const result = await client.query(
+      `UPDATE facility_photos p SET status = 'rejected'
+         FROM facilities f
+        WHERE p.id = $1::uuid AND f.id = p.facility_id AND p.status = 'approved'
+          AND ${scope(actor, isAdmin)}`,
+      [photoId],
+    );
+    return result.rowCount ?? 0;
+  }
+
+  /** apps/web/lib/photos.ts: PHOTO_PUBLIC, i.e. what /api/photos/[id] serves to anyone. */
+  async function publiclyServed(photoId: string): Promise<boolean> {
+    const result = await client.query(
+      `SELECT 1 FROM facility_photos p JOIN facilities f ON f.id = p.facility_id
+        WHERE p.id = $1::uuid AND p.status = 'approved' AND ${PUBLIC_FACILITY_PREDICATE}`,
+      [photoId],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  /** The moderator branch of the same route: any status, inside the scope. */
+  async function moderatorServed(actor: string, photoId: string): Promise<boolean> {
+    const result = await client.query(
+      `SELECT 1 FROM facility_photos p JOIN facilities f ON f.id = p.facility_id
+        WHERE p.id = $1::uuid AND ${scope(actor)}`,
+      [photoId],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
   it('refuses an out-of-scope photo decision at the query layer', async () => {
     // The Varna ambassador reaching for a Sofia photo: zero rows, no error, no
     // decision — the statement simply matches nothing.
@@ -227,6 +260,72 @@ describe.skipIf(!hasDb)('moderation scope (requires running database)', () => {
   it('lets an admin decide anywhere', async () => {
     expect(await decidePhoto(ADMIN, sofiaPhoto, true)).toBe(1);
     expect(await decideFacility(ADMIN, varnaFacility, true)).toBe(1);
+  });
+
+  it('never serves a pending photo publicly, and serves it to in-scope moderators only', async () => {
+    // Moderators must SEE the photo they decide (the no-identifiable-people
+    // rule is unenforceable from a file name) — but only moderators, and only
+    // the ones whose municipalities cover it.
+    expect(await publiclyServed(sofiaPhoto)).toBe(false);
+    expect(await moderatorServed(SOFIA_AMBASSADOR, sofiaPhoto)).toBe(true);
+    expect(await moderatorServed(VARNA_AMBASSADOR, sofiaPhoto)).toBe(false);
+    expect(await moderatorServed(SCOPELESS_AMBASSADOR, sofiaPhoto)).toBe(false);
+  });
+
+  it('serves an approved photo exactly when its facility is public', async () => {
+    expect(await decidePhoto(SOFIA_AMBASSADOR, sofiaPhoto)).toBe(1);
+    const facilityPublic = await client.query(
+      `SELECT 1 FROM facilities f WHERE f.id = $1::uuid AND ${PUBLIC_FACILITY_PREDICATE}`,
+      [sofiaFacility],
+    );
+    expect(await publiclyServed(sofiaPhoto)).toBe((facilityPublic.rowCount ?? 0) > 0);
+  });
+
+  it('takes an approved photo down only inside the scope, and never a pending one', async () => {
+    // Pending: the takedown path does not double as a second reject button.
+    expect(await unpublishPhoto(SOFIA_AMBASSADOR, sofiaPhoto)).toBe(0);
+
+    expect(await decidePhoto(SOFIA_AMBASSADOR, sofiaPhoto)).toBe(1);
+    expect(await unpublishPhoto(VARNA_AMBASSADOR, sofiaPhoto)).toBe(0);
+    expect(await unpublishPhoto(SCOPELESS_AMBASSADOR, sofiaPhoto)).toBe(0);
+    expect(await unpublishPhoto(SOFIA_AMBASSADOR, sofiaPhoto)).toBe(1);
+
+    const after = await client.query<{ status: string }>(
+      `SELECT status FROM facility_photos WHERE id = $1::uuid`,
+      [sofiaPhoto],
+    );
+    expect(after.rows[0]?.status).toBe('rejected');
+    expect(await publiclyServed(sofiaPhoto)).toBe(false);
+    // Idempotent: a double-submitted takedown matches nothing the second time.
+    expect(await unpublishPhoto(SOFIA_AMBASSADOR, sofiaPhoto)).toBe(0);
+  });
+
+  it('accepts a takedown in the log for photos only (0034)', async () => {
+    // queued_at = now(): a takedown has no queue, and now() is the transaction
+    // timestamp, so it equals decided_at's default and satisfies the order CHECK.
+    await client.query(
+      `INSERT INTO moderation_decisions
+         (actor_id, target_type, target_id, facility_id, municipality_id, decision, queued_at)
+       VALUES ($1, 'photo', $2::uuid, $3::uuid, $4, 'removed', now())`,
+      [SOFIA_AMBASSADOR, sofiaPhoto, sofiaFacility, sofiaId],
+    );
+    await expect(
+      client.query(
+        `INSERT INTO moderation_decisions
+           (actor_id, target_type, target_id, facility_id, municipality_id, decision, queued_at)
+         VALUES ($1, 'report', $2::uuid, $3::uuid, $4, 'removed', now())`,
+        [SOFIA_AMBASSADOR, sofiaReport, sofiaFacility, sofiaId],
+      ),
+    ).rejects.toThrow(/moderation_decisions_decision_matches_target/);
+    // The allowlist still holds for the pairings that existed before.
+    await expect(
+      client.query(
+        `INSERT INTO moderation_decisions
+           (actor_id, target_type, target_id, facility_id, municipality_id, decision, queued_at)
+         VALUES ($1, 'photo', $2::uuid, $3::uuid, $4, 'verified', now())`,
+        [SOFIA_AMBASSADOR, sofiaPhoto, sofiaFacility, sofiaId],
+      ),
+    ).rejects.toThrow(/moderation_decisions_decision_matches_target/);
   });
 
   it('keeps the decision log append-only', async () => {

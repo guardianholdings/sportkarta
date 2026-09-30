@@ -732,9 +732,14 @@ export const ambassadorMunicipalities = pgTable(
 );
 
 export const moderationTarget = pgEnum('moderation_target', ['photo', 'report', 'facility']);
+/**
+ * 'removed' (0034) is a takedown of an APPROVED photo — distinct from
+ * 'rejected', which is the queue refusing one that never went public.
+ */
 export const moderationDecision = pgEnum('moderation_decision', [
   'approved',
   'rejected',
+  'removed',
   'reviewed',
   'dismissed',
   'verified',
@@ -793,12 +798,14 @@ export const moderationDecisions = pgTable(
     // A decision cannot predate the item it decided.
     check('moderation_decisions_order', sql`${t.decidedAt} >= ${t.queuedAt}`),
     // A decision must make sense for what it decided. The table is append-only,
-    // so a nonsensical pairing could never be corrected afterwards.
+    // so a nonsensical pairing could never be corrected afterwards. Compared as
+    // TEXT since 0034: that is what let 'removed' ship in the same migration as
+    // its ADD VALUE (an enum-typed literal is a "use" PostgreSQL refuses there).
     check(
       'moderation_decisions_decision_matches_target',
-      sql`(${t.targetType} = 'photo' AND ${t.decision} IN ('approved', 'rejected'))
-          OR (${t.targetType} = 'report' AND ${t.decision} IN ('reviewed', 'dismissed'))
-          OR (${t.targetType} = 'facility' AND ${t.decision} IN ('verified', 'gone'))`,
+      sql`(${t.targetType} = 'photo' AND ${t.decision}::text IN ('approved', 'rejected', 'removed'))
+          OR (${t.targetType} = 'report' AND ${t.decision}::text IN ('reviewed', 'dismissed'))
+          OR (${t.targetType} = 'facility' AND ${t.decision}::text IN ('verified', 'gone'))`,
     ),
     // A facility decision is about the facility itself.
     check(

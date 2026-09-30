@@ -2,10 +2,16 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { renderSql, type SQL } from '@sportkarta/db';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { grantAmbassador, revokeAmbassador } from '@/lib/ambassadors';
-import { decideFacility, decidePhoto, resolveReport, scopeClause } from '@/lib/moderation';
+import {
+  decideFacility,
+  decidePhoto,
+  resolveReport,
+  scopeClause,
+  unpublishPhoto,
+} from '@/lib/moderation';
 
 /**
  * Scope and decision logging at the statement level. The DB-backed companion
@@ -20,7 +26,19 @@ const MEMBER = { id: 'user_plain', role: 'user' as const };
 const PHOTO = '00000000-0000-4000-8000-0000000000p1'.replace('p1', 'a1');
 const FACILITY = '00000000-0000-4000-8000-000000000001';
 
-function fakeDb(responses: Record<string, unknown>[][] = []) {
+const STORED = 'facilities/2026/09/00000000-0000-4000-8000-0000000000f1.webp';
+
+/**
+ * `events` is one ordered timeline shared with fakeFiles, so a test can assert
+ * that a file was deleted only AFTER the transaction that decided it committed.
+ * `failCommit` makes the transaction throw once its callback has run — the
+ * decision was made in SQL but never became true.
+ */
+function fakeDb(
+  responses: Record<string, unknown>[][] = [],
+  events: string[] = [],
+  failCommit = false,
+) {
   const statements: { sql: string; params: unknown[] }[] = [];
   const queue = [...responses];
   const runner = {
@@ -31,15 +49,43 @@ function fakeDb(responses: Record<string, unknown>[][] = []) {
   };
   return {
     statements,
+    events,
     ...runner,
-    transaction<T>(callback: (tx: typeof runner) => Promise<T>): Promise<T> {
-      return callback(runner);
+    async transaction<T>(callback: (tx: typeof runner) => Promise<T>): Promise<T> {
+      const result = await callback(runner);
+      if (failCommit) throw new Error('commit failed');
+      events.push('commit');
+      return result;
     },
     text(): string {
       return statements.map((s) => `${s.sql} ${JSON.stringify(s.params)}`).join('\n');
     },
   };
 }
+
+function fakeFiles(events: string[], fail = false) {
+  return {
+    delete(key: string): Promise<void> {
+      events.push(`delete ${key}`);
+      // Shaped like a real fs error: the MESSAGE embeds the path.
+      const error = Object.assign(
+        new Error(`EACCES: permission denied, rm '/data/uploads/${key}'`),
+        {
+          code: 'EACCES',
+        },
+      );
+      return fail ? Promise.reject(error) : Promise.resolve();
+    },
+  };
+}
+
+const PHOTO_ROW = {
+  id: 'photo-row',
+  facility_id: FACILITY,
+  storage_path: STORED,
+  created_at: '2026-07-20T10:00:00Z',
+  municipality_id: 7,
+};
 
 describe('scopeClause', () => {
   it('limits an ambassador to their own municipalities', () => {
@@ -73,7 +119,7 @@ describe('decidePhoto', () => {
       ],
       [],
     ]);
-    const result = await decidePhoto(db, AMBASSADOR, PHOTO, 'approved');
+    const result = await decidePhoto(db, AMBASSADOR, PHOTO, 'approved', fakeFiles(db.events));
 
     expect(result.applied).toBe(true);
     const [update, log] = db.statements;
@@ -89,11 +135,96 @@ describe('decidePhoto', () => {
   it('logs nothing when the update matched no row', async () => {
     // Out of scope, already decided, or absent — indistinguishable by design.
     const db = fakeDb([[]]);
-    const result = await decidePhoto(db, AMBASSADOR, PHOTO, 'approved');
+    const result = await decidePhoto(db, AMBASSADOR, PHOTO, 'approved', fakeFiles(db.events));
 
     expect(result.applied).toBe(false);
     expect(db.statements).toHaveLength(1);
     expect(db.text()).not.toMatch(/moderation_decisions/);
+  });
+
+  it('deletes a rejected photo’s file, and only after the decision committed', async () => {
+    // The usual reason to reject is that the photo shows people; keeping the
+    // file (and every backup of it) would keep exactly what was refused.
+    const db = fakeDb([[PHOTO_ROW], []]);
+    const result = await decidePhoto(db, AMBASSADOR, PHOTO, 'rejected', fakeFiles(db.events));
+
+    expect(result.applied).toBe(true);
+    expect(db.events).toEqual(['commit', `delete ${STORED}`]);
+    // The key comes from the row the UPDATE matched, never from the caller.
+    expect(db.statements[0]?.sql).toMatch(/RETURNING[\s\S]*storage_path/);
+  });
+
+  it('keeps an approved photo’s file', async () => {
+    const db = fakeDb([[PHOTO_ROW], []]);
+    await decidePhoto(db, AMBASSADOR, PHOTO, 'approved', fakeFiles(db.events));
+    expect(db.events).toEqual(['commit']);
+  });
+
+  it('deletes nothing when the rejection matched no row', async () => {
+    // An out-of-scope ambassador must not be able to destroy a file either.
+    const db = fakeDb([[]]);
+    await decidePhoto(db, AMBASSADOR, PHOTO, 'rejected', fakeFiles(db.events));
+    expect(db.events.filter((e) => e.startsWith('delete'))).toEqual([]);
+  });
+
+  it('deletes nothing when the transaction fails to commit', async () => {
+    // Deleting first would leave a still-pending (or later approved) row
+    // pointing at nothing — the one ordering that loses data.
+    const db = fakeDb([[PHOTO_ROW], []], [], true);
+    await expect(
+      decidePhoto(db, AMBASSADOR, PHOTO, 'rejected', fakeFiles(db.events)),
+    ).rejects.toThrow('commit failed');
+    expect(db.events).toEqual([]);
+  });
+
+  it('stands by a committed rejection even when the file delete fails', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const db = fakeDb([[PHOTO_ROW], []]);
+    const result = await decidePhoto(db, AMBASSADOR, PHOTO, 'rejected', fakeFiles(db.events, true));
+    expect(result.applied).toBe(true);
+    expect(db.events).toEqual(['commit', `delete ${STORED}`]);
+    // The failure is reported by photo id and error code; the log carries no
+    // path, and not the error message that would echo one.
+    expect(logged).toHaveBeenCalledTimes(1);
+    const line = JSON.stringify(logged.mock.calls);
+    expect(line).toContain(PHOTO);
+    expect(line).toContain('EACCES');
+    expect(line).not.toContain(STORED);
+    logged.mockRestore();
+  });
+});
+
+describe('unpublishPhoto', () => {
+  it('takes down only an APPROVED photo, inside the scope, and logs it as removed', async () => {
+    const db = fakeDb([[PHOTO_ROW], []]);
+    const result = await unpublishPhoto(db, AMBASSADOR, PHOTO, fakeFiles(db.events));
+
+    expect(result.applied).toBe(true);
+    const [update, log] = db.statements;
+    expect(update?.sql).toMatch(/UPDATE facility_photos/i);
+    expect(update?.sql).toMatch(/SET status = 'rejected'/);
+    expect(update?.sql).toMatch(/p\.status = 'approved'/);
+    expect(update?.sql).toMatch(/ambassador_municipalities/);
+    expect(log?.sql).toMatch(/INSERT INTO moderation_decisions/i);
+    // 'removed', not 'rejected': "it was public and we withdrew it" must stay
+    // distinguishable from "it never went out" (migration 0034).
+    expect(log?.params).toContain('removed');
+    expect(log?.params).not.toContain('rejected');
+    // A takedown has no queue: queued_at is the transaction's own now(), not
+    // the upload time, so it cannot masquerade as a months-long queue wait.
+    expect(log?.sql).toMatch(/now\(\)/);
+    expect(log?.params).not.toContain(PHOTO_ROW.created_at);
+    expect(db.events).toEqual(['commit', `delete ${STORED}`]);
+  });
+
+  it('changes, logs and deletes nothing outside the scope', async () => {
+    const db = fakeDb([[]]);
+    const result = await unpublishPhoto(db, AMBASSADOR, PHOTO, fakeFiles(db.events));
+
+    expect(result.applied).toBe(false);
+    expect(db.statements).toHaveLength(1);
+    expect(db.text()).not.toMatch(/moderation_decisions/);
+    expect(db.events.filter((e) => e.startsWith('delete'))).toEqual([]);
   });
 });
 

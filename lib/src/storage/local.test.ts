@@ -39,10 +39,24 @@ describe('LocalVolumeStorage', () => {
     await expect(storage.put('../evil.txt', data)).rejects.toThrow('Invalid storage key');
     await expect(storage.put('/etc/passwd', data)).rejects.toThrow('Invalid storage key');
     await expect(storage.put('a/../../evil.txt', data)).rejects.toThrow('Invalid storage key');
-    expect(() => storage.publicUrl('..')).toThrow('Invalid storage key');
+    await expect(storage.get('..')).rejects.toThrow('Invalid storage key');
+    await expect(storage.delete('../evil.txt')).rejects.toThrow('Invalid storage key');
   });
 
-  it('builds public URLs under the configured prefix', () => {
-    expect(storage.publicUrl('photos/x.webp')).toBe('/uploads/photos/x.webp');
+  it('deletes idempotently, so a retried takedown is not an error', async () => {
+    // Moderation deletes a rejected photo's file after its transaction commits;
+    // a second attempt (a double-submitted form, a later sweep) must be a no-op.
+    const key = 'facilities/2026/09/gone.webp';
+    await storage.put(key, new Uint8Array([1, 2, 3]));
+    await storage.delete(key);
+    await expect(storage.delete(key)).resolves.toBeUndefined();
+    expect(await storage.exists(key)).toBe(false);
+  });
+
+  it('offers no public URL: files leave only through a row-deciding route', () => {
+    // Nothing serves the volume directly (lib/src/storage/adapter.ts). A
+    // key-derived URL would publish every pending, unmoderated upload the day
+    // somebody mounted the prefix it named.
+    expect('publicUrl' in storage).toBe(false);
   });
 });
