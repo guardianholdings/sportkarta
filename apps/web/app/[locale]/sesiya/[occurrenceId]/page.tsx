@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation';
 import { ShareSheet } from '@/components/share/share-sheet';
 import { Link } from '@/i18n/navigation';
 import { getCurrentUser } from '@/lib/auth-session';
+import { signInHref } from '@/lib/sign-in-destination';
 import { occurrenceView } from '@/lib/sessions/occurrence';
 import { siteUrl } from '@/lib/seo';
 import { shareSheetStrings } from '@/lib/share/sheet-strings';
@@ -221,7 +222,13 @@ export default async function SessionPage({ params }: { params: PageParams }) {
               </>
             ) : (
               <p className="text-body-sm">
-                <Link href="/vhod" className="font-medium text-link hover:text-link-hover">
+                {/* Back to THIS session after the code step: a shared invite is
+                    often a stranger's first visit, and /profil is not where
+                    they were going. */}
+                <Link
+                  href={signInHref(`/sesiya/${occurrenceId}`)}
+                  className="font-medium text-link hover:text-link-hover"
+                >
                   {t('signInToJoin')}
                 </Link>
               </p>

@@ -3,21 +3,9 @@ import createMiddleware from 'next-intl/middleware';
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { routing } from './i18n/routing';
+import { isProtectedPath, REQUEST_PATH_HEADER } from './lib/sign-in-destination';
 
 const intlMiddleware = createMiddleware(routing);
-
-// Routes that require a signed-in account: /admin, /profil and /dobavi (adding
-// a facility), with or without a locale prefix. /vhod (sign-in) is public by
-// definition, and so is every facility page — the verify and condition forms
-// on them gate themselves.
-//
-// `/pasport` is the member's OWN passport and is protected — but only exactly
-// that path. `/pasport/<handle>` is somebody's opt-in public passport and must
-// stay reachable signed out, which is why this alternation is anchored with
-// `$` instead of joining the group above: `(?:admin|profil|dobavi|pasport)`
-// would have matched the public URL too and made the feature dead on arrival
-// for exactly the people it is shared with.
-const PROTECTED_PATH = /^\/(?:(?:bg|en)\/)?(?:(?:admin|profil|dobavi)(?:\/|$)|pasport\/?$)/;
 
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -26,18 +14,24 @@ export default function middleware(request: NextRequest) {
   // exists, not that it is valid. Role checks and real session verification
   // happen in the layout and in every server action (lib/auth-session.ts) —
   // this exists to avoid rendering an admin shell for signed-out visitors.
-  if (PROTECTED_PATH.test(pathname) && !getSessionCookie(request)) {
+  // Which routes, and why /pasport is anchored: lib/sign-in-destination.ts.
+  if (isProtectedPath(pathname) && !getSessionCookie(request)) {
     const signIn = request.nextUrl.clone();
     const locale = pathname.startsWith('/en/') || pathname === '/en' ? '/en' : '';
     signIn.pathname = `${locale}/vhod`;
     // Carry the requested page so a deep link (say /admin/verify) resumes after
     // signing in. Only the path travels — query strings can carry state that
     // does not survive a round trip, and the value is re-validated in the
-    // sign-in action (lib/safe-redirect.ts) before any redirect happens.
+    // sign-in action (lib/sign-in-destination.ts) before any redirect happens.
     signIn.search = `?next=${encodeURIComponent(pathname)}`;
     return NextResponse.redirect(signIn);
   }
 
+  // Which page this request is for, so requireUser() can send a signed-out
+  // visitor back here after the code step (lib/sign-in-destination.ts). Set on
+  // EVERY request, overwriting anything the client sent; next-intl copies the
+  // request headers onto the request the page renders with.
+  request.headers.set(REQUEST_PATH_HEADER, pathname);
   return intlMiddleware(request);
 }
 

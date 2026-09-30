@@ -1,11 +1,15 @@
 import 'server-only';
 
 import { getDb, sql } from '@sportkarta/db';
+import { getLocale } from 'next-intl/server';
 import { headers } from 'next/headers';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
+
+import { redirect } from '@/i18n/navigation';
 
 import { getAuth } from './auth';
 import { ADMIN_PANEL_MIN_ROLE, hasAtLeast, toRole, type Role } from './roles';
+import { REQUEST_PATH_HEADER, signInHref } from './sign-in-destination';
 
 /**
  * Session + authorization helpers. Replaces the Stage 1 admin-session module:
@@ -25,9 +29,7 @@ export interface CurrentUser {
   role: Role;
 }
 
-/** Public sign-in route (Bulgarian-first slugs, like the rest of the site). */
-export const SIGN_IN_PATH = '/vhod';
-export const PROFILE_PATH = '/profil';
+export { PROFILE_PATH, SIGN_IN_PATH } from './sign-in-destination';
 
 /**
  * Verify the session, then read the profile from the database.
@@ -66,9 +68,21 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   };
 }
 
+/**
+ * Send an anonymous visitor to sign in — in the language of the page they were
+ * on, and carrying that page as `next`, so the code step returns them to it.
+ * The path comes from middleware (REQUEST_PATH_HEADER); a bare next/navigation
+ * redirect to '/vhod' used to drop both, landing English visitors on the
+ * Bulgarian form and everyone on /profil afterwards.
+ */
+async function redirectToSignIn(): Promise<never> {
+  const [headerStore, locale] = await Promise.all([headers(), getLocale()]);
+  return redirect({ href: signInHref(headerStore.get(REQUEST_PATH_HEADER)), locale });
+}
+
 export async function requireUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();
-  if (!user) redirect(SIGN_IN_PATH);
+  if (!user) return redirectToSignIn();
   return user;
 }
 
@@ -79,7 +93,7 @@ export async function requireUser(): Promise<CurrentUser> {
  */
 export async function requireRole(minimum: Role): Promise<CurrentUser> {
   const user = await getCurrentUser();
-  if (!user) redirect(SIGN_IN_PATH);
+  if (!user) return redirectToSignIn();
   if (!hasAtLeast(user.role, minimum)) notFound();
   return user;
 }

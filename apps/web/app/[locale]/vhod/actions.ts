@@ -1,8 +1,10 @@
 'use server';
 
+import { getLocale } from 'next-intl/server';
 import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { redirect as redirectOffSite } from 'next/navigation';
 
+import { getPathname, redirect } from '@/i18n/navigation';
 import { routing } from '@/i18n/routing';
 import { getAuth, sendSignInCode } from '@/lib/auth';
 import {
@@ -13,7 +15,7 @@ import {
   otpIpRateLimiter,
 } from '@/lib/auth-rate-limit';
 import { clientIpFromForwardedFor } from '@/lib/rate-limit';
-import { safeRedirectOr } from '@/lib/safe-redirect';
+import { SIGN_IN_PATH, signInDestination } from '@/lib/sign-in-destination';
 
 /**
  * Email-OTP sign-in (docs/ROADMAP.md §5). Two steps in one action: request a
@@ -155,8 +157,8 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
   }
   attempt.succeeded();
 
-  const next = String(formData.get('next') ?? '');
-  redirect(safeRedirectOr(next, '/profil'));
+  // In the language the member signed in with, whatever prefix `next` carried.
+  return redirect({ href: signInDestination(formData.get('next')), locale });
 }
 
 /**
@@ -165,24 +167,27 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
  */
 export async function googleSignInAction(formData: FormData): Promise<void> {
   const auth = getAuth();
-  if (!auth) redirect('/vhod');
+  const locale = resolveLocale(formData.get('locale'));
+  if (!auth) return redirect({ href: SIGN_IN_PATH, locale });
 
-  const next = String(formData.get('next') ?? '');
   const response = await auth.api.signInSocial({
     body: {
       provider: 'google',
-      callbackURL: safeRedirectOr(next, '/profil'),
+      callbackURL: getPathname({ href: signInDestination(formData.get('next')), locale }),
     },
     headers: await headers(),
   });
 
-  redirect(response.url ?? '/vhod');
+  // Off to Google: an absolute URL, so the plain Next redirect, not the i18n one.
+  if (response.url) return redirectOffSite(response.url);
+  return redirect({ href: SIGN_IN_PATH, locale });
 }
 
+/** Signing out keeps the language: the home page in the locale the member was reading. */
 export async function signOutAction(): Promise<void> {
   const auth = getAuth();
   if (auth) {
     await auth.api.signOut({ headers: await headers() });
   }
-  redirect('/');
+  return redirect({ href: '/', locale: await getLocale() });
 }

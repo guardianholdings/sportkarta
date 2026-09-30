@@ -1,10 +1,10 @@
 'use server';
 
 import { ensureCalendarToken, getDb, rotateCalendarToken } from '@sportkarta/db';
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 
+import { redirect } from '@/i18n/navigation';
 import { routing } from '@/i18n/routing';
 import { deleteAccount } from '@/lib/account-deletion';
 import { getAuth } from '@/lib/auth';
@@ -82,7 +82,7 @@ export async function deleteAccountAction(
     `[gdpr] account erased; audit rows preserved=${summary.auditRowsPreserved}, photos anonymised=${summary.photosAnonymized}`,
   );
 
-  redirect('/');
+  return redirect({ href: '/', locale: await getLocale() });
 }
 
 /**
