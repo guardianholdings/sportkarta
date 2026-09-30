@@ -320,7 +320,7 @@ jobs:
             && docker compose -f compose.prod.yml up -d --wait db \
             && docker compose -f compose.prod.yml --profile ops run --rm init-storage \
             && docker compose -f compose.prod.yml --profile ops run --rm migrate \
-            && docker compose -f compose.prod.yml --profile ops run --rm migrate pnpm db:seed \
+            && docker compose -f compose.prod.yml --profile ops run --rm migrate pnpm db:seed --production \
             && docker compose -f compose.prod.yml up -d --remove-orphans \
             && { docker compose -f compose.prod.yml exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile \
                  || docker compose -f compose.prod.yml restart caddy; } \
@@ -332,8 +332,9 @@ jobs:
           # A bare `-af` is safe — it keeps every image referenced by a
           # container, running or stopped — and rollback still works because the
           # tags live in GHCR and are re-pulled (see `rollback_to` above).
-          # The seed is idempotent dev/prod (fixed UUIDs, ON CONFLICT DO
-          # NOTHING) and the health gate below depends on it: /api/health
+          # `--production` seeds no fixtures — only the _health row, population
+          # and the stats refresh (db/scripts/seed-plan.ts) — and is idempotent.
+          # The health gate below depends on it: /api/health
           # smoke-queries the _health row, which migrations never create.
           # Without this step every deploy to a fresh box fails its health
           # check with "st_dwithin smoke query found no rows".
