@@ -2,8 +2,10 @@ import { toNextJsHandler } from 'better-auth/next-js';
 
 import { getAuth } from '@/lib/auth';
 
-// better-auth's own endpoints (OTP issue/verify, Google callback, sign-out).
-// Always per-request; never prerendered or cached.
+// better-auth's public endpoints: session, sign-out and the Google callback.
+// Everything else it ships (including OTP issue/verify) answers 404 here — see
+// DISABLED_AUTH_PATHS in lib/auth-surface.ts. Always per-request; never
+// prerendered or cached.
 export const dynamic = 'force-dynamic';
 
 /**

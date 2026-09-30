@@ -2,14 +2,10 @@ import 'server-only';
 
 import { getDb } from '@sportkarta/db';
 import { accounts, sessions, users, verifications } from '@sportkarta/db/schema';
-import { brandEmailHtml, createMailer, type Mailer } from '@sportkarta/lib/email';
+import { createMailer, type Mailer } from '@sportkarta/lib/email';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { nextCookies } from 'better-auth/next-js';
-import { emailOTP } from 'better-auth/plugins';
 import { getTranslations } from 'next-intl/server';
-
-import { routing } from '@/i18n/routing';
 
 import {
   resolveAdminEmails,
@@ -18,7 +14,9 @@ import {
   resolveGoogleAuth,
   type GoogleAuthState,
 } from './auth-config';
+import { authPlugins, DISABLED_AUTH_PATHS } from './auth-surface';
 import { syncAdminRole } from './roles';
+import { deliverSignInCode, redactLogArgs, type SignInCodeOutcome } from './sign-in-code';
 
 /**
  * better-auth, self-hosted in our own Postgres (docs/ROADMAP.md §0/§5).
@@ -30,15 +28,14 @@ import { syncAdminRole } from './roles';
  * The instance is built lazily and may be null: a production deployment without
  * AUTH_SECRET must degrade to "sign-in unavailable" rather than take down the
  * public map, which is the part of the site that matters most.
+ *
+ * Almost none of better-auth's REST API is reachable (lib/auth-surface.ts): the
+ * site requests and redeems codes through the sign-in server action, where its
+ * own limiters apply (lib/auth-rate-limit.ts), and mails the code itself
+ * (sendSignInCode below) so a failed send is reported instead of swallowed.
  */
 
-const OTP_LENGTH = 6;
-const OTP_TTL_SECONDS = 10 * 60;
-const OTP_MAX_ATTEMPTS = 3;
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
-
-export const OTP_REQUEST_WINDOW_SECONDS = 60;
-export const OTP_REQUESTS_PER_WINDOW = 3;
 
 /**
  * Private ranges Caddy and the compose network sit in. better-auth strips the
@@ -58,23 +55,20 @@ function resolveTrustedProxies(): string[] {
     .filter(Boolean);
 }
 
+type BetterAuthLogLevel = 'debug' | 'info' | 'warn' | 'error';
+
 /**
- * Requests per minute per IP allowed on the OTP endpoints. This is better-auth's
- * own limiter, which guards the REST API directly — our server-action limiters
- * only see traffic that goes through the form. The e2e suite raises it because
- * every browser in it shares one address.
+ * better-auth's log sink. Its default prints raw error objects, and those can
+ * carry an address (a nodemailer rejection lists its recipients; a constraint
+ * violation quotes the row), so production keeps only each error's type and
+ * code — the same rule the sign-in action follows. Development sees everything.
  */
-function otpRequestsPerMinute(): number {
-  const configured = Number(process.env.OTP_RATE_LIMIT_PER_MINUTE?.trim());
-  return Number.isInteger(configured) && configured > 0 ? configured : OTP_REQUESTS_PER_WINDOW;
-}
-
-/** Header our own sign-in action sets so the OTP email matches the UI language. */
-export const LOCALE_HEADER = 'x-sportkarta-locale';
-
-function resolveEmailLocale(headerValue: string | null | undefined): string {
-  const candidate = headerValue?.trim().toLowerCase();
-  return routing.locales.find((locale) => locale === candidate) ?? routing.defaultLocale;
+function logBetterAuth(level: BetterAuthLogLevel, message: string, ...args: unknown[]): void {
+  const detail = process.env.NODE_ENV === 'production' ? redactLogArgs(args) : args;
+  const line = `[better-auth] ${message}`;
+  if (level === 'error') console.error(line, ...detail);
+  else if (level === 'warn') console.warn(line, ...detail);
+  else console.info(line, ...detail);
 }
 
 /**
@@ -85,7 +79,6 @@ function resolveEmailLocale(headerValue: string | null | undefined): string {
 function createAuthInstance(
   secret: string,
   google: GoogleAuthState,
-  mailer: Mailer,
   adminEmails: ReadonlySet<string>,
 ) {
   return betterAuth({
@@ -123,14 +116,19 @@ function createAuthInstance(
     account: { modelName: 'accounts' },
     verification: { modelName: 'verifications' },
     emailAndPassword: { enabled: false },
+    // Every REST endpoint the browser does not need answers 404. In-process
+    // `auth.api.*` calls (the server actions) never go through this check.
+    disabledPaths: [...DISABLED_AUTH_PATHS],
+    logger: { log: logBetterAuth },
     // On by default in production only; enabled explicitly so development and
-    // CI behave the same way and the limits are actually exercised.
+    // CI behave the same way. It now guards only what is still public
+    // (/get-session, /sign-out, the OAuth callback); the OTP throttles live in
+    // lib/auth-rate-limit.ts, in front of the only path that reaches OTP.
     rateLimit: { enabled: true, storage: 'memory' },
     advanced: {
       // NOT disableIpTracking: that flag also switches off better-auth's entire
       // rate limiter (it returns null before any rule is consulted), which would
-      // leave /api/auth/* unthrottled — the form-level limiters in
-      // lib/auth-rate-limit.ts never see a direct API call. The address is
+      // leave the public /api/auth/* endpoints unthrottled. The address is
       // instead used transiently for rate limiting and dropped before the
       // session row is written (databaseHooks below), which is exactly what the
       // privacy page promises.
@@ -158,29 +156,7 @@ function createAuthInstance(
           },
         }
       : {}),
-    plugins: [
-      emailOTP({
-        otpLength: OTP_LENGTH,
-        expiresIn: OTP_TTL_SECONDS,
-        allowedAttempts: OTP_MAX_ATTEMPTS,
-        // Only a hash is stored: a database dump must not be replayable.
-        storeOTP: 'hashed',
-        rateLimit: { window: OTP_REQUEST_WINDOW_SECONDS, max: otpRequestsPerMinute() },
-        sendVerificationOTP: async ({ email, otp }, ctx) => {
-          const locale = resolveEmailLocale(ctx?.request?.headers.get(LOCALE_HEADER));
-          const t = await getTranslations({ locale, namespace: 'AuthEmail' });
-          const text = t('otpBody', { code: otp, minutes: OTP_TTL_SECONDS / 60 });
-          await mailer.send({
-            to: email,
-            subject: t('otpSubject'),
-            text,
-            html: brandEmailHtml(text),
-          });
-        },
-      }),
-      // Must stay last: lets server actions set the session cookie.
-      nextCookies(),
-    ],
+    plugins: authPlugins(),
   });
 }
 
@@ -200,12 +176,7 @@ function buildAuth(): Auth | null {
     console.warn('[auth] AUTH_GOOGLE_ENABLED=true but credentials are missing — Google is off');
   }
 
-  return createAuthInstance(
-    secret,
-    google,
-    createMailer(process.env),
-    resolveAdminEmails(process.env),
-  );
+  return createAuthInstance(secret, google, resolveAdminEmails(process.env));
 }
 
 /** null when auth cannot run in this environment (see buildAuth). */
@@ -229,4 +200,33 @@ export function requireAuth(): Auth {
 
 export function isAuthAvailable(): boolean {
   return getAuth() !== null;
+}
+
+let mailer: Mailer | undefined;
+
+/**
+ * Mint a sign-in code and mail it, in the member's UI language.
+ *
+ * The locale is an ARGUMENT. It used to ride on a header through better-auth
+ * into its send callback, which read `ctx.request.headers` — and an in-process
+ * `auth.api.*` call has no `request`, only `headers`, so every code went out in
+ * Bulgarian. The code itself is minted by better-auth's server-only
+ * createVerificationOTP (hashed, 10 minutes, 3 attempts, exactly as before) and
+ * never leaves this function except inside the mail.
+ */
+export async function sendSignInCode(email: string, locale: string): Promise<SignInCodeOutcome> {
+  const auth = requireAuth();
+  const t = await getTranslations({ locale, namespace: 'AuthEmail' });
+  mailer ??= createMailer(process.env);
+  return deliverSignInCode({
+    email,
+    issueCode: () => auth.api.createVerificationOTP({ body: { email, type: 'sign-in' } }),
+    translate: (key, values) => t(key, values),
+    mailer,
+    log: (line, detail) => {
+      if (detail === undefined) console.error(line);
+      else console.error(line, detail);
+    },
+    verboseErrors: process.env.NODE_ENV !== 'production',
+  });
 }

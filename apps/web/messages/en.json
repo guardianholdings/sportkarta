@@ -449,6 +449,7 @@
     "error_invalid_email": "Check the email address.",
     "error_invalid_code": "The code is wrong or expired. Try again.",
     "error_throttled": "Too many attempts — wait a few minutes.",
+    "error_verify_throttled": "Too many wrong codes. Try again later — within an hour.",
     "error_mail_unavailable": "We cannot send a code right now. Try again later.",
     "error_auth_unavailable": "Sign-in is temporarily unavailable. The map and facilities still work.",
     "error_unknown": "Something went wrong. Try again."
