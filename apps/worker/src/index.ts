@@ -5,6 +5,7 @@ import { runImport } from '@sportkarta/import-osm';
 import { runDivisions } from './divisions-job.js';
 import { runWeeklyDigest } from './digest-job.js';
 import { runOpenDataDump } from './opendata-dump-job.js';
+import { reporter, reportingWork, reportMailFailures } from './reporting.js';
 import {
   runBadgeBackfill,
   runPassportEvaluate,
@@ -28,7 +29,15 @@ config({ path: new URL('../../../.env', import.meta.url).pathname });
 
 // Queue registry grows in Stage 1+ (imports, reminders, digests). Names are
 // dot-namespaced: <domain>.<action>.
+/**
+ * The worker heartbeat. The time pg-boss records the last one as COMPLETED is
+ * what /api/health and /admin/zdrave read (apps/web/lib/ops-health.ts): no
+ * table of its own, because pgboss.job already is one. Must stay in step with
+ * HEALTH_QUEUE in apps/web/lib/admin-boss.ts.
+ */
 const HEALTH_QUEUE = 'health.ping';
+/** Every five minutes; the web side calls a heartbeat stale after twenty. */
+const HEALTH_SCHEDULE = '*/5 * * * *';
 const IMPORT_OSM_QUEUE = 'import.osm';
 const STATS_REFRESH_QUEUE = 'stats.refresh';
 const AUTH_CLEANUP_QUEUE = 'auth.cleanup';
@@ -70,7 +79,11 @@ async function main(): Promise<void> {
   const boss = new PgBoss(databaseUrl);
   boss.on('error', (error) => {
     console.error('[pg-boss]', error);
+    void reporter.captureException(error, { tags: { source: 'pg-boss' } });
   });
+  // Every handler below is registered through this, so a job that throws is
+  // reported (when GLITCHTIP_DSN is set) before pg-boss marks it failed.
+  const work = reportingWork(boss);
 
   // Separate pool for REFRESH MATERIALIZED VIEW CONCURRENTLY (pg-boss owns its
   // own connections). CONCURRENTLY runs in autocommit, so a pool is fine. An
@@ -96,17 +109,11 @@ async function main(): Promise<void> {
   await boss.createQueue(STREAK_FREEZE_QUEUE);
   await boss.createQueue(DIVISIONS_ROLLOVER_QUEUE);
 
-  await boss.work(HEALTH_QUEUE, async (jobs) => {
-    for (const job of jobs) {
-      console.log(`[worker] ${HEALTH_QUEUE} handled job ${job.id}`);
-    }
-  });
-
   // Triggered from the admin UI (Stage 1+) via boss.send('import.osm', {dryRun}).
   // dryRun defaults TRUE — a live import must be requested explicitly, matching
   // the operator gates in docs/ROADMAP.md §3. The report goes to stdout (docker
   // logs); the reviewable artifact for gates is the CLI run's committed report.
-  await boss.work(IMPORT_OSM_QUEUE, { batchSize: 1 }, async (jobs) => {
+  await work(IMPORT_OSM_QUEUE, { batchSize: 1 }, async (jobs) => {
     let lastReport = '';
     for (const job of jobs) {
       const data = (job.data ?? {}) as ImportOsmJobData;
@@ -123,7 +130,7 @@ async function main(): Promise<void> {
 
   // Refresh the /statistika + /api/stats materialized views. Scheduled every 15
   // minutes; also kicked once at startup so views are fresh right after deploy.
-  await boss.work(STATS_REFRESH_QUEUE, async () => {
+  await work(STATS_REFRESH_QUEUE, async () => {
     console.log(`[worker] ${STATS_REFRESH_QUEUE} refreshing statistics views`);
     await refreshStats(statsPool);
     console.log(`[worker] ${STATS_REFRESH_QUEUE} done`);
@@ -136,7 +143,7 @@ async function main(): Promise<void> {
   // completed sign-up. Expired rows are personal data with no purpose left, so
   // they go nightly rather than accumulating into a list of addresses. Expired
   // sessions go the same way.
-  await boss.work(AUTH_CLEANUP_QUEUE, async () => {
+  await work(AUTH_CLEANUP_QUEUE, async () => {
     const verifications = await statsPool.query(
       `DELETE FROM verifications WHERE expires_at < now()`,
     );
@@ -153,7 +160,7 @@ async function main(): Promise<void> {
   // a UNIQUE index), so an extra run costs a scan and creates nothing. Also sent
   // with a sessionId right after a series is created or edited, so a member does
   // not wait up to an hour to see their own session.
-  await boss.work(SESSION_MATERIALIZE_QUEUE, { batchSize: 1 }, async (jobs) => {
+  await work(SESSION_MATERIALIZE_QUEUE, { batchSize: 1 }, async (jobs) => {
     let last: Awaited<ReturnType<typeof materializeSessions>> | undefined;
     for (const job of jobs) {
       const data = (job.data ?? {}) as SessionMaterializeJobData;
@@ -187,7 +194,7 @@ async function main(): Promise<void> {
   //
   // Idempotency is play_session_notifications': the claim goes in before the
   // send, in the same transaction, so a retry cannot mail anyone twice.
-  await boss.work(SESSION_NOTIFY_QUEUE, { batchSize: 1 }, async (jobs) => {
+  await work(SESSION_NOTIFY_QUEUE, { batchSize: 1 }, async (jobs) => {
     const mailer = createMailer(process.env);
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
     let last: Awaited<ReturnType<typeof runSessionNotify>> | undefined;
@@ -203,6 +210,7 @@ async function main(): Promise<void> {
           `${String(last.candidates)} candidate(s), ${String(last.sent)} sent, ` +
           `${String(last.skipped)} already told, ${String(last.failed)} failed`,
       );
+      await reportMailFailures(SESSION_NOTIFY_QUEUE, last);
     }
     return last;
   });
@@ -212,7 +220,7 @@ async function main(): Promise<void> {
   // min", so the schedule is a heartbeat rather than a window that can be
   // missed. A worker that was down all afternoon catches up on its next tick
   // instead of silently skipping everyone whose window it slept through.
-  await boss.work(SESSION_REMINDERS_QUEUE, { batchSize: 1 }, async (jobs) => {
+  await work(SESSION_REMINDERS_QUEUE, { batchSize: 1 }, async (jobs) => {
     const mailer = createMailer(process.env);
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
     let last: Awaited<ReturnType<typeof runSessionReminders>> | undefined;
@@ -227,6 +235,7 @@ async function main(): Promise<void> {
             `${String(report.sent)} sent, ${String(report.skipped)} already told, ` +
             `${String(report.failed)} failed`,
         );
+        await reportMailFailures(`${SESSION_REMINDERS_QUEUE}/${kind}`, report);
       }
     }
     return last;
@@ -241,7 +250,7 @@ async function main(): Promise<void> {
   // The job and /sedmitsata/[city] call the SAME query (weeklyDigest), and the
   // send is idempotent per subscriber per week through digest_sends — so a
   // manual re-run, a retry or a second worker cannot mail anyone twice.
-  await boss.work(DIGEST_WEEKLY_QUEUE, { batchSize: 1 }, async (jobs) => {
+  await work(DIGEST_WEEKLY_QUEUE, { batchSize: 1 }, async (jobs) => {
     const mailer = createMailer(process.env);
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
     let last: Awaited<ReturnType<typeof runWeeklyDigest>> | undefined;
@@ -252,6 +261,7 @@ async function main(): Promise<void> {
         `[worker] ${DIGEST_WEEKLY_QUEUE} job ${job.id}: ${String(last.subscribers)} subscriber(s), ` +
           `${String(last.sent)} sent, ${String(last.skipped)} skipped, ${String(last.failed)} failed`,
       );
+      await reportMailFailures(DIGEST_WEEKLY_QUEUE, last);
     }
     return last;
   });
@@ -266,7 +276,7 @@ async function main(): Promise<void> {
   // on the same day rewrites byte-identical files under the same version. The
   // job is safe to trigger by hand from the admin screen when something looks
   // wrong, which is the point of making it boring.
-  await boss.work(OPENDATA_DUMP_QUEUE, { batchSize: 1 }, async (jobs) => {
+  await work(OPENDATA_DUMP_QUEUE, { batchSize: 1 }, async (jobs) => {
     let last: Awaited<ReturnType<typeof runOpenDataDump>> | undefined;
     for (const job of jobs) {
       last = await runOpenDataDump();
@@ -287,7 +297,7 @@ async function main(): Promise<void> {
   // personally looked. The web app enqueues here after a contribution or a
   // check-in COMMITS; see apps/worker/src/passport-job.ts for why this must not
   // be inlined into those transactions.
-  await boss.work(PASSPORT_EVALUATE_QUEUE, async (jobs) => {
+  await work(PASSPORT_EVALUATE_QUEUE, async (jobs) => {
     for (const job of jobs) {
       const report = await runPassportEvaluate((job.data ?? {}) as PassportEvaluateJobData);
       if (report.recorded > 0) {
@@ -305,7 +315,7 @@ async function main(): Promise<void> {
   // idempotent (ON CONFLICT DO NOTHING), it is the only thing that catches a
   // member whose badges were earned while this feature did not exist, and one
   // pass over the ledger's distinct users is cheap next to getting it wrong.
-  await boss.work(BADGE_BACKFILL_QUEUE, async () => {
+  await work(BADGE_BACKFILL_QUEUE, async () => {
     const report = await runBadgeBackfill();
     console.log(
       `[worker] ${BADGE_BACKFILL_QUEUE} evaluated ${String(report.evaluated)} member(s), ` +
@@ -319,7 +329,7 @@ async function main(): Promise<void> {
   // timezone is the point: a week boundary is a wall-clock promise, so a UTC
   // cron would apply freezes an hour early or late for half the year and
   // occasionally decide the wrong week had just closed.
-  await boss.work(STREAK_FREEZE_QUEUE, async () => {
+  await work(STREAK_FREEZE_QUEUE, async () => {
     const report = await runStreakFreezes();
     console.log(
       `[worker] ${STREAK_FREEZE_QUEUE} considered ${String(report.evaluated)} member(s), ` +
@@ -337,7 +347,7 @@ async function main(): Promise<void> {
   // Also the bootstrap. There is no separate seeding job — see
   // divisions-job.ts: week one is the general case with no history, and a
   // missed week resumes rather than resets.
-  await boss.work(DIVISIONS_ROLLOVER_QUEUE, async () => {
+  await work(DIVISIONS_ROLLOVER_QUEUE, async () => {
     const report = await runDivisions();
     console.log(
       `[worker] ${DIVISIONS_ROLLOVER_QUEUE} ${report.week}: ` +
@@ -347,6 +357,17 @@ async function main(): Promise<void> {
     );
   });
   await boss.schedule(DIVISIONS_ROLLOVER_QUEUE, '40 4 * * 1', {}, { tz: 'Europe/Sofia' });
+
+  // The heartbeat goes LAST, after every other queue is registered. A worker
+  // that throws halfway through booting — a bad image, a missing env var — and
+  // is restarted by Docker in a loop must never complete a ping on its way
+  // down, or a crash loop would look alive. So a completed ping means "a worker
+  // got all the way here", and the ping sent now is this boot's first beat.
+  await work(HEALTH_QUEUE, async () => {
+    // Quiet on purpose: 288 a day. pg-boss's completed_on IS the output.
+  });
+  await boss.schedule(HEALTH_QUEUE, HEALTH_SCHEDULE);
+  await boss.send(HEALTH_QUEUE, {});
 
   console.log('[worker] started, listening for jobs');
 
@@ -363,7 +384,10 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error: unknown) => {
+main().catch(async (error: unknown) => {
   console.error('[worker] fatal', error);
+  // Bounded by the reporter's own timeout; a GlitchTip that is down cannot
+  // keep a dead worker from exiting (and Docker from restarting it).
+  await reporter.captureException(error, { tags: { stage: 'boot' } });
   process.exit(1);
 });

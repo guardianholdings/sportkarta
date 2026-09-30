@@ -74,7 +74,8 @@ services:
       # Self-hosted cookieless Umami (set both to enable the snippet).
       UMAMI_SRC: ${UMAMI_SRC:-}
       UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
-      # Self-hosted GlitchTip (Sentry-compatible) DSN for client error monitoring.
+      # Self-hosted GlitchTip (Sentry-compatible) DSN: browser errors (ErrorMonitor)
+      # and server errors (apps/web/instrumentation.ts onRequestError).
       GLITCHTIP_DSN: ${GLITCHTIP_DSN:-}
       # QR check-in (Stage 5.4). Unset = the feature is OFF, fail closed
       # (lib/checkin-config.ts). deploy.yml derives it from AUTH_SECRET unless a
@@ -151,6 +152,10 @@ services:
       # worker falls back to http://localhost:3000 (apps/worker/src/index.ts),
       # so a digest would ship with links to the reader's own machine.
       NEXT_PUBLIC_SITE_URL: ${SITE_URL:?SITE_URL is rendered into .env by deploy.yml}
+      # Same GlitchTip DSN as web: a failed job or an undeliverable batch of
+      # session mail is reported there (apps/worker/src/reporting.ts). Empty =
+      # reporting off, exactly as before.
+      GLITCHTIP_DSN: ${GLITCHTIP_DSN:-}
     volumes:
       - uploads:/data/uploads
     depends_on:

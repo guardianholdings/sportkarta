@@ -1,6 +1,7 @@
 import { getDb, sql, type SQL } from '@sportkarta/db';
 
 import { scopeClause, type ModerationActor } from './moderation';
+import { jobErrorMessage } from './ops-health';
 import { facilityAccess, facilitySource, facilityStatus } from '@sportkarta/db/schema';
 
 /** Read-side queries for the admin screens. Server-only; callers are gated. */
@@ -366,6 +367,12 @@ export async function listImportJobs(): Promise<ImportJobRow[]> {
 
 export interface ImportJobDetail extends ImportJobRow {
   report: string | null;
+  /**
+   * Why a failed run failed. pg-boss stores a thrown error in `output` in place
+   * of the report, so reading `output.report` alone showed a failed import as
+   * "no report yet" — indistinguishable from one still waiting.
+   */
+  error: string | null;
 }
 
 export async function getImportJob(id: string): Promise<ImportJobDetail | null> {
@@ -385,13 +392,16 @@ export async function getImportJob(id: string): Promise<ImportJobDetail | null> 
   if (!row) return null;
   const data = (row.data as { dryRun?: boolean; actor?: string } | null) ?? {};
   const output = row.output as { report?: string } | null;
+  const state = String(row.state);
   return {
     id: String(row.id),
-    state: String(row.state),
+    state,
     dryRun: data.dryRun !== false,
     actor: data.actor ?? null,
     createdOn: String(row.created_on),
     completedOn: row.completed_on ? String(row.completed_on) : null,
     report: typeof output?.report === 'string' ? output.report : null,
+    // A retry carries the previous attempt's error too, which is worth seeing.
+    error: state === 'failed' || state === 'retry' ? jobErrorMessage(row.output) : null,
   };
 }
