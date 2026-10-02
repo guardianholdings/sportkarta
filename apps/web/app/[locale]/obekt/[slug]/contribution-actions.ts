@@ -24,6 +24,14 @@ export interface ContributionState {
   error?: string;
   /** Points earned by this submission — 0 when it was already awarded. */
   awarded?: number;
+  /**
+   * Whether the contributor was close enough to score, and how far they were
+   * (null: no position shared). Returned so the thanks line can say WHY a
+   * contribution earned nothing — lib/contributions/feedback.ts. A distance in
+   * metres, never a coordinate.
+   */
+  onSite?: boolean;
+  distanceM?: number | null;
 }
 
 const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -110,7 +118,13 @@ export async function verifyFacilityAction(
     // After the write COMMITS: a verification can complete a badge, and the
     // engine must not run inside the contribution's transaction (A1).
     await enqueuePassportEvaluate(user.id);
-    return { status: 'ok', awarded: result.awarded ? POINTS_BY_EVENT.facility_verified : 0 };
+    return {
+      status: 'ok',
+      awarded: result.awarded ? POINTS_BY_EVENT.facility_verified : 0,
+      ...(result.onSite === undefined
+        ? {}
+        : { onSite: result.onSite, distanceM: result.distanceM ?? null }),
+    };
   } catch (error) {
     if (error instanceof ContributionError) return { status: 'error', error: error.code };
     throw error;
@@ -153,7 +167,12 @@ export async function reportConditionAction(
     });
     revalidatePath(`/obekt/${slug}`);
     await enqueuePassportEvaluate(user.id);
-    return { status: 'ok', awarded: result.awarded ? POINTS_BY_EVENT.condition_reported : 0 };
+    return {
+      status: 'ok',
+      awarded: result.awarded ? POINTS_BY_EVENT.condition_reported : 0,
+      onSite: result.onSite ?? false,
+      distanceM: result.distanceM ?? null,
+    };
   } catch (error) {
     await discardContributionPhoto(storagePath);
     if (error instanceof ContributionError) return { status: 'error', error: error.code };

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { POINTS_BY_EVENT } from '@sportkarta/lib/points';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { config } from 'dotenv';
 import pg from 'pg';
 
@@ -48,6 +48,21 @@ const PIXEL_JPEG = Buffer.from(
     'AAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==',
   'base64',
 );
+
+/**
+ * Wait for the form's own position fix before submitting.
+ *
+ * The forms never ask on load any more (a visitor is never prompted before a
+ * tap); where location is already allowed, as here, each form fetches it
+ * silently a beat after hydration. These specs assert the ON-SITE award, so a
+ * click that beat the fix would post no position and — correctly — earn
+ * nothing. Scoped to the form by its submit button: a facility page carries
+ * both the verify and the condition form, each with its own fix.
+ */
+async function waitForPosition(page: Page, submit: RegExp): Promise<void> {
+  const form = page.locator('form').filter({ has: page.getByRole('button', { name: submit }) });
+  await expect(form.getByText(bg.Contribute.locationGranted)).toBeVisible();
+}
 
 test.describe('authenticated contributions', () => {
   // Proximity gates POINTS (never the contribution itself): a member who
@@ -115,6 +130,7 @@ test.describe('authenticated contributions', () => {
     // Sports are selectable toggle chips (role=button, aria-pressed), not native checkboxes.
     await page.getByRole('button', { name: /баскетбол|basketball/i }).click();
     await page.getByLabel(/име|name/i).fill(facilityName);
+    await waitForPosition(page, /добави съоръжението|add facility/i);
     await page.getByRole('button', { name: /добави съоръжението|add facility/i }).click();
 
     // Redirected to the new facility page, carrying the POINTS awarded (A2).
@@ -203,6 +219,7 @@ test.describe('authenticated contributions', () => {
 
     await page.context().setGeolocation({ longitude: 23.3401, latitude: 42.6901 });
     await page.goto(`/obekt/${facility?.slug ?? ''}`);
+    await waitForPosition(page, /^(потвърди|confirm)$/i);
     await page.getByRole('button', { name: /^(потвърди|confirm)$/i }).click();
     await expect(page.getByRole('status')).toBeVisible();
 
@@ -245,6 +262,7 @@ test.describe('authenticated contributions', () => {
     // directly instead of the span that intercepts the pointer.
     await page.getByRole('radio', { name: /^(лошо|poor)$/i }).check({ force: true });
     await page.getByRole('checkbox', { name: /замърсено|litter/i }).check({ force: true });
+    await waitForPosition(page, /^(изпрати|send)$/i);
     await page.getByRole('button', { name: /^(изпрати|send)$/i }).click();
     await expect(page.getByRole('status')).toBeVisible();
 
@@ -264,6 +282,7 @@ test.describe('authenticated contributions', () => {
     // Report again the same day: recorded again, but paid only once.
     await page.reload();
     await page.getByRole('radio', { name: /^(добро|good)$/i }).check({ force: true });
+    await waitForPosition(page, /^(изпрати|send)$/i);
     await page.getByRole('button', { name: /^(изпрати|send)$/i }).click();
     await expect(page.getByRole('status')).toBeVisible();
 
@@ -294,6 +313,7 @@ test.describe('authenticated contributions', () => {
 
     await page.context().setGeolocation({ longitude: 23.3601, latitude: 42.7101 });
     await page.goto(`/obekt/${facility?.slug ?? ''}`);
+    await waitForPosition(page, /^(потвърди|confirm)$/i);
     await page.getByRole('button', { name: /^(потвърди|confirm)$/i }).click();
     await expect(page.getByRole('status')).toBeVisible();
 

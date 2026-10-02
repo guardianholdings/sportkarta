@@ -15,7 +15,14 @@ import { SPORT_VISUALS } from '@/lib/design/sport-visuals';
 import { Link } from '@/i18n/navigation';
 
 import { addFacilityAction, type AddFacilityState } from './actions';
-import { PositionFields, PositionNotice, usePosition } from '@/components/facility/position-fields';
+import { PhotoFieldStatus, usePhotoField } from '@/components/facility/photo-field';
+import {
+  PositionFields,
+  PositionNotice,
+  useContributeLocationLabels,
+  usePosition,
+} from '@/components/facility/position-fields';
+import { PHOTO_ACCEPT } from '@/lib/photo-downscale';
 
 const ACCESS_VALUES = ['free', 'paid', 'restricted', 'school'] as const;
 const INITIAL: AddFacilityState = { error: null };
@@ -30,8 +37,9 @@ export function AddFacilityForm({
   initialLat: number;
 }) {
   const t = useTranslations('AddFacility');
-  const tContribute = useTranslations('Contribute');
   const { phase, latRef, lonRef, request } = usePosition();
+  const locationLabels = useContributeLocationLabels();
+  const photo = usePhotoField();
   const tSport = useTranslations('Sport');
   const tAccess = useTranslations('Access');
   const [state, action, pending] = useActionState<AddFacilityState, FormData>(
@@ -52,17 +60,7 @@ export function AddFacilityForm({
   return (
     <form action={action} className="flex flex-col gap-6">
       <PositionFields latRef={latRef} lonRef={lonRef} />
-      <PositionNotice
-        phase={phase}
-        labels={{
-          locating: tContribute('locating'),
-          granted: tContribute('locationGranted'),
-          denied: tContribute('locationDenied'),
-          insecure: tContribute('locationInsecure'),
-          retry: tContribute('locationRetry'),
-        }}
-        onRequest={request}
-      />
+      <PositionNotice phase={phase} labels={locationLabels} onRequest={request} />
       <fieldset className="flex flex-col gap-2">
         <legend className={`mb-1 ${LEGEND}`}>{t('locationLegend')}</legend>
         <div className="overflow-hidden rounded-card border border-line">
@@ -77,13 +75,14 @@ export function AddFacilityForm({
           <input
             type="file"
             name="photo"
-            accept="image/jpeg,image/png,image/webp"
+            accept={PHOTO_ACCEPT}
             required
-            capture="environment"
+            onChange={photo.onChange}
             className="min-w-0 flex-1 text-body-sm file:mr-3 file:rounded-pill file:border-0 file:bg-brand-subtle file:px-3 file:py-1 file:text-brand"
           />
         </div>
         <span className="text-caption text-text-muted">{t('photoHint')}</span>
+        <PhotoFieldStatus status={photo.status} />
       </label>
 
       <fieldset className="flex flex-col gap-2">

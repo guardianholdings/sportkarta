@@ -11,7 +11,13 @@ import { Select } from '@/components/ui/select';
 import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 
 import { verifyFacilityAction, type ContributionState } from './contribution-actions';
-import { PositionFields, PositionNotice, usePosition } from '@/components/facility/position-fields';
+import { ContributionThanks } from '@/components/facility/contribution-thanks';
+import {
+  PositionFields,
+  PositionNotice,
+  useContributeLocationLabels,
+  usePosition,
+} from '@/components/facility/position-fields';
 
 const ACCESS_VALUES = ['free', 'paid', 'restricted', 'school'] as const;
 const INITIAL: ContributionState = { status: 'idle' };
@@ -36,6 +42,7 @@ const FIELD_LABEL = 'font-mono text-overline uppercase tracking-overline text-te
 export function VerifyForm(props: VerifyFormProps) {
   const t = useTranslations('Contribute');
   const { phase, latRef, lonRef, request } = usePosition();
+  const locationLabels = useContributeLocationLabels();
   const tSport = useTranslations('Sport');
   const tAccess = useTranslations('Access');
   const tSurface = useTranslations('Surface');
@@ -48,17 +55,7 @@ export function VerifyForm(props: VerifyFormProps) {
   return (
     <form action={action} className="flex flex-col gap-5">
       <PositionFields latRef={latRef} lonRef={lonRef} />
-      <PositionNotice
-        phase={phase}
-        labels={{
-          locating: t('locating'),
-          granted: t('locationGranted'),
-          denied: t('locationDenied'),
-          insecure: t('locationInsecure'),
-          retry: t('locationRetry'),
-        }}
-        onRequest={request}
-      />
+      <PositionNotice phase={phase} labels={locationLabels} onRequest={request} />
       <input type="hidden" name="slug" value={props.slug} />
       {/* Declares which checklist fields this form presented; the action ignores
           anything not listed, so an omitted field can never be read as an
@@ -146,11 +143,7 @@ export function VerifyForm(props: VerifyFormProps) {
           {t(`error_${state.error ?? 'unknown'}`)}
         </p>
       )}
-      {state.status === 'ok' && (
-        <p role="status" className="text-body-sm text-success">
-          {state.awarded ? t('thanksWithPoints', { points: state.awarded }) : t('thanksNoPoints')}
-        </p>
-      )}
+      {state.status === 'ok' && <ContributionThanks state={state} kind="verify" />}
 
       <Button
         type="submit"

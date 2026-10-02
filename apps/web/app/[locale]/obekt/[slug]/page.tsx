@@ -14,7 +14,7 @@ import { FacilitySponsorBlock } from '@/components/facility/facility-sponsor';
 import { ReportForm } from '@/components/facility/report-form';
 import { MiniMapLoader } from '@/components/map/mini-map-loader';
 import { getCurrentUser } from '@/lib/auth-session';
-import { addedPoints } from '@/lib/contributions/added-banner';
+import { addedBanner } from '@/lib/contributions/added-banner';
 import { issueFormToken } from '@/lib/form-token';
 import { serializeJsonLd } from '@/lib/json-ld';
 import { buildAlternates } from '@/lib/seo';
@@ -87,7 +87,7 @@ export default async function FacilityPage({
     ]);
   if (!facility) notFound();
 
-  const justAdded = addedPoints(query.added);
+  const justAdded = addedBanner(query.added);
 
   const name = displayName(facility, t('unnamed'));
   const sportLabels = facility.sportTypes.map((s) => tSport(s));
@@ -121,7 +121,9 @@ export default async function FacilityPage({
             className="mb-4 rounded-card border border-accent-border bg-accent-subtle p-4"
           >
             <p className="text-h4 font-bold text-accent-active">
-              {tContribute('thanksWithPoints', { points: justAdded })}
+              {justAdded.points === null
+                ? tContribute('thanksNoPoints')
+                : tContribute('thanksWithPoints', { points: justAdded.points })}
             </p>
             <p className="mt-1 text-body-sm text-ink-soft">{tAdd('moderationNote')}</p>
           </div>

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import bg from '../messages/bg.json';
 import en from '../messages/en.json';
-import { addedPoints, addedRedirectValue } from '../lib/contributions/added-banner';
+import { addedBanner, addedPoints, addedRedirectValue } from '../lib/contributions/added-banner';
 
 /**
  * A2 ("show the number") — docs/ENGAGEMENT-IMPLEMENTATION.md Phase 1.
@@ -124,5 +124,32 @@ describe('addedRedirectValue — what the action puts in the URL', () => {
 
   it('round-trips: what the action emits is what the page renders', () => {
     expect(addedPoints(String(addedRedirectValue(true)))).toBe(10);
+  });
+});
+
+/**
+ * Pre-launch audit, 2026-09: an add that earned nothing redirects with
+ * `?added=0`, which rendered no banner at all — so the member who added a pitch
+ * from home, the one whose facility most certainly waits for a check, was told
+ * nothing. The acknowledgement survives; only the figure is withheld.
+ */
+describe('addedBanner — every add is acknowledged', () => {
+  it('shows the figure for a paid add', () => {
+    expect(addedBanner('10')).toEqual({ points: 10 });
+  });
+
+  it('acknowledges an add that earned nothing, without a zero', () => {
+    expect(addedBanner('0')).toEqual({ points: null });
+    expect(addedBanner(String(addedRedirectValue(false)))).toEqual({ points: null });
+  });
+
+  it('shows nothing when the page was not reached from an add', () => {
+    expect(addedBanner(undefined)).toBeNull();
+  });
+
+  it('a crafted value still cannot make it say anything', () => {
+    for (const bad of ['-5', '999999', 'abc', '00', ' 0', ['0', '10']]) {
+      expect(addedBanner(bad), JSON.stringify(bad)).toBeNull();
+    }
   });
 });
