@@ -20,7 +20,16 @@ import { AppShell } from '@/components/shell/app-shell';
  * midnight through both DST transitions (see db/src/digest.ts).
  */
 
+// On-demand ISR, cached hourly: the empty generateStaticParams prerenders
+// nothing at build (no DB there) and is what makes `revalidate` take effect on
+// a dynamic segment — without it the page rendered per request. An RSVP count
+// here can therefore lag the session page by up to an hour; the session page
+// itself stays live.
 export const revalidate = 3600;
+
+export function generateStaticParams(): { city: string }[] {
+  return [];
+}
 
 const SOFIA_TZ = 'Europe/Sofia';
 

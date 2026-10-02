@@ -21,7 +21,13 @@ import { AppShell } from '@/components/shell/app-shell';
 import { chipClass } from '@/components/ui/chip';
 
 // ISR: on-demand + cached hourly, never prerendered at build (no DB there).
+// The empty generateStaticParams is what makes the window real — see the
+// sibling [city]/page.tsx.
 export const revalidate = 3600;
+
+export function generateStaticParams(): { city: string; segment: string }[] {
+  return [];
+}
 
 const MIN_FACILITIES = 3;
 const LIST_LIMIT = 60;

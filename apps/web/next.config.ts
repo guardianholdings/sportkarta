@@ -24,6 +24,15 @@ const nextConfig: NextConfig = {
     // server-action body limit (1 MB) would reject real phone photos before our
     // own size check runs. Headroom above 8 MB covers multipart form overhead.
     serverActions: { bodySizeLimit: '10mb' },
+    // ISR entries (the /igrishta, /sedmitsata and /sitemaps pages) live in
+    // Next's in-memory LRU only. On disk they would be written beside the
+    // compiled app in .next/server/app, which the image keeps root-owned and
+    // read-only to the runtime user on purpose (Dockerfile) — so every
+    // regeneration logged an EACCES warning — and the set of cacheable URLs is
+    // open-ended (any slug a crawler invents renders a cacheable 404), which an
+    // LRU bounds and a directory does not. The cache does not survive a restart,
+    // and a deploy is exactly when it should not.
+    isrFlushToDisk: false,
   },
   // Framing policy (Stage 3.4). The municipality widget under /api/widget is
   // the ONE surface meant to be embedded on other people's sites, and it sets
@@ -58,6 +67,35 @@ const nextConfig: NextConfig = {
             key: 'Permissions-Policy',
             value: 'microphone=(), payment=(), interest-cohort=()',
           },
+        ],
+      },
+      // Static assets from public/. Next serves every public file with
+      // `max-age=0` because it cannot know which ones change, so the map
+      // revalidated its glyph ranges (~400 KB on a first view) and the app
+      // icons on every load. These rules say what we know about each set.
+      {
+        // MapLibre glyph ranges: one file per font stack and Unicode range,
+        // generated once and never edited in place — a new font is a new
+        // directory name. A month is safe; immutable is not claimed, because
+        // the URL does not carry a content hash.
+        source: '/fonts/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000' }],
+      },
+      {
+        // The glyph PBFs are protobuf but went out as application/octet-stream,
+        // which Caddy's default `encode` matcher skips — 134 KB on the wire
+        // where 83 KB would do. Naming the real type, which is on that default
+        // list, gets them compressed with no Caddyfile change.
+        source: '/fonts/:fontstack/:range(\\d+-\\d+\\.pbf)',
+        headers: [{ key: 'Content-Type', value: 'application/x-protobuf' }],
+      },
+      {
+        // App icons keep their paths when their pixels change (the POPS
+        // rebrand did exactly that), so they get a day plus a background
+        // refresh rather than a long lifetime that would pin a retired icon.
+        source: '/icons/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
         ],
       },
     ];

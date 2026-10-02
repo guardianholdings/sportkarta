@@ -41,8 +41,18 @@ export interface PlacementState {
 /**
  * Every surface an ad can appear on. Revalidating the layout of the dynamic
  * segments is the only way to reach "every city" without enumerating cities.
+ *
+ * The patterns are the ROUTE as the app directory spells it, `[locale]`
+ * included: Next tags a cached page `/[locale]/igrishta/[city]/page`, and a
+ * path written without the locale segment matches nothing — silently, so an ad
+ * would wait for the hourly turnover after all (tests/caching-config.test.ts).
  */
-const AD_SURFACES = ['/obekt/[slug]', '/igrishta/[city]', '/sedmitsata/[city]', '/'] as const;
+const AD_SURFACES = [
+  '/[locale]/obekt/[slug]',
+  '/[locale]/igrishta/[city]',
+  '/[locale]/sedmitsata/[city]',
+  '/[locale]',
+] as const;
 
 function revalidateAdSurfaces(): void {
   for (const path of AD_SURFACES) revalidatePath(path, 'page');

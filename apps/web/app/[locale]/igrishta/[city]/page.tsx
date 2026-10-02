@@ -20,7 +20,17 @@ import { chipClass } from '@/components/ui/chip';
 
 // Programmatic SEO page: rendered on-demand + cached (ISR), never at build
 // (no DB during the Docker build). Thin-content guarded.
+//
+// `revalidate` alone does NOT make this ISR: a dynamic segment with no
+// generateStaticParams is rendered per request and the window is ignored —
+// which is how this page ran on production, `private, no-store`, 115-260 ms of
+// the one Node thread per hit. The empty list prerenders nothing at build and
+// opts the segment into on-demand caching; tests/isr-routes.test.ts pins it.
 export const revalidate = 3600;
+
+export function generateStaticParams(): { city: string }[] {
+  return [];
+}
 
 const MIN_FACILITIES = 3;
 const LIST_LIMIT = 60;
