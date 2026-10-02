@@ -2,11 +2,13 @@ import { CANONICAL_SPORTS, CANONICAL_SURFACES } from '@sportkarta/lib';
 import { describe, expect, it } from 'vitest';
 
 import {
+  lifecycleState,
   mapAccess,
   mapCovered,
   mapLighting,
   mapSports,
   mapSurface,
+  PAID_BY_DEFAULT_LEISURE,
   SPORT_MAP,
   SURFACE_MAP,
 } from './mapping.js';
@@ -75,6 +77,60 @@ describe('mapCovered / mapAccess', () => {
     expect(mapAccess({ leisure: 'fitness_centre' })).toBe('paid');
     expect(mapAccess({ leisure: 'fitness_centre', fee: 'no' })).toBe('free');
     expect(mapAccess({ leisure: 'pitch' })).toBe('free');
+  });
+
+  // Audit finding 80: 137 pools, 6 ice rinks, 5 riding venues and 2 water
+  // parks were published as free because nothing said otherwise.
+  it.each([...PAID_BY_DEFAULT_LEISURE])('%s is paid unless OSM says it is free', (leisure) => {
+    expect(mapAccess({ leisure })).toBe('paid');
+    expect(mapAccess({ leisure, sport: 'swimming' })).toBe('paid');
+    expect(mapAccess({ leisure, access: 'permissive' })).toBe('paid');
+    expect(mapAccess({ leisure, fee: 'no' })).toBe('free');
+    expect(mapAccess({ leisure, access: 'yes' })).toBe('free');
+    expect(mapAccess({ leisure, access: 'public' })).toBe('free');
+    expect(mapAccess({ leisure, access: 'Yes' })).toBe('free');
+    // An explicit fee still beats an access claim, as for every other venue.
+    expect(mapAccess({ leisure, access: 'yes', fee: 'yes' })).toBe('paid');
+    // A private pool is restricted, not paid.
+    expect(mapAccess({ leisure, access: 'private' })).toBe('restricted');
+    expect(mapAccess({ leisure, access: 'no' })).toBe('restricted');
+  });
+
+  it('does not extend the access=yes exception to the older paid defaults', () => {
+    // Unchanged by the 2026-09-29 amendment: a sports centre or a gym is paid
+    // unless it says fee=no.
+    expect(mapAccess({ leisure: 'sports_centre', access: 'yes' })).toBe('paid');
+    expect(mapAccess({ leisure: 'fitness_centre', access: 'public' })).toBe('paid');
+  });
+
+  it('keeps a free-by-nature sport object free: a lake swimming spot is not a pool', () => {
+    expect(mapAccess({ sport: 'swimming', natural: 'water' })).toBe('free');
+    expect(mapAccess({ leisure: 'pitch', sport: 'equestrian' })).toBe('free');
+  });
+});
+
+describe('lifecycleState', () => {
+  it('reads the plain lifecycle keys', () => {
+    expect(lifecycleState({ leisure: 'pitch', abandoned: 'yes' })).toBe('abandoned');
+    expect(lifecycleState({ leisure: 'pitch', disused: 'yes' })).toBe('disused');
+    expect(lifecycleState({ leisure: 'pitch', disused: 'YES' })).toBe('disused');
+    expect(lifecycleState({ leisure: 'pitch', disused: 'no' })).toBeUndefined();
+    expect(lifecycleState({ leisure: 'pitch' })).toBeUndefined();
+  });
+
+  it('reads any lifecycle-prefixed key', () => {
+    expect(lifecycleState({ sport: 'soccer', 'disused:leisure': 'pitch' })).toBe('disused');
+    expect(lifecycleState({ sport: 'swimming', 'abandoned:leisure': 'swimming_pool' })).toBe(
+      'abandoned',
+    );
+    expect(lifecycleState({ 'abandoned:sport': 'tennis' })).toBe('abandoned');
+  });
+
+  it('is not fooled by keys that merely contain the word', () => {
+    expect(
+      lifecycleState({ leisure: 'pitch', note: 'disused:leisure was removed' }),
+    ).toBeUndefined();
+    expect(lifecycleState({ leisure: 'pitch', 'name:disused': 'x' })).toBeUndefined();
   });
 });
 
@@ -150,6 +206,30 @@ describe('normalizeFeature', () => {
       expect(barePitch.candidate.sportTypes).toEqual([]);
       expect(barePitch.candidate.noSportBucket).toBe('pitch_no_sport');
     }
+  });
+
+  it('withdraws lifecycle-tagged objects with their ref, before any other rule', () => {
+    expect(
+      normalizeFeature(feature('w40', { leisure: 'pitch', sport: 'soccer', abandoned: 'yes' })),
+    ).toEqual({ kind: 'withdrawn', osmType: 'way', osmId: 40, state: 'abandoned' });
+    expect(
+      normalizeFeature(feature('a82', { sport: 'swimming', 'disused:leisure': 'swimming_pool' })),
+    ).toEqual({ kind: 'withdrawn', osmType: 'way', osmId: 41, state: 'disused' });
+    // Even one a later rule would have skipped: the ref is what matters.
+    expect(
+      normalizeFeature(feature('n42', { sport: 'darts', amenity: 'pub', disused: 'yes' })),
+    ).toMatchObject({ kind: 'withdrawn', osmId: 42 });
+  });
+
+  it('prices a pool from its own tags end to end', () => {
+    const pool = normalizeFeature(
+      feature('w50', { leisure: 'swimming_pool', sport: 'swimming', name: 'Плувен комплекс' }),
+    );
+    expect(pool.kind === 'candidate' && pool.candidate.access).toBe('paid');
+    const publicPool = normalizeFeature(
+      feature('w51', { leisure: 'swimming_pool', sport: 'swimming', access: 'yes' }),
+    );
+    expect(publicPool.kind === 'candidate' && publicPool.candidate.access).toBe('free');
   });
 
   it('lat/lon swap lands outside the bbox screen', () => {

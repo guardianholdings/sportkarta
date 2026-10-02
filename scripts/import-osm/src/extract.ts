@@ -28,6 +28,13 @@ export async function* readFeatures(featuresPath: string): AsyncGenerator<OsmFea
 
 export interface CandidateCollection {
   byKey: Map<string, FacilityCandidate>;
+  /**
+   * `osm_type:osm_id` of every extracted object OSM marks abandoned/disused.
+   * Kept apart from `skips` because the importer and the audit both need the
+   * refs: a row already on the map for one of these was withdrawn by OSM, not
+   * lost from the extract.
+   */
+  withdrawn: Set<string>;
   featuresTotal: number;
   geometryTwins: number;
   skips: Record<string, number>;
@@ -45,6 +52,7 @@ function bump(record: Record<string, number>, key: string, by = 1): void {
 export async function collectCandidates(featuresPath: string): Promise<CandidateCollection> {
   const c: CandidateCollection = {
     byKey: new Map(),
+    withdrawn: new Set(),
     featuresTotal: 0,
     geometryTwins: 0,
     skips: {},
@@ -59,6 +67,13 @@ export async function collectCandidates(featuresPath: string): Promise<Candidate
     const result = normalizeFeature(feature);
     if (result.kind === 'skip') {
       bump(c.skips, result.reason);
+      continue;
+    }
+    if (result.kind === 'withdrawn') {
+      // Area + perimeter-ring twins share a ref: count the object once.
+      const key = `${result.osmType}:${String(result.osmId)}`;
+      if (!c.withdrawn.has(key)) bump(c.skips, `lifecycle_${result.state}`);
+      c.withdrawn.add(key);
       continue;
     }
     const cand = result.candidate;
@@ -104,6 +119,14 @@ export async function runOsmium(pbfPath: string, workDir: string): Promise<strin
     pbfPath,
     'nwr/leisure=pitch,fitness_station,sports_centre,track,fitness_centre',
     'nwr/sport',
+    // Lifecycle-prefixed facilities: a mapper who retires a pitch properly
+    // moves `leisure=pitch` to `disused:leisure=pitch`, and the two filters
+    // above would then lose it — leaving an imported row published as
+    // "missing from extract" instead of withdrawn (normalize.ts).
+    'nwr/abandoned:leisure',
+    'nwr/disused:leisure',
+    'nwr/abandoned:sport',
+    'nwr/disused:sport',
     '-O',
     '-o',
     filteredPath,

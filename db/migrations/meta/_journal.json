@@ -218,6 +218,13 @@
       "when": 1785105600000,
       "tag": "0030_seed_rows_honest_status",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1785109200000,
+      "tag": "0031_seed_fixtures_unverified",
+      "breakpoints": true
     }
   ]
 }

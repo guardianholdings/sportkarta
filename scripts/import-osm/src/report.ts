@@ -1,9 +1,11 @@
+import { DUPLICATE_RADIUS_M, type DuplicatePair } from './dedupe.js';
 import type { DistributionRow, ImportCounts } from './importer.js';
-import type {
-  AssignmentResult,
-  MunicipalityCounts,
-  RegisterRow,
-  UnmatchedBoundary,
+import {
+  MUNICIPALITY_SNAP_M,
+  type AssignmentResult,
+  type MunicipalityCounts,
+  type RegisterRow,
+  type UnmatchedBoundary,
 } from './municipalities.js';
 
 export interface MunicipalityStageStats {
@@ -11,6 +13,8 @@ export interface MunicipalityStageStats {
   counts: MunicipalityCounts;
   unmatched: UnmatchedBoundary[];
   missingFromOsm: RegisterRow[];
+  /** Every register municipality has a boundary — arms the out-of-border gate. */
+  layerComplete: boolean;
 }
 
 export interface ImportStats {
@@ -56,6 +60,23 @@ function distTable(label: string, rows: DistributionRow[]): string {
   ].join('\n');
 }
 
+/** Long lists stay readable in a dry-run report; the counts above them are exact. */
+const LISTED = 50;
+
+function pairTable(pairs: DuplicatePair[], keepLabel: string, dropLabel: string): string {
+  if (pairs.length === 0) return '_None._\n';
+  const shown = pairs.slice(0, LISTED);
+  return [
+    `| ${keepLabel} | ${dropLabel} | Distance |`,
+    '|---|---|---|',
+    ...shown.map((p) => `| \`${p.keep}\` | \`${p.drop}\` | ${p.distanceM.toFixed(1)} m |`),
+    ...(pairs.length > shown.length
+      ? [`| … | ${String(pairs.length - shown.length)} more | |`]
+      : []),
+    '',
+  ].join('\n');
+}
+
 /** ROADMAP §3 gate: national count sanity — investigate the filter if far below ~5,000. */
 const NATIONAL_COUNT_EXPECTATION = 5000;
 
@@ -89,14 +110,46 @@ export function buildReport(stats: ImportStats): string {
   const outSamples =
     s.assignment.outSamples.length === 0
       ? ''
-      : '\nSample out-of-polygon facilities: ' +
-        s.assignment.outSamples
-          .map(
+      : [
+          '',
+          '| Ref | Slug | Name | Lon, lat |',
+          '|---|---|---|---|',
+          ...s.assignment.outSamples.map(
             (o) =>
-              `${o.name ?? '(без име)'} @ ${String(o.lon.toFixed(4))},${String(o.lat.toFixed(4))}`,
-          )
-          .join(' · ') +
-        '\n';
+              `| ${o.ref ? `\`${o.ref}\`` : '—'} | ${o.slug ?? '—'} | ${o.name ?? '(без име)'} | ${o.lon.toFixed(4)}, ${o.lat.toFixed(4)} |`,
+          ),
+          '',
+        ].join('\n');
+  const outsideRows =
+    s.counts.outsideMunicipalities.length === 0
+      ? '_None._\n'
+      : [
+          '| Ref | Name | Lon, lat |',
+          '|---|---|---|',
+          ...s.counts.outsideMunicipalities
+            .slice(0, LISTED)
+            .map(
+              (o) =>
+                `| \`${o.ref}\` | ${o.name ?? '(без име)'} | ${o.lon.toFixed(4)}, ${o.lat.toFixed(4)} |`,
+            ),
+          '',
+        ].join('\n');
+  const keptRows =
+    s.counts.withdrawnKept.length === 0
+      ? '_None._\n'
+      : [
+          '| Ref | Slug | Name | Status |',
+          '|---|---|---|---|',
+          ...s.counts.withdrawnKept
+            .slice(0, LISTED)
+            .map(
+              (k) => `| \`${k.ref}\` | ${k.slug ?? '—'} | ${k.name ?? '(без име)'} | ${k.status} |`,
+            ),
+          '',
+        ].join('\n');
+  const borderGate = m.layerComplete
+    ? `armed — all 265 municipality boundaries present, so a NEW facility outside every one of them (beyond the ${String(MUNICIPALITY_SNAP_M)} m coastline snap) is not inserted`
+    : 'NOT armed — a municipality boundary is missing, so "outside every municipality" could mean "inside the gap"; nothing was refused on that ground';
 
   return `# OSM import report — ${s.startedAt.toISOString().slice(0, 10)} (${s.mode})
 
@@ -120,10 +173,11 @@ ${unmatchedRows}
 ### Register municipalities without an OSM boundary this run
 
 ${missingRows}
-## Facility → municipality assignment (derived via ST_Contains)
+## Facility → municipality assignment (derived: ST_Contains, else nearest within ${String(MUNICIPALITY_SNAP_M)} m)
 
 - Assignments changed this run: ${String(s.assignment.changed)}
-- Facilities outside every municipality polygon: ${String(s.assignment.outOfPolygon)}
+- Facilities (not gone) outside every municipality polygon: ${String(s.assignment.outOfPolygon)} — existing rows are listed for a human to check, never withdrawn automatically
+- Border gate for new facilities: ${borderGate}
 ${outSamples}
 ## Totals
 
@@ -137,6 +191,11 @@ ${outSamples}
 | Updated (≥1 field applied) | ${String(s.counts.updated)} |
 | Unchanged (idempotent no-op) | ${String(s.counts.unchanged)} |
 | Bbox CHECK skips at insert | ${String(s.counts.constraintSkips)} |
+| Not inserted — duplicates a row within ${String(DUPLICATE_RADIUS_M)} m (other element type, shared sport) | ${String(s.counts.duplicatesSkipped.length)} |
+| Not inserted — outside every municipality | ${String(s.counts.outsideMunicipalities.length)} |
+| Withdrawn — OSM now marks abandoned/disused (status → gone) | ${String(s.counts.withdrawn)} |
+| Lifecycle-tagged but kept — a person or registry vouched for it | ${String(s.counts.withdrawnKept.length)} |
+| Restored — OSM dropped the lifecycle tag on a row this importer withdrew | ${String(s.counts.restored)} |
 | In DB but missing from extract | ${String(s.counts.missingFromExtract)} (reported only — never auto-marked gone) |
 | **OSM facilities after run** | **${String(s.totalOsm)}** |
 
@@ -145,6 +204,18 @@ National count sanity: **${sanity}**
 ## Skip reasons
 
 ${freqTable(['Reason', 'Count'], s.skips)}
+## Lifecycle-tagged rows left on the map — a person, registry or session vouches for them
+
+${keptRows}
+## New candidates not inserted as duplicates
+
+${pairTable(s.counts.duplicatesSkipped, 'Kept', 'Not inserted')}
+## Existing duplicate rows — for a moderator (both already on the map; nothing changed)
+
+${pairTable(s.counts.existingDuplicates, 'Preferred', 'Candidate to mark gone')}
+## New candidates not inserted — outside every municipality
+
+${outsideRows}
 ## Merge policy — frozen fields (crowd/municipal protected)
 
 ${freqTable(['Field', 'Skipped overwrites'], s.counts.frozenFields)}

@@ -1,6 +1,14 @@
 /**
  * Tag → schema normalization tables, operator-approved (hard stop a).
  * Every change here re-triggers the dry-run review gate before a live import.
+ *
+ * Amended 2026-09-29 — operator-approved pre-launch audit corrections:
+ *  - pools, water parks, ice rinks and riding venues default to `paid`
+ *    unless OSM says fee=no or access=yes/public (audit finding 80: 150 of
+ *    them had reached the free map on no evidence at all);
+ *  - objects OSM marks abandoned/disused are not facilities (finding 81).
+ * The approval covers the rules; the dry-run report of the next import is
+ * still the gate before it goes live.
  */
 
 export type OsmTags = Record<string, string>;
@@ -175,8 +183,25 @@ export function mapCovered(tags: OsmTags): boolean {
 }
 
 /**
+ * Venues that almost always charge at the door. They reach the extract through
+ * their sport=* tag (swimming, ice_skating, equestrian), and with no fee or
+ * access tag — 133 of 137 pools had neither — the old catch-all made them
+ * `free`: water parks, mineral baths and hotel pools on a map of free places.
+ * Absence of a fee tag is not evidence of free entry for these, so they
+ * default the other way (2026-09-29, operator-approved).
+ */
+export const PAID_BY_DEFAULT_LEISURE = new Set([
+  'swimming_pool',
+  'water_park',
+  'ice_rink',
+  'horse_riding',
+]);
+
+/**
  * First matching rule wins. OSM has no reliable school tag — `school`
  * classification comes from crowd verification and municipal data (Stage 6).
+ * A private pool lands in `restricted` through the first rule, like any other
+ * access=private object.
  */
 export function mapAccess(tags: OsmTags): Access {
   const access = tags['access']?.toLowerCase();
@@ -187,7 +212,36 @@ export function mapAccess(tags: OsmTags): Access {
   if (tags['leisure'] === 'sports_centre') return 'paid';
   // A gym is a business: paid unless it explicitly says otherwise above.
   if (tags['leisure'] === 'fitness_centre') return 'paid';
+  const leisure = tags['leisure'];
+  if (leisure !== undefined && PAID_BY_DEFAULT_LEISURE.has(leisure)) {
+    // An explicit public-access claim is the one signal besides fee=no that
+    // the operator accepted as "free to walk in".
+    return access === 'yes' || access === 'public' ? 'free' : 'paid';
+  }
   return 'free';
+}
+
+/** OSM lifecycle keys (https://wiki.openstreetmap.org/wiki/Lifecycle_prefix). */
+const LIFECYCLE_STATES = ['abandoned', 'disused'] as const;
+export type LifecycleState = (typeof LIFECYCLE_STATES)[number];
+
+/**
+ * Is this object marked as no longer in use? `abandoned=yes` / `disused=yes`,
+ * or any `abandoned:*` / `disused:*` key (the prefixed form mappers use when
+ * they move `leisure=pitch` to `disused:leisure=pitch`). Such an object is not
+ * a facility anybody should be sent to — 24 of them were on the public map
+ * with a «Упъти ме» button (audit finding 81).
+ */
+export function lifecycleState(tags: OsmTags): LifecycleState | undefined {
+  for (const state of LIFECYCLE_STATES) {
+    if (tags[state]?.toLowerCase() === 'yes') return state;
+  }
+  for (const key of Object.keys(tags)) {
+    for (const state of LIFECYCLE_STATES) {
+      if (key.startsWith(`${state}:`)) return state;
+    }
+  }
+  return undefined;
 }
 
 /** Objects that carry sport=* but are venues/shops/clubs, not facilities. */

@@ -219,22 +219,88 @@ export async function importMunicipalities(
   return counts;
 }
 
+/**
+ * A facility a few metres past the edge of every municipality polygon still
+ * belongs to the nearest one. Coastline and Danube boundaries are drawn at a
+ * precision where a beach court or a riverside pitch can land just outside —
+ * one production row sat 5 m off the coast and was counted nationally but in
+ * no municipality (audit finding 87). Ten metres snaps that without reaching
+ * across a real border: the other out-of-polygon rows were 171–625 m out.
+ */
+export const MUNICIPALITY_SNAP_M = 10;
+
+/**
+ * Index pre-filter in degrees for the snap: wider than MUNICIPALITY_SNAP_M on
+ * both axes anywhere in Bulgaria (10 m is ≈0.000126° of longitude at 44.5°N),
+ * so the exact geography test below it never misses a match.
+ */
+const SNAP_PREFILTER_DEG = 0.0002;
+
+/**
+ * THE municipality of a point, as one SQL expression: the polygon containing
+ * it, else the nearest within MUNICIPALITY_SNAP_M. Every derivation in the
+ * importer (insert, moved geometry, the full re-assignment) and the audit's
+ * expectation use this one definition, so they can never disagree with each
+ * other. `point` must be a side-effect-free geometry(Point,4326) expression;
+ * it is repeated.
+ */
+export function municipalityOfSql(point: string): string {
+  return `COALESCE(
+    (SELECT m.id FROM municipalities m WHERE ST_Contains(m.geom, ${point}) LIMIT 1),
+    (SELECT m.id FROM municipalities m
+      WHERE ST_DWithin(m.geom, ${point}, ${String(SNAP_PREFILTER_DEG)})
+        AND ST_DWithin(m.geom::geography, (${point})::geography, ${String(MUNICIPALITY_SNAP_M)})
+      ORDER BY ST_Distance(m.geom::geography, (${point})::geography), m.id
+      LIMIT 1)
+  )`;
+}
+
+/**
+ * Does the database hold a boundary for every municipality in the register?
+ * Only then is "outside every municipality" evidence of being outside
+ * Bulgaria; with a boundary missing it would also describe every facility in
+ * the hole it leaves, so callers must not act on it.
+ */
+export async function municipalityLayerComplete(
+  client: pg.ClientBase,
+  register: RegisterRow[],
+): Promise<boolean> {
+  const result = await client.query<{ n: string }>(
+    `SELECT count(*) AS n FROM municipalities WHERE ekatte_code = ANY($1::text[])`,
+    [register.map((r) => r.ekatteCode)],
+  );
+  return Number(result.rows[0]?.n ?? 0) === register.length;
+}
+
+export interface OutOfPolygonFacility {
+  /** `osm_type:osm_id`, or null for a crowd/municipal row. */
+  ref: string | null;
+  slug: string | null;
+  name: string | null;
+  lon: number;
+  lat: number;
+}
+
 export interface AssignmentResult {
   changed: number;
+  /** Rows not `gone` that no municipality claims, even with the snap. */
   outOfPolygon: number;
-  outSamples: { name: string | null; lon: number; lat: number }[];
+  /** Up to OUT_OF_POLYGON_LISTED rows, for the operator to check one by one. */
+  outSamples: OutOfPolygonFacility[];
 }
+
+const OUT_OF_POLYGON_LISTED = 25;
 
 /**
  * municipality_id is a DERIVED cache (geom × boundaries), recomputable at
  * will — direct update, no facility_edits rows, outside the merge policy
- * (operator-approved design). ST_Contains rides the municipalities GIST index.
+ * (operator-approved design). ST_Contains rides the municipalities GIST index;
+ * the snap subquery only runs for the handful of rows it does not place.
  */
 export async function assignMunicipalities(client: pg.ClientBase): Promise<AssignmentResult> {
   const result = await client.query<{ changed: string; out_of_polygon: string }>(`
     WITH derived AS (
-      SELECT f.id AS fid,
-             (SELECT m.id FROM municipalities m WHERE ST_Contains(m.geom, f.geom) LIMIT 1) AS mid
+      SELECT f.id AS fid, f.status, ${municipalityOfSql('f.geom')} AS mid
       FROM facilities f
     ),
     changed AS (
@@ -244,17 +310,32 @@ export async function assignMunicipalities(client: pg.ClientBase): Promise<Assig
       RETURNING f.id
     )
     SELECT (SELECT count(*) FROM changed) AS changed,
-           (SELECT count(*) FROM derived WHERE mid IS NULL) AS out_of_polygon
+           (SELECT count(*) FROM derived WHERE mid IS NULL AND status <> 'gone') AS out_of_polygon
   `);
-  const samples = await client.query<{ name: string | null; lon: number; lat: number }>(`
-    SELECT name, ST_X(geom) AS lon, ST_Y(geom) AS lat
-    FROM facilities WHERE municipality_id IS NULL
-    ORDER BY id LIMIT 5
-  `);
+  // Every row the public map shows but no municipality claims — listed, not
+  // acted on: whether a pin 400 m over the border is Romanian or a mis-drawn
+  // Bulgarian one is for a human (status stays whatever it is).
+  const samples = await client.query<{
+    osm_type: string | null;
+    osm_id: string | null;
+    slug: string | null;
+    name: string | null;
+    lon: number;
+    lat: number;
+  }>(
+    `
+    SELECT osm_type, osm_id, slug, name, ST_X(geom) AS lon, ST_Y(geom) AS lat
+    FROM facilities WHERE municipality_id IS NULL AND status <> 'gone'
+    ORDER BY id LIMIT $1
+    `,
+    [OUT_OF_POLYGON_LISTED],
+  );
   return {
     changed: Number(result.rows[0]?.changed ?? 0),
     outOfPolygon: Number(result.rows[0]?.out_of_polygon ?? 0),
     outSamples: samples.rows.map((r) => ({
+      ref: r.osm_type && r.osm_id ? `${r.osm_type}:${r.osm_id}` : null,
+      slug: r.slug,
       name: r.name,
       lon: Number(r.lon),
       lat: Number(r.lat),

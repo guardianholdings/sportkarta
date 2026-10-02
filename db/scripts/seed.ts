@@ -4,12 +4,19 @@ import pg from 'pg';
 import { refreshStats } from '../src/stats.js';
 import { backfillSlugs } from './backfill-slugs.js';
 import { loadPopulation } from './load-population.js';
+import { isProductionSeed, seedSteps, type SeedStep } from './seed-plan.js';
 
 // Root .env (relative to this file: db/scripts/ -> repo root).
 config({ path: new URL('../../.env', import.meta.url).pathname });
 
 // Fixed UUIDs make re-runs idempotent (ON CONFLICT (id) DO NOTHING) and mark
 // the rows as unmistakably synthetic.
+//
+// Every fixture enters as `needs_verification`. `active` claims somebody stood
+// there and confirmed the place, and nobody did: these were written from a map
+// so the tests have a world to borrow. 0030 (rows 6–7) and 0031 (rows 1–5)
+// corrected the databases that had them as `active`; inserting them honestly
+// here is what makes a fresh database converge on the same state.
 interface SeedFacility {
   id: string;
   name: string;
@@ -19,14 +26,6 @@ interface SeedFacility {
   quarter: string;
   lon: number;
   lat: number;
-  /**
-   * `active` claims somebody stood there and confirmed it. The two rows that
-   * exist only so the db-backed tests have facilities in a SECOND and THIRD
-   * municipality were written from a map, not from the ground, so they enter
-   * as `needs_verification` like any other unconfirmed crowd claim — visible,
-   * honestly labelled, and in the verification queue for a human.
-   */
-  status: 'active' | 'needs_verification';
 }
 
 // Minimal municipality set so a seed-only database has the world the
@@ -59,7 +58,6 @@ const SEED_FACILITIES: SeedFacility[] = [
     quarter: 'Средец',
     lon: 23.3389,
     lat: 42.6839,
-    status: 'active',
   },
   {
     id: '00000000-0000-4000-8000-000000000002',
@@ -70,7 +68,6 @@ const SEED_FACILITIES: SeedFacility[] = [
     quarter: 'Триадица',
     lon: 23.3106,
     lat: 42.6712,
-    status: 'active',
   },
   {
     id: '00000000-0000-4000-8000-000000000003',
@@ -81,7 +78,6 @@ const SEED_FACILITIES: SeedFacility[] = [
     quarter: 'Гео Милев',
     lon: 23.3593,
     lat: 42.6819,
-    status: 'active',
   },
   {
     id: '00000000-0000-4000-8000-000000000004',
@@ -92,7 +88,6 @@ const SEED_FACILITIES: SeedFacility[] = [
     quarter: 'Оборище',
     lon: 23.3441,
     lat: 42.6926,
-    status: 'active',
   },
   {
     id: '00000000-0000-4000-8000-000000000005',
@@ -103,7 +98,6 @@ const SEED_FACILITIES: SeedFacility[] = [
     quarter: 'Студентски град',
     lon: 23.3465,
     lat: 42.6506,
-    status: 'active',
   },
   {
     id: '00000000-0000-4000-8000-000000000006',
@@ -114,7 +108,6 @@ const SEED_FACILITIES: SeedFacility[] = [
     quarter: 'Западен',
     lon: 24.7398,
     lat: 42.1354,
-    status: 'needs_verification',
   },
   {
     id: '00000000-0000-4000-8000-000000000007',
@@ -125,100 +118,135 @@ const SEED_FACILITIES: SeedFacility[] = [
     quarter: 'Приморски',
     lon: 27.926,
     lat: 43.2141,
-    status: 'needs_verification',
   },
 ];
 
-// Idempotent dev/prod seed: _health smoke row + 3 placeholder municipalities +
-// 7 hand-made facilities across them (Sofia, Plovdiv, Varna). Every facility
-// creation is audited in facility_edits (append-only), written only when the
-// INSERT actually happened. municipality_id is derived by ST_Contains at
-// insert, exactly like the importer — the db-backed tests borrow facilities
-// in distinct municipalities instead of creating their own (creating would
-// drift the stats materialized views), so the seed must provide that world.
+// Idempotent seed, in two scopes (seed-plan.ts). The fixture scope (dev, CI,
+// e2e — plain `pnpm db:seed`) writes the _health smoke row + 3 placeholder
+// municipalities + 7 hand-made facilities across them (Sofia, Plovdiv, Varna).
+// Every facility creation is audited in facility_edits (append-only), written
+// only when the INSERT actually happened. municipality_id is derived by
+// ST_Contains at insert, exactly like the importer — the db-backed tests borrow
+// facilities in distinct municipalities instead of creating their own
+// (creating would drift the stats materialized views), so the seed must
+// provide that world. The production scope (`--production`, deploy.yml) writes
+// only the _health row, population and the stats refresh.
+async function runStep(client: pg.Client, step: SeedStep): Promise<void> {
+  switch (step) {
+    case 'health': {
+      await client.query(`
+        INSERT INTO _health (label, geom)
+        VALUES ('sofia-center', ST_SetSRID(ST_MakePoint(23.3219, 42.6977), 4326))
+        ON CONFLICT (label) DO NOTHING
+      `);
+      console.log('seed: _health row "sofia-center" present');
+      return;
+    }
+    case 'municipalities': {
+      let municipalitiesInserted = 0;
+      for (const m of SEED_MUNICIPALITIES) {
+        const result = await client.query(
+          `
+          INSERT INTO municipalities (ekatte_code, name_bg, name_en, geom)
+          VALUES ($1, $2, $3, ST_Multi(ST_MakeEnvelope($4, $5, $6, $7, 4326)))
+          ON CONFLICT (ekatte_code) DO NOTHING
+          `,
+          [m.ekatte, m.nameBg, m.nameEn, ...m.box],
+        );
+        municipalitiesInserted += result.rowCount ?? 0;
+      }
+      console.log(
+        `seed: ${String(municipalitiesInserted)} of ${String(SEED_MUNICIPALITIES.length)} municipalities inserted (rest already present)`,
+      );
+      return;
+    }
+    case 'facilities': {
+      let inserted = 0;
+      for (const f of SEED_FACILITIES) {
+        const result = await client.query(
+          `
+          WITH ins AS (
+            INSERT INTO facilities
+              (id, geom, name, sport_types, surface, lighting, covered,
+               access, status, quarter, source, attrs, municipality_id)
+            VALUES
+              ($1::uuid, ST_SetSRID(ST_MakePoint($2, $3), 4326), $4, $5::text[],
+               $6, $7, false, 'free', 'needs_verification', $8, 'crowd', '{"seed": true}'::jsonb,
+               (SELECT m.id FROM municipalities m
+                 WHERE ST_Contains(m.geom, ST_SetSRID(ST_MakePoint($2, $3), 4326))
+                 ORDER BY m.id LIMIT 1))
+            ON CONFLICT (id) DO NOTHING
+            RETURNING id
+          )
+          INSERT INTO facility_edits (facility_id, actor, source, field, old_value, new_value)
+          SELECT id, NULL, 'crowd', 'created', NULL, '{"seed": true}'::jsonb FROM ins
+          RETURNING facility_id
+          `,
+          [f.id, f.lon, f.lat, f.name, f.sportTypes, f.surface, f.lighting, f.quarter],
+        );
+        inserted += result.rowCount ?? 0;
+      }
+      console.log(
+        `seed: ${String(inserted)} of ${String(SEED_FACILITIES.length)} facilities inserted (rest already present)`,
+      );
+      return;
+    }
+    case 'assign_municipalities': {
+      // Re-seeding an older database: assign municipalities to rows that predate
+      // the seeded boundaries. Mirrors the importer's ST_Contains assignment and
+      // touches only unassigned rows, so real import assignments are never moved.
+      const assigned = await client.query(`
+        UPDATE facilities f
+           SET municipality_id = m.id
+          FROM municipalities m
+         WHERE f.municipality_id IS NULL AND ST_Contains(m.geom, f.geom)
+      `);
+      console.log(
+        `seed: assigned municipality to ${String(assigned.rowCount ?? 0)} facility row(s)`,
+      );
+      return;
+    }
+    case 'slugs': {
+      // Assign public slugs to the seed rows (and any other unslugged rows) so
+      // the seeded DB is directly usable by the public map / facility pages.
+      const slugged = await backfillSlugs(client);
+      console.log(`seed: assigned ${String(slugged)} facility slug(s)`);
+      return;
+    }
+    case 'population': {
+      // Municipality population (per-10k); rows for unknown codes are skipped.
+      const populated = await loadPopulation(client);
+      console.log(`seed: loaded ${String(populated)} municipality population row(s)`);
+      return;
+    }
+    case 'stats': {
+      // Refresh the statistics materialized views so /statistika reflects the
+      // data — and, in the deploy, whatever the migrations just changed.
+      await refreshStats(client);
+      console.log('seed: refreshed statistics materialized views');
+      return;
+    }
+  }
+}
+
 async function main(): Promise<void> {
   const url = process.env.DATABASE_URL;
   if (!url) {
     throw new Error('DATABASE_URL is required (see .env.example)');
   }
+  const production = isProductionSeed(process.argv.slice(2));
+  console.log(
+    production
+      ? 'seed: production scope — no fixtures (_health, population, stats only)'
+      : 'seed: fixture scope (dev/CI) — placeholder municipalities + fixture facilities',
+  );
 
   const client = new pg.Client({ connectionString: url });
   await client.connect();
   try {
-    await client.query(`
-      INSERT INTO _health (label, geom)
-      VALUES ('sofia-center', ST_SetSRID(ST_MakePoint(23.3219, 42.6977), 4326))
-      ON CONFLICT (label) DO NOTHING
-    `);
-    console.log('seed: _health row "sofia-center" present');
-
-    let municipalitiesInserted = 0;
-    for (const m of SEED_MUNICIPALITIES) {
-      const result = await client.query(
-        `
-        INSERT INTO municipalities (ekatte_code, name_bg, name_en, geom)
-        VALUES ($1, $2, $3, ST_Multi(ST_MakeEnvelope($4, $5, $6, $7, 4326)))
-        ON CONFLICT (ekatte_code) DO NOTHING
-        `,
-        [m.ekatte, m.nameBg, m.nameEn, ...m.box],
-      );
-      municipalitiesInserted += result.rowCount ?? 0;
+    for (const step of seedSteps(production)) {
+      await runStep(client, step);
     }
-    console.log(
-      `seed: ${String(municipalitiesInserted)} of ${String(SEED_MUNICIPALITIES.length)} municipalities inserted (rest already present)`,
-    );
-
-    let inserted = 0;
-    for (const f of SEED_FACILITIES) {
-      const result = await client.query(
-        `
-        WITH ins AS (
-          INSERT INTO facilities
-            (id, geom, name, sport_types, surface, lighting, covered,
-             access, status, quarter, source, attrs, municipality_id)
-          VALUES
-            ($1::uuid, ST_SetSRID(ST_MakePoint($2, $3), 4326), $4, $5::text[],
-             $6, $7, false, 'free', $9, $8, 'crowd', '{"seed": true}'::jsonb,
-             (SELECT m.id FROM municipalities m
-               WHERE ST_Contains(m.geom, ST_SetSRID(ST_MakePoint($2, $3), 4326))
-               ORDER BY m.id LIMIT 1))
-          ON CONFLICT (id) DO NOTHING
-          RETURNING id
-        )
-        INSERT INTO facility_edits (facility_id, actor, source, field, old_value, new_value)
-        SELECT id, NULL, 'crowd', 'created', NULL, '{"seed": true}'::jsonb FROM ins
-        RETURNING facility_id
-        `,
-        [f.id, f.lon, f.lat, f.name, f.sportTypes, f.surface, f.lighting, f.quarter, f.status],
-      );
-      inserted += result.rowCount ?? 0;
-    }
-    console.log(
-      `seed: ${String(inserted)} of ${String(SEED_FACILITIES.length)} facilities inserted (rest already present)`,
-    );
-
-    // Re-seeding an older database: assign municipalities to rows that predate
-    // the seeded boundaries. Mirrors the importer's ST_Contains assignment and
-    // touches only unassigned rows, so real import assignments are never moved.
-    const assigned = await client.query(`
-      UPDATE facilities f
-         SET municipality_id = m.id
-        FROM municipalities m
-       WHERE f.municipality_id IS NULL AND ST_Contains(m.geom, f.geom)
-    `);
-    console.log(`seed: assigned municipality to ${String(assigned.rowCount ?? 0)} facility row(s)`);
-
-    // Assign public slugs to the seed rows (and any other unslugged rows) so
-    // the seeded DB is directly usable by the public map / facility pages.
-    const slugged = await backfillSlugs(client);
-    console.log(`seed: assigned ${String(slugged)} facility slug(s)`);
-
-    // Load municipality population (per-10k) then refresh the statistics
-    // materialized views so /statistika reflects the seeded data.
-    const populated = await loadPopulation(client);
-    console.log(`seed: loaded ${String(populated)} municipality population row(s)`);
-    await refreshStats(client);
-    console.log('seed: refreshed statistics materialized views');
   } finally {
     await client.end();
   }

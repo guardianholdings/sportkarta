@@ -52,4 +52,5 @@ first row is imported.
 - Private/commercial venues are a separate track: OSM (`fitness_centre`,
   `sports_centre`, `access=customers`, `fee=yes`) imports them as
   `access='paid'`, gated by the 0018 master + per-business switches in
-  `/admin/chastni`.
+  `/admin/chastni`. Pools, water parks, ice rinks and riding venues are paid
+  too unless OSM says `fee=no` or `access=yes|public` (2026-09-29).
