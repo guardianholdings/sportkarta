@@ -2,7 +2,13 @@ import { DIVISION_MIN_MEMBERS } from '@sportkarta/lib/divisions';
 import pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { divisionCandidates, runDivisionRollover, weekBounds, weekStandings } from './divisions.js';
+import {
+  activeWindow,
+  divisionCandidates,
+  runDivisionRollover,
+  weekBounds,
+  weekStandings,
+} from './divisions.js';
 
 /**
  * Weekly divisions against real Postgres.
@@ -279,5 +285,39 @@ describe.skipIf(!hasDb)('divisions (requires running database)', () => {
 
     const candidates = await divisionCandidates(db, WEEK, { now: from });
     expect(candidates.map((c) => c.userId)).not.toContain(dormant);
+  });
+});
+
+describe('the activity window is civil weeks, not elapsed milliseconds', () => {
+  /**
+   * Pure — no database. The window used to be `from - 4 × 7 × 86 400 000 ms`,
+   * which is 28 civil days only when no DST change falls inside it. The audit's
+   * four rollovers: every one landed an hour off Monday midnight.
+   */
+  function sofiaWall(at: Date): string {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Sofia',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).format(at);
+  }
+
+  it.each([
+    // Autumn: the window spans the 25 Oct 2026 fall-back.
+    ['2026-10-26', '2026-09-28'],
+    ['2026-11-02', '2026-10-05'],
+    ['2026-11-16', '2026-10-19'],
+    // Spring: the window spans the 28 Mar 2027 spring-forward.
+    ['2027-03-29', '2027-03-01'],
+  ])('rollover %s starts its window at Monday %s 00:00 Sofia', (week, monday) => {
+    const window = activeWindow(week);
+    expect(sofiaWall(window.from)).toBe(`${monday}, 00:00`);
+    expect(window.from.getTime()).toBe(weekBounds(monday).from.getTime());
+    // And ends where the week being assigned begins.
+    expect(window.to.getTime()).toBe(weekBounds(week).from.getTime());
   });
 });
