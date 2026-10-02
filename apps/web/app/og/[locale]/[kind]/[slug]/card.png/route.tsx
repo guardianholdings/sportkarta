@@ -1,10 +1,12 @@
 import { getDb, listCampaigns } from '@sportkarta/db';
 import { getTranslations } from 'next-intl/server';
 
+import { withLocalizedArea } from '@/lib/area-name';
 import { renderOgCard, OG_MISSING } from '@/lib/og/card';
 import { OG_PALETTE } from '@/lib/og/palette';
 import { getFacilityBySlug } from '@/lib/public-data';
 import { occurrenceView } from '@/lib/sessions/occurrence';
+import { isUuid } from '@/lib/uuid';
 
 /**
  * Public link-preview cards (docs/ENGAGEMENT.md C2 — the highest-leverage
@@ -61,8 +63,10 @@ export async function GET(_request: Request, { params }: { params: Params }) {
   const attribution = tOg('attribution');
 
   if (kind === 'obekt') {
-    const facility = await getFacilityBySlug(slug);
-    if (!facility) return new Response('Not found', { status: 404 });
+    const found = await getFacilityBySlug(slug);
+    if (!found) return new Response('Not found', { status: 404 });
+    // The English card names the municipality in English, like the page.
+    const facility = await withLocalizedArea(found, lang);
     const place = facility.municipalityName ?? facility.quarter;
     return renderOgCard({
       // A missing quarter removes the row rather than printing an empty band.
@@ -79,6 +83,9 @@ export async function GET(_request: Request, { params }: { params: Params }) {
   if (kind === 'sesiya') {
     // No viewer: a link-preview card is fetched by a crawler with no session,
     // and it must contain nothing that depends on who is looking.
+    // A session id is a UUID; anything else is a 404 here, not a Postgres
+    // cast error (and a 500) in occurrenceView.
+    if (!isUuid(slug)) return new Response('Not found', { status: 404 });
     const view = await occurrenceView(slug, null);
     if (!view) return new Response('Not found', { status: 404 });
     // THE DAY AND THE HOUR ARE THE MESSAGE. This is the one share with an action
