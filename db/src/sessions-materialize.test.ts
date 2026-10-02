@@ -218,10 +218,15 @@ describe.skipIf(!hasDb)('session materialization (requires running database)', (
   });
 
   it('reconciles an edited rule: removes empty orphans, cancels ones with RSVPs', async () => {
-    // Dates deliberately in the real future: the RSVP guard is a trigger and
-    // uses the server's now(), not the injected one.
-    const now = new Date('2027-01-05T09:00:00Z');
-    const sessionId = await createSeries('2027-01-06T18:00:00', 'FREQ=WEEKLY;BYDAY=TU,TH');
+    // In the REAL future, and relative to it rather than on a calendar date: the
+    // RSVP guard is a trigger on the server's now(), not the injected one, and
+    // so is reconciliation's lower bound. The fixed January 2027 dates this
+    // replaces would have turned the suite red the week they passed. A week
+    // ahead keeps every materialized occurrence, lookback day included, after
+    // the database's now().
+    const now = new Date(Date.now() + WEEK_MS);
+    const anchorDay = new Date(now.getTime() + DAY_MS).toISOString().slice(0, 10);
+    const sessionId = await createSeries(`${anchorDay}T18:00:00`, 'FREQ=WEEKLY;BYDAY=TU,TH');
     await materializeSessions(pool, { now });
     const before = await occurrencesOf(sessionId);
     expect(before.length).toBeGreaterThan(10);

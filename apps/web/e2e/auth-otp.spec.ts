@@ -238,47 +238,56 @@ test.describe('GDPR self-service deletion', () => {
        VALUES ($1::uuid, $2, $3)`,
       [facilityId, `photos/e2e-${userId}.webp`, userId],
     );
-    // A pending one-time code: keyed by email, so no cascade reaches it and
-    // only the erasure's own DELETE can clear it.
-    await query(
-      `INSERT INTO verifications (id, identifier, value, expires_at)
-       VALUES ($1, $2, 'hash', now() + interval '10 minutes')`,
-      [`e2e-verification-${userId}`, `sign-in-otp-${MEMBER_EMAIL}`],
-    );
+    // That row has no file behind it and is pending, so until it goes it sits
+    // in the moderation queue, where the admin crawl (crawl.spec) follows its
+    // image link to a 404. It leaves with this test, as ambassadors.spec's do.
+    try {
+      // A pending one-time code: keyed by email, so no cascade reaches it and
+      // only the erasure's own DELETE can clear it.
+      await query(
+        `INSERT INTO verifications (id, identifier, value, expires_at)
+         VALUES ($1, $2, 'hash', now() + interval '10 minutes')`,
+        [`e2e-verification-${userId}`, `sign-in-otp-${MEMBER_EMAIL}`],
+      );
 
-    await page.goto('/profil');
-    await page.getByLabel(/напишете|type/i).fill('ИЗТРИЙ');
-    await page.getByRole('button', { name: /изтрий профила|delete my account/i }).click();
-    await page.waitForURL(/localhost:3000\/?$/);
+      await page.goto('/profil');
+      await page.getByLabel(/напишете|type/i).fill('ИЗТРИЙ');
+      await page.getByRole('button', { name: /изтрий профила|delete my account/i }).click();
+      await page.waitForURL(/localhost:3000\/?$/);
 
-    // The profile and everything identifying the person are gone.
-    expect(await query(`SELECT 1 FROM users WHERE id = $1`, [userId])).toHaveLength(0);
-    expect(await query(`SELECT 1 FROM sessions WHERE user_id = $1`, [userId])).toHaveLength(0);
-    // Including pending sign-in codes, which hold the address itself.
-    expect(
-      await query(`SELECT 1 FROM verifications WHERE identifier LIKE $1`, [`%${MEMBER_EMAIL}`]),
-    ).toHaveLength(0);
+      // The profile and everything identifying the person are gone.
+      expect(await query(`SELECT 1 FROM users WHERE id = $1`, [userId])).toHaveLength(0);
+      expect(await query(`SELECT 1 FROM sessions WHERE user_id = $1`, [userId])).toHaveLength(0);
+      // Including pending sign-in codes, which hold the address itself.
+      expect(
+        await query(`SELECT 1 FROM verifications WHERE identifier LIKE $1`, [`%${MEMBER_EMAIL}`]),
+      ).toHaveLength(0);
 
-    // The contribution survives, anonymised.
-    const photos = await query<{ uploaded_by: string | null }>(
-      `SELECT uploaded_by FROM facility_photos WHERE storage_path = $1`,
-      [`photos/e2e-${userId}.webp`],
-    );
-    expect(photos).toHaveLength(1);
-    expect(photos[0]?.uploaded_by).toBeNull();
+      // The contribution survives, anonymised.
+      const photos = await query<{ uploaded_by: string | null }>(
+        `SELECT uploaded_by FROM facility_photos WHERE storage_path = $1`,
+        [`photos/e2e-${userId}.webp`],
+      );
+      expect(photos).toHaveLength(1);
+      expect(photos[0]?.uploaded_by).toBeNull();
 
-    // The audit trail is untouched, and a tombstone records the erasure.
-    const edits = await query(`SELECT 1 FROM facility_edits WHERE actor = $1`, [userId]);
-    expect(edits.length).toBeGreaterThan(0);
-    const tombstones = await query<{ audit_rows_preserved: number }>(
-      `SELECT audit_rows_preserved FROM account_deletions WHERE user_id = $1`,
-      [userId],
-    );
-    expect(tombstones).toHaveLength(1);
-    expect(tombstones[0]?.audit_rows_preserved).toBeGreaterThan(0);
+      // The audit trail is untouched, and a tombstone records the erasure.
+      const edits = await query(`SELECT 1 FROM facility_edits WHERE actor = $1`, [userId]);
+      expect(edits.length).toBeGreaterThan(0);
+      const tombstones = await query<{ audit_rows_preserved: number }>(
+        `SELECT audit_rows_preserved FROM account_deletions WHERE user_id = $1`,
+        [userId],
+      );
+      expect(tombstones).toHaveLength(1);
+      expect(tombstones[0]?.audit_rows_preserved).toBeGreaterThan(0);
 
-    // The session really is dead, not just redirected away from.
-    await page.goto('/profil');
-    await expect(page).toHaveURL(/\/vhod/);
+      // The session really is dead, not just redirected away from.
+      await page.goto('/profil');
+      await expect(page).toHaveURL(/\/vhod/);
+    } finally {
+      await query(`DELETE FROM facility_photos WHERE storage_path = $1`, [
+        `photos/e2e-${userId}.webp`,
+      ]);
+    }
   });
 });

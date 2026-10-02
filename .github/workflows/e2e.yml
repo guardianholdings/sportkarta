@@ -1,50 +1,52 @@
 name: E2E
 
-# WHY THIS IS NOT IN ci.yml, AND THEREFORE NOT A DEPLOY GATE (2026-08-09).
+# Playwright against the PRODUCTION server: `next build` in its own step, then
+# `next start` (apps/web/playwright.config.ts) — the build production runs.
 #
-# Playwright drives `next dev`. On a GitHub runner the dev server corrupts its
-# own manifests part-way through the suite — every page then 500s with
-# "SyntaxError: Unexpected non-whitespace character after JSON at position N"
-# (N constant within a run, different between runs: one shared file being read
-# while it is rewritten), and the job hangs until it is killed. Raising the heap
-# to 4 GB did not fix it.
+# WHY IT CHANGED (2026-09). This suite used to drive `next dev`. On a GitHub
+# runner the dev server's memory watcher restarted it mid-suite, the restart
+# corrupted its own manifests, every page then 500-ed with "Unexpected end of
+# JSON input", and the job hung until the timeout cancelled it. Every run from
+# 2026-08-09 on ended that way — and `if: failure()` does not fire on a cancel,
+# so not one of them left a report. The suite gave no signal at all while 14
+# migrations shipped. A real build has no watcher and no on-demand compiler.
 #
-# It is provably a DEV-SERVER fault, not an application fault: the same commit
-# builds cleanly with `next build`, and `next start` serves every page 200 with
-# zero such errors — which is exactly how production runs, and production is
-# healthy. So this suite's signal about the shipped artifact is weak, while its
-# power to block every deploy for an hour is total. Gating releases on it was
-# costing more truth than it bought.
+# MAIL. `next start` is NODE_ENV=production, where resolveMailTransport refuses
+# the file outbox on purpose (a one-time code must never reach a log or a
+# file). So sign-in codes go over real SMTP to mailpit, with STARTTLS required
+# on both ends exactly as production requires it (lib/src/email/smtp.ts), under
+# a throwaway certificate the server is told to trust (NODE_EXTRA_CA_CERTS);
+# apps/web/e2e/auth.ts reads the codes back from mailpit's API. That makes this
+# the production mail path's first end-to-end test — the path that once died
+# silently in production.
 #
-# What still gates a deploy, in ci.yml: typecheck, lint, formatting, the full
-# unit suite, and the db-backed suites against a real PostGIS.
-#
-# THE PROPER FIX, and why it is not a one-liner: point webServer at a real build
-# (`next build && next start`). Verified safe on the data side — the prerender
-# manifest lists only 7 routes, all static assets, so no page would serve stale
-# data. The blocker is mail: `next start` forces NODE_ENV=production, and
-# resolveMailTransport REFUSES file/console/memory transports in production on
-# purpose, so the file outbox the suite reads its sign-in codes from goes away
-# and nothing can sign in. Weakening that refusal is not on the table — it is
-# what stops one-time codes leaking to a log. The suite therefore needs a real
-# SMTP sink (mailpit as a service container, e2e/auth.ts reading codes from its
-# API), which as a bonus would give the production mail path its first
-# end-to-end test — the path that silently died in production once already.
+# NOT YET A DEPLOY GATE: deploy.yml follows CI only. Once this has been green
+# on main for a couple of weeks it should become one — either a required
+# status check on main (repository Settings → Rules) or folded into ci.yml,
+# whose conclusion deploy.yml already waits for.
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+env:
+  # Pinned by digest, like every third-party image in deploy/.
+  MAILPIT_IMAGE: axllent/mailpit:v1.31.3@sha256:ed9b00c609e77e99c79b93f1178255ebc271868920f2c69a8d166bd5634ed10d
+
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    # Fail in twenty minutes rather than hanging for an hour: the observed
-    # failure mode is a wedged dev server, not a slow suite (a healthy run is
-    # about six minutes).
-    timeout-minutes: 20
+    # Install + build take ~6 minutes and a healthy suite well under ten.
+    # Playwright's own globalTimeout (18 min, playwright.config.ts) fires first,
+    # so an overrun ends with a report instead of a cancelled job with none.
+    timeout-minutes: 35
     env:
       DATABASE_URL: postgres://sportkarta:sportkarta@localhost:5433/sportkarta
+      E2E_MAILPIT_URL: http://127.0.0.1:8025
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -55,37 +57,75 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Start ephemeral database
         run: docker compose -f compose.dev.yml up -d --wait db
+      - name: Start the mail sink (mailpit, STARTTLS required)
+        run: |
+          set -euo pipefail
+          certs="$RUNNER_TEMP/mailpit"
+          mkdir -p "$certs"
+          # Self-signed for localhost, valid for the length of this job. The
+          # key is world-readable so the container can read it whatever user it
+          # runs as; it protects nothing beyond this runner's loopback.
+          openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj '/CN=localhost' \
+            -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' \
+            -keyout "$certs/key.pem" -out "$certs/cert.pem"
+          chmod 644 "$certs/key.pem"
+          docker run -d --name mailpit -p 1025:1025 -p 8025:8025 \
+            -v "$certs:/certs:ro" \
+            -e MP_SMTP_TLS_CERT=/certs/cert.pem \
+            -e MP_SMTP_TLS_KEY=/certs/key.pem \
+            -e MP_SMTP_REQUIRE_STARTTLS=true \
+            "$MAILPIT_IMAGE"
+          for i in $(seq 1 30); do
+            curl -fsS "$E2E_MAILPIT_URL/api/v1/info" >/dev/null 2>&1 && exit 0
+            sleep 1
+          done
+          echo "::error::mailpit did not come up"
+          docker logs mailpit
+          exit 1
       - name: Migrate and seed
         run: |
-          echo "DATABASE_URL=$DATABASE_URL" > .env
-          # Sign-in codes go to a file outbox the e2e suite reads — no relay,
-          # and no test-only endpoint in the app (apps/web/e2e/auth.ts).
-          echo "MAIL_TRANSPORT=file" >> .env
-          echo "MAIL_OUTBOX_DIR=./var/mail" >> .env
-          # The contributions suite uploads a real photo; without a storage
-          # root the add-facility action throws and both dobavi specs fail
-          # (.env.example's dev value, resolved against apps/web).
-          echo "STORAGE_DIR=./.data/storage" >> .env
-          # The e2e admin account, promoted on first sign-in.
-          echo "ADMIN_EMAILS=e2e@example.org" >> .env
-          # Every browser in the suite shares one IP; the production cap would
-          # throttle the run.
-          echo "OTP_RATE_LIMIT_IP=200" >> .env
-          echo "OTP_RATE_LIMIT_EMAIL=50" >> .env
-          echo "OTP_RATE_LIMIT_PER_MINUTE=100" >> .env
+          {
+            echo "DATABASE_URL=$DATABASE_URL"
+            # The contributions suite uploads a real photo; without a storage
+            # root the add-facility action throws (.env.example's dev value,
+            # resolved against apps/web).
+            echo "STORAGE_DIR=./.data/storage"
+            # The e2e admin account, promoted on first sign-in.
+            echo "ADMIN_EMAILS=e2e@example.org"
+            # QR check-in is OFF without a secret (fail closed), and the QR
+            # suite mints tokens with the same one — both read this file.
+            echo "CHECKIN_TOKEN_SECRET=$(openssl rand -hex 32)"
+            # Every browser in the suite shares one IP; the production caps
+            # would throttle the run (playwright.config.ts sets the same).
+            echo "OTP_RATE_LIMIT_IP=200"
+            echo "OTP_RATE_LIMIT_EMAIL=50"
+            echo "OTP_SEND_LIMIT_PER_HOUR=1000"
+          } > .env
           pnpm db:migrate
           pnpm db:seed
+      - name: Build the web app (production)
+        run: pnpm --filter @sportkarta/web build
       - name: Install Playwright browsers
         run: pnpm --filter @sportkarta/web exec playwright install --with-deps chromium
       - name: Playwright e2e
+        env:
+          # The server under test must trust the sink's throwaway certificate;
+          # nothing else in the job does.
+          NODE_EXTRA_CA_CERTS: ${{ runner.temp }}/mailpit/cert.pem
         run: pnpm test:e2e
+      # `failure()` alone skips these on a timeout-cancel — which is how every
+      # run before 2026-09 ended, so none of them left any evidence.
       - name: Stack logs on failure
-        if: failure()
-        run: docker compose -f compose.dev.yml logs --tail 100
-      - name: Upload Playwright report on failure
-        if: failure()
+        if: failure() || cancelled()
+        run: |
+          docker compose -f compose.dev.yml logs --tail 100
+          docker logs --tail 50 mailpit || true
+      - name: Upload Playwright report and traces
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: apps/web/playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
           if-no-files-found: ignore

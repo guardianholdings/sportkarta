@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { issueCheckinToken } from '@sportkarta/lib/checkin-token';
 import { POINTS_BY_EVENT } from '@sportkarta/lib/points';
 import { expect, test } from '@playwright/test';
@@ -7,6 +9,7 @@ import pg from 'pg';
 import bg from '../messages/bg.json';
 
 import { signIn } from './auth';
+import { rendersNotFound } from './responses';
 
 /**
  * The scored line with its `{points}` placeholder filled, as next-intl renders
@@ -180,12 +183,23 @@ test.describe('QR check-in', () => {
     expect(Number(after.rows[0]?.n)).toBe(1);
   });
 
-  test('the organiser screen is organiser-only and rotates its code', async ({ page }) => {
-    // A member who is not the organiser gets a 404, not a "forbidden": they
-    // have no business learning the check-in screen exists.
+  test('the organiser screen is hidden from a member exactly like a missing one', async ({
+    page,
+  }) => {
+    // A member who is not the organiser gets the not-found page, not a
+    // "forbidden": they have no business learning the check-in screen exists.
+    // The status line cannot carry that (the loading boundary has already sent
+    // 200 — see e2e/responses.ts), so the comparison is with a session that
+    // does not exist at all: same status, same not-found render, no title.
     await signIn(page, MEMBER_EMAIL, /\/profil/);
-    const asMember = await page.goto(`/sesiya/${occurrenceId}/qr`);
-    expect(asMember?.status()).toBe(404);
+    const missing = await page.request.get(`/sesiya/${randomUUID()}/qr`);
+    const asMember = await page.request.get(`/sesiya/${occurrenceId}/qr`);
+    const body = await asMember.text();
+
+    expect(rendersNotFound(missing.status(), await missing.text())).toBe(true);
+    expect(asMember.status()).toBe(missing.status());
+    expect(rendersNotFound(asMember.status(), body)).toBe(true);
+    expect(body).not.toContain('E2E QR тренировка');
   });
 });
 
