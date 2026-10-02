@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
 import { Link } from '@/i18n/navigation';
+import { isUuid } from '@/lib/admin-data';
 import { requireRole } from '@/lib/auth-session';
 import { resultsFor } from '@/lib/results';
 
@@ -26,6 +27,8 @@ export default async function ResultsEditorPage({
   const { locale, occurrenceId } = await params;
   setRequestLocale(locale);
   await requireRole('admin');
+  // A mistyped URL is a missing page, not a Postgres cast error and a 500.
+  if (!isUuid(occurrenceId)) notFound();
 
   const [t, tSport] = await Promise.all([
     getTranslations('AdminResults'),
