@@ -188,7 +188,6 @@ async function eachJobIsolated<T>(
   }
 }
 
-
 async function main(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
