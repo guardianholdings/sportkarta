@@ -13,6 +13,7 @@ import {
 } from '@/lib/ads';
 import { ContributionError } from '@/lib/contributions/errors';
 import { discardContributionPhoto, storeContributionPhoto } from '@/lib/contributions/photo-upload';
+import { revalidatePartnerSurfaces } from '@/lib/partner-surfaces';
 
 /**
  * Ad-placement actions (docs/MONETISATION.md M4). `requireRole('admin')` on
@@ -25,7 +26,7 @@ import { discardContributionPhoto, storeContributionPhoto } from '@/lib/contribu
  * are ISR, `/sedmitsata/[city]` is ISR. Publishing an ad and having it appear
  * within the hour "when the cache happens to turn over" is not good enough when
  * a period the advertiser paid for has already started, so every mutation
- * revalidates the slot's layout path explicitly.
+ * revalidates every surface explicitly (lib/partner-surfaces.ts).
  *
  * The creative is uploaded BEFORE the row write and discarded when the write
  * fails (the dobavi rule: no dangling file); on delete the row goes first and
@@ -36,26 +37,6 @@ export interface PlacementState {
   /** i18n key suffix under AdminPartners.error_*. */
   error: string | null;
   saved?: boolean;
-}
-
-/**
- * Every surface an ad can appear on. Revalidating the layout of the dynamic
- * segments is the only way to reach "every city" without enumerating cities.
- *
- * The patterns are the ROUTE as the app directory spells it, `[locale]`
- * included: Next tags a cached page `/[locale]/igrishta/[city]/page`, and a
- * path written without the locale segment matches nothing — silently, so an ad
- * would wait for the hourly turnover after all (tests/caching-config.test.ts).
- */
-const AD_SURFACES = [
-  '/[locale]/obekt/[slug]',
-  '/[locale]/igrishta/[city]',
-  '/[locale]/sedmitsata/[city]',
-  '/[locale]',
-] as const;
-
-function revalidateAdSurfaces(): void {
-  for (const path of AD_SURFACES) revalidatePath(path, 'page');
 }
 
 function errorState(error: unknown): PlacementState {
@@ -92,7 +73,7 @@ export async function createPlacementAction(
   }
 
   revalidatePath(`/admin/partnyori/${partnerSlug}`);
-  revalidateAdSurfaces();
+  revalidatePartnerSurfaces();
   return { error: null, saved: true };
 }
 
@@ -121,7 +102,7 @@ export async function setPlacementVisibleAction(
     }
   }
   revalidatePath(`/admin/partnyori/${partnerSlug}`);
-  revalidateAdSurfaces();
+  revalidatePartnerSurfaces();
 }
 
 export async function deletePlacementAction(partnerSlug: string, id: number): Promise<void> {
@@ -132,5 +113,5 @@ export async function deletePlacementAction(partnerSlug: string, id: number): Pr
   const creativeKey = await deletePlacement(getDb(), id);
   await discardContributionPhoto(creativeKey);
   revalidatePath(`/admin/partnyori/${partnerSlug}`);
-  revalidateAdSurfaces();
+  revalidatePartnerSurfaces();
 }

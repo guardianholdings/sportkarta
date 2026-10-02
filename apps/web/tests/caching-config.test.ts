@@ -1,8 +1,10 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import { getPathMatch } from 'next/dist/shared/lib/router/utils/path-match';
 import { describe, expect, it } from 'vitest';
+
+import { PARTNER_SURFACES } from '@/lib/partner-surfaces';
 
 import nextConfig from '../next.config';
 
@@ -15,6 +17,26 @@ import nextConfig from '../next.config';
 
 const WEB_ROOT = process.cwd(); // vitest runs with cwd = apps/web
 const APP_DIR = path.join(WEB_ROOT, 'app');
+const PARTNERS_ADMIN = path.join(APP_DIR, '[locale]', 'admin', '(protected)', 'partnyori');
+
+/**
+ * What a page shows of a partner: an ad slot (rendered in place, or resolved
+ * server-side for the map panel), the headline strip, a campaign's sponsor
+ * line, a facility adoption. Each of them reads `PARTNER_RENDERABLE`.
+ */
+const PARTNER_CONTENT =
+  /<AdSlot\b|adSlotProps\(|<HeadlineStrip\b|<CampaignSponsor\b|<FacilitySponsorBlock\b/;
+
+/** A page's own source plus the modules it imports from its own folders. */
+function withLocalImports(file: string, source: string): string {
+  const sources = [source];
+  for (const [, spec] of source.matchAll(/from '(\.\.?\/[^']+)'/g)) {
+    const base = path.resolve(path.dirname(file), spec ?? '');
+    const found = [`${base}.tsx`, `${base}.ts`].find((candidate) => existsSync(candidate));
+    if (found) sources.push(readFileSync(found, 'utf8'));
+  }
+  return sources.join('\n');
+}
 
 function walk(dir: string): string[] {
   const out: string[] = [];
@@ -71,27 +93,41 @@ describe('declared ISR actually caches', () => {
     expect(nextConfig.experimental?.isrFlushToDisk).toBe(false);
   });
 
-  it('revalidates every cached page that shows an ad when a placement changes', () => {
-    // An advertiser's paid window must not wait for the hourly turnover. The
-    // ad actions name each surface by its ROUTE — `[locale]` included, since
-    // that is the tag Next puts on the cached page.
-    const adActions = readFileSync(
-      path.join(APP_DIR, '[locale]', 'admin', '(protected)', 'partnyori', 'ad-actions.ts'),
-      'utf8',
+  it('revalidates every cached page that shows partner content', () => {
+    // A cached city or weekly page keeps whatever it rendered — the ad, its
+    // «Реклама» label, the link to the advertiser — for the full hour. Hiding a
+    // partner withdraws them everywhere at once, so every cached page that can
+    // show one must be among the surfaces the partner and ad actions
+    // revalidate, named by its ROUTE: `[locale]` included, since that is the
+    // tag Next puts on the cached page.
+    const showing = isr.filter(({ file, source }) =>
+      PARTNER_CONTENT.test(withLocalImports(path.join(APP_DIR, file), source)),
     );
-    const surfaces = [
-      ...(
-        /const AD_SURFACES = \[([^\]]*(?:\][^\]]*)*?)\] as const/.exec(adActions)?.[1] ?? ''
-      ).matchAll(/'([^']+)'/g),
-    ].map((m) => m[1] ?? '');
-    for (const { file, source } of isr) {
-      if (!source.includes('<AdSlot')) continue;
+    // Not vacuous: the city page carries an ad slot and the headline strip.
+    expect(showing.map(({ file }) => file.split(path.sep).join('/'))).toContain(
+      '[locale]/igrishta/[city]/page.tsx',
+    );
+    for (const { file } of showing) {
       const route = `/${path.dirname(file).split(path.sep).join('/')}`;
-      expect(surfaces, file).toContain(route);
+      expect(PARTNER_SURFACES, file).toContain(route);
     }
     // And every surface named is a real page, so none can be a silent no-op.
-    for (const surface of surfaces) {
+    for (const surface of PARTNER_SURFACES) {
       expect(statSync(path.join(APP_DIR, surface, 'page.tsx')).isFile(), surface).toBe(true);
+    }
+  });
+
+  it('has every partner and ad-placement action revalidate those surfaces', () => {
+    // Not only the placement actions: a partner's visibility, window and tier
+    // are half of what decides whether its ads and its headline logo render.
+    for (const name of ['actions.ts', 'ad-actions.ts']) {
+      const source = readFileSync(path.join(PARTNERS_ADMIN, name), 'utf8');
+      const actions = source.split(/^export async function /m).slice(1);
+      expect(actions.length, name).toBeGreaterThan(0);
+      for (const body of actions) {
+        const action = /^\w+/.exec(body)?.[0] ?? '?';
+        expect(body, `${name}: ${action}`).toContain('revalidatePartnerSurfaces()');
+      }
     }
   });
 });

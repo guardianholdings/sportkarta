@@ -16,11 +16,19 @@ import {
   setPartnerVisible,
   updatePartner,
 } from '@/lib/partners';
+import { revalidatePartnerSurfaces } from '@/lib/partner-surfaces';
 
 /**
  * Partner registry actions (docs/MONETISATION.md M1). `requireRole('admin')`
  * on EVERY action, not `requireAdmin()` — the latter admits ambassadors, and
  * who the NGO partners with is not a moderation decision.
+ *
+ * Every action here also revalidates the public partner surfaces
+ * (lib/partner-surfaces.ts). A partner's visibility, window and tier are half
+ * of `PARTNER_RENDERABLE`, which decides whether their ads and their headline
+ * logo render, and two of those pages are cached for an hour: hiding an
+ * advertiser must take their creative off the city and weekly pages now, not
+ * when the cache turns over.
  *
  * The logo file is uploaded BEFORE the row write and discarded on failure
  * (the dobavi rule: an uploaded file must not dangle); replacing a logo
@@ -68,6 +76,7 @@ export async function createPartnerAction(
   }
   revalidatePath('/admin/partnyori');
   revalidatePath('/partnyori');
+  revalidatePartnerSurfaces();
   redirect(`/admin/partnyori/${slug}`);
 }
 
@@ -101,6 +110,7 @@ export async function updatePartnerAction(
   }
   revalidatePath('/admin/partnyori');
   revalidatePath('/partnyori');
+  revalidatePartnerSurfaces();
   if (nextSlug !== currentSlug) redirect(`/admin/partnyori/${nextSlug}`);
   return { error: null, saved: true };
 }
@@ -112,4 +122,5 @@ export async function setVisibleAction(slug: string, visible: boolean): Promise<
   await setPartnerVisible(getDb(), slug, visible);
   revalidatePath('/admin/partnyori');
   revalidatePath('/partnyori');
+  revalidatePartnerSurfaces();
 }
