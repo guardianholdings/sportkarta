@@ -1,4 +1,4 @@
-import { readdir, readFile, rm } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { expect, type Page } from '@playwright/test';
@@ -6,10 +6,19 @@ import { expect, type Page } from '@playwright/test';
 /**
  * Shared sign-in helper for the e2e suites.
  *
- * The code is read from the file-transport outbox (MAIL_TRANSPORT=file), which
- * is why the app needs no test-only endpoint or backdoor: the tests go through
- * exactly the flow a member goes through, and the "inbox" is a directory.
+ * The tests go through exactly the flow a member goes through — the app has no
+ * test-only endpoint or backdoor — and read the one-time code from wherever
+ * the server under test delivered it (playwright.config.ts decides which):
+ *
+ *  - E2E_MAILPIT_URL set (CI): the production server sends the code over real
+ *    SMTP, STARTTLS required exactly as in production, to a mailpit sink, and
+ *    it is read back from mailpit's HTTP API. This is the production mail
+ *    path's end-to-end test — the path that once died silently in production.
+ *  - otherwise (a local `next dev` run): the file-transport outbox, a
+ *    directory of JSON messages.
  */
+
+const MAILPIT = process.env.E2E_MAILPIT_URL?.trim().replace(/\/+$/, '');
 
 // Relative to the process cwd, which is apps/web for both `next dev` and
 // Playwright — the same path the app writes to.
@@ -17,12 +26,12 @@ const OUTBOX = process.env.MAIL_OUTBOX_DIR?.trim() || './var/mail';
 
 export const ADMIN_EMAIL = 'e2e@example.org';
 
-export async function clearOutbox(): Promise<void> {
-  await rm(OUTBOX, { recursive: true, force: true });
+interface Delivered {
+  text: string;
 }
 
 /**
- * Newest message addressed to `email`, or null.
+ * Newest message addressed to `email` in the file outbox, or null.
  *
  * Filenames are ISO timestamps, so sorting them orders the outbox. Scanning by
  * recipient rather than emptying the directory first is deliberate: better-auth
@@ -30,10 +39,7 @@ export async function clearOutbox(): Promise<void> {
  * returns — deleting the directory underneath it loses the message and the test
  * waits forever for a code that was never written.
  */
-async function latestMessageFor(
-  email: string,
-  since: number,
-): Promise<{ to: string; text: string } | null> {
+async function latestInOutbox(email: string, since: number): Promise<Delivered | null> {
   let files: string[];
   try {
     files = (await readdir(OUTBOX)).filter((name) => name.endsWith('.json')).sort();
@@ -57,12 +63,48 @@ async function latestMessageFor(
   return null;
 }
 
+interface MailpitSummary {
+  ID: string;
+  Created: string;
+  To: { Address: string }[] | null;
+}
+
+/**
+ * Newest message addressed to `email` in mailpit, or null.
+ *
+ * mailpit's `to:` search is a substring match, so the recipient is compared
+ * exactly here — `e2e@example.org` must not pick up a code sent to
+ * `x-e2e@example.org`. `since` does the same job as for the outbox: an earlier
+ * run's code for the same address has been rotated.
+ */
+async function latestInMailpit(
+  base: string,
+  email: string,
+  since: number,
+): Promise<Delivered | null> {
+  const query = encodeURIComponent(`to:"${email}"`);
+  const search = await fetch(`${base}/api/v1/search?query=${query}&limit=50`);
+  if (!search.ok) return null;
+  const { messages } = (await search.json()) as { messages?: MailpitSummary[] };
+  const newest = (messages ?? [])
+    .filter((m) => (m.To ?? []).some((to) => to.Address.toLowerCase() === email.toLowerCase()))
+    .filter((m) => Date.parse(m.Created) >= since)
+    .sort((a, b) => Date.parse(b.Created) - Date.parse(a.Created))[0];
+  if (!newest) return null;
+  const message = await fetch(`${base}/api/v1/message/${encodeURIComponent(newest.ID)}`);
+  if (!message.ok) return null;
+  const { Text } = (await message.json()) as { Text?: string };
+  return { text: Text ?? '' };
+}
+
 export async function readOtp(email: string, since: number): Promise<string> {
   let code: string | undefined;
   await expect
     .poll(
       async () => {
-        const message = await latestMessageFor(email, since);
+        const message = MAILPIT
+          ? await latestInMailpit(MAILPIT, email, since)
+          : await latestInOutbox(email, since);
         if (!message) return undefined;
         code = /\b(\d{6})\b/.exec(message.text)?.[1];
         return code;
@@ -80,7 +122,8 @@ export async function readOtp(email: string, since: number): Promise<string> {
 export async function signIn(page: Page, email: string, expectUrl: RegExp): Promise<void> {
   await page.goto('/vhod');
   await page.getByLabel(/имейл|email/i).fill(email);
-  // One second of slack for clock granularity between this process and the file.
+  // One second of slack for clock granularity between this process and the
+  // mail sink (a file's timestamp, or mailpit's receive time).
   const since = Date.now() - 1000;
   await page.getByRole('button', { name: /изпрати код|send code/i }).click();
 
