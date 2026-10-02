@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
+import { ReportContentLink } from '@/components/legal/report-content-link';
 import { ShareSheet } from '@/components/share/share-sheet';
 import { Link } from '@/i18n/navigation';
 import { getCurrentUser } from '@/lib/auth-session';
@@ -322,6 +323,9 @@ export default async function SessionPage({ params }: { params: PageParams }) {
             </p>
           )}
         </section>
+
+        {/* The title and the organiser's name are members' words (DSA Art. 16). */}
+        <ReportContentLink path={`/sesiya/${view.occurrenceId}`} />
       </main>
     </AppShell>
   );

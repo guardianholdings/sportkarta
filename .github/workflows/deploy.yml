@@ -261,6 +261,13 @@ jobs:
           DONATION_PAYMENT_URL=${{ vars.DONATION_PAYMENT_URL }}
           THUNDERFOREST_API_KEY=${{ secrets.THUNDERFOREST_API_KEY }}
           TRACESTRACK_API_KEY=${{ secrets.TRACESTRACK_API_KEY }}
+          # The association's identity as registered, shown on /kontakt,
+          # /privacy and /usloviya (GDPR Art. 13, DSA Art. 11-12). Repository
+          # VARIABLES, one line each; empty = the line is omitted on the site.
+          # Keep `#` and `$` out of them: this is a compose .env file.
+          ORG_LEGAL_NAME=${{ vars.ORG_LEGAL_NAME }}
+          ORG_EIK=${{ vars.ORG_EIK }}
+          ORG_ADDRESS=${{ vars.ORG_ADDRESS }}
           EOF
       # Values computed from other secrets rather than stored separately.
       # Written single-quoted: compose interpolates `$` in unquoted .env values.

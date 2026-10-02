@@ -30,8 +30,8 @@
  *      JavaScript enters the bundle and no event fires without a real click.
  *
  * These constraints are what keeps the site's published promise true — see
- * `Privacy.analyticsBody`, which describes this vocabulary in the member's own
- * words and must be updated in the same commit as any change here.
+ * `Privacy.processing.analytics.body`, which describes this vocabulary in the
+ * member's own words and must be updated in the same commit as any change here.
  */
 
 export const ANALYTICS_EVENTS = {

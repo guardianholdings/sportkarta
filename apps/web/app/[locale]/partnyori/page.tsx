@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { AppShell } from '@/components/shell/app-shell';
+import { organisation } from '@/lib/organisation';
 import { partnerText, publicPartners, type PartnerRow, type PartnerTier } from '@/lib/partners';
 import { buildAlternates } from '@/lib/seo';
 import { Link } from '@/i18n/navigation';
@@ -89,7 +90,7 @@ export default async function PartnersPage({ params }: { params: PageParams }) {
   setRequestLocale(locale);
   const t = await getTranslations('Partners');
   const partners = await publicPartners(getDb());
-  const contactEmail = process.env.CONTACT_EMAIL;
+  const contactEmail = organisation().contactEmail;
 
   const byTier = new Map<PartnerTier, PartnerRow[]>();
   for (const p of partners) {
@@ -141,7 +142,9 @@ export default async function PartnersPage({ params }: { params: PageParams }) {
             {t('becomeTitle')}
           </h2>
           <p className="text-body-sm text-ink-soft">{t('becomeBody')}</p>
-          {contactEmail && (
+          {/* Always SOMETHING below "write to us below" — the empty-state copy
+              promises it, and the audit found nothing rendered there. */}
+          {contactEmail ? (
             <p className="text-body-sm">
               <a
                 href={`mailto:${contactEmail}`}
@@ -149,6 +152,16 @@ export default async function PartnersPage({ params }: { params: PageParams }) {
               >
                 {contactEmail}
               </a>
+            </p>
+          ) : (
+            <p className="text-body-sm text-ink-soft">
+              {t.rich('contactFallback', {
+                contact: (chunks) => (
+                  <Link href="/kontakt" className="font-semibold text-link hover:text-link-hover">
+                    {chunks}
+                  </Link>
+                ),
+              })}
             </p>
           )}
         </section>

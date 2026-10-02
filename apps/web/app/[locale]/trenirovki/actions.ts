@@ -5,6 +5,7 @@ import { normalizeTraining, parseDuration, type TrainingProblem } from '@sportka
 import { revalidatePath } from 'next/cache';
 
 import { requireUser } from '@/lib/auth-session';
+import { trainingIntegrationsEnabled } from '@/lib/training-integrations';
 
 /**
  * Logging a personal training (operator request 2026-07-26).
@@ -141,6 +142,9 @@ export async function setTrainingConsentAction(formData: FormData): Promise<void
   const kind = String(formData.get('kind') ?? '');
   if (kind !== 'route' && kind !== 'health') return;
   const granted = String(formData.get('granted') ?? '') === 'true';
+  // No consent is ASKED for until an integration exists to use it; a
+  // withdrawal is always honoured (lib/training-integrations.ts).
+  if (granted && !trainingIntegrationsEnabled()) return;
 
   await setTrainingConsent(getDb(), user.id, kind, granted);
   revalidatePath('/trenirovki');

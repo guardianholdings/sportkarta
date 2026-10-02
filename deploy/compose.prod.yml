@@ -68,8 +68,15 @@ services:
       # Caddy sits in front on the compose network; trusting it lets the rate
       # limiter resolve the real client IP (used in memory only, never stored).
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32}
-      # Optional contact email on the privacy page (empty → report-form fallback).
+      # The controller's contact address (GDPR Art. 13, DSA Arts. 11-12), shown
+      # on /kontakt, /privacy, /usloviya, /podkrepi and /partnyori. Empty = each
+      # page says no address is published yet and offers the notice form.
       CONTACT_EMAIL: ${CONTACT_EMAIL:-}
+      # The association's identity as registered (lib/organisation.ts). Each is
+      # optional and an unset one is simply omitted — never a placeholder.
+      ORG_LEGAL_NAME: ${ORG_LEGAL_NAME:-}
+      ORG_EIK: ${ORG_EIK:-}
+      ORG_ADDRESS: ${ORG_ADDRESS:-}
       # Analytics & error monitoring — read at runtime, empty defaults = disabled.
       # Self-hosted cookieless Umami (set both to enable the snippet).
       UMAMI_SRC: ${UMAMI_SRC:-}
@@ -151,6 +158,9 @@ services:
       # worker falls back to http://localhost:3000 (apps/worker/src/index.ts),
       # so a digest would ship with links to the reader's own machine.
       NEXT_PUBLIC_SITE_URL: ${SITE_URL:?SITE_URL is rendered into .env by deploy.yml}
+      # Where a statement of reasons (moderation.notify, 0033) tells a member to
+      # contest a decision. Empty = the mail offers the notice form instead.
+      CONTACT_EMAIL: ${CONTACT_EMAIL:-}
     volumes:
       - uploads:/data/uploads
     depends_on:

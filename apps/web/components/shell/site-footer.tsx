@@ -59,6 +59,18 @@ export function SiteFooter() {
         <Link href="/privacy" className={LINK}>
           {t('privacy')}
         </Link>
+        {/* The legal set (pre-launch audit): who we are and how to reach us,
+            the terms, and the notice form every hosting service owes (DSA Art.
+            16). On every page but the map, like the privacy link beside them. */}
+        <Link href="/usloviya" className={LINK}>
+          {t('terms')}
+        </Link>
+        <Link href="/kontakt" className={LINK}>
+          {t('contact')}
+        </Link>
+        <Link href="/signal" className={LINK}>
+          {t('notice')}
+        </Link>
         <span className="ml-auto text-text-muted">{t('attribution')}</span>
       </nav>
     </footer>

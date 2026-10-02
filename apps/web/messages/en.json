@@ -214,7 +214,17 @@
     "flag_unnamed_no_photo": "no name, no photo",
     "flag_outside_municipality": "no municipality",
     "flag_stale_item": "waiting a long time",
-    "flag_needs_human_look": "needs a look"
+    "flag_needs_human_look": "needs a look",
+    "noticesTitle": "Content notices",
+    "noticesIntro": "From the /signal form. Only administrators decide. Act on the content itself where it lives (reject the photo, edit, remove); here you record the decision and its reason, and the sender is answered if they left an email address.",
+    "noticesEmpty": "No pending notices.",
+    "noticeFrom": "From: {who}",
+    "noticeAnonymous": "Anonymous notice",
+    "noticeAction": "Action taken",
+    "noticeDismiss": "No action",
+    "reasonLabel": "Reason",
+    "reasonPlaceholder": "Choose a reason…",
+    "refusalNote": "A refusal needs a reason: the author receives it by email together with how to contest the decision."
   },
   "AdminImport": {
     "title": "OSM import",
@@ -355,7 +365,7 @@
     "bodyPlaceholder": "Briefly describe the problem…",
     "charCount": "{n}/{max} characters",
     "photoLabel": "Photo (optional)",
-    "photoHint": "Photograph the facility, not people.",
+    "photoHint": "Photograph the facility, not people. By uploading you let us show the photo on POPS.",
     "submit": "Send report",
     "submitting": "Sending…",
     "cancel": "Cancel",
@@ -427,24 +437,135 @@
   "Privacy": {
     "back": "← Home",
     "title": "Privacy",
-    "intro": "POPS (“More than just sport”) is a non-profit project. We collect as little data as possible and do not track users.",
-    "storeTitle": "What we store",
-    "storeBody": "We store data about sports facilities (location, type, condition) and moderator-approved photos with metadata stripped. Browsing the map needs no account and creates no profile.",
-    "accountsTitle": "Accounts",
-    "accountsBody": "If you create an account we store your email address, the display name and city you enter, and whether you are under 18. A date of birth is used once to determine the age category and is not recorded anywhere. The category does not restrict anything — every feature is available regardless of age. Session IP addresses are not stored. You can delete your account yourself from the \"My profile\" page — the profile and email are gone for good, while your contributions stay in the open dataset but anonymised, as \"former user\". The edit audit log is kept with no link to your identity, so the history of the data stays traceable.",
-    "analyticsTitle": "Visit analytics",
-    "analyticsBody": "We use self-hosted, cookieless analytics (Umami). Besides page visits we record the KIND of some actions — that someone asked for directions, submitted a contribution, or opened sharing. These records contain neither who did it nor which facility, training, check-in or network they relate to. We build no profiles and do not track individuals across sites.",
-    "reportsTitle": "Problem reports",
-    "reportsBody": "Facility reports are anonymous — we neither ask for nor store a name, email, or account. For spam protection your IP address is used transiently, only to rate-limit requests, and is never stored together with the report.",
-    "photosTitle": "Photos",
-    "photosBody": "Photograph the facility, not people. All metadata, including EXIF GPS, is stripped server-side before storage, and photos are reviewed by a moderator before publication.",
-    "dataTitle": "Data source",
-    "dataBody": "Facility data is based on OpenStreetMap (ODbL) and the basemap on Protomaps. Community contributions are published as part of the combined open dataset.",
-    "contactTitle": "Contact",
-    "contactIntro": "Have a question about the data, or want a record corrected or removed?",
-    "contactFallback": "Use the “Report a problem” button on the relevant facility page.",
-    "mapLayersTitle": "External map layers",
-    "mapLayersBody": "The default map is served entirely from our own server. If you pick an external layer (CyclOSM, Thunderforest Transport, Tracestrack Topo), your browser loads map tiles directly from that provider — it sees your IP address and the viewed area, as it would if you visited their site. The choice is explicit, is not stored, and the default layer never sends anything to third parties."
+    "metaDescription": "What personal data POPS (“More than just sport”) processes, why and on what legal basis, who receives it, how long it is kept and what your rights are.",
+    "updated": "Last updated: 2 October 2026",
+    "intro": "POPS (“More than just sport”) is a non-profit project. This page explains what personal data we process, why and on what legal basis, who we share it with, how long we keep it and what your rights are. We collect as little data as possible and do not track users.",
+    "controller": {
+      "title": "Who is responsible for your data",
+      "body": "The controller of your personal data is the non-profit association that runs POPS:"
+    },
+    "processing": {
+      "title": "What we process, why and on what basis",
+      "intro": "The legal bases are those of Articles 6 and 9 of the General Data Protection Regulation (GDPR).",
+      "browsing": {
+        "title": "Browsing the site",
+        "body": "The map and the pages open without an account. To limit request rates and stop abuse, the server uses your IP address in memory only and does not record it. We keep no access log of IP addresses.",
+        "basis": "Basis: legitimate interest in keeping the site available and secure (Art. 6(1)(f))."
+      },
+      "analytics": {
+        "title": "Visit statistics and errors",
+        "body": "We use self-hosted, cookieless analytics (Umami). It records the page visited (without the parameters in its address), the referring site, the type of browser, operating system and device, the language, and an approximate country and city derived from the IP address, which is not stored. We also record the kind of some actions — for example that someone asked for directions, sent a contribution or opened a share sheet — without who did it or which facility, training, check-in or network it concerned. If an error occurs in your browser, our self-hosted GlitchTip receives the error message, the page address (which, on the map, includes the map's centre) and the browser type, with no data from your profile. We build no profiles and do not track people across sites.",
+        "basis": "Basis: legitimate interest in knowing what is used and what is broken (Art. 6(1)(f))."
+      },
+      "account": {
+        "title": "Account and sign-in",
+        "body": "If you create an account: your email address (for sign-in with a one-time code), a display name, an optional city and whether you are under 18. Your date of birth, if you enter it in your profile, is used once to work out that category and is never stored. While you are signed in, we keep your browser type (user agent) with the session, but not your IP address.",
+        "basis": "Basis: contract — the <terms>Terms of use</terms> you accept when you sign in (Art. 6(1)(b))."
+      },
+      "contributions": {
+        "title": "Contributions and points",
+        "body": "When you add or verify a facility, report its condition or upload a photo, we record the contribution with your account id in the change log, and the points in the points ledger. Facility data becomes part of the <openData>open data</openData> under the ODbL licence. Photos are published after a moderator approves them and with all metadata, including GPS, removed.",
+        "basis": "Basis: contract (Art. 6(1)(b))."
+      },
+      "location": {
+        "title": "Location",
+        "body": "If you allow it, your browser uses your location to show the map and the nearest facilities around you; this happens in the browser itself and the coordinates are not sent to the server. When you contribute, report a problem or check in at a session, the coordinates arrive with the form; the server works out the distance to the facility and stores only that, never the coordinates themselves.",
+        "basis": "Basis: contract and legitimate interest in protecting points and data from abuse (Art. 6(1)(b) and (f))."
+      },
+      "passport": {
+        "title": "Public passport and leaderboards",
+        "body": "Only if you make your passport public yourself are your display name and city shown on the passport, with your badges, totals and streaks, and on the leaderboards (including “Who plays” with your number of trainings and minutes), in campaigns and in divisions. When and where you played is never published.",
+        "basis": "Basis: consent (Art. 6(1)(a)), which you withdraw by making your passport private."
+      },
+      "sessions": {
+        "title": "Group sessions",
+        "body": "Signing up for a session, your place on the waiting list and your check-ins are stored with your account. The session organiser sees the display names of those signed up; the public page shows only how many. If you organise a session, your display name is shown on its public page.",
+        "basis": "Basis: contract (Art. 6(1)(b))."
+      },
+      "training": {
+        "title": "Training log",
+        "body": "Sport, date and time, duration and, optionally, distance, elevation, facility and a note. Only you can see the log; if your passport is public, your number of trainings and minutes count towards the “Who plays” board. There are no Strava, Garmin or Apple Health connections yet, so we collect no GPS routes and no heart-rate data. If we add them, we will ask for separate explicit consent and describe here what we collect, from where and for how long.",
+        "basis": "Basis: contract (Art. 6(1)(b)); for health data — explicit consent only (Art. 9(2)(a))."
+      },
+      "mail": {
+        "title": "Emails",
+        "body": "We send the sign-in code, session confirmations and reminders and notices if a session is cancelled, emails about moderation decisions and — only if you subscribe — a weekly digest for your city.",
+        "basis": "Basis: contract (Art. 6(1)(b)); for the digest — consent, which you withdraw with the unsubscribe link in every email."
+      },
+      "reports": {
+        "title": "Facility problem reports",
+        "body": "Reports of broken equipment, missing lighting or a bad surface are anonymous — we ask for no name, email or account.",
+        "basis": "Basis: legitimate interest in accurate facility data (Art. 6(1)(f))."
+      },
+      "notices": {
+        "title": "Content notices",
+        "body": "The <form>notice form</form> records the address of the content, the kind of problem, your explanation and — only if you enter them — a name and email, so we can confirm receipt and tell you the decision. Your IP address is not recorded.",
+        "basis": "Basis: legal obligation under Article 16 of the Digital Services Act (Regulation (EU) 2022/2065) — Art. 6(1)(c)."
+      },
+      "moderation": {
+        "title": "Moderation and accountability",
+        "body": "We record which moderator took which decision and when, and for a refusal the reason, which we email to the author. When an administrator opens an account in the admin panel, that is recorded too: who, whose account and when.",
+        "basis": "Basis: legal obligation under Article 17 of the Digital Services Act and legitimate interest in every decision and every access being checkable (Art. 6(1)(c) and (f))."
+      },
+      "tokens": {
+        "title": "Calendar and open-data keys",
+        "body": "If you create them: a personal address through which your calendar follows the sessions you signed up for, and an open-data API key, of which we keep only a fingerprint (hash) — the key itself is not stored.",
+        "basis": "Basis: contract (Art. 6(1)(b))."
+      }
+    },
+    "recipients": {
+      "title": "Who receives data",
+      "intro": "We do not sell data and do not use it for advertising. We share it only with the following recipients, and only as far as needed:",
+      "hosting": "Hetzner Online GmbH (Germany) — hosting. The server and the database are in a data centre in Finland (EU).",
+      "mail": "Google (Gmail) — sending our emails. The emails, including your address and their content, pass through Google, and a copy stays in the “Sent” folder of our mailbox until we delete it. Deleting your account does not remove it automatically — write to us if you want it deleted.",
+      "backups": "Backblaze, Inc. — storing encrypted off-server backups, only once that service is switched on.",
+      "people": "People at POPS: a session organiser sees the display names of those signed up; ambassadors (volunteer moderators for their municipality) see the contributions and facility reports there; administrators can use the admin panel, and every time they open an account it is recorded.",
+      "external": "External services you choose. The default map is served entirely from our own server, but if you pick an external map layer (CyclOSM, Thunderforest Transport, Tracestrack Topo), your browser loads tiles directly from that provider, and the “Directions” button opens Waze or Google Maps at the facility. They see your IP address, as they would if you visited their site.",
+      "noSale": "Ads and partner logos on the site receive no data about you: they are shown the same to everyone, and we count neither their views nor their clicks."
+    },
+    "transfers": {
+      "title": "Transfers outside the EU",
+      "body": "Your data is stored in the EU. It can leave the EU through our email provider — Google, which also processes data in the United States under the EU-U.S. Data Privacy Framework — and through the external services you choose yourself. If we switch on backups at Backblaze, we will keep them in an EU data centre."
+    },
+    "retention": {
+      "title": "How long we keep data",
+      "account": "Your account — until you delete it. You can delete it yourself from <profile>My profile</profile>: the profile, email, sessions, points, sign-ups and check-ins, training log and subscriptions go at once, and your contributions stay in the shared data anonymously, as “former user”.",
+      "codes": "Sign-in codes — 10 minutes; then they expire and are deleted automatically.",
+      "sessions": "Sign-in sessions, with the browser type — until you sign out or 30 days after your last visit.",
+      "contributions": "The change log of facility data and the moderation decisions — with no time limit, because the history of the open data must stay traceable; once your account is deleted, those records are no longer linked to you.",
+      "notices": "The name and email in a content notice — up to {days} days after the decision on it; the notice itself and the decision are kept as a record.",
+      "logs": "Records of administrators opening accounts — with no time limit, so that every such access can be checked.",
+      "errors": "Error reports in GlitchTip — up to 90 days.",
+      "backups": "Database backups — up to 14 days on the server and about 8 weeks off it, once that is switched on. A deleted account disappears from them as they expire."
+    },
+    "rights": {
+      "title": "Your rights",
+      "body": "You have the right to access your data and receive a copy, to rectification, to erasure, to restriction of processing, to data portability and to object to processing based on legitimate interest. You can withdraw consent at any time, without affecting the lawfulness of processing before that.",
+      "self": "You can do much of this yourself from <profile>My profile</profile>: change your name and city, make your passport private, unsubscribe from the digest and delete your account.",
+      "ask": "For anything else — for example a copy of your data — write to the address under “Who is responsible for your data” or on the <contact>Contact</contact> page. We reply within one month.",
+      "complaint": "You have the right to lodge a complaint with the Bulgarian Commission for Personal Data Protection (<cpdp>www.cpdp.bg</cpdp>)."
+    },
+    "cookies": {
+      "title": "Cookies and data in your browser",
+      "body": "We use no analytics or advertising cookies, and the site sets no language cookie. When you sign in, your browser keeps a session cookie (up to 30 days) and a short-lived signed cookie (5 minutes) so we do not have to look the session up on every request. They are strictly necessary for signing in and are deleted when you sign out.",
+      "cache": "So that the map works offline, your browser caches the app's files and icons, an offline page and the map tiles you viewed last. They contain no data about you and you can clear them in your browser settings."
+    },
+    "minors": {
+      "title": "Minors",
+      "body": "We have not set a minimum age for an account. Your date of birth, if you enter it, is used once to note whether you are under 18 and is not stored; at present that flag restricts nothing. Our age policy is under review and we will update this page when it is adopted."
+    },
+    "automated": {
+      "title": "Automated decisions",
+      "body": "We take no decisions based solely on automated processing. Automated checks can only prompt moderators; every moderation decision is taken by a person."
+    },
+    "sources": {
+      "title": "Where facility data comes from",
+      "body": "Facility data is based on OpenStreetMap (ODbL) and the base map on Protomaps. Community contributions are published as part of the shared <openData>open data</openData>."
+    },
+    "changes": {
+      "title": "Changes",
+      "body": "When we change this page, we update the date at its top."
+    }
   },
   "SignIn": {
     "title": "Sign in to POPS",
@@ -461,7 +582,7 @@
     "submitCode": "Sign in",
     "or": "or",
     "google": "Sign in with Google",
-    "privacyNote": "We keep only your email and the profile details you fill in. We do not store IP addresses.",
+    "privacyNote": "By signing in you accept the <terms>Terms of use</terms>. How we process your data: <privacy>Privacy</privacy>. We do not store IP addresses.",
     "error_invalid_email": "Check the email address.",
     "error_invalid_code": "The code is wrong or expired. Try again.",
     "error_throttled": "Too many attempts — wait a few minutes.",
@@ -491,7 +612,7 @@
     "privacyLink": "How we handle your data",
     "deleteTitle": "Delete account",
     "deleteExplainer": "Deletion is permanent and immediate.",
-    "deleteBulletProfile": "Your profile, email and active sessions are deleted for good.",
+    "deleteBulletProfile": "Your profile, email and active sessions are deleted for good from our database. Backups and copies of emails already sent to you are removed as described in the privacy notice.",
     "deleteBulletContributions": "Your contributions stay public but anonymous — shown as “former user”.",
     "deleteBulletAudit": "The edit audit log stays intact, with no link to your identity.",
     "deleteConfirmWord": "DELETE",
@@ -531,7 +652,7 @@
     "coordinates": "Chosen point: {lat}, {lon}",
     "pinHint": "Drag the pin or tap the map to correct the point.",
     "photoLabel": "Photo (required)",
-    "photoHint": "Photograph the facility, not people. All metadata, including GPS, is stripped.",
+    "photoHint": "Photograph the facility, not people. All metadata, including GPS, is stripped. By uploading you confirm the photo is yours and let us show it on POPS.",
     "sportsLegend": "Sports",
     "accessLabel": "Access",
     "nameLabel": "Name (optional)",
@@ -539,7 +660,7 @@
     "quarterLabel": "Neighbourhood (optional)",
     "submit": "Add facility",
     "submitting": "Sending…",
-    "moderationNote": "New facilities appear publicly once another member or a moderator verifies them.",
+    "moderationNote": "The new facility appears on the map straight away — before another member or a moderator has checked it. The data becomes part of the open data under the ODbL licence (see the Terms of use).",
     "seeExisting": "See the existing facility",
     "error_photo_required": "Add a photo of the facility.",
     "error_invalid_photo": "That file does not look like a photo.",
@@ -579,7 +700,7 @@
     "stateLegend": "Condition",
     "tagsLegend": "What is wrong? (optional)",
     "photoOptionalLabel": "Photo (optional)",
-    "photoOptionalHint": "Photograph the facility, not people. All metadata is stripped.",
+    "photoOptionalHint": "Photograph the facility, not people. All metadata is stripped. By uploading you confirm the photo is yours and let us show it on POPS.",
     "conditionSubmit": "Send",
     "thanksWithPoints": "Thank you! You earned {points} points.",
     "thanksNoPoints": "Thank you! Your contribution is recorded.",
@@ -858,7 +979,7 @@
     "monthlyCheckins": "{count, plural, one {# session} other {# sessions}}",
     "visibilityTitle": "Who can see my passport",
     "visibilityPrivateExplainer": "Your passport is private. Nobody else can see it.",
-    "visibilityPublicExplainer": "Your passport is public at this address. It shows only badges, totals and streaks — never when or where you played.",
+    "visibilityPublicExplainer": "Your passport is public at this address. It shows only badges, totals and streaks — never when or where you played. Your name and city will also appear on the leaderboards, in campaigns and in divisions.",
     "makePublic": "Make it public",
     "makePrivate": "Make it private",
     "activityExplainer": "Optionally show your activity by month too — counts of contributions and sessions only, with no places or dates.",
@@ -1650,7 +1771,10 @@
     "attribution": "Map data © OpenStreetMap · ODbL",
     "partners": "Partners",
     "support": "Support us",
-    "campaigns": "Campaigns"
+    "campaigns": "Campaigns",
+    "terms": "Terms of use",
+    "contact": "Contact",
+    "notice": "Report content"
   },
   "AdminPrivate": {
     "title": "Private venues",
@@ -1696,7 +1820,7 @@
     "back": "← Back to the map",
     "title": "Partners & sponsors",
     "intro": "POPS is a non-profit project. The map, the sessions and the sports passport stay free for everyone — thanks to the organisations listed here. We publish every partnership and exactly how we partner.",
-    "empty": "Our first partners will appear here soon. Want to be among them? Write to us below.",
+    "empty": "We will introduce our first partners here soon. Want to be one of them? Write to us — the way is below.",
     "tierTitle_headline": "Headline partners",
     "tierIntro_headline": "Long-term partners who support the whole platform and its mission.",
     "tierTitle_category": "Partners",
@@ -1706,9 +1830,10 @@
     "tierTitle_institutional": "Institutional partners",
     "tierIntro_institutional": "Municipalities and institutions we work with on data and access to sport. Non-commercial partnerships.",
     "becomeTitle": "Become a partner",
-    "becomeBody": "We look for partners who believe in free outdoor sport — from adopting a specific facility to backing a national campaign. Corporate donations are tax-deductible; sponsorships come with clear, public deliverables.",
+    "becomeBody": "We look for partners who believe in free outdoor sport — from adopting a specific facility to backing a national campaign. Sponsorships come with clear, public deliverables. Corporate donations qualify for tax relief only if the recipient is registered for public benefit — see the “Support us” page.",
     "disclosure": "For transparency: every current partner and sponsor of the project is listed here. Sponsorship never influences the data, the leaderboards or moderation.",
-    "stripLabel": "supported by"
+    "stripLabel": "supported by",
+    "contactFallback": "Ways to reach us are on the <contact>Contact</contact> page."
   },
   "Podkrepi": {
     "metaTitle": "Support POPS",
@@ -1736,7 +1861,7 @@
     "taxVerify": "Thresholds and procedure change — confirm with your accountant before claiming relief.",
     "contractTitle": "Donation contract",
     "contractBody": "For larger donations we sign a donation contract and issue the documents your accountant asks for. Partnership with a logo and acknowledgment is a different thing — that is a service with agreed deliverables and it is invoiced.",
-    "contactFallback": "Write to us through the “Report a problem” form on any facility page.",
+    "contactFallback": "Ways to reach us are on the <contact>Contact</contact> page.",
     "partnersLink": "Partners and sponsors →"
   },
   "Ads": {
@@ -1882,7 +2007,7 @@
   "Training": {
     "metaTitle": "My training",
     "title": "My training",
-    "intro": "Log a training even when it is not part of an organised session. This log is yours alone.",
+    "intro": "Log a training even when it is not part of an organised session. The log is private. If your passport is public, your number of trainings and minutes appear on the “Who plays” board.",
     "statSessions": "trainings (30 days)",
     "statMinutes": "minutes",
     "statSports": "sports",
@@ -1916,7 +2041,7 @@
       "external": "Problem with the connected-app link."
     },
     "consentTitle": "Data from connected apps",
-    "consentIntro": "Strava, Garmin and Apple Health connections are coming. Choose what we store — the two permissions are separate and you can withdraw either at any time.",
+    "consentIntro": "Choose what we store from connected apps — the two permissions are separate and you can withdraw either at any time.",
     "consentRoute": "GPS routes",
     "consentRouteBody": "The line of your route. Never shown publicly anywhere.",
     "consentHealth": "Heart rate and calories",
@@ -1924,7 +2049,8 @@
     "consentGrant": "Allow",
     "consentWithdraw": "Withdraw",
     "consentGrantedAt": "Allowed on {date}",
-    "consentWithdrawNote": "Withdrawing deletes data of that kind already stored. The training records themselves remain."
+    "consentWithdrawNote": "Withdrawing deletes data of that kind already stored. The training records themselves remain.",
+    "consentWithdrawOnly": "Connections to external apps are not available yet, so we collect no routes and no heart rate. You can withdraw a permission you gave earlier here."
   },
   "Division": {
     "tier": {
@@ -2178,5 +2304,182 @@
     "scopeHealth": "Health data",
     "scopeExport": "Export",
     "formerUser": "deleted profile"
+  },
+  "Terms": {
+    "back": "← Home",
+    "title": "Terms of use",
+    "metaDescription": "The terms for using POPS (“More than just sport”): accounts, content, the licence for your contributions, moderation, notices and liability.",
+    "updated": "In force from 2 October 2026",
+    "intro": "These terms govern the use of POPS (“More than just sport”). Browsing the map needs no account; by signing in you accept these terms. How we process your personal data is described separately under <privacy>Privacy</privacy>.",
+    "who": {
+      "title": "Who we are",
+      "body": "POPS is run by a non-profit association:"
+    },
+    "service": {
+      "title": "The service",
+      "body": "POPS is a free map of the publicly accessible sports facilities in Bulgaria, with group sessions, a sports passport, leaderboards and open data. There are no paid features. We may change, temporarily suspend or discontinue parts of the service, including for maintenance."
+    },
+    "account": {
+      "title": "Your account",
+      "body": "You sign in with your email address and a one-time code. The account is personal: do not share it and do not create one in someone else's name. You are responsible for what is done from your account and for access to your email. You can delete your account at any time from <profile>My profile</profile>.",
+      "age": "We have not set a minimum age for an account; our age policy is under review."
+    },
+    "content": {
+      "title": "What may be published",
+      "body": "You are responsible for what you add: facility data, photos, the name and city in your profile, session titles and descriptions. Do not publish:",
+      "items": {
+        "illegal": "illegal content;",
+        "personalData": "other people's personal data;",
+        "people": "photos in which people can be recognised;",
+        "abuse": "abusive, threatening or discriminatory content;",
+        "spam": "advertising or spam;",
+        "falseData": "facility data you know to be false;",
+        "rights": "content you have no rights to."
+      }
+    },
+    "licence": {
+      "title": "Licence for your contributions",
+      "data": "The facility data you add — location, type, access, condition and more — becomes part of the POPS database, which we publish as <openData>open data</openData> under the Open Database License 1.0 (ODbL) together with the OpenStreetMap data. By submitting it you agree to it being published on those terms.",
+      "photos": "Photos are not part of the open data. By uploading a photo you confirm that you took it or have the right to share it and that no person can be recognised in it, and you grant us a free, non-exclusive, perpetual right to store it, process it (for example to strip its metadata and resize it) and show it on POPS. The copyright stays yours."
+    },
+    "moderation": {
+      "title": "How we moderate",
+      "how": "New facilities appear on the map straight away — before another member or a moderator has checked them. Photos are published only after a moderator approves them. Moderators are the volunteer ambassadors for their municipality and the POPS administrators. Automated checks can only prompt — a person always decides.",
+      "reasons": "When we reject your photo or remove a facility you added, we email you what we decided, on what ground — a breach of these terms or illegal content — and how to contest the decision.",
+      "restrictions": "We may refuse, edit or remove content that breaks these terms or the law. For serious or repeated breaches we may restrict or close the account."
+    },
+    "notices": {
+      "title": "Notices and appeals",
+      "body": "Anyone can tell us about content they consider illegal or in breach of these terms through the <form>notice form</form>. We handle notices promptly; if you leave an email address, we confirm receipt and tell you the decision.",
+      "contest": "If you disagree with a moderation decision — about your content or on your notice — write to the address on the <contact>Contact</contact> page and a person will review the decision. You may also go to court.",
+      "point": "Our point of contact under Articles 11 and 12 of the Digital Services Act (Regulation (EU) 2022/2065) — for authorities and for users — is the address on the <contact>Contact</contact> page. Write to us in Bulgarian or English."
+    },
+    "accuracy": {
+      "title": "Accuracy of the data and liability",
+      "body": "Facility data comes from OpenStreetMap, from municipalities and from members. It may be incomplete, out of date or wrong — including whether a facility is free, lit or in good condition. Check on site before relying on it.",
+      "risk": "POPS does not own or maintain the facilities and is not responsible for their condition. You play at your own risk. As far as the law allows, we are not liable for damage arising from the use of the site or of its data."
+    },
+    "privacy": {
+      "title": "Personal data",
+      "body": "How and why we process your personal data, and what your rights are, is described under <privacy>Privacy</privacy>."
+    },
+    "changes": {
+      "title": "Changes to these terms",
+      "body": "We may change these terms. The new version is published on this page with the date from which it applies. If you do not agree with a change, you can delete your account."
+    },
+    "law": {
+      "title": "Governing law",
+      "body": "Bulgarian law applies. Disputes are settled by the competent Bulgarian court, without limiting your rights as a consumer."
+    }
+  },
+  "Contact": {
+    "back": "← Home",
+    "title": "Contact",
+    "metaDescription": "Who runs POPS (“More than just sport”) and how to reach us.",
+    "intro": "POPS (“More than just sport”) is run by a non-profit association.",
+    "orgTitle": "The association",
+    "label": {
+      "legalName": "Registered name",
+      "eik": "UIC/BULSTAT",
+      "address": "Registered office"
+    },
+    "identityPending": "The association's registered name, UIC and address have not been published here yet.",
+    "emailLine": "Email: <email>{address}</email>",
+    "noEmail": "We have not published an email address yet. Until we do, write to us through the <form>notice form</form> — it reaches the administrators and you can leave a reply address.",
+    "pointTitle": "Point of contact",
+    "pointBody": "The contact above is our point of contact under Articles 11 and 12 of the Digital Services Act (Regulation (EU) 2022/2065) — for Member State authorities, the European Commission and users. Write to us in Bulgarian or English.",
+    "topicsTitle": "What is it about?",
+    "topicData": "Personal data — access, rectification, erasure, objection: write to us. Details under <privacy>Privacy</privacy>.",
+    "topicContent": "Illegal or inappropriate content: <form>content notice</form>.",
+    "topicFacility": "A problem with a facility (broken equipment, missing lighting): the “Report a problem” button on the facility page.",
+    "topicSupport": "Donations and partnerships: <support>Support us</support> and <partners>Partners</partners>.",
+    "legalLinks": "See also the <terms>Terms of use</terms> and <privacy>Privacy</privacy>."
+  },
+  "Notice": {
+    "back": "← Home",
+    "title": "Content notice",
+    "metaDescription": "Tell us about illegal content or a breach of the Terms of use on POPS.",
+    "intro": "Do you think something on POPS is illegal or breaks the Terms of use — a photo, a facility name, a name or city on a leaderboard, a public passport, a session? Tell us. An administrator reviews every notice.",
+    "otherChannels": "For broken equipment or missing lighting, use <report>Report a problem</report> on the facility page. Other ways to reach us are on the <contact>Contact</contact> page.",
+    "urlLabel": "Address of the content",
+    "urlHint": "Copy the address of the page (it starts with https://). If the page shows many things, describe below which one you mean.",
+    "categoryLabel": "What is the problem",
+    "category": {
+      "illegal": "Illegal content",
+      "personal_data": "Personal data published without consent",
+      "rights": "Copyright or other rights infringed",
+      "abuse": "Abusive, threatening or discriminatory content",
+      "spam": "Advertising or spam",
+      "other": "Another breach of the Terms of use"
+    },
+    "explanationLabel": "Explanation",
+    "explanationHint": "Why do you think the content is illegal or breaks the terms? The more specific you are, the faster we can check it.",
+    "charCount": "{n}/{max} characters",
+    "contactLegend": "Your details (optional)",
+    "contactHint": "Only if you want us to confirm receipt and tell you the decision. We keep them for up to {days} days after the decision.",
+    "nameLabel": "Name",
+    "emailLabel": "Email",
+    "goodFaith": "I confirm that this notice is accurate and complete to the best of my knowledge and that I am submitting it in good faith.",
+    "submit": "Send the notice",
+    "submitting": "Sending…",
+    "success": "Thank you — your notice has been received. If you left an email address, you will get a confirmation and, later, the decision.",
+    "privacyNote": "Your IP address is not recorded.",
+    "privacyLink": "Privacy",
+    "termsNote": "How we moderate is described in the <terms>Terms of use</terms>.",
+    "reportLink": "Report content",
+    "error": {
+      "url": "Enter the address of the page — it starts with https:// or with /.",
+      "category": "Choose what the problem is.",
+      "explanation": "Describe the problem (up to 2000 characters).",
+      "name": "The name is too long.",
+      "email": "Check the email address.",
+      "goodFaith": "Confirm that you are submitting the notice in good faith.",
+      "tooFast": "The form was sent too quickly or has expired. Reload the page and try again.",
+      "rateLimited": "You sent many notices in a short time. Please try again in a while.",
+      "unknown": "Something went wrong. Please try again."
+    }
+  },
+  "ModerationReason": {
+    "identifiable_person": "People can be recognised in the photo",
+    "not_the_facility": "The photo does not show the facility",
+    "unusable_quality": "The photo is unusable (blurred, dark or too small)",
+    "not_uploaders_rights": "The photo infringes someone else's copyright",
+    "illegal_content": "Illegal content",
+    "other_terms": "Another breach of the Terms of use",
+    "does_not_exist": "The facility does not exist at that location",
+    "duplicate": "The facility is already on the map",
+    "not_public_facility": "Not a publicly accessible sports facility",
+    "wrong_location": "The location is wrong",
+    "personal_data": "Personal data published unlawfully",
+    "rights_infringement": "A third party's rights are infringed",
+    "terms_violation": "A breach of the Terms of use",
+    "not_illegal": "The content is neither illegal nor in breach of the Terms of use",
+    "insufficient_information": "The notice does not contain enough information for us to check it",
+    "already_removed": "The content has already been removed",
+    "not_hosted_here": "The content is not on POPS"
+  },
+  "ModerationEmail": {
+    "subjectPhotoRejected": "Your photo was not published — POPS",
+    "subjectFacilityRemoved": "A facility you added was removed — POPS",
+    "subjectNoticeReceived": "We received your notice — POPS",
+    "subjectNoticeDecided": "Decision on your notice — POPS",
+    "greeting": "Hello,",
+    "leadPhotoRejected": "The photo you uploaded for {facility} was not published.",
+    "leadFacilityRemoved": "The facility {facility}, which you added, was removed from the map.",
+    "leadNoticeReceived": "We received your notice about {url} on {date}.",
+    "leadNoticeActioned": "We reviewed your notice about {url} and took action against the content.",
+    "leadNoticeDismissed": "We reviewed your notice about {url} and took no action.",
+    "noticeNextSteps": "An administrator will review the notice. We will write to you again once we have decided.",
+    "labelReason": "Reason",
+    "labelDecidedOn": "Date of decision: {date}",
+    "groundLaw": "Ground: the content appears to be illegal.",
+    "groundTerms": "Ground: the POPS Terms of use.",
+    "humanDecision": "A person took this decision; no automated means were used.",
+    "contestEmail": "If you disagree, write to us at {email} — a person will review the decision.",
+    "contestForm": "If you disagree, write to us through {url} — a person will review the decision.",
+    "courts": "You may also go to court.",
+    "terms": "Terms of use: {url}",
+    "unnamedFacility": "an unnamed facility",
+    "footer": "POPS — “More than just sport”"
   }
 }

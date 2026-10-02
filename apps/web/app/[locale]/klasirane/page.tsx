@@ -14,6 +14,7 @@ import { ChevronRight } from 'lucide-react';
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
+import { ReportContentLink } from '@/components/legal/report-content-link';
 import { DivisionLadder } from '@/components/passport/division-ladder';
 import { LeaderboardTable } from '@/components/passport/leaderboard-table';
 import { ParticipationTable } from '@/components/passport/participation-table';
@@ -354,6 +355,9 @@ export default async function LeaderboardPage({
         )}
 
         <p className="text-caption text-text-muted">{t('eligibilityNote')}</p>
+        {/* Every row's name links to its passport, which carries its own report
+            link; this one covers the board itself (DSA Art. 16). */}
+        <ReportContentLink path="/klasirane" />
       </main>
     </AppShell>
   );

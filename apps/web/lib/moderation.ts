@@ -1,4 +1,5 @@
 import { sql, type SQL } from '@sportkarta/db';
+import { isReasonFor } from '@sportkarta/lib/moderation';
 
 import type { Role } from './roles';
 
@@ -24,6 +25,15 @@ import type { Role } from './roles';
  * while a failed delete after commit leaves only an orphan file no public
  * request can reach (the serving route answers from the row, and the row now
  * says rejected).
+ *
+ * A REFUSAL CARRIES ITS REASON (0033, DSA Art. 17). Rejecting a photo, taking
+ * a published one down and marking a facility gone each restrict somebody's
+ * content, and they are owed a statement of why. So those decisions take a
+ * slug from the closed vocabulary in lib/src/moderation, it is logged with the
+ * decision, and a refusal without a valid one is not taken at all — the CHECK
+ * `moderation_decisions_refusal_has_reason` is the backstop. The mail itself is
+ * the caller's job, after commit (`enqueueModerationNotify`), which is why the
+ * result carries the log row's id.
  */
 
 export interface ModerationActor {
@@ -40,6 +50,8 @@ export type FacilityDecision = 'verified' | 'gone';
 export interface DecisionResult {
   /** False when the item was out of scope, already decided, or absent. */
   applied: boolean;
+  /** The moderation_decisions row written, when one was. */
+  decisionId?: number | null;
 }
 
 interface SqlRunner {
@@ -90,18 +102,22 @@ async function logDecision(
     decision: string;
     /** The item's own created_at, or `now()` for a decision that had no queue. */
     queuedAt: string | SQL;
+    reason?: string | null;
   },
-): Promise<void> {
-  await tx.execute(sql`
+): Promise<number | null> {
+  const logged = await tx.execute(sql`
     INSERT INTO moderation_decisions (
-      actor_id, target_type, target_id, facility_id, municipality_id, decision, queued_at
+      actor_id, target_type, target_id, facility_id, municipality_id, decision, reason, queued_at
     )
     VALUES (
       ${actor.id}, ${row.targetType}::moderation_target, ${row.targetId}::uuid,
       ${row.facilityId}::uuid, ${row.municipalityId}, ${row.decision}::moderation_decision,
-      ${row.queuedAt}
+      ${row.reason ?? null}, ${row.queuedAt}
     )
+    RETURNING id
   `);
+  const id = logged.rows[0]?.id;
+  return id === undefined || id === null ? null : Number(id);
 }
 
 /**
@@ -123,14 +139,21 @@ async function discardPhotoFile(files: PhotoFiles, photoId: string, key: string)
   }
 }
 
-/** Approve or reject a pending photo, inside the actor's scope. */
+/**
+ * Approve or reject a pending photo, inside the actor's scope. A rejection
+ * needs a reason from `PHOTO_REJECT_REASONS`; without one nothing is decided.
+ */
 export async function decidePhoto(
   db: TransactionalDb,
   actor: ModerationActor,
   photoId: string,
   decision: PhotoDecision,
   files: PhotoFiles,
+  reason: string | null = null,
 ): Promise<DecisionResult> {
+  if (decision === 'rejected' && !isReasonFor('photo_rejected', reason)) {
+    return { applied: false };
+  }
   const decided = await db.transaction(async (tx) => {
     const updated = await tx.execute(sql`
       UPDATE facility_photos p
@@ -145,21 +168,23 @@ export async function decidePhoto(
     const row = updated.rows[0];
     if (!row) return null;
 
-    await logDecision(tx, actor, {
+    const decisionId = await logDecision(tx, actor, {
       targetType: 'photo',
       targetId: String(row.id),
       facilityId: String(row.facility_id),
       municipalityId: (row.municipality_id as number | null) ?? null,
       decision,
+      // Only a refusal is explained; an approval restricts nothing.
+      reason: decision === 'rejected' ? reason : null,
       queuedAt: String(row.created_at),
     });
-    return { storagePath: String(row.storage_path) };
+    return { storagePath: String(row.storage_path), decisionId };
   });
   if (!decided) return { applied: false };
 
   // Committed. Only now is it safe to destroy the evidence of the upload.
   if (decision === 'rejected') await discardPhotoFile(files, photoId, decided.storagePath);
-  return { applied: true };
+  return { applied: true, decisionId: decided.decisionId };
 }
 
 /**
@@ -174,13 +199,20 @@ export async function decidePhoto(
  * "it never went out". A takedown has no queue, so it is recorded as acted on
  * the moment it was queued, and the SLA medians leave it out
  * (lib/moderation-data.ts) rather than let it pull them toward zero.
+ *
+ * Withdrawing published content is the clearest restriction there is, so a
+ * takedown needs a reason exactly like a rejection does (the same photo
+ * vocabulary — the grounds for not showing a photo do not depend on whether it
+ * was ever shown), and the uploader is sent the statement of reasons.
  */
 export async function unpublishPhoto(
   db: TransactionalDb,
   actor: ModerationActor,
   photoId: string,
   files: PhotoFiles,
+  reason: string | null = null,
 ): Promise<DecisionResult> {
+  if (!isReasonFor('photo_rejected', reason)) return { applied: false };
   const takedown: PhotoTakedown = 'removed';
   const removed = await db.transaction(async (tx) => {
     const updated = await tx.execute(sql`
@@ -196,22 +228,23 @@ export async function unpublishPhoto(
     const row = updated.rows[0];
     if (!row) return null;
 
-    await logDecision(tx, actor, {
+    const decisionId = await logDecision(tx, actor, {
       targetType: 'photo',
       targetId: String(row.id),
       facilityId: String(row.facility_id),
       municipalityId: (row.municipality_id as number | null) ?? null,
       decision: takedown,
+      reason,
       // now() is the transaction timestamp, so this equals decided_at's
       // default exactly and moderation_decisions_order (decided >= queued) holds.
       queuedAt: sql`now()`,
     });
-    return { storagePath: String(row.storage_path) };
+    return { storagePath: String(row.storage_path), decisionId };
   });
   if (!removed) return { applied: false };
 
   await discardPhotoFile(files, photoId, removed.storagePath);
-  return { applied: true };
+  return { applied: true, decisionId: removed.decisionId };
 }
 
 /** Mark a pending problem report reviewed or dismissed, inside the actor's scope. */
@@ -250,14 +283,19 @@ export async function resolveReport(
 /**
  * Decide a crowd-submitted facility awaiting verification: publish it, or mark
  * it gone. Also writes the facility_edits row, so the field-level audit trail
- * and the moderation log agree.
+ * and the moderation log agree. Marking it gone needs a reason from
+ * `FACILITY_GONE_REASONS`; without one nothing is decided.
  */
 export async function decideFacility(
   db: TransactionalDb,
   actor: ModerationActor,
   facilityId: string,
   decision: FacilityDecision,
+  reason: string | null = null,
 ): Promise<DecisionResult> {
+  if (decision === 'gone' && !isReasonFor('facility_gone', reason)) {
+    return { applied: false };
+  }
   const nextStatus = decision === 'verified' ? 'active' : 'gone';
 
   return db.transaction(async (tx) => {
@@ -277,14 +315,20 @@ export async function decideFacility(
       VALUES (${facilityId}::uuid, ${actor.id}, 'crowd', 'status',
               '"needs_verification"'::jsonb, ${JSON.stringify(nextStatus)}::jsonb)
     `);
-    await logDecision(tx, actor, {
+    const decisionId = await logDecision(tx, actor, {
       targetType: 'facility',
       targetId: String(row.id),
       facilityId: String(row.id),
       municipalityId: (row.municipality_id as number | null) ?? null,
       decision,
+      reason: decision === 'gone' ? reason : null,
       queuedAt: String(row.created_at),
     });
-    return { applied: true };
+    return { applied: true, decisionId };
   });
+}
+
+/** True when a decision restricted somebody's content and so owes them a statement. */
+export function isRefusal(decision: string): decision is 'rejected' | 'removed' | 'gone' {
+  return decision === 'rejected' || decision === 'removed' || decision === 'gone';
 }
