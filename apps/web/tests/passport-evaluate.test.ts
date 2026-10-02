@@ -55,6 +55,19 @@ describe('enqueuePassportEvaluate', () => {
     expect(payload.userId).toBe('user_123');
   });
 
+  it('keys the job by member, so a burst of one member’s actions queues one fold', async () => {
+    // With the worker's 'short' policy, one WAITING job per singletonKey: the
+    // queued job folds the whole history when it starts, so later sends are
+    // redundant. The key is the id the payload already carries — nothing new.
+    getBoss.mockResolvedValue({ send });
+    const enqueue = await subject();
+
+    await enqueue('user_123');
+
+    const [, , options] = send.mock.calls[0] as [string, unknown, Record<string, unknown>];
+    expect(options).toEqual({ singletonKey: 'user_123' });
+  });
+
   it('does NOT throw when the queue is unreachable', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     getBoss.mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:5433'));

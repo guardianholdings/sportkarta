@@ -39,8 +39,8 @@ export interface DumpManifest {
  *
  * Uses the project's own zone primitive rather than `toLocaleDateString`,
  * because the same reasoning as Stage 4.1 applies for the same reason — the
- * nightly job runs at 03:40 Sofia, which is 00:40 UTC in summer, so a UTC date
- * would file four months of the year's dumps under the previous day. The
+ * job runs in Sofia's small hours (05:10 nightly, or by hand at any hour), and
+ * between midnight and 02:00/03:00 Sofia a UTC date is still yesterday's. The
  * version is what a municipal report cites; it has to be the day a person in
  * Sofia would call it.
  */

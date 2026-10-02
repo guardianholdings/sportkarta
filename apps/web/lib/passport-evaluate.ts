@@ -18,11 +18,19 @@ import { getBoss, PASSPORT_EVALUATE_QUEUE } from '@/lib/admin-boss';
  *
  * The message, never the error object — a pg-boss connection error can embed
  * the connection string.
+ *
+ * ONE WAITING JOB PER MEMBER. `singletonKey` is the account id, and the worker
+ * declares the queue 'short', so while this member already has an evaluation
+ * queued the send is a no-op returning null. Nothing is lost: that job has not
+ * started, and it folds the member's whole history — including the write that
+ * triggered this call — when it does. Without it, a member checking in and
+ * reporting in quick succession queued one full-history fold per action. The key
+ * is the id the payload already carries, so the job row holds nothing new.
  */
 export async function enqueuePassportEvaluate(userId: string): Promise<void> {
   try {
     const boss = await getBoss();
-    await boss.send(PASSPORT_EVALUATE_QUEUE, { userId });
+    await boss.send(PASSPORT_EVALUATE_QUEUE, { userId }, { singletonKey: userId });
   } catch (error: unknown) {
     console.error(
       '[passport] could not enqueue badge evaluation:',
