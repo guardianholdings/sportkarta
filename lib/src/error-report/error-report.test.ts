@@ -78,6 +78,12 @@ describe('scrubText', () => {
   it('caps the length', () => {
     expect(scrubText('x'.repeat(10_000)).length).toBe(2000);
   });
+
+  it("drops a failed query's bound parameters, newlines and all", () => {
+    expect(
+      scrubText('Failed query: select 1 where id = $1\nparams: Мария Иванова,\n42.6977085'),
+    ).toBe('Failed query: select 1 where id = $1\nparams: [redacted]');
+  });
 });
 
 describe('parseStack', () => {
@@ -122,6 +128,74 @@ describe('buildExceptionEvent', () => {
   it('reports a thrown non-Error readably', () => {
     const event = buildExceptionEvent('plain string', { component: 'worker', now: 0 });
     expect(event.exception?.values[0]).toEqual({ type: 'NonError', value: 'plain string' });
+  });
+
+  describe('a failed query (drizzle prints every bound value)', () => {
+    // The shape drizzle-orm 0.44's DrizzleQueryError has; db/src/error-report-
+    // drizzle.test.ts pins it against the real class.
+    const NAME = 'Мария Иванова';
+    const LAT = '42.6977085';
+    const LON = '23.3219335';
+    const ACCOUNT = 'Xk2aQ9rT7pLm4ZcV';
+
+    function failedQuery(cause: Error): Error {
+      const query =
+        'insert into facility_edits (facility_id, actor, field) values ($1, $2, $3) ' +
+        'where ST_DWithin(geom, ST_MakePoint($4, $5)::geography, 100)';
+      const params = ['f-1', ACCOUNT, NAME, LON, LAT];
+      const error = new Error(`Failed query: ${query}\nparams: ${params.join(',')}`, { cause });
+      return Object.assign(error, { query, params });
+    }
+
+    function pgError(message: string, code: string): Error {
+      return Object.assign(new Error(message), { name: 'error', code });
+    }
+
+    it('sends the SQL and the pg reason, never a name, an account or a coordinate', () => {
+      const error = failedQuery(
+        pgError('new row for relation "facility_edits" violates check constraint "x"', '23514'),
+      );
+      const event = buildExceptionEvent(error, { component: 'web', now: 0 });
+      const sent = JSON.stringify(event);
+
+      for (const secret of [NAME, ACCOUNT, LAT, LON]) expect(sent).not.toContain(secret);
+      const [cause, thrown] = event.exception?.values ?? [];
+      // Innermost first, as the protocol expects: WHY, then WHICH query.
+      expect(cause?.value).toBe(
+        'new row for relation "facility_edits" violates check constraint "x"',
+      );
+      expect(thrown?.value).toMatch(/^Failed query: insert into facility_edits .*\$5/);
+      expect(thrown?.value).toMatch(/\nparams: \[redacted\]$/);
+    });
+
+    it('blanks the input a data exception quotes, and keeps the identifiers others quote', () => {
+      const event = buildExceptionEvent(
+        failedQuery(pgError(`invalid input syntax for type double precision: "${LAT}"`, '22P02')),
+        { component: 'worker', now: 0 },
+      );
+      expect(event.exception?.values[0]?.value).toBe(
+        'invalid input syntax for type double precision: "[value]"',
+      );
+      expect(JSON.stringify(event)).not.toContain(LAT);
+    });
+
+    it('never reads a frame out of the parameters', () => {
+      const error = new Error(`Failed query: select $1\nparams: \n    at ${NAME} (/x.ts:1:2)`);
+      error.stack = `Error: ${error.message}\n    at run (/app/apps/web/lib/y.ts:3:4)`;
+      const event = buildExceptionEvent(error, { component: 'web', now: 0 });
+      expect(event.exception?.values[0]?.stacktrace?.frames).toEqual([
+        { function: 'run', filename: '/app/apps/web/lib/y.ts', lineno: 3, colno: 4, in_app: true },
+      ]);
+      expect(JSON.stringify(event)).not.toContain(NAME);
+    });
+
+    it('stops following causes after a few links, and on a cycle', () => {
+      const a = new Error('a');
+      const b = new Error('b', { cause: a });
+      a.cause = b;
+      const event = buildExceptionEvent(b, { component: 'web', now: 0 });
+      expect(event.exception?.values.map((v) => v.value)).toEqual(['a', 'b']);
+    });
   });
 });
 

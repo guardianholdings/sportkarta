@@ -18,9 +18,10 @@
  *
  * WHAT IS NEVER SENT: request headers, cookies, query strings, bodies, the
  * concrete request path (only the route TEMPLATE, e.g. `/[locale]/obekt/[slug]`),
- * user ids, IP addresses. Free text that does go out — an error message, a
- * stack — passes through `scrubText` first, because a Postgres error can quote a
- * row value and a pg connection error can quote the connection string.
+ * user ids, IP addresses, a failed query's bound parameters. Free text that does
+ * go out — an error message, a stack — passes through `scrubText` first, because
+ * drizzle prints every bound value into its error message, a Postgres error can
+ * quote a row value and a pg connection error can quote the connection string.
  *
  * No Node-only imports: Next compiles instrumentation for the edge runtime as
  * well, so this file uses only `fetch` and `globalThis.crypto`.
@@ -66,16 +67,31 @@ export function envelopeUrl(dsn: Dsn): string {
 const MAX_TEXT = 2000;
 
 /**
+ * A FAILED QUERY'S BOUND VALUES. drizzle-orm's DrizzleQueryError — what every
+ * failed `db.execute` throws — has the message `Failed query: <sql>\nparams:
+ * <every bound value>`: display names, free-text report and training bodies,
+ * account ids, and the browser coordinates that verify, condition-report and
+ * check-in bind precisely so that only `distance_m` is ever stored. None of the
+ * patterns below would catch a name or a latitude, so everything from `params:`
+ * on is dropped — the values can contain anything, newlines included, so there
+ * is no "end of the parameters" to stop at. The SQL before it is ours, with
+ * placeholders, and stays.
+ */
+const QUERY_PARAMS = /\n\s*params:[\s\S]*$/;
+
+/**
  * Remove what could identify a person or open a door, from free text.
  *
  * Deliberately blunt: it is applied to error messages and stack frames, where a
  * false positive costs a little debugging context and a false negative puts an
- * address into a third system. Order matters — credentials inside a URL are
- * removed before the URL's query string is.
+ * address into a third system. Order matters — a query's parameters go first
+ * (they can hold anything), and credentials inside a URL are removed before the
+ * URL's query string is.
  */
 export function scrubText(input: string): string {
   return (
     input
+      .replace(QUERY_PARAMS, '\nparams: [redacted]')
       // user:password@ inside any URL-ish string (postgres://, smtp+tls://, https://).
       .replace(/([a-z][a-z0-9+.-]*:\/\/)[^\s/@]*@/gi, '$1[redacted]@')
       // E-mail addresses.
@@ -117,7 +133,7 @@ export function parseStack(stack: string | undefined): StackFrame[] {
     const [, fn, file, lineno, colno] = match;
     const filename = scrubText(file ?? '');
     frames.push({
-      ...(fn ? { function: fn } : {}),
+      ...(fn ? { function: scrubText(fn) } : {}),
       filename,
       lineno: Number(lineno),
       colno: Number(colno),
@@ -176,7 +192,56 @@ function eventId(): string {
   return globalThis.crypto.randomUUID().replace(/-/g, '');
 }
 
-/** Pure: the event that would be sent for a thrown value. Exported for tests. */
+/**
+ * The stack BELOW the message. V8's stack text begins with `Name: message`, so
+ * for a failed query it repeats every bound value — and a value shaped like
+ * `at x (y:1:2)` would otherwise be parsed as a frame. Only what follows the
+ * message is read for frames.
+ */
+function framesOf(error: Error): StackFrame[] {
+  const { stack, message } = error;
+  if (!stack) return [];
+  const at = message ? stack.indexOf(message) : -1;
+  return parseStack(at === -1 ? stack : stack.slice(at + message.length));
+}
+
+/**
+ * The message of one error, as it may leave the box. SQLSTATE class 22 (data
+ * exception) is the Postgres family that quotes the offending INPUT in its
+ * message — `invalid input syntax for type uuid: "…"`, an unknown enum value —
+ * so its quoted strings are blanked. The constraint and not-null classes keep
+ * the row in `detail`, which is never read; their messages quote our own
+ * identifiers (relation, column, constraint), which the operator needs.
+ */
+function messageOf(error: Error): string {
+  const code = (error as { code?: unknown }).code;
+  const dataException = typeof code === 'string' && /^22[0-9A-Z]{3}$/.test(code);
+  return scrubText(dataException ? error.message.replace(/"[^"]*"/g, '"[value]"') : error.message);
+}
+
+/** How many `cause` links are followed: drizzle -> pg is the usual depth of two. */
+const MAX_CHAIN = 3;
+
+type ExceptionValue = NonNullable<ErrorEvent['exception']>['values'][number];
+
+function exceptionValue(error: unknown): ExceptionValue {
+  if (!(error instanceof Error)) return { type: 'NonError', value: scrubText(String(error)) };
+  const frames = framesOf(error);
+  return {
+    type: error.name || 'Error',
+    value: messageOf(error),
+    ...(frames.length > 0 ? { stacktrace: { frames } } : {}),
+  };
+}
+
+/**
+ * Pure: the event that would be sent for a thrown value. Exported for tests.
+ *
+ * The `cause` chain goes out too, because a DrizzleQueryError says only WHICH
+ * query failed; WHY (the pg error: a deadlock, a CHECK, a missing relation) is
+ * its cause. Each link passes through the same scrubbing, and the protocol wants
+ * them innermost first, so the thrown error is the last value.
+ */
 export function buildExceptionEvent(
   error: unknown,
   options: {
@@ -189,10 +254,14 @@ export function buildExceptionEvent(
     now: number;
   },
 ): ErrorEvent {
-  const isError = error instanceof Error;
-  const type = isError ? error.name || 'Error' : 'NonError';
-  const value = scrubText(isError ? error.message : String(error));
-  const frames = isError ? parseStack(error.stack) : [];
+  const chain: unknown[] = [];
+  for (
+    let link: unknown = error;
+    link !== undefined && link !== null && chain.length < MAX_CHAIN && !chain.includes(link);
+    link = link instanceof Error ? link.cause : undefined
+  ) {
+    chain.push(link);
+  }
   return {
     event_id: eventId(),
     timestamp: options.now / 1000,
@@ -203,9 +272,7 @@ export function buildExceptionEvent(
     ...(options.transaction ? { transaction: scrubText(options.transaction) } : {}),
     tags: { component: options.component, ...cleanContext(options.tags) },
     extra: cleanContext(options.extra),
-    exception: {
-      values: [{ type, value, ...(frames.length > 0 ? { stacktrace: { frames } } : {}) }],
-    },
+    exception: { values: chain.reverse().map(exceptionValue) },
   };
 }
 
