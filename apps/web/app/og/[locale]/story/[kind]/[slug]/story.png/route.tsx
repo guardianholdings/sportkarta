@@ -5,6 +5,7 @@ import { OG_PALETTE } from '@/lib/og/palette';
 import { renderStoryCard } from '@/lib/og/story';
 import { OG_MISSING } from '@/lib/og/card';
 import { getFacilityBySlug } from '@/lib/public-data';
+import { siteHost } from '@/lib/seo';
 import { occurrenceView } from '@/lib/sessions/occurrence';
 
 /**
@@ -51,7 +52,8 @@ export async function GET(_request: Request, { params }: { params: Params }) {
   ]);
   const wordmark = tOg('wordmark');
   const attribution = tOg('attribution');
-  const callToAction = tStory('callToAction');
+  // The printed address is the configured one, never a literal in the copy.
+  const callToAction = tStory('callToAction', { site: siteHost() });
 
   if (kind === 'facility' || kind === 'legend') {
     const facility = await getFacilityBySlug(slug);
@@ -112,7 +114,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
       title: view.title,
       subtitle: view.facilityName,
       wordmark,
-      callToAction: tStory('session.callToAction'),
+      callToAction: tStory('session.callToAction', { site: siteHost() }),
       // A session happens at a mapped facility.
       attribution,
       accent: OG_PALETTE.accent,

@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { getCurrentUser } from '@/lib/auth-session';
 import { OG_PALETTE } from '@/lib/og/palette';
 import { renderStoryCard } from '@/lib/og/story';
+import { siteHost } from '@/lib/seo';
 import { trainingStory } from '@/lib/og/story-data';
 
 /**
@@ -55,7 +56,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     labelMinutes: tStory('label.minutes'),
     labelKm: tStory('label.km'),
     labelElevation: tStory('label.elevation'),
-    callToAction: tStory('callToAction'),
+    callToAction: tStory('callToAction', { site: siteHost() }),
   });
 
   if (!data) return new Response('Not found', { status: 404, headers: PERSON_SCOPED_HEADERS });
