@@ -1,4 +1,17 @@
-import { getBoss, PASSPORT_EVALUATE_QUEUE } from '@/lib/admin-boss';
+import { getBoss, PASSPORT_EVALUATE_QUEUE, recordEnqueueFailure } from '@/lib/admin-boss';
+
+/**
+ * One evaluation per member per minute, debounced rather than dropped.
+ *
+ * `singletonKey` + `singletonSeconds` make pg-boss refuse a second job for the
+ * same member in the same one-minute slot (its job_i4 unique index), and
+ * `singletonNextSlot` parks the refused one in the NEXT slot instead of
+ * discarding it — so a burst of contributions costs at most two queued jobs,
+ * and the last write of the burst is still evaluated. Without it every call
+ * was a new row, and a scripted loop could back the worker's queue up ahead of
+ * session reminders and notification mail.
+ */
+export const PASSPORT_EVALUATE_DEBOUNCE_SECONDS = 60;
 
 /**
  * Ask the worker to re-fold a member's badges, after their write committed.
@@ -22,7 +35,20 @@ import { getBoss, PASSPORT_EVALUATE_QUEUE } from '@/lib/admin-boss';
 export async function enqueuePassportEvaluate(userId: string): Promise<void> {
   try {
     const boss = await getBoss();
-    await boss.send(PASSPORT_EVALUATE_QUEUE, { userId });
+    try {
+      await boss.send(
+        PASSPORT_EVALUATE_QUEUE,
+        { userId },
+        {
+          singletonKey: userId,
+          singletonSeconds: PASSPORT_EVALUATE_DEBOUNCE_SECONDS,
+          singletonNextSlot: true,
+        },
+      );
+    } catch (error: unknown) {
+      recordEnqueueFailure('send');
+      throw error;
+    }
   } catch (error: unknown) {
     console.error(
       '[passport] could not enqueue badge evaluation:',

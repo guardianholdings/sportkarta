@@ -41,6 +41,10 @@ export default async function AdminLayout({
     // Admin-only: reading one member's whole record is not an ambassador's job,
     // and both screens enforce that with requireRole('admin') themselves.
     { href: '/admin/akaunti', label: t('accounts'), minRole: 'admin' },
+    // Operator visibility (pre-launch audit): what the crowd changed, with an
+    // undo, and whether the worker, the queues and the mail are running.
+    { href: '/admin/redakcii', label: t('crowdEdits'), minRole: 'admin' },
+    { href: '/admin/zdrave', label: t('health'), minRole: 'admin' },
     { href: '/admin/sesii', label: t('bulkSessions'), minRole: 'admin' },
     { href: '/admin/rezultati', label: t('results'), minRole: 'admin' },
     { href: '/admin/kampanii', label: t('campaigns'), minRole: 'admin' },

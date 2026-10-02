@@ -5,6 +5,7 @@ import { runImport } from '@sportkarta/import-osm';
 import { runDivisions } from './divisions-job.js';
 import { runWeeklyDigest } from './digest-job.js';
 import { runOpenDataDump } from './opendata-dump-job.js';
+import { reporter, reportingWork, reportMailFailures } from './reporting.js';
 import {
   runBadgeBackfill,
   runPassportEvaluate,
@@ -28,7 +29,15 @@ config({ path: new URL('../../../.env', import.meta.url).pathname });
 
 // Queue registry grows in Stage 1+ (imports, reminders, digests). Names are
 // dot-namespaced: <domain>.<action>.
+/**
+ * The worker heartbeat. The time pg-boss records the last one as COMPLETED is
+ * what /api/health and /admin/zdrave read (apps/web/lib/ops-health.ts): no
+ * table of its own, because pgboss.job already is one. Must stay in step with
+ * HEALTH_QUEUE in apps/web/lib/admin-boss.ts.
+ */
 const HEALTH_QUEUE = 'health.ping';
+/** Every five minutes; the web side calls a heartbeat stale after twenty. */
+const HEALTH_SCHEDULE = '*/5 * * * *';
 const IMPORT_OSM_QUEUE = 'import.osm';
 const STATS_REFRESH_QUEUE = 'stats.refresh';
 const AUTH_CLEANUP_QUEUE = 'auth.cleanup';
@@ -126,7 +135,11 @@ async function main(): Promise<void> {
   const boss = new PgBoss(databaseUrl);
   boss.on('error', (error) => {
     console.error('[pg-boss]', error);
+    void reporter.captureException(error, { tags: { source: 'pg-boss' } });
   });
+  // Every handler below is registered through this, so a job that throws is
+  // reported (when GLITCHTIP_DSN is set) before pg-boss marks it failed.
+  const work = reportingWork(boss);
 
   // The shared @sportkarta/db pool behind getDb(), which every mail, passport
   // and dump job queries through. Same reasoning as statsPool below: an idle
@@ -182,17 +195,11 @@ async function main(): Promise<void> {
   await ensureQueue(STREAK_FREEZE_QUEUE, WEEKLY_RETRY);
   await ensureQueue(DIVISIONS_ROLLOVER_QUEUE, WEEKLY_RETRY);
 
-  await boss.work(HEALTH_QUEUE, async (jobs) => {
-    for (const job of jobs) {
-      console.log(`[worker] ${HEALTH_QUEUE} handled job ${job.id}`);
-    }
-  });
-
   // Triggered from the admin UI (Stage 1+) via boss.send('import.osm', {dryRun}).
   // dryRun defaults TRUE — a live import must be requested explicitly, matching
   // the operator gates in docs/ROADMAP.md §3. The report goes to stdout (docker
   // logs); the reviewable artifact for gates is the CLI run's committed report.
-  await boss.work(IMPORT_OSM_QUEUE, { batchSize: 1 }, async (jobs) => {
+  await work(IMPORT_OSM_QUEUE, { batchSize: 1 }, async (jobs) => {
     let lastReport = '';
     for (const job of jobs) {
       const data = (job.data ?? {}) as ImportOsmJobData;
@@ -209,7 +216,7 @@ async function main(): Promise<void> {
 
   // Refresh the /statistika + /api/stats materialized views. Scheduled every 15
   // minutes; also kicked once at startup so views are fresh right after deploy.
-  await boss.work(STATS_REFRESH_QUEUE, async () => {
+  await work(STATS_REFRESH_QUEUE, async () => {
     console.log(`[worker] ${STATS_REFRESH_QUEUE} refreshing statistics views`);
     await refreshStats(statsPool);
     console.log(`[worker] ${STATS_REFRESH_QUEUE} done`);
@@ -222,7 +229,7 @@ async function main(): Promise<void> {
   // completed sign-up. Expired rows are personal data with no purpose left, so
   // they go nightly rather than accumulating into a list of addresses. Expired
   // sessions go the same way.
-  await boss.work(AUTH_CLEANUP_QUEUE, async () => {
+  await work(AUTH_CLEANUP_QUEUE, async () => {
     const verifications = await statsPool.query(
       `DELETE FROM verifications WHERE expires_at < now()`,
     );
@@ -239,7 +246,7 @@ async function main(): Promise<void> {
   // a UNIQUE index), so an extra run costs a scan and creates nothing. Also sent
   // with a sessionId right after a series is created or edited, so a member does
   // not wait up to an hour to see their own session.
-  await boss.work(SESSION_MATERIALIZE_QUEUE, { batchSize: 1 }, async (jobs) => {
+  await work(SESSION_MATERIALIZE_QUEUE, { batchSize: 1 }, async (jobs) => {
     let last: Awaited<ReturnType<typeof materializeSessions>> | undefined;
     for (const job of jobs) {
       const data = (job.data ?? {}) as SessionMaterializeJobData;
@@ -276,7 +283,7 @@ async function main(): Promise<void> {
   // is what makes it safe to THROW when anybody was not reached: this job is
   // enqueued once per event, so the queue's retry (MAIL_RETRY) is the only
   // second chance a cancellation notice gets.
-  await boss.work(
+  await work(
     SESSION_NOTIFY_QUEUE,
     { batchSize: 1 },
     logged(SESSION_NOTIFY_QUEUE, async (jobs) => {
@@ -294,6 +301,7 @@ async function main(): Promise<void> {
             `${String(last.skipped)} skipped, ${String(last.failed)} failed, ` +
             `${String(last.unattempted)} unattempted`,
         );
+        await reportMailFailures(SESSION_NOTIFY_QUEUE, last);
         assertDelivered(SESSION_NOTIFY_QUEUE, last);
       }
       return last;
@@ -311,7 +319,7 @@ async function main(): Promise<void> {
   // told", and the next tick picks them up — while deliverEach stops the tick at
   // the first sign the relay is down, so a quota outage costs one login attempt
   // every ten minutes instead of one per due reminder.
-  await boss.work(
+  await work(
     SESSION_REMINDERS_QUEUE,
     { batchSize: 1 },
     logged(SESSION_REMINDERS_QUEUE, async (jobs) => {
@@ -327,6 +335,7 @@ async function main(): Promise<void> {
               `${String(report.sent)} sent, ${String(report.skipped)} already told, ` +
               `${String(report.failed)} failed, ${String(report.unattempted)} unattempted`,
           );
+          await reportMailFailures(`${SESSION_REMINDERS_QUEUE}/${kind}`, report);
         }
       }
       return last;
@@ -344,7 +353,7 @@ async function main(): Promise<void> {
   // manual re-run, a retry or a second worker cannot mail anyone twice. Which
   // is what makes it safe to throw when anybody was missed: WEEKLY_RETRY re-runs
   // the job within the same week, and the claims skip everyone already mailed.
-  await boss.work(
+  await work(
     DIGEST_WEEKLY_QUEUE,
     { batchSize: 1 },
     logged(DIGEST_WEEKLY_QUEUE, async (jobs) => {
@@ -357,6 +366,7 @@ async function main(): Promise<void> {
             `${String(last.sent)} sent, ${String(last.skipped)} skipped, ` +
             `${String(last.failed)} failed, ${String(last.unattempted)} unattempted`,
         );
+        await reportMailFailures(DIGEST_WEEKLY_QUEUE, last);
         assertDelivered(DIGEST_WEEKLY_QUEUE, last);
       }
       return last;
@@ -373,7 +383,7 @@ async function main(): Promise<void> {
   // on the same day rewrites byte-identical files under the same version. The
   // job is safe to trigger by hand from the admin screen when something looks
   // wrong, which is the point of making it boring.
-  await boss.work(OPENDATA_DUMP_QUEUE, { batchSize: 1 }, async (jobs) => {
+  await work(OPENDATA_DUMP_QUEUE, { batchSize: 1 }, async (jobs) => {
     let last: Awaited<ReturnType<typeof runOpenDataDump>> | undefined;
     for (const job of jobs) {
       last = await runOpenDataDump();
@@ -394,7 +404,7 @@ async function main(): Promise<void> {
   // personally looked. The web app enqueues here after a contribution or a
   // check-in COMMITS; see apps/worker/src/passport-job.ts for why this must not
   // be inlined into those transactions.
-  await boss.work(PASSPORT_EVALUATE_QUEUE, async (jobs) => {
+  await work(PASSPORT_EVALUATE_QUEUE, async (jobs) => {
     for (const job of jobs) {
       const report = await runPassportEvaluate((job.data ?? {}) as PassportEvaluateJobData);
       if (report.recorded > 0) {
@@ -412,7 +422,7 @@ async function main(): Promise<void> {
   // idempotent (ON CONFLICT DO NOTHING), it is the only thing that catches a
   // member whose badges were earned while this feature did not exist, and one
   // pass over the ledger's distinct users is cheap next to getting it wrong.
-  await boss.work(BADGE_BACKFILL_QUEUE, async () => {
+  await work(BADGE_BACKFILL_QUEUE, async () => {
     const report = await runBadgeBackfill();
     console.log(
       `[worker] ${BADGE_BACKFILL_QUEUE} evaluated ${String(report.evaluated)} member(s), ` +
@@ -431,7 +441,7 @@ async function main(): Promise<void> {
   // freezeCandidate() only ever looks at the week that just closed, so a freeze
   // not applied this week can never be applied later. applyStreakFreeze is
   // ON CONFLICT DO NOTHING, so the re-run cannot forgive a week twice.
-  await boss.work(
+  await work(
     STREAK_FREEZE_QUEUE,
     logged(STREAK_FREEZE_QUEUE, async () => {
       const report = await runStreakFreezes();
@@ -455,7 +465,7 @@ async function main(): Promise<void> {
   // Also the bootstrap. There is no separate seeding job — see
   // divisions-job.ts: week one is the general case with no history, and a
   // missed week resumes rather than resets.
-  await boss.work(
+  await work(
     DIVISIONS_ROLLOVER_QUEUE,
     logged(DIVISIONS_ROLLOVER_QUEUE, async () => {
       const report = await runDivisions();
@@ -468,6 +478,17 @@ async function main(): Promise<void> {
     }),
   );
   await boss.schedule(DIVISIONS_ROLLOVER_QUEUE, '40 4 * * 1', {}, { tz: 'Europe/Sofia' });
+
+  // The heartbeat goes LAST, after every other queue is registered. A worker
+  // that throws halfway through booting — a bad image, a missing env var — and
+  // is restarted by Docker in a loop must never complete a ping on its way
+  // down, or a crash loop would look alive. So a completed ping means "a worker
+  // got all the way here", and the ping sent now is this boot's first beat.
+  await work(HEALTH_QUEUE, async () => {
+    // Quiet on purpose: 288 a day. pg-boss's completed_on IS the output.
+  });
+  await boss.schedule(HEALTH_QUEUE, HEALTH_SCHEDULE);
+  await boss.send(HEALTH_QUEUE, {});
 
   console.log('[worker] started, listening for jobs');
 
@@ -485,7 +506,10 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error: unknown) => {
+main().catch(async (error: unknown) => {
   console.error('[worker] fatal', error);
+  // Bounded by the reporter's own timeout; a GlitchTip that is down cannot
+  // keep a dead worker from exiting (and Docker from restarting it).
+  await reporter.captureException(error, { tags: { stage: 'boot' } });
   process.exit(1);
 });

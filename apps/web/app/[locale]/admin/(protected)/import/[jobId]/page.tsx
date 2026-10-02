@@ -32,11 +32,17 @@ export default async function AdminImportJobPage({
           {t.has(`state.${job.state}`) ? t(`state.${job.state}`) : job.state}
         </span>
       </h1>
+      {job.error && (
+        <div className="max-w-4xl rounded-md border border-danger-border bg-danger-bg p-4 text-body-sm text-danger">
+          <p className="font-semibold">{t('failureTitle')}</p>
+          <p className="mt-1 break-words">{job.error}</p>
+        </div>
+      )}
       {job.report ? (
         <pre className="max-w-4xl overflow-x-auto rounded-md bg-paper-sunk p-4 text-caption whitespace-pre-wrap">
           {job.report}
         </pre>
-      ) : (
+      ) : job.error ? null : (
         <p className="text-body-sm text-text-muted">{t('reportMissing')}</p>
       )}
     </main>

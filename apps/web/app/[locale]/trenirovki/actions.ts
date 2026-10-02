@@ -5,6 +5,7 @@ import { normalizeTraining, parseDuration, type TrainingProblem } from '@sportka
 import { revalidatePath } from 'next/cache';
 
 import { requireUser } from '@/lib/auth-session';
+import { trainingRateLimiter } from '@/lib/contribution-rate-limit';
 
 /**
  * Logging a personal training (operator request 2026-07-26).
@@ -20,7 +21,8 @@ import { requireUser } from '@/lib/auth-session';
  */
 
 export interface TrainingFormState {
-  problems: TrainingProblem[];
+  /** The validator's problems, plus the one only this action can raise. */
+  problems: (TrainingProblem | 'rate_limited')[];
   /** Set once, so the form can announce success without a query string. */
   saved?: boolean;
 }
@@ -81,6 +83,9 @@ export async function logTrainingAction(
   formData: FormData,
 ): Promise<TrainingFormState> {
   const user = await requireUser();
+  // Nothing is earned here, so the only reason to script it is to grow the
+  // database; the throttle is per account, like every other signed-in write.
+  if (!trainingRateLimiter.check(user.id).allowed) return { problems: ['rate_limited'] };
 
   const durationS = parseDuration(String(formData.get('duration') ?? ''));
   const rawDate = String(formData.get('startedAt') ?? '').trim();

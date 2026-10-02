@@ -44,6 +44,11 @@ export interface VerifyResult {
   awarded: boolean;
   /** True when the member reported the facility as gone. */
   reportedMissing: boolean;
+  /**
+   * True when a change of access to a value that hides the facility was filed
+   * for a moderator instead of being applied (see gateHidingAccessChange).
+   */
+  accessProposed?: boolean;
 }
 
 interface SqlRunner {
@@ -94,6 +99,44 @@ export function normalizeChecklist(checklist: VerifyChecklist): Record<string, J
   }
 
   return incoming;
+}
+
+/**
+ * Access values the public visibility predicate HIDES. PUBLIC_FACILITY_PREDICATE
+ * (lib/src/opendata/schema.ts) drops `paid` rows while `public_show_paid` is
+ * off; `school` and `restricted` stay on the map. A test holds the two
+ * together, so widening the predicate without widening this fails CI.
+ */
+export const PUBLIC_HIDDEN_ACCESS: readonly string[] = ['paid'];
+
+/**
+ * A CROWD CHANGE THAT WOULD HIDE A FACILITY IS A PROPOSAL, NOT AN EDIT.
+ *
+ * `access` is the one field whose wrong value takes a facility off the map, the
+ * city pages, the sitemap and the open-data export — and crowd outranks every
+ * import, so no re-import would bring it back (pre-launch audit finding 53).
+ * Nobody reports a facility they cannot see.
+ *
+ * So the gate is on the OUTCOME, not on the contributor: any change TO a hiding
+ * value is recorded as an `access_proposed` audit row — attributed, with its
+ * distance — and a pending moderation report is filed (one per facility), and a
+ * moderator decides in the editor. Whatever the current value is (a `school` or
+ * `restricted` pitch is just as visible as a free one), and whether or not the
+ * member was on site: `onSite` comes from coordinates the browser sends, every
+ * facility's own coordinates are published, so a script can claim to be
+ * standing at each one (proximity.ts: evidence, never proof). Every other
+ * correction, and any change that keeps a facility visible — including back TO
+ * free — still applies as before.
+ */
+function gateHidingAccessChange(
+  incoming: Record<string, JsonValue>,
+  currentAccess: JsonValue,
+): { proposed: JsonValue } | null {
+  const proposed = incoming.access;
+  if (typeof proposed !== 'string' || proposed === currentAccess) return null;
+  if (!PUBLIC_HIDDEN_ACCESS.includes(proposed)) return null;
+  delete incoming.access;
+  return { proposed };
 }
 
 /** Column writers, mirroring the admin edit path. Field names are never interpolated. */
@@ -176,6 +219,28 @@ export async function verifyFacility(
       sport_types: ((row.sport_types as string[] | null) ?? []) as JsonValue,
     };
 
+    const accessProposal = gateHidingAccessChange(incoming, current.access ?? null);
+    if (accessProposal) {
+      await tx.execute(sql`
+        INSERT INTO facility_edits (facility_id, actor, source, field, old_value, new_value, distance_m)
+        VALUES (${params.facilityId}::uuid, ${params.userId}, 'crowd', 'access_proposed',
+                ${JSON.stringify(current.access)}::jsonb,
+                ${JSON.stringify(accessProposal.proposed)}::jsonb, ${distanceM})
+      `);
+      // Into the existing moderation queue, de-duplicated per facility so a
+      // repeat submission cannot flood it.
+      await tx.execute(sql`
+        INSERT INTO facility_reports (facility_id, issue, body, status, distance_m)
+        SELECT ${params.facilityId}::uuid, 'other', NULL, 'pending', ${distanceM}
+        WHERE NOT EXISTS (
+          SELECT 1 FROM facility_reports r
+          WHERE r.facility_id = ${params.facilityId}::uuid
+            AND r.issue = 'other'
+            AND r.status = 'pending'
+        )
+      `);
+    }
+
     // Crowd outranks every other source, so nothing can be frozen against this
     // edit; mergeFields is here for change detection and audit payloads.
     const merge = mergeFields({
@@ -225,7 +290,8 @@ export async function verifyFacility(
      * The field CORRECTIONS above are applied either way: those are ordinary
      * crowd edits under the merge policy, they are individually attributed, and
      * withholding them would lose real fixes to protect against a fake nobody
-     * has demonstrated.
+     * has demonstrated. The one exception is a change of access that would
+     * hide the facility, which is gated above (gateHidingAccessChange).
      */
     const activated = row.status === 'needs_verification' && onSite;
     if (activated) {
@@ -256,6 +322,7 @@ export async function verifyFacility(
       reportedMissing: false,
       distanceM,
       onSite,
+      ...(accessProposal ? { accessProposed: true } : {}),
     };
   });
 }

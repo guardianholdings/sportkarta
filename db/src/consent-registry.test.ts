@@ -48,6 +48,8 @@ const ALLOWED: Record<string, string> = {
     'Resolves ONE passport by handle, and carries the visibility predicate itself — it is the function the view would otherwise be asked to duplicate. It is also what every public passport read is gated by, so making it depend on the view would be circular.',
   'digest.ts:digestRecipients':
     'Addresses a member’s OWN weekly mail. It names the recipient to themselves, discloses nobody to anybody, and gating it on a public-passport opt-in would stop a private member receiving their own digest.',
+  'crowd-edits.ts:listCrowdEdits':
+    'The operator’s crowd-edit AUDIT feed (/admin/redakcii, requireRole(admin)), not a ranking. It names who changed a facility so that vandalism can be traced to an account and reverted — the same disclosure the admin facility history already makes — and it is never rendered publicly.',
 };
 
 interface Fn {

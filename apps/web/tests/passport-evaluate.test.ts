@@ -24,9 +24,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const send = vi.fn();
 const getBoss = vi.fn();
 
+const recordEnqueueFailure = vi.fn();
+
 vi.mock('@/lib/admin-boss', () => ({
   PASSPORT_EVALUATE_QUEUE: 'passport.evaluate',
   getBoss: () => getBoss(),
+  recordEnqueueFailure: (stage: string) => recordEnqueueFailure(stage),
 }));
 
 async function subject() {
@@ -53,6 +56,33 @@ describe('enqueuePassportEvaluate', () => {
     // run time rather than carry anything about the person.
     expect(Object.keys(payload)).toEqual(['userId']);
     expect(payload.userId).toBe('user_123');
+  });
+
+  it('debounces per member, so a burst cannot flood the worker queue', async () => {
+    // Finding 7 (pre-launch audit): every call used to be a fresh job row, so
+    // a scripted loop could queue unlimited work ahead of session mail. Keyed
+    // by the member and parked in the NEXT slot rather than dropped, so the
+    // last write of a burst is still evaluated.
+    getBoss.mockResolvedValue({ send });
+    const enqueue = await subject();
+
+    await enqueue('user_123');
+
+    const options = (send.mock.calls[0] as unknown[])[2];
+    expect(options).toEqual({
+      singletonKey: 'user_123',
+      singletonSeconds: 60,
+      singletonNextSlot: true,
+    });
+  });
+
+  it('counts a failed send for the health page, and still does not throw', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    getBoss.mockResolvedValue({ send: vi.fn().mockRejectedValue(new Error('boom')) });
+    const enqueue = await subject();
+
+    await expect(enqueue('user_123')).resolves.toBeUndefined();
+    expect(recordEnqueueFailure).toHaveBeenCalledWith('send');
   });
 
   it('does NOT throw when the queue is unreachable', async () => {

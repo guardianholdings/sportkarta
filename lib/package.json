@@ -14,6 +14,7 @@
     "./geo": "./src/geo/index.ts",
     "./points": "./src/points.ts",
     "./email": "./src/email/index.ts",
+    "./error-report": "./src/error-report/index.ts",
     "./ical": "./src/ical/index.ts",
     "./import-municipal": "./src/import-municipal/index.ts",
     "./opendata": "./src/opendata/index.ts",
