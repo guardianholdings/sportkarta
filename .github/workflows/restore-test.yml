@@ -14,6 +14,16 @@ name: Restore rehearsal
 # against the copy, and the container and its data are removed — on success,
 # on failure and on cancellation. The live database is never connected to.
 #
+# WHAT IT PRINTS. Counts, file names and verdicts — never the database's own
+# error text. This repository is PUBLIC, and so is every Actions log; when a
+# load fails, which is what this workflow exists to catch, PostgreSQL quotes
+# the offending row (COPY's `CONTEXT: COPY users, line N: "…"`, a constraint's
+# `DETAIL: Key (…)=(…)` / `Failing row contains (…)`) — members' emails and
+# names from the live database, published. So pg_restore's and every query's
+# error output goes to a file on the server that only `deploy` can read, and
+# the job log gets the exit code and, at most, the table name
+# (deploy/RESTORE.md §7 says where to look).
+#
 # What it does NOT prove, and deploy/RESTORE.md says how to cover: the umami
 # and glitchtip dumps, the uploads volume, and an OFF-BOX copy (restic), which
 # does not exist yet — every dump it restores sits on the same disk as the
@@ -65,12 +75,29 @@ jobs:
           ssh vps "bash -s -- $RUN_ID" <<'REMOTE'
           set -euo pipefail
           name="sportkarta-restore-rehearsal-$1"
+          # The full diagnostics, server-side only (see WHAT IT PRINTS above).
+          # Owner-only (umask 077). A failed run's file is kept 14 days — no
+          # longer than the nightly prune keeps the dump it may quote — and a
+          # passing run's is removed.
+          umask 077
+          logdir="$HOME/restore-rehearsal"
+          log="$logdir/$1.log"
+          mkdir -p "$logdir"
+          find "$logdir" -name '*.log' -mtime +14 -delete
+          : > "$log"
           # Compose names volumes <project>_<volume>; the project is `sportkarta`
           # (deploy/compose.prod.yml). The same image as the live database, so
           # the rehearsal restores with the tools a real recovery would use.
           volume=sportkarta_backups
           image=postgis/postgis:16-3.4
-          fail() { echo "::error::RESTORE REHEARSAL FAILED: $*"; exit 1; }
+          fail() {
+            echo "::error::RESTORE REHEARSAL FAILED: $*"
+            if [ -s "$log" ]; then
+              echo "The database's own error output is NOT printed here: it can quote members' data, and this log is public."
+              echo "It is on the server in $log, kept 14 days (deploy/RESTORE.md §7)."
+            fi
+            exit 1
+          }
           trap 'docker rm -fv "$name" >/dev/null 2>&1 || true' EXIT
 
           docker volume inspect "$volume" >/dev/null 2>&1 \
@@ -112,11 +139,25 @@ jobs:
 
           # Into an EMPTY database from template0, as a disaster recovery would
           # (deploy/RESTORE.md): the dump brings its own extensions.
-          docker exec "$name" createdb -U sportkarta -T template0 rehearsal
+          docker exec "$name" createdb -U sportkarta -T template0 rehearsal 2>>"$log" \
+            || fail "could not create the empty rehearsal database"
+          rc=0
           docker exec "$name" pg_restore -U sportkarta --dbname=rehearsal --no-owner \
-            --exit-on-error "$dump" || fail "pg_restore stopped on an error (above)"
+            --exit-on-error "$dump" >>"$log" 2>&1 || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            # Only the table NAME leaves the server — never the message after
+            # it, which can quote a value (`invalid input syntax …: "…"`). Any
+            # other failure (a schema, index or constraint step) is named by
+            # nothing at all: a unique index's DETAIL quotes the duplicate.
+            table=$(sed -n '/COPY failed for table "/{s/.*COPY failed for table "\([A-Za-z0-9_]*\)".*/\1/p;q;}' "$log" || true)
+            if [ -n "$table" ]; then
+              fail "pg_restore stopped (exit $rc) while loading the rows of table $table"
+            fi
+            fail "pg_restore stopped (exit $rc) outside the table rows — a schema, index or constraint step"
+          fi
 
-          psql() { docker exec "$name" psql -U sportkarta -d rehearsal -v ON_ERROR_STOP=1 -X "$@"; }
+          # Errors to the server-side log only (WHAT IT PRINTS); results to stdout.
+          psql() { docker exec "$name" psql -U sportkarta -d rehearsal -v ON_ERROR_STOP=1 -X "$@" 2>>"$log"; }
 
           # /api/health's own smoke query (db/src/health.ts) …
           health=$(psql -Atc "SELECT count(*) FROM _health WHERE ST_DWithin(geom::geography,
@@ -128,7 +169,8 @@ jobs:
             ST_SetSRID(ST_MakePoint(23.3219, 42.6977), 4326)::geography, 5000)") \
             || fail "the facilities query errored on the restored copy"
           [ "$near" -ge 1 ] || fail "no facility within 5 km of central Sofia in the restored copy"
-          echo "PostGIS $(psql -Atc 'SELECT postgis_lib_version()'); ST_DWithin smoke ok; $near facilities within 5 km of central Sofia"
+          postgis=$(psql -Atc 'SELECT postgis_lib_version()') || fail "postgis_lib_version() errored on the restored copy"
+          echo "PostGIS $postgis; ST_DWithin smoke ok; $near facilities within 5 km of central Sofia"
 
           # Row counts — what a recovery would bring back.
           psql -P pager=off -c "
@@ -144,9 +186,11 @@ jobs:
               ('play_session_rsvps',       (SELECT count(*) FROM play_session_rsvps)),
               ('moderation_decisions',     (SELECT count(*) FROM moderation_decisions)),
               ('applied migrations',       (SELECT count(*) FROM drizzle.__drizzle_migrations))
-            ) AS c(t, n)"
-          facilities=$(psql -Atc "SELECT count(*) FROM facilities")
+            ) AS c(t, n)" || fail "the row counts query errored on the restored copy"
+          facilities=$(psql -Atc "SELECT count(*) FROM facilities") \
+            || fail "counting facilities errored on the restored copy"
           [ "$facilities" -ge 1 ] || fail "the restored copy has no facilities"
+          rm -f "$log"
           echo "Restore rehearsal passed: $dump restores cleanly and answers the health query."
           REMOTE
 

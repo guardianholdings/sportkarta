@@ -163,13 +163,24 @@ overwritten by the next deploy: fix things in git, never by hand-editing
 
 ## 7. When the Restore rehearsal goes red
 
-It says why in its log (Actions → Restore rehearsal → the failed run):
+It says why in its log (Actions → Restore rehearsal → the failed run) — in
+outline only. The repository is public, so its Actions logs are too, and
+PostgreSQL's own error text quotes the row it choked on: a member's email,
+name, anything. That text never reaches GitHub. It stays on the server in
+`~deploy/restore-rehearsal/<run id>.log` (the run id is the number at the end
+of the run's address), readable only by `deploy`, and is deleted after 14 days
+— no longer than the dump it quotes is kept.
 
 - **"the newest dump is …h old"** — the nightly backup stopped. Claude checks
   the `backup` container (`C ps`, `C logs backup`, `/backups/backup.log`).
   Fix this first: until it runs, every day's changes are unprotected.
-- **"pg_restore stopped on an error"** or a failed query — a dump exists but
-  would not come back cleanly. Treat it as urgent: it is the restore §3 relies
-  on. Claude reproduces it on the throwaway container and fixes the cause.
+- **"pg_restore stopped (exit …)"** — it names the table whose rows failed to
+  load, if it was a table — or **"… errored on the restored copy"**: a dump
+  exists but would not come back cleanly. Treat it as urgent: it is the
+  restore §3 relies on. Claude reads the full error on the server over SSH
+  (§6): `cat ~/restore-rehearsal/<run id>.log`, then reproduces the failure on
+  a throwaway container and fixes the cause. That file can hold members' data:
+  Claude tells you the cause in its own words and never copies its lines into
+  an issue, a pull request or a commit — all of them public.
 - **SSH / host key errors** — the server was rebuilt or its key changed:
   §4 step 2.
