@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { AdminNav } from '@/components/shell/admin-nav';
 import { BrandMark } from '@/components/shell/app-nav';
+import { ClientIntlProvider } from '@/i18n/client-intl-provider';
 import { Link } from '@/i18n/navigation';
 import { requireAdmin } from '@/lib/auth-session';
 import { hasAtLeast, type Role } from '@/lib/roles';
@@ -82,7 +83,11 @@ export default async function AdminLayout({
         </div>
         <AdminNav items={visibleItems.map(({ href, label }) => ({ href, label }))} />
       </header>
-      {children}
+      {/* The admin forms read the Admin* namespaces, which the root layout
+        deliberately keeps out of every public page (i18n/client-messages.ts). */}
+      <ClientIntlProvider locale={locale} scope="admin">
+        {children}
+      </ClientIntlProvider>
     </div>
   );
 }
