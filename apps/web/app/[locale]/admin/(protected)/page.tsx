@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
 import { dashboardCounts } from '@/lib/admin-data';
+import { requireAdmin } from '@/lib/auth-session';
 
 export default async function AdminDashboardPage({
   params,
@@ -12,7 +13,10 @@ export default async function AdminDashboardPage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations('AdminDashboard');
-  const counts = await dashboardCounts();
+  // The layout already gated this page; the call is repeated for the ACTOR, so
+  // an ambassador's tiles count only their own municipalities.
+  const user = await requireAdmin();
+  const counts = await dashboardCounts({ id: user.id, role: user.role });
 
   const stats = [
     { label: t('statActive'), value: counts.active },

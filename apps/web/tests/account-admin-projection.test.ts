@@ -29,12 +29,25 @@ import { describe, expect, it } from 'vitest';
 
 const WEB_ROOT = join(__dirname, '..');
 
-/** Every file that builds SQL or renders for the account module. */
+/**
+ * Every file that builds SQL or renders for the account module — including the
+ * operator controls and the GDPR export added in 0033. The export matters most:
+ * it is the copy of an account most likely to leave the building, so a token or
+ * a coordinate there would be the worst place for one to land.
+ */
 const GUARDED = [
   join('lib', 'account-admin.ts'),
   join('lib', 'account-access.ts'),
+  join('lib', 'account-controls.ts'),
+  join('lib', 'account-export.ts'),
+  join('lib', 'admin-actions.ts'),
   join('app', '[locale]', 'admin', '(protected)', 'akaunti', 'page.tsx'),
   join('app', '[locale]', 'admin', '(protected)', 'akaunti', '[id]', 'page.tsx'),
+  join('app', '[locale]', 'admin', '(protected)', 'akaunti', '[id]', 'actions.ts'),
+  join('app', '[locale]', 'admin', '(protected)', 'akaunti', '[id]', 'control-forms.tsx'),
+  join('app', 'api', 'admin', 'akaunti', '[id]', 'eksport', 'route.ts'),
+  join('app', 'api', 'profil', 'eksport', 'route.ts'),
+  join('components', 'admin', 'admin-action-log.tsx'),
 ];
 
 /**
@@ -117,14 +130,18 @@ describe('admin account module projection', () => {
     ).toBe(false);
   });
 
-  it('both akaunti pages gate on requireRole(admin), never requireAdmin', () => {
+  it('every akaunti surface gates on requireRole(admin), never requireAdmin', () => {
     // requireAdmin() means "ambassador or admin" (apps/web/lib/roles.ts). This
     // surface shows member emails, consent receipts and Art. 9-adjacent
     // metadata — admin-only by decision, and nothing but this assertion stops
-    // a future refactor from quietly widening it to ambassadors.
+    // a future refactor from quietly widening it to ambassadors. The export
+    // route matters twice over: /api is outside the middleware matcher, so its
+    // own gate is the only one.
     for (const page of [
       join('app', '[locale]', 'admin', '(protected)', 'akaunti', 'page.tsx'),
       join('app', '[locale]', 'admin', '(protected)', 'akaunti', '[id]', 'page.tsx'),
+      join('app', '[locale]', 'admin', '(protected)', 'akaunti', '[id]', 'actions.ts'),
+      join('app', 'api', 'admin', 'akaunti', '[id]', 'eksport', 'route.ts'),
     ]) {
       const code = stripComments(readFileSync(join(WEB_ROOT, page), 'utf8'));
       expect(
@@ -136,6 +153,22 @@ describe('admin account module projection', () => {
         `${page} calls requireAdmin(), which admits ambassadors — this surface is admin-only`,
       ).toBe(false);
     }
+  });
+
+  it('records the export access BEFORE building the export', () => {
+    // Same fail-closed order as the account page: a log written after the read
+    // could not describe a read that crashed halfway, and recordAccountAccess
+    // throws, so a broken log means no file.
+    const code = stripComments(
+      readFileSync(
+        join(WEB_ROOT, 'app', 'api', 'admin', 'akaunti', '[id]', 'eksport', 'route.ts'),
+        'utf8',
+      ),
+    );
+    const recorded = code.indexOf("recordAccountAccess(admin.id, id, 'export')");
+    const built = code.indexOf('buildAccountExport(');
+    expect(recorded).toBeGreaterThan(-1);
+    expect(built).toBeGreaterThan(recorded);
   });
 
   it('never writes a consent column', () => {

@@ -685,7 +685,11 @@
     "error_home_city_too_long": "That city is too long (80 characters max).",
     "error_invalid_date_of_birth": "Check the date of birth.",
     "error_confirmation_mismatch": "The confirmation does not match.",
-    "trainingLink": "Training"
+    "trainingLink": "Training",
+    "exportTitle": "Your data",
+    "exportText": "Download a copy of everything we hold about you — profile, points, badges, contributions, sign-ups, check-ins and trainings — as a JSON file.",
+    "exportLink": "Download my data",
+    "exportNote": "The file contains your email address but no access keys. GPS routes and health values are not included — only whether they exist."
   },
   "Condition": {
     "excellent": "excellent",
@@ -2378,6 +2382,69 @@
     "scopeTraining": "Training",
     "scopeHealth": "Health data",
     "scopeExport": "Export",
-    "formerUser": "deleted profile"
+    "formerUser": "deleted profile",
+    "filterStatus": "Status",
+    "statusSuspended": "Suspended",
+    "controls": {
+      "title": "Account controls",
+      "note": "Every action here only removes access or visibility, and is recorded in the log at the foot of this page. Nothing here publishes a passport or grants a consent.",
+      "suspendedBadge": "Suspended",
+      "suspendedSince": "Suspended on {date}",
+      "suspendedReason": "Reason: {reason}",
+      "unsuspend": "Lift the suspension",
+      "unsuspendConfirm": "Lift the suspension? The member will be able to sign in again. Their passport stays private until they publish it themselves.",
+      "adminNote": "An admin account cannot be suspended or erased from here: the role comes from the ADMIN_EMAILS list — remove the address there.",
+      "suspendTitle": "Suspend the account",
+      "suspendNote": "The member is signed out of every device at once and cannot sign back in. Their passport becomes private and leaves the leaderboards.",
+      "suspendReasonLabel": "Reason",
+      "suspendReasonHint": "Up to 300 characters. Not shown to the member, but included in their copy of their data on a GDPR Art. 15 request — write it so they could read it. Deleted when the suspension is lifted and with the account; never copied to the log.",
+      "suspendSubmit": "Suspend",
+      "resetName": "Clear display name",
+      "resetNameConfirm": "Clear the display name? If the passport is public it becomes private until the member chooses a new name.",
+      "makePrivate": "Make passport private",
+      "makePrivateConfirm": "Make the passport private? It leaves the leaderboards; the member can publish it again.",
+      "endSessions": "End all sessions",
+      "endSessionsConfirm": "End all sessions? The member is signed out of every device within 5 minutes. To stop them immediately, use “Suspend”.",
+      "export": "Download data (JSON)",
+      "exportNote": "The complete record for a GDPR Art. 15 or 20 request. The download is recorded as “Export”. No access keys, no GPS routes, no health values.",
+      "eraseTitle": "Erase the account (GDPR Art. 17)",
+      "eraseNote": "Permanent, and the same as self-erasure: the profile goes, contributions stay anonymous, the logs stay intact. The erasure is recorded under your name.",
+      "eraseConfirmLabel": "Type the member's email address ({email}) to confirm",
+      "eraseSubmit": "Erase the account permanently",
+      "erased": "The account was erased. The erasure is recorded in the admin action log.",
+      "error": {
+        "not_found": "No such account.",
+        "is_admin": "An admin account cannot be suspended or erased from here.",
+        "reason_required": "Enter a reason.",
+        "reason_too_long": "The reason is too long (up to 300 characters).",
+        "confirmation_mismatch": "The email address does not match this account."
+      }
+    },
+    "actionLog": {
+      "title": "Admin actions",
+      "note": "Who changed what. The record cannot be edited or deleted.",
+      "empty": "No actions recorded.",
+      "when": "When",
+      "who": "Admin",
+      "subject": "Account",
+      "what": "Action",
+      "formerUser": "deleted profile",
+      "national": "whole platform",
+      "unknown": "—",
+      "action": {
+        "account_suspended": "Account suspended (sessions ended: {sessions})",
+        "account_unsuspended": "Suspension lifted",
+        "display_name_reset": "Display name cleared{madePrivate, select, yes { · passport made private} other {}}",
+        "passport_made_private": "Passport made private",
+        "sessions_revoked": "Sessions ended: {count}",
+        "account_erased": "Account erased",
+        "ambassador_granted": "Ambassador role granted",
+        "ambassador_revoked": "Ambassador role revoked (municipalities removed: {scopes})",
+        "ambassador_scope_added": "Municipality added: {municipality}",
+        "ambassador_scope_removed": "Municipality removed: {municipality}",
+        "setting_changed": "{on, select, yes {Paid venues switched on} other {Paid venues switched off}}",
+        "business_visibility_changed": "{visible, select, yes {Business shown} other {Business hidden}}: {business}"
+      }
+    }
   }
 }

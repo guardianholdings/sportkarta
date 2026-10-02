@@ -130,16 +130,31 @@ export interface DashboardCounts {
   municipalities: number;
 }
 
-export async function dashboardCounts(): Promise<DashboardCounts> {
+/**
+ * The dashboard tiles, scoped like every queue they summarise.
+ *
+ * An ambassador's dashboard used to count the whole country, so it announced
+ * pending photos they could neither see nor decide — the moderation queue it
+ * links to (lib/moderation-data.ts) carries scopeClause, and a number that
+ * disagrees with the list behind it is a number nobody trusts. The facility and
+ * photo counts now carry the same predicate; an admin's is `TRUE`, so their
+ * national view is unchanged. `municipalities` stays the national total: it is
+ * context, not a queue.
+ */
+export async function dashboardCounts(actor: ModerationActor): Promise<DashboardCounts> {
   const db = getDb();
+  const scope = scopeClause(actor);
   const result = await db.execute(sql`
     SELECT
-      count(*) FILTER (WHERE status = 'active') AS active,
-      count(*) FILTER (WHERE status = 'needs_verification') AS needs_verification,
-      count(*) FILTER (WHERE status = 'gone') AS gone,
-      (SELECT count(*) FROM facility_photos WHERE status = 'pending') AS pending_photos,
+      count(*) FILTER (WHERE f.status = 'active') AS active,
+      count(*) FILTER (WHERE f.status = 'needs_verification') AS needs_verification,
+      count(*) FILTER (WHERE f.status = 'gone') AS gone,
+      (SELECT count(*) FROM facility_photos p
+         JOIN facilities f ON f.id = p.facility_id
+        WHERE p.status = 'pending' AND ${scope}) AS pending_photos,
       (SELECT count(*) FROM municipalities) AS municipalities
-    FROM facilities
+    FROM facilities f
+    WHERE ${scope}
   `);
   const r = result.rows[0] as Record<string, unknown> | undefined;
   return {

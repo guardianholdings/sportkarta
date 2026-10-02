@@ -1,8 +1,10 @@
 import { getLocale, getTranslations, setRequestLocale } from 'next-intl/server';
 
+import { AdminActionLog } from '@/components/admin/admin-action-log';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { municipalityOptions } from '@/lib/admin-data';
+import { AMBASSADOR_ACTIONS, adminActionHistory } from '@/lib/admin-actions';
 import { requireRole } from '@/lib/auth-session';
 import { ambassadorActivity } from '@/lib/moderation-data';
 
@@ -27,11 +29,14 @@ export default async function AdminAmbassadorsPage({
   setRequestLocale(locale);
   await requireRole('admin');
 
-  const [t, ambassadors, municipalities, activeLocale] = await Promise.all([
+  const [t, tLog, ambassadors, municipalities, activeLocale, history] = await Promise.all([
     getTranslations('AdminAmbassadors'),
+    getTranslations('AdminAccounts.actionLog'),
     ambassadorActivity(),
     municipalityOptions(),
     getLocale(),
+    // Who granted, revoked, widened or narrowed whose authority (0033).
+    adminActionHistory({ actions: AMBASSADOR_ACTIONS }, 30),
   ]);
 
   const formatDate = (value: string): string =>
@@ -158,6 +163,12 @@ export default async function AdminAmbassadorsPage({
             })}
           </ul>
         )}
+      </section>
+
+      <section className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm">
+        <h2 className="text-h4 font-bold text-ink">{tLog('title')}</h2>
+        <p className="text-caption text-text-muted">{tLog('note')}</p>
+        <AdminActionLog entries={history} />
       </section>
     </main>
   );

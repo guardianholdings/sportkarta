@@ -1,8 +1,10 @@
 import { getDb, sql } from '@sportkarta/db';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
+import { AdminActionLog } from '@/components/admin/admin-action-log';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { adminActionHistory, SUBJECTLESS_ACTIONS } from '@/lib/admin-actions';
 import { requireRole } from '@/lib/auth-session';
 
 import { setBusinessVisibleAction, setShowPaidAction } from './actions';
@@ -33,9 +35,10 @@ export default async function AdminPrivatePage({
   setRequestLocale(locale);
   await requireRole('admin');
   const t = await getTranslations('AdminPrivate');
+  const tLog = await getTranslations('AdminAccounts.actionLog');
 
   const db = getDb();
-  const [settingResult, businessResult] = await Promise.all([
+  const [settingResult, businessResult, history] = await Promise.all([
     db.execute(sql`SELECT value FROM app_settings WHERE key = 'public_show_paid'`),
     db.execute(sql`
       SELECT b.id, b.name, b.visible, count(f.id)::int AS spots
@@ -44,6 +47,9 @@ export default async function AdminPrivatePage({
       GROUP BY b.id, b.name, b.visible
       ORDER BY b.name
     `),
+    // Who switched the category or a business, and when (0033). These are the
+    // two actions with no account as their subject.
+    adminActionHistory({ actions: SUBJECTLESS_ACTIONS }, 30),
   ]);
   const masterOn = (settingResult.rows[0] as { value?: string } | undefined)?.value === 'true';
   const businesses = businessResult.rows as unknown as BusinessRow[];
@@ -127,6 +133,12 @@ export default async function AdminPrivatePage({
             </table>
           </div>
         )}
+      </section>
+
+      <section className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm">
+        <h2 className="text-h4 font-bold text-ink">{tLog('title')}</h2>
+        <p className="text-caption text-text-muted">{tLog('note')}</p>
+        <AdminActionLog entries={history} showSubject={false} />
       </section>
     </main>
   );

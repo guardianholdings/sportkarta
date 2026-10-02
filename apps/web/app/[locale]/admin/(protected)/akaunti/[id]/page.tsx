@@ -1,13 +1,28 @@
 import { getLocale, getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
+import { AdminActionLog } from '@/components/admin/admin-action-log';
 import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
+import { ConfirmButton } from '@/components/ui/confirm-button';
 import { accountAccessHistory, recordAccountAccess } from '@/lib/account-access';
 import { accountDetail } from '@/lib/account-admin';
+import { SUSPENSION_REASON_MAX } from '@/lib/account-controls';
+import { adminActionHistory } from '@/lib/admin-actions';
 import { requireRole } from '@/lib/auth-session';
 import { cityDisplayName } from '@/lib/city-names';
 import type { Role } from '@/lib/roles';
 import { Link } from '@/i18n/navigation';
+
+import {
+  eraseAccountAction,
+  forcePassportPrivateAction,
+  resetDisplayNameAction,
+  revokeSessionsAction,
+  suspendAccountAction,
+  unsuspendAccountAction,
+} from './actions';
+import { EraseForm, SuspendForm } from './control-forms';
 
 export const metadata = { robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -39,6 +54,14 @@ export const dynamic = 'force-dynamic';
  *  - every consent control. Consent is the member's to give and withdraw; an
  *    admin toggle would also leave the underlying data behind, since withdrawal
  *    is what deletes it.
+ *
+ * WHAT IT DOES OFFER (0033) are the operator's tools against abuse and for GDPR
+ * requests: suspend and lift, reset a display name, withdraw a public passport,
+ * end every session, download the record, erase. Each one only ever REMOVES
+ * exposure or access — nothing here can publish a passport or grant a consent —
+ * and each writes an `admin_actions` row in its own transaction, rendered at the
+ * foot of this page. The export is a plain `<a download>` to a route that
+ * records an 'export' access first; see app/api/admin/akaunti/[id]/eksport.
  */
 export default async function AdminAccountPage({
   params,
@@ -54,7 +77,11 @@ export default async function AdminAccountPage({
   // Recorded first, and never inside a try/catch — see the header.
   await recordAccountAccess(admin.id, id, 'overview');
 
-  const [detail, access] = await Promise.all([accountDetail(id), accountAccessHistory(id)]);
+  const [detail, access, actions] = await Promise.all([
+    accountDetail(id),
+    accountAccessHistory(id),
+    adminActionHistory({ subjectId: id }),
+  ]);
   if (!detail) notFound();
 
   const dateFmt = new Intl.DateTimeFormat(activeLocale, { dateStyle: 'medium' });
@@ -81,6 +108,16 @@ export default async function AdminAccountPage({
 
   const { identity, consent, authority, passport, play, comms, credentials } = detail;
 
+  // The subject is bound HERE, server-side; the actions re-check the admin role
+  // themselves and take the actor from the session, never from the form.
+  const suspend = suspendAccountAction.bind(null, identity.id);
+  const unsuspend = unsuspendAccountAction.bind(null, identity.id);
+  const resetName = resetDisplayNameAction.bind(null, identity.id);
+  const makePrivate = forcePassportPrivateAction.bind(null, identity.id);
+  const endSessions = revokeSessionsAction.bind(null, identity.id);
+  const erase = eraseAccountAction.bind(null, identity.id);
+  const smallButton = buttonVariants({ variant: 'secondary', size: 'sm' });
+
   return (
     <main className="space-y-6">
       <div>
@@ -94,7 +131,78 @@ export default async function AdminAccountPage({
           {identity.displayName || t('noName')}
         </h1>
         <p className="mt-1 break-all font-mono text-body-sm text-ink-soft">{identity.email}</p>
+        {identity.suspension && (
+          <p className="mt-2">
+            <Badge tone="danger">{t('controls.suspendedBadge')}</Badge>
+          </p>
+        )}
       </div>
+
+      <Panel title={t('controls.title')}>
+        <Note>{t('controls.note')}</Note>
+        {identity.suspension ? (
+          <div className="space-y-2 rounded-md border border-danger-border bg-danger-bg/40 p-3">
+            <p className="text-body-sm font-semibold text-danger">
+              {t('controls.suspendedSince', { date: dt(identity.suspension.since) })}
+            </p>
+            <p className="whitespace-pre-line break-words text-body-sm text-ink">
+              {t('controls.suspendedReason', { reason: identity.suspension.reason })}
+            </p>
+            <form action={unsuspend}>
+              <ConfirmButton className={smallButton} message={t('controls.unsuspendConfirm')}>
+                {t('controls.unsuspend')}
+              </ConfirmButton>
+            </form>
+          </div>
+        ) : identity.role === 'admin' ? (
+          <p className="text-body-sm text-text-muted">{t('controls.adminNote')}</p>
+        ) : (
+          <div className="space-y-2">
+            <h3 className="text-body-sm font-semibold text-ink">{t('controls.suspendTitle')}</h3>
+            <Note>{t('controls.suspendNote')}</Note>
+            <SuspendForm action={suspend} maxLength={SUSPENSION_REASON_MAX} />
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
+          {identity.displayName && (
+            <form action={resetName}>
+              <ConfirmButton className={smallButton} message={t('controls.resetNameConfirm')}>
+                {t('controls.resetName')}
+              </ConfirmButton>
+            </form>
+          )}
+          {consent.isPublic && (
+            <form action={makePrivate}>
+              <ConfirmButton className={smallButton} message={t('controls.makePrivateConfirm')}>
+                {t('controls.makePrivate')}
+              </ConfirmButton>
+            </form>
+          )}
+          {credentials.sessions.length > 0 && (
+            <form action={endSessions}>
+              <ConfirmButton className={smallButton} message={t('controls.endSessionsConfirm')}>
+                {t('controls.endSessions')}
+              </ConfirmButton>
+            </form>
+          )}
+          {/* A plain anchor, never <Link>: a prefetch would record an export. */}
+          <a href={`/api/admin/akaunti/${identity.id}/eksport`} download className={smallButton}>
+            {t('controls.export')}
+          </a>
+        </div>
+        <Note>{t('controls.exportNote')}</Note>
+        {identity.role !== 'admin' && (
+          <details className="rounded-md border border-danger-border p-3">
+            <summary className="cursor-pointer text-body-sm font-semibold text-danger">
+              {t('controls.eraseTitle')}
+            </summary>
+            <div className="mt-3 space-y-2">
+              <Note>{t('controls.eraseNote')}</Note>
+              <EraseForm action={erase} email={identity.email} />
+            </div>
+          </details>
+        )}
+      </Panel>
 
       <Panel title={t('identityTitle')}>
         <Facts
@@ -385,6 +493,11 @@ export default async function AdminAccountPage({
             empty={t('none')}
           />
         )}
+      </Panel>
+
+      <Panel title={t('actionLog.title')}>
+        <Note>{t('actionLog.note')}</Note>
+        <AdminActionLog entries={actions} showSubject={false} />
       </Panel>
     </main>
   );
