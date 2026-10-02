@@ -63,20 +63,34 @@ describe.skipIf(!hasDb)('play session waitlist (requires running database)', () 
     ]);
   }
 
-  /** A single future occurrence with the given capacity. */
+  /**
+   * A single future occurrence with the given capacity.
+   *
+   * A month ahead of the DATABASE's clock, never a calendar date: 0008's trigger
+   * refuses an RSVP to an occurrence that has started, so a fixed date in a
+   * fixture is a time bomb — the digest and report fixtures went off on
+   * 29 Sep 2026 and turned db-tests (a deploy gate) red with no code change.
+   * The occurrence is derived from the series' wall clock, which is itself read
+   * off a real instant, so the local-clock trigger always agrees.
+   */
   async function makeOccurrence(capacity: number | null): Promise<string> {
     const session = await client.query<{ id: string }>(
       `INSERT INTO play_sessions
          (facility_id, sport, organizer_id, title, starts_at_local, duration_minutes, capacity)
-       VALUES ($1::uuid, 'volleyball', $2, 'Волейбол', '2027-05-04T19:00:00'::timestamp, 90, $3)
+       VALUES ($1::uuid, 'volleyball', $2, 'Волейбол',
+               (date_trunc('hour', now()) + interval '30 days') AT TIME ZONE 'Europe/Sofia',
+               90, $3)
        RETURNING id`,
       [facilityId, ORGANIZER_ID, capacity],
     );
     const sessionId = session.rows[0]?.id;
     const occurrence = await client.query<{ id: string }>(
       `INSERT INTO play_session_occurrences (session_id, starts_at, ends_at, starts_at_local)
-       VALUES ($1::uuid, '2027-05-04T16:00:00Z', '2027-05-04T17:30:00Z',
-               '2027-05-04T19:00:00'::timestamp)
+       SELECT s.id,
+              s.starts_at_local AT TIME ZONE 'Europe/Sofia',
+              (s.starts_at_local AT TIME ZONE 'Europe/Sofia') + interval '90 minutes',
+              s.starts_at_local
+         FROM play_sessions s WHERE s.id = $1::uuid
        RETURNING id`,
       [sessionId],
     );

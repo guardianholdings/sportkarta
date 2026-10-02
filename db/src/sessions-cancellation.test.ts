@@ -67,6 +67,25 @@ describe.skipIf(!hasDb)('play session cancellation (requires running database)',
     ]);
   }
 
+  /**
+   * An occurrence `days` ahead of the DATABASE's clock, never on a calendar
+   * date. Both properties under test read the real clock — the cancel cascade
+   * touches only `starts_at > now()`, and 0008's trigger refuses an RSVP to an
+   * occurrence that has started — so a fixed "future" date silently becomes a
+   * past one and this suite goes red on that day with no code change (as the
+   * digest fixtures did on 29 Sep 2026). Whole hours, and the wall clock is
+   * read off the same instant, so the local-clock trigger always agrees.
+   */
+  async function futureOccurrence(sessionId: string, days: number) {
+    return client.query<{ id: string }>(
+      `INSERT INTO play_session_occurrences (session_id, starts_at, ends_at, starts_at_local)
+       SELECT $1::uuid, t.at, t.at + interval '90 minutes', t.at AT TIME ZONE 'Europe/Sofia'
+         FROM (SELECT date_trunc('hour', now()) + make_interval(days => $2::int) AS at) t
+       RETURNING id`,
+      [sessionId, days],
+    );
+  }
+
   /** A series with one past and one future occurrence. */
   async function seriesWithHistory(): Promise<{
     sessionId: string;
@@ -90,13 +109,7 @@ describe.skipIf(!hasDb)('play session cancellation (requires running database)',
        RETURNING id`,
       [sessionId],
     );
-    const future = await client.query<{ id: string }>(
-      `INSERT INTO play_session_occurrences (session_id, starts_at, ends_at, starts_at_local)
-       VALUES ($1::uuid, '2027-01-05T17:00:00Z', '2027-01-05T18:30:00Z',
-               '2027-01-05T19:00:00'::timestamp)
-       RETURNING id`,
-      [sessionId],
-    );
+    const future = await futureOccurrence(sessionId, 30);
     return {
       sessionId,
       pastId: past.rows[0]?.id ?? '',
@@ -126,13 +139,7 @@ describe.skipIf(!hasDb)('play session cancellation (requires running database)',
 
   it('cancelling one occurrence leaves the series and its other dates alone', async () => {
     const { sessionId, futureId } = await seriesWithHistory();
-    const second = await client.query<{ id: string }>(
-      `INSERT INTO play_session_occurrences (session_id, starts_at, ends_at, starts_at_local)
-       VALUES ($1::uuid, '2027-01-12T17:00:00Z', '2027-01-12T18:30:00Z',
-               '2027-01-12T19:00:00'::timestamp)
-       RETURNING id`,
-      [sessionId],
-    );
+    const second = await futureOccurrence(sessionId, 37);
     await client.query(
       `UPDATE play_session_occurrences
           SET status='cancelled', cancelled_at=now(), cancellation_scope='occurrence'
