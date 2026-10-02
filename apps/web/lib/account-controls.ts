@@ -1,6 +1,6 @@
 import { sql, type SQL } from '@sportkarta/db';
 
-import { deleteAccount, type DeletionSummary } from './account-deletion';
+import { deleteAccount, type DeleteAccountOptions, type DeletionSummary } from './account-deletion';
 import { recordAdminAction } from './admin-actions';
 
 /**
@@ -260,13 +260,18 @@ export async function revokeSessions(
  *
  * The erasure itself is the member's own `deleteAccount` — the same tombstone,
  * the same preserved audit trail — with the admin recorded as `erasedBy`, which
- * writes 'account_erased' inside that transaction.
+ * writes 'account_erased' inside that transaction. `enqueue` is forwarded as
+ * well: erasing an organiser cancels their series (a trigger), and the members
+ * holding RSVPs are owed the same `series_cancelled` notice they would get had
+ * the organiser erased themselves. The calling action passes the hook /profil
+ * uses (lib/account-erasure-notify.ts).
  */
 export async function eraseAccountAsAdmin(
   db: TransactionalDb,
   actorId: string,
   subjectId: string,
   typedEmail: string,
+  options: Pick<DeleteAccountOptions, 'enqueue'> = {},
 ): Promise<{ ok: true; summary: DeletionSummary } | { ok: false; reason: ControlFailure }> {
   const found = await db.execute(sql`SELECT role, email FROM users WHERE id = ${subjectId}`);
   const row = found.rows[0];
@@ -278,6 +283,9 @@ export async function eraseAccountAsAdmin(
     return { ok: false, reason: 'confirmation_mismatch' };
   }
 
-  const summary = await deleteAccount(db, subjectId, { erasedBy: actorId });
+  const summary = await deleteAccount(db, subjectId, {
+    erasedBy: actorId,
+    enqueue: options.enqueue,
+  });
   return { ok: true, summary };
 }

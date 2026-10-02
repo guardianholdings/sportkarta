@@ -12,6 +12,7 @@ import {
   unsuspendAccount,
   type ControlFailure,
 } from '@/lib/account-controls';
+import { enqueueErasureNotice } from '@/lib/account-erasure-notify';
 import { requireRole } from '@/lib/auth-session';
 import { redirect } from '@/i18n/navigation';
 import { routing } from '@/i18n/routing';
@@ -85,6 +86,10 @@ export async function revokeSessionsAction(subjectId: string): Promise<void> {
  * Erase on the member's behalf. The typed confirmation is the member's email,
  * checked against the database (lib/account-controls.ts). On success the
  * account no longer exists, so the admin is sent back to the list.
+ *
+ * The enqueue hook is the one /profil passes: an organiser erased here strands
+ * exactly the RSVP holders a self-erasure would, and they are told the same way
+ * — after the commit, best-effort, never undoing the erasure.
  */
 export async function eraseAccountAction(
   subjectId: string,
@@ -97,6 +102,7 @@ export async function eraseAccountAction(
     admin.id,
     subjectId,
     String(formData.get('confirmation') ?? ''),
+    { enqueue: enqueueErasureNotice },
   );
   if (!result.ok) return { error: result.reason, done: false };
 

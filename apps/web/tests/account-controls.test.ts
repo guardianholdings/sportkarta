@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { renderSql, type SQL } from '@sportkarta/db';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   eraseAccountAsAdmin,
@@ -13,6 +13,7 @@ import {
   SUSPENSION_REASON_MAX,
   unsuspendAccount,
 } from '@/lib/account-controls';
+import type { Enqueue } from '@/lib/account-deletion';
 
 /**
  * The operator's account controls (0033), asserted at the statement level. The
@@ -25,7 +26,8 @@ import {
  *  - the log row never carries the reason or a name (append-only rows survive
  *    erasure, so free text there could never be scrubbed);
  *  - an admin account is out of reach, and a no-op logs nothing;
- *  - erasure demands the member's real email, read from the database.
+ *  - erasure demands the member's real email, read from the database, and
+ *    tells an erased organiser's RSVP holders exactly as a self-erasure does.
  */
 
 const ADMIN = 'user_admin';
@@ -217,11 +219,15 @@ describe('eraseAccountAsAdmin', () => {
 
   it('refuses when the typed email does not match the account', async () => {
     const db = fakeDb([found]);
-    expect(await eraseAccountAsAdmin(db, ADMIN, MEMBER, 'someone@example.org')).toEqual({
+    const enqueue = vi.fn(() => Promise.resolve());
+    expect(
+      await eraseAccountAsAdmin(db, ADMIN, MEMBER, 'someone@example.org', { enqueue }),
+    ).toEqual({
       ok: false,
       reason: 'confirmation_mismatch',
     });
     expect(db.mutations()).toHaveLength(0);
+    expect(enqueue).not.toHaveBeenCalled();
   });
 
   it('refuses an admin account', async () => {
@@ -249,6 +255,59 @@ describe('eraseAccountAsAdmin', () => {
     const deleteAt = db.statements.findIndex((s) => /DELETE FROM users/i.test(s.sql));
     expect(logAt).toBeGreaterThan(-1);
     expect(logAt).toBeLessThan(deleteAt);
+  });
+
+  it('forwards both the acting admin and the enqueue hook to deleteAccount', async () => {
+    // An ORGANISER erased by an admin. The orphan trigger cancels their series
+    // either way, so the RSVP holders are owed the same series_cancelled notice
+    // a self-erasure sends — the bug was an admin erasure that dropped the hook.
+    const sessionId = '8e4a1b8c-0d7e-4a8e-9c35-2b8f0c9d1e21';
+    const statements: { sql: string; params: unknown[] }[] = [];
+    const order: string[] = [];
+    const runner = {
+      execute(query: SQL) {
+        const rendered = renderSql(query);
+        statements.push(rendered);
+        if (/SELECT role, email FROM users/.test(rendered.sql)) {
+          return Promise.resolve({ rows: found });
+        }
+        if (/FROM play_sessions/.test(rendered.sql)) {
+          return Promise.resolve({ rows: [{ n: 1, ids: [sessionId] }] });
+        }
+        if (/INSERT INTO admin_actions/i.test(rendered.sql)) order.push('log');
+        if (/DELETE FROM users/i.test(rendered.sql)) order.push('delete');
+        return Promise.resolve({ rows: [{ n: 0 }] });
+      },
+    };
+    const db = {
+      ...runner,
+      async transaction<T>(callback: (tx: typeof runner) => Promise<T>): Promise<T> {
+        const result = await callback(runner);
+        order.push('commit');
+        return result;
+      },
+    };
+    const enqueue = vi.fn<Enqueue>(() => {
+      order.push('enqueue');
+      return Promise.resolve();
+    });
+
+    const result = await eraseAccountAsAdmin(db, ADMIN, MEMBER, 'member@example.org', {
+      enqueue,
+    });
+
+    expect(result).toMatchObject({ ok: true, summary: { sessionsCancelled: 1 } });
+    // erasedBy reached deleteAccount: the admin is the log row's actor ...
+    const log = statements.find((s) => /INSERT INTO admin_actions/i.test(s.sql));
+    expect(log?.params).toEqual([ADMIN, 'account_erased', MEMBER, '{}']);
+    // ... and so did enqueue: the cancelled series is announced, by session id
+    // only, and only after the erasure (and its log row) committed.
+    expect(enqueue).toHaveBeenCalledTimes(1);
+    expect(enqueue).toHaveBeenCalledWith('session.notify', {
+      reason: 'series_cancelled',
+      sessionId,
+    });
+    expect(order).toEqual(['log', 'delete', 'commit', 'enqueue']);
   });
 });
 
@@ -282,6 +341,20 @@ describe('the account controls, by source', () => {
     const body = code.slice(code.indexOf('export async function getCurrentUser'));
     const query = body.slice(0, body.indexOf('export async function requireUser'));
     expect(query).toMatch(/FROM users WHERE id = \$\{userId\} AND suspended_at IS NULL/);
+  });
+
+  it("hands an admin erasure the same enqueue hook as the member's own", () => {
+    const admin = strip(
+      readFileSync(
+        join(WEB_ROOT, 'app', '[locale]', 'admin', '(protected)', 'akaunti', '[id]', 'actions.ts'),
+        'utf8',
+      ),
+    );
+    const profile = strip(
+      readFileSync(join(WEB_ROOT, 'app', '[locale]', 'profil', 'actions.ts'), 'utf8'),
+    );
+    expect(admin).toMatch(/eraseAccountAsAdmin\([^;]*\{\s*enqueue:\s*enqueueErasureNotice\s*\}/);
+    expect(profile).toMatch(/deleteAccount\([^;]*\{\s*enqueue:\s*enqueueErasureNotice\s*,?\s*\}/);
   });
 
   it('re-checks the admin role in every account action', () => {
