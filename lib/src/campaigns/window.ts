@@ -1,4 +1,10 @@
-import { addDays, SOFIA_TZ, zonedToInstant, type WallClock } from '../recurrence/index.js';
+import {
+  addDays,
+  instantToWall,
+  SOFIA_TZ,
+  zonedToInstant,
+  type WallClock,
+} from '../recurrence/index.js';
 
 import { CampaignRuleError, type CampaignStatus } from './rules.js';
 
@@ -131,6 +137,32 @@ export function campaignPhase(
 /** True while the campaign is accepting scoring events. */
 export function isScoring(phase: CampaignPhase): boolean {
   return phase === 'running';
+}
+
+/**
+ * True when the standings may be frozen: a published campaign whose window has
+ * run out, and nothing else.
+ *
+ * Closing is irreversible — it writes the snapshot the results page publishes —
+ * so every earlier phase is refused: a running campaign would freeze partial
+ * standings as final, and a draft or cancelled one would publish results for
+ * something that never ran. db/src/campaigns.ts `closeCampaign` enforces the same
+ * rule inside its own claim; this is what the admin screen asks before it offers
+ * the button at all.
+ */
+export function isClosable(phase: CampaignPhase): boolean {
+  return phase === 'awaiting_close';
+}
+
+/**
+ * Today's date on the civil calendar, `YYYY-MM-DD`.
+ *
+ * A window is over exactly when this is AFTER its inclusive `endsOn` — the same
+ * boundary `campaignWindowInstants` puts at midnight Sofia, expressed as a date
+ * so SQL can compare it with the `ends_on` column directly.
+ */
+export function campaignToday(now: Date = new Date(), timeZone: string = SOFIA_TZ): string {
+  return formatCivil(instantToWall(now.getTime(), timeZone));
 }
 
 /** Days remaining, inclusive of today; 0 once the window has passed. */

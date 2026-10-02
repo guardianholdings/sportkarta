@@ -1,4 +1,4 @@
-import { getDb } from '@sportkarta/db';
+import { campaignQuarters, getDb } from '@sportkarta/db';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { requireRole } from '@/lib/auth-session';
@@ -15,11 +15,12 @@ export default async function NewCampaignPage({ params }: { params: Promise<{ lo
   const { locale } = await params;
   setRequestLocale(locale);
   await requireRole('admin');
-  const [t, sportName, catalog, sponsors] = await Promise.all([
+  const [t, sportName, catalog, sponsors, quarters] = await Promise.all([
     getTranslations('AdminCampaigns'),
     getTranslations('Sport'),
     loadCityCatalog(),
     sponsorCandidates(getDb()),
+    campaignQuarters(getDb()),
   ]);
 
   // Sport labels are resolved server-side and handed to the client component:
@@ -39,6 +40,7 @@ export default async function NewCampaignPage({ params }: { params: Promise<{ lo
       <CampaignForm
         action={createCampaignAction}
         cities={cities}
+        quarters={quarters}
         sportLabels={sportLabels}
         partners={sponsors.map((p) => ({
           id: p.id,

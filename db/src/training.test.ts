@@ -486,6 +486,68 @@ describe.skipIf(!hasDb)('training logs (requires running database)', () => {
     });
     expect(recent.map((r) => r.handle)).not.toContain(handleFor(1));
   });
+
+  /**
+   * THE CITY BOARD CAN SEE A TRAINING. /klasirane?grad=… filters on
+   * training_logs.municipality_id, and no writer used to set it: the manual form
+   * passes a facility and no municipality, so every row was NULL and every city
+   * board was empty however many people trained there. recordTraining now takes
+   * the municipality from the facility.
+   */
+  it('files a training at a facility under that facility’s municipality', async () => {
+    const place = await client.query<{ id: string; municipality_id: number }>(
+      `SELECT id, municipality_id FROM facilities
+        WHERE municipality_id IS NOT NULL ORDER BY id LIMIT 1`,
+    );
+    const facility = place.rows[0];
+    if (!facility) return; // no placed facility in this database; nothing to file
+
+    // Exactly what logTrainingAction sends: a facility, no municipality.
+    await recordTraining(db, A, training({ facilityId: facility.id }));
+    expect((await memberTrainings(db, A))[0]?.municipalityId).toBe(facility.municipality_id);
+
+    const cityBoard = await sportParticipationBoard(db, {
+      sport: 'running',
+      municipalityId: facility.municipality_id,
+      now: new Date('2028-05-12T00:00:00Z'),
+      days: 30,
+    });
+    expect(cityBoard.map((r) => r.handle)).toContain(handleFor(1));
+  });
+
+  it('lets the facility win over a stated municipality that disagrees', async () => {
+    const place = await client.query<{
+      id: string;
+      municipality_id: number;
+      other: number | null;
+    }>(
+      `SELECT f.id, f.municipality_id,
+              (SELECT m.id FROM municipalities m WHERE m.id <> f.municipality_id
+                ORDER BY m.id LIMIT 1) AS other
+         FROM facilities f
+        WHERE f.municipality_id IS NOT NULL ORDER BY f.id LIMIT 1`,
+    );
+    const facility = place.rows[0];
+    if (!facility || facility.other === null) return;
+
+    await recordTraining(
+      db,
+      A,
+      training({ facilityId: facility.id, municipalityId: Number(facility.other) }),
+    );
+    expect((await memberTrainings(db, A))[0]?.municipalityId).toBe(facility.municipality_id);
+  });
+
+  it('keeps a stated municipality when there is no facility to derive one from', async () => {
+    const municipality = await client.query<{ id: number }>(
+      `SELECT id FROM municipalities ORDER BY id LIMIT 1`,
+    );
+    const id = municipality.rows[0]?.id;
+    if (id === undefined) return;
+
+    await recordTraining(db, A, training({ municipalityId: id }));
+    expect((await memberTrainings(db, A))[0]?.municipalityId).toBe(id);
+  });
 });
 
 /**

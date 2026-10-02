@@ -142,6 +142,15 @@ function mapTraining(row: Record<string, unknown>): TrainingRow {
  *
  * Returns the row id, so the caller can attach a route or metrics — which it may
  * only do through the consent-checked writers below.
+ *
+ * THE MUNICIPALITY COMES FROM THE FACILITY whenever there is one. A training at
+ * a place happened in that place's municipality, and the city participation
+ * board (`sportParticipationBoard` with `municipalityId`, /klasirane?grad=…)
+ * reads nothing else. Before this, no writer set the column — the manual form
+ * never passes one — so every row was NULL and every city board was empty. The
+ * caller's value is only a fallback for a training with no facility (an import
+ * may know the area without knowing the place); it can never contradict the
+ * facility. Migration 0035 backfilled the rows written before.
  */
 export async function recordTraining(
   db: SqlRunner,
@@ -157,7 +166,11 @@ export async function recordTraining(
       ${userId}, ${training.sport}, ${training.startedAt.toISOString()}::timestamptz,
       ${training.sofiaDay}::date, ${training.durationS}, ${training.distanceM},
       ${training.elevationM},
-      ${training.facilityId}::uuid, ${training.municipalityId},
+      ${training.facilityId}::uuid,
+      coalesce(
+        (SELECT f.municipality_id FROM facilities f WHERE f.id = ${training.facilityId}::uuid),
+        ${training.municipalityId}::integer
+      ),
       ${training.source}::training_source, ${training.externalId},
       ${training.evidence}::training_evidence, ${training.note}
     )

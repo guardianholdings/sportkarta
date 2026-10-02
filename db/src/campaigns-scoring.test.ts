@@ -4,10 +4,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   adminStandings,
   campaignBySlug,
+  campaignQuarters,
   campaignStanding,
   closeCampaign,
   frozenResults,
   publicStandings,
+  quarterHasFacilities,
   type CampaignRow,
 } from './campaigns.js';
 import { renderSql } from './render-sql.js';
@@ -41,6 +43,11 @@ const ADULT_PRIVATE = 'e2e_cmp_private';
 const MINOR = 'e2e_cmp_minor';
 const RUNNER_UP = 'e2e_cmp_runner';
 const MEMBERS = [ADULT_PUBLIC, ADULT_PRIVATE, MINOR, RUNNER_UP];
+/**
+ * Enough extra members to clear CITY_BOARD_MIN_MEMBERS on their own, created only
+ * by the city-attribution test. Private: a city board counts everyone.
+ */
+const CITY_MEMBERS = [1, 2, 3, 4, 5].map((n) => `e2e_cmp_city_${String(n)}`);
 
 const HANDLES: Record<string, string> = {
   [ADULT_PUBLIC]: 'aaaa1111bbbb2222cccc3333',
@@ -116,7 +123,12 @@ describe.skipIf(!hasDb)('campaign scoring (requires running database)', () => {
 
   async function cleanup(): Promise<void> {
     await client.query(`DELETE FROM campaigns WHERE slug = $1`, [SLUG]);
-    await client.query(`DELETE FROM users WHERE id = ANY($1::text[])`, [MEMBERS]);
+    // Fixture sessions go before their organiser: erasing the organiser only
+    // NULLs organizer_id (and cancels the series), leaving the rows behind.
+    await client.query(`DELETE FROM play_sessions WHERE organizer_id = ANY($1::text[])`, [MEMBERS]);
+    await client.query(`DELETE FROM users WHERE id = ANY($1::text[])`, [
+      [...MEMBERS, ...CITY_MEMBERS],
+    ]);
   }
 
   /**
@@ -138,13 +150,14 @@ describe.skipIf(!hasDb)('campaign scoring (requires running database)', () => {
       quarter?: string | null;
       leaderboardType?: string;
       rules?: unknown;
+      status?: string;
     } = {},
   ): Promise<CampaignRow> {
     await client.query(`DELETE FROM campaigns WHERE slug = $1`, [SLUG]);
     await client.query(
       `INSERT INTO campaigns (slug, status, scope_kind, municipality_id, quarter,
                               starts_on, ends_on, leaderboard_type, template, rules, title_bg)
-       VALUES ($1, 'published', $2::campaign_scope_kind, $3, $4,
+       VALUES ($1, $9::campaign_status, $2::campaign_scope_kind, $3, $4,
                $7::date, $8::date,
                $5::campaign_leaderboard_type, 'standard', $6::jsonb, 'Тестова кампания')`,
       [
@@ -163,6 +176,7 @@ describe.skipIf(!hasDb)('campaign scoring (requires running database)', () => {
         ),
         WINDOW_START,
         WINDOW_END,
+        overrides.status ?? 'published',
       ],
     );
     const campaign = await campaignBySlug(db as never, SLUG);
@@ -183,11 +197,55 @@ describe.skipIf(!hasDb)('campaign scoring (requires running database)', () => {
   ): Promise<void> {
     const facility = facilities[facilityIndex];
     if (!facility) throw new Error('no such facility');
+    await awardAt(userId, facility.id, event, day, tag);
+  }
+
+  /** `award`, for a facility that is not one of the six picked in beforeAll. */
+  async function awardAt(
+    userId: string,
+    facilityId: string,
+    event: string,
+    day: string,
+    tag: string,
+  ): Promise<void> {
     const points = event === 'facility_added' ? 10 : 3;
     await client.query(
       `INSERT INTO points_ledger (user_id, event, points, facility_id, idempotency_key, created_at)
        VALUES ($1, $2::points_event, $3, $4, $5, ($6 || ' 12:00')::timestamp AT TIME ZONE 'Europe/Sofia')`,
-      [userId, event, points, facility.id, `e2e_cmp:${userId}:${facility.id}:${event}:${tag}`, day],
+      [userId, event, points, facilityId, `e2e_cmp:${userId}:${facilityId}:${event}:${tag}`, day],
+    );
+  }
+
+  /** A one-off series on a facility, organised by a fixture member so cleanup finds it. */
+  async function playSession(facilityId: string, sport: string): Promise<string> {
+    const result = await client.query<{ id: string }>(
+      `INSERT INTO play_sessions
+         (facility_id, sport, organizer_id, title, starts_at_local, duration_minutes)
+       VALUES ($1::uuid, $2, $3, 'Тестова игра', '2019-03-02T12:00:00'::timestamp, 90)
+       RETURNING id`,
+      [facilityId, sport, RUNNER_UP],
+    );
+    return result.rows[0]?.id ?? '';
+  }
+
+  /**
+   * A QR check-in at midday Sofia on `day`, in that day's occurrence of the
+   * series (created on first use). starts_at_local is derived by Postgres, so the
+   * 0008 verify-local-clock trigger agrees with it whatever the offset.
+   */
+  async function qrCheckin(userId: string, sessionId: string, day: string): Promise<void> {
+    const occurrence = await client.query<{ id: string }>(
+      `INSERT INTO play_session_occurrences (session_id, starts_at, ends_at, starts_at_local)
+       SELECT $1::uuid, x.t, x.t + interval '90 minutes', x.t AT TIME ZONE 'Europe/Sofia'
+       FROM (SELECT ($2 || ' 12:00')::timestamp AT TIME ZONE 'Europe/Sofia' AS t) x
+       ON CONFLICT (session_id, starts_at) DO UPDATE SET ends_at = EXCLUDED.ends_at
+       RETURNING id`,
+      [sessionId, day],
+    );
+    await client.query(
+      `INSERT INTO play_session_checkins (occurrence_id, user_id, method, checked_in_at)
+       VALUES ($1::uuid, $2, 'qr', ($3 || ' 12:30')::timestamp AT TIME ZONE 'Europe/Sofia')`,
+      [occurrence.rows[0]?.id, userId, day],
     );
   }
 
@@ -295,6 +353,32 @@ describe.skipIf(!hasDb)('campaign scoring (requires running database)', () => {
     }
   });
 
+  it('filters ATTENDANCE by the sport played, not by the facility’s sport list', async () => {
+    // The audit's reproduction: a sport campaign, and a facility that carries
+    // the campaign sport. Somebody playing a DIFFERENT sport on that same
+    // facility used to score, because the filter read f.sport_types — so a
+    // footballer on a pitch with a hoop led a "basketball month".
+    const facility = facilities[0];
+    if (!facility) throw new Error('no facility');
+    const sport = facility.sport;
+    const other = sport === 'volleyball' ? 'tennis' : 'volleyball';
+    const campaign = await makeCampaign({
+      rules: { events: [{ kind: 'session_checkin', weight: 1 }], sports: [sport] },
+    });
+    const played = await playSession(facility.id, sport);
+    const elsewhere = await playSession(facility.id, other);
+
+    await qrCheckin(RUNNER_UP, played, '2019-03-02');
+    await qrCheckin(RUNNER_UP, played, '2019-03-03');
+    for (const day of ['2019-03-02', '2019-03-03', '2019-03-04']) {
+      await qrCheckin(ADULT_PUBLIC, elsewhere, day);
+    }
+
+    const admin = await adminStandings(db as never, campaign);
+    expect(admin.find((r) => r.userId === RUNNER_UP)?.score).toBe(2);
+    expect(admin.find((r) => r.userId === ADULT_PUBLIC)).toBeUndefined();
+  });
+
   describe('who is named', () => {
     it('names a minor who published their passport, exactly like anyone else', async () => {
       const campaign = await makeCampaign();
@@ -326,6 +410,27 @@ describe.skipIf(!hasDb)('campaign scoring (requires running database)', () => {
       await award(MINOR, 0, 'facility_added');
       const standing = await campaignStanding(db as never, campaign, MINOR);
       expect(standing?.score).toBe(10);
+    });
+
+    it('gives a member their score but no rank that could contradict the board', async () => {
+      // One public member behind two unpublished ones: the public board lists
+      // them 1st, the frozen placing will say 3rd. The own-score card used to
+      // print the 3rd beside the 1st; it now carries no rank at all.
+      const campaign = await makeCampaign();
+      await award(ADULT_PRIVATE, 0, 'facility_added', '2019-03-02', 'r1');
+      await award(ADULT_PRIVATE, 1, 'facility_added', '2019-03-03', 'r2');
+      await award(RUNNER_UP, 2, 'facility_added', '2019-03-02', 'r3');
+      await client.query(`UPDATE users SET profile_visibility = 'private' WHERE id = $1`, [
+        RUNNER_UP,
+      ]);
+      await award(ADULT_PUBLIC, 0, 'facility_verified', '2019-03-02', 'r4');
+
+      const board = await publicStandings(db as never, campaign);
+      expect(board.map((r) => [r.handle, r.rank])).toEqual([[HANDLES[ADULT_PUBLIC], 1]]);
+
+      const standing = await campaignStanding(db as never, campaign, ADULT_PUBLIC);
+      expect(standing).toEqual({ score: 3, events: 1 });
+      expect(standing).not.toHaveProperty('rank');
     });
 
     it('counts an unpublished member but does not name them publicly', async () => {
@@ -364,6 +469,52 @@ describe.skipIf(!hasDb)('campaign scoring (requires running database)', () => {
       expect(rows).toHaveLength(0);
     });
 
+    it('credits a member to where they were most active, not to their busiest day', async () => {
+      // The audit's reproduction. Each of five members reports on three quiet
+      // days at home and on one busier day away. Home is where their campaign
+      // happened; the old rule (the municipality of the single best DAY, itself
+      // the highest id touched that day) moved every point away and dropped
+      // home off the board entirely.
+      const places = await client.query<{ id: string; municipality_id: number }>(
+        `SELECT DISTINCT ON (municipality_id) id, municipality_id
+           FROM facilities
+          WHERE municipality_id IS NOT NULL
+          ORDER BY municipality_id, id
+          LIMIT 2`,
+      );
+      const [home, away] = places.rows;
+      if (!home || !away) return; // a single-municipality dev db has nothing to prove
+
+      const campaign = await makeCampaign({
+        leaderboardType: 'city',
+        rules: { events: [{ kind: 'condition_reported', weight: 1 }] },
+      });
+      for (const id of CITY_MEMBERS) {
+        await client.query(`INSERT INTO users (id, display_name, email) VALUES ($1, $2, $3)`, [
+          id,
+          `Тест ${id}`,
+          `${id}@example.org`,
+        ]);
+        for (const day of ['2019-03-02', '2019-03-03', '2019-03-04']) {
+          await awardAt(id, home.id, 'condition_reported', day, `home-${day}`);
+        }
+        await awardAt(id, away.id, 'condition_reported', '2019-03-05', 'away-1');
+        await awardAt(id, away.id, 'condition_reported', '2019-03-05', 'away-2');
+      }
+
+      const live = await publicStandings(db as never, campaign);
+      expect(live.map((r) => [r.municipalityId, r.score, r.memberCount])).toEqual([
+        [home.municipality_id, 25, 5],
+      ]);
+
+      // The close-out snapshot reads the same totals, so it attributes the same way.
+      await closeCampaign(db as never, campaign);
+      const frozen = await frozenResults(db as never, campaign.id);
+      expect(frozen.map((r) => [r.municipalityId, r.score, r.memberCount])).toEqual([
+        [home.municipality_id, 25, 5],
+      ]);
+    });
+
     it('names no individual at all, whoever contributed to the row', async () => {
       const campaign = await makeCampaign({ leaderboardType: 'city' });
       await award(MINOR, 0, 'facility_added', '2019-03-02', 'x');
@@ -376,6 +527,36 @@ describe.skipIf(!hasDb)('campaign scoring (requires running database)', () => {
   });
 
   describe('closing freezes the standings', () => {
+    it('refuses to close while the window is still open', async () => {
+      const campaign = await makeCampaign();
+      await award(ADULT_PUBLIC, 0, 'facility_added', '2019-03-02', 'open1');
+
+      // 22:00 Sofia on the LAST day (EET, +2): still running, so still refused.
+      const early = await closeCampaign(db as never, campaign, {
+        now: new Date('2019-03-10T20:00:00Z'),
+      });
+      expect(early).toEqual({ frozenRows: 0, alreadyClosed: false, notClosable: true });
+      expect((await campaignBySlug(db as never, SLUG))?.status).toBe('published');
+      expect(await frozenResults(db as never, campaign.id)).toHaveLength(0);
+
+      // 00:30 Sofia the next day — the window is over and closing is allowed.
+      const onTime = await closeCampaign(db as never, campaign, {
+        now: new Date('2019-03-10T22:30:00Z'),
+      });
+      expect(onTime.notClosable).toBe(false);
+      expect(onTime.frozenRows).toBe(1);
+    });
+
+    it('refuses to close a draft or a cancelled campaign', async () => {
+      for (const status of ['draft', 'cancelled']) {
+        const campaign = await makeCampaign({ status });
+        await award(ADULT_PUBLIC, 0, 'facility_added', '2019-03-02', `st-${status}`);
+        const report = await closeCampaign(db as never, campaign);
+        expect(report).toEqual({ frozenRows: 0, alreadyClosed: false, notClosable: true });
+        expect((await campaignBySlug(db as never, SLUG))?.status).toBe(status);
+      }
+    });
+
     it('writes a snapshot and marks the campaign closed', async () => {
       const campaign = await makeCampaign();
       await award(ADULT_PUBLIC, 0, 'facility_added', '2019-03-02', 'f1');
@@ -469,6 +650,48 @@ describe.skipIf(!hasDb)('campaign scoring (requires running database)', () => {
       expect(after[0]?.displayName).toBeNull();
     });
   });
+
+  describe('quarter scope', () => {
+    /**
+     * The quarter scope is an exact match against facilities.quarter, which is
+     * sparse. The form now offers only campaignQuarters(), and the action refuses
+     * anything quarterHasFacilities() cannot find. Read-only against the shared
+     * facility corpus: nothing here writes a quarter onto a real facility.
+     */
+    it('offers only quarters a facility actually carries', async () => {
+      const options = await campaignQuarters(db as never);
+      for (const option of options.slice(0, 10)) {
+        expect(option.facilities).toBeGreaterThan(0);
+        expect(await quarterHasFacilities(db as never, option.municipalityId, option.quarter)).toBe(
+          true,
+        );
+      }
+    });
+
+    it('knows when a quarter matches nothing', async () => {
+      const municipalityId = facilities[0]?.municipalityId ?? 1;
+      expect(
+        await quarterHasFacilities(db as never, municipalityId, 'e2e-няма-такъв-квартал'),
+      ).toBe(false);
+    });
+
+    it('scores a quarter campaign at a facility in that quarter', async () => {
+      const [option] = await campaignQuarters(db as never);
+      if (!option) return; // no quarter data in this database; nothing to score
+      const facility = await client.query<{ id: string }>(
+        `SELECT id FROM facilities WHERE municipality_id = $1 AND quarter = $2 ORDER BY id LIMIT 1`,
+        [option.municipalityId, option.quarter],
+      );
+      const campaign = await makeCampaign({
+        scopeKind: 'quarter',
+        municipalityId: option.municipalityId,
+        quarter: option.quarter,
+      });
+      await awardAt(ADULT_PUBLIC, facility.rows[0]?.id ?? '', 'facility_added', '2019-03-02', 'q');
+      const rows = await publicStandings(db as never, campaign);
+      expect(rows.find((r) => r.handle === HANDLES[ADULT_PUBLIC])?.score).toBe(10);
+    });
+  });
 });
 
 describe('campaign scoring counts VERIFIED attendance only (Stage 5.4)', () => {
@@ -484,7 +707,10 @@ describe('campaign scoring counts VERIFIED attendance only (Stage 5.4)', () => {
    * already runs these queries against real Postgres, so what is at risk is not
    * whether the SQL is valid but whether the predicate is still in it.
    */
-  function compiledFor(kinds: { kind: string; weight: number }[]): string {
+  function compiledFor(
+    kinds: { kind: string; weight: number }[],
+    extra: { sports?: string[]; leaderboardType?: CampaignRow['leaderboardType'] } = {},
+  ): string {
     const captured: string[] = [];
     const recorder = {
       execute: (query: never) => {
@@ -498,9 +724,12 @@ describe('campaign scoring counts VERIFIED attendance only (Stage 5.4)', () => {
       status: 'published',
       scope: { kind: 'national' },
       window: { startsOn: '2026-07-01', endsOn: '2026-07-31' },
-      leaderboardType: 'individual',
+      leaderboardType: extra.leaderboardType ?? 'individual',
       template: 'standard',
-      rules: { events: kinds } as CampaignRow['rules'],
+      rules: {
+        events: kinds,
+        ...(extra.sports ? { sports: extra.sports } : {}),
+      } as CampaignRow['rules'],
       titleBg: 'Тест',
       titleEn: null,
       blurbBg: null,
@@ -525,5 +754,34 @@ describe('campaign scoring counts VERIFIED attendance only (Stage 5.4)', () => {
     // still turned up. A campaign counts turning up, not being paid.
     const sqlText = compiledFor([{ kind: 'session_checkin', weight: 3 }]);
     expect(sqlText).not.toMatch(/c\.scored/);
+  });
+
+  it('filters attendance by the SESSION sport and contributions by the facility', () => {
+    // Asserted on the SQL as well as end-to-end above, because this suite runs
+    // without a database: the check-in branch must read s.sport, and the
+    // facility's sport list must stay confined to the ledger branch.
+    const sqlText = compiledFor(
+      [
+        { kind: 'facility_added', weight: 5 },
+        { kind: 'session_checkin', weight: 1 },
+      ],
+      { sports: ['basketball'] },
+    );
+    const [ledgerBranch, checkinBranch] = sqlText.split('UNION ALL');
+    expect(ledgerBranch).toMatch(/f\.sport_types\s*&&/);
+    expect(checkinBranch).toMatch(/s\.sport\s*=\s*ANY\(/);
+    expect(checkinBranch).not.toMatch(/f\.sport_types/);
+  });
+
+  it('chooses a member’s city by their whole campaign, not by one day', () => {
+    // The home municipality is ranked over per-municipality totals; a
+    // max(municipality_id) per day, or an ORDER BY day_score, is the old
+    // best-day rule coming back.
+    const sqlText = compiledFor([{ kind: 'condition_reported', weight: 1 }], {
+      leaderboardType: 'city',
+    });
+    expect(sqlText).toMatch(/DISTINCT ON \(p\.user_id\)/);
+    expect(sqlText).not.toMatch(/max\(e\.municipality_id\)/);
+    expect(sqlText).not.toMatch(/ORDER BY d\.day_score/);
   });
 });

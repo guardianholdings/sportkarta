@@ -497,7 +497,9 @@ export async function accountDetail(userId: string): Promise<AccountDetail | nul
 
   const consentSrc = consentRow.rows[0] ?? {};
   const now = new Date();
-  const badges = evaluateBadges(LAUNCH_BADGES, events, { now });
+  // One freeze set for both folds, as on /pasport: the operator must see the
+  // same streak badge the member does.
+  const badges = evaluateBadges(LAUNCH_BADGES, events, { now, frozen });
   const streaks = passportStreaks(events, { now, frozen });
   const play = playRow.rows[0] ?? {};
   const digestSend = digestSendRow.rows[0] ?? {};

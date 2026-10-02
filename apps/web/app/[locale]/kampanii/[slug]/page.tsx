@@ -187,10 +187,16 @@ export default async function CampaignPage({ params }: { params: PageParams }) {
         {user && (
           <section className="space-y-1 rounded-card border border-line bg-surface p-4 shadow-sm text-body-sm">
             <h2 className="font-semibold">{t('yourStandingTitle')}</h2>
+            {/* The score, not a rank: the board above ranks only listed members,
+              the final placing ranks everyone, and one card cannot show a number
+              that agrees with both (campaignStanding in db/src/campaigns.ts). */}
             {standing ? (
-              <p className="text-ink-soft">
-                {t('yourStanding', { rank: standing.rank, score: standing.score })}
-              </p>
+              <>
+                <p className="text-ink-soft">{t('yourScore', { score: standing.score })}</p>
+                {campaign.leaderboardType === 'individual' && (
+                  <p className="text-caption text-text-muted">{t('placingNote')}</p>
+                )}
+              </>
             ) : (
               <p className="text-ink-soft">{t('yourStandingNone')}</p>
             )}

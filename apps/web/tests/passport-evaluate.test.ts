@@ -58,22 +58,17 @@ describe('enqueuePassportEvaluate', () => {
     expect(payload.userId).toBe('user_123');
   });
 
-  it('debounces per member, so a burst cannot flood the worker queue', async () => {
-    // Finding 7 (pre-launch audit): every call used to be a fresh job row, so
-    // a scripted loop could queue unlimited work ahead of session mail. Keyed
-    // by the member and parked in the NEXT slot rather than dropped, so the
-    // last write of a burst is still evaluated.
+  it('keys the job by member, so a burst of one member’s actions queues one fold', async () => {
+    // With the worker's 'short' policy, one WAITING job per singletonKey: the
+    // queued job folds the whole history when it starts, so later sends are
+    // redundant. The key is the id the payload already carries — nothing new.
     getBoss.mockResolvedValue({ send });
     const enqueue = await subject();
 
     await enqueue('user_123');
 
-    const options = (send.mock.calls[0] as unknown[])[2];
-    expect(options).toEqual({
-      singletonKey: 'user_123',
-      singletonSeconds: 60,
-      singletonNextSlot: true,
-    });
+    const [, , options] = send.mock.calls[0] as [string, unknown, Record<string, unknown>];
+    expect(options).toEqual({ singletonKey: 'user_123' });
   });
 
   it('counts a failed send for the health page, and still does not throw', async () => {

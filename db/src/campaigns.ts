@@ -1,5 +1,6 @@
 import {
   campaignWindowInstants,
+  campaignToday,
   CITY_BOARD_MIN_MEMBERS,
   type CampaignLeaderboardType,
   type CampaignRules,
@@ -166,6 +167,61 @@ function weightExpression(rules: CampaignRules): SQL {
   return sql`CASE e.kind ${sql.join(branches, sql` `)} ELSE 0 END`;
 }
 
+export interface QuarterOption {
+  municipalityId: number;
+  /** Exactly as stored on the facilities, because that is what the scope matches. */
+  quarter: string;
+  facilities: number;
+}
+
+/**
+ * Every quarter a quarter-scoped campaign could actually score in, per
+ * municipality — the admin form's only source of quarter names.
+ *
+ * The quarter scope is an EXACT string match against `facilities.quarter`
+ * (scopeFilter below), and that column is sparsely populated: 7 of 6,677
+ * facilities in production at the pre-launch audit. A free-text field therefore
+ * produced campaigns that matched nothing — an empty board and no warning. Offering
+ * only values that exist makes that shape unreachable from the form, and
+ * `quarterHasFacilities` refuses it on the server for a crafted post.
+ */
+export async function campaignQuarters(db: SqlRunner): Promise<QuarterOption[]> {
+  const result = await db.execute(sql`
+    SELECT municipality_id, quarter, count(*)::int AS facilities
+    FROM facilities
+    WHERE municipality_id IS NOT NULL
+      AND quarter IS NOT NULL
+      AND btrim(quarter) <> ''
+      -- Only values validateCampaignScope would store unchanged (it trims,
+      -- collapses whitespace and caps the length at 120). Offering any other
+      -- would post a quarter the exact-match scope can never find again.
+      AND quarter = regexp_replace(btrim(quarter), '\\s+', ' ', 'g')
+      AND char_length(quarter) <= 120
+    GROUP BY municipality_id, quarter
+    ORDER BY municipality_id, quarter
+  `);
+  return result.rows.map((row) => ({
+    municipalityId: Number(row.municipality_id),
+    quarter: String(row.quarter),
+    facilities: Number(row.facilities),
+  }));
+}
+
+/** Does a quarter scope match at least one facility? The server-side half of the form's select. */
+export async function quarterHasFacilities(
+  db: SqlRunner,
+  municipalityId: number,
+  quarter: string,
+): Promise<boolean> {
+  const result = await db.execute(sql`
+    SELECT EXISTS (
+      SELECT 1 FROM facilities
+      WHERE municipality_id = ${municipalityId} AND quarter = ${quarter}
+    ) AS found
+  `);
+  return result.rows[0]?.found === true;
+}
+
 function scopeFilter(scope: CampaignScope): SQL {
   switch (scope.kind) {
     case 'national':
@@ -177,10 +233,29 @@ function scopeFilter(scope: CampaignScope): SQL {
   }
 }
 
-function sportsFilter(rules: CampaignRules): SQL {
+/**
+ * The sports filter for a CONTRIBUTION: the facility's own sport list, because a
+ * facility added or verified is every sport it carries — adding a pitch with a
+ * hoop is a basketball contribution whatever else is marked on it.
+ */
+function facilitySportsFilter(rules: CampaignRules): SQL {
   return rules.sports?.length
     ? sql` AND f.sport_types && ${sql.param(rules.sports)}::text[]`
     : sql``;
+}
+
+/**
+ * The sports filter for ATTENDANCE: the sport that was actually PLAYED.
+ *
+ * Not the facility's list. A football session on a football-and-basketball
+ * court is football — the passport's own event stream says exactly that
+ * (db/src/passport.ts, `ARRAY[s.sport]`) — and reading the facility here let
+ * footballers win a "basketball month" on any pitch that also has a hoop, which
+ * is 142 facilities in production. Two filters, because the two event sources
+ * answer "which sport" differently, not because the rule differs.
+ */
+function sessionSportsFilter(rules: CampaignRules): SQL {
+  return rules.sports?.length ? sql` AND s.sport = ANY(${sql.param(rules.sports)}::text[])` : sql``;
 }
 
 /**
@@ -208,7 +283,7 @@ function eventStream(campaign: CampaignRow, timeZone: string): SQL {
         AND p.created_at <  ${to.toISOString()}::timestamptz
         AND p.event::text = ANY(${sql.param(ledgerKinds)}::text[])
         ${scopeFilter(campaign.scope)}
-        ${sportsFilter(campaign.rules)}
+        ${facilitySportsFilter(campaign.rules)}
     `
     : null;
 
@@ -233,7 +308,7 @@ function eventStream(campaign: CampaignRow, timeZone: string): SQL {
         -- and a campaign should count turning up rather than being paid.
         AND c.method = 'qr'
         ${scopeFilter(campaign.scope)}
-        ${sportsFilter(campaign.rules)}
+        ${sessionSportsFilter(campaign.rules)}
     `
     : null;
 
@@ -249,29 +324,60 @@ function eventStream(campaign: CampaignRow, timeZone: string): SQL {
  * `AT TIME ZONE`, so a burst at 23:00 and another at 01:00 fall in different
  * days exactly as a member would expect, and the two DST days are still one day
  * each. Without the cap the same expression collapses to a plain sum.
+ *
+ * A CITY BOARD CREDITS EACH MEMBER'S WHOLE SCORE TO ONE MUNICIPALITY — the one
+ * they were most active in during this campaign ("играйте за своя град"), not
+ * their profile's home city, which is free text and may be anywhere. One home
+ * per member is also what keeps a city row's member count a count of distinct
+ * people, which is what the k-anonymity floor is measured in.
+ *
+ * "Most active" is decided over the WHOLE campaign: the most weighted activity,
+ * then the most events, then the lower municipality id so a tie cannot resolve
+ * differently between the live board and the close-out snapshot. It used to be
+ * the municipality of the member's single best DAY — itself the highest id
+ * touched that day — so five members with ten days in one town and one busier
+ * day in another credited all their points to the other town, and the town
+ * where most of the activity happened dropped off the board.
  */
 function memberTotals(campaign: CampaignRow, timeZone: string): SQL {
   const cap = campaign.rules.perDayCap;
-  const daily = sql`
-    SELECT e.user_id AS user_id,
-           e.day AS day,
-           max(e.municipality_id) AS municipality_id,
-           sum(${weightExpression(campaign.rules)})::int AS day_score,
-           count(*)::int AS day_events
-    FROM (${eventStream(campaign, timeZone)}) e
-    GROUP BY e.user_id, e.day
-  `;
   const scored = cap === undefined ? sql`d.day_score` : sql`LEAST(d.day_score, ${cap}::int)`;
+  // One statement with CTEs rather than nested subqueries, because two
+  // aggregates read the same weighted stream: the per-DAY one the cap applies
+  // to, and the per-MUNICIPALITY one the home is chosen from. Valid as a
+  // subquery in FROM, which is how every caller embeds it.
   return sql`
+    WITH weighted AS (
+      SELECT e.user_id AS user_id,
+             e.municipality_id AS municipality_id,
+             e.day AS day,
+             ${weightExpression(campaign.rules)} AS weight
+      FROM (${eventStream(campaign, timeZone)}) e
+    ),
+    daily AS (
+      SELECT w.user_id AS user_id,
+             sum(w.weight)::int AS day_score,
+             count(*)::int AS day_events
+      FROM weighted w
+      GROUP BY w.user_id, w.day
+    ),
+    home AS (
+      SELECT DISTINCT ON (p.user_id) p.user_id AS user_id, p.municipality_id AS municipality_id
+      FROM (
+        SELECT w.user_id, w.municipality_id, sum(w.weight) AS weight, count(*) AS events
+        FROM weighted w
+        WHERE w.municipality_id IS NOT NULL
+        GROUP BY w.user_id, w.municipality_id
+      ) p
+      ORDER BY p.user_id, p.weight DESC, p.events DESC, p.municipality_id
+    )
     SELECT d.user_id AS user_id,
            sum(${scored})::int AS score,
            sum(d.day_events)::int AS events,
-           -- The member's own municipality for a city board: the one they were
-           -- most active in during this campaign, not their profile's home city,
-           -- which is free text and may be anywhere.
-           (array_agg(d.municipality_id ORDER BY d.day_score DESC NULLS LAST))[1] AS municipality_id
-    FROM (${daily}) d
-    GROUP BY d.user_id
+           h.municipality_id AS municipality_id
+    FROM daily d
+    LEFT JOIN home h ON h.user_id = d.user_id
+    GROUP BY d.user_id, h.municipality_id
   `;
 }
 
@@ -409,32 +515,44 @@ export async function adminStandings(
   }));
 }
 
-/** One member's own score in a campaign, whatever their visibility. */
+/**
+ * One member's own score in a campaign, whatever their visibility.
+ *
+ * DELIBERATELY NO RANK. There are two honest rankings of a campaign and they
+ * differ: the public board ranks AFTER the consent join, so it reads 1, 2, 3
+ * without gaps (see publicStandings), while the placing closing will freeze
+ * ranks EVERYONE (see closeCampaign). A rank here had to be one of them, and it
+ * used to be the second — so a public member saw themselves 1st on the board
+ * and "3rd" in their own card on the same page, and a city campaign printed an
+ * individual rank beside a board of towns. The member's card now carries the
+ * score, and the page explains that the final placing includes members who are
+ * not listed. The type has no `rank` so no caller can reintroduce the clash.
+ */
 export async function campaignStanding(
   db: SqlRunner,
   campaign: CampaignRow,
   userId: string,
   options: StandingsOptions = {},
-): Promise<{ rank: number; score: number; events: number } | null> {
+): Promise<{ score: number; events: number } | null> {
   const timeZone = options.timeZone ?? SOFIA_TZ;
   const totals = memberTotals(campaign, timeZone);
   const result = await db.execute(sql`
-    WITH board AS (
-      SELECT t.user_id AS user_id, t.score AS score, t.events AS events,
-             rank() OVER (ORDER BY t.score DESC)::int AS rank
-      FROM (${totals}) t
-    )
-    SELECT rank, score, events FROM board WHERE user_id = ${userId}
+    SELECT t.score AS score, t.events AS events
+    FROM (${totals}) t
+    WHERE t.user_id = ${userId}
   `);
   const row = result.rows[0];
-  return row
-    ? { rank: Number(row.rank), score: Number(row.score), events: Number(row.events) }
-    : null;
+  return row ? { score: Number(row.score), events: Number(row.events) } : null;
 }
 
 export interface CloseReport {
   frozenRows: number;
   alreadyClosed: boolean;
+  /**
+   * The campaign is not in a state that may be closed — a draft, a cancelled
+   * campaign, or one whose window has not yet ended. Nothing was written.
+   */
+  notClosable: boolean;
 }
 
 /**
@@ -456,6 +574,15 @@ export interface CloseReport {
  * freezes members INCLUDING those not publicly displayable — the placing is the
  * fact, and the results page resolves who may be named at render time. Freezing
  * only the displayable ones would silently renumber the winners.
+ *
+ * ONLY A PUBLISHED CAMPAIGN WHOSE WINDOW HAS ENDED MAY CLOSE — the
+ * `awaiting_close` phase, and nothing else. That is part of the claim itself,
+ * not a check a caller might skip: closing mid-window froze partial standings as
+ * the final published result with no undo, and "closing" a draft or a cancelled
+ * campaign published a results page for something that never ran. The window
+ * test is on the civil Sofia date, the same boundary campaignPhase uses. To end a
+ * campaign early, an admin moves its end date first — a deliberate, visible edit
+ * rather than a typed word at the wrong moment.
  */
 export async function closeCampaign(
   db: SqlRunner & { transaction<T>(fn: (tx: SqlRunner) => Promise<T>): Promise<T> },
@@ -464,15 +591,28 @@ export async function closeCampaign(
 ): Promise<CloseReport> {
   const timeZone = options.timeZone ?? SOFIA_TZ;
   const totals = memberTotals(campaign, timeZone);
+  // Today on the Sofia calendar. A window "ends 31 August" is over from
+  // 1 September 00:00 Sofia, i.e. exactly when today's civil date is after it.
+  const today = campaignToday(options.now ?? new Date(), timeZone);
 
   return db.transaction(async (tx) => {
     const claim = await tx.execute(sql`
       UPDATE campaigns
       SET status = 'closed', closed_at = now(), updated_at = now()
-      WHERE id = ${campaign.id}::uuid AND status <> 'closed'
+      WHERE id = ${campaign.id}::uuid
+        AND status = 'published'
+        AND ends_on < ${today}::date
       RETURNING id
     `);
-    if (claim.rows.length === 0) return { frozenRows: 0, alreadyClosed: true };
+    if (claim.rows.length === 0) {
+      // Zero rows is either "somebody closed it first" or "it may not close";
+      // the caller needs to know which, and the row says.
+      const current = await tx.execute(sql`
+        SELECT status FROM campaigns WHERE id = ${campaign.id}::uuid
+      `);
+      const alreadyClosed = current.rows[0]?.status === 'closed';
+      return { frozenRows: 0, alreadyClosed, notClosable: !alreadyClosed };
+    }
 
     // Belt and braces for a retried close after a partial write.
     await tx.execute(sql`DELETE FROM campaign_results WHERE campaign_id = ${campaign.id}::uuid`);
@@ -495,7 +635,7 @@ export async function closeCampaign(
         ) ranked
         RETURNING id
       `);
-      return { frozenRows: inserted.rows.length, alreadyClosed: false };
+      return { frozenRows: inserted.rows.length, alreadyClosed: false, notClosable: false };
     }
 
     const inserted = await tx.execute(sql`
@@ -508,7 +648,7 @@ export async function closeCampaign(
       ) ranked
       RETURNING id
     `);
-    return { frozenRows: inserted.rows.length, alreadyClosed: false };
+    return { frozenRows: inserted.rows.length, alreadyClosed: false, notClosable: false };
   });
 }
 

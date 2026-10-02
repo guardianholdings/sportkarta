@@ -72,7 +72,12 @@ export type CampaignEventKind = (typeof CAMPAIGN_EVENT_KINDS)[number];
 
 export interface CampaignRules {
   events: CampaignEventWeight[];
-  /** Restrict to facilities carrying one of these sports. Absent = any sport. */
+  /**
+   * Restrict to these sports. Absent = any sport. A contribution qualifies when
+   * its facility carries one of them; an attendance when the SESSION was one of
+   * them — a football game on a pitch that also has a hoop is not basketball
+   * (db/src/campaigns.ts compiles the two filters).
+   */
   sports?: string[];
   /**
    * Maximum score one member can bank in a single Sofia civil day.

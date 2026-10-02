@@ -139,6 +139,56 @@ interface SessionMaterializeJobData {
   sessionId?: string;
 }
 
+/**
+ * Jobs fetched per poll for the two queues the web app feeds one job per member
+ * action. pg-boss polls every 2 s and fetches ONE job by default — the web
+ * process sends, so the worker is never notified — which caps a queue at ~1,800
+ * jobs an hour. A 200-person QR check-in burst then queued badge evaluation past
+ * the one-hour "new badge" window, recording fresh badges as already seen, and
+ * RSVP mail waited behind the same limit. Both handlers already loop over the
+ * batch, and both are idempotent per job (ON CONFLICT on user_badges; the
+ * play_session_notifications claim), so a retried job cannot award or mail twice.
+ * Each job also fails on its own (`eachJobIsolated`), so a batch is never worse
+ * than the one-job fetches it replaced.
+ */
+const FEED_BATCH_SIZE = 20;
+
+/**
+ * Run a fetched batch one job at a time, so a job that throws fails ONLY ITSELF.
+ *
+ * pg-boss settles a batch as a unit: when the handler throws, every job in it is
+ * failed and retried — including the ones after the throw that never ran. With
+ * one job per fetch that was the same thing as failing the job. With a batch it
+ * is not: retries keep their creation time, so the same batch comes back in the
+ * same order, and one poisoned payload would take the RSVP mails queued behind it
+ * down retry after retry until the retry limit failed them for good, unattempted.
+ *
+ * So a job's error fails that job alone — pg-boss retries it on its own schedule,
+ * with the error stored exactly as a throwing handler's would be — and the batch
+ * carries on. The completion pg-boss writes afterwards only touches jobs still
+ * `active`, so it completes the rest and leaves the failed one where it is.
+ */
+async function eachJobIsolated<T>(
+  boss: PgBoss,
+  queue: string,
+  jobs: PgBoss.Job<T>[],
+  handle: (job: PgBoss.Job<T>) => Promise<void>,
+): Promise<void> {
+  for (const job of jobs) {
+    try {
+      await handle(job);
+    } catch (error: unknown) {
+      // A category only: the message can embed a query or a connection string.
+      console.error(
+        `[worker] ${queue} job ${job.id} failed:`,
+        error instanceof Error ? error.name : 'unknown',
+      );
+      await boss.fail(queue, job.id, error instanceof Error ? error : { value: String(error) });
+    }
+  }
+}
+
+
 async function main(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
@@ -188,14 +238,26 @@ async function main(): Promise<void> {
    */
   async function ensureQueue(
     name: string,
-    retry?: { retryLimit: number; retryDelay: number; retryBackoff: boolean },
+    options?: {
+      policy?: 'short' | 'stately';
+      retryLimit?: number;
+      retryDelay?: number;
+      retryBackoff?: boolean;
+    },
   ): Promise<void> {
-    await boss.createQueue(name, { name, ...retry });
-    if (retry) await boss.updateQueue(name, { name, ...retry });
+    await boss.createQueue(name, { name, ...options });
+    if (options) await boss.updateQueue(name, { name, ...options });
   }
 
   await ensureQueue(HEALTH_QUEUE);
-  await ensureQueue(IMPORT_OSM_QUEUE);
+  // STATELY: at most one import waiting and one running, per singletonKey — a
+  // double-click, or a live run queued behind a dry run, is refused (send()
+  // returns null and the admin screen says so) instead of stacking national
+  // imports back to back. apps/web/.../import/actions.ts declares the same.
+  // createQueue never changes an existing queue, so production's import.osm
+  // stayed 'standard' — where a singletonKey is enforced by nothing — until
+  // updateQueue converges it here.
+  await ensureQueue(IMPORT_OSM_QUEUE, { policy: 'stately' });
   await ensureQueue(STATS_REFRESH_QUEUE);
   await ensureQueue(AUTH_CLEANUP_QUEUE);
   await ensureQueue(SESSION_MATERIALIZE_QUEUE);
@@ -203,7 +265,11 @@ async function main(): Promise<void> {
   await ensureQueue(SESSION_REMINDERS_QUEUE);
   await ensureQueue(DIGEST_WEEKLY_QUEUE, WEEKLY_RETRY);
   await ensureQueue(OPENDATA_DUMP_QUEUE);
-  await ensureQueue(PASSPORT_EVALUATE_QUEUE);
+  // SHORT: at most one WAITING evaluation per member (the web app sends with
+  // singletonKey = account id). A job that has not started yet will fold the
+  // latest history anyway, so a burst of one member's check-ins collapses into
+  // one job; one already running does not block the next, so nothing is missed.
+  await ensureQueue(PASSPORT_EVALUATE_QUEUE, { policy: 'short' });
   await ensureQueue(BADGE_BACKFILL_QUEUE);
   await ensureQueue(STREAK_FREEZE_QUEUE, WEEKLY_RETRY);
   await ensureQueue(DIVISIONS_ROLLOVER_QUEUE, WEEKLY_RETRY);
@@ -301,28 +367,31 @@ async function main(): Promise<void> {
   // send, in the same transaction, so a retry cannot mail anyone twice. Which
   // is what makes it safe to THROW when anybody was not reached: this job is
   // enqueued once per event, so the queue's retry (MAIL_RETRY) is the only
-  // second chance a cancellation notice gets.
+  // second chance a cancellation notice gets. Fetched in batches (FEED_BATCH_SIZE)
+  // with each job isolated, so one undeliverable notice fails and retries alone
+  // instead of taking the batch behind it down with it.
   await work(
     SESSION_NOTIFY_QUEUE,
-    { batchSize: 1 },
+    { batchSize: FEED_BATCH_SIZE },
     logged(SESSION_NOTIFY_QUEUE, async (jobs) => {
       let last: Awaited<ReturnType<typeof runSessionNotify>> | undefined;
-      for (const job of jobs) {
+      await eachJobIsolated(boss, SESSION_NOTIFY_QUEUE, jobs, async (job) => {
         const data = (job.data ?? {}) as SessionNotifyJobData;
-        last = await runSessionNotify(data, { mailer, siteUrl });
+        const report = await runSessionNotify(data, { mailer, siteUrl });
+        last = report;
         // Counts and the pinned reason only. `reason` is validated against the
         // vocabulary before it is logged: an unbounded string from a job payload
         // interpolated into a log line is how a log gets forged.
         const reason = data.reason && data.reason in NOTIFY_REASONS ? data.reason : 'unknown';
         console.log(
           `[worker] ${SESSION_NOTIFY_QUEUE} job ${job.id}: reason=${reason} ` +
-            `${String(last.candidates)} candidate(s), ${String(last.sent)} sent, ` +
-            `${String(last.skipped)} skipped, ${String(last.failed)} failed, ` +
-            `${String(last.unattempted)} unattempted`,
+            `${String(report.candidates)} candidate(s), ${String(report.sent)} sent, ` +
+            `${String(report.skipped)} skipped, ${String(report.failed)} failed, ` +
+            `${String(report.unattempted)} unattempted`,
         );
-        await reportMailFailures(SESSION_NOTIFY_QUEUE, last);
-        assertDelivered(SESSION_NOTIFY_QUEUE, last);
-      }
+        await reportMailFailures(SESSION_NOTIFY_QUEUE, report);
+        assertDelivered(SESSION_NOTIFY_QUEUE, report);
+      });
       return last;
     }),
   );
@@ -410,10 +479,18 @@ async function main(): Promise<void> {
   );
   await boss.schedule(DIGEST_WEEKLY_QUEUE, '0 8 * * 1', {}, { tz: 'Europe/Sofia' });
 
-  // Nightly open-data bulk dump (Stage 6.1). 03:40 EUROPE/SOFIA — deliberately
-  // clear of the backup sidecar's 03:30 pg_dump, so the two are not competing
-  // for the same disk, and in civil time so the version in the path is the day
-  // a person in Sofia would call it.
+  // Nightly open-data bulk dump (Stage 6.1). 05:10 EUROPE/SOFIA — clear of the
+  // backup sidecar's 03:30 pg_dump, so the two are not competing for the same
+  // disk, and in civil time so the version in the path is the day a person in
+  // Sofia would call it.
+  //
+  // NEVER BETWEEN 03:00 AND 04:00 SOFIA. That is the hour the EU clock change
+  // happens in: it does not exist on the last Sunday of March and happens TWICE
+  // on the last Sunday of October. At the old 03:40 the dump was skipped every
+  // March and ran twice every October — and the second run rewrote a version
+  // already served `immutable`, the one thing this job promises never to do.
+  // apps/web/tests/worker-schedules.test.ts derives that hour from the tz
+  // database and refuses any Sofia schedule inside it.
   //
   // Idempotent by construction: every dataset's ORDER BY is total, so a re-run
   // on the same day rewrites byte-identical files under the same version. The
@@ -433,15 +510,15 @@ async function main(): Promise<void> {
     }
     return last;
   });
-  await boss.schedule(OPENDATA_DUMP_QUEUE, '40 3 * * *', {}, { tz: 'Europe/Sofia' });
+  await boss.schedule(OPENDATA_DUMP_QUEUE, '10 5 * * *', {}, { tz: 'Europe/Sofia' });
 
   // Badge evaluation (A1). Until now `recordEarnedBadges` ran from exactly one
   // place — a /pasport render — so a badge did not exist until the member
   // personally looked. The web app enqueues here after a contribution or a
   // check-in COMMITS; see apps/worker/src/passport-job.ts for why this must not
   // be inlined into those transactions.
-  await work(PASSPORT_EVALUATE_QUEUE, async (jobs) => {
-    for (const job of jobs) {
+  await work(PASSPORT_EVALUATE_QUEUE, { batchSize: FEED_BATCH_SIZE }, async (jobs) => {
+    await eachJobIsolated(boss, PASSPORT_EVALUATE_QUEUE, jobs, async (job) => {
       const report = await runPassportEvaluate((job.data ?? {}) as PassportEvaluateJobData);
       if (report.recorded > 0) {
         // Counts only — an account id identifies a person even with no name.
@@ -449,7 +526,7 @@ async function main(): Promise<void> {
           `[worker] ${PASSPORT_EVALUATE_QUEUE} job ${job.id}: ${String(report.recorded)} badge(s) recorded`,
         );
       }
-    }
+    });
   });
 
   // The retroactive back catalogue, once. Every badge it writes is historical
@@ -468,7 +545,7 @@ async function main(): Promise<void> {
   await boss.send(BADGE_BACKFILL_QUEUE, {});
 
   // Streak freezes (A4). Monday 04:20 EUROPE/SOFIA — after the civil week has
-  // closed and well clear of the 03:30 backup and the 03:40 open-data dump. The
+  // closed, outside the 03:00 DST hour, and clear of the 03:30 backup. The
   // timezone is the point: a week boundary is a wall-clock promise, so a UTC
   // cron would apply freezes an hour early or late for half the year and
   // occasionally decide the wrong week had just closed.

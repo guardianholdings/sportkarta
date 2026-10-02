@@ -1,19 +1,6 @@
 import { getBoss, PASSPORT_EVALUATE_QUEUE, recordEnqueueFailure } from '@/lib/admin-boss';
 
 /**
- * One evaluation per member per minute, debounced rather than dropped.
- *
- * `singletonKey` + `singletonSeconds` make pg-boss refuse a second job for the
- * same member in the same one-minute slot (its job_i4 unique index), and
- * `singletonNextSlot` parks the refused one in the NEXT slot instead of
- * discarding it — so a burst of contributions costs at most two queued jobs,
- * and the last write of the burst is still evaluated. Without it every call
- * was a new row, and a scripted loop could back the worker's queue up ahead of
- * session reminders and notification mail.
- */
-export const PASSPORT_EVALUATE_DEBOUNCE_SECONDS = 60;
-
-/**
  * Ask the worker to re-fold a member's badges, after their write committed.
  *
  * CALL IT AFTER THE TRANSACTION, NEVER INSIDE ONE. Badge evaluation reads a
@@ -31,20 +18,20 @@ export const PASSPORT_EVALUATE_DEBOUNCE_SECONDS = 60;
  *
  * The message, never the error object — a pg-boss connection error can embed
  * the connection string.
+ *
+ * ONE WAITING JOB PER MEMBER. `singletonKey` is the account id, and the worker
+ * declares the queue 'short', so while this member already has an evaluation
+ * queued the send is a no-op returning null. Nothing is lost: that job has not
+ * started, and it folds the member's whole history — including the write that
+ * triggered this call — when it does. Without it, a member checking in and
+ * reporting in quick succession queued one full-history fold per action. The key
+ * is the id the payload already carries, so the job row holds nothing new.
  */
 export async function enqueuePassportEvaluate(userId: string): Promise<void> {
   try {
     const boss = await getBoss();
     try {
-      await boss.send(
-        PASSPORT_EVALUATE_QUEUE,
-        { userId },
-        {
-          singletonKey: userId,
-          singletonSeconds: PASSPORT_EVALUATE_DEBOUNCE_SECONDS,
-          singletonNextSlot: true,
-        },
-      );
+      await boss.send(PASSPORT_EVALUATE_QUEUE, { userId }, { singletonKey: userId });
     } catch (error: unknown) {
       recordEnqueueFailure('send');
       throw error;

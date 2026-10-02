@@ -200,7 +200,10 @@ export async function ownPassport(
     frozenStreakWeeks(db, userId),
   ]);
 
-  const badges = evaluateBadges(LAUNCH_BADGES, events, { now });
+  // `frozen` goes to the badges as well as to the streak view below: one set of
+  // forgiven weeks, folded by both, so the streak on this page and the streak
+  // badge beside it cannot disagree.
+  const badges = evaluateBadges(LAUNCH_BADGES, events, { now, frozen });
   const earned = badges
     .filter((badge): badge is BadgeState & { earnedAt: Date } => badge.earnedAt !== null)
     .map((badge) => ({ slug: badge.slug, earnedAt: badge.earnedAt }));
@@ -277,7 +280,7 @@ export async function publicPassport(
     frozenStreakWeeks(db, owner.userId),
   ]);
 
-  const badges = evaluateBadges(LAUNCH_BADGES, events, { now });
+  const badges = evaluateBadges(LAUNCH_BADGES, events, { now, frozen });
   const ownerStreaks = streakView(events, now, frozen);
 
   // Built field by field. Nothing is spread in from a private shape, so a new

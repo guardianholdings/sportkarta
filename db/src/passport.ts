@@ -378,8 +378,14 @@ export async function evaluateAndRecordBadges(
   options: { now?: Date; unseenSince?: Date } = {},
 ): Promise<string[]> {
   const now = options.now ?? new Date();
-  const events = await passportEvents(db, userId);
-  const earned = evaluateBadges(LAUNCH_BADGES, events, { now })
+  const [events, frozen] = await Promise.all([
+    passportEvents(db, userId),
+    // The weeks already forgiven. /pasport folds them into the streak it SHOWS,
+    // so the job must fold them into the streak badge it RECORDS — otherwise a
+    // member saved by a freeze reads "4 weeks in a row" beside a locked 2/4 tile.
+    frozenStreakWeeks(db, userId),
+  ]);
+  const earned = evaluateBadges(LAUNCH_BADGES, events, { now, frozen })
     .filter((badge): badge is typeof badge & { earnedAt: Date } => badge.earnedAt !== null)
     .map((badge) => ({ slug: badge.slug, earnedAt: badge.earnedAt }));
   return recordEarnedBadges(db, userId, earned, { unseenSince: options.unseenSince });

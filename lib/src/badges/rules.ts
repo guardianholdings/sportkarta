@@ -159,13 +159,30 @@ export interface EvaluateOptions {
   /** Only used by streak rules, to answer "is it still running". */
   now?: Date;
   /**
-   * Weeks the system forgave (A4). Only meaningful for streak rules.
+   * Weeks the system forgave (A4). Only meaningful for WEEK streak rules.
    *
    * Threaded through to the fold so a member's DISPLAYED streak and their
    * streak BADGE cannot disagree — two different numbers for one person on one
    * page is a worse failure than either number being generous.
+   *
+   * The keys are Mondays (`streak_freezes_bucket_is_monday`), and a Monday key
+   * is also a perfectly valid DAY key. So the set is applied to week rules only:
+   * handed to a day fold it would silently bridge a missed Monday, which is the
+   * day-streak freeze migration 0025 refuses by CHECK.
    */
   frozen?: ReadonlySet<BucketKey>;
+}
+
+/**
+ * The freeze set a fold of `unit` may see: the forgiven weeks for a week fold,
+ * nothing for a day fold. The one place that rule is written, so the badge path
+ * and the displayed-streak path cannot apply it differently.
+ */
+function freezesFor(
+  unit: StreakUnit,
+  frozen: ReadonlySet<BucketKey> | undefined,
+): ReadonlySet<BucketKey> | undefined {
+  return unit === 'week' ? frozen : undefined;
 }
 
 function matches(event: PassportEvent, events: readonly PassportEventKind[]): boolean {
@@ -239,9 +256,14 @@ function evaluateStreak(
   rule: Extract<BadgeRule, { kind: 'streak' }>,
   events: readonly PassportEvent[],
   timeZone: string,
+  frozen: ReadonlySet<BucketKey> | undefined,
 ): { have: number; earnedAt: Date | null } {
   const qualifying = events.filter((event) => matches(event, rule.events));
-  const buckets = streakBuckets(qualifying, rule.unit, timeZone);
+  // The SAME freezes the displayed streak folds (passportStreaks below). Before
+  // this was passed, a member whose run a freeze had saved read "4 weeks in a
+  // row" on /pasport beside a locked streak_weeks_4 tile at 2/4 — exactly the
+  // disagreement EvaluateOptions.frozen promised could not happen.
+  const buckets = streakBuckets(qualifying, rule.unit, timeZone, freezesFor(rule.unit, frozen));
   let have = 0;
   let earnedAt: Date | null = null;
   for (const bucket of buckets) {
@@ -269,7 +291,7 @@ export function evaluateBadge(
       ? evaluateCount(rule, sorted)
       : rule.kind === 'distinct'
         ? evaluateDistinct(rule, sorted, timeZone)
-        : evaluateStreak(rule, sorted, timeZone);
+        : evaluateStreak(rule, sorted, timeZone, options.frozen);
 
   return {
     slug: badge.slug,
@@ -299,21 +321,25 @@ export function passportStreaks(
   events: readonly PassportEvent[],
   options: EvaluateOptions = {},
 ): { days: StreakSummary; weeks: StreakSummary } {
-  const streakOptions = {
+  const base = {
     timeZone: options.timeZone ?? SOFIA_TZ,
     ...(options.now ? { now: options.now } : {}),
-    // MUST be forwarded. Built explicitly rather than spread from `options`,
-    // which is why the first version silently dropped it: the freeze reached
-    // the database, the reader and this function, and then evaporated one call
-    // short of the fold. Only an end-to-end read caught it.
-    ...(options.frozen ? { frozen: options.frozen } : {}),
   };
+  // MUST be forwarded to the week fold. Built explicitly rather than spread from
+  // `options`, which is why the first version silently dropped it: the freeze
+  // reached the database, the reader and this function, and then evaporated one
+  // call short of the fold. Only an end-to-end read caught it.
+  //
+  // And ONLY to the week fold: a forgiven week is keyed by its Monday, which the
+  // day fold would read as a forgiven Monday. `freezesFor` is the same rule the
+  // badge path applies, so the two cannot drift.
+  const weekFreezes = freezesFor('week', options.frozen);
   return {
-    days: summarizeStreak(events, 'day', streakOptions),
+    days: summarizeStreak(events, 'day', base),
     weeks: summarizeStreak(
       events.filter((event) => event.kind === 'session_checkin'),
       'week',
-      streakOptions,
+      weekFreezes ? { ...base, frozen: weekFreezes } : base,
     ),
   };
 }

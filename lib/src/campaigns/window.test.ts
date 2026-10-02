@@ -4,10 +4,13 @@ import { offsetAt, SOFIA_TZ } from '../recurrence/index.js';
 
 import {
   campaignPhase,
+  campaignToday,
   campaignWindowInstants,
   daysRemaining,
+  isClosable,
   MAX_CAMPAIGN_DAYS,
   validateCampaignWindow,
+  type CampaignPhase,
 } from './window.js';
 
 /**
@@ -193,5 +196,52 @@ describe('daysRemaining', () => {
     const before = daysRemaining(october, new Date('2026-10-24T10:00:00Z'));
     const after = daysRemaining(october, new Date('2026-10-25T10:00:00Z'));
     expect(before - after).toBe(1);
+  });
+});
+
+describe('isClosable', () => {
+  /**
+   * Closing freezes the published result for good, so it is offered — and
+   * accepted by closeCampaign's own claim — in exactly one phase. A running
+   * campaign closed early froze partial standings as final; a draft or cancelled
+   * one published results for something that never ran.
+   */
+  it('allows closing only once the window has run out', () => {
+    const phases: CampaignPhase[] = [
+      'draft',
+      'cancelled',
+      'upcoming',
+      'running',
+      'awaiting_close',
+      'closed',
+    ];
+    expect(phases.filter(isClosable)).toEqual(['awaiting_close']);
+  });
+
+  it('agrees with campaignPhase on the last evening and the midnight after it', () => {
+    const window = { startsOn: '2026-10-01', endsOn: '2026-10-25' };
+    // 25 Oct 2026 is the fall-back day: 23:30 Sofia (EET, +2) is 21:30 UTC.
+    const lastEvening = new Date('2026-10-25T21:30:00Z');
+    const justAfter = new Date('2026-10-25T22:00:00Z'); // 00:00 Sofia, 26 Oct
+    expect(isClosable(campaignPhase('published', window, lastEvening))).toBe(false);
+    expect(isClosable(campaignPhase('published', window, justAfter))).toBe(true);
+  });
+});
+
+describe('campaignToday', () => {
+  it('is the Sofia date, which is what closeCampaign compares ends_on with', () => {
+    // 22:30 UTC in summer is already tomorrow in Sofia.
+    expect(campaignToday(new Date('2026-07-22T22:30:00Z'))).toBe('2026-07-23');
+    // Winter, +2: 21:59 UTC is still today.
+    expect(campaignToday(new Date('2026-01-15T21:59:00Z'))).toBe('2026-01-15');
+  });
+
+  it('turns over exactly where campaignPhase says a window has ended', () => {
+    const window = { startsOn: '2026-10-01', endsOn: '2026-10-25' };
+    for (const at of ['2026-10-25T21:59:00Z', '2026-10-25T22:00:00Z', '2026-10-26T09:00:00Z']) {
+      const now = new Date(at);
+      const endedByDate = window.endsOn < campaignToday(now);
+      expect(endedByDate).toBe(campaignPhase('published', window, now) === 'awaiting_close');
+    }
   });
 });

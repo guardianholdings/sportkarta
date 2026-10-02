@@ -474,3 +474,92 @@ describe('passportStreaks forwards the freeze set', () => {
     expect(streaks.days.current).toBe(0);
   });
 });
+
+describe('streak badges fold the same freezes as the displayed streak (A4)', () => {
+  /**
+   * REGRESSION, and the sibling of the one above. `EvaluateOptions.frozen`
+   * promised that a member's displayed streak and their streak badge could not
+   * disagree — and then `evaluateStreak` never read it. A member whose run a
+   * freeze had saved saw "4 weeks in a row" on /pasport beside a locked
+   * streak_weeks_4 tile at 2/4, which reads as a broken badge to exactly the
+   * people the freeze feature exists for.
+   *
+   * The calendar is the audit's reproduction: attendance in the weeks of 5 Oct,
+   * 12 Oct, 26 Oct and 2 Nov 2026; the week of 19 Oct missed and forgiven by the
+   * Monday 26 Oct job. It straddles the 25 Oct DST change on purpose.
+   */
+  const checkin = (day: string): PassportEvent => ({
+    kind: 'session_checkin',
+    at: new Date(`${day}T09:00:00Z`),
+    facilityId: 'f1',
+    municipalityId: 'm1',
+    sports: ['football'],
+    points: 0,
+  });
+  const contribution = (day: string): PassportEvent => ({
+    kind: 'condition_reported',
+    at: new Date(`${day}T09:00:00Z`),
+    facilityId: 'f1',
+    municipalityId: 'm1',
+    sports: ['football'],
+    points: 1,
+  });
+
+  const EVENTS = [
+    checkin('2026-10-06'),
+    checkin('2026-10-13'),
+    checkin('2026-10-27'),
+    checkin('2026-11-03'),
+  ];
+  const FROZEN = new Set(['2026-10-19']);
+  const NOW = new Date('2026-11-04T12:00:00Z');
+  const weeks4 = LAUNCH_BADGES.find((badge) => badge.slug === 'streak_weeks_4') as BadgeDefinition;
+  const days7 = LAUNCH_BADGES.find((badge) => badge.slug === 'streak_days_7') as BadgeDefinition;
+
+  it('earns streak_weeks_4 when a freeze bridged the run the passport shows', () => {
+    const shown = passportStreaks(EVENTS, { now: NOW, frozen: FROZEN });
+    expect(shown.weeks.current).toBe(4);
+
+    const state = evaluateBadge(weeks4, EVENTS, { now: NOW, frozen: FROZEN });
+    expect(state.progress).toEqual({ have: shown.weeks.longest, need: 4 });
+    expect(state.earned).toBe(true);
+    // Dated at the fourth ACTIVE week — the frozen week bridges, it never counts.
+    expect(state.earnedAt?.toISOString()).toBe('2026-11-03T09:00:00.000Z');
+  });
+
+  it('reaches evaluateBadges too — the entry point both callers use', () => {
+    const states = evaluateBadges(LAUNCH_BADGES, EVENTS, { now: NOW, frozen: FROZEN });
+    expect(states.find((state) => state.slug === 'streak_weeks_4')?.earned).toBe(true);
+  });
+
+  it('stays locked without the freeze, exactly as the unforgiven streak reads', () => {
+    const state = evaluateBadge(weeks4, EVENTS, { now: NOW });
+    expect(state.earned).toBe(false);
+    expect(state.progress).toEqual({ have: 2, need: 4 });
+  });
+
+  it('never lets a forgiven WEEK bridge a missed Monday in a DAY streak', () => {
+    // A forgiven week is keyed by its Monday, and a Monday is also a valid day
+    // key. Six active days around a missed Monday 19 Oct, with that week frozen:
+    // bridged, the day fold would read seven in a row — the day-streak freeze
+    // migration 0025 refuses by CHECK.
+    const days = [
+      '2026-10-15',
+      '2026-10-16',
+      '2026-10-17',
+      '2026-10-18',
+      '2026-10-20',
+      '2026-10-21',
+      '2026-10-22',
+    ].map(contribution);
+    const now = new Date('2026-10-22T12:00:00Z');
+
+    const state = evaluateBadge(days7, days, { now, frozen: FROZEN });
+    expect(state.earned).toBe(false);
+    expect(state.progress).toEqual({ have: 4, need: 7 });
+
+    const shown = passportStreaks(days, { now, frozen: FROZEN });
+    expect(shown.days.longest).toBe(4);
+    expect(shown.days.current).toBe(3);
+  });
+});

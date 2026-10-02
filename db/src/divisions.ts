@@ -256,12 +256,29 @@ export interface RolloverOptions {
 }
 
 /**
+ * The instant range "the last `DIVISION_ACTIVE_WEEKS` weeks before `week`"
+ * covers, `[from, to)`: Monday 00:00 Sofia that many weeks back, to Monday 00:00
+ * Sofia of `week`.
+ *
+ * Both ends are CIVIL Mondays resolved through `weekBounds`, never `to` minus
+ * 4 × 7 × 86 400 000 ms. That subtraction is what this replaced, and for the
+ * four rollovers after each DST change it started the window at 01:00 (autumn)
+ * or 23:00 the Sunday before (spring) — dropping or adding an hour of points at
+ * the edge of "active", which decides whether a borderline member gets a place.
+ */
+export function activeWindow(week: WeekKey, timeZone: string = SOFIA_TZ): { from: Date; to: Date } {
+  let first = week;
+  for (let i = 0; i < DIVISION_ACTIVE_WEEKS; i += 1) first = previousBucketKey(first, 'week');
+  return { from: weekBounds(first, timeZone).from, to: weekBounds(week, timeZone).from };
+}
+
+/**
  * Everyone who should have a place in `week`, with the history that decides where.
  *
  * ACTIVE, not merely eligible: a member must have scored inside the last
- * `DIVISION_ACTIVE_WEEKS`. A ladder padded with dormant accounts hands every
- * active member a top finish for turning up once and fills the visible field
- * with rows that will never move.
+ * `DIVISION_ACTIVE_WEEKS` (`activeWindow`). A ladder padded with dormant accounts
+ * hands every active member a top finish for turning up once and fills the
+ * visible field with rows that will never move.
  *
  * `previousTier` comes from the last week the member was ASSIGNED, not
  * necessarily the week just closed — so somebody who missed August returns at
@@ -275,8 +292,7 @@ export async function divisionCandidates(
   options: RolloverOptions = {},
 ): Promise<DivisionCandidate[]> {
   const timeZone = options.timeZone ?? SOFIA_TZ;
-  const { from } = weekBounds(week, timeZone);
-  const windowStart = new Date(from.getTime() - DIVISION_ACTIVE_WEEKS * 7 * 24 * 60 * 60 * 1000);
+  const { from: windowStart, to: from } = activeWindow(week, timeZone);
 
   const result = await db.execute(sql`
     SELECT m.id::text AS user_id,
