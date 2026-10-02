@@ -63,7 +63,7 @@ function StatCard({ label, value, note }: { label: string; value: string; note?:
     <div className="rounded-card border border-line p-3">
       <div className="font-mono text-h2 font-bold text-ink tabular-nums">{value}</div>
       <div className="text-caption text-text-muted">{label}</div>
-      {note ? <div className="mt-1 text-caption text-text-faint">{note}</div> : null}
+      {note ? <div className="mt-1 text-caption text-text-muted">{note}</div> : null}
     </div>
   );
 }

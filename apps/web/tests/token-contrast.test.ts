@@ -25,6 +25,10 @@ import { describe, expect, it } from 'vitest';
  */
 
 const TOKENS = readFileSync(join(__dirname, '..', 'app', 'design-tokens', 'colors.css'), 'utf8');
+const ELEVATION = readFileSync(
+  join(__dirname, '..', 'app', 'design-tokens', 'elevation.css'),
+  'utf8',
+);
 
 /**
  * Resolve a token to its hex. The semantic layer is deliberately indirect
@@ -105,7 +109,48 @@ const ON_FILL: readonly (readonly [string, number, string])[] = [
   ['accent', 3, 'add-facility FAB glyph (non-text, 3:1)'],
 ];
 
+/**
+ * Non-text contrast (WCAG 2.1 SC 1.4.11): 3:1 for what identifies a control
+ * and for the focus indicator, against everything the control sits on.
+ *
+ * The pre-launch audit measured the seed's values at 1.55–1.62:1 — a 32%-alpha
+ * focus halo and a #cfc9bc input edge — so keyboard users could not see where
+ * focus was and form fields hardly separated from the card behind them. The
+ * focus colours must also be OPAQUE: token() only resolves a hex or a var(),
+ * so an rgba() halo fails here as "not found" rather than being measured
+ * against a background it would blend into.
+ */
+const NON_TEXT_PAIRS: readonly (readonly [string, string, number, string])[] = [
+  ...SURFACES.map((s) => ['focus-ring', s, 3, `focus ring on --${s}`] as const),
+  ...SURFACES.map((s) => ['focus-ring-accent', s, 3, `accent focus ring on --${s}`] as const),
+  ...SURFACES.map((s) => ['border-strong', s, 3, `input / control edge on --${s}`] as const),
+];
+
 describe('design token contrast', () => {
+  it.each(NON_TEXT_PAIRS)('--%s on --%s is at least %f:1 (%s)', (fg, bg, min) => {
+    const ratio = contrast(token(fg), token(bg));
+    expect(
+      ratio,
+      `--${fg} (${token(fg)}) on --${bg} (${token(bg)}) is ${ratio.toFixed(2)}:1, below ${min}:1`,
+    ).toBeGreaterThanOrEqual(min);
+  });
+
+  /**
+   * The colours above only help if the ring is DRAWN in them: a solid 2px band
+   * outside a surface-coloured gap. A translucent or hairline --ring would pass
+   * every ratio and still be the invisible halo the audit found.
+   */
+  it.each([
+    ['ring', 'focus-ring'],
+    ['ring-accent', 'focus-ring-accent'],
+  ])('--%s draws an opaque 2px ring in --%s outside a surface gap', (ring, colour) => {
+    const value = new RegExp(`--${ring}:\\s*([^;]+);`).exec(ELEVATION)?.[1] ?? '';
+    expect(value, `--${ring} not found in elevation.css`).not.toBe('');
+    expect(value).not.toMatch(/rgba|transparent/);
+    expect(value).toContain('0 0 0 2px var(--surface)');
+    expect(value).toContain(`0 0 0 4px var(--${colour})`);
+  });
+
   it.each(TEXT_PAIRS)('--%s on --%s is at least %f:1 (%s)', (fg, bg, min) => {
     const ratio = contrast(token(fg), token(bg));
     expect(

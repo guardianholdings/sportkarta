@@ -234,9 +234,13 @@
     color: var(--green-900);
   }
 
-  /* Focus ring is ALWAYS visible and never removable (seed binding rule). */
+  /* Focus ring is ALWAYS visible and never removable (seed binding rule).
+     The ring is a box-shadow, and forced-colors mode (Windows High Contrast)
+     drops every box-shadow — so the outline is TRANSPARENT rather than none:
+     invisible normally, repainted in the system focus colour there. */
   :focus-visible {
-    outline: none;
+    outline: 2px solid transparent;
+    outline-offset: 2px;
     box-shadow: var(--ring);
   }
 

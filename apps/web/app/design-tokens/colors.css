@@ -19,7 +19,14 @@
   --overlay-scrim: rgba(16, 20, 24, 0.46); /* modal / sheet backdrop (ink) */
 
   --border: #e3dfd4; /* hairline dividers, card edges */
-  --border-strong: #cfc9bc; /* inputs, emphasized edges */
+  /* The edge that IDENTIFIES a control — input, checkbox, radio, switch
+     track, secondary button — so WCAG 1.4.11 holds it to 3:1 against what it
+     sits on. The seed's #cfc9bc measured 1.62:1 on --surface: fields barely
+     separated from the card behind them. Same warm hue, darkened by the
+     smallest step that clears 3:1 on the DARKEST surface (--paper-sunk 3.13;
+     --paper 3.40; --surface 3.71). Pinned by tests/token-contrast.test.ts.
+     Decorative hairlines stay on --border. */
+  --border-strong: #8a8373; /* inputs, emphasized edges */
 
   --ink: #101418; /* primary text — raw brand ink */
   --ink-soft: #313d49; /* secondary text (ink hue, lifted) */
@@ -163,8 +170,14 @@
   --line: var(--border);
   --line-strong: var(--border-strong);
 
-  --focus-ring: rgba(11, 122, 64, 0.32); /* green-600 */
-  --focus-ring-accent: rgba(255, 74, 43, 0.34); /* coral-500 */
+  /* Focus indicator colours — OPAQUE on purpose. The seed's 32%-alpha green
+     halo blended to ~1.6:1 against the page, under the 3:1 WCAG 1.4.11 asks of
+     a focus indicator, so keyboard users could barely see where they were.
+     Drawn as a solid ring outside a surface-coloured gap (--ring in
+     elevation.css), each must clear 3:1 against every page surface AND the
+     gap; the test cannot parse an rgba(), so a translucent value fails it. */
+  --focus-ring: var(--green-600); /* = --brand: 4.51–5.33:1 on the surfaces */
+  --focus-ring-accent: var(--coral-700); /* = --accent-active: 5.36–6.33:1 */
 
   /* Links */
   --link: var(--green-600);
