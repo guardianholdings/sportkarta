@@ -29,8 +29,9 @@ jobs:
   db-tests:
     # The suites that run against a real PostGIS: geospatial SQL, the merge
     # policy, moderation and leaderboard authorization, campaign scoring, the
-    # report reconciliation. These assert things no unit test can, they run in
-    # ~2 minutes, and they are the reason this job gates the deploy.
+    # report reconciliation — and the app's own journeys. These assert things
+    # no unit test can, they run in a few minutes, and they are the reason this
+    # job gates the deploy.
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -52,6 +53,12 @@ jobs:
           pnpm db:seed
       - name: DB-backed unit tests (ST_DWithin smoke)
         run: pnpm --filter @sportkarta/db test
+      # The app's OWN functions — add/verify a facility, RSVP and check-in,
+      # moderation decisions, account deletion — against this database. Each
+      # journey runs in a transaction that is rolled back, so it leaves nothing
+      # behind (apps/web/tests/journeys/db.ts).
+      - name: Journey tests (the app's own SQL)
+        run: pnpm --filter @sportkarta/web exec vitest run tests/journeys
       - name: Database logs on failure
         if: failure()
         run: docker compose -f compose.dev.yml logs --tail 100 db
