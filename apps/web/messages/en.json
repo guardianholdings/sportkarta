@@ -464,7 +464,7 @@
       },
       "contributions": {
         "title": "Contributions and points",
-        "body": "When you add or verify a facility, report its condition or upload a photo, we record the contribution with your account id in the change log, and the points in the points ledger. Facility data becomes part of the <openData>open data</openData> under the ODbL licence. Photos are published after a moderator approves them and with all metadata, including GPS, removed.",
+        "body": "When you add or verify a facility, report its condition or upload a photo, we record the contribution with your account id in the change log, and the points in the points ledger. Facility data becomes part of the <openData>open data</openData> under the ODbL licence. Photos are published after a moderator approves them and with all metadata, including GPS, removed; a rejected or taken-down photo is deleted for good.",
         "basis": "Basis: contract (Art. 6(1)(b))."
       },
       "location": {
@@ -536,7 +536,7 @@
       "notices": "The name and email in a content notice — up to {days} days after the decision on it; the notice itself and the decision are kept as a record.",
       "logs": "Records of administrators opening accounts — with no time limit, so that every such access can be checked.",
       "errors": "Error reports in GlitchTip — up to 90 days.",
-      "backups": "Database backups — up to 14 days on the server and about 8 weeks off it, once that is switched on. A deleted account disappears from them as they expire."
+      "backups": "Backups — of the database for up to 14 days on the server, and of the database and uploaded photos for about 8 weeks off it, once that is switched on. A deleted account or photo disappears from them as the copies expire."
     },
     "rights": {
       "title": "Your rights",
