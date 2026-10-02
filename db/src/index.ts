@@ -50,13 +50,21 @@ export {
   adminStandings,
   campaignById,
   campaignBySlug,
+  campaignQuarters,
   campaignStanding,
   closeCampaign,
   frozenResults,
   listCampaigns,
   publicStandings,
+  quarterHasFacilities,
 } from './campaigns.js';
-export type { CampaignRow, CloseReport, FrozenResultRow, StandingRow } from './campaigns.js';
+export type {
+  CampaignRow,
+  CloseReport,
+  FrozenResultRow,
+  QuarterOption,
+  StandingRow,
+} from './campaigns.js';
 export { leaderboard, leaderboardCities, memberStanding, monthStart } from './leaderboard.js';
 export type {
   LeaderboardEntry,

@@ -1,5 +1,11 @@
-import { adminStandings, campaignBySlug, frozenResults, getDb } from '@sportkarta/db';
-import { campaignPhase } from '@sportkarta/lib/campaigns';
+import {
+  adminStandings,
+  campaignBySlug,
+  campaignQuarters,
+  frozenResults,
+  getDb,
+} from '@sportkarta/db';
+import { campaignPhase, isClosable } from '@sportkarta/lib/campaigns';
 import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
@@ -30,11 +36,12 @@ export default async function EditCampaignPage({
   const { locale, slug } = await params;
   setRequestLocale(locale);
   await requireRole('admin');
-  const [t, sportName, catalog, sponsors] = await Promise.all([
+  const [t, sportName, catalog, sponsors, quarters] = await Promise.all([
     getTranslations('AdminCampaigns'),
     getTranslations('Sport'),
     loadCityCatalog(),
     sponsorCandidates(getDb()),
+    campaignQuarters(getDb()),
   ]);
 
   const campaign = await campaignBySlug(getDb(), slug);
@@ -42,6 +49,11 @@ export default async function EditCampaignPage({
 
   const phase = campaignPhase(campaign.status, campaign.window, new Date());
   const isClosed = campaign.status === 'closed';
+  // Freezing is offered only once the window has ended. Earlier it would publish
+  // partial standings as final; a draft or cancelled campaign has nothing to
+  // freeze. closeCampaign refuses the same cases itself — this just does not
+  // put an irreversible button where it cannot be the right one.
+  const closable = isClosable(phase);
 
   /**
    * The ADMIN standings: everyone, by name, unpublished members included. This
@@ -107,7 +119,7 @@ export default async function EditCampaignPage({
             </ConfirmButton>
           </form>
         )}
-        {!isClosed && (
+        {closable && (
           <CloseCampaignForm
             id={campaign.id}
             action={closeCampaignAction}
@@ -116,6 +128,9 @@ export default async function EditCampaignPage({
             confirmLabel={t('closeConfirmLabel', { word: t('closeConfirmWord') })}
             warning={t('closeWarning')}
           />
+        )}
+        {campaign.status === 'published' && !closable && (
+          <p className="max-w-md text-caption text-ink-soft">{t('closeNotYet')}</p>
         )}
         {isClosed && <p className="text-body-sm text-ink-soft">{t('closedNote')}</p>}
       </section>
@@ -191,6 +206,7 @@ export default async function EditCampaignPage({
             action={updateCampaignAction}
             campaign={campaign}
             cities={cities}
+            quarters={quarters}
             sportLabels={sportLabels}
             partners={sponsors.map((p) => ({
               id: p.id,

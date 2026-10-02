@@ -1,6 +1,6 @@
 'use client';
 
-import type { CampaignRow } from '@sportkarta/db';
+import type { CampaignRow, QuarterOption } from '@sportkarta/db';
 import {
   CAMPAIGN_EVENT_KINDS,
   CAMPAIGN_LEADERBOARD_TYPES,
@@ -33,12 +33,19 @@ export function CampaignForm({
   action,
   campaign,
   cities,
+  quarters = [],
   sportLabels,
   partners = [],
 }: {
   action: (state: CampaignFormState, formData: FormData) => Promise<CampaignFormState>;
   campaign?: CampaignRow;
   cities: CityOption[];
+  /**
+   * Quarters that at least one facility actually carries (campaignQuarters).
+   * The quarter scope is an exact match against that column, so these are the
+   * only values that can ever score.
+   */
+  quarters?: QuarterOption[];
   sportLabels: Record<string, string>;
   /** Sponsor candidates, already tier-filtered and localised by the server page. */
   partners?: { id: number; name: string }[];
@@ -47,7 +54,30 @@ export function CampaignForm({
   const [state, formAction, pending] = useActionState<CampaignFormState, FormData>(action, INITIAL);
 
   const [scopeKind, setScopeKind] = useState(campaign?.scope.kind ?? 'national');
+  const [municipalityId, setMunicipalityId] = useState(
+    campaign && campaign.scope.kind !== 'national' ? String(campaign.scope.municipalityId) : '',
+  );
   const [leaderboardType, setLeaderboardType] = useState(campaign?.leaderboardType ?? 'individual');
+
+  // The quarter is CHOSEN, never typed: a free-text quarter matched almost
+  // nothing (7 of 6,677 facilities carried one at the pre-launch audit) and the
+  // campaign scored zero without a word. A stored quarter stays selectable even
+  // if no facility carries it any more, so opening the editor never silently
+  // changes the scope — saving it is refused on the server with a reason.
+  const storedQuarter = campaign?.scope.kind === 'quarter' ? campaign.scope : null;
+  const quarterChoices = quarters
+    .filter((option) => String(option.municipalityId) === municipalityId)
+    .map((option) => option.quarter);
+  if (
+    storedQuarter &&
+    String(storedQuarter.municipalityId) === municipalityId &&
+    !quarterChoices.includes(storedQuarter.quarter)
+  ) {
+    quarterChoices.unshift(storedQuarter.quarter);
+  }
+  // No quarter data at all means a quarter campaign cannot score anywhere, so
+  // the option is not offered — unless this campaign already is one.
+  const offerQuarterScope = quarters.length > 0 || campaign?.scope.kind === 'quarter';
 
   const weightFor = (kind: string): number | undefined =>
     campaign?.rules.events.find((event) => event.kind === kind)?.weight;
@@ -208,7 +238,7 @@ export function CampaignForm({
           >
             <option value="national">{t('scope_national')}</option>
             <option value="city">{t('scope_city')}</option>
-            <option value="quarter">{t('scope_quarter')}</option>
+            {offerQuarterScope && <option value="quarter">{t('scope_quarter')}</option>}
           </select>
         </label>
 
@@ -217,11 +247,8 @@ export function CampaignForm({
             <span className="text-body-sm font-medium">{t('municipalityLabel')}</span>
             <select
               name="municipalityId"
-              defaultValue={
-                campaign?.scope.kind !== 'national'
-                  ? String(campaign?.scope.municipalityId ?? '')
-                  : ''
-              }
+              value={municipalityId}
+              onChange={(event) => setMunicipalityId(event.target.value)}
               className={field}
             >
               <option value="">{t('choose')}</option>
@@ -237,13 +264,28 @@ export function CampaignForm({
         {scopeKind === 'quarter' && (
           <label className="block space-y-1">
             <span className="text-body-sm font-medium">{t('quarterLabel')}</span>
-            <input
-              type="text"
-              name="quarter"
-              maxLength={120}
-              defaultValue={campaign?.scope.kind === 'quarter' ? campaign.scope.quarter : ''}
-              className={field}
-            />
+            {quarterChoices.length > 0 ? (
+              <select
+                // Remounted per municipality, so the default re-applies when the
+                // admin picks a different one instead of keeping a stale quarter.
+                key={municipalityId}
+                name="quarter"
+                required
+                defaultValue={storedQuarter?.quarter ?? ''}
+                className={field}
+              >
+                <option value="">{t('choose')}</option>
+                {quarterChoices.map((quarter) => (
+                  <option key={quarter} value={quarter}>
+                    {quarter}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="block text-body-sm text-ink-soft">
+                {t('quarterNoneForMunicipality')}
+              </span>
+            )}
             <span className="block text-caption text-text-muted">{t('quarterHint')}</span>
           </label>
         )}

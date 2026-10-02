@@ -107,6 +107,13 @@ export default async function CampaignResultsPage({ params }: { params: PagePara
               ]),
             )}
           />
+          {/* Same wording as the live page's own-score note: the frozen
+            placing counts everyone, and an unnamed row is a real competitor. */}
+          {campaign.leaderboardType === 'individual' && (
+            <p className="text-caption text-text-muted">
+              {t('resultsWithheldNote', { label: t('withheld') })}
+            </p>
+          )}
         </section>
 
         <p className="text-body-sm">
