@@ -176,7 +176,7 @@ describe('moderation reasons and mail', () => {
           {
             kind,
             facilityName: 'Борисова градина',
-            targetUrl: 'https://pops.test/pasport/abc',
+            notice: { receivedOn: '29.09.2026', categoryLabel: bg.Notice.category.abuse },
             reasonLabel: 'Причина',
             ground: 'terms',
             date: '30.09.2026',

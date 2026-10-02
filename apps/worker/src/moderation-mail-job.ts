@@ -31,6 +31,10 @@ import { groundOf, type ReasonContext } from '@sportkarta/lib/moderation';
  * transaction, so a retried job cannot mail anybody twice and a failed send
  * rolls its claim back to be retried.
  *
+ * NOTHING A NOTIFIER WROTE GOES OUT: a notice mail goes to an address nobody
+ * verified, so it names the notice by its date and category and never echoes
+ * the reported URL (db/src/moderation-mail.ts does not even read it).
+ *
  * NO PII IN LOGS: the caller logs the kind and a count, never an address, a URL
  * or a reason — a notice URL is user input.
  */
@@ -62,6 +66,7 @@ const STRING_KEYS = [
   'leadNoticeActioned',
   'leadNoticeDismissed',
   'noticeNextSteps',
+  'noticeNotYours',
   'labelReason',
   'labelDecidedOn',
   'groundLaw',
@@ -94,6 +99,13 @@ export function moderationMailStrings(locale: string): ModerationMailStrings {
 function reasonLabel(locale: string, reason: string | null): string | undefined {
   if (!reason) return undefined;
   return messages(locale).ModerationReason?.[reason] ?? reason;
+}
+
+/** The form's own label for a notice category (`Notice.category`), or the slug. */
+function noticeCategoryLabel(locale: string, category: string): string {
+  const labels = (messages(locale).Notice as Record<string, unknown> | undefined)?.category;
+  const label = (labels as Record<string, unknown> | undefined)?.[category];
+  return typeof label === 'string' && label !== '' ? label : category;
 }
 
 export interface ModerationMailOptions {
@@ -174,16 +186,12 @@ async function compose(
 
   const target = await noticeMailTarget(db, subject.noticeId);
   if (!target) return null;
+  const notice = {
+    receivedOn: target.receivedOn,
+    categoryLabel: noticeCategoryLabel(locale, target.category),
+  };
   if (subject.kind === 'notice_received') {
-    return {
-      to: target.email,
-      data: {
-        ...common,
-        kind: 'notice_received',
-        targetUrl: target.targetUrl,
-        date: target.receivedOn,
-      },
-    };
+    return { to: target.email, data: { ...common, kind: 'notice_received', notice } };
   }
   // An outcome for a notice nobody has decided yet is a job enqueued too early
   // or replayed: say nothing rather than announce a decision that does not exist.
@@ -195,7 +203,7 @@ async function compose(
     data: {
       ...common,
       kind: target.status === 'actioned' ? 'notice_actioned' : 'notice_dismissed',
-      targetUrl: target.targetUrl,
+      notice,
       reasonLabel: reasonLabel(locale, target.reason),
       ground: groundOf(context, target.reason),
       date: target.decidedOn ?? undefined,

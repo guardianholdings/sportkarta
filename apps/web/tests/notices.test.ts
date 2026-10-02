@@ -68,6 +68,34 @@ describe('parseNoticeUrl', () => {
     }
   });
 
+  it("refuses a site path that smuggles in somebody else's host", () => {
+    for (const bad of [
+      // An embedded URL: no POPS path has one, and a mail client links it.
+      '/https://evil.example/pops-login',
+      '/pasport/x?next=https://evil.example/',
+      // A browser reads `\` as `/`: these ARE protocol-relative links.
+      '/\\evil.example/login',
+      '/\\/evil.example',
+      '\\\\evil.example',
+      // And in an absolute URL the host a reader sees is not the one opened.
+      'https://evil.example\\@pops.bg/',
+      // A scheme `new URL` would forgive, but not one a URL is written with.
+      'https:evil.example/x',
+    ]) {
+      expect(parseNoticeUrl(bad), bad).toBeNull();
+      expect(prefillPath(bad), bad).toBe('');
+    }
+  });
+
+  it('keeps an absolute URL whole, embedded URL and all — it is only ever shown to the admin', () => {
+    // Never mailed (the notice mails carry no URL at all), and rendered in the
+    // admin queue as a link to the host it plainly names.
+    expect(parseNoticeUrl('https://pops.bg/?r=https://evil.example/x')).toBe(
+      'https://pops.bg/?r=https://evil.example/x',
+    );
+    expect(parseNoticeUrl('HTTPS://pops.bg/obekt/x')).toBe('HTTPS://pops.bg/obekt/x');
+  });
+
   it('refuses whitespace and control characters — no smuggled second line', () => {
     expect(parseNoticeUrl('/a b')).toBeNull();
     expect(parseNoticeUrl('/a\nSubject: x')).toBeNull();

@@ -139,6 +139,22 @@ describe.skipIf(!hasDb)('content notices and moderation mail (requires running d
       );
     });
 
+    it("refuses a site path that smuggles in somebody else's host", async () => {
+      for (const smuggled of [
+        // An embedded URL: no POPS path has one, and a mail client links it.
+        `${URL_PREFIX}https://evil.example/login`,
+        // A browser reads a backslash as a slash: `/\host` is `//host`.
+        `/\\evil.example/login`,
+        `${URL_PREFIX}a\\b`,
+        // Protocol-relative: somebody else's host outright.
+        '//evil.example/login',
+      ]) {
+        await expect(notice({ target_url: smuggled }), smuggled).rejects.toThrow(
+          /content_notices_target_url_shape/,
+        );
+      }
+    });
+
     it('refuses a notice without its statement of good faith', async () => {
       await expect(notice({ good_faith: false })).rejects.toThrow(/content_notices_good_faith/);
     });
@@ -233,8 +249,16 @@ describe.skipIf(!hasDb)('content notices and moderation mail (requires running d
     it('resolves the reply address, and nobody when none was left', async () => {
       const withEmail = await notice();
       const target = await noticeMailTarget(db, withEmail);
-      expect(target).toMatchObject({ email: 'notifier@example.test', status: 'pending' });
+      expect(target).toMatchObject({
+        email: 'notifier@example.test',
+        status: 'pending',
+        category: 'abuse',
+      });
       expect(target?.receivedOn).toMatch(/^\d{2}\.\d{2}\.\d{4}$/);
+      // The reply address is whatever an anonymous form was given, so nothing
+      // the notifier WROTE is read for the mail — above all not the URL.
+      expect(target).not.toHaveProperty('targetUrl');
+      expect(JSON.stringify(target)).not.toContain(URL_PREFIX);
 
       const anonymous = await notice({ notifier_email: null });
       expect(await noticeMailTarget(db, anonymous)).toBeNull();

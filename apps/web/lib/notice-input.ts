@@ -49,9 +49,12 @@ export interface NoticeFields {
 }
 
 // Whitespace and control characters: nothing a real URL contains, and the
-// characters a smuggled second line or header would need.
+// characters a smuggled second line or header would need. And the backslash,
+// which a browser reads as a slash: `/\evil.example` is `//evil.example`,
+// somebody else's host behind what looks like a path on ours.
 // eslint-disable-next-line no-control-regex
-const UNSAFE_URL_CHARS = /[\s\u0000-\u001f\u007f]/;
+const UNSAFE_URL_CHARS = /[\s\u0000-\u001f\u007f\\]/;
+const ABSOLUTE_HTTP = /^https?:\/\//i;
 const EMAIL_SHAPE = /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/;
 
 function str(value: unknown): string {
@@ -61,19 +64,27 @@ function str(value: unknown): string {
 /**
  * A reported location: an absolute http(s) URL, or a path on this site. Anything
  * else — `javascript:`, `data:`, a protocol-relative `//host` — is refused,
- * because the admin queue renders the value as a link.
+ * because the admin queue renders the value as a link. A site path may not
+ * carry another URL inside it (`/https://evil.example/login`): no POPS path
+ * does, and it is how a "path" smuggles in somebody else's host. The 0033 CHECK
+ * `content_notices_target_url_shape` repeats every rule here.
+ *
+ * Whatever passes is still the notifier's own text, so it is shown to the
+ * admin and NEVER mailed back (lib/src/email/moderation-mail.ts).
  */
 export function parseNoticeUrl(value: unknown): string | null {
   const url = str(value);
   if (!url || url.length > MAX_NOTICE_URL || UNSAFE_URL_CHARS.test(url)) return null;
-  if (url.startsWith('/')) return url.startsWith('//') ? null : url;
-  let parsed: URL;
+  if (url.startsWith('/')) return url.startsWith('//') || url.includes('://') ? null : url;
+  // The scheme as typed, not as `new URL` would normalise it: `https:evil.example`
+  // parses, but it is not what the CHECK (and a reader) expect a URL to look like.
+  if (!ABSOLUTE_HTTP.test(url)) return null;
   try {
-    parsed = new URL(url);
+    new URL(url);
   } catch {
     return null;
   }
-  return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? url : null;
+  return url;
 }
 
 /**

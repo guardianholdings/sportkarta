@@ -17,6 +17,13 @@
  *     published yet) and, always, the courts.
  *
  * WHAT IS NEVER IN THESE MESSAGES:
+ *   - Anything a notifier wrote: not the URL they reported, not their
+ *     explanation. A notice's reply address is whatever was typed into an
+ *     anonymous form, with no proof it is the sender's, so echoing the
+ *     notifier's words would let anybody have POPS mail anybody a branded
+ *     message carrying a link of their choosing — and no defanging survives
+ *     every mail client's autolinker. A notice is identified by what is ours:
+ *     the day it arrived and its category from the closed list.
  *   - Who reported the content, or that anybody did. A statement of reasons
  *     that names the notifier turns a notice into a target.
  *   - The moderator. Decisions are the organisation's; the log keeps the name.
@@ -48,13 +55,15 @@ export interface ModerationMailStrings {
   leadPhotoRemoved: string;
   /** `{facility}` */
   leadFacilityRemoved: string;
-  /** `{url}` `{date}` */
+  /** `{date}` `{category}` — the notice's own, never what it reported. */
   leadNoticeReceived: string;
-  /** `{url}` */
+  /** `{date}` `{category}` */
   leadNoticeActioned: string;
-  /** `{url}` */
+  /** `{date}` `{category}` */
   leadNoticeDismissed: string;
   noticeNextSteps: string;
+  /** For whoever receives a receipt without having sent anything. */
+  noticeNotYours: string;
   labelReason: string;
   /** `{date}` */
   labelDecidedOn: string;
@@ -78,12 +87,16 @@ export interface ModerationMailData {
   facilityName?: string | null | undefined;
   /** Link to the facility when it is still public (a rejected photo's). */
   facilityUrl?: string | undefined;
-  /** What a notice reported, for the notice kinds. Echoed back, never linked. */
-  targetUrl?: string | undefined;
+  /**
+   * The notice being answered, for the notice kinds: the day it arrived and
+   * its already-translated category. Deliberately no field for the reported
+   * URL — see "never in these messages" above.
+   */
+  notice?: { receivedOn: string; categoryLabel: string } | undefined;
   /** Already-translated reason label. Absent on a receipt. */
   reasonLabel?: string | undefined;
   ground?: 'law' | 'terms' | undefined;
-  /** `DD.MM.YYYY`, civil Sofia date — formatted by the caller's SQL. */
+  /** Date of the decision, `DD.MM.YYYY`, civil Sofia — formatted by the caller's SQL. */
   date?: string | undefined;
   termsUrl: string;
   /** The published contact address; when absent the notice form is offered. */
@@ -95,15 +108,6 @@ function fill(template: string, values: Record<string, string>): string {
   return template.replace(/\{(\w+)\}/g, (match, key: string) =>
     key in values ? String(values[key]) : match,
   );
-}
-
-/**
- * A URL echoed inside a sentence, defanged so no mail client turns it into a
- * link. It came from an anonymous form: whatever it points at, the mail that
- * confirms we received it must not become a way to deliver it.
- */
-function inert(url: string): string {
-  return url.replace(/^(https?):\/\//i, '$1[:]//');
 }
 
 function subjectFor(kind: ModerationMailKind, s: ModerationMailStrings): string {
@@ -124,7 +128,10 @@ function subjectFor(kind: ModerationMailKind, s: ModerationMailStrings): string 
 
 function leadFor(data: ModerationMailData, s: ModerationMailStrings): string {
   const facility = data.facilityName?.trim() || s.unnamedFacility;
-  const url = inert(data.targetUrl ?? '');
+  const notice = {
+    date: data.notice?.receivedOn ?? '',
+    category: data.notice?.categoryLabel ?? '',
+  };
   switch (data.kind) {
     case 'photo_rejected':
       return fill(s.leadPhotoRejected, { facility });
@@ -133,11 +140,11 @@ function leadFor(data: ModerationMailData, s: ModerationMailStrings): string {
     case 'facility_removed':
       return fill(s.leadFacilityRemoved, { facility });
     case 'notice_received':
-      return fill(s.leadNoticeReceived, { url, date: data.date ?? '' });
+      return fill(s.leadNoticeReceived, notice);
     case 'notice_actioned':
-      return fill(s.leadNoticeActioned, { url });
+      return fill(s.leadNoticeActioned, notice);
     case 'notice_dismissed':
-      return fill(s.leadNoticeDismissed, { url });
+      return fill(s.leadNoticeDismissed, notice);
   }
 }
 
@@ -149,7 +156,7 @@ export function renderModerationMail(
   if (data.facilityUrl) lines.push(`  ${data.facilityUrl}`);
 
   if (data.kind === 'notice_received') {
-    lines.push('', strings.noticeNextSteps);
+    lines.push('', strings.noticeNextSteps, '', strings.noticeNotYours);
   } else {
     if (data.reasonLabel) lines.push('', `${strings.labelReason}: ${data.reasonLabel}`);
     if (data.date) lines.push(fill(strings.labelDecidedOn, { date: data.date }));

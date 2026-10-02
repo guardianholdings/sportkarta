@@ -887,9 +887,11 @@ export const contentNotices = pgTable(
     index('content_notices_pending_created_idx')
       .on(t.createdAt)
       .where(sql`${t.status} = 'pending'`),
+    // No backslash (chr(92): a browser reads `/\host` as `//host`) and no
+    // `://` inside a site path — the shapes that smuggle another host in.
     check(
       'content_notices_target_url_shape',
-      sql`char_length(${t.targetUrl}) BETWEEN 1 AND 500 AND ${t.targetUrl} ~ '^(https?://|/)' AND ${t.targetUrl} !~ '[[:space:][:cntrl:]]'`,
+      sql`char_length(${t.targetUrl}) BETWEEN 1 AND 500 AND ${t.targetUrl} !~ '[[:space:][:cntrl:]]' AND position(chr(92) in ${t.targetUrl}) = 0 AND (${t.targetUrl} ~* '^https?://' OR (${t.targetUrl} ~ '^/' AND ${t.targetUrl} !~ '^//' AND position('://' in ${t.targetUrl}) = 0))`,
     ),
     check(
       'content_notices_explanation_len',

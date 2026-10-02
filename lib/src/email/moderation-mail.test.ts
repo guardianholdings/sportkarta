@@ -16,10 +16,11 @@ const STRINGS: ModerationMailStrings = {
   leadPhotoRejected: 'Your photo of {facility} was not published.',
   leadPhotoRemoved: 'Your photo of {facility} was taken down.',
   leadFacilityRemoved: '{facility}, which you added, was removed from the map.',
-  leadNoticeReceived: 'We received your notice about {url} on {date}.',
-  leadNoticeActioned: 'We acted on your notice about {url}.',
-  leadNoticeDismissed: 'We took no action on your notice about {url}.',
+  leadNoticeReceived: 'We received your notice of {date} ({category}).',
+  leadNoticeActioned: 'We acted on your notice of {date} ({category}).',
+  leadNoticeDismissed: 'We took no action on your notice of {date} ({category}).',
   noticeNextSteps: 'A person will review it and write to you.',
+  noticeNotYours: 'If you sent us nothing, ignore this.',
   labelReason: 'Reason',
   labelDecidedOn: 'Decided on {date}',
   groundLaw: 'Ground: the content appeared to be illegal.',
@@ -47,6 +48,11 @@ const BASE: ModerationMailData = {
 
 function mail(overrides: Partial<ModerationMailData> = {}) {
   return renderModerationMail({ ...BASE, ...overrides }, STRINGS);
+}
+
+/** Every link target in an HTML part. */
+function hrefs(html: string): string[] {
+  return [...html.matchAll(/href="([^"]*)"/g)].map((m) => m[1] ?? '');
 }
 
 describe('renderModerationMail — statement of reasons', () => {
@@ -105,22 +111,37 @@ describe('renderModerationMail — notices', () => {
     facilityUrl: undefined,
     reasonLabel: undefined,
     ground: undefined,
-    targetUrl: 'https://evil.example/malware',
+    date: undefined,
+    notice: { receivedOn: '29.09.2026', categoryLabel: 'Abusive content' },
   };
 
-  it('confirms receipt with the date and what happens next, and no verdict', () => {
+  it('confirms receipt by the notice’s date and category, and gives no verdict', () => {
     const { subject, text } = mail(notice);
     expect(subject).toBe('We received your notice');
-    expect(text).toContain('on 30.09.2026');
+    expect(text).toContain('We received your notice of 29.09.2026 (Abusive content).');
     expect(text).toContain('A person will review it and write to you.');
     expect(text).not.toContain('Ground:');
     expect(text).not.toContain('go to court');
   });
 
-  it('echoes the reported URL inert, so a receipt cannot deliver a link', () => {
-    const { text, html } = mail(notice);
-    expect(text).toContain('https[:]//evil.example/malware');
-    expect(html).not.toContain('href="https://evil.example');
+  it('tells somebody who sent nothing that they need do nothing — the address is unverified', () => {
+    expect(mail(notice).text).toContain('If you sent us nothing, ignore this.');
+    expect(mail({ ...notice, kind: 'notice_dismissed' }).text).not.toContain('sent us nothing');
+  });
+
+  it('links nowhere but the site, whichever notice mail and contact route', () => {
+    // The reply address came from an anonymous form, so the only links a
+    // notice mail may carry are our own pages.
+    for (const kind of ['notice_received', 'notice_actioned', 'notice_dismissed'] as const) {
+      for (const contactEmail of ['info@pops.bg', null]) {
+        const { html } = mail({ ...notice, kind, contactEmail });
+        const links = hrefs(html ?? '');
+        expect(links.length, kind).toBeGreaterThan(0);
+        for (const href of links) {
+          expect(href, `${kind} ${String(contactEmail)}`).toMatch(/^https:\/\/pops\.bg\//);
+        }
+      }
+    }
   });
 
   it('reports the outcome and its reason either way', () => {
@@ -131,11 +152,18 @@ describe('renderModerationMail — notices', () => {
       ground: 'law',
     });
     expect(actioned.subject).toBe('Decision on your notice');
-    expect(actioned.text).toContain('We acted on your notice about');
+    expect(actioned.text).toContain('We acted on your notice of 29.09.2026 (Abusive content).');
     expect(actioned.text).toContain('Reason: Illegal content');
 
-    const dismissed = mail({ ...notice, kind: 'notice_dismissed', reasonLabel: 'Not illegal' });
-    expect(dismissed.text).toContain('We took no action on your notice about');
+    const dismissed = mail({
+      ...notice,
+      kind: 'notice_dismissed',
+      reasonLabel: 'Not illegal',
+      date: '30.09.2026',
+    });
+    expect(dismissed.text).toContain('We took no action on your notice of 29.09.2026');
     expect(dismissed.text).toContain('Reason: Not illegal');
+    // The notice's date names it; the decision's date is stated on its own line.
+    expect(dismissed.text).toContain('Decided on 30.09.2026');
   });
 });

@@ -88,11 +88,21 @@ export async function decisionMailTarget(
   };
 }
 
-/** A notice and the address its sender left, if any. */
+/**
+ * A notice and the address its sender left, if any.
+ *
+ * NOTHING THE NOTIFIER WROTE is here — not the reported URL, not the
+ * explanation. The reply address is whatever an anonymous form was given, with
+ * no proof it belongs to the sender, so a mail that echoed the notifier's words
+ * would let anybody have POPS send anybody a branded message with a link of
+ * their choosing in it. The notice is identified by what is OURS: the day it
+ * arrived and its category from the closed list.
+ */
 export interface NoticeMailTarget {
   noticeId: string;
   email: string;
-  targetUrl: string;
+  /** A `content_notice_category` slug; the label lives in messages/*.json. */
+  category: string;
   status: 'pending' | 'actioned' | 'dismissed';
   reason: string | null;
   /** `DD.MM.YYYY`, civil Sofia date. */
@@ -106,7 +116,7 @@ export async function noticeMailTarget(
   noticeId: string,
 ): Promise<NoticeMailTarget | null> {
   const result = await db.execute(sql`
-    SELECT id, notifier_email, target_url, status, decision_reason,
+    SELECT id, notifier_email, category::text AS category, status, decision_reason,
            to_char(created_at AT TIME ZONE 'Europe/Sofia', 'DD.MM.YYYY') AS received_on,
            to_char(decided_at AT TIME ZONE 'Europe/Sofia', 'DD.MM.YYYY') AS decided_on
       FROM content_notices
@@ -117,7 +127,7 @@ export async function noticeMailTarget(
   return {
     noticeId: String(row.id),
     email: String(row.notifier_email),
-    targetUrl: String(row.target_url),
+    category: String(row.category),
     status: row.status as NoticeMailTarget['status'],
     reason: (row.decision_reason as string | null) ?? null,
     receivedOn: String(row.received_on),

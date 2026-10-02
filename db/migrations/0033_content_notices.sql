@@ -115,9 +115,15 @@ CREATE TABLE "content_notices" (
 	"decided_at" timestamp with time zone,
 	"decision_reason" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	-- An absolute http(s) URL or a site path; never `javascript:` or anything
-	-- else the admin queue could be tricked into rendering as a live link.
-	CONSTRAINT "content_notices_target_url_shape" CHECK (char_length("content_notices"."target_url") BETWEEN 1 AND 500 AND "content_notices"."target_url" ~ '^(https?://|/)' AND "content_notices"."target_url" !~ '[[:space:][:cntrl:]]'),
+	-- An absolute http(s) URL or a path on this site, and nothing the admin
+	-- queue could be tricked into rendering as a link somewhere else: no
+	-- `javascript:`, no protocol-relative `//host`, no backslash anywhere (a
+	-- browser reads `/\host` as `//host`), and no `://` inside a site path — no
+	-- POPS path contains one, and an embedded URL is how a "path" smuggles in
+	-- somebody else's host. chr(92) is the backslash, spelled so that no layer
+	-- of string escaping can change what it means. apps/web/lib/notice-input.ts
+	-- repeats every rule.
+	CONSTRAINT "content_notices_target_url_shape" CHECK (char_length("content_notices"."target_url") BETWEEN 1 AND 500 AND "content_notices"."target_url" !~ '[[:space:][:cntrl:]]' AND position(chr(92) in "content_notices"."target_url") = 0 AND ("content_notices"."target_url" ~* '^https?://' OR ("content_notices"."target_url" ~ '^/' AND "content_notices"."target_url" !~ '^//' AND position('://' in "content_notices"."target_url") = 0))),
 	CONSTRAINT "content_notices_explanation_len" CHECK (btrim("content_notices"."explanation") <> '' AND char_length("content_notices"."explanation") <= 2000),
 	CONSTRAINT "content_notices_notifier_name_len" CHECK ("content_notices"."notifier_name" IS NULL OR (btrim("content_notices"."notifier_name") <> '' AND char_length("content_notices"."notifier_name") <= 120)),
 	CONSTRAINT "content_notices_notifier_email_shape" CHECK ("content_notices"."notifier_email" IS NULL OR (char_length("content_notices"."notifier_email") <= 254 AND "content_notices"."notifier_email" ~ '^[^@[:space:]]+@[^@[:space:]]+$')),
