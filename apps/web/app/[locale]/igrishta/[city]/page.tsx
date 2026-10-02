@@ -12,6 +12,7 @@ import {
   getCityBySlug,
   scopedFacilities,
   scopedFacilityCount,
+  scopedMapPoints,
   type City,
 } from '@/lib/places';
 import { takesVav } from '@/lib/grammar';
@@ -19,12 +20,13 @@ import { buildAlternates } from '@/lib/seo';
 import { AppShell } from '@/components/shell/app-shell';
 import { chipClass } from '@/components/ui/chip';
 
+import { ListPager } from '../list-pager';
+
 // Programmatic SEO page: rendered on-demand + cached (ISR), never at build
 // (no DB during the Docker build). Thin-content guarded.
 export const revalidate = 3600;
 
 const MIN_FACILITIES = 3;
-const LIST_LIMIT = 60;
 
 type PageParams = Promise<{ locale: string; city: string }>;
 
@@ -57,9 +59,12 @@ export default async function CityPage({ params }: { params: PageParams }) {
   const count = await scopedFacilityCount(city.id);
   if (count < MIN_FACILITIES) notFound();
 
-  const [t, tSport, facilities, sportCounts] = await Promise.all([
+  // The map gets the whole municipality; the list gets its first page and a
+  // pager (lib/places.ts: MAP_POINT_LIMIT, LIST_PAGE_SIZE).
+  const [t, tSport, mapPoints, facilities, sportCounts] = await Promise.all([
     getTranslations('Places'),
     getTranslations('Sport'),
+    scopedMapPoints(city.id),
     scopedFacilities(city.id),
     citySportCounts(city.id),
   ]);
@@ -115,22 +120,20 @@ export default async function CityPage({ params }: { params: PageParams }) {
           <h2 id="map-h" className="mb-2 text-h4 font-bold text-ink">
             {t('mapHeading')}
           </h2>
-          <PlaceMap facilities={facilities} />
+          <PlaceMap facilities={mapPoints} />
+          {mapPoints.length < count && (
+            <p className="mt-2 text-body-sm text-text-muted">
+              {t('mapLimited', { shown: mapPoints.length, total: count })}
+            </p>
+          )}
         </section>
 
         <section aria-labelledby="list-h">
           <h2 id="list-h" className="mb-2 text-h4 font-bold text-ink">
             {t('facilitiesHeading')}
           </h2>
-          <FacilityList facilities={facilities.slice(0, LIST_LIMIT)} />
-          {count > LIST_LIMIT && (
-            <p className="mt-2 text-body-sm text-text-muted">
-              {t('showingLimited', {
-                shown: Math.min(LIST_LIMIT, facilities.length),
-                total: count,
-              })}
-            </p>
-          )}
+          <FacilityList facilities={facilities} />
+          <ListPager basePath={`/igrishta/${city.slug}`} page={1} total={count} />
         </section>
 
         {/* MONETISATION §S5 ad surface, after the facility list. Renders nothing

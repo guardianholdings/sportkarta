@@ -1,4 +1,3 @@
-import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
@@ -10,50 +9,39 @@ import {
   citiesForSport,
   citySportCounts,
   getCityBySlug,
-  resolveQuarterSlug,
+  resolveSegmentScope,
   scopedFacilities,
   scopedFacilityCount,
+  scopedMapPoints,
+  segmentScopeOptions,
   type City,
-  type ScopeOptions,
 } from '@/lib/places';
 import { capitalizeFirst, takesVav } from '@/lib/grammar';
 import { buildAlternates } from '@/lib/seo';
 import { AppShell } from '@/components/shell/app-shell';
 import { chipClass } from '@/components/ui/chip';
 
+import { ListPager } from '../../list-pager';
+
 // ISR: on-demand + cached hourly, never prerendered at build (no DB there).
 export const revalidate = 3600;
 
 const MIN_FACILITIES = 3;
-const LIST_LIMIT = 60;
-const SPORT_SET = new Set<string>(CANONICAL_SPORTS);
 
 type PageParams = Promise<{ locale: string; city: string; segment: string }>;
 
-// The [segment] is EITHER a canonical sport (allowlist) OR a quarter slug.
-type Scope = { kind: 'sport'; sport: string } | { kind: 'quarter'; quarter: string };
-
 function cityName(city: City, locale: string): string {
   return locale === 'en' ? city.nameEn : city.nameBg;
-}
-
-async function resolveScope(cityId: number, segment: string): Promise<Scope | null> {
-  if (SPORT_SET.has(segment)) return { kind: 'sport', sport: segment };
-  const quarter = await resolveQuarterSlug(cityId, segment);
-  return quarter ? { kind: 'quarter', quarter } : null;
-}
-
-function scopeOptions(scope: Scope): ScopeOptions {
-  return scope.kind === 'sport' ? { sport: scope.sport } : { quarter: scope.quarter };
 }
 
 export async function generateMetadata({ params }: { params: PageParams }): Promise<Metadata> {
   const { locale, city: slug, segment } = await params;
   const city = await getCityBySlug(slug);
   if (!city) return {};
-  const scope = await resolveScope(city.id, segment);
+  // The [segment] is EITHER a canonical sport (allowlist) OR a quarter slug.
+  const scope = await resolveSegmentScope(city.id, segment);
   if (!scope) return {};
-  const count = await scopedFacilityCount(city.id, scopeOptions(scope));
+  const count = await scopedFacilityCount(city.id, segmentScopeOptions(scope));
   if (count < MIN_FACILITIES) return {};
 
   const [t, tSport] = await Promise.all([
@@ -92,15 +80,16 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
 
   const city = await getCityBySlug(slug);
   if (!city) notFound();
-  const scope = await resolveScope(city.id, segment);
+  const scope = await resolveSegmentScope(city.id, segment);
   if (!scope) notFound();
-  const opts = scopeOptions(scope);
+  const opts = segmentScopeOptions(scope);
   const count = await scopedFacilityCount(city.id, opts);
   if (count < MIN_FACILITIES) notFound();
 
-  const [t, tSport, facilities] = await Promise.all([
+  const [t, tSport, mapPoints, facilities] = await Promise.all([
     getTranslations('Places'),
     getTranslations('Sport'),
+    scopedMapPoints(city.id, opts),
     scopedFacilities(city.id, opts),
   ]);
   const name = cityName(city, locale);
@@ -150,22 +139,20 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
           <h2 id="map-h" className="mb-2 text-h4 font-bold text-ink">
             {t('mapHeading')}
           </h2>
-          <PlaceMap facilities={facilities} />
+          <PlaceMap facilities={mapPoints} />
+          {mapPoints.length < count && (
+            <p className="mt-2 text-body-sm text-text-muted">
+              {t('mapLimited', { shown: mapPoints.length, total: count })}
+            </p>
+          )}
         </section>
 
         <section aria-labelledby="list-h">
           <h2 id="list-h" className="mb-2 text-h4 font-bold text-ink">
             {t('facilitiesHeading')}
           </h2>
-          <FacilityList facilities={facilities.slice(0, LIST_LIMIT)} />
-          {count > LIST_LIMIT && (
-            <p className="mt-2 text-body-sm text-text-muted">
-              {t('showingLimited', {
-                shown: Math.min(LIST_LIMIT, facilities.length),
-                total: count,
-              })}
-            </p>
-          )}
+          <FacilityList facilities={facilities} />
+          <ListPager basePath={`/igrishta/${city.slug}/${segment}`} page={1} total={count} />
         </section>
 
         {otherSports.length > 0 && (

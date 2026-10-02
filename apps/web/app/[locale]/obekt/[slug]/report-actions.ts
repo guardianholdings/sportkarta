@@ -2,7 +2,7 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { getDb, sql } from '@sportkarta/db';
+import { getDb, publicFacilityVisible, sql } from '@sportkarta/db';
 import { headers } from 'next/headers';
 
 import {
@@ -93,10 +93,11 @@ export async function submitReport(_prev: ReportState, formData: FormData): Prom
   const slug = String(formData.get('slug') ?? '');
   if (!SLUG_RE.test(slug)) return { status: 'error', error: 'invalid' };
 
-  // Resolve the facility from the slug server-side (never trust a client id).
+  // Resolve the facility from the slug server-side (never trust a client id),
+  // under the public page's own visibility rule.
   const db = getDb();
   const facRes = await db.execute(
-    sql`SELECT id FROM facilities WHERE slug = ${slug} AND status <> 'gone'`,
+    sql`SELECT f.id FROM facilities f WHERE f.slug = ${slug} AND ${publicFacilityVisible}`,
   );
   const facilityId = (facRes.rows[0] as { id?: string } | undefined)?.id;
   if (!facilityId) return { status: 'error', error: 'invalid' };

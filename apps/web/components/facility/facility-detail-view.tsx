@@ -1,6 +1,7 @@
-import { Navigation, ShieldCheck } from 'lucide-react';
+import { CircleDashed, Navigation, ShieldCheck } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Stat } from '@/components/ui/stat';
 import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
@@ -18,7 +19,11 @@ export interface FacilityDetailData {
   surface: string | null;
   lighting: boolean | null;
   covered: boolean;
+  /** False when `covered` is only the column default — rendered as "unknown". */
+  coveredKnown: boolean;
   access: string;
+  /** `needs_verification` shows the "awaiting verification" badge. */
+  status: string;
   source: string;
   quarter: string | null;
   municipalityName: string | null;
@@ -65,6 +70,9 @@ export function FacilityDetailView({
 
   const lighting =
     facility.lighting === null ? t('unknown') : facility.lighting ? t('yes') : t('no');
+  // Same tri-state as lighting: a `false` nobody asserted is "unknown", never
+  // "no" — an indoor hall imported without a roof tag is not open-air.
+  const covered = !facility.coveredKnown ? t('unknown') : facility.covered ? t('yes') : t('no');
   const surface = facility.surface ? tSurface(facility.surface) : t('unknown');
   const lastVerified = facility.lastVerifiedAt
     ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(
@@ -120,7 +128,7 @@ export function FacilityDetailView({
             { value: tAccess(facility.access), label: t('access') },
             { value: surface, label: t('surface') },
             { value: lighting, label: t('lighting') },
-            { value: facility.covered ? t('yes') : t('no'), label: t('covered') },
+            { value: covered, label: t('covered') },
           ].map((s) => (
             <div key={s.label} className="bg-paper-sunk px-3 py-3">
               <Stat value={s.value} label={s.label} />
@@ -129,8 +137,13 @@ export function FacilityDetailView({
         </div>
 
         {/* Condition + verification — needs-verification is a data-quality signal,
-            not a reason to hide the facility. */}
+            not a reason to hide the facility, so it is SAID rather than hidden. */}
         <div className="flex flex-wrap items-center gap-2">
+          {facility.status === 'needs_verification' ? (
+            <Badge tone="warning" icon={<CircleDashed size={13} />}>
+              {t('awaitingVerification')}
+            </Badge>
+          ) : null}
           {facility.condition ? (
             <span className="inline-flex items-center gap-1.5 rounded-pill bg-brand-subtle px-2.5 py-1 text-caption font-medium text-brand">
               <ShieldCheck size={13} />

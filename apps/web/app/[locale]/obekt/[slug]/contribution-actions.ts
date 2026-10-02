@@ -1,6 +1,6 @@
 'use server';
 
-import { getDb, sql } from '@sportkarta/db';
+import { getDb, publicFacilityVisible, sql } from '@sportkarta/db';
 import { POINTS_BY_EVENT } from '@sportkarta/lib/points';
 import { revalidatePath } from 'next/cache';
 
@@ -36,11 +36,15 @@ export interface ContributionState {
 
 const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
-/** Facilities are addressed by slug in public URLs; never trust a client id. */
+/**
+ * Facilities are addressed by slug in public URLs; never trust a client id.
+ * Only a facility the public page would show can be contributed to — the same
+ * `publicFacilityVisible` rule, so a hidden business's venue takes no edits.
+ */
 async function facilityIdFromSlug(slug: string): Promise<string | null> {
   if (!SLUG_RE.test(slug)) return null;
   const result = await getDb().execute(
-    sql`SELECT id FROM facilities WHERE slug = ${slug} AND status <> 'gone'`,
+    sql`SELECT f.id FROM facilities f WHERE f.slug = ${slug} AND ${publicFacilityVisible}`,
   );
   return (result.rows[0]?.id as string | undefined) ?? null;
 }

@@ -52,6 +52,13 @@ jobs:
           pnpm db:seed
       - name: DB-backed unit tests (ST_DWithin smoke)
         run: pnpm --filter @sportkarta/db test
+      # The web app's DB-backed suite. `pnpm test` in the quality job skips it
+      # (no DATABASE_URL), so without this step it would never run anywhere:
+      # it is the proof that /obshtina reconciles with /igrishta, that a hidden
+      # business has no page, that «Последна проверка» is dated only by on-site
+      # evidence, and that the list pages partition a city — all raw SQL.
+      - name: DB-backed web tests (public read layer)
+        run: pnpm --filter @sportkarta/web exec vitest run tests/public-data-db.test.ts
       - name: Database logs on failure
         if: failure()
         run: docker compose -f compose.dev.yml logs --tail 100 db
