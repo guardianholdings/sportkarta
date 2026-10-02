@@ -1854,6 +1854,10 @@
       "points": "{count, plural, one {точка} other {точки}}",
       "checkins": "{count, plural, one {тренировка} other {тренировки}}",
       "badges": "{count, plural, one {отличие} other {отличия}}"
+    },
+    "site": {
+      "title": "Картата на свободния спорт в България",
+      "imageAlt": "Повече от просто спорт — картата на свободния спорт в България"
     }
   },
   "Legend": {

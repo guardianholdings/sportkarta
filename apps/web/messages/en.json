@@ -1854,6 +1854,10 @@
       "points": "{count, plural, one {point} other {points}}",
       "checkins": "{count, plural, one {session} other {sessions}}",
       "badges": "{count, plural, one {badge} other {badges}}"
+    },
+    "site": {
+      "title": "Bulgaria's map of free sport",
+      "imageAlt": "POPS — Bulgaria's map of free sport"
     }
   },
   "Legend": {

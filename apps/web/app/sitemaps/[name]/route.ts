@@ -4,12 +4,13 @@ import {
   sitemapFacilities,
   sitemapMunicipalities,
 } from '@/lib/places';
+import { STATIC_SITEMAP_PATHS } from '@/lib/sitemap-static';
 import { renderUrlset, XML_HEADERS, type UrlEntry } from '@/lib/sitemap-xml';
 
 // Segmented child sitemaps (auto-updating from the DB):
 //   /sitemaps/facilities.xml — every public facility page
 //   /sitemaps/places.xml     — city + city×sport pages (≥3 guard)
-//   /sitemaps/static.xml      — the handful of static pages
+//   /sitemaps/static.xml      — the indexable static pages (lib/sitemap-static.ts)
 // Cached + revalidated hourly so crawlers don't trigger a full-table scan per
 // request (facilities.xml ≈ 6.6k rows).
 export const revalidate = 3600;
@@ -28,12 +29,7 @@ async function entriesFor(name: string): Promise<UrlEntry[] | null> {
     }
     case 'static.xml': {
       const now = new Date().toISOString();
-      return [
-        { path: '/', lastmod: now },
-        { path: '/privacy', lastmod: now },
-        { path: '/partnyori', lastmod: now },
-        { path: '/podkrepi', lastmod: now },
-      ];
+      return STATIC_SITEMAP_PATHS.map((path) => ({ path, lastmod: now }));
     }
     default:
       return null;
