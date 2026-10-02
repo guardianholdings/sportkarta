@@ -15,6 +15,7 @@ import { ReportForm } from '@/components/facility/report-form';
 import { MiniMapLoader } from '@/components/map/mini-map-loader';
 import { getCurrentUser } from '@/lib/auth-session';
 import { signInHref } from '@/lib/sign-in-destination';
+import { withLocalizedArea } from '@/lib/area-name';
 import { addedBanner } from '@/lib/contributions/added-banner';
 import { issueFormToken } from '@/lib/form-token';
 import { serializeJsonLd } from '@/lib/json-ld';
@@ -36,11 +37,12 @@ function displayName(facility: FacilityDetail, fallback: string): string {
 
 export async function generateMetadata({ params }: { params: PageParams }): Promise<Metadata> {
   const { locale, slug } = await params;
-  const [facility, t] = await Promise.all([
+  const [found, t] = await Promise.all([
     getFacilityBySlug(slug),
     getTranslations({ locale, namespace: 'Facility' }),
   ]);
-  if (!facility) return { title: t('notFound') };
+  if (!found) return { title: t('notFound') };
+  const facility = await withLocalizedArea(found, locale);
   const name = displayName(facility, t('unnamed'));
   const place = facility.municipalityName ?? facility.quarter ?? '';
   const title = place ? `${name} — ${place}` : name;
@@ -74,18 +76,20 @@ export default async function FacilityPage({
   const { locale, slug } = await params;
   setRequestLocale(locale);
 
-  const [facility, currentUser, t, tSport, tContribute, tAdd, tShareSheet, query] =
-    await Promise.all([
-      getFacilityBySlug(slug),
-      getCurrentUser(),
-      getTranslations('Facility'),
-      getTranslations('Sport'),
-      getTranslations('Contribute'),
-      getTranslations('AddFacility'),
-      getTranslations('ShareSheet'),
-      searchParams,
-    ]);
-  if (!facility) notFound();
+  const [found, currentUser, t, tSport, tContribute, tAdd, tShareSheet, query] = await Promise.all([
+    getFacilityBySlug(slug),
+    getCurrentUser(),
+    getTranslations('Facility'),
+    getTranslations('Sport'),
+    getTranslations('Contribute'),
+    getTranslations('AddFacility'),
+    getTranslations('ShareSheet'),
+    searchParams,
+  ]);
+  // A real 404: no loading boundary sits above this route (see
+  // components/shell/route-loading.tsx), so this runs before the first byte.
+  if (!found) notFound();
+  const facility = await withLocalizedArea(found, locale);
 
   const justAdded = addedBanner(query.added);
 

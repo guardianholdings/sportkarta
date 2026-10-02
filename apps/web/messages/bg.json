@@ -90,7 +90,7 @@
     "football": "футбол",
     "gymnastics": "гимнастика",
     "handball": "хандбал",
-    "hiking": "Пешеходен туризъм",
+    "hiking": "пешеходен туризъм",
     "hockey": "хокей",
     "ice_skating": "кънки",
     "martial_arts": "бойни изкуства",
@@ -260,6 +260,22 @@
     "skipToContent": "Прескочи към съдържанието",
     "loading": "Зарежда се…"
   },
+  "NotFound": {
+    "metaTitle": "Страницата не е намерена",
+    "code": "Грешка 404",
+    "title": "Тази страница не съществува",
+    "body": "Връзката може да е остаряла или мястото да е махнато от картата. Започни отново от картата или виж какво се играе тази седмица.",
+    "toMap": "Към картата",
+    "toSessions": "Предстоящи сесии"
+  },
+  "ErrorPage": {
+    "code": "Нещо се обърка",
+    "title": "Страницата не успя да се зареди",
+    "body": "Имаме временен проблем от наша страна. Опитай отново след малко — ако пак не стане, върни се към картата.",
+    "retry": "Опитай отново",
+    "toMap": "Към картата",
+    "reference": "Код за справка: {digest}"
+  },
   "Map": {
     "discoverTitle": "Открий места",
     "searchPlaceholder": "Търси място или дейност",
@@ -382,24 +398,24 @@
     }
   },
   "Places": {
-    "cityH1": "Спортни съоръжения в {city}",
-    "cityIntro": "В {city} има {count} безплатни обществени спортни съоръжения. Разгледай ги на картата или в списъка по-долу.",
-    "cityMetaTitle": "Спортни съоръжения в {city}",
-    "cityMetaDescription": "Карта и списък на {count} безплатни обществени спортни съоръжения в {city}.",
-    "sportH1": "{sport} в {city}",
-    "sportIntro": "В {city} има {count} места за {sport}. Виж ги на картата или в списъка.",
-    "sportMetaTitle": "{sport} в {city}",
-    "sportMetaDescription": "{count} места за {sport} в {city} — безплатни обществени съоръжения.",
-    "quarterH1": "Спортни съоръжения в {quarter}, {city}",
+    "cityH1": "Спортни съоръжения {cityVav, select, yes {във} other {в}} {city}",
+    "cityIntro": "{cityVav, select, yes {Във} other {В}} {city} има {count} безплатни обществени спортни съоръжения. Разгледай ги на картата или в списъка по-долу.",
+    "cityMetaTitle": "Спортни съоръжения {cityVav, select, yes {във} other {в}} {city}",
+    "cityMetaDescription": "Карта и списък на {count} безплатни обществени спортни съоръжения {cityVav, select, yes {във} other {в}} {city}.",
+    "sportH1": "{sport} {cityVav, select, yes {във} other {в}} {city}",
+    "sportIntro": "{cityVav, select, yes {Във} other {В}} {city} има {count} места за {sport}. Виж ги на картата или в списъка.",
+    "sportMetaTitle": "{sport} {cityVav, select, yes {във} other {в}} {city}",
+    "sportMetaDescription": "{count} места за {sport} {cityVav, select, yes {във} other {в}} {city} — безплатни обществени съоръжения.",
+    "quarterH1": "Спортни съоръжения {quarterVav, select, yes {във} other {в}} {quarter}, {city}",
     "quarterIntro": "В квартал {quarter} ({city}) има {count} спортни съоръжения.",
-    "quarterMetaTitle": "Спортни съоръжения в {quarter}, {city}",
-    "quarterMetaDescription": "{count} спортни съоръжения в {quarter}, {city}.",
+    "quarterMetaTitle": "Спортни съоръжения {quarterVav, select, yes {във} other {в}} {quarter}, {city}",
+    "quarterMetaDescription": "{count} спортни съоръжения {quarterVav, select, yes {във} other {в}} {quarter}, {city}.",
     "facilitiesHeading": "Съоръжения",
     "bySportHeading": "По спорт",
     "mapHeading": "Карта",
-    "otherSportsHeading": "Други спортове в {city}",
+    "otherSportsHeading": "Други спортове {cityVav, select, yes {във} other {в}} {city}",
     "sameSportOtherCitiesHeading": "{sport} в други градове",
-    "backToCity": "← Всички съоръжения в {city}",
+    "backToCity": "← Всички съоръжения {cityVav, select, yes {във} other {в}} {city}",
     "viewAllOnMap": "Виж всички на картата",
     "showingLimited": "Показани са първите {shown} от {total}.",
     "accountabilityLink": "Отчетност на община {city} →"
@@ -1673,6 +1689,9 @@
     "support": "Подкрепи ни",
     "campaigns": "Кампании"
   },
+  "LocaleSwitcher": {
+    "switchTo": "English"
+  },
   "AdminPrivate": {
     "title": "Частни обекти",
     "intro": "Платените търговски обекти (фитнеси, зали, студиа) се показват на публичната карта, в API и в отворените данни само когато категорията е включена. Скриването на бизнес скрива всичките му обекти наведнъж.",
@@ -1880,6 +1899,10 @@
       "points": "{count, plural, one {точка} other {точки}}",
       "checkins": "{count, plural, one {тренировка} other {тренировки}}",
       "badges": "{count, plural, one {отличие} other {отличия}}"
+    },
+    "site": {
+      "title": "Картата на свободния спорт в България",
+      "imageAlt": "Повече от просто спорт — картата на свободния спорт в България"
     }
   },
   "Legend": {

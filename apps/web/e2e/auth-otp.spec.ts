@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { config } from 'dotenv';
 import pg from 'pg';
 
+import bg from '../messages/bg.json';
 import { ADMIN_EMAIL, signIn } from './auth';
 
 // Repo-root .env (Playwright runs with cwd = apps/web).
@@ -124,26 +125,25 @@ test.describe('admin bootstrap', () => {
 });
 
 /**
- * A hidden admin path must answer EXACTLY like a nonexistent one — same
- * status, same not-found body — so an unprivileged member cannot learn which
- * routes exist. The literal-404 assertion this replaces stopped being
- * representable when the root loading boundary landed: Next streams the 200
- * shell before the page resolves, and notFound() can no longer change the
- * status line — for hidden and nonexistent paths alike, which is exactly the
- * uniformity the security property needs.
+ * A hidden admin path must answer EXACTLY like a nonexistent one — a real 404
+ * with the same localized not-found page — so an unprivileged member cannot
+ * learn which routes exist. While a loading boundary sat above every page this
+ * could only assert EQUAL statuses (both a streamed 200); with loading screens
+ * kept off every route that can 404, the literal 404 is representable again.
  */
 async function expectHiddenLikeMissing(
   page: import('@playwright/test').Page,
   path: string,
 ): Promise<void> {
   const reference = await page.request.get(`/admin/nyama-takava-stranitsa-${String(Date.now())}`);
+  expect(reference.status(), 'the reference missing path must be a real 404').toBe(404);
   expect(
     await reference.text(),
     'the reference missing path must render the not-found UI',
-  ).toContain('This page could not be found');
+  ).toContain(bg.NotFound.title);
   const response = await page.request.get(path);
-  expect(response.status(), path).toBe(reference.status());
-  expect(await response.text(), path).toContain('This page could not be found');
+  expect(response.status(), path).toBe(404);
+  expect(await response.text(), path).toContain(bg.NotFound.title);
 }
 
 test.describe('role boundaries', () => {

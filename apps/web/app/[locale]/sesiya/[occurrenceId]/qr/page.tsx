@@ -136,7 +136,7 @@ export default async function CheckinQrPage({ params }: { params: PageParams }) 
       <p className="text-caption text-text-muted">
         {t('rotates', { seconds: Math.round(WINDOW_MS / 1000) })}
       </p>
-      <p className="text-caption text-text-faint">{t('keepScreenOn')}</p>
+      <p className="text-caption text-text-muted">{t('keepScreenOn')}</p>
     </main>
   );
 }

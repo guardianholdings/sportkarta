@@ -23,3 +23,42 @@ export function buildAlternates(path: string, locale: string): Metadata['alterna
     languages: { bg, en, 'x-default': bg },
   };
 }
+
+/** Open Graph locale tags (language_TERRITORY), per app locale. */
+const OG_LOCALE: Record<string, string> = { bg: 'bg_BG', en: 'en_GB' };
+
+/** The site-wide share card, rendered by app/og/[locale]/site/card.png. */
+export function siteCardPath(locale: string): string {
+  return `/og/${locale === 'en' ? 'en' : 'bg'}/site/card.png`;
+}
+
+/**
+ * Default Open Graph + Twitter tags every page inherits from the [locale]
+ * layout. Only the facility, session, campaign and passport pages declared
+ * their own, so the links people actually paste at launch — the home page, a
+ * city page, /statistika — previewed on Facebook, Viber and Messenger with no
+ * card at all.
+ *
+ * Deliberately WITHOUT title or description: Next fills a missing og:title /
+ * og:description from the page's own resolved <title> and description, so
+ * every page previews under its own name while sharing the brand image. A
+ * page that sets `openGraph` itself replaces this object whole (Next merges
+ * metadata one top-level key at a time), which is exactly right for the
+ * entity pages that render their own card.
+ */
+export function siteSocialMetadata(
+  locale: string,
+  labels: { siteName: string; imageAlt: string },
+): Pick<Metadata, 'openGraph' | 'twitter'> {
+  const own = OG_LOCALE[locale] ?? 'bg_BG';
+  return {
+    openGraph: {
+      type: 'website',
+      siteName: labels.siteName,
+      locale: own,
+      alternateLocale: Object.values(OG_LOCALE).filter((l) => l !== own),
+      images: [{ url: siteCardPath(locale), width: 1200, height: 630, alt: labels.imageAlt }],
+    },
+    twitter: { card: 'summary_large_image' },
+  };
+}

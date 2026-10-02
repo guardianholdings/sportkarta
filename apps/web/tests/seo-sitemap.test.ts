@@ -1,7 +1,11 @@
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import { viewFromPoints } from '../lib/geo';
-import { buildAlternates } from '../lib/seo';
+import { buildAlternates, siteCardPath, siteSocialMetadata } from '../lib/seo';
+import { STATIC_SITEMAP_PATHS } from '../lib/sitemap-static';
 import { renderSitemapIndex, renderUrlset } from '../lib/sitemap-xml';
 
 interface Alt {
@@ -53,6 +57,78 @@ describe('sitemap XML', () => {
     expect(xml).toContain('<sitemapindex');
     expect(xml).toContain('/sitemaps/facilities.xml</loc>');
     expect(xml).toContain('/sitemaps/static.xml</loc>');
+  });
+});
+
+describe('static.xml', () => {
+  const LOCALE = path.join(process.cwd(), 'app', '[locale]');
+  /** The page file a locale-agnostic path is served by. */
+  function pageFor(p: string): string {
+    return p === '/'
+      ? path.join(LOCALE, '(map)', 'page.tsx')
+      : path.join(LOCALE, ...p.slice(1).split('/'), 'page.tsx');
+  }
+
+  it('lists the transparency and discovery pages, not only the four it started with', () => {
+    for (const p of ['/statistika', '/danni', '/danni/litsenz', '/sesii', '/sedmitsata']) {
+      expect(STATIC_SITEMAP_PATHS).toContain(p);
+    }
+  });
+
+  it.each(STATIC_SITEMAP_PATHS)('%s is a real, canonical, indexable page', (p) => {
+    const file = pageFor(p);
+    expect(existsSync(file), `${p}: no page at ${file}`).toBe(true);
+    const src = readFileSync(file, 'utf8');
+    // A sitemap entry for a noindex page is a contradiction crawlers report.
+    expect(src, `${p} is noindex`).not.toMatch(/index:\s*false/);
+    expect(src, `${p} declares no canonical`).toContain(`buildAlternates('${p}'`);
+  });
+
+  it('keeps the internal component catalogue out', () => {
+    expect(STATIC_SITEMAP_PATHS as readonly string[]).not.toContain('/design-system');
+  });
+});
+
+describe('site-wide share metadata', () => {
+  const labels = { siteName: 'POPS', imageAlt: 'POPS card' };
+
+  it('gives every page a large-image card in its own locale', () => {
+    const bgMeta = siteSocialMetadata('bg', labels);
+    const og = bgMeta.openGraph as Record<string, unknown>;
+    expect(og.siteName).toBe('POPS');
+    expect(og.locale).toBe('bg_BG');
+    expect(og.alternateLocale).toEqual(['en_GB']);
+    expect(og.images).toEqual([
+      { url: '/og/bg/site/card.png', width: 1200, height: 630, alt: 'POPS card' },
+    ]);
+    expect(bgMeta.twitter).toEqual({ card: 'summary_large_image' });
+    expect((siteSocialMetadata('en', labels).openGraph as Record<string, unknown>).locale).toBe(
+      'en_GB',
+    );
+  });
+
+  it('sets no title or description, so each page previews under its own', () => {
+    // Next fills og:title / og:description from the page's resolved metadata
+    // only when they are ABSENT here; a layout-level title would stamp the
+    // site name onto every shared link.
+    const og = siteSocialMetadata('bg', labels).openGraph as Record<string, unknown>;
+    expect(og).not.toHaveProperty('title');
+    expect(og).not.toHaveProperty('description');
+  });
+
+  it('points at the site card route on disk', () => {
+    expect(siteCardPath('en')).toBe('/og/en/site/card.png');
+    expect(siteCardPath('xx')).toBe('/og/bg/site/card.png');
+    const route = path.join(
+      process.cwd(),
+      'app',
+      'og',
+      '[locale]',
+      'site',
+      'card.png',
+      'route.tsx',
+    );
+    expect(existsSync(route)).toBe(true);
   });
 });
 

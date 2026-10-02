@@ -12,9 +12,14 @@
   --shadow-lg: 0 4px 8px rgba(16, 20, 24, 0.05), 0 16px 32px rgba(16, 20, 24, 0.1);
   --shadow-xl: 0 8px 16px rgba(16, 20, 24, 0.06), 0 28px 56px rgba(16, 20, 24, 0.14);
 
-  /* Focus ring composed shadow (pair with outline:none) */
-  --ring: 0 0 0 3px var(--focus-ring);
-  --ring-accent: 0 0 0 3px var(--focus-ring-accent);
+  /* Focus ring composed shadow: a 2px gap in the card colour, then a 2px
+     solid ring — the box-shadow form of `outline: 2px solid; outline-offset:
+     2px`. The gap keeps the ring visible on a control whose own fill is the
+     ring colour (a brand button focused in brand green). globals.css pairs it
+     with a transparent outline for forced-colors mode. Colours and their
+     contrast: colors.css. */
+  --ring: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring);
+  --ring-accent: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus-ring-accent);
 
   /* Map / floating controls sit above tiles */
   --shadow-float: 0 2px 6px rgba(16, 20, 24, 0.1), 0 12px 28px rgba(16, 20, 24, 0.16);

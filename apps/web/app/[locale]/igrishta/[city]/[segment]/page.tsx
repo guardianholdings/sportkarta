@@ -16,6 +16,7 @@ import {
   type City,
   type ScopeOptions,
 } from '@/lib/places';
+import { capitalizeFirst, takesVav } from '@/lib/grammar';
 import { buildAlternates } from '@/lib/seo';
 import { AppShell } from '@/components/shell/app-shell';
 import { chipClass } from '@/components/ui/chip';
@@ -60,19 +61,27 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
     getTranslations({ locale, namespace: 'Sport' }),
   ]);
   const name = cityName(city, locale);
+  const cityVav = takesVav(name);
   const alternates = buildAlternates(`/igrishta/${city.slug}/${segment}`, locale);
 
   if (scope.kind === 'sport') {
     const sport = tSport(scope.sport);
     return {
-      title: t('sportMetaTitle', { sport, city: name }),
-      description: t('sportMetaDescription', { sport, city: name, count }),
+      // The sport OPENS the title, so it is capitalised there and only there.
+      title: t('sportMetaTitle', { sport: capitalizeFirst(sport, locale), city: name, cityVav }),
+      description: t('sportMetaDescription', { sport, city: name, cityVav, count }),
       alternates,
     };
   }
+  const quarterVav = takesVav(scope.quarter);
   return {
-    title: t('quarterMetaTitle', { quarter: scope.quarter, city: name }),
-    description: t('quarterMetaDescription', { quarter: scope.quarter, city: name, count }),
+    title: t('quarterMetaTitle', { quarter: scope.quarter, quarterVav, city: name }),
+    description: t('quarterMetaDescription', {
+      quarter: scope.quarter,
+      quarterVav,
+      city: name,
+      count,
+    }),
     alternates,
   };
 }
@@ -95,14 +104,20 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
     scopedFacilities(city.id, opts),
   ]);
   const name = cityName(city, locale);
+  // „във Варна", not „в Варна" — the catalogue branches on it (lib/grammar.ts).
+  const cityVav = takesVav(name);
 
   const heading =
     scope.kind === 'sport'
-      ? t('sportH1', { sport: tSport(scope.sport), city: name })
-      : t('quarterH1', { quarter: scope.quarter, city: name });
+      ? t('sportH1', {
+          sport: capitalizeFirst(tSport(scope.sport), locale),
+          city: name,
+          cityVav,
+        })
+      : t('quarterH1', { quarter: scope.quarter, quarterVav: takesVav(scope.quarter), city: name });
   const intro =
     scope.kind === 'sport'
-      ? t('sportIntro', { sport: tSport(scope.sport), city: name, count })
+      ? t('sportIntro', { sport: tSport(scope.sport), city: name, cityVav, count })
       : t('quarterIntro', { quarter: scope.quarter, city: name, count });
 
   // Cross-links (sport pages only — richer internal-link graph).
@@ -123,7 +138,7 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
           href={`/igrishta/${city.slug}`}
           className="text-body-sm font-medium text-link hover:text-link-hover"
         >
-          {t('backToCity', { city: name })}
+          {t('backToCity', { city: name, cityVav })}
         </Link>
 
         <header className="space-y-2">
@@ -156,7 +171,7 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
         {otherSports.length > 0 && (
           <section aria-labelledby="others-h">
             <h2 id="others-h" className="mb-2 text-h4 font-bold text-ink">
-              {t('otherSportsHeading', { city: name })}
+              {t('otherSportsHeading', { city: name, cityVav })}
             </h2>
             <ul className="flex flex-wrap gap-2">
               {otherSports.map((s) => (
@@ -173,7 +188,9 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
         {scope.kind === 'sport' && sameSportCities.length > 0 && (
           <section aria-labelledby="cities-h">
             <h2 id="cities-h" className="mb-2 text-h4 font-bold text-ink">
-              {t('sameSportOtherCitiesHeading', { sport: tSport(scope.sport) })}
+              {t('sameSportOtherCitiesHeading', {
+                sport: capitalizeFirst(tSport(scope.sport), locale),
+              })}
             </h2>
             <ul className="flex flex-wrap gap-2">
               {sameSportCities.map(({ city: other, count: n }) => (

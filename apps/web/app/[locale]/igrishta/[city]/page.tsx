@@ -14,6 +14,7 @@ import {
   scopedFacilityCount,
   type City,
 } from '@/lib/places';
+import { takesVav } from '@/lib/grammar';
 import { buildAlternates } from '@/lib/seo';
 import { AppShell } from '@/components/shell/app-shell';
 import { chipClass } from '@/components/ui/chip';
@@ -39,9 +40,10 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   if (count < MIN_FACILITIES) return {};
   const t = await getTranslations({ locale, namespace: 'Places' });
   const name = cityName(city, locale);
+  const cityVav = takesVav(name);
   return {
-    title: t('cityMetaTitle', { city: name }),
-    description: t('cityMetaDescription', { city: name, count }),
+    title: t('cityMetaTitle', { city: name, cityVav }),
+    description: t('cityMetaDescription', { city: name, cityVav, count }),
     alternates: buildAlternates(`/igrishta/${city.slug}`, locale),
   };
 }
@@ -62,6 +64,8 @@ export default async function CityPage({ params }: { params: PageParams }) {
     citySportCounts(city.id),
   ]);
   const name = cityName(city, locale);
+  // „във Варна", not „в Варна" — the catalogue branches on it (lib/grammar.ts).
+  const cityVav = takesVav(name);
   const crossSports = sportCounts.filter((s) => s.count >= MIN_FACILITIES);
 
   return (
@@ -73,9 +77,9 @@ export default async function CityPage({ params }: { params: PageParams }) {
 
         <header className="space-y-2">
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">
-            {t('cityH1', { city: name })}
+            {t('cityH1', { city: name, cityVav })}
           </h1>
-          <p className="text-ink-soft">{t('cityIntro', { city: name, count })}</p>
+          <p className="text-ink-soft">{t('cityIntro', { city: name, cityVav, count })}</p>
           {/* Stage 3.4: the accountability figures for this municipality. Linked
             from here rather than only from the sitemap — the person looking at
             a city's facilities is exactly the person who wants to know how it

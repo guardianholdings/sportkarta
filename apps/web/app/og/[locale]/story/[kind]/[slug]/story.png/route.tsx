@@ -1,11 +1,13 @@
 import { getDb, listCampaigns, facilityLegend, LEGEND_WINDOW_DAYS } from '@sportkarta/db';
 import { getTranslations } from 'next-intl/server';
 
+import { municipalityDisplayName } from '@/lib/area-name';
 import { OG_PALETTE } from '@/lib/og/palette';
 import { renderStoryCard } from '@/lib/og/story';
 import { OG_MISSING } from '@/lib/og/card';
 import { getFacilityBySlug } from '@/lib/public-data';
 import { occurrenceView } from '@/lib/sessions/occurrence';
+import { isUuid } from '@/lib/uuid';
 
 /**
  * PUBLIC story images — 1080×1920, for a place, a session or a campaign.
@@ -79,8 +81,12 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     // TITLE-LED, no hero. A facility's only available number is how many sports
     // it lists, and a 260px "1" is a giant numeral saying nothing. The place
     // NAME is what makes somebody recognise it and go, so it takes the big type.
+    // The English story names the municipality in English, like the page.
+    const area = facility.municipalityName
+      ? await municipalityDisplayName(facility.municipalityName, lang)
+      : null;
     return renderStoryCard({
-      eyebrow: facility.municipalityName ?? facility.quarter,
+      eyebrow: area ?? facility.quarter,
       title: name,
       subtitle: sports,
       wordmark,
@@ -92,6 +98,9 @@ export async function GET(_request: Request, { params }: { params: Params }) {
 
   if (kind === 'session') {
     // No viewer: a public story must contain nothing that depends on who looks.
+    // A session id is a UUID; anything else is a 404 here, not a Postgres
+    // cast error (and a 500) in occurrenceView.
+    if (!isUuid(slug)) return new Response('Not found', { status: 404 });
     const view = await occurrenceView(slug, null);
     if (!view) return new Response('Not found', { status: 404 });
     // THE HOUR IS THE HERO. This is the one share with an action attached —

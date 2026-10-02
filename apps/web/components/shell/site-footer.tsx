@@ -2,6 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 
+import { LocaleSwitcher } from '@/components/shell/locale-switcher';
 import { PopsMark } from '@/components/shell/pops-mark';
 import { Link, usePathname } from '@/i18n/navigation';
 
@@ -59,6 +60,7 @@ export function SiteFooter() {
         <Link href="/privacy" className={LINK}>
           {t('privacy')}
         </Link>
+        <LocaleSwitcher />
         <span className="ml-auto text-text-muted">{t('attribution')}</span>
       </nav>
     </footer>

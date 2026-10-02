@@ -8,7 +8,7 @@ import { ErrorMonitor } from '@/components/monitoring/error-monitor';
 import { ServiceWorkerRegistrar } from '@/components/pwa/service-worker';
 import { SiteFooter } from '@/components/shell/site-footer';
 import { routing } from '@/i18n/routing';
-import { siteUrl } from '@/lib/seo';
+import { siteSocialMetadata, siteUrl } from '@/lib/seo';
 
 import '../fonts.css';
 import '../globals.css';
@@ -31,7 +31,10 @@ export const viewport: Viewport = {
 
 export async function generateMetadata({ params }: { params: LocaleParams }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: 'Metadata' });
+  const [t, tOg] = await Promise.all([
+    getTranslations({ locale, namespace: 'Metadata' }),
+    getTranslations({ locale, namespace: 'Og' }),
+  ]);
 
   return {
     // Without metadataBase Next cannot resolve a RELATIVE openGraph.images path
@@ -45,6 +48,12 @@ export async function generateMetadata({ params }: { params: LocaleParams }): Pr
     // and the transparency pages had none.
     title: { template: t('titleTemplate'), default: t('title') },
     description: t('description'),
+    // Every page inherits a share card; see siteSocialMetadata for why it
+    // carries no title of its own.
+    ...siteSocialMetadata(locale, {
+      siteName: tOg('wordmark'),
+      imageAlt: tOg('site.imageAlt'),
+    }),
   };
 }
 
