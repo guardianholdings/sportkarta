@@ -785,10 +785,12 @@ export const moderationDecisions = pgTable(
     decision: moderationDecision('decision').notNull(),
     /**
      * WHY, as a slug from the closed vocabulary in lib/src/moderation (0033);
-     * the label lives in messages/*.json. Required for a refusal (rejected,
+     * the label lives in messages/*.json. Given on every refusal (rejected,
      * removed, gone) — it is what the statement of reasons mailed to the
      * uploader says — and NULL on approvals and on every decision taken before
-     * 0033.
+     * 0033. "A refusal has one" is enforced by apps/web/lib/moderation.ts; the
+     * database CHECK is 0033's deferred contract step, so the previous build
+     * can still refuse content after a rollback (see the 0033 header).
      */
     reason: text('reason'),
     queuedAt: timestamptz('queued_at').notNull(),
@@ -798,13 +800,6 @@ export const moderationDecisions = pgTable(
     check(
       'moderation_decisions_reason_format',
       sql`${t.reason} IS NULL OR ${t.reason} ~ '^[a-z][a-z0-9_]{2,39}$'`,
-    ),
-    // NOT VALID in 0033: binds every decision from then on, not the history.
-    // Compared as TEXT for the reason decision_matches_target gives below:
-    // 'removed' arrives in 0032, in the same migrator transaction on production.
-    check(
-      'moderation_decisions_refusal_has_reason',
-      sql`${t.decision}::text NOT IN ('rejected', 'removed', 'gone') OR ${t.reason} IS NOT NULL`,
     ),
     // Per-ambassador activity, and the SLA report's only scan.
     index('moderation_decisions_actor_decided_idx').on(t.actorId, t.decidedAt),

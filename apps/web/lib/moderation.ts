@@ -30,10 +30,13 @@ import type { Role } from './roles';
  * a published one down and marking a facility gone each restrict somebody's
  * content, and they are owed a statement of why. So those decisions take a
  * slug from the closed vocabulary in lib/src/moderation, it is logged with the
- * decision, and a refusal without a valid one is not taken at all — the CHECK
- * `moderation_decisions_refusal_has_reason` is the backstop. The mail itself is
- * the caller's job, after commit (`enqueueModerationNotify`), which is why the
- * result carries the log row's id.
+ * decision, and a refusal without a valid one is not taken at all. THIS is the
+ * gate for now: the database CHECK that backs it is 0033's deferred contract
+ * step, because the previous build — which runs against the new schema during a
+ * deploy and after a `rollback_to` — logs refusals without a reason, and must
+ * still be able to take a photo down. The mail itself is the caller's job,
+ * after commit (`enqueueModerationNotify`), which is why the result carries the
+ * log row's id.
  */
 
 export interface ModerationActor {

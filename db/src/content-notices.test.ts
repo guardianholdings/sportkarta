@@ -13,13 +13,15 @@ import {
  * real Postgres — every guarantee here is a constraint or a trigger, so a unit
  * test with a fake database would prove nothing about it:
  *
- *   - a notice cannot point at a `javascript:` URL or arrive without its good
- *     faith statement;
+ *   - a notice cannot point at a `javascript:` URL, smuggle another host into
+ *     a site path, or arrive without its good faith statement;
  *   - what was reported is frozen from arrival, and a decision once taken is
  *     final — only the notifier's contact may be ERASED, never rewritten;
- *   - a refusal cannot be logged without a reason;
+ *   - a reason is a slug, and the PREVIOUS build's reasonless refusal still
+ *     lands — the "refusal has a reason" CHECK is 0033's deferred contract step;
  *   - the mail resolves its recipient at send time (an erased account resolves
- *     to nobody) and the ledger lets exactly one sender through.
+ *     to nobody), never reads the reported URL, and the ledger lets exactly
+ *     one sender through.
  *
  * Integration test against the dev/CI database; skips without DATABASE_URL.
  */
@@ -310,10 +312,22 @@ describe.skipIf(!hasDb)('content notices and moderation mail (requires running d
       return Number(logged.rows[0]?.id);
     }
 
-    it('refuses a refusal without a reason', async () => {
-      await expect(photoDecision('rejected', null)).rejects.toThrow(
-        /moderation_decisions_refusal_has_reason/,
-      );
+    it("still takes the previous build's refusal, which names no reason", async () => {
+      // Expand/contract (0033 header): the build before 0033 never writes
+      // `reason`, and it runs against this schema in the migrate → up window
+      // and after a rollback_to. Its rejections and takedowns must land, or a
+      // reported photo stays up. The application refuses a reasonless refusal
+      // meanwhile (apps/web/tests/moderation.test.ts); when the contract
+      // migration adds the CHECK, this becomes a refusal test again. An
+      // explicit NULL is what the old build's omitted column gives: no default.
+      const rejected = await photoDecision('rejected', null);
+      const removed = await photoDecision('removed', null);
+      expect(rejected).toBeGreaterThan(0);
+      // Such a row still resolves for the mail path, with no reason to state.
+      expect(await decisionMailTarget(db, removed)).toMatchObject({
+        kind: 'photo_removed',
+        reason: null,
+      });
     });
 
     it('refuses a reason outside the slug shape', async () => {
@@ -340,10 +354,7 @@ describe.skipIf(!hasDb)('content notices and moderation mail (requires running d
       expect(await decisionMailTarget(db, decisionId)).toBeNull();
     });
 
-    it('requires a reason for a takedown too, and names it as one', async () => {
-      await expect(photoDecision('removed', null)).rejects.toThrow(
-        /moderation_decisions_refusal_has_reason/,
-      );
+    it('names a takedown as one, with its reason', async () => {
       const decisionId = await photoDecision('removed', 'not_uploaders_rights');
       expect(await decisionMailTarget(db, decisionId)).toMatchObject({
         kind: 'photo_removed',

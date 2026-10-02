@@ -29,18 +29,13 @@
 --      unrepresentable rather than merely unexpected.
 --
 --   2. `moderation_decisions.reason` — a slug from the closed vocabulary in
---      lib/src/moderation (labels live in messages/*.json, never here). From now
---      on a REFUSAL — a rejected photo, a published photo taken down (0032's
---      'removed'), a facility marked gone — must carry one:
---      `moderation_decisions_refusal_has_reason`. Approvals and report triage
---      need none, and the ~all-NULL history stays exactly as it was.
---
---      The CHECK compares `decision::text`, for the reason 0032 spells out:
---      'removed' is added by 0032's ALTER TYPE ... ADD VALUE, and on
---      production 0032 and this file run in the SAME migrator transaction. An
---      enum-typed literal 'removed' would be coerced through enum_in — a "use"
---      of a label added in the current transaction, which PostgreSQL refuses —
---      while a text literal only converts the row's value OUT of the enum.
+--      lib/src/moderation (labels live in messages/*.json, never here). This
+--      build gives every REFUSAL one — a rejected photo, a published photo
+--      taken down (0032's 'removed'), a facility marked gone — and takes no
+--      refusal without it (apps/web/lib/moderation.ts). Approvals and report
+--      triage need none, and the ~all-NULL history stays exactly as it was.
+--      Only the slug's SHAPE is CHECKed here: the rule that a refusal must
+--      carry one is the contract step below, deliberately not in this file.
 --
 --   3. `moderation_notifications` — the worker's idempotency ledger for the
 --      mail those two produce (statement of reasons, notice receipt, notice
@@ -66,28 +61,65 @@
 -- own decision record, and the guard trigger gives it the same property the
 -- log has: once decided, frozen.
 --
+-- EXPAND NOW, CONTRACT LATER — why "a refusal must have a reason" is not a
+-- CHECK in this file. Everything here is invisible to the PREVIOUS build: it
+-- never names the new tables, and `reason` is nullable with nothing requiring
+-- it. That build still runs against this schema twice over: deploy.yml runs
+-- `migrate` and only then `up -d`, so it serves for the 30-60 s in between;
+-- and the recovery the operator reaches for first, the `rollback_to`
+-- dispatch, redeploys old images over a schema that stays at 0033
+-- (forward-only). The old build logs every photo rejection, takedown and
+-- facility-gone WITHOUT a reason. A CHECK demanding one would refuse each of
+-- those with 23514 and abort the decision's transaction — and a reported
+-- photo, one showing an identifiable child say, would STAY UP until somebody
+-- wrote SQL. So until the database backstop ships, the application is the only
+-- gate (apps/web/tests/moderation.test.ts), and db/src/content-notices.test.ts
+-- proves the old build's reasonless INSERT still lands.
+--
+-- THE CONTRACT STEP is its own later migration, once this build is live and
+-- nobody intends to roll back past it:
+--   ALTER TABLE "moderation_decisions" ADD CONSTRAINT "moderation_decisions_refusal_has_reason"
+--     CHECK ("decision"::text NOT IN ('rejected', 'removed', 'gone') OR "reason" IS NOT NULL) NOT VALID;
+-- NOT VALID, and never validated: refusals the old build logged — between
+-- 0032's deploy and this one, and in the migrate → up window — carry no
+-- reason, and the append-only log keeps them exactly as written. Compared as
+-- text like 0032's decision_matches_target, so the CHECK never coerces a
+-- literal through the enum. The same migration turns the "reasonless INSERT"
+-- test in db/src/content-notices.test.ts back into a refusal test.
+--
 -- LOCKING. Everything but (2) is new. The ADD COLUMN in (2) is catalogue-only
--- (nullable, no default — no rewrite), and both CHECKs are added NOT VALID for
--- the reason 0029 spells out: a VALIDATE inside the migrator's single
+-- (nullable, no default — no rewrite), and its format CHECK is added NOT VALID
+-- for the reason 0029 spells out: a VALIDATE inside the migrator's single
 -- transaction would scan the table under the ACCESS EXCLUSIVE the ADD COLUMN
 -- already holds, and there is nothing to find — every existing row has a NULL
--- reason, which satisfies the format CHECK, and the refusal CHECK is meant for
--- decisions taken from now on (a takedown logged between 0032's deploy and
--- this one has no reason, and must stay as it was written). NOT VALID
--- constraints are enforced on every INSERT from the moment they exist. The
--- append-only triggers on moderation_decisions are row-level BEFORE
--- UPDATE/DELETE triggers and do not fire for DDL. lock_timeout makes the whole
--- file fail fast rather than queue behind the nightly backup's ACCESS SHARE.
+-- reason, which satisfies it. NOT VALID constraints are enforced on every
+-- INSERT from the moment they exist. The append-only triggers on
+-- moderation_decisions are row-level BEFORE UPDATE/DELETE triggers and do not
+-- fire for DDL. lock_timeout makes the whole file fail fast rather than queue
+-- behind the nightly backup's ACCESS SHARE.
 --
--- rollback (compensating SQL, reverse order; DESTRUCTIVE — drops every notice
--- and the mail ledger). ROLL THE APPLICATION BACK FIRST: the moderation actions
--- write `reason`, /signal inserts notices and the worker claims the ledger, so
--- dropping these under a running build fails each of those paths.
+-- rollback. ROLLING THE APPLICATION BACK NEEDS NO SQL. The previous build
+-- ignores both new tables and the new column (see EXPAND NOW above), so the
+-- `rollback_to` dispatch alone restores it — rejections, takedowns and
+-- facility-gone all work — and the notices and the statements of reasons given
+-- since this deploy stay where they are for when it rolls forward again.
+-- Leave the schema as it is.
+--
+-- ONLY IF THE FEATURE IS ABANDONED for good (compensating SQL, reverse order;
+-- DESTRUCTIVE). Roll the application back FIRST: this build writes `reason`,
+-- /signal inserts notices and the worker claims the ledger, so dropping these
+-- under it fails each of those paths. `content_notices` is the record of every
+-- Art. 16 notice received and `reason` the record of every statement of
+-- reasons sent — legally relevant history, so archive both before the drops.
+-- The notice archive still holds notifier contacts: the 180-day erasure that
+-- /privacy promises then has to be done on it by hand.
 --   BEGIN;
 --   SET LOCAL lock_timeout = '3s';
+--   CREATE TABLE "archive_0033_decision_reasons" AS
+--     SELECT id, reason FROM moderation_decisions WHERE reason IS NOT NULL;
+--   CREATE TABLE "archive_0033_content_notices" AS SELECT * FROM content_notices;
 --   DROP TABLE "moderation_notifications";
 --   DROP TYPE "moderation_notification_kind";
---   ALTER TABLE "moderation_decisions" DROP CONSTRAINT "moderation_decisions_refusal_has_reason";
 --   ALTER TABLE "moderation_decisions" DROP CONSTRAINT "moderation_decisions_reason_format";
 --   ALTER TABLE "moderation_decisions" DROP COLUMN "reason";
 --   DROP TRIGGER "content_notices_guard_truncate" ON "content_notices";
@@ -184,10 +216,8 @@ COMMENT ON COLUMN "content_notices"."notifier_email" IS
 ALTER TABLE "moderation_decisions" ADD COLUMN "reason" text;--> statement-breakpoint
 ALTER TABLE "moderation_decisions" ADD CONSTRAINT "moderation_decisions_reason_format"
   CHECK ("reason" IS NULL OR "reason" ~ '^[a-z][a-z0-9_]{2,39}$') NOT VALID;--> statement-breakpoint
-ALTER TABLE "moderation_decisions" ADD CONSTRAINT "moderation_decisions_refusal_has_reason"
-  CHECK ("decision"::text NOT IN ('rejected', 'removed', 'gone') OR "reason" IS NOT NULL) NOT VALID;--> statement-breakpoint
 COMMENT ON COLUMN "moderation_decisions"."reason" IS
-  'Why, as a slug from lib/src/moderation (labels in messages/*.json). Required for rejected/removed/gone from 0033 on; NULL on older rows and on approvals.';--> statement-breakpoint
+  'Why, as a slug from lib/src/moderation (labels in messages/*.json). Given on every rejected/removed/gone by the application from 0033 on (the CHECK is a later migration); NULL on older rows and on approvals.';--> statement-breakpoint
 CREATE TABLE "moderation_notifications" (
 	"id" bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "moderation_notifications_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1),
 	"kind" "moderation_notification_kind" NOT NULL,
