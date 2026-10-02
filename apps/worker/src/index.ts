@@ -1,10 +1,17 @@
-import { getPool, materializeSessions, refreshStats } from '@sportkarta/db';
+import {
+  eraseExpiredNotifierContacts,
+  getDb,
+  getPool,
+  materializeSessions,
+  refreshStats,
+} from '@sportkarta/db';
 import { assertDelivered, createMailer } from '@sportkarta/lib/email';
 import { runImport } from '@sportkarta/import-osm';
 
 import { runDivisions } from './divisions-job.js';
 import { runWeeklyDigest } from './digest-job.js';
 import { runOpenDataDump } from './opendata-dump-job.js';
+import { runModerationNotify, type ModerationNotifyJobData } from './moderation-mail-job.js';
 import {
   runBadgeBackfill,
   runPassportEvaluate,
@@ -51,6 +58,12 @@ const STREAK_FREEZE_QUEUE = 'streaks.freeze';
  * Also the bootstrap — there is no separate seeding job.
  */
 const DIVISIONS_ROLLOVER_QUEUE = 'divisions.rollover';
+/**
+ * Moderation mail (0033): statements of reasons to members whose content was
+ * refused, and receipts and outcomes to notifiers. Enqueued by the web app with
+ * a decision id or a notice id — never an address.
+ */
+const MODERATION_NOTIFY_QUEUE = 'moderation.notify';
 
 interface ImportOsmJobData {
   dryRun?: boolean;
@@ -181,6 +194,9 @@ async function main(): Promise<void> {
   await ensureQueue(BADGE_BACKFILL_QUEUE);
   await ensureQueue(STREAK_FREEZE_QUEUE, WEEKLY_RETRY);
   await ensureQueue(DIVISIONS_ROLLOVER_QUEUE, WEEKLY_RETRY);
+  // Enqueued once per decision or notice, like session.notify: the retry is
+  // the only second chance a statement of reasons gets.
+  await ensureQueue(MODERATION_NOTIFY_QUEUE, MAIL_RETRY);
 
   await boss.work(HEALTH_QUEUE, async (jobs) => {
     for (const job of jobs) {
@@ -227,9 +243,12 @@ async function main(): Promise<void> {
       `DELETE FROM verifications WHERE expires_at < now()`,
     );
     const sessions = await statsPool.query(`DELETE FROM sessions WHERE expires_at < now()`);
+    // A notifier's name and address are kept to answer them about their notice
+    // (0033), and erased once the retention printed on /privacy has run out.
+    const notifierContacts = await eraseExpiredNotifierContacts(getDb());
     // Counts only — never the addresses themselves (no PII in logs).
     console.log(
-      `[worker] ${AUTH_CLEANUP_QUEUE} removed ${verifications.rowCount ?? 0} expired code(s), ${sessions.rowCount ?? 0} expired session(s)`,
+      `[worker] ${AUTH_CLEANUP_QUEUE} removed ${verifications.rowCount ?? 0} expired code(s), ${sessions.rowCount ?? 0} expired session(s), ${String(notifierContacts)} notifier contact(s)`,
     );
   });
   await boss.schedule(AUTH_CLEANUP_QUEUE, '17 3 * * *');
@@ -333,6 +352,23 @@ async function main(): Promise<void> {
     }),
   );
   await boss.schedule(SESSION_REMINDERS_QUEUE, '*/10 * * * *');
+
+  // Moderation mail (0033). The outcome is a closed vocabulary, so it can be
+  // logged; the payload is re-validated by the job before it touches anything.
+  // One message per job, claimed and sent in one transaction: a relay failure
+  // rolls the claim back and THROWS, so MAIL_RETRY re-runs it.
+  await boss.work(
+    MODERATION_NOTIFY_QUEUE,
+    { batchSize: 1 },
+    logged(MODERATION_NOTIFY_QUEUE, async (jobs) => {
+      const contactEmail = process.env.CONTACT_EMAIL;
+      for (const job of jobs) {
+        const data = (job.data ?? {}) as ModerationNotifyJobData;
+        const outcome = await runModerationNotify(data, { mailer, siteUrl, contactEmail });
+        console.log(`[worker] ${MODERATION_NOTIFY_QUEUE} job ${job.id}: ${outcome}`);
+      }
+    }),
+  );
 
   // Weekly city digest (Stage 4.4). Monday 08:00 EUROPE/SOFIA, not UTC: the
   // send time is a wall-clock promise to a reader, so it must not drift by an

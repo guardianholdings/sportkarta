@@ -232,6 +232,13 @@
       "when": 1785112800000,
       "tag": "0032_photo_takedown",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1785116400000,
+      "tag": "0033_content_notices",
+      "breakpoints": true
     }
   ]
 }

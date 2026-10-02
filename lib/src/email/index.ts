@@ -13,6 +13,7 @@ export { brandEmailHtml } from './html.js';
 export * from './weekly-digest.js';
 export * from './session-mail.js';
 export * from './delivery.js';
+export * from './moderation-mail.js';
 export { FileMailer, ConsoleMailer } from './file.js';
 export { DEFAULT_FROM_NAME, formatFrom, SmtpMailer } from './smtp.js';
 

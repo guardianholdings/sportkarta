@@ -783,10 +783,26 @@ export const moderationDecisions = pgTable(
       onDelete: 'restrict',
     }),
     decision: moderationDecision('decision').notNull(),
+    /**
+     * WHY, as a slug from the closed vocabulary in lib/src/moderation (0033);
+     * the label lives in messages/*.json. Required for a refusal (rejected /
+     * gone) — it is what the statement of reasons mailed to the uploader says —
+     * and NULL on approvals and on every decision taken before 0033.
+     */
+    reason: text('reason'),
     queuedAt: timestamptz('queued_at').notNull(),
     decidedAt: timestamptz('decided_at').notNull().defaultNow(),
   },
   (t) => [
+    check(
+      'moderation_decisions_reason_format',
+      sql`${t.reason} IS NULL OR ${t.reason} ~ '^[a-z][a-z0-9_]{2,39}$'`,
+    ),
+    // NOT VALID in 0033: binds every decision from then on, not the history.
+    check(
+      'moderation_decisions_refusal_has_reason',
+      sql`${t.decision} NOT IN ('rejected', 'gone') OR ${t.reason} IS NOT NULL`,
+    ),
     // Per-ambassador activity, and the SLA report's only scan.
     index('moderation_decisions_actor_decided_idx').on(t.actorId, t.decidedAt),
     index('moderation_decisions_decided_idx').on(t.decidedAt),
@@ -811,6 +827,130 @@ export const moderationDecisions = pgTable(
     check(
       'moderation_decisions_facility_target',
       sql`${t.targetType} <> 'facility' OR ${t.targetId} = ${t.facilityId}`,
+    ),
+  ],
+);
+
+/**
+ * Notices from the public "report content" form, /signal (0033; DSA Art. 16).
+ *
+ * The notice row is its OWN decision record rather than a moderation_decisions
+ * row: a notice can concern a passport or a session that belongs to no
+ * facility, and deciding it is the controller's act (`requireRole('admin')`),
+ * not a municipality-scoped one. A guard trigger freezes what was reported from
+ * the moment it arrives and the decision once taken; the one mutation a decided
+ * row still accepts is ERASING the notifier's contact, which the worker does
+ * 180 days after the decision.
+ *
+ * `decided_by` has no foreign key for the same reason `moderation_decisions.
+ * actor_id` has none: the record must outlive the admin's own account.
+ */
+export const contentNoticeCategory = pgEnum('content_notice_category', [
+  'illegal',
+  'personal_data',
+  'rights',
+  'abuse',
+  'spam',
+  'other',
+]);
+export const contentNoticeStatus = pgEnum('content_notice_status', [
+  'pending',
+  'actioned',
+  'dismissed',
+]);
+
+export const contentNotices = pgTable(
+  'content_notices',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** Absolute http(s) URL or a site path — never another scheme. */
+    targetUrl: text('target_url').notNull(),
+    category: contentNoticeCategory('category').notNull(),
+    explanation: text('explanation').notNull(),
+    /** Optional; erased 180 days after the decision. */
+    notifierName: text('notifier_name'),
+    /** Optional reply address; erased 180 days after the decision. */
+    notifierEmail: text('notifier_email'),
+    /** The Art. 16(2)(d) statement. CHECK-pinned to true. */
+    goodFaith: boolean('good_faith').notNull(),
+    status: contentNoticeStatus('status').notNull().default('pending'),
+    decidedBy: text('decided_by'),
+    decidedAt: timestamptz('decided_at'),
+    /** Slug from lib/src/moderation; the label lives in messages/*.json. */
+    decisionReason: text('decision_reason'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('content_notices_pending_created_idx')
+      .on(t.createdAt)
+      .where(sql`${t.status} = 'pending'`),
+    check(
+      'content_notices_target_url_shape',
+      sql`char_length(${t.targetUrl}) BETWEEN 1 AND 500 AND ${t.targetUrl} ~ '^(https?://|/)' AND ${t.targetUrl} !~ '[[:space:][:cntrl:]]'`,
+    ),
+    check(
+      'content_notices_explanation_len',
+      sql`btrim(${t.explanation}) <> '' AND char_length(${t.explanation}) <= 2000`,
+    ),
+    check(
+      'content_notices_notifier_name_len',
+      sql`${t.notifierName} IS NULL OR (btrim(${t.notifierName}) <> '' AND char_length(${t.notifierName}) <= 120)`,
+    ),
+    check(
+      'content_notices_notifier_email_shape',
+      sql`${t.notifierEmail} IS NULL OR (char_length(${t.notifierEmail}) <= 254 AND ${t.notifierEmail} ~ '^[^@[:space:]]+@[^@[:space:]]+$')`,
+    ),
+    check('content_notices_good_faith', sql`${t.goodFaith}`),
+    check(
+      'content_notices_decision_complete',
+      sql`((${t.status} = 'pending') = (${t.decidedAt} IS NULL)) AND ((${t.status} = 'pending') = (${t.decidedBy} IS NULL)) AND ((${t.status} = 'pending') = (${t.decisionReason} IS NULL))`,
+    ),
+    check(
+      'content_notices_decided_by_not_blank',
+      sql`${t.decidedBy} IS NULL OR btrim(${t.decidedBy}) <> ''`,
+    ),
+    check(
+      'content_notices_reason_format',
+      sql`${t.decisionReason} IS NULL OR ${t.decisionReason} ~ '^[a-z][a-z0-9_]{2,39}$'`,
+    ),
+    check('content_notices_order', sql`${t.decidedAt} IS NULL OR ${t.decidedAt} >= ${t.createdAt}`),
+  ],
+);
+
+/**
+ * Idempotency ledger for moderation mail (0033): the statement of reasons to an
+ * uploader, and the receipt and outcome to a notifier. The worker claims a row
+ * BEFORE it sends, in the same transaction, so a retry cannot mail anyone
+ * twice. It records THAT a message went, never to whom — the address is read
+ * from the live tables at send time, like play_session_notifications (0013).
+ */
+export const moderationNotificationKind = pgEnum('moderation_notification_kind', [
+  'decision',
+  'notice_received',
+  'notice_decided',
+]);
+
+export const moderationNotifications = pgTable(
+  'moderation_notifications',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    kind: moderationNotificationKind('kind').notNull(),
+    decisionId: bigint('decision_id', { mode: 'number' }).references(() => moderationDecisions.id, {
+      onDelete: 'restrict',
+    }),
+    noticeId: uuid('notice_id').references(() => contentNotices.id, { onDelete: 'cascade' }),
+    sentAt: timestamptz('sent_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('moderation_notifications_decision_unique')
+      .on(t.decisionId)
+      .where(sql`${t.decisionId} IS NOT NULL`),
+    uniqueIndex('moderation_notifications_notice_unique')
+      .on(t.noticeId, t.kind)
+      .where(sql`${t.noticeId} IS NOT NULL`),
+    check(
+      'moderation_notifications_subject',
+      sql`((${t.kind} = 'decision') = (${t.decisionId} IS NOT NULL)) AND ((${t.kind} = 'decision') = (${t.noticeId} IS NULL))`,
     ),
   ],
 );
@@ -2061,6 +2201,9 @@ export type ModerationDecisionRow = typeof moderationDecisions.$inferSelect;
 export type ModerationFlag = typeof moderationFlags.$inferSelect;
 export type ModerationTargetType = (typeof moderationTarget.enumValues)[number];
 export type ModerationDecisionValue = (typeof moderationDecision.enumValues)[number];
+export type ContentNotice = typeof contentNotices.$inferSelect;
+export type ContentNoticeCategoryValue = (typeof contentNoticeCategory.enumValues)[number];
+export type ContentNoticeStatusValue = (typeof contentNoticeStatus.enumValues)[number];
 
 export type Municipality = typeof municipalities.$inferSelect;
 export type NewMunicipality = typeof municipalities.$inferInsert;
