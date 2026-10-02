@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
+import { scopedMessagesLayout } from '@/i18n/client-intl-provider';
+
 /**
  * The component catalogue is a development aid («Вътрешна референция»), and
  * in production it was a public, indexable page under the brand. Gated here,
@@ -12,7 +14,14 @@ import { notFound } from 'next/navigation';
  */
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
-export default function DesignSystemLayout({ children }: { children: React.ReactNode }) {
+// Sends this route's client components the message namespaces they read, on
+// top of the root set (i18n/client-messages.ts, scope 'designSystem').
+const ScopedMessages = scopedMessagesLayout('designSystem');
+
+export default function DesignSystemLayout(props: {
+  children: React.ReactNode;
+  params: Promise<{ locale: string }>;
+}) {
   if (process.env.NODE_ENV === 'production') notFound();
-  return children;
+  return <ScopedMessages {...props} />;
 }

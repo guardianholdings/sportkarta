@@ -3,7 +3,7 @@ import { getTranslations } from 'next-intl/server';
 
 import { municipalityDisplayName } from '@/lib/area-name';
 import { OG_PALETTE } from '@/lib/og/palette';
-import { renderStoryCard } from '@/lib/og/story';
+import { cachedStoryCard } from '@/lib/og/story';
 import { OG_MISSING } from '@/lib/og/card';
 import { getFacilityBySlug } from '@/lib/public-data';
 import { siteHost } from '@/lib/seo';
@@ -25,6 +25,11 @@ import { isUuid } from '@/lib/uuid';
  * default year-long immutable cache is correct and wanted. The moment a story
  * names a member it belongs on `/og/lichen/…` instead, which is session-gated
  * and `no-store`.
+ *
+ * RENDERED ONCE PER CONTENT through `cachedStoryCard`: a 1080×1920 story is the
+ * most expensive thing the server draws, and a shared one is fetched over and
+ * over (pre-launch audit, finding 163). The cache is keyed by what is drawn, so
+ * the lookups below still run and an edit shows on the next request.
  *
  * THE LEGEND STORY NAMES NOBODY. It prints the number of days the most regular
  * person has come, exactly as the facility page does — operator decision 1 of
@@ -67,7 +72,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
       const legend = await facilityLegend(getDb(), facility.id);
       // No holder yet, or below the floor — no story rather than an empty one.
       if (!legend) return new Response('Not found', { status: 404 });
-      return renderStoryCard({
+      return cachedStoryCard({
         eyebrow: tStory('legend.eyebrow'),
         hero: String(legend.days),
         heroLabel: tStory('legend.heroLabel'),
@@ -87,7 +92,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     const area = facility.municipalityName
       ? await municipalityDisplayName(facility.municipalityName, lang)
       : null;
-    return renderStoryCard({
+    return cachedStoryCard({
       eyebrow: area ?? facility.quarter,
       title: name,
       subtitle: sports,
@@ -116,7 +121,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
       day: 'numeric',
       month: 'long',
     }).format(new Date(`${datePart ?? ''}T00:00:00`));
-    return renderStoryCard({
+    return cachedStoryCard({
       eyebrow: day,
       hero: (timePart ?? '').slice(0, 5) || OG_MISSING,
       heroLabel: tStory('session.heroLabel'),
@@ -135,7 +140,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
   if (!campaign) return new Response('Not found', { status: 404 });
   const title = lang === 'en' ? (campaign.titleEn ?? campaign.titleBg) : campaign.titleBg;
   const blurb = lang === 'en' ? campaign.blurbEn : campaign.blurbBg;
-  return renderStoryCard({
+  return cachedStoryCard({
     eyebrow: tStory('campaign.eyebrow'),
     // A campaign's hero is its NAME rather than a number: there is no single
     // figure that means anything before somebody has joined, and an invented one

@@ -12,8 +12,18 @@ import { renderUrlset, XML_HEADERS, type UrlEntry } from '@/lib/sitemap-xml';
 //   /sitemaps/places.xml     — city + city×sport pages (≥3 guard)
 //   /sitemaps/static.xml      — the indexable static pages (lib/sitemap-static.ts)
 // Cached + revalidated hourly so crawlers don't trigger a full-table scan per
-// request (facilities.xml ≈ 6.6k rows).
+// request (facilities.xml ≈ 6.6k rows, 2.75 MB).
+//
+// The empty generateStaticParams is load-bearing: on a dynamic segment,
+// `revalidate` without it is silently ignored and every request regenerates
+// the file. Empty means nothing is built ahead (there is no database during the
+// image build); each name is generated on first request and then served from
+// the cache.
 export const revalidate = 3600;
+
+export function generateStaticParams(): { name: string }[] {
+  return [];
+}
 
 async function entriesFor(name: string): Promise<UrlEntry[] | null> {
   switch (name) {

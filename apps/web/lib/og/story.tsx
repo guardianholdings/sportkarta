@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og';
 
 import { ogFonts } from './fonts';
+import { ogImageCache, ogImageKey } from './image-cache';
 import { OG_PALETTE } from './palette';
 
 /**
@@ -282,4 +283,23 @@ export function renderStoryCard(input: StoryCardInput): ImageResponse {
       ...(input.headers ? { headers: input.headers } : {}),
     },
   );
+}
+
+/** A story with the default, PUBLIC cache header — the only kind worth caching. */
+export type PublicStoryCardInput = Omit<StoryCardInput, 'headers'>;
+
+/**
+ * `renderStoryCard`, served from the in-process image cache. A story is the
+ * most expensive thing the server draws (220-410 ms of the one Node thread), so
+ * this is where the cache pays most. PUBLIC stories only: like `cachedOgCard`
+ * it takes no `headers` and refuses them at runtime — the `/og/lichen/…`
+ * stories are generated per request from the session, and stay that way.
+ */
+export function cachedStoryCard(input: PublicStoryCardInput): Promise<Response> {
+  if ('headers' in input) {
+    throw new Error(
+      'cachedStoryCard is for public stories; a headers override means person-scoped',
+    );
+  }
+  return ogImageCache.get(ogImageKey('story', input), () => renderStoryCard(input));
 }

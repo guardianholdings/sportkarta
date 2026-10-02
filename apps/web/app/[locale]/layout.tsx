@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { hasLocale, NextIntlClientProvider } from 'next-intl';
+import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
@@ -7,6 +7,7 @@ import { UmamiAnalytics } from '@/components/analytics/umami';
 import { ErrorMonitor } from '@/components/monitoring/error-monitor';
 import { ServiceWorkerRegistrar } from '@/components/pwa/service-worker';
 import { SiteFooter } from '@/components/shell/site-footer';
+import { ClientIntlProvider } from '@/i18n/client-intl-provider';
 import { routing } from '@/i18n/routing';
 import { siteSocialMetadata, siteUrl } from '@/lib/seo';
 
@@ -79,10 +80,13 @@ export default async function LocaleLayout({
   return (
     <html lang={locale}>
       <body className="antialiased">
-        <NextIntlClientProvider>
+        {/* Only the namespaces client components read on every page — not the
+          whole catalogue (i18n/client-messages.ts). Routes whose client
+          components need more widen it in their own layout. */}
+        <ClientIntlProvider locale={locale}>
           {children}
           <SiteFooter />
-        </NextIntlClientProvider>
+        </ClientIntlProvider>
         <ServiceWorkerRegistrar />
         {umamiSrc && umamiWebsiteId ? (
           <UmamiAnalytics src={umamiSrc} websiteId={umamiWebsiteId} />
