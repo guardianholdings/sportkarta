@@ -1,6 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 
 import { ADMIN_EMAIL, signIn } from './auth';
+import { rendersNotFound, softRedirectTarget } from './responses';
 
 /**
  * Per-role link crawler — the permanent regression against the audit's findings
@@ -44,16 +45,23 @@ const PUBLIC_ROUTES = [
 const MEMBER_ONLY = ['/profil', '/pasport', '/dobavi', '/trenirovki'];
 const MEMBER_ROUTES = [...PUBLIC_ROUTES, ...MEMBER_ONLY];
 
+// Every screen in the admin nav (admin/(protected)/layout.tsx). Account
+// management and the private-business list were missing, so nothing proved
+// they render for an admin or stay hidden from everyone else; the per-account
+// pages are reached through the links on /admin/akaunti, which step 2 of the
+// crawl follows with the admin session.
 const ADMIN_ONLY = [
   '/admin',
   '/admin/facilities',
   '/admin/verify',
   '/admin/moderation',
+  '/admin/akaunti',
   '/admin/sesii',
   '/admin/rezultati',
   '/admin/kampanii',
   '/admin/partnyori',
   '/admin/ambasadori',
+  '/admin/chastni',
   '/admin/otcheti',
   '/admin/obshtini',
   '/admin/import',
@@ -67,21 +75,24 @@ interface CrawlResult {
   antiPatterns: string[];
 }
 
-// Next runs on-demand compilation under `pnpm dev` (the e2e web server), so a
-// cold route's first hit is slow and a burst of them can time out or briefly
-// refuse a connection. That is a dev artifact, not a dead link — so every fetch
-// retries transient failures and only a definitive HTTP status is trusted. The
-// verdict a route earns is its STATUS; only 404/5xx (or persistent
-// unreachability after every retry) counts against it.
+// Locally the e2e server can be `next dev` (playwright.config.ts), which
+// compiles each route on its first hit, so a burst of cold routes can time out
+// or briefly refuse a connection. That is a dev artifact, not a dead link — so
+// every fetch retries transient failures and only a definitive answer is
+// trusted. A route's verdict is its status, with one correction: a page that
+// rendered the not-found UI counts as the 404 it would have been, because
+// behind the root loading boundary notFound() arrives with a 200 status line
+// (e2e/responses.ts). Without that, a dead link could no longer fail the crawl.
 async function statusOf(page: Page, url: string, nav: boolean): Promise<number | 'unreachable'> {
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
       if (nav) {
         const r = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-        return r?.status() ?? 0;
+        if (!r) return 0;
+        return rendersNotFound(r.status(), await r.text()) ? 404 : r.status();
       }
       const r = await page.request.get(url, { maxRedirects: 5, timeout: 30_000 });
-      return r.status();
+      return rendersNotFound(r.status(), await r.text()) ? 404 : r.status();
     } catch {
       await new Promise((r) => setTimeout(r, 500 * (attempt + 1))); // back off; the route is likely compiling
     }
@@ -146,29 +157,41 @@ function assertClean(res: CrawlResult): void {
 
 /**
  * Authorization probe: a role must NOT be able to reach a route above its
- * privilege. A protected route redirects the under-privileged caller to sign-in
- * (or 4xx), so "reached" = the final path is still the requested route with a
- * 2xx. Any leak fails — a control visible to a role that cannot use it is both a
- * UX and an authz bug.
+ * privilege. A protected route answers an under-privileged caller in one of
+ * four ways, all of them a denial:
+ *   - the middleware redirects to sign-in (the final path is not the route),
+ *   - a 4xx,
+ *   - the page's own requireUser() redirects after the 200 shell has streamed
+ *     (a meta-refresh to the sign-in page — /trenirovki does this, since the
+ *     middleware does not list it),
+ *   - the page's requireRole()/requireAdmin() renders the not-found UI behind a
+ *     200 (every /admin screen for a signed-in member).
+ * Anything else that comes back 2xx on the requested path is a leak. Reading
+ * only the status line, as this did before the loading boundary landed,
+ * reported the last two as leaks — 13 false alarms that hid any real one.
  */
 async function assertDenied(page: Page, routes: string[], label: string): Promise<void> {
   const leaks: string[] = [];
   for (const route of routes) {
     let status = 0;
     let finalPath = '';
+    let html = '';
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
         const r = await page.request.get(route, { maxRedirects: 5, timeout: 30_000 });
         status = r.status();
         finalPath = new URL(r.url()).pathname.replace(/^\/(bg|en)(?=\/|$)/, '') || '/';
+        html = await r.text();
         break;
       } catch {
         await new Promise((res) => setTimeout(res, 500 * (attempt + 1)));
       }
     }
-    if (status >= 200 && status < 400 && finalPath === route) {
-      leaks.push(`${route} (reached: ${String(status)})`);
-    }
+    if (status < 200 || status >= 400 || finalPath !== route) continue;
+    if (rendersNotFound(status, html)) continue;
+    const sentTo = softRedirectTarget(html);
+    if (sentTo === '/vhod') continue;
+    leaks.push(`${route} (reached: ${String(status)}${sentTo ? `, redirected to ${sentTo}` : ''})`);
   }
   expect(leaks, `${label} must not reach protected routes`).toEqual([]);
 }

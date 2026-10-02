@@ -3,6 +3,7 @@ import { config } from 'dotenv';
 import pg from 'pg';
 
 import { ADMIN_EMAIL, signIn } from './auth';
+import { rendersNotFound } from './responses';
 
 // Repo-root .env (Playwright runs with cwd = apps/web).
 config({ path: '../../.env' });
@@ -17,10 +18,12 @@ function dbClient(): pg.Client {
 
 /**
  * A hidden admin path must answer EXACTLY like a nonexistent one — same
- * status, same not-found body. The literal-404 assertion this replaces became
+ * status, same not-found render. The literal-404 assertion this replaces became
  * unrepresentable when the root loading boundary landed: Next streams the 200
  * shell first, so notFound() cannot change the status line — uniformly for
- * hidden and missing paths, which is the property that matters.
+ * hidden and missing paths, which is the property that matters. The not-found
+ * render is recognised by Next's own marker, not by the default page's English
+ * text, so a localized not-found page does not break this (e2e/responses.ts).
  */
 async function expectHiddenLikeMissing(
   page: import('@playwright/test').Page,
@@ -28,12 +31,12 @@ async function expectHiddenLikeMissing(
 ): Promise<void> {
   const reference = await page.request.get(`/admin/nyama-takava-stranitsa-${String(Date.now())}`);
   expect(
-    await reference.text(),
+    rendersNotFound(reference.status(), await reference.text()),
     'the reference missing path must render the not-found UI',
-  ).toContain('This page could not be found');
+  ).toBe(true);
   const response = await page.request.get(path);
   expect(response.status(), path).toBe(reference.status());
-  expect(await response.text(), path).toContain('This page could not be found');
+  expect(rendersNotFound(response.status(), await response.text()), path).toBe(true);
 }
 
 async function query<T extends Record<string, unknown>>(
