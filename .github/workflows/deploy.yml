@@ -342,9 +342,28 @@ jobs:
           # Caddyfile edit needs an explicit reload. `caddy reload` swaps the
           # config gracefully — a restart dropped every open connection on every
           # deploy — and the restart remains as the fallback if reload fails.
+      # THE GATE WAITS FOR THIS DEPLOY'S WORKER (pre-launch audit finding 133).
+      # /api/health alone only goes red once the last worker ping is twenty
+      # minutes old, and the PREVIOUS worker pinged minutes before `up -d`, so a
+      # new worker that dies on boot stayed green through the whole gate — and
+      # nothing reads /api/health afterwards. So the gate asks the narrower
+      # question: has the worker container running NOW completed a ping since it
+      # started? The worker pings as the last step of booting, so a healthy one
+      # answers within seconds and one that crashes on the way up never does.
+      # The start time is Docker's, read on the VPS — the clock the database
+      # stamps the ping with. A re-run that did not recreate the worker is
+      # answered by that same worker's last five-minute ping.
       - name: Health check (fail loudly)
         run: |
-          url="${{ steps.base.outputs.url }}/api/health"
+          since=$(ssh vps 'cd /opt/sportkarta \
+            && id=$(docker compose -f compose.prod.yml ps -a -q worker | head -n1) \
+            && [ -n "$id" ] \
+            && date -u -d "$(docker inspect -f "{{.State.StartedAt}}" "$id")" +%s%3N' || true)
+          if ! printf '%s' "$since" | grep -Eq '^[0-9]{13}$'; then
+            echo "::error::DEPLOY HEALTH CHECK FAILED — no worker container start time to wait for (got '$since')"
+            exit 1
+          fi
+          url="${{ steps.base.outputs.url }}/api/health?workerSince=$since"
           for i in $(seq 1 20); do
             if curl -fsS --max-time 10 "$url"; then
               echo

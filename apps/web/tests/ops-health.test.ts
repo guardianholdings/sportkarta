@@ -2,11 +2,13 @@ import { renderSql, type SQL } from '@sportkarta/db';
 import { describe, expect, it } from 'vitest';
 
 import {
+  beatSince,
   classifyHeartbeat,
   HEARTBEAT_STALE_SECONDS,
   jobErrorMessage,
   mailOutcomes,
   NEVER_BEATEN_GRACE_SECONDS,
+  parseWorkerSince,
   queueHealth,
   readWorkerHeartbeat,
   summarizeMailOutputs,
@@ -56,6 +58,27 @@ describe('workerRequired', () => {
     expect(workerRequired({ NODE_ENV: 'production' })).toBe(true);
     expect(workerRequired({ NODE_ENV: 'development' })).toBe(false);
     expect(workerRequired({})).toBe(false);
+  });
+});
+
+describe('workerSince (the deploy gate)', () => {
+  const beat = (lastBeatAt: string | null) =>
+    ({ status: 'ok', lastBeatAt, ageSeconds: 0 }) as const;
+
+  it('reads epoch milliseconds, and calls anything else invalid', () => {
+    expect(parseWorkerSince(null)).toBeNull();
+    expect(parseWorkerSince('1790931600123')).toBe(1_790_931_600_123);
+    for (const bad of ['', ' 1', '1e12', 'NaN', '12345678901234567']) {
+      expect(parseWorkerSince(bad), bad).toBe('invalid');
+    }
+  });
+
+  it('wants a ping strictly AFTER the worker started', () => {
+    const started = Date.parse('2026-10-02T09:00:00.000Z');
+    expect(beatSince(beat('2026-10-02T09:00:03.500Z'), started)).toBe(true);
+    expect(beatSince(beat('2026-10-02T09:00:00.000Z'), started)).toBe(false);
+    expect(beatSince(beat('2026-10-02T08:56:00.000Z'), started)).toBe(false);
+    expect(beatSince(beat(null), started)).toBe(false);
   });
 });
 

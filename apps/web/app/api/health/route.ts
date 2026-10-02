@@ -2,7 +2,13 @@ import { NextResponse } from 'next/server';
 
 import { checkDbHealth, getDb } from '@sportkarta/db';
 
-import { readWorkerHeartbeat, workerRequired, type WorkerHeartbeat } from '@/lib/ops-health';
+import {
+  beatSince,
+  parseWorkerSince,
+  readWorkerHeartbeat,
+  workerRequired,
+  type WorkerHeartbeat,
+} from '@/lib/ops-health';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +25,14 @@ export const dynamic = 'force-dynamic';
  * the gate retries for five minutes, and a database where no worker has ever
  * pinged gets a ten-minute grace from this process's start. The response names
  * no person and carries nothing but times, so it stays unauthenticated.
+ *
+ * Staleness alone cannot fail a deploy, though: the previous worker pinged
+ * minutes before the new one was started, so a new worker that dies on boot
+ * stays inside the twenty minutes for the whole gate. The deploy gate therefore
+ * asks `?workerSince=<when the running worker container started>` and gets a
+ * 503 until a ping has completed after that instant — whatever NODE_ENV says,
+ * because the caller asked. The compose healthcheck asks nothing and keeps the
+ * staleness rule.
  */
 async function worker(): Promise<WorkerHeartbeat> {
   try {
@@ -34,7 +48,15 @@ async function worker(): Promise<WorkerHeartbeat> {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const since = parseWorkerSince(new URL(request.url).searchParams.get('workerSince'));
+  if (since === 'invalid') {
+    return NextResponse.json(
+      { status: 'error', reason: 'workerSince must be epoch milliseconds' },
+      { status: 400 },
+    );
+  }
+
   let postgis: string;
   try {
     const db = await checkDbHealth();
@@ -52,6 +74,17 @@ export async function GET() {
   }
 
   const heartbeat = await worker();
+  if (since !== null && !beatSince(heartbeat, since)) {
+    return NextResponse.json(
+      {
+        status: 'degraded',
+        reason: 'no worker heartbeat since workerSince',
+        postgis,
+        worker: heartbeat,
+      },
+      { status: 503 },
+    );
+  }
   if (heartbeat.status === 'stale' && workerRequired()) {
     return NextResponse.json(
       { status: 'degraded', reason: 'worker heartbeat stale', postgis, worker: heartbeat },

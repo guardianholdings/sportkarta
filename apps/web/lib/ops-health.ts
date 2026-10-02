@@ -122,6 +122,32 @@ export function workerRequired(env: Record<string, string | undefined> = process
 }
 
 /**
+ * `/api/health?workerSince=<epoch ms>` — the deploy gate's question: has a
+ * worker completed a ping SINCE this instant?
+ *
+ * The twenty-minute staleness rule cannot answer it. At deploy time the
+ * previous worker pinged at most five minutes earlier, so a new image that dies
+ * on boot left /api/health green for the whole five-minute gate, and nothing
+ * reads it afterwards (pre-launch audit finding 133). deploy.yml passes the
+ * moment the running worker CONTAINER started; the worker pings as the last
+ * step of booting, so only a worker that got all the way up can satisfy it.
+ *
+ * `null` = not asked; `'invalid'` = asked badly, which the route refuses rather
+ * than ignores, so a broken gate fails loudly instead of quietly passing.
+ */
+export function parseWorkerSince(raw: string | null): number | null | 'invalid' {
+  if (raw === null) return null;
+  return /^\d{1,16}$/.test(raw) ? Number(raw) : 'invalid';
+}
+
+/** Pure: did the last completed ping happen strictly after `sinceMs`? */
+export function beatSince(heartbeat: WorkerHeartbeat, sinceMs: number): boolean {
+  if (heartbeat.lastBeatAt === null) return false;
+  const beat = Date.parse(heartbeat.lastBeatAt);
+  return Number.isFinite(beat) && beat > sinceMs;
+}
+
+/**
  * The human-readable reason a job failed, from pg-boss's `output`.
  *
  * A handler that throws is stored as the serialised error ({ name, message,
