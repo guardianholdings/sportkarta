@@ -1,7 +1,7 @@
 import { getDb, listCampaigns } from '@sportkarta/db';
 import { getTranslations } from 'next-intl/server';
 
-import { renderOgCard, OG_MISSING } from '@/lib/og/card';
+import { cachedOgCard, OG_MISSING } from '@/lib/og/card';
 import { OG_PALETTE } from '@/lib/og/palette';
 import { getFacilityBySlug } from '@/lib/public-data';
 import { occurrenceView } from '@/lib/sessions/occurrence';
@@ -35,6 +35,12 @@ import { occurrenceView } from '@/lib/sessions/occurrence';
  * (C4/C5) must NOT reuse this route: a one-year immutable cache of a card
  * naming a member is the frozen named artifact migration 0012 forbids, and they
  * need force-dynamic + no-store + X-Robots-Tag instead.
+ *
+ * RENDERED ONCE PER CONTENT. Every card goes through `cachedOgCard`, so a link
+ * scraped by five platforms costs one rasterisation, not five (pre-launch
+ * audit, finding 163). The lookups below still run on every request — they
+ * decide WHAT to draw, and the cache is keyed by that, so an edit to the
+ * facility or session is on the next scrape.
  */
 
 export const runtime = 'nodejs';
@@ -64,7 +70,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     const facility = await getFacilityBySlug(slug);
     if (!facility) return new Response('Not found', { status: 404 });
     const place = facility.municipalityName ?? facility.quarter;
-    return renderOgCard({
+    return cachedOgCard({
       // A missing quarter removes the row rather than printing an empty band.
       eyebrow: place,
       title: facility.name ?? tOg('facility.unnamed'),
@@ -93,7 +99,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
       day: 'numeric',
       month: 'long',
     }).format(new Date(`${datePart ?? ''}T00:00:00`));
-    return renderOgCard({
+    return cachedOgCard({
       eyebrow: day,
       title: view.title,
       // null, not the CTA: the footnote already carries it, and a missing
@@ -116,7 +122,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
   if (!campaign) return new Response('Not found', { status: 404 });
   const title = lang === 'en' ? (campaign.titleEn ?? campaign.titleBg) : campaign.titleBg;
   const blurb = lang === 'en' ? campaign.blurbEn : campaign.blurbBg;
-  return renderOgCard({
+  return cachedOgCard({
     eyebrow: tOg('campaign.eyebrow'),
     title: title || OG_MISSING,
     subtitle: blurb ?? null,

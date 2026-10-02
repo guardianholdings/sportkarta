@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og';
 
 import { ogFonts } from './fonts';
+import { ogImageCache, ogImageKey } from './image-cache';
 import { OG_PALETTE } from './palette';
 
 /**
@@ -204,4 +205,24 @@ export function renderOgCard(input: OgCardInput): ImageResponse {
     </div>,
     { ...OG_SIZE, fonts: ogFonts(), ...(input.headers ? { headers: input.headers } : {}) },
   );
+}
+
+/** A card with the default, PUBLIC cache header — the only kind worth caching. */
+export type PublicOgCardInput = Omit<OgCardInput, 'headers'>;
+
+/**
+ * `renderOgCard`, served from the in-process image cache (lib/og/image-cache.ts):
+ * the first request for a given card rasterises it, every later one is a buffer
+ * copy. For the PUBLIC card routes only.
+ *
+ * It takes no `headers`, and refuses them at runtime too. Overriding the
+ * headers is how a person-scoped card marks itself `private, no-store`, and a
+ * card that must not be stored by a CDN must not be stored here either — so
+ * such a card cannot reach this function even through a cast.
+ */
+export function cachedOgCard(input: PublicOgCardInput): Promise<Response> {
+  if ('headers' in input) {
+    throw new Error('cachedOgCard is for public cards; a headers override means person-scoped');
+  }
+  return ogImageCache.get(ogImageKey('card', input), () => renderOgCard(input));
 }
