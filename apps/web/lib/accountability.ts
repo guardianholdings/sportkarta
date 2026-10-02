@@ -1,4 +1,4 @@
-import { getDb, sql } from '@sportkarta/db';
+import { getDb, publicFacilityVisible, sql } from '@sportkarta/db';
 
 /**
  * Municipality accountability (docs/ROADMAP.md §5, Stage 3.4).
@@ -23,10 +23,16 @@ import { getDb, sql } from '@sportkarta/db';
  * MIN_DISCLOSED_CONTRIBUTORS): "1 person maintains this municipality's data" is
  * a count, but next to a public leaderboard it is close enough to a name.
  *
- * The visibility rule matches the public map exactly (`status <> 'gone' AND
- * slug IS NOT NULL`), so a municipality can count the pins on /igrishta/[city]
- * and get the number this page shows. A metric nobody can reconcile is a metric
- * nobody believes.
+ * The visibility rule IS the public map's: both facility statements join on
+ * the shared `publicFacilityVisible` fragment (PUBLIC_FACILITY_PREDICATE), the
+ * one /igrishta/[city], /statistika and the open-data export are built from.
+ * So a municipality can count the pins on /igrishta/[city] and get the number
+ * this page shows. A metric nobody can reconcile is a metric nobody believes —
+ * and this file once carried its own copy of the rule from before the paid
+ * gate (0017/0018) existed, which put every commercial venue the map hides into
+ * a widget headed "free sports infrastructure". A hand copy agrees with the
+ * original on the day it is written; apps/web/tests/public-visibility.test.ts
+ * now fails the diff that writes one.
  */
 
 /**
@@ -164,7 +170,7 @@ export async function municipalityAccountability(city: {
     -- LEFT JOIN, so a municipality with nothing mapped yet still renders a page
     -- of zeros. That page is the point: "we have no data here" is the finding.
     LEFT JOIN facilities f
-      ON f.municipality_id = m.id AND f.status <> 'gone' AND f.slug IS NOT NULL
+      ON f.municipality_id = m.id AND ${publicFacilityVisible}
     WHERE m.id = ${city.id}
     GROUP BY m.ekatte_code, p.population
   `);
@@ -180,7 +186,7 @@ export async function municipalityAccountability(city: {
       FROM municipalities m
       JOIN municipality_population p ON p.ekatte_code = m.ekatte_code
       LEFT JOIN facilities f
-        ON f.municipality_id = m.id AND f.status <> 'gone' AND f.slug IS NOT NULL
+        ON f.municipality_id = m.id AND ${publicFacilityVisible}
       GROUP BY m.id, p.population
     )
     SELECT me.value,

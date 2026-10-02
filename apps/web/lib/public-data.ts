@@ -5,10 +5,12 @@ import type { PublicFilters } from '@/lib/filters';
 /**
  * Read-side queries for the PUBLIC map + facility pages. Server-only.
  *
- * Visibility: every facility that is not `gone` and has a slug is public. The
- * bulk of the dataset is OSM-imported and still `needs_verification` — that is
- * a data-quality signal shown per-facility ("last verified"), not a reason to
- * hide it from the national map. Only human-confirmed `gone` rows drop out.
+ * Visibility: every query here — the map feed, the SSR list AND the single
+ * facility page — asks `publicFacilityVisible` (see publicConditions below):
+ * not `gone`, has a slug, and a paid venue only while the master switch and its
+ * business allow it. The bulk of the dataset is OSM-imported and still
+ * `needs_verification` — that is a data-quality signal shown per-facility
+ * ("awaiting verification"), not a reason to hide it from the national map.
  *
  * Filter parsing/serialization lives in lib/filters.ts (client-safe); its
  * values are already allowlisted, so they are safe to interpolate here.
@@ -134,6 +136,12 @@ export interface FacilityDetail {
   surface: string | null;
   lighting: boolean | null;
   covered: boolean;
+  /**
+   * Whether `covered` is something a source actually said. The column is NOT
+   * NULL with a false default, so `covered: false` alone cannot tell "open-air"
+   * from "nobody knows" — the page shows "unknown" unless this is true.
+   */
+  coveredKnown: boolean;
   access: string;
   status: string;
   source: string;
@@ -141,7 +149,7 @@ export interface FacilityDetail {
   municipalityName: string | null;
   lon: number;
   lat: number;
-  /** Latest human (actor-attributed) audit entry; null = never verified. */
+  /** Latest verification evidence (VERIFICATION_EVIDENCE); null = never checked. */
   lastVerifiedAt: string | null;
   /** Latest crowd-reported condition; null = nobody has reported one yet. */
   condition: string | null;
@@ -149,17 +157,66 @@ export interface FacilityDetail {
   photos: string[];
 }
 
+/**
+ * The facility_edits rows that mean somebody CHECKED the facility, and so may
+ * date «Последна проверка» (last checked).
+ *
+ * Deliberately a list of what counts rather than of what does not: every other
+ * actor-attributed row is a claim or a complaint, not a check. `created` is the
+ * adder's own claim (verify-facility refuses to let them confirm it), and
+ * `reported_missing` says the opposite of "checked, it is here". `condition` is
+ * a wear report — a remote one does not even repaint the facility — and the
+ * admin editor's descriptive fields (name, quarter) are desk edits. A new
+ * facility_edits field stays out of this date until somebody decides it is
+ * evidence.
+ *
+ * What does count: `verified` (a member confirmed the checklist unchanged), a
+ * correction of a checklist field (the same form, with a change — it writes the
+ * field instead of `verified`; the admin editor writes the same fields), and a
+ * `status` change to `active` (published by an on-site confirmer or a
+ * moderator). All of them only with an actor: an import is not a check.
+ */
+export const VERIFICATION_EVIDENCE = {
+  fields: ['verified', 'access', 'surface', 'lighting', 'covered', 'sport_types'],
+  publishedStatus: 'active',
+} as const;
+
+/**
+ * OSM keys that state something about a roof. mapCovered (scripts/import-osm)
+ * turns their absence into `covered = false`, so only their presence makes an
+ * OSM row's `false` an answer.
+ */
+const OSM_COVERED_KEYS = ['covered', 'indoor', 'building'] as const;
+
 /** Full detail for /obekt/[slug]; null when unknown or not public. */
 export async function getFacilityBySlug(slug: string): Promise<FacilityDetail | null> {
   if (!SLUG_RE.test(slug)) return null;
   const db = getDb();
+  const evidence = sql`e.actor IS NOT NULL AND (
+    e.field = ANY(${textArray([...VERIFICATION_EVIDENCE.fields])})
+    OR (e.field = 'status'
+        AND e.new_value = to_jsonb(${VERIFICATION_EVIDENCE.publishedStatus}::text)))`;
   const result = await db.execute(sql`
     SELECT f.id, f.slug, f.name, f.sport_types, f.surface, f.lighting, f.covered,
            f.access, f.status, f.source, f.quarter, f.condition, f.condition_reported_at,
            m.name_bg AS municipality_name,
            ST_X(f.geom) AS lon, ST_Y(f.geom) AS lat,
            (SELECT max(e.created_at) FROM facility_edits e
-             WHERE e.facility_id = f.id AND e.actor IS NOT NULL) AS last_verified_at,
+             WHERE e.facility_id = f.id AND ${evidence}) AS last_verified_at,
+           -- covered is known when it is true, when OSM tagged a roof either way,
+           -- when a non-OSM source set it (an OSM change is already in the
+           -- tags), or when a person submitted the checklist — the verify form
+           -- and the admin editor always present the covered box, so leaving it
+           -- unticked there is an answer. A moderator publishing a pin is not:
+           -- the queue asks no roof question.
+           (f.covered
+            OR COALESCE((f.attrs #> '{osm,tags}') ?| ${textArray([...OSM_COVERED_KEYS])}, false)
+            OR EXISTS (SELECT 1 FROM facility_edits e
+                        WHERE e.facility_id = f.id
+                          AND ((e.field = 'covered' AND e.source <> 'osm')
+                               OR (e.actor IS NOT NULL
+                                   AND e.field = ANY(${textArray([...VERIFICATION_EVIDENCE.fields])}))))
+           ) AS covered_known,
            COALESCE(
              (SELECT array_agg(p.storage_path ORDER BY p.created_at)
               FROM facility_photos p
@@ -168,7 +225,7 @@ export async function getFacilityBySlug(slug: string): Promise<FacilityDetail | 
            ) AS photos
     FROM facilities f
     LEFT JOIN municipalities m ON m.id = f.municipality_id
-    WHERE f.slug = ${slug} AND f.status <> 'gone'
+    WHERE f.slug = ${slug} AND ${publicFacilityVisible}
   `);
   const row = result.rows[0] as Record<string, unknown> | undefined;
   if (!row) return null;
@@ -180,6 +237,7 @@ export async function getFacilityBySlug(slug: string): Promise<FacilityDetail | 
     surface: (row.surface as string | null) ?? null,
     lighting: (row.lighting as boolean | null) ?? null,
     covered: Boolean(row.covered),
+    coveredKnown: Boolean(row.covered_known),
     access: String(row.access),
     status: String(row.status),
     source: String(row.source),

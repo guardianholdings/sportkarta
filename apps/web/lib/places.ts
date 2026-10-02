@@ -75,9 +75,47 @@ export interface ScopedFacility {
   lat: number;
 }
 
-// Cap the embedded scoped set: keeps the SSR payload bounded even for large
-// cities (Sofia has ~1.7k facilities) while still showing density on the map.
-export const SCOPE_LIMIT = 500;
+/**
+ * The place pages' MAP shows every facility in scope. It used to share the
+ * list's slice — the first 500 by NAME — so Sofia's map showed 500 of 1,615
+ * pins and whole neighbourhoods looked empty, with nothing on the page saying
+ * so. The map canvas clusters client-side, so the whole municipality costs only
+ * payload; this bound is a safety valve well above the largest municipality,
+ * not a working limit, and the page discloses it if it is ever reached.
+ */
+export const MAP_POINT_LIMIT = 5000;
+
+/**
+ * The SSR list is PAGED, not capped: it is the non-map way in (keyboard,
+ * screen reader, no-JS, crawler), so every facility must be reachable from it.
+ * Pages live at a path segment (see listPagePath) rather than ?page=, because
+ * reading searchParams would opt the whole route out of ISR.
+ */
+export const LIST_PAGE_SIZE = 60;
+
+/** Path segment of list pages 2..n: /igrishta/<city>[/<segment>]/stranitsa/<n>. */
+export const LIST_PAGE_SEGMENT = 'stranitsa';
+
+/** Number of list pages for `total` facilities (an empty scope is one page). */
+export function listPageCount(total: number): number {
+  return Math.max(1, Math.ceil(total / LIST_PAGE_SIZE));
+}
+
+/**
+ * A /stranitsa/<n> segment as a page number, or null. Page 1 is the unpaged
+ * URL itself, so only 2 and up are accepted here — one canonical address per
+ * page — and anything that is not a plain positive integer is refused.
+ */
+export function parseListPage(raw: string): number | null {
+  if (!/^[1-9][0-9]{0,5}$/.test(raw)) return null;
+  const page = Number(raw);
+  return page >= 2 ? page : null;
+}
+
+/** The URL of list page `page` under a place page's own path. */
+export function listPagePath(basePath: string, page: number): string {
+  return page <= 1 ? basePath : `${basePath}/${LIST_PAGE_SEGMENT}/${String(page)}`;
+}
 
 export async function scopedFacilityCount(
   cityId: number,
@@ -90,18 +128,29 @@ export async function scopedFacilityCount(
   return Number((result.rows[0] as { n?: unknown } | undefined)?.n ?? 0);
 }
 
-export async function scopedFacilities(
+/**
+ * A slice of the scope in one total order (name, then id), so consecutive
+ * slices partition it: every facility lands on exactly one list page. The list
+ * and the map read the same statement and differ only in the window.
+ * Coordinates are rounded to 6 decimals (~0.1 m, the precision facilities are
+ * added at): they travel in the page payload, and the extra digits are bytes,
+ * not accuracy.
+ */
+async function scopedSlice(
   cityId: number,
-  opts: ScopeOptions = {},
-  limit = SCOPE_LIMIT,
+  opts: ScopeOptions,
+  limit: number,
+  offset: number,
 ): Promise<ScopedFacility[]> {
   const db = getDb();
   const result = await db.execute(sql`
-    SELECT f.slug, f.name, f.sport_types, ST_X(f.geom) AS lon, ST_Y(f.geom) AS lat
+    SELECT f.slug, f.name, f.sport_types,
+           round(ST_X(f.geom)::numeric, 6)::float8 AS lon,
+           round(ST_Y(f.geom)::numeric, 6)::float8 AS lat
     FROM facilities f
     WHERE ${scopeConditions(cityId, opts)}
     ORDER BY f.name NULLS LAST, f.id
-    LIMIT ${limit}
+    LIMIT ${limit} OFFSET ${offset}
   `);
   return result.rows.map((r) => {
     const row = r as Record<string, unknown>;
@@ -113,6 +162,23 @@ export async function scopedFacilities(
       lat: Number(row.lat),
     };
   });
+}
+
+/** One page (1-based) of the SSR list. */
+export function scopedFacilities(
+  cityId: number,
+  opts: ScopeOptions = {},
+  page = 1,
+): Promise<ScopedFacility[]> {
+  return scopedSlice(cityId, opts, LIST_PAGE_SIZE, (Math.max(1, page) - 1) * LIST_PAGE_SIZE);
+}
+
+/** Every facility in scope, for the map (up to MAP_POINT_LIMIT). */
+export function scopedMapPoints(
+  cityId: number,
+  opts: ScopeOptions = {},
+): Promise<ScopedFacility[]> {
+  return scopedSlice(cityId, opts, MAP_POINT_LIMIT, 0);
 }
 
 export interface SportCount {
@@ -165,6 +231,28 @@ export async function citiesForSport(
     if (city) out.push({ city, count: Number(row.n) });
   }
   return out;
+}
+
+/** What a /igrishta/[city]/[segment] segment names: a canonical sport OR a quarter. */
+export type SegmentScope = { kind: 'sport'; sport: string } | { kind: 'quarter'; quarter: string };
+
+/**
+ * Resolve a [segment] to its scope, or null. Sports are an allowlist, so they
+ * win; anything else must be the slug of a quarter that has public facilities.
+ * Shared by the segment page and its list pages, so both agree on what a
+ * segment means.
+ */
+export async function resolveSegmentScope(
+  cityId: number,
+  segment: string,
+): Promise<SegmentScope | null> {
+  if (CANONICAL_SPORT_SET.has(segment)) return { kind: 'sport', sport: segment };
+  const quarter = await resolveQuarterSlug(cityId, segment);
+  return quarter ? { kind: 'quarter', quarter } : null;
+}
+
+export function segmentScopeOptions(scope: SegmentScope): ScopeOptions {
+  return scope.kind === 'sport' ? { sport: scope.sport } : { quarter: scope.quarter };
 }
 
 /**
