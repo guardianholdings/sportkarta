@@ -36,11 +36,13 @@ function parseFilters(sp: Record<string, string | string[] | undefined>): Accoun
   const role = first(sp.role);
   const visibility = first(sp.vidimost);
   const consent = first(sp.saglasie);
+  const status = first(sp.status);
   return {
     ...(first(sp.q) ? { q: String(first(sp.q)) } : {}),
     ...(role && isRole(role) ? { role } : {}),
     ...(visibility === 'public' || visibility === 'private' ? { visibility } : {}),
     ...(consent === 'route' || consent === 'health' ? { consent } : {}),
+    ...(status === 'spreni' ? { suspended: true } : {}),
     page: Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1,
   };
 }
@@ -52,6 +54,7 @@ function href(base: AccountFilters, patch: Record<string, string | undefined>): 
   if (base.role) params.set('role', base.role);
   if (base.visibility) params.set('vidimost', base.visibility);
   if (base.consent) params.set('saglasie', base.consent);
+  if (base.suspended) params.set('status', 'spreni');
   for (const [key, value] of Object.entries(patch)) {
     if (value === undefined) params.delete(key);
     else params.set(key, value);
@@ -72,7 +75,11 @@ export default async function AdminAccountsPage({
   setRequestLocale(locale);
   await requireRole('admin');
 
-  const filters = parseFilters(await searchParams);
+  const sp = await searchParams;
+  const filters = parseFilters(sp);
+  // Set by the erase action's redirect (./[id]/actions.ts). Carries no id: the
+  // account no longer exists, and neither should its trace in a URL.
+  const erased = first(sp.iztrit) === '1';
   const [t, activeLocale, { rows, total }] = await Promise.all([
     getTranslations('AdminAccounts'),
     getLocale(),
@@ -102,11 +109,21 @@ export default async function AdminAccountsPage({
         <p className="mt-1 text-body-sm text-ink-soft">{t('intro')}</p>
       </div>
 
+      {erased && (
+        <p
+          role="status"
+          className="rounded-card border border-success-border bg-success-bg p-3 text-body-sm text-success"
+        >
+          {t('controls.erased')}
+        </p>
+      )}
+
       <form className="flex flex-wrap items-end gap-2" action="/admin/akaunti">
         {/* Preserve the active filters across a new search. */}
         {filters.role && <input type="hidden" name="role" value={filters.role} />}
         {filters.visibility && <input type="hidden" name="vidimost" value={filters.visibility} />}
         {filters.consent && <input type="hidden" name="saglasie" value={filters.consent} />}
+        {filters.suspended && <input type="hidden" name="status" value="spreni" />}
         <label className="flex-1 space-y-1.5">
           <span className="text-caption font-medium text-ink-soft">{t('searchLabel')}</span>
           <Input
@@ -167,6 +184,17 @@ export default async function AdminAccountsPage({
             {t('consentHealth')}
           </Link>
         </FilterRow>
+        <FilterRow label={t('filterStatus')}>
+          <Link href={href(filters, { status: undefined })} className={pill(!filters.suspended)}>
+            {t('all')}
+          </Link>
+          <Link
+            href={href(filters, { status: 'spreni' })}
+            className={pill(filters.suspended === true)}
+          >
+            {t('statusSuspended')}
+          </Link>
+        </FilterRow>
       </div>
 
       <p className="font-mono text-caption text-text-muted">{t('resultCount', { count: total })}</p>
@@ -216,6 +244,11 @@ export default async function AdminAccountsPage({
                     >
                       {row.displayName || t('noName')}
                     </Link>
+                    {row.suspended && (
+                      <Badge tone="danger" className="ml-2">
+                        {t('controls.suspendedBadge')}
+                      </Badge>
+                    )}
                     <span className="block break-all text-caption text-text-muted">
                       {row.email}
                     </span>

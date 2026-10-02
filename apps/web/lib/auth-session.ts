@@ -75,9 +75,12 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   const userId = session?.user?.id;
   if (!userId) return null;
 
+  // A SUSPENDED account (0033) reads exactly like an erased one: no row, so
+  // every gate behind this — requireUser, requireRole, each server action —
+  // sees a signed-out visitor on the very next request, cookie cache or not.
   const result = await getDb().execute(sql`
     SELECT id, email, display_name, home_city, is_minor, role
-    FROM users WHERE id = ${userId}
+    FROM users WHERE id = ${userId} AND suspended_at IS NULL
   `);
   const row = result.rows[0];
   if (!row) return null;

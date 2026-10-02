@@ -44,6 +44,8 @@ export interface AccountFilters {
   visibility?: 'public' | 'private';
   /** Accounts holding a given consent — the two are separate questions. */
   consent?: 'route' | 'health';
+  /** Only suspended accounts (0033) — the operator's review list. */
+  suspended?: boolean;
   page: number;
 }
 
@@ -54,6 +56,8 @@ export interface AccountListRow {
   homeCity: string | null;
   role: Role;
   isPublic: boolean;
+  /** Suspended by an admin (0033) — signed out everywhere until lifted. */
+  suspended: boolean;
   createdAt: string;
   points: number;
   /** `facility_edits` rows this person authored — the audit trail, not a score. */
@@ -99,6 +103,7 @@ export async function listAccounts(
   if (filters.visibility) conditions.push(sql`u.profile_visibility = ${filters.visibility}`);
   if (filters.consent === 'route') conditions.push(sql`u.training_route_consent_at IS NOT NULL`);
   if (filters.consent === 'health') conditions.push(sql`u.training_health_consent_at IS NOT NULL`);
+  if (filters.suspended) conditions.push(sql`u.suspended_at IS NOT NULL`);
 
   const where = sql.join(conditions, sql` AND `);
   const offset = Math.max(0, filters.page - 1) * PAGE_SIZE;
@@ -107,6 +112,7 @@ export async function listAccounts(
     getDb().execute(sql`
       SELECT u.id, u.email, u.display_name, u.home_city, u.role,
              (u.profile_visibility = 'public') AS is_public,
+             (u.suspended_at IS NOT NULL) AS suspended,
              u.created_at,
              COALESCE(p.points, 0) AS points,
              COALESCE(e.edits, 0) AS edits,
@@ -149,6 +155,7 @@ export async function listAccounts(
         row.home_city === null || row.home_city === undefined ? null : String(row.home_city),
       role: toRole(row.role),
       isPublic: row.is_public === true,
+      suspended: row.suspended === true,
       createdAt: new Date(String(row.created_at)).toISOString(),
       points: Number(row.points ?? 0),
       edits: Number(row.edits ?? 0),
@@ -181,6 +188,11 @@ export interface AccountIdentity {
   isMinor: boolean;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Set by an admin (0033). The reason is the admin's own words and exists only
+   * on the users row, so erasure takes it with the account.
+   */
+  suspension: { since: string; reason: string } | null;
 }
 
 export interface AccountConsent {
@@ -310,7 +322,7 @@ function textOrNull(value: unknown): string | null {
 export async function accountIdentity(userId: string): Promise<AccountIdentity | null> {
   const result = await getDb().execute(sql`
     SELECT id, email, email_verified, display_name, home_city, role, is_minor,
-           created_at, updated_at
+           created_at, updated_at, suspended_at, suspended_reason
     FROM users WHERE id = ${userId}
   `);
   const row = result.rows[0];
@@ -325,6 +337,10 @@ export async function accountIdentity(userId: string): Promise<AccountIdentity |
     isMinor: row.is_minor === true,
     createdAt: iso(row.created_at),
     updatedAt: iso(row.updated_at),
+    suspension:
+      row.suspended_at === null || row.suspended_at === undefined
+        ? null
+        : { since: iso(row.suspended_at), reason: String(row.suspended_reason ?? '') },
   };
 }
 

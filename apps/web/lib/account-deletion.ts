@@ -1,5 +1,7 @@
 import { sql, type SQL } from '@sportkarta/db';
 
+import { recordAdminAction } from './admin-actions';
+
 /**
  * GDPR/ЗЗЛД self-service erasure (docs/ROADMAP.md §5).
  *
@@ -20,6 +22,14 @@ import { sql, type SQL } from '@sportkarta/db';
  *
  * A tombstone row (no personal data) records that the erasure happened and how
  * many audit rows it deliberately left alone.
+ *
+ * Two callers: the member's own /profil, and an admin acting on an Art. 17
+ * request from someone who can no longer sign in (lib/account-controls.ts,
+ * 0033). The second passes `erasedBy`, which writes 'account_erased' to the
+ * append-only `admin_actions` INSIDE this transaction — the erasure and the
+ * record of who performed it commit together or not at all. A self-erasure
+ * writes no such row: the member acting on their own account is not an admin
+ * action, and the tombstone already evidences it.
  */
 
 export interface DeletionSummary {
@@ -70,8 +80,12 @@ export interface DeleteAccountOptions {
   /**
    * Called AFTER the erasure commits, once per series this person organised
    * that the erasure cancelled — see the play-layer comment in deleteAccount.
+   * Both callers pass it: an organiser erased by an admin strands the same
+   * RSVP holders as one who erased themselves.
    */
   enqueue?: Enqueue;
+  /** The admin performing the erasure; omitted when the member erases themselves. */
+  erasedBy?: string;
 }
 
 function countFrom(result: { rows: Record<string, unknown>[] }): number {
@@ -213,6 +227,15 @@ export async function deleteAccount(
               ${digestSubscriptionsErased}, ${resultsAnonymized}, ${badgesErased},
               ${campaignResultsAnonymized}, ${sessionNotificationsErased})
     `);
+
+    // No FK on admin_actions.subject_id (0033), so this row outlives the
+    // DELETE below by design: who erased the account survives the account.
+    if (options.erasedBy) {
+      await recordAdminAction(tx, options.erasedBy, {
+        action: 'account_erased',
+        subjectId: userId,
+      });
+    }
 
     // Cascades to sessions, accounts, the points ledger, user_badges, the
     // session-notification ledger and the calendar token; nulls

@@ -4,7 +4,12 @@ import path from 'node:path';
 import { renderSql, type SQL } from '@sportkarta/db';
 import { describe, expect, it, vi } from 'vitest';
 
-import { grantAmbassador, revokeAmbassador } from '@/lib/ambassadors';
+import {
+  addMunicipality,
+  grantAmbassador,
+  removeMunicipality,
+  revokeAmbassador,
+} from '@/lib/ambassadors';
 import {
   decideFacility,
   decidePhoto,
@@ -308,26 +313,104 @@ describe('the facility editor is scoped too', () => {
 describe('granting and revoking', () => {
   it('promotes only a plain member', async () => {
     const db = fakeDb([[{ id: 'user_1' }]]);
-    expect(await grantAmbassador(db, 'user_1')).toEqual({ ok: true });
+    expect(await grantAmbassador(db, 'user_1', ADMIN.id)).toEqual({ ok: true });
     expect(db.statements[0]?.sql).toMatch(/role = 'user'/);
   });
 
   it('refuses to demote an admin through the grant screen', async () => {
     const db = fakeDb([[], [{ role: 'admin' }]]);
-    expect(await grantAmbassador(db, 'user_admin')).toEqual({ ok: false, reason: 'is_admin' });
+    expect(await grantAmbassador(db, 'user_admin', ADMIN.id)).toEqual({
+      ok: false,
+      reason: 'is_admin',
+    });
   });
 
   it('reports a missing account rather than silently doing nothing', async () => {
     const db = fakeDb([[], []]);
-    expect(await grantAmbassador(db, 'ghost')).toEqual({ ok: false, reason: 'not_found' });
+    expect(await grantAmbassador(db, 'ghost', ADMIN.id)).toEqual({
+      ok: false,
+      reason: 'not_found',
+    });
   });
 
   it('revokes the scope together with the role', async () => {
     const db = fakeDb([[], []]);
-    await revokeAmbassador(db, 'user_1');
+    await revokeAmbassador(db, 'user_1', ADMIN.id);
     const text = db.text();
     // A leftover scope row would silently reactivate on a future re-grant.
     expect(text).toMatch(/DELETE FROM ambassador_municipalities/i);
     expect(text).toMatch(/SET role = 'user'/);
+  });
+});
+
+/**
+ * Privilege changes leave an author (0033). Before, a grant was a bare UPDATE
+ * and a scope removal a bare DELETE: after a rogue-ambassador incident nobody
+ * could say who had widened whose authority. Each change that lands now writes
+ * an admin_actions row with the ACTING admin, in the same transaction; a no-op
+ * writes nothing.
+ */
+describe('privilege changes are logged', () => {
+  function logRows(db: ReturnType<typeof fakeDb>) {
+    return db.statements.filter((s) => /INSERT INTO admin_actions/i.test(s.sql));
+  }
+
+  it('logs a grant with the acting admin and the new ambassador', async () => {
+    const db = fakeDb([[{ id: 'user_1' }]]);
+    await grantAmbassador(db, 'user_1', ADMIN.id);
+    const [row] = logRows(db);
+    expect(row?.params).toEqual([ADMIN.id, 'ambassador_granted', 'user_1', '{}']);
+  });
+
+  it('logs nothing for an idempotent re-grant', async () => {
+    const db = fakeDb([[], [{ role: 'ambassador' }]]);
+    expect(await grantAmbassador(db, 'user_1', ADMIN.id)).toEqual({ ok: true });
+    expect(logRows(db)).toHaveLength(0);
+  });
+
+  it('logs a revocation with how many municipalities went with it', async () => {
+    const db = fakeDb([[{ municipality_id: 3 }, { municipality_id: 9 }], [{ id: 'user_1' }]]);
+    await revokeAmbassador(db, 'user_1', ADMIN.id);
+    const [row] = logRows(db);
+    expect(row?.params).toEqual([
+      ADMIN.id,
+      'ambassador_revoked',
+      'user_1',
+      JSON.stringify({ scopesRemoved: 2 }),
+    ]);
+  });
+
+  it('logs nothing when revoking someone who was not an ambassador', async () => {
+    const db = fakeDb([[], []]);
+    await revokeAmbassador(db, 'user_1', ADMIN.id);
+    expect(logRows(db)).toHaveLength(0);
+  });
+
+  it('logs a scope change only when a row actually changed', async () => {
+    const added = fakeDb([[{ user_id: 'user_1' }]]);
+    expect(await addMunicipality(added, 'user_1', 7, ADMIN.id)).toBe(true);
+    expect(logRows(added)[0]?.params).toEqual([
+      ADMIN.id,
+      'ambassador_scope_added',
+      'user_1',
+      JSON.stringify({ municipalityId: 7 }),
+    ]);
+
+    const duplicate = fakeDb([[]]);
+    expect(await addMunicipality(duplicate, 'user_1', 7, ADMIN.id)).toBe(false);
+    expect(logRows(duplicate)).toHaveLength(0);
+
+    const removed = fakeDb([[{ user_id: 'user_1' }]]);
+    await removeMunicipality(removed, 'user_1', 7, ADMIN.id);
+    expect(logRows(removed)[0]?.params).toEqual([
+      ADMIN.id,
+      'ambassador_scope_removed',
+      'user_1',
+      JSON.stringify({ municipalityId: 7 }),
+    ]);
+
+    const absent = fakeDb([[]]);
+    await removeMunicipality(absent, 'user_1', 7, ADMIN.id);
+    expect(logRows(absent)).toHaveLength(0);
   });
 });

@@ -1,12 +1,12 @@
 import { calendarToken, getDb } from '@sportkarta/db';
-import { Activity, BookOpenCheck, ShieldCheck } from 'lucide-react';
+import { Activity, BookOpenCheck, Download, ShieldCheck } from 'lucide-react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { CalendarPanel } from '@/components/profile/calendar-panel';
 import { DigestPanel } from '@/components/profile/digest-panel';
 import { PointsPanel } from '@/components/profile/points-panel';
 import { AppShell } from '@/components/shell/app-shell';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { requireUser } from '@/lib/auth-session';
 import { digestCities, subscriptionsFor } from '@/lib/digest';
 import { loadCityCatalog } from '@/lib/places';
@@ -95,6 +95,26 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
         <DigestPanel locale={locale} cities={digestCityList} subscribedIds={subscribedIds} />
 
         <CalendarPanel token={feedToken} siteUrl={siteUrl()} />
+
+        {/*
+          GDPR Art. 15/20: the member's own copy, built by the same function the
+          operator uses (lib/account-export.ts). A plain <a download> to a route
+          handler, never <Link>: the response is a file, and a prefetch would
+          build a whole export nobody asked for.
+        */}
+        <section className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm">
+          <h2 className="text-h4 font-bold text-ink">{t('exportTitle')}</h2>
+          <p className="text-body-sm text-ink-soft">{t('exportText')}</p>
+          <a
+            href="/api/profil/eksport"
+            download
+            className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+          >
+            <Download size={15} />
+            {t('exportLink')}
+          </a>
+          <p className="text-caption text-text-muted">{t('exportNote')}</p>
+        </section>
 
         <section className="space-y-4 rounded-card border border-danger-border bg-danger-bg/40 p-4">
           <h2 className="text-h4 font-bold text-danger">{t('deleteTitle')}</h2>
