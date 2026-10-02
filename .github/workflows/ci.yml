@@ -1,12 +1,15 @@
 name: CI
 
 # The deploy workflow watches THIS workflow's conclusion, so everything here is
-# a release gate. The Playwright suite deliberately lives in e2e.yml instead —
+# a release gate. The Playwright suite lives in e2e.yml and is not (yet) one —
 # see the comment at the top of that file.
 on:
   push:
     branches: [main]
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   quality:
@@ -25,6 +28,48 @@ jobs:
       - run: pnpm format:check
       # DB-backed tests skip themselves here (no DATABASE_URL) and run below.
       - run: pnpm test
+      # Known-vulnerable dependencies. What ships is `dependencies`, so only
+      # those are gated, and only on CRITICAL advisories: the highs open today
+      # (drizzle-orm, nodemailer, and Next's own pinned postcss/sharp) each need
+      # a bump of their own, and a gate that tripped on them would block every
+      # deploy — the fixes included — until all of them landed. Every advisory
+      # is printed either way, and Dependabot (.github/dependabot.yml) proposes
+      # the bumps weekly.
+      - name: Dependency audit (fails on a critical advisory in what ships)
+        env:
+          # Accepted, each with its reason. Remove an id when its fix lands.
+          #  GHSA-jrc7-96c5-q579  maplibre-gl <=6.4.0: the sanitizer MapLibre
+          #    runs over ATTRIBUTION html can be bypassed. Its only input here
+          #    is the attribution of our own sources — constants in
+          #    apps/web/lib/map/{style,external-layers}.ts and the self-built
+          #    pmtiles archive — never anything a visitor or a third party
+          #    writes. The fix is the 6.x major, which is map work of its own.
+          ACCEPTED: GHSA-jrc7-96c5-q579
+        run: |
+          set -uo pipefail
+          report="$RUNNER_TEMP/audit.json"
+          pnpm audit --prod --json > "$report" 2>/dev/null
+          if ! jq -e '.advisories | type == "object"' "$report" >/dev/null 2>&1; then
+            # No parseable report means the registry did not answer, which
+            # says nothing about our dependencies either way.
+            echo "::warning::npm audit endpoint unavailable — dependency audit skipped"
+            exit 0
+          fi
+          jq -r '[.advisories[]] | sort_by(.severity, .module_name) | .[]
+                 | "\(.severity)\t\(.module_name) \(.findings[0].version)\t\(.github_advisory_id)\t\(.title)"' \
+            "$report"
+          blocking=$(jq -r --arg accepted "$ACCEPTED" '
+            ($accepted | split(" ")) as $ok
+            | .advisories[]
+            | select(.severity == "critical")
+            | select(.github_advisory_id as $id | $ok | any(. == $id) | not)
+            | "\(.module_name) \(.github_advisory_id): \(.title)"' "$report")
+          if [ -n "$blocking" ]; then
+            echo "::error::Critical advisories in production dependencies:"
+            echo "$blocking"
+            exit 1
+          fi
+          echo "No unaccepted critical advisory in production dependencies."
 
   db-tests:
     # The suites that run against a real PostGIS: geospatial SQL, the merge

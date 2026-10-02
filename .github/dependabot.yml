@@ -1,0 +1,53 @@
+# Weekly dependency updates, as pull requests — never merged automatically.
+# Every PR runs CI (typecheck, lint, unit, db-backed and journey tests) and
+# E2E like any other change, and ships only when somebody merges it to main.
+#
+# This file is VERSION updates. Security alerts and security-fix PRs are
+# separate repository settings (Settings → Code security → Dependabot alerts /
+# security updates); CI's dependency-audit step gates critical advisories in
+# what ships regardless.
+version: 2
+updates:
+  # The whole pnpm workspace (apps/*, db, lib, scripts/*) from the root lockfile.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/Sofia
+    open-pull-requests-limit: 5
+    # Minor and patch bumps travel together, so a quiet week is one PR rather
+    # than twenty. Majors (Next, MapLibre, drizzle…) come one at a time — each
+    # is its own review.
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: 'chore(deps)'
+
+  # The actions every workflow runs, including deploy.yml's — they execute with
+  # production secrets, so their updates deserve the same review as code.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/Sofia
+    groups:
+      github-actions:
+        patterns: ['*']
+    commit-message:
+      prefix: 'ci(deps)'
+
+  # Base images: the app image (Dockerfile) and the backup sidecar.
+  - package-ecosystem: docker
+    directories: [/, /deploy/backup]
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/Sofia
+    commit-message:
+      prefix: 'chore(docker)'
