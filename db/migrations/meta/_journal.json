@@ -218,6 +218,13 @@
       "when": 1785105600000,
       "tag": "0030_seed_rows_honest_status",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1785123600000,
+      "tag": "0035_training_municipality",
+      "breakpoints": true
     }
   ]
 }
