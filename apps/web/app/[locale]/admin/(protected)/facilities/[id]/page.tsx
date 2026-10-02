@@ -259,9 +259,9 @@ export default async function AdminFacilityEditPage({
                     ) : (
                       <>
                         {edit.field === 'access_proposed' && (
-                          // Filed for a moderator, never applied: a remote
-                          // "no longer free" (verify-facility.ts). Set Access
-                          // above if it is true.
+                          // Filed for a moderator, never applied: a crowd
+                          // "it is paid now", which would hide the facility
+                          // (verify-facility.ts). Set Access above if it is true.
                           <span className="mr-1 rounded-pill bg-warning-bg px-1.5 text-warning">
                             {t('historyProposal')}
                           </span>

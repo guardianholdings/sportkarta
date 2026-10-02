@@ -1,10 +1,15 @@
 import { renderSql, type SQL } from '@sportkarta/db';
+import { PUBLIC_FACILITY_PREDICATE } from '@sportkarta/lib/opendata';
 import { describe, expect, it } from 'vitest';
 
 import { addFacility, normalizeAddFacility } from '@/lib/contributions/add-facility';
 import { reportCondition } from '@/lib/contributions/condition-report';
 import { ContributionError } from '@/lib/contributions/errors';
-import { normalizeChecklist, verifyFacility } from '@/lib/contributions/verify-facility';
+import {
+  normalizeChecklist,
+  PUBLIC_HIDDEN_ACCESS,
+  verifyFacility,
+} from '@/lib/contributions/verify-facility';
 
 /**
  * Contribution flows at the statement level: what gets written, what gets
@@ -265,8 +270,22 @@ describe('verifyFacility', () => {
     expect(db.text()).not.toContain('sportTypes');
   });
 
-  describe('access away from free (pre-launch audit finding 53)', () => {
+  describe('access that would hide a facility (pre-launch audit finding 53)', () => {
     const remote = [{ ...current[0], status: 'active', distance_m: 4200 }];
+
+    /** Proposed, not applied: an attributed audit row and a moderation report. */
+    function expectProposal(db: ReturnType<typeof fakeDb>, result: { accessProposed?: boolean }) {
+      expect(result.accessProposed).toBe(true);
+      const text = db.text();
+      // The column is untouched: no UPDATE of access anywhere.
+      expect(text).not.toMatch(/access = /);
+      // Attributed, under a field the merge policy ignores.
+      expect(text).toMatch(/'access_proposed'/);
+      expect(text).toContain(USER);
+      // And it reaches the moderation queue.
+      expect(text).toMatch(/INSERT INTO facility_reports/);
+      expect(text).toMatch(/'other'/);
+    }
 
     it('files a REMOTE change to paid for a moderator instead of hiding the facility', async () => {
       const db = fakeDb([remote, [], [], [], []]);
@@ -276,32 +295,44 @@ describe('verifyFacility', () => {
         checklist: { exists: true, access: 'paid' },
       });
 
-      expect(result.accessProposed).toBe(true);
+      expectProposal(db, result);
       expect(result.changedFields).toEqual([]);
-      const text = db.text();
-      // The column is untouched: no UPDATE of access anywhere.
-      expect(text).not.toMatch(/access = /);
-      // Attributed, with its distance, under a field the merge policy ignores.
-      expect(text).toMatch(/'access_proposed'/);
-      expect(text).toContain(USER);
-      expect(text).toContain('4200');
-      // And it reaches the moderation queue.
-      expect(text).toMatch(/INSERT INTO facility_reports/);
-      expect(text).toMatch(/'other'/);
+      // With its distance, so the moderator sees it came from 4 km away.
+      expect(db.text()).toContain('4200');
     });
 
-    it('still applies the same change from somebody standing there', async () => {
-      const db = fakeDb([current, [], [], [], [], [], [{ id: 1 }]]);
+    it('gates school -> paid and restricted -> paid too: both are on the map', async () => {
+      for (const from of ['school', 'restricted']) {
+        const db = fakeDb([[{ ...remote[0], access: from }], [], [], [], []]);
+        const result = await verifyFacility(db, {
+          userId: USER,
+          facilityId: FACILITY,
+          checklist: { exists: true, access: 'paid' },
+        });
+
+        expectProposal(db, result);
+        expect(result.changedFields).toEqual([]);
+        // The audit row keeps what it would have replaced.
+        expect(db.text()).toContain(JSON.stringify(JSON.stringify(from)));
+      }
+    });
+
+    it('gates the change even from somebody who says they are standing there', async () => {
+      // `current` is 12 m away: on site. The coordinates are the browser's
+      // claim, and every facility's own coordinates are public, so a script can
+      // be "on site" everywhere. Being there earns the points, not the edit.
+      const db = fakeDb([current, [], [], [], [], [], [], [{ id: 1 }]]);
       const result = await verifyFacility(db, {
         userId: USER,
         facilityId: FACILITY,
-        checklist: { exists: true, access: 'paid' },
+        checklist: { exists: true, access: 'paid', lighting: true },
       });
 
-      expect(result.accessProposed).toBeUndefined();
-      expect(result.changedFields).toEqual(['access']);
-      expect(db.text()).toMatch(/access = \$\d+::facility_access/);
-      expect(db.text()).not.toMatch(/access_proposed/);
+      expectProposal(db, result);
+      expect(result.onSite).toBe(true);
+      // Everything else in the same checklist still applies.
+      expect(result.changedFields).toEqual(['lighting']);
+      expect(db.text()).toMatch(/lighting = /);
     });
 
     it('applies a remote change TO free, and every other remote correction', async () => {
@@ -316,6 +347,42 @@ describe('verifyFacility', () => {
       expect(result.accessProposed).toBeUndefined();
       expect(result.changedFields.sort()).toEqual(['access', 'lighting']);
       expect(db.text()).not.toMatch(/facility_reports/);
+    });
+
+    it('applies a change that keeps the facility visible (free -> school)', async () => {
+      const db = fakeDb([remote, [], [], []]);
+      const result = await verifyFacility(db, {
+        userId: USER,
+        facilityId: FACILITY,
+        checklist: { exists: true, access: 'school' },
+      });
+
+      expect(result.accessProposed).toBeUndefined();
+      expect(result.changedFields).toEqual(['access']);
+      expect(db.text()).toMatch(/access = \$\d+::facility_access/);
+      expect(db.text()).not.toMatch(/access_proposed|facility_reports/);
+    });
+
+    it('files nothing when a paid facility is confirmed as paid', async () => {
+      const db = fakeDb([[{ ...remote[0], access: 'paid' }], [], []]);
+      const result = await verifyFacility(db, {
+        userId: USER,
+        facilityId: FACILITY,
+        checklist: { exists: true, access: 'paid' },
+      });
+
+      expect(result.accessProposed).toBeUndefined();
+      expect(db.text()).not.toMatch(/access_proposed|facility_reports/);
+    });
+
+    it('gates exactly the access values the public predicate hides', () => {
+      // If PUBLIC_FACILITY_PREDICATE starts hiding another access value, the
+      // gate must learn it in the same change — or that value becomes the new
+      // way to take a facility off the map.
+      for (const value of ['free', 'paid', 'restricted', 'school']) {
+        const hidden = PUBLIC_FACILITY_PREDICATE.includes(`'${value}'`);
+        expect(PUBLIC_HIDDEN_ACCESS.includes(value), value).toBe(hidden);
+      }
     });
   });
 
