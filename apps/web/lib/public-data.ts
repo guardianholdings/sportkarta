@@ -1,5 +1,6 @@
 import { getDb, publicFacilityVisible, sql, type SQL } from '@sportkarta/db';
 
+import { CONTRIBUTION_RADIUS_M } from '@/lib/contributions/proximity';
 import type { PublicFilters } from '@/lib/filters';
 
 /**
@@ -170,14 +171,25 @@ export interface FacilityDetail {
  * facility_edits field stays out of this date until somebody decides it is
  * evidence.
  *
- * What does count: `verified` (a member confirmed the checklist unchanged), a
- * correction of a checklist field (the same form, with a change — it writes the
- * field instead of `verified`; the admin editor writes the same fields), and a
- * `status` change to `active` (published by an on-site confirmer or a
- * moderator). All of them only with an actor: an import is not a check.
+ * What does count, and only with an actor (an import is not a check):
+ *  - `verified` (a member confirmed the checklist unchanged) or a correction of
+ *    a checklist field (the same form, with a change — it writes the field
+ *    instead of `verified`), but ONLY when made on site: `distance_m` within
+ *    CONTRIBUTION_RADIUS_M. verify-facility records these rows from anywhere,
+ *    and from an armchair they are exactly the remote confirmation it already
+ *    refuses to let publish a pin — counting them would let a second account
+ *    stamp «Последна проверка: днес» on any of the ~6.9k unverified imports
+ *    without leaving home. NULL distance (no position offered) is not on site,
+ *    as isOnSite says. That also leaves out the admin editor's corrections of
+ *    the same fields: they carry no distance, they are desk edits, and the row
+ *    cannot tell them from a remote member's.
+ *  - a `status` change to `active`: verify-facility writes it only for an
+ *    on-site confirmer, and otherwise it is a moderator's logged decision to
+ *    publish — the one desk act that vouches for the place.
  */
 export const VERIFICATION_EVIDENCE = {
   fields: ['verified', 'access', 'surface', 'lighting', 'covered', 'sport_types'],
+  onSiteWithinM: CONTRIBUTION_RADIUS_M,
   publishedStatus: 'active',
 } as const;
 
@@ -193,7 +205,9 @@ export async function getFacilityBySlug(slug: string): Promise<FacilityDetail | 
   if (!SLUG_RE.test(slug)) return null;
   const db = getDb();
   const evidence = sql`e.actor IS NOT NULL AND (
-    e.field = ANY(${textArray([...VERIFICATION_EVIDENCE.fields])})
+    (e.field = ANY(${textArray([...VERIFICATION_EVIDENCE.fields])})
+     AND e.distance_m IS NOT NULL
+     AND e.distance_m <= ${VERIFICATION_EVIDENCE.onSiteWithinM}::int)
     OR (e.field = 'status'
         AND e.new_value = to_jsonb(${VERIFICATION_EVIDENCE.publishedStatus}::text)))`;
   const result = await db.execute(sql`
@@ -207,8 +221,11 @@ export async function getFacilityBySlug(slug: string): Promise<FacilityDetail | 
            -- when a non-OSM source set it (an OSM change is already in the
            -- tags), or when a person submitted the checklist — the verify form
            -- and the admin editor always present the covered box, so leaving it
-           -- unticked there is an answer. A moderator publishing a pin is not:
-           -- the queue asks no roof question.
+           -- unticked there is an answer. From anywhere, unlike the date above:
+           -- verify-facility applies a remote correction as ordinary crowd data,
+           -- so a remote answer is the value the page shows, while «last
+           -- checked» claims somebody was there. A moderator publishing a pin is
+           -- not an answer: the queue asks no roof question.
            (f.covered
             OR COALESCE((f.attrs #> '{osm,tags}') ?| ${textArray([...OSM_COVERED_KEYS])}, false)
             OR EXISTS (SELECT 1 FROM facility_edits e

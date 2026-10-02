@@ -5,6 +5,7 @@ import { PUBLIC_FACILITY_PREDICATE } from '@sportkarta/lib/opendata';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { municipalityAccountability } from '../lib/accountability';
+import { CONTRIBUTION_RADIUS_M } from '../lib/contributions/proximity';
 import {
   LIST_PAGE_SIZE,
   listPageCount,
@@ -130,6 +131,17 @@ describe('the facility page and its evidence', () => {
     for (const notEvidence of ['created', 'reported_missing', 'condition', 'name', 'quarter']) {
       expect(params).not.toContain(notEvidence);
     }
+  });
+
+  it('counts a checklist as a check only when it was made on site', async () => {
+    await getFacilityBySlug('borisova-gradina');
+    const statement = recorded.statements[0];
+    // The same radius that gates publishing and points, not a second tunable.
+    expect(VERIFICATION_EVIDENCE.onSiteWithinM).toBe(CONTRIBUTION_RADIUS_M);
+    expect(statement?.params).toContain(CONTRIBUTION_RADIUS_M);
+    // NULL distance is "no position offered", which is not on site.
+    expect(statement?.sql).toContain('e.distance_m IS NOT NULL');
+    expect(statement?.sql).toMatch(/e\.distance_m <= \$\d+::int/);
   });
 
   it('reports covered as known only when the row says so', async () => {

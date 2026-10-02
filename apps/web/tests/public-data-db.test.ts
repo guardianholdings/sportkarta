@@ -4,6 +4,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { municipalityAccountability } from '../lib/accountability';
+import { CONTRIBUTION_RADIUS_M } from '../lib/contributions/proximity';
 import {
   LIST_PAGE_SIZE,
   scopedFacilities,
@@ -18,11 +19,13 @@ import { getFacilityBySlug } from '../lib/public-data';
  * number this page shows"), the facility page's visibility, and the two
  * derived facts the page prints — «Последна проверка» and "covered".
  *
- * Requires DATABASE_URL (skips otherwise, like db/src). Every test runs in ONE
- * transaction that is rolled back: facility_edits is append-only and audited
- * facilities cannot be deleted, so committed fixtures would be permanent. The
- * app's getDb() is pointed at that transaction's connection, which is the only
- * way the production functions can see uncommitted fixtures.
+ * Requires DATABASE_URL (skips otherwise, like db/src), so `pnpm test` never
+ * runs it: CI's db-tests job runs this file by name against the migrated,
+ * seeded PostGIS — a new web DB suite must be added there too. Every test runs
+ * in ONE transaction that is rolled back: facility_edits is append-only and
+ * audited facilities cannot be deleted, so committed fixtures would be
+ * permanent. The app's getDb() is pointed at that transaction's connection,
+ * which is the only way the production functions can see uncommitted fixtures.
  */
 
 const url = process.env.DATABASE_URL;
@@ -150,11 +153,14 @@ describe.skipIf(!url)('public read layer (requires running database)', () => {
     newValue: unknown,
     ageDays: number,
     source: 'crowd' | 'osm' | 'municipal' = 'crowd',
+    /** Metres from the facility; null = no position (and every non-crowd row). */
+    distanceM: number | null = null,
   ): Promise<void> {
     await client.query(
-      `INSERT INTO facility_edits (facility_id, actor, source, field, new_value, created_at)
-       VALUES ($1, $2, $6, $3, $4::jsonb, now() - make_interval(days => $5))`,
-      [facilityId, actor, field, JSON.stringify(newValue), ageDays, source],
+      `INSERT INTO facility_edits
+         (facility_id, actor, source, field, new_value, created_at, distance_m)
+       VALUES ($1, $2, $6, $3, $4::jsonb, now() - make_interval(days => $5), $7)`,
+      [facilityId, actor, field, JSON.stringify(newValue), ageDays, source, distanceM],
     );
   }
 
@@ -243,21 +249,44 @@ describe.skipIf(!url)('public read layer (requires running database)', () => {
       await edit(f.id, 'reported_missing', 'user_doubter', true, 1);
       await edit(f.id, 'condition', 'user_remote', 'poor', 1);
       await edit(f.id, 'status', 'user_mod', 'needs_verification', 1);
+      // The armchair attack: a second account confirms the pin from home. Far
+      // away, with no position at all, or one metre past the radius, a
+      // confirmation or a correction is recorded but is not a check — and an
+      // admin editor's desk correction (no distance either) is not one.
+      await edit(f.id, 'verified', 'user_armchair', true, 1, 'crowd', 48_000);
+      await edit(f.id, 'verified', 'user_no_gps', true, 1, 'crowd', null);
+      await edit(f.id, 'verified', 'user_nearly', true, 1, 'crowd', CONTRIBUTION_RADIUS_M + 1);
+      await edit(f.id, 'surface', 'user_armchair', 'artificial_turf', 1, 'crowd', 48_000);
+      await edit(f.id, 'lighting', 'user_admin_desk', true, 1);
 
       const unchecked = await getFacilityBySlug(f.slug);
       expect(unchecked?.lastVerifiedAt).toBeNull();
       expect(unchecked?.status).toBe('needs_verification');
 
-      // A confirmation ten days ago dates the check, even though newer
+      // An on-site correction is a check: the edge of the radius counts.
+      const corrected = await facility({ municipalityId: city.id, status: 'needs_verification' });
+      await edit(
+        corrected.id,
+        'surface',
+        'user_there',
+        'asphalt',
+        5,
+        'crowd',
+        CONTRIBUTION_RADIUS_M,
+      );
+      expect((await getFacilityBySlug(corrected.slug))?.lastVerifiedAt).not.toBeNull();
+
+      // An on-site confirmation ten days ago dates the check, even though newer
       // non-evidence rows exist.
-      await edit(f.id, 'verified', 'user_checker', true, 10);
+      await edit(f.id, 'verified', 'user_checker', true, 10, 'crowd', 30);
       const checked = await getFacilityBySlug(f.slug);
       const ageDays =
         (Date.now() - new Date(String(checked?.lastVerifiedAt)).getTime()) / 86_400_000;
       expect(ageDays).toBeGreaterThan(9);
       expect(ageDays).toBeLessThan(11);
 
-      // Publication counts too.
+      // A moderator's publication counts too, though it carries no distance:
+      // it is a logged decision to vouch for the place, not a remote claim.
       await edit(f.id, 'status', 'user_mod', 'active', 3);
       const published = await getFacilityBySlug(f.slug);
       const publishedAge =
@@ -276,6 +305,8 @@ describe.skipIf(!url)('public read layer (requires running database)', () => {
         attrs: { osm: { tags: { leisure: 'pitch', covered: 'no' } } },
       });
       const roofed = await facility({ municipalityId: city.id, covered: true });
+      // Remote on purpose: a checklist answers the roof question from anywhere
+      // (verify-facility applies a remote correction), unlike «last checked».
       const checked = await facility({ municipalityId: city.id });
       await edit(checked.id, 'verified', 'user_checker', true, 1);
       const remoteOnly = await facility({ municipalityId: city.id });
