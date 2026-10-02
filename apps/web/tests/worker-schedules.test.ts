@@ -114,10 +114,10 @@ describe('worker schedules avoid the DST hour', () => {
 
 describe('queue policies make the singleton guards real', () => {
   it('declares import.osm STATELY and converges an existing queue onto it', () => {
-    expect(WORKER).toMatch(/ensureQueuePolicy\(boss,\s*IMPORT_OSM_QUEUE,\s*'stately'\)/);
+    expect(WORKER).toMatch(/ensureQueue\(IMPORT_OSM_QUEUE,\s*\{\s*policy:\s*'stately'\s*\}\)/);
     // createQueue alone is ON CONFLICT DO NOTHING — the update is what reaches a
     // queue production created as 'standard'.
-    expect(WORKER).toMatch(/async function ensureQueuePolicy[\s\S]*?boss\.updateQueue\(/);
+    expect(WORKER).toMatch(/async function ensureQueue\([\s\S]*?boss\.updateQueue\(/);
   });
 
   it('has the admin action declare the same policy it relies on', () => {
@@ -126,7 +126,7 @@ describe('queue policies make the singleton guards real', () => {
   });
 
   it('declares passport.evaluate SHORT, so one member’s burst queues one fold', () => {
-    expect(WORKER).toMatch(/ensureQueuePolicy\(boss,\s*PASSPORT_EVALUATE_QUEUE,\s*'short'\)/);
+    expect(WORKER).toMatch(/ensureQueue\(PASSPORT_EVALUATE_QUEUE,\s*\{\s*policy:\s*'short'\s*\}\)/);
   });
 });
 
@@ -138,7 +138,7 @@ describe('the member-fed queues fetch in batches', () => {
 
   it.each(['PASSPORT_EVALUATE_QUEUE', 'SESSION_NOTIFY_QUEUE'])('applies it to %s', (queue) => {
     expect(WORKER).toMatch(
-      new RegExp(`boss\\.work\\(\\s*${queue},\\s*\\{\\s*batchSize:\\s*FEED_BATCH_SIZE\\s*\\}`),
+      new RegExp(`(?:boss\\.)?work\\(\\s*${queue},\\s*\\{\\s*batchSize:\\s*FEED_BATCH_SIZE\\s*\\}`),
     );
   });
 

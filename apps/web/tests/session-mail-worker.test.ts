@@ -25,7 +25,7 @@ describe('failed session mail is retried', () => {
   it('session.notify throws when anybody was not reached', () => {
     // It is enqueued once per event (a cancellation, a promotion). A handler
     // that swallows the failure completes the job, and pg-boss never retries.
-    expect(index).toMatch(/assertDelivered\(SESSION_NOTIFY_QUEUE, last\)/);
+    expect(index).toMatch(/assertDelivered\(SESSION_NOTIFY_QUEUE, (?:last|report)\)/);
   });
 
   it('gives session.notify and the weekly jobs a real retry policy', () => {

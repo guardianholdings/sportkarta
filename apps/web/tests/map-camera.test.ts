@@ -46,7 +46,7 @@ describe('first view', () => {
   });
 
   it('the home page no longer hands the canvas a fixed camera when the URL has none', () => {
-    const page = read('app/[locale]/page.tsx');
+    const page = read('app/[locale]/(map)/page.tsx');
     expect(page).not.toMatch(/return \{ \.\.\.BULGARIA_CENTER \}/);
     expect(page).toMatch(/function parseView\(sp: SearchParams\): MapView \| null/);
     // …and the canvas fits the box for a null view instead.
