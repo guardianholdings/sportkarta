@@ -1,3 +1,4 @@
+import { bucketKeyFor, previousBucketKey } from '@sportkarta/lib/badges';
 import pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -74,6 +75,12 @@ describe.skipIf(!hasDb)('badge backfill (requires running database)', () => {
   });
 
   async function cleanup(): Promise<void> {
+    // Sessions first: erasing the organiser only NULLs play_sessions.organizer_id
+    // (and the orphan trigger cancels the series), which would leave the fixture
+    // series behind. Removing it cascades its occurrences and check-ins.
+    await client.query(`DELETE FROM play_sessions WHERE organizer_id = ANY($1::text[])`, [
+      [USER_ID, QUIET_ID],
+    ]);
     await client.query(`DELETE FROM users WHERE id = ANY($1::text[])`, [[USER_ID, QUIET_ID]]);
   }
 
@@ -180,5 +187,73 @@ describe.skipIf(!hasDb)('badge backfill (requires running database)', () => {
     // QUIET_ID has an account but no ledger row, so folding its empty history
     // would be pure cost.
     expect(candidates).not.toContain(QUIET_ID);
+  });
+
+  describe('streak badges honour the weeks already forgiven (A4)', () => {
+    /**
+     * The job path of the freeze/badge regression (lib/src/badges/rules.test.ts
+     * pins the fold). `evaluateAndRecordBadges` is what passport.evaluate runs;
+     * before it loaded `frozenStreakWeeks`, a member whose run a freeze had saved
+     * never had streak_weeks_4 RECORDED, while /pasport printed "4 weeks in a
+     * row" for them.
+     *
+     * Dated RELATIVE TO NOW, in whole Sofia weeks: attended six, five, three and
+     * two weeks ago, missed four weeks ago. A fixed calendar would drift out of
+     * whatever window a future reader of this history applies.
+     */
+    function weeksAgo(n: number): string {
+      let key = bucketKeyFor(new Date(), 'week');
+      for (let i = 0; i < n; i += 1) key = previousBucketKey(key, 'week');
+      return key;
+    }
+
+    /** Wednesday 10:00 UTC of a Monday-keyed week: midday in Sofia, either offset. */
+    function midweek(monday: string): Date {
+      const at = new Date(`${monday}T10:00:00Z`);
+      at.setUTCDate(at.getUTCDate() + 2);
+      return at;
+    }
+
+    async function attendWeeks(weeks: string[]): Promise<void> {
+      const session = await client.query<{ id: string }>(
+        `INSERT INTO play_sessions
+           (facility_id, sport, organizer_id, title, starts_at_local, duration_minutes)
+         VALUES ($1::uuid, 'football', $2, 'Футбол', '2026-01-07T12:00:00'::timestamp, 90)
+         RETURNING id`,
+        [facilityId, USER_ID],
+      );
+      for (const week of weeks) {
+        const startsAt = midweek(week).toISOString();
+        // starts_at_local is derived by Postgres itself, so the verify-local-clock
+        // trigger (0008) compares like with like whatever the offset that week.
+        const occurrence = await client.query<{ id: string }>(
+          `INSERT INTO play_session_occurrences (session_id, starts_at, ends_at, starts_at_local)
+           VALUES ($1::uuid, $2::timestamptz, $2::timestamptz + interval '90 minutes',
+                   $2::timestamptz AT TIME ZONE 'Europe/Sofia')
+           RETURNING id`,
+          [session.rows[0]?.id, startsAt],
+        );
+        await client.query(
+          `INSERT INTO play_session_checkins (occurrence_id, user_id, method, checked_in_at)
+           VALUES ($1::uuid, $2, 'self', $3::timestamptz)`,
+          [occurrence.rows[0]?.id, USER_ID, startsAt],
+        );
+      }
+    }
+
+    it('records streak_weeks_4 once the missed week is forgiven, and not before', async () => {
+      await attendWeeks([weeksAgo(6), weeksAgo(5), weeksAgo(3), weeksAgo(2)]);
+      const now = new Date();
+
+      await evaluateAndRecordBadges(db as never, USER_ID, { now });
+      expect((await badgeRows()).map((row) => row.badge_slug)).not.toContain('streak_weeks_4');
+
+      await client.query(
+        `INSERT INTO streak_freezes (user_id, unit, bucket_key) VALUES ($1, 'week', $2::date)`,
+        [USER_ID, weeksAgo(4)],
+      );
+      const recorded = await evaluateAndRecordBadges(db as never, USER_ID, { now });
+      expect(recorded).toContain('streak_weeks_4');
+    });
   });
 });
