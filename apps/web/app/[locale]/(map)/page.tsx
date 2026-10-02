@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { BULGARIA_CENTER, insideBulgaria } from '@sportkarta/lib/geo';
+import { insideBulgaria } from '@sportkarta/lib/geo';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { adSlotProps } from '@/components/ads/ad-slot';
@@ -24,16 +24,27 @@ export async function generateMetadata({
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-// Default to a whole-Bulgaria overview; a z/lat/lng in the URL (written as the
-// user pans) restores their last viewport. Bounds match the data's bbox.
-function parseView(sp: SearchParams): MapView {
+/**
+ * A z/lat/lng in the URL (written as the user pans) restores their last
+ * viewport. Without one this returns NULL, and null means "fit the whole
+ * country into the visible map" — which the canvas computes for the actual
+ * screen.
+ *
+ * It used to return a fixed z6.8 centre for every device. That is a whole-
+ * Bulgaria view only on a wide screen: a 390px phone at z6.8 spans about 2.5°
+ * of longitude, 24.1–26.5 E, which left Sofia, Varna and Burgas — some 44% of
+ * the facilities — off the first screen a visitor ever sees. A camera that
+ * fits the country cannot be a constant, because the country is landscape and
+ * the screens are not.
+ */
+function parseView(sp: SearchParams): MapView | null {
   const z = Number(sp.z);
   const lat = Number(sp.lat);
   const lng = Number(sp.lng);
   if (Number.isFinite(z) && z >= 0 && z <= 20 && insideBulgaria({ lon: lng, lat })) {
     return { lng, lat, zoom: z };
   }
-  return { ...BULGARIA_CENTER };
+  return null;
 }
 
 export default async function HomePage({
@@ -54,7 +65,7 @@ export default async function HomePage({
   // ad-free — the slot is a card at the foot of the list panel beside it.
   const [t, facilities, ad] = await Promise.all([
     getTranslations('Map'),
-    listPublicFacilities(filters, 100),
+    listPublicFacilities(filters, 100, locale),
     adSlotProps('map_panel'),
   ]);
 
@@ -73,6 +84,7 @@ export default async function HomePage({
           sports: f.sportTypes,
           lon: f.lon,
           lat: f.lat,
+          place: f.place,
         }))}
       />
     </main>

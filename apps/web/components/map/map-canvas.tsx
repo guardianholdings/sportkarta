@@ -3,15 +3,16 @@
 // The SUBPATH, never the barrel: this is a client component, and the barrel
 // re-exports the mailer, which drags nodemailer and node:fs into the browser
 // bundle (tests/client-imports.test.ts fails the build on it).
-import { BULGARIA_BOUNDS } from '@sportkarta/lib/geo';
+import { BULGARIA_BOUNDS, BULGARIA_CENTER } from '@sportkarta/lib/geo';
 import type { Feature, FeatureCollection, Point, Polygon } from 'geojson';
 import maplibregl, { type GeoJSONSource } from 'maplibre-gl';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { DEFAULT_LAYER, type ExternalMapLayer } from '@/lib/map/layers';
 import { ensurePmtilesProtocol } from '@/lib/map/pmtiles';
 import { buildMapStyle, externalLayerIds, mapAssetUrls } from '@/lib/map/style';
 
+import { clampCenter, FIT_MARGIN_PX, insideVisibleFrame, widthFitZoom } from './camera';
 import { createCluster, createPin } from './markers';
 
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -22,6 +23,8 @@ export interface MapPoint {
   sports: string[];
   lon: number;
   lat: number;
+  /** "Лозенец, София" — what an unnamed facility is labelled by. */
+  place?: string | null;
 }
 
 export interface MapView {
@@ -47,14 +50,28 @@ interface MapCanvasProps {
   points: MapPoint[];
   userLocation: { lon: number; lat: number } | null;
   selectedSlug: string | null;
-  initialView: MapView;
+  /**
+   * Where the camera opens. NULL = fit the whole country into the part of the
+   * canvas the member can see, computed for THIS screen once its size and
+   * frame padding are known (see `countryCamera` below).
+   */
+  initialView: MapView | null;
   myLocationLabel: string;
   onSelect: (slug: string) => void;
   onMoveEnd: (view: MapView) => void;
   /** Card the user is hovering — its marker grows + lifts (hover-sync). */
   hoveredSlug?: string | null;
   nearMe?: NearMe | null;
-  unnamedLabel?: string;
+  /**
+   * A pin's accessible name. Built by the caller from the facility's name, or
+   * its sport and place when it has none (components/map/facility-label.ts) —
+   * a single fixed fallback made every unnamed pin announce the same words.
+   */
+  labelFor?: (point: MapPoint) => string;
+  /** A cluster bubble's accessible name, e.g. "23 съоръжения — приближи". */
+  clusterLabel?: (count: number) => string;
+  /** Shown in place of the map when WebGL is unavailable. */
+  unavailableLabel?: string;
   /** A marker was hovered (slug) or left (null) — the list highlights + scrolls. */
   onHoverMarker?: (slug: string | null) => void;
   /** External raster basemaps to offer (lib/map/layers.ts). Style-time only. */
@@ -100,12 +117,19 @@ interface MapCanvasProps {
    * That is a property of the shape of the country and the shape of the device,
    * not something a camera setting can avoid.
    *
-   * WHAT THIS DOES. On mobile the pan box is dropped and the floor becomes the
-   * width-fit of the national bounds — far enough to see the whole country at
-   * once, and no further. It deliberately does NOT go to z0: the archive would
+   * WHAT THIS DOES. On mobile the viewport box is dropped and the floor becomes
+   * the width-fit of the national bounds — far enough to see the whole country
+   * at once, and no further. It deliberately does NOT go to z0: the archive would
    * render as a speck on a blank page, which reads as a broken map rather than
    * as freedom. Desktop keeps the frame, where the panel sits beside the map and
    * the floor already fits the country comfortably.
+   *
+   * THE PAN LIMIT STAYS, IN A DIFFERENT FORM. Dropping the viewport box first
+   * dropped every pan limit with it, and two flicks took a phone to Mali: an
+   * empty beige field, no pins, no way back but reloading. The phone limit is
+   * now on the camera CENTRE (`clampCenter`, installed as MapLibre's transform
+   * constraint), which keeps the country on screen at every zoom without
+   * re-imposing the floor.
    */
   unrestricted?: boolean;
 }
@@ -127,7 +151,10 @@ const NEARME_ID = 'nearme';
 const BG_BOUNDS: maplibregl.LngLatBoundsLike =
   BULGARIA_BOUNDS as unknown as maplibregl.LngLatBoundsLike;
 
-function toFeatureCollection(points: MapPoint[]): FeatureCollection<Point> {
+function toFeatureCollection(
+  points: MapPoint[],
+  labelFor: (point: MapPoint) => string,
+): FeatureCollection<Point> {
   return {
     type: 'FeatureCollection',
     features: points.map((p) => ({
@@ -137,10 +164,14 @@ function toFeatureCollection(points: MapPoint[]): FeatureCollection<Point> {
       // family-coloured, so sports stays on MapPoint (the list uses it) but no
       // longer rides in the feature. If a property must return, keep it scalar:
       // queryRenderedFeatures does not round-trip array values reliably.
-      properties: { slug: p.slug, name: p.name },
+      properties: { slug: p.slug, label: labelFor(p) },
     })),
   };
 }
+
+/** How far inside the visible frame a selected pin must sit to count as seen —
+ *  roughly the pin's own height, since it is anchored at its tip. */
+const REVEAL_MARGIN_PX = 48;
 
 function token(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -169,7 +200,9 @@ export default function MapCanvas({
   nearMe = null,
   initialView,
   myLocationLabel,
-  unnamedLabel = '',
+  labelFor = (point) => point.name ?? '',
+  clusterLabel = (count) => String(count),
+  unavailableLabel = '',
   onSelect,
   onHoverMarker = () => undefined,
   onMoveEnd,
@@ -187,6 +220,18 @@ export default function MapCanvas({
   const rafRef = useRef(0);
   /** Set by the init effect so a padding change can re-run it without re-init. */
   const paddingApplyRef = useRef<(() => void) | null>(null);
+  /** The selection whose pin has already been brought into view. */
+  const revealedRef = useRef<string | null>(null);
+  /**
+   * True while the camera is still the automatic whole-country fit (no view in
+   * the URL). The member's first gesture ends it, and so does any camera move
+   * this component makes on their behalf (a cluster zoom, "find me", revealing a
+   * selection) — from then on a resize or a sheet snap re-frames the padding
+   * without yanking their view back to the country.
+   */
+  const autoFitRef = useRef(initialView === null);
+  /** MapLibre could not start (no WebGL): the list still works, so say so. */
+  const [unavailable, setUnavailable] = useState(false);
 
   // Latest props for the map's long-lived handlers, without re-init.
   const pointsRef = useRef(points);
@@ -201,8 +246,10 @@ export default function MapCanvas({
   onHoverRef.current = onHoverMarker;
   const onMoveEndRef = useRef(onMoveEnd);
   onMoveEndRef.current = onMoveEnd;
-  const unnamedRef = useRef(unnamedLabel);
-  unnamedRef.current = unnamedLabel;
+  const labelForRef = useRef(labelFor);
+  labelForRef.current = labelFor;
+  const clusterLabelRef = useRef(clusterLabel);
+  clusterLabelRef.current = clusterLabel;
   const externalLayersRef = useRef(externalLayers);
   externalLayersRef.current = externalLayers;
   const activeLayerRef = useRef(activeLayer);
@@ -279,20 +326,36 @@ export default function MapCanvas({
       let el: HTMLElement;
       if (isCluster) {
         const count = Number(props.point_count);
-        el = createCluster(count);
+        el = createCluster(count, clusterLabelRef.current(count));
         const clusterId = props.cluster_id as number;
-        el.addEventListener('click', () => {
+        const expand = (viaKeyboard: boolean) => {
           const src = map.getSource(SOURCE_ID) as GeoJSONSource | undefined;
           src
             ?.getClusterExpansionZoom(clusterId)
-            .then((zoom) => map.easeTo({ center: coords, zoom }))
+            .then((zoom) => {
+              autoFitRef.current = false;
+              map.easeTo({ center: coords, zoom });
+              // The bubble is pruned with its cluster a moment from now, and
+              // focus would fall to <body> — the top of the page. Park it on the
+              // canvas instead, whose next tab stops are the markers it revealed.
+              if (viaKeyboard) map.getCanvas().focus({ preventScroll: true });
+            })
             .catch(() => undefined);
+        };
+        el.addEventListener('click', () => {
+          expand(false);
+        });
+        el.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            expand(true);
+          }
         });
       } else {
         const slug = String(props.slug);
         el = createPin({
           slug,
-          name: (props.name as string | null) ?? unnamedRef.current,
+          name: typeof props.label === 'string' ? props.label : '',
         });
         el.addEventListener('click', () => onSelectRef.current(slug));
         el.addEventListener('mouseenter', () => onHoverRef.current(slug));
@@ -346,8 +409,10 @@ export default function MapCanvas({
           ...mapAssetUrls(window.location.origin),
           externalLayers: externalLayersRef.current,
         }),
-        center: [initialView.lng, initialView.lat],
-        zoom: initialView.zoom,
+        // With no view asked for, open on the box's centre; `applyPadding` below
+        // replaces it with the fitted country before the first frame is drawn.
+        center: [initialView?.lng ?? BULGARIA_CENTER.lng, initialView?.lat ?? BULGARIA_CENTER.lat],
+        zoom: initialView?.zoom ?? BULGARIA_CENTER.zoom,
         // THE PAN LIMIT. This platform is a national map of Bulgarian public
         // facilities: there is nothing to see outside the country, the basemap
         // tiles stop at the border, and panning into Greece shows an empty grey
@@ -362,11 +427,20 @@ export default function MapCanvas({
       });
     } catch (error) {
       // WebGL unavailable (headless CI, low-end device): the list + filters keep
-      // working without a basemap.
+      // working without a basemap — and the member is TOLD so, because an empty
+      // rectangle where the map should be reads as a page that failed to load.
       console.error('MapLibre init failed; continuing without the basemap', error);
+      setUnavailable(true);
       return;
     }
     mapRef.current = map;
+
+    // Only a GESTURE carries an `originalEvent`: re-framing (setPadding), a
+    // container resize and the fit itself all fire `movestart` too, and none of
+    // them may end the automatic fit.
+    map.on('movestart', (e) => {
+      if (e.originalEvent) autoFitRef.current = false;
+    });
 
     /**
      * The padding, clamped so it can never swallow the viewport.
@@ -398,45 +472,65 @@ export default function MapCanvas({
     // small epsilon keeps the floor itself showing the whole territory with
     // room to spare rather than clipping an edge.
     //
-    // The frame padding is added to the 16px breathing room, so the floor fits
-    // Bulgaria into the part of the canvas the member can actually SEE. Fitting
-    // it into the full canvas is what put a third of the country behind the
-    // list panel.
+    // The frame padding is ALREADY on the transform when this runs (setPadding
+    // first), and `cameraForBounds` subtracts the transform's padding itself —
+    // so only the breathing room is passed here, and the country is fitted into
+    // the part of the canvas the member can actually SEE. Fitting it into the
+    // full canvas is what put a third of the country behind the list panel.
+    const countryCamera = () => map.cameraForBounds(BG_BOUNDS, { padding: FIT_MARGIN_PX });
+
+    // Mobile's pan limit: pin the camera centre inside the country's box (see
+    // `clampCenter` for why the centre and not the viewport). A transform
+    // constraint REPLACES MapLibre's default one, including its zoom clamp, so
+    // the min/max zoom is re-applied here.
+    const centreInBulgaria = (lngLat: maplibregl.LngLat, zoom: number) => {
+      const centre = clampCenter(lngLat, BULGARIA_BOUNDS);
+      return {
+        center: new maplibregl.LngLat(centre.lng, centre.lat),
+        zoom: Math.min(Math.max(zoom, map.getMinZoom()), map.getMaxZoom()),
+      };
+    };
+
     const applyPadding = () => {
       const p = framePadding();
       map.setPadding(p);
 
       if (unrestrictedRef.current) {
-        // The pan box has to go, and it is the reason not the extra: while it is
-        // set, MapLibre clamps the zoom so the viewport never exceeds it, which
-        // silently re-imposes the floor this flag exists to lift.
+        // The viewport box has to go, and it is the reason not the extra:
+        // while it is set, MapLibre clamps the zoom so the viewport never
+        // exceeds it, which silently re-imposes the floor this flag exists to
+        // lift. The centre constraint takes over the pan limit.
         map.setMaxBounds(null);
-        // The floor is the WIDTH-fit of the country: measured against the canvas
-        // width alone, ignoring both the sheet and the height, because the
-        // height is what cannot be satisfied on a portrait screen. `zoom - 0.1`
-        // keeps a hair of margin at the limit, as the framed branch does.
-        const { clientWidth } = map.getCanvas();
-        // [[minLon, minLat], [maxLon, maxLat]] — nested pairs, not a flat tuple.
-        const span = BULGARIA_BOUNDS[1][0] - BULGARIA_BOUNDS[0][0];
-        // Web-mercator zoom for a longitude span across a pixel width: at zoom z
-        // the world is 512 * 2^z px wide and spans 360°.
-        const widthFit = Math.log2(((clientWidth - 32) * 360) / (512 * span));
+        map.setTransformConstrain(centreInBulgaria);
+        // The floor is the WIDTH-fit of the country: measured against the
+        // canvas width alone, ignoring both the sheet and the height, because
+        // the height is what cannot be satisfied on a portrait screen.
+        // `zoom - 0.1` keeps a hair of margin at the limit, as the framed
+        // branch does.
+        const widthFit = widthFitZoom(map.getCanvas().clientWidth, BULGARIA_BOUNDS);
         // Clamp to maxZoom as well: setMinZoom THROWS above it, and on a small
         // canvas the fit math can legitimately land there.
         map.setMinZoom(Math.min(Math.max(0, widthFit - 0.1), map.getMaxZoom()));
-        return;
+      } else {
+        map.setTransformConstrain(null);
+        map.setMaxBounds(BG_BOUNDS);
+        const cam = countryCamera();
+        // On a phone-sized canvas the padding can exceed the viewport and
+        // cameraForBounds then reports a zoom past maxZoom — setMinZoom throws
+        // ("minZoom must be between -2 and the current maxZoom") instead of
+        // clamping, so clamp here.
+        if (cam?.zoom !== undefined) {
+          map.setMinZoom(Math.min(Math.max(0, cam.zoom - 0.1), map.getMaxZoom()));
+        }
       }
 
-      map.setMaxBounds(BG_BOUNDS);
-      const cam = map.cameraForBounds(BG_BOUNDS, {
-        padding: { top: p.top + 16, bottom: p.bottom + 16, left: p.left + 16, right: p.right + 16 },
-      });
-      // On a phone-sized canvas the padding can exceed the viewport and
-      // cameraForBounds then reports a zoom past maxZoom — setMinZoom throws
-      // ("minZoom must be between -2 and the current maxZoom") instead of
-      // clamping, so clamp here.
-      if (cam?.zoom !== undefined) {
-        map.setMinZoom(Math.min(Math.max(0, cam.zoom - 0.1), map.getMaxZoom()));
+      // Re-fit on every re-frame until the member takes over: the canvas and
+      // the explorer's measured padding settle over the first renders (the
+      // sheet height is measured after mount), and a fit computed against the
+      // provisional frame would open the map off-centre.
+      if (autoFitRef.current) {
+        const cam = countryCamera();
+        if (cam) map.jumpTo(cam);
       }
     };
     applyPadding();
@@ -448,7 +542,7 @@ export default function MapCanvas({
 
       map.addSource(SOURCE_ID, {
         type: 'geojson',
-        data: toFeatureCollection(pointsRef.current),
+        data: toFeatureCollection(pointsRef.current, labelForRef.current),
         cluster: true,
         clusterRadius: 55,
         clusterMaxZoom: 14,
@@ -496,8 +590,13 @@ export default function MapCanvas({
     });
 
     map.on('moveend', () => {
-      const c = map.getCenter();
-      onMoveEndRef.current({ lng: c.lng, lat: c.lat, zoom: map.getZoom() });
+      // The automatic country fit is NOT written to the URL: it is a function of
+      // this screen's size, and pinning it there would make a reload — or a
+      // shared link opened on a different device — replay one screen's zoom.
+      if (!autoFitRef.current) {
+        const c = map.getCenter();
+        onMoveEndRef.current({ lng: c.lng, lat: c.lat, zoom: map.getZoom() });
+      }
       reportBounds();
       scheduleSync();
     });
@@ -526,7 +625,9 @@ export default function MapCanvas({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
-    (map.getSource(SOURCE_ID) as GeoJSONSource | undefined)?.setData(toFeatureCollection(points));
+    (map.getSource(SOURCE_ID) as GeoJSONSource | undefined)?.setData(
+      toFeatureCollection(points, labelForRef.current),
+    );
     scheduleSync();
     // scheduleSync is a stable ref-based helper; only re-run on new points.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -549,6 +650,45 @@ export default function MapCanvas({
   useEffect(() => {
     paddingApplyRef.current?.();
   }, [padding.top, padding.right, padding.bottom, padding.left, unrestricted]);
+
+  /**
+   * Bring a newly selected facility into the VISIBLE part of the map.
+   *
+   * On a phone the preview sheet rises over the bottom of the canvas, so a pin
+   * tapped in the lower half — or a facility picked from the list, which never
+   * moved the map at all — ended up under the sheet that describes it. Only a
+   * pan, never a zoom: the member chose this zoom, and at national zoom the
+   * facility is inside a cluster that the pan brings on screen instead.
+   *
+   * Declared AFTER the padding effect on purpose: both react to the same render
+   * when a selection swaps the list sheet for the preview sheet, and the check
+   * must run against the new frame. Once per selection, so a later points
+   * refresh does not tug the map back.
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!selectedSlug) {
+      revealedRef.current = null;
+      return;
+    }
+    if (!map || revealedRef.current === selectedSlug) return;
+    // A deep-linked selection may arrive before the full set does; the effect
+    // runs again when the points land.
+    const point = points.find((p) => p.slug === selectedSlug);
+    if (!point) return;
+    revealedRef.current = selectedSlug;
+    // Still the automatic country fit: the whole country — this facility
+    // included — is already framed inside the visible area.
+    if (autoFitRef.current) return;
+    const canvas = map.getCanvas();
+    const visible = insideVisibleFrame(
+      map.project([point.lon, point.lat]),
+      { width: canvas.clientWidth, height: canvas.clientHeight },
+      map.getPadding(),
+      REVEAL_MARGIN_PX,
+    );
+    if (!visible) map.easeTo({ center: [point.lon, point.lat] });
+  }, [selectedSlug, points]);
 
   useEffect(() => {
     applyLayerVisibility();
@@ -580,8 +720,30 @@ export default function MapCanvas({
       el.style.cssText = `width:16px;height:16px;border-radius:50%;background:${brand};border:3px solid ${token('--surface')};box-shadow:0 0 0 4px color-mix(in srgb, ${brand} 28%, transparent)`;
       userMarkerRef.current = new maplibregl.Marker({ element: el }).setLngLat(lngLat).addTo(map);
     }
+    autoFitRef.current = false;
     map.flyTo({ center: lngLat, zoom: Math.max(map.getZoom(), 13), speed: 1.4 });
   }, [userLocation, myLocationLabel]);
 
-  return <div ref={containerRef} className="h-full w-full" data-testid="map-canvas" />;
+  return (
+    <div className="relative h-full w-full">
+      <div ref={containerRef} className="h-full w-full" data-testid="map-canvas" />
+      {unavailable && (
+        // Inset by the frame padding, so on a phone the notice is centred in
+        // the strip above the sheet rather than half-hidden behind it.
+        <div
+          className="absolute inset-0 grid place-items-center bg-paper-sunk p-6 text-center"
+          style={{
+            paddingTop: (padding.top ?? 0) + 24,
+            paddingRight: (padding.right ?? 0) + 24,
+            paddingBottom: (padding.bottom ?? 0) + 24,
+            paddingLeft: (padding.left ?? 0) + 24,
+          }}
+        >
+          <p role="status" className="max-w-xs text-body-sm text-ink-soft">
+            {unavailableLabel}
+          </p>
+        </div>
+      )}
+    </div>
+  );
 }

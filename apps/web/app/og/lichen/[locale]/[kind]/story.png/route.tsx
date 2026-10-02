@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { getCurrentUser } from '@/lib/auth-session';
 import { OG_PALETTE } from '@/lib/og/palette';
 import { renderStoryCard } from '@/lib/og/story';
+import { siteHost } from '@/lib/seo';
 import { divisionStory, passportStory, weekStory } from '@/lib/og/story-data';
 
 /**
@@ -71,7 +72,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
           title: tStory('week.title'),
           labelMinutes: tStory('label.minutes'),
           labelSports: tStory('label.sports'),
-          callToAction: tStory('callToAction'),
+          callToAction: tStory('callToAction', { site: siteHost() }),
         })
       : kind === 'passport'
         ? await passportStory(user.id, {
@@ -80,7 +81,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
             title: tStory('passport.title'),
             labelContributions: tStory('label.contributions'),
             labelBadges: tStory('label.checkins'),
-            callToAction: tStory('callToAction'),
+            callToAction: tStory('callToAction', { site: siteHost() }),
           })
         : await divisionStory(user.id, {
             eyebrow: tStory('division.eyebrow'),
@@ -89,7 +90,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
             tierName: (slug) => tDivision(`tier.${slug}`),
             labelPoints: tStory('label.points'),
             labelOf: tStory('label.inGroup'),
-            callToAction: tStory('callToAction'),
+            callToAction: tStory('callToAction', { site: siteHost() }),
           });
 
   // Nothing to say yet — a story of zeroes is the Wrapped-2024 failure in the

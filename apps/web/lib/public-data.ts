@@ -1,6 +1,8 @@
 import { getDb, publicFacilityVisible, sql, type SQL } from '@sportkarta/db';
+import { cityDisplayName } from '@sportkarta/lib/cities';
 
 import type { PublicFilters } from '@/lib/filters';
+import { placeLabel } from '@/lib/geo';
 import { PHOTO_PUBLIC } from '@/lib/photos';
 
 /**
@@ -54,6 +56,26 @@ export interface PublicFacility {
   sportTypes: string[];
   lon: number;
   lat: number;
+  /** "Лозенец, София" — see `placeLabel`. Null when neither part is known. */
+  place: string | null;
+}
+
+/**
+ * Where a facility is, in the reader's locale, from the quarter and the
+ * municipality columns the two map queries below select. It is what the map
+ * labels an unnamed facility by (components/map/facility-label.ts), and 91% of
+ * the corpus is unnamed. The municipality goes through `cityDisplayName`, so
+ * «Столична» reads «София» here exactly as it does on the place pages.
+ */
+const PLACE_COLUMNS = sql`f.quarter, m.name_bg AS municipality_bg, m.name_en AS municipality_en`;
+const PLACE_JOIN = sql`LEFT JOIN municipalities m ON m.id = f.municipality_id`;
+
+function rowPlace(row: Record<string, unknown>, locale: string): string | null {
+  const bg = row.municipality_bg as string | null;
+  const municipality = bg
+    ? cityDisplayName(bg, (row.municipality_en as string | null) ?? bg, locale)
+    : null;
+  return placeLabel(row.quarter as string | null, municipality);
 }
 
 // Safety cap: comfortably above the ~6.6k national dataset, bounds the payload
@@ -65,16 +87,22 @@ export interface FacilityFeatureCollection {
   features: {
     type: 'Feature';
     geometry: { type: 'Point'; coordinates: [number, number] };
-    properties: { slug: string; name: string | null; sports: string[] };
+    /** `place` is OMITTED rather than null when unknown — ~6k features ride this feed. */
+    properties: { slug: string; name: string | null; sports: string[]; place?: string };
   }[];
 }
 
 /** GeoJSON for the map source (clustered client-side). Minimal properties. */
-export async function facilitiesGeoJSON(f: PublicFilters): Promise<FacilityFeatureCollection> {
+export async function facilitiesGeoJSON(
+  f: PublicFilters,
+  locale = 'bg',
+): Promise<FacilityFeatureCollection> {
   const db = getDb();
   const result = await db.execute(sql`
-    SELECT f.slug, f.name, f.sport_types, ST_X(f.geom) AS lon, ST_Y(f.geom) AS lat
+    SELECT f.slug, f.name, f.sport_types, ${PLACE_COLUMNS},
+           ST_X(f.geom) AS lon, ST_Y(f.geom) AS lat
     FROM facilities f
+    ${PLACE_JOIN}
     WHERE ${publicConditions(f)}
     ORDER BY f.id
     LIMIT ${GEOJSON_LIMIT}
@@ -83,6 +111,7 @@ export async function facilitiesGeoJSON(f: PublicFilters): Promise<FacilityFeatu
     type: 'FeatureCollection',
     features: result.rows.map((r) => {
       const row = r as Record<string, unknown>;
+      const place = rowPlace(row, locale);
       return {
         type: 'Feature' as const,
         geometry: {
@@ -93,6 +122,7 @@ export async function facilitiesGeoJSON(f: PublicFilters): Promise<FacilityFeatu
           slug: String(row.slug),
           name: (row.name as string | null) ?? null,
           sports: (row.sport_types as string[] | null) ?? [],
+          ...(place ? { place } : {}),
         },
       };
     }),
@@ -106,11 +136,14 @@ export async function facilitiesGeoJSON(f: PublicFilters): Promise<FacilityFeatu
 export async function listPublicFacilities(
   f: PublicFilters,
   limit = 100,
+  locale = 'bg',
 ): Promise<PublicFacility[]> {
   const db = getDb();
   const result = await db.execute(sql`
-    SELECT f.slug, f.name, f.sport_types, ST_X(f.geom) AS lon, ST_Y(f.geom) AS lat
+    SELECT f.slug, f.name, f.sport_types, ${PLACE_COLUMNS},
+           ST_X(f.geom) AS lon, ST_Y(f.geom) AS lat
     FROM facilities f
+    ${PLACE_JOIN}
     WHERE ${publicConditions(f)}
     ORDER BY f.name NULLS LAST, f.id
     LIMIT ${limit}
@@ -123,6 +156,7 @@ export async function listPublicFacilities(
       sportTypes: (row.sport_types as string[] | null) ?? [],
       lon: Number(row.lon),
       lat: Number(row.lat),
+      place: rowPlace(row, locale),
     };
   });
 }

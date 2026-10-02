@@ -3,10 +3,12 @@
 import type { SharePayload, ShareNetwork } from '@sportkarta/lib/share';
 import { carriesCaption, NETWORKS, networkUrl } from '@sportkarta/lib/share';
 import { Check, Download, Image as ImageIcon, Link2, Share2 } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
+
+import { attemptShare } from './share-flow';
 
 /**
  * The share affordance, on every surface worth sharing.
@@ -20,14 +22,16 @@ import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
  * a story composer. The only two ways to reach them are the OS share sheet with
  * a FILE attached, and saving the image to post by hand. So:
  *
- *   1. `navigator.share({ files })` — fetch the story PNG, hand it to the OS.
- *      This is the one path that reaches Instagram Stories, Facebook Stories and
- *      Viber in a single tap, and it is why the story image exists at all. Tried
- *      first whenever the payload has a story and the browser admits it can take
- *      files.
+ *   1. `navigator.share({ files })` — fetch the story PNG, hand it to the OS,
+ *      with the link in the caption. This is the one path that reaches
+ *      Instagram Stories, Facebook Stories and Viber in a single tap, and it is
+ *      why the story image exists at all. Tried first whenever the payload has
+ *      a story and the browser admits it can take files.
  *   2. `navigator.share({ text, url })` — the text sheet. Reaches Viber and
  *      Messenger on every mobile browser that has it.
- *   3. The panel below — copy, download, and plain per-network links.
+ *   3. The panel below — copy, download, and plain per-network links. Also
+ *      where a share that FAILED lands (share-flow.ts): only the member's own
+ *      cancel stays silent.
  *
  * A DISCLOSURE, NOT A MODAL. This app has no dialog primitive and does not need
  * one for a URL and five anchors.
@@ -69,6 +73,8 @@ export function ShareSheet({
 }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<'link' | 'text' | null>(null);
+  /** The story fetch, started as early as the member reaches for the button. */
+  const storyRef = useRef<Promise<File | null> | null>(null);
 
   const note = (what: 'link' | 'text') => {
     setCopied(what);
@@ -96,30 +102,21 @@ export function ShareSheet({
     }
   }
 
+  /**
+   * One fetch per sheet, begun on pointer-down rather than on click: the
+   * OS share has to start inside the tap's user activation, and every
+   * millisecond the image takes comes out of that window. A later tap reuses
+   * whatever the first one fetched.
+   */
+  function prefetchStory(): Promise<File | null> {
+    storyRef.current ??= storyFile();
+    return storyRef.current;
+  }
+
   async function onShare(): Promise<void> {
     const nav: Navigator | null = typeof navigator === 'undefined' ? null : navigator;
-    const canShare = typeof nav?.share === 'function';
-
-    if (!nav || !canShare) {
-      setOpen(true);
-      return;
-    }
-
-    try {
-      const file = await storyFile();
-      // `canShare` must be asked BEFORE sharing: Safari throws rather than
-      // returning false when handed files it will not take, and the throw is
-      // indistinguishable from the member cancelling.
-      if (file && typeof nav.canShare === 'function' && nav.canShare({ files: [file] })) {
-        await nav.share({ files: [file], text: payload.text, title: payload.text });
-        return;
-      }
-      await nav.share({ text: payload.text, url: payload.url });
-    } catch {
-      // A cancelled sheet rejects, and that is not an error worth reporting.
-      // Opening the panel on cancel would punish the member for changing their
-      // mind, so this is deliberately silent.
-    }
+    const outcome = await attemptShare(nav, payload, prefetchStory);
+    if (outcome === 'panel') setOpen(true);
   }
 
   async function copy(value: string, what: 'link' | 'text'): Promise<void> {
@@ -143,6 +140,9 @@ export function ShareSheet({
           type="button"
           variant={variant}
           size={size}
+          onPointerDown={() => {
+            if (payload.storyPath) void prefetchStory();
+          }}
           onClick={() => {
             void onShare();
           }}

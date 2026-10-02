@@ -66,11 +66,22 @@ export function createStaticPin(size = 36): HTMLDivElement {
   return el;
 }
 
-/** The green cluster bubble showing a facility count in the mono face. */
-export function createCluster(count: number): HTMLDivElement {
+/**
+ * The green cluster bubble showing a facility count in the mono face.
+ *
+ * A BUTTON, not decoration. It used to be `aria-hidden` with no tabindex, and at
+ * the national view every facility is inside a cluster — eleven bubbles and no
+ * pins on a phone — so a keyboard or screen-reader user could not expand the
+ * map at all. It now takes focus in the same tab order as the pins and names
+ * itself with its count (`label`); the canvas wires Enter/Space to the same
+ * zoom a click does.
+ */
+export function createCluster(count: number, label: string): HTMLDivElement {
   const el = document.createElement('div');
   el.className = 'sk-cluster';
-  el.setAttribute('aria-hidden', 'true');
+  el.setAttribute('role', 'button');
+  el.setAttribute('tabindex', '0');
+  el.setAttribute('aria-label', label);
   const size = count >= 100 ? 46 : count >= 25 ? 40 : 34;
   el.style.width = `${String(size)}px`;
   el.style.height = `${String(size)}px`;
