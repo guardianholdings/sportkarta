@@ -1,10 +1,12 @@
 'use client';
 
+import { useLocale, useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
 
 import { useRouter } from '@/i18n/navigation';
 import { viewFromPoints } from '@/lib/geo';
 
+import { facilityTitle, type LabelStrings } from './facility-label';
 import type { MapPoint } from './map-canvas';
 
 // Reuses the main MapLibre canvas, scoped + framed to one place's facilities.
@@ -24,6 +26,10 @@ export interface PlaceMapFacility {
 
 export function PlaceMap({ facilities }: { facilities: PlaceMapFacility[] }) {
   const router = useRouter();
+  const locale = useLocale();
+  const t = useTranslations('Map');
+  const tFacility = useTranslations('Facility');
+  const tSport = useTranslations('Sport');
   const points: MapPoint[] = facilities.map((f) => ({
     slug: f.slug,
     name: f.name,
@@ -32,6 +38,15 @@ export function PlaceMap({ facilities }: { facilities: PlaceMapFacility[] }) {
     lat: f.lat,
   }));
   const view = viewFromPoints(facilities.map((f) => ({ lon: f.lon, lat: f.lat })));
+  // No `place`: the page around this map already IS the place. The label still
+  // matters — it is each pin's accessible name, and without one every unnamed
+  // pin here announced nothing at all.
+  const labels: LabelStrings = {
+    locale,
+    unnamed: tFacility('unnamed'),
+    sport: (sport) => tSport(sport),
+    unnamedAt: (what, place) => tFacility('unnamedAt', { what, place }),
+  };
 
   return (
     <div className="h-72 w-full overflow-hidden rounded-lg">
@@ -41,6 +56,9 @@ export function PlaceMap({ facilities }: { facilities: PlaceMapFacility[] }) {
         selectedSlug={null}
         initialView={view}
         myLocationLabel=""
+        labelFor={(point) => facilityTitle(point, labels)}
+        clusterLabel={(count) => t('clusterLabel', { count })}
+        unavailableLabel={t('mapUnavailable')}
         onSelect={(slug) => router.push(`/obekt/${slug}`)}
         onMoveEnd={() => undefined}
       />

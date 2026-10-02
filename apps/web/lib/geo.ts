@@ -1,3 +1,7 @@
+// The SUBPATH, never the barrel: this module is imported by client components
+// (the map explorer), and the barrel re-exports the mailer.
+import { BULGARIA_CENTER } from '@sportkarta/lib/geo';
+
 export interface LngLat {
   lon: number;
   lat: number;
@@ -19,9 +23,44 @@ export function distanceKm(a: LngLat, b: LngLat): number {
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-/** Round a km distance for display: one decimal under 10 km, whole km above. */
-export function formatKm(km: number): string {
-  return km < 10 ? km.toFixed(1) : String(Math.round(km));
+/**
+ * Round a km distance for display: one decimal under 10 km, whole km above —
+ * in the reader's NUMBER FORMAT, which is half of why this takes a locale.
+ *
+ * It used to be `km.toFixed(1)`, which printed "0.4" to a Bulgarian reader whose
+ * decimal separator is a comma ("0,4"). The unit is deliberately NOT added here:
+ * "на {km} км" / "{km} km away" is copy, so it lives in messages/*.json and the
+ * caller wraps this number in it.
+ */
+export function formatKm(km: number, locale: string): string {
+  const digits = km < 10 ? 1 : 0;
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(km);
+}
+
+/**
+ * Where a facility is, as precisely as the data allows: "Лозенец, София",
+ * or just the municipality when no quarter is recorded.
+ *
+ * This is what tells two unnamed facilities apart. 91% of the corpus has no
+ * name — OSM rarely names a pitch — so without it the list was a column of
+ * identical "Спортно съоръжение" rows. A quarter that merely repeats the
+ * municipality ("Варна, Варна") is dropped rather than printed twice.
+ */
+export function placeLabel(
+  quarter: string | null | undefined,
+  municipality: string | null | undefined,
+): string | null {
+  const parts: string[] = [];
+  for (const raw of [quarter, municipality]) {
+    const part = raw?.trim();
+    if (!part) continue;
+    if (parts.some((p) => p.toLocaleLowerCase() === part.toLocaleLowerCase())) continue;
+    parts.push(part);
+  }
+  return parts.length > 0 ? parts.join(', ') : null;
 }
 
 export interface MapView {
@@ -30,15 +69,14 @@ export interface MapView {
   zoom: number;
 }
 
-const BULGARIA_CENTER: MapView = { lng: 25.3, lat: 42.72, zoom: 6.8 };
-
 /**
  * A center + zoom that frames a set of points (for the scoped place maps).
  * Derives zoom from the bounding-box span; clamped to a sane range. Empty →
- * whole-Bulgaria overview; a single point → close-in.
+ * whole-Bulgaria overview (the one shared definition, not a local copy of its
+ * numbers); a single point → close-in.
  */
 export function viewFromPoints(points: LngLat[]): MapView {
-  if (points.length === 0) return BULGARIA_CENTER;
+  if (points.length === 0) return { ...BULGARIA_CENTER };
   let minLon = Infinity;
   let maxLon = -Infinity;
   let minLat = Infinity;

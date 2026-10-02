@@ -14,7 +14,7 @@ import {
   WifiOff,
   X,
 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -36,13 +36,20 @@ import {
   type PublicFilters,
 } from '@/lib/filters';
 import { NAV_PROVIDERS } from '@/lib/directions';
-import { distanceKm, formatKm } from '@/lib/geo';
+import { formatKm } from '@/lib/geo';
 import { DEFAULT_LAYER, type ExternalMapLayer } from '@/lib/map/layers';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { CANONICAL_SPORTS, CANONICAL_SURFACES, type CanonicalSport } from '@sportkarta/lib/sports';
 
 import type { FacilityFeatureCollection } from '@/lib/public-data';
 
+import {
+  facilitySearchText,
+  facilitySubtitle,
+  facilityTitle,
+  type LabelStrings,
+} from './facility-label';
+import { matchRows } from './list-rows';
 import type { MapBounds, MapPoint, MapView, NearMe } from './map-canvas';
 
 const MapCanvas = dynamic(() => import('./map-canvas'), {
@@ -111,10 +118,27 @@ const SNAP_PX: Record<Snap, (viewport: number) => number> = {
  */
 const SNAP_NEXT: Record<Snap, Snap> = { half: 'peek', peek: 'full', full: 'half' };
 
+/**
+ * The pin preview on a phone: a HALF sheet, expandable to full on request.
+ *
+ * It was always full height — `calc(100dvh - 3.5rem)` from the tab bar up, so
+ * its top edge sat at y=0 — and tapping a pin covered the entire map with a
+ * sheet that was 60% empty: the pin just tapped, and everything around it,
+ * disappeared under its own description, and browsing became tap, back, tap.
+ * It now takes the list's `half` height, with a floor so the heading and the
+ * three actions always fit on a short phone, and the map above it stays live.
+ */
+const PREVIEW_H = { half: 'h-[max(40dvh,18rem)]', full: SNAP_H.full } as const;
+const PREVIEW_PX = {
+  half: (viewport: number) => Math.max(viewport * 0.4, 288),
+  full: (viewport: number) => viewport,
+} as const;
+
 interface MapExplorerProps {
   filters: PublicFilters;
   initialFacilities: MapPoint[];
-  initialView: MapView;
+  /** Null = no view in the URL: the canvas fits the whole country to the screen. */
+  initialView: MapView | null;
   initialSelected: string | null;
   /** External raster basemaps the server configured (lib/map/external-layers.ts). */
   externalLayers?: ExternalMapLayer[];
@@ -151,8 +175,21 @@ export function MapExplorer({
   const tNav = useTranslations('Nav');
   const tSport = useTranslations('Sport');
   const tFacility = useTranslations('Facility');
+  const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
+
+  // What a facility is called on every surface here — the card, the preview,
+  // the pin's accessible name, the search index (see facility-label.ts).
+  const labelStrings = useMemo<LabelStrings>(
+    () => ({
+      locale,
+      unnamed: tFacility('unnamed'),
+      sport: (sport) => tSport(sport),
+      unnamedAt: (what, place) => tFacility('unnamedAt', { what, place }),
+    }),
+    [locale, tFacility, tSport],
+  );
 
   const [points, setPoints] = useState<MapPoint[]>(initialFacilities);
   const [userLocation, setUserLocation] = useState<{ lon: number; lat: number } | null>(null);
@@ -161,12 +198,20 @@ export function MapExplorer({
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  const [loading, setLoading] = useState(false);
+  /**
+   * TRUE from the first render: the full set is always fetched on mount, and
+   * until it lands `points` is only the server's 100-row seed. Starting at false
+   * printed «100 съоръжения» over an alphabetical sample for the first seconds
+   * of every visit, a headline number that was simply wrong.
+   */
+  const [loading, setLoading] = useState(true);
   const [offline, setOffline] = useState(false);
   const [nearMeOn, setNearMeOn] = useState(false);
   const [radiusKm, setRadiusKm] = useState(8);
   const [query, setQuery] = useState('');
   const [snap, setSnap] = useState<Snap>('half');
+  /** Phone only: the pin preview expanded from its half height to full. */
+  const [previewFull, setPreviewFull] = useState(false);
   /**
    * Desktop only: the list panel can be folded away.
    *
@@ -213,9 +258,13 @@ export function MapExplorer({
      */
     if (viewport.desktop) return {};
     // Mobile IS still full-bleed — the sheet floats over the map — so the sheet
-    // plus the 56px tab bar beneath it is genuinely covered canvas.
-    return { bottom: SNAP_PX[snap](viewport.height) + 56 };
-  }, [viewport, snap]);
+    // plus the 56px tab bar beneath it is genuinely covered canvas. While a
+    // facility is selected, the sheet on screen is the preview, not the list.
+    const sheet = selectedSlug
+      ? PREVIEW_PX[previewFull ? 'full' : 'half'](viewport.height)
+      : SNAP_PX[snap](viewport.height);
+    return { bottom: sheet + 56 };
+  }, [viewport, snap, selectedSlug, previewFull]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [activeLayer, setActiveLayer] = useState<string>(DEFAULT_LAYER);
   const [layerMenuOpen, setLayerMenuOpen] = useState(false);
@@ -237,11 +286,15 @@ export function MapExplorer({
   }, []);
 
   // Full filtered set for the map + list whenever the structured filters change.
+  // The locale rides along because `place` carries a municipality name, which
+  // has a bg and an en form (the API is not locale-routed).
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     setLoadError(false);
-    fetch(`/api/facilities?${filterKey}`, { signal: controller.signal })
+    const params = new URLSearchParams(filterKey);
+    params.set('locale', locale);
+    fetch(`/api/facilities?${params.toString()}`, { signal: controller.signal })
       .then((r) => r.json() as Promise<FacilityFeatureCollection>)
       .then((fc) => {
         setPoints(
@@ -251,6 +304,7 @@ export function MapExplorer({
             sports: f.properties.sports,
             lon: f.geometry.coordinates[0],
             lat: f.geometry.coordinates[1],
+            place: f.properties.place ?? null,
           })),
         );
         setLoading(false);
@@ -261,7 +315,7 @@ export function MapExplorer({
         setLoading(false);
       });
     return () => controller.abort();
-  }, [filterKey]);
+  }, [filterKey, locale]);
 
   function viewportParams(): [string, string][] {
     if (typeof window === 'undefined') return [];
@@ -282,6 +336,7 @@ export function MapExplorer({
   // Keep the map mounted: selection rides a search param, not a route change.
   function select(slug: string | null) {
     setSelectedSlug(slug);
+    setPreviewFull(false);
     const params = filtersToSearchParams(filters);
     for (const [k, v] of viewportParams()) params.set(k, v);
     if (slug) params.set('selected', slug);
@@ -331,29 +386,30 @@ export function MapExplorer({
     [nearMeOn, userLocation, radiusKm],
   );
 
-  // Distance-sort + near-me radius + name search, all composing — then a
-  // stable partition so whatever is CURRENTLY ON THE MAP leads the list
-  // (operator request 2026-07-25): pan to Варна and the thread starts with
-  // Варна, while relative order within each half is untouched.
-  const listItems = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    let rows = points.map((p) => ({
-      point: p,
-      km: userLocation ? distanceKm(userLocation, { lon: p.lon, lat: p.lat }) : null,
-    }));
-    if (q) rows = rows.filter((r) => (r.point.name ?? '').toLowerCase().includes(q));
-    if (nearMe) rows = rows.filter((r) => r.km !== null && r.km <= radiusKm);
-    if (userLocation) rows.sort((a, b) => (a.km ?? 0) - (b.km ?? 0));
-    if (viewBounds) {
-      const visible = (p: MapPoint) =>
-        p.lon >= viewBounds.west &&
-        p.lon <= viewBounds.east &&
-        p.lat >= viewBounds.south &&
-        p.lat <= viewBounds.north;
-      rows = [...rows.filter((r) => visible(r.point)), ...rows.filter((r) => !visible(r.point))];
-    }
-    return rows.slice(0, 60);
-  }, [points, userLocation, nearMe, radiusKm, query, viewBounds]);
+  // One lower-cased haystack per facility — its title, sports and place — so a
+  // search can find the 91% that have no name, and matches what the placeholder
+  // promises ("place or activity"). Rebuilt only when the set changes.
+  const searchIndex = useMemo(
+    () => new Map(points.map((p) => [p.slug, facilitySearchText(p, labelStrings)])),
+    [points, labelStrings],
+  );
+
+  // Search + near-me + distance sort + on-map-first (list-rows.ts). `matched`
+  // is EVERY row that passes, and it is what the count reports; only the
+  // rendered list is capped.
+  const matched = useMemo(
+    () =>
+      matchRows(points, {
+        query,
+        locale,
+        searchText: (p) => searchIndex.get(p.slug) ?? '',
+        userLocation,
+        radiusKm: nearMe ? nearMe.radiusKm : null,
+        viewBounds,
+      }),
+    [points, userLocation, nearMe, query, viewBounds, searchIndex, locale],
+  );
+  const listItems = useMemo(() => matched.slice(0, 60), [matched]);
 
   const selected = useMemo(
     () => (selectedSlug ? (points.find((p) => p.slug === selectedSlug) ?? null) : null),
@@ -379,13 +435,6 @@ export function MapExplorer({
     (isDefaultAccess(filters.access) ? 0 : 1) +
     (nearMeOn ? 1 : 0);
 
-  function sportLabels(sports: string[]): string {
-    return sports
-      .slice(0, 3)
-      .map((s) => tSport(s))
-      .join(' · ');
-  }
-
   // ── shared building blocks ────────────────────────────────────────────────
 
   const chipRow = (
@@ -409,15 +458,23 @@ export function MapExplorer({
     </div>
   );
 
+  // No number is better than a wrong one: while the full set is loading,
+  // `points` is the 100-row seed (or the previous filter's set), and after a
+  // failed load it is stale — the list says so, the count stays quiet.
   const countLine = (
     <span className="font-mono text-caption text-ink-soft">
-      {t('resultsCount', { count: points.length })}
+      {loadError
+        ? null
+        : loading
+          ? t('resultsLoading')
+          : t('resultsCount', { count: matched.length })}
     </span>
   );
 
   function ResultCard({ point, km }: { point: MapPoint; km: number | null }) {
     const v = primaryVisual(point.sports);
     const isSel = point.slug === selectedSlug;
+    const subtitle = facilitySubtitle(point, labelStrings);
     return (
       <button
         type="button"
@@ -444,16 +501,16 @@ export function MapExplorer({
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-body-sm font-bold text-ink">
-            {point.name ?? tFacility('unnamed')}
+            {facilityTitle(point, labelStrings)}
           </span>
-          {point.sports.length > 0 && (
-            <span className="block truncate text-caption text-text-muted">
-              {sportLabels(point.sports)}
-            </span>
+          {subtitle && (
+            <span className="block truncate text-caption text-text-muted">{subtitle}</span>
           )}
         </span>
         {km !== null && (
-          <span className="shrink-0 font-mono text-caption text-ink-soft">{formatKm(km)}</span>
+          <span className="shrink-0 font-mono text-caption text-ink-soft">
+            {t('distanceKm', { km: formatKm(km, locale) })}
+          </span>
         )}
       </button>
     );
@@ -524,20 +581,22 @@ export function MapExplorer({
     </div>
   );
 
-  const detailPanel = selected && (
-    <FacilityPreview
-      point={selected}
-      onClose={() => select(null)}
-      labels={{
-        unnamed: tFacility('unnamed'),
-        directions: t('directions'),
-        directionsWith: (app: string) => t('directionsWith', { app }),
-        viewDetails: t('viewDetails'),
-        close: t('close'),
-      }}
-      sportLabels={sportLabels}
-    />
-  );
+  const selectedTitle = selected ? facilityTitle(selected, labelStrings) : '';
+  const detailPanel = (compact: boolean) =>
+    selected && (
+      <FacilityPreview
+        point={selected}
+        title={selectedTitle}
+        subtitle={facilitySubtitle(selected, labelStrings)}
+        compact={compact}
+        onClose={() => select(null)}
+        labels={{
+          directionsWith: (app: string) => t('directionsWith', { app }),
+          viewDetails: t('viewDetails'),
+          close: t('close'),
+        }}
+      />
+    );
 
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden bg-paper">
@@ -613,7 +672,9 @@ export function MapExplorer({
           nearMe={nearMe}
           initialView={initialView}
           myLocationLabel={t('myLocation')}
-          unnamedLabel={tFacility('unnamed')}
+          labelFor={(point) => facilityTitle(point, labelStrings)}
+          clusterLabel={(count) => t('clusterLabel', { count })}
+          unavailableLabel={t('mapUnavailable')}
           onSelect={select}
           onHoverMarker={onHoverMarker}
           // Mobile lifts the national zoom/pan frame (operator request
@@ -623,7 +684,8 @@ export function MapExplorer({
           // country could not be pulled back into view. On desktop the panel
           // sits beside the map rather than over it, the floor is already
           // computed against nearly the whole canvas, and the frame costs
-          // nothing.
+          // nothing. The phone keeps a pan limit of its own: the camera centre
+          // stays inside Bulgaria (map-canvas.tsx, `clampCenter`).
           unrestricted={!viewport.desktop}
           onMoveEnd={(v) => onMoveEndRef.current(v)}
           externalLayers={externalLayers}
@@ -783,7 +845,7 @@ export function MapExplorer({
 
         {selected && (
           <aside className="pointer-events-auto absolute right-4 top-4 w-[380px] rounded-sheet border border-line bg-surface shadow-float">
-            {detailPanel}
+            {detailPanel(false)}
           </aside>
         )}
       </div>
@@ -792,11 +854,24 @@ export function MapExplorer({
       <div className="lg:hidden">
         {selected ? (
           <div
-            className="absolute inset-x-0 bottom-14 z-30 flex h-[calc(100dvh-3.5rem)] flex-col rounded-t-xl border-t border-line-strong bg-surface shadow-float"
+            className={`absolute inset-x-0 bottom-14 z-30 flex flex-col rounded-t-xl border-t border-line-strong bg-surface shadow-float transition-[height] duration-200 ease-standard ${
+              PREVIEW_H[previewFull ? 'full' : 'half']
+            }`}
             role="dialog"
-            aria-label={selected.name ?? tFacility('unnamed')}
+            aria-label={selectedTitle}
           >
-            {detailPanel}
+            {/* The same handle as the list sheet: it grows the preview to full
+                height ON REQUEST, and back. */}
+            <button
+              type="button"
+              aria-label={previewFull ? t('collapsePreview') : t('expandPreview')}
+              aria-expanded={previewFull}
+              onClick={() => setPreviewFull((v) => !v)}
+              className="flex shrink-0 justify-center pt-2.5 pb-1.5"
+            >
+              <span className="h-1 w-10 rounded-full bg-line-strong" />
+            </button>
+            <div className="min-h-0 flex-1">{detailPanel(!previewFull)}</div>
           </div>
         ) : (
           <section
@@ -854,7 +929,7 @@ export function MapExplorer({
           filters={filters}
           nearMeOn={nearMeOn}
           radiusKm={radiusKm}
-          count={points.length}
+          count={loading || loadError ? null : matched.length}
           onApply={applyFilters}
           onToggleNearMe={toggleNearMe}
           onRadius={setRadiusKm}
@@ -909,47 +984,64 @@ function EmptyState({
 
 function FacilityPreview({
   point,
+  title,
+  subtitle,
+  compact,
   onClose,
   labels,
-  sportLabels,
 }: {
   point: MapPoint;
+  /** facilityTitle — the name, or sport + place for the 91% with none. */
+  title: string;
+  subtitle: string;
+  /**
+   * The phone's half-height preview: no decorative hero, the close control
+   * beside the heading instead, so the heading, where it is, and the three
+   * actions all fit above the tab bar with the map still visible above.
+   */
+  compact: boolean;
   onClose: () => void;
   labels: {
-    unnamed: string;
-    directions: string;
     directionsWith: (app: string) => string;
     viewDetails: string;
     close: string;
   };
-  sportLabels: (s: string[]) => string;
 }) {
   const v = primaryVisual(point.sports);
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-t-xl lg:rounded-sheet">
-      <div
-        className="relative flex h-36 items-center justify-center"
-        style={{
-          background: `radial-gradient(circle at 50% 42%, color-mix(in srgb, ${v.color} 18%, var(--surface)), var(--surface) 72%)`,
-          color: v.color,
-        }}
-      >
-        <v.Icon size={64} className="opacity-25" />
-        <div className="absolute left-3 top-3 flex gap-2">
-          <IconButton aria-label={labels.close} variant="floating" round onClick={onClose}>
-            <ArrowLeft size={19} />
-          </IconButton>
+    <div className="flex h-full flex-col overflow-hidden lg:rounded-sheet">
+      {!compact && (
+        <div
+          className="relative flex h-36 shrink-0 items-center justify-center"
+          style={{
+            background: `radial-gradient(circle at 50% 42%, color-mix(in srgb, ${v.color} 18%, var(--surface)), var(--surface) 72%)`,
+            color: v.color,
+          }}
+        >
+          <v.Icon size={64} className="opacity-25" />
+          <div className="absolute left-3 top-3 flex gap-2">
+            <IconButton aria-label={labels.close} variant="floating" round onClick={onClose}>
+              <ArrowLeft size={19} />
+            </IconButton>
+          </div>
         </div>
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4">
-        <h2 className="text-h3 font-extrabold tracking-tight text-ink">
-          {point.name ?? labels.unnamed}
-        </h2>
-        {point.sports.length > 0 && (
-          <p className="mt-1 text-body-sm text-text-muted">{sportLabels(point.sports)}</p>
+      )}
+      <div
+        className={`flex min-h-0 flex-1 items-start gap-3 overflow-y-auto ${compact ? 'px-4 pt-1 pb-3' : 'p-4'}`}
+      >
+        <div className="min-w-0 flex-1">
+          <h2 className="text-h3 font-extrabold tracking-tight text-ink">{title}</h2>
+          {subtitle && <p className="mt-1 text-body-sm text-text-muted">{subtitle}</p>}
+        </div>
+        {compact && (
+          <IconButton aria-label={labels.close} variant="surface" round onClick={onClose}>
+            <X size={18} />
+          </IconButton>
         )}
       </div>
-      <div className="flex flex-col gap-2.5 border-t border-line p-3">
+      {/* `pb-8` below lg clears the tab bar's centre «+», which stands 22px
+          proud of the bar and sat on the lower edge of «Виж детайли». */}
+      <div className="flex shrink-0 flex-col gap-2.5 border-t border-line p-3 pb-8 lg:pb-3">
         <div className="flex items-center gap-2.5">
           {NAV_PROVIDERS.map((provider) => (
             <Button
@@ -989,7 +1081,8 @@ function FilterSheet({
   filters: PublicFilters;
   nearMeOn: boolean;
   radiusKm: number;
-  count: number;
+  /** What the list will show; null while it is still loading. */
+  count: number | null;
   onApply: (f: PublicFilters) => void;
   onToggleNearMe: () => void;
   onRadius: (km: number) => void;
@@ -1105,7 +1198,7 @@ function FilterSheet({
 
         <div className="flex items-center gap-2.5 border-t border-line px-5 py-3">
           <Button block onClick={onClose}>
-            {t('showCount', { count })}
+            {count === null ? t('apply') : t('showCount', { count })}
           </Button>
           <Button variant="secondary" onClick={onReset} className="shrink-0">
             {t('reset')}

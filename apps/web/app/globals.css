@@ -425,6 +425,13 @@
   box-shadow: var(--shadow-float);
   cursor: pointer;
 }
+/* A cluster is a focusable button (components/map/markers.ts). Its own
+   unlayered box-shadow outranks the base-layer focus ring, so the ring is
+   restated here — on top of the float shadow rather than instead of it. */
+.sk-cluster:focus-visible {
+  outline: none;
+  box-shadow: var(--ring), var(--shadow-float);
+}
 
 /* ============================================================
    LOADING MARK — the animated „Усмивката" (components/shell/loading-mark.tsx).
