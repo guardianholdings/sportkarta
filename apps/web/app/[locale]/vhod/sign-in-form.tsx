@@ -5,6 +5,7 @@ import { useActionState, useId } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Link } from '@/i18n/navigation';
 
 import { googleSignInAction, signInAction, type SignInState } from './actions';
 
@@ -158,7 +159,22 @@ export function SignInForm({ googleEnabled, next }: { googleEnabled: boolean; ne
         </form>
       )}
 
-      <p className="text-caption text-text-muted">{t('privacyNote')}</p>
+      {/* Signing in is when the account contract starts (GDPR Art. 6(1)(b)), so
+          it is where the terms are named — with the privacy notice beside them. */}
+      <p className="text-caption text-text-muted">
+        {t.rich('privacyNote', {
+          terms: (chunks) => (
+            <Link href="/usloviya" className="font-medium text-link hover:text-link-hover">
+              {chunks}
+            </Link>
+          ),
+          privacy: (chunks) => (
+            <Link href="/privacy" className="font-medium text-link hover:text-link-hover">
+              {chunks}
+            </Link>
+          ),
+        })}
+      </p>
     </div>
   );
 }

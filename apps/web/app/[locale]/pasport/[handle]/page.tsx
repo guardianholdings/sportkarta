@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
+import { ReportContentLink } from '@/components/legal/report-content-link';
 import { PublicBadgeGrid } from '@/components/passport/badge-grid';
 import { PublicActivityList } from '@/components/passport/history-list';
 import { StreakPanel } from '@/components/passport/streak-panel';
@@ -128,6 +129,10 @@ export default async function PublicPassportPage({ params }: { params: PageParam
             <PublicActivityList months={passport.activity} />
           </section>
         )}
+
+        {/* The name and city here are the member's own words, published: DSA
+            Art. 16 wants a way to report them (pre-launch audit). */}
+        <ReportContentLink path={`/pasport/${handle}`} />
       </main>
     </AppShell>
   );

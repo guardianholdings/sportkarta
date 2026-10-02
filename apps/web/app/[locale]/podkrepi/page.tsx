@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { AppShell } from '@/components/shell/app-shell';
 import { donationDetails } from '@/lib/donations';
+import { organisation } from '@/lib/organisation';
 import { buildAlternates } from '@/lib/seo';
 import { Link } from '@/i18n/navigation';
 
@@ -47,7 +48,8 @@ export default async function SupportPage({ params }: { params: PageParams }) {
   setRequestLocale(locale);
   const t = await getTranslations('Podkrepi');
   const details = donationDetails();
-  const contactEmail = process.env.CONTACT_EMAIL;
+  // Validated, like every other reader of CONTACT_EMAIL (lib/organisation.ts).
+  const contactEmail = organisation().contactEmail;
 
   return (
     <AppShell>
@@ -136,7 +138,17 @@ export default async function SupportPage({ params }: { params: PageParams }) {
               </a>
             </p>
           ) : (
-            <p className="text-ink-soft">{t('contactFallback')}</p>
+            // Not the facility report form, which this used to name: it is
+            // anonymous, so nobody who wrote through it could be answered.
+            <p className="text-ink-soft">
+              {t.rich('contactFallback', {
+                contact: (chunks) => (
+                  <Link href="/kontakt" className="font-medium text-link hover:text-link-hover">
+                    {chunks}
+                  </Link>
+                ),
+              })}
+            </p>
           )}
           <p className="text-body-sm">
             <Link href="/partnyori" className="font-medium text-link hover:text-link-hover">

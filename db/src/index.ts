@@ -83,6 +83,18 @@ export type {
   MemberStanding,
 } from './leaderboard.js';
 export { facilityLegend, LEGEND_MIN_DAYS, LEGEND_WINDOW_DAYS } from './legend.js';
+export {
+  claimModerationNotification,
+  decisionMailTarget,
+  eraseExpiredNotifierContacts,
+  noticeMailTarget,
+  NOTIFIER_CONTACT_RETENTION_DAYS,
+} from './moderation-mail.js';
+export type {
+  DecisionMailTarget,
+  ModerationNotificationSubject,
+  NoticeMailTarget,
+} from './moderation-mail.js';
 export type { FacilityLegend } from './legend.js';
 export {
   attachMetrics,

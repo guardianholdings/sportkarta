@@ -13,6 +13,7 @@ import {
 import {
   decideFacility,
   decidePhoto,
+  isRefusal,
   resolveReport,
   scopeClause,
   unpublishPhoto,
@@ -32,6 +33,8 @@ const PHOTO = '00000000-0000-4000-8000-0000000000p1'.replace('p1', 'a1');
 const FACILITY = '00000000-0000-4000-8000-000000000001';
 
 const STORED = 'facilities/2026/09/00000000-0000-4000-8000-0000000000f1.webp';
+/** A refusal needs a reason from the vocabulary (0034); any valid one will do here. */
+const REASON = 'identifiable_person';
 
 /**
  * `events` is one ordered timeline shared with fakeFiles, so a test can assert
@@ -151,7 +154,14 @@ describe('decidePhoto', () => {
     // The usual reason to reject is that the photo shows people; keeping the
     // file (and every backup of it) would keep exactly what was refused.
     const db = fakeDb([[PHOTO_ROW], []]);
-    const result = await decidePhoto(db, AMBASSADOR, PHOTO, 'rejected', fakeFiles(db.events));
+    const result = await decidePhoto(
+      db,
+      AMBASSADOR,
+      PHOTO,
+      'rejected',
+      fakeFiles(db.events),
+      REASON,
+    );
 
     expect(result.applied).toBe(true);
     expect(db.events).toEqual(['commit', `delete ${STORED}`]);
@@ -168,7 +178,7 @@ describe('decidePhoto', () => {
   it('deletes nothing when the rejection matched no row', async () => {
     // An out-of-scope ambassador must not be able to destroy a file either.
     const db = fakeDb([[]]);
-    await decidePhoto(db, AMBASSADOR, PHOTO, 'rejected', fakeFiles(db.events));
+    await decidePhoto(db, AMBASSADOR, PHOTO, 'rejected', fakeFiles(db.events), REASON);
     expect(db.events.filter((e) => e.startsWith('delete'))).toEqual([]);
   });
 
@@ -177,7 +187,7 @@ describe('decidePhoto', () => {
     // pointing at nothing — the one ordering that loses data.
     const db = fakeDb([[PHOTO_ROW], []], [], true);
     await expect(
-      decidePhoto(db, AMBASSADOR, PHOTO, 'rejected', fakeFiles(db.events)),
+      decidePhoto(db, AMBASSADOR, PHOTO, 'rejected', fakeFiles(db.events), REASON),
     ).rejects.toThrow('commit failed');
     expect(db.events).toEqual([]);
   });
@@ -185,7 +195,14 @@ describe('decidePhoto', () => {
   it('stands by a committed rejection even when the file delete fails', async () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const db = fakeDb([[PHOTO_ROW], []]);
-    const result = await decidePhoto(db, AMBASSADOR, PHOTO, 'rejected', fakeFiles(db.events, true));
+    const result = await decidePhoto(
+      db,
+      AMBASSADOR,
+      PHOTO,
+      'rejected',
+      fakeFiles(db.events, true),
+      REASON,
+    );
     expect(result.applied).toBe(true);
     expect(db.events).toEqual(['commit', `delete ${STORED}`]);
     // The failure is reported by photo id and error code; the log carries no
@@ -202,7 +219,7 @@ describe('decidePhoto', () => {
 describe('unpublishPhoto', () => {
   it('takes down only an APPROVED photo, inside the scope, and logs it as removed', async () => {
     const db = fakeDb([[PHOTO_ROW], []]);
-    const result = await unpublishPhoto(db, AMBASSADOR, PHOTO, fakeFiles(db.events));
+    const result = await unpublishPhoto(db, AMBASSADOR, PHOTO, fakeFiles(db.events), REASON);
 
     expect(result.applied).toBe(true);
     const [update, log] = db.statements;
@@ -224,7 +241,7 @@ describe('unpublishPhoto', () => {
 
   it('changes, logs and deletes nothing outside the scope', async () => {
     const db = fakeDb([[]]);
-    const result = await unpublishPhoto(db, AMBASSADOR, PHOTO, fakeFiles(db.events));
+    const result = await unpublishPhoto(db, AMBASSADOR, PHOTO, fakeFiles(db.events), REASON);
 
     expect(result.applied).toBe(false);
     expect(db.statements).toHaveLength(1);
@@ -273,10 +290,129 @@ describe('decideFacility', () => {
 
   it('touches nothing when the facility is out of scope', async () => {
     const db = fakeDb([[]]);
-    const result = await decideFacility(db, AMBASSADOR, FACILITY, 'gone');
+    const result = await decideFacility(db, AMBASSADOR, FACILITY, 'gone', 'duplicate');
 
     expect(result.applied).toBe(false);
     expect(db.text()).not.toMatch(/facility_edits|moderation_decisions/);
+  });
+
+  it('logs why a facility was marked gone, and returns the row for the statement of reasons', async () => {
+    const db = fakeDb([
+      [{ id: FACILITY, created_at: '2026-07-19T08:00:00Z', municipality_id: 5 }],
+      [],
+      [{ id: 42 }],
+    ]);
+    const result = await decideFacility(db, AMBASSADOR, FACILITY, 'gone', 'does_not_exist');
+
+    expect(result).toEqual({ applied: true, decisionId: 42 });
+    const log = db.statements[2];
+    expect(log?.sql).toMatch(/INSERT INTO moderation_decisions[\s\S]*reason/i);
+    expect(log?.params).toContain('does_not_exist');
+  });
+
+  it('refuses to mark a facility gone without a reason from the vocabulary', async () => {
+    for (const reason of [null, '', 'because I said so', 'identifiable_person']) {
+      const db = fakeDb([[{ id: FACILITY, created_at: '2026-07-19T08:00:00Z' }]]);
+      const result = await decideFacility(db, AMBASSADOR, FACILITY, 'gone', reason);
+      expect(result.applied, String(reason)).toBe(false);
+      // Not even the UPDATE: an unexplained removal is not a decision we take.
+      expect(db.statements, String(reason)).toHaveLength(0);
+    }
+  });
+
+  it('needs no reason to verify', async () => {
+    const db = fakeDb([
+      [{ id: FACILITY, created_at: '2026-07-19T08:00:00Z', municipality_id: 5 }],
+      [],
+      [{ id: 7 }],
+    ]);
+    const result = await decideFacility(db, AMBASSADOR, FACILITY, 'verified', 'duplicate');
+    expect(result.applied).toBe(true);
+    // A stray reason on an approval is dropped, not logged against it.
+    expect(db.statements[2]?.params).not.toContain('duplicate');
+  });
+});
+
+describe('a refused photo carries its reason', () => {
+  it('logs the reason with the rejection', async () => {
+    const db = fakeDb([[PHOTO_ROW], [{ id: 9 }]]);
+    const result = await decidePhoto(
+      db,
+      AMBASSADOR,
+      PHOTO,
+      'rejected',
+      fakeFiles(db.events),
+      'identifiable_person',
+    );
+
+    expect(result).toEqual({ applied: true, decisionId: 9 });
+    expect(db.statements[1]?.params).toContain('identifiable_person');
+  });
+
+  it('refuses a rejection without a valid reason, before touching the photo or its file', async () => {
+    for (const reason of [null, 'not_a_reason', 'duplicate']) {
+      const db = fakeDb([[PHOTO_ROW], [{ id: 9 }]]);
+      const result = await decidePhoto(
+        db,
+        AMBASSADOR,
+        PHOTO,
+        'rejected',
+        fakeFiles(db.events),
+        reason,
+      );
+      expect(result.applied, String(reason)).toBe(false);
+      expect(db.statements, String(reason)).toHaveLength(0);
+      expect(db.events, String(reason)).toEqual([]);
+    }
+  });
+
+  it('logs no reason against an approval', async () => {
+    const db = fakeDb([[PHOTO_ROW], [{ id: 3 }]]);
+    await decidePhoto(
+      db,
+      AMBASSADOR,
+      PHOTO,
+      'approved',
+      fakeFiles(db.events),
+      'identifiable_person',
+    );
+    expect(db.statements[1]?.params).not.toContain('identifiable_person');
+  });
+});
+
+describe('a taken-down photo carries its reason', () => {
+  it('logs the reason with the takedown and returns the row for the statement of reasons', async () => {
+    const db = fakeDb([[PHOTO_ROW], [{ id: 11 }]]);
+    const result = await unpublishPhoto(
+      db,
+      AMBASSADOR,
+      PHOTO,
+      fakeFiles(db.events),
+      'not_uploaders_rights',
+    );
+    expect(result).toEqual({ applied: true, decisionId: 11 });
+    expect(db.statements[1]?.params).toContain('not_uploaders_rights');
+  });
+
+  it('withdraws nothing — row, log or file — without a valid reason', async () => {
+    for (const reason of [null, '', 'does_not_exist']) {
+      const db = fakeDb([[PHOTO_ROW], [{ id: 11 }]]);
+      const result = await unpublishPhoto(db, AMBASSADOR, PHOTO, fakeFiles(db.events), reason);
+      expect(result.applied, String(reason)).toBe(false);
+      expect(db.statements, String(reason)).toHaveLength(0);
+      expect(db.events, String(reason)).toEqual([]);
+    }
+  });
+});
+
+describe('isRefusal', () => {
+  it('is true exactly for the decisions that restrict content', () => {
+    expect(isRefusal('rejected')).toBe(true);
+    expect(isRefusal('removed')).toBe(true);
+    expect(isRefusal('gone')).toBe(true);
+    for (const other of ['approved', 'verified', 'reviewed', 'dismissed']) {
+      expect(isRefusal(other)).toBe(false);
+    }
   });
 });
 

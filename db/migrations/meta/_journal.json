@@ -239,6 +239,13 @@
       "when": 1785116400000,
       "tag": "0033_account_suspension_admin_log",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1785120000000,
+      "tag": "0034_content_notices",
+      "breakpoints": true
     }
   ]
 }

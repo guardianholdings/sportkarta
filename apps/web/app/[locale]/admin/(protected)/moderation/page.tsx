@@ -1,8 +1,11 @@
+import { getDb } from '@sportkarta/db';
+import { reasonsFor, type ReasonContext } from '@sportkarta/lib/moderation';
 import { getLocale, getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Button } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Link } from '@/i18n/navigation';
 import { requireAdmin } from '@/lib/auth-session';
 import {
@@ -15,10 +18,17 @@ import {
   type ModerationPhoto,
   type QueueFlag,
 } from '@/lib/moderation-data';
+import { pendingNotices, type QueueNotice } from '@/lib/notices';
 import { photoUrl } from '@/lib/photo-url';
 import { parsePhotoLookup } from '@/lib/photos';
 
-import { decideFacility, decidePhoto, resolveReport, unpublishPhoto } from './actions';
+import {
+  decideFacility,
+  decideNotice,
+  decidePhoto,
+  resolveReport,
+  unpublishPhoto,
+} from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +60,36 @@ function PhotoThumb({
           row-decides route; next/image is off (next.config.ts) */}
       <img src={photoUrl(photoId)} alt={alt} className="size-24 object-cover" />
     </a>
+  );
+}
+
+/**
+ * The reason a refusal is logged with and explained by (0034). Required, with
+ * no default: the empty first option means a moderator has to CHOOSE, because
+ * a pre-selected reason is the one every statement of reasons would carry.
+ */
+function ReasonSelect({
+  context,
+  label,
+  placeholder,
+  labelFor,
+}: {
+  context: ReasonContext;
+  label: string;
+  placeholder: string;
+  labelFor: (slug: string) => string;
+}) {
+  return (
+    <Select name="reason" required defaultValue="" size="sm" aria-label={label}>
+      <option value="" disabled>
+        {placeholder}
+      </option>
+      {reasonsFor(context).map((slug) => (
+        <option key={slug} value={slug}>
+          {labelFor(slug)}
+        </option>
+      ))}
+    </Select>
   );
 }
 
@@ -98,19 +138,40 @@ export default async function AdminModerationPage({
   const user = await requireAdmin();
   const actor = { id: user.id, role: user.role };
 
-  const [t, tFacilities, tIssue, photos, published, reports, facilities, sla, scope, activeLocale] =
-    await Promise.all([
-      getTranslations('AdminModeration'),
-      getTranslations('AdminFacilities'),
-      getTranslations('Report'),
-      queuePhotos(actor),
-      lookup === 'invalid' ? Promise.resolve([]) : publishedPhotos(actor, lookup),
-      queueReports(actor),
-      queueFacilities(actor),
-      moderationSla(actor),
-      actorMunicipalities(actor),
-      getLocale(),
-    ]);
+  // Notices are the controller's to answer, not a municipality's: an
+  // ambassador neither sees nor decides them (decideNotice re-checks the role
+  // inside its UPDATE).
+  const isAdmin = user.role === 'admin';
+  const [
+    t,
+    tFacilities,
+    tIssue,
+    tReason,
+    tNotice,
+    photos,
+    published,
+    reports,
+    facilities,
+    notices,
+    sla,
+    scope,
+    activeLocale,
+  ] = await Promise.all([
+    getTranslations('AdminModeration'),
+    getTranslations('AdminFacilities'),
+    getTranslations('Report'),
+    getTranslations('ModerationReason'),
+    getTranslations('Notice'),
+    queuePhotos(actor),
+    lookup === 'invalid' ? Promise.resolve([]) : publishedPhotos(actor, lookup),
+    queueReports(actor),
+    queueFacilities(actor),
+    isAdmin ? pendingNotices(getDb()) : Promise.resolve([] as QueueNotice[]),
+    moderationSla(actor),
+    actorMunicipalities(actor),
+    getLocale(),
+  ]);
+  const reasonLabel = (slug: string): string => (tReason.has(slug) ? tReason(slug) : slug);
 
   const formatDate = (value: string): string =>
     new Intl.DateTimeFormat(activeLocale, { dateStyle: 'medium' }).format(new Date(value));
@@ -195,8 +256,92 @@ export default async function AdminModerationPage({
         </dl>
       </section>
 
+      {isAdmin && (
+        <section aria-labelledby="notices-h" className="space-y-3">
+          <div className="space-y-1">
+            <h2 id="notices-h" className="text-h4 font-bold text-ink">
+              {t('noticesTitle')}
+            </h2>
+            <p className="text-caption text-text-muted">{t('noticesIntro')}</p>
+          </div>
+          {notices.length === 0 ? (
+            <p className="rounded-card border border-dashed border-line-strong p-6 text-center text-body-sm text-text-muted">
+              {t('noticesEmpty')}
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {notices.map((notice) => {
+                const act = decideNotice.bind(null, notice.id, 'actioned' as const);
+                const dismissNotice = decideNotice.bind(null, notice.id, 'dismissed' as const);
+                return (
+                  <li
+                    key={notice.id}
+                    className="space-y-3 rounded-card border border-line bg-surface p-3 text-body-sm shadow-sm"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-pill bg-paper-sunk px-2 py-0.5 text-caption text-ink-soft">
+                        {tNotice(`category.${notice.category}`)}
+                      </span>
+                      <span className="font-mono text-caption text-text-muted">
+                        {formatDate(notice.createdAt)}
+                      </span>
+                    </div>
+                    {/* Shown as text AND linked: the value is constrained to
+                        http(s) or a site path by lib/notices.ts and a CHECK, and
+                        it opens without a referrer or an opener either way. */}
+                    <a
+                      href={notice.targetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="block break-all font-mono text-caption text-link hover:text-link-hover"
+                    >
+                      {notice.targetUrl}
+                    </a>
+                    <p className="whitespace-pre-line text-ink-soft">{notice.explanation}</p>
+                    <p className="text-caption text-text-muted">
+                      {notice.notifierName || notice.notifierEmail
+                        ? t('noticeFrom', {
+                            who: [notice.notifierName, notice.notifierEmail]
+                              .filter(Boolean)
+                              .join(' · '),
+                          })
+                        : t('noticeAnonymous')}
+                    </p>
+                    <div className="flex flex-wrap gap-3">
+                      <form action={act} className="flex flex-wrap items-center gap-2">
+                        <ReasonSelect
+                          context="notice_actioned"
+                          label={t('reasonLabel')}
+                          placeholder={t('reasonPlaceholder')}
+                          labelFor={reasonLabel}
+                        />
+                        <Button type="submit" variant="danger" size="sm">
+                          {t('noticeAction')}
+                        </Button>
+                      </form>
+                      <form action={dismissNotice} className="flex flex-wrap items-center gap-2">
+                        <ReasonSelect
+                          context="notice_dismissed"
+                          label={t('reasonLabel')}
+                          placeholder={t('reasonPlaceholder')}
+                          labelFor={reasonLabel}
+                        />
+                        <Button type="submit" variant="secondary" size="sm">
+                          {t('noticeDismiss')}
+                        </Button>
+                      </form>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      )}
+
       <section className="space-y-3">
         <h2 className="text-h4 font-bold text-ink">{t('facilitiesTitle')}</h2>
+        <p className="text-caption text-text-muted">{t('refusalNote')}</p>
         {facilities.length === 0 ? (
           <p className="rounded-card border border-dashed border-line-strong p-6 text-center text-body-sm text-text-muted">
             {t('facilitiesEmpty')}
@@ -229,7 +374,13 @@ export default async function AdminModerationPage({
                       {t('verifyFacility')}
                     </Button>
                   </form>
-                  <form action={gone}>
+                  <form action={gone} className="flex flex-wrap items-center gap-2">
+                    <ReasonSelect
+                      context="facility_gone"
+                      label={t('reasonLabel')}
+                      placeholder={t('reasonPlaceholder')}
+                      labelFor={reasonLabel}
+                    />
                     <ConfirmButton
                       className="inline-flex min-h-11 items-center rounded-pill bg-danger px-4 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-[color-mix(in_oklab,var(--danger),black_12%)]"
                       message={t('markGoneConfirm')}
@@ -248,6 +399,7 @@ export default async function AdminModerationPage({
         <div>
           <h2 className="text-h4 font-bold text-ink">{t('photosTitle')}</h2>
           <p className="text-caption text-text-muted">{t('rejectDeletes')}</p>
+          <p className="text-caption text-text-muted">{t('refusalNote')}</p>
         </div>
         {photos.length === 0 ? (
           <p className="rounded-card border border-dashed border-line-strong p-6 text-center text-body-sm text-text-muted">
@@ -286,7 +438,13 @@ export default async function AdminModerationPage({
                       {t('approve')}
                     </Button>
                   </form>
-                  <form action={reject}>
+                  <form action={reject} className="flex flex-wrap items-center gap-2">
+                    <ReasonSelect
+                      context="photo_rejected"
+                      label={t('reasonLabel')}
+                      placeholder={t('reasonPlaceholder')}
+                      labelFor={reasonLabel}
+                    />
                     <Button type="submit" variant="danger" size="sm">
                       {t('reject')}
                     </Button>
@@ -304,6 +462,7 @@ export default async function AdminModerationPage({
             {t('publishedTitle')}
           </h2>
           <p className="text-caption text-text-muted">{t('publishedNote')}</p>
+          <p className="text-caption text-text-muted">{t('refusalNote')}</p>
         </div>
         <form method="get" className="flex flex-wrap items-end gap-2">
           <label className="min-w-0 flex-1 space-y-1">
@@ -364,7 +523,13 @@ export default async function AdminModerationPage({
                       {uploader(photo)} · {formatDate(photo.createdAt)}
                     </div>
                   </div>
-                  <form action={takeDown}>
+                  <form action={takeDown} className="flex flex-wrap items-center gap-2">
+                    <ReasonSelect
+                      context="photo_rejected"
+                      label={t('reasonLabel')}
+                      placeholder={t('reasonPlaceholder')}
+                      labelFor={reasonLabel}
+                    />
                     <ConfirmButton
                       className="inline-flex min-h-11 items-center rounded-pill bg-danger px-4 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-[color-mix(in_oklab,var(--danger),black_12%)]"
                       message={t('unpublishConfirm')}

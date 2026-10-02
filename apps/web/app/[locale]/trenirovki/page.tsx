@@ -11,6 +11,7 @@ import { TrainingForm } from '@/components/training/training-form';
 import { requireUser } from '@/lib/auth-session';
 import { siteUrl } from '@/lib/seo';
 import { shareSheetStrings } from '@/lib/share/sheet-strings';
+import { trainingIntegrationsEnabled } from '@/lib/training-integrations';
 import { deleteTrainingAction, setTrainingConsentAction } from './actions';
 
 /**
@@ -80,6 +81,16 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
     timeStyle: 'short',
     timeZone: 'Europe/Sofia',
   });
+
+  // The consent rows to render: both while an integration can use them, and
+  // otherwise only one the member already granted — so it can be withdrawn.
+  const integrations = trainingIntegrationsEnabled();
+  const consentKinds = (
+    [
+      ['route', consents.routeAt, t('consentRoute'), t('consentRouteBody')],
+      ['health', consents.healthAt, t('consentHealth'), t('consentHealthBody')],
+    ] as const
+  ).filter(([, at]) => integrations || at !== null);
 
   // No `active` nav destination: the tab bar is already four items plus the add
   // FAB, and a fifth tab is a design change rather than a routing one.
@@ -230,44 +241,47 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
           consent non-specific and therefore invalid. Each posts the TARGET
           state, so a double submission converges rather than flapping — and a
           flapping consent control is one that can leave data stored under a "no".
+
+          HIDDEN UNTIL AN INTEGRATION EXISTS (lib/training-integrations.ts): with
+          the flag off only a consent somebody already gave is shown, and only
+          with its withdraw button — asking for none, withdrawing always.
         */}
-        <section className="space-y-3 rounded-card border border-line bg-paper-sunk p-4">
-          <h2 className="text-h3 font-bold text-ink">{t('consentTitle')}</h2>
-          <p className="text-body-sm text-ink-soft">{t('consentIntro')}</p>
-          {(
-            [
-              ['route', consents.routeAt, t('consentRoute'), t('consentRouteBody')],
-              ['health', consents.healthAt, t('consentHealth'), t('consentHealthBody')],
-            ] as const
-          ).map(([kind, at, label, body]) => (
-            <form
-              key={kind}
-              action={setTrainingConsentAction}
-              className="flex items-start justify-between gap-4 border-t border-line pt-3"
-            >
-              <div className="min-w-0">
-                <p className="font-medium text-ink">{label}</p>
-                <p className="text-caption text-ink-soft">{body}</p>
-                {at && (
-                  <p className="mt-1 text-caption text-text-muted">
-                    {t('consentGrantedAt', { date: dateFormat.format(at) })}
-                  </p>
-                )}
-              </div>
-              <input type="hidden" name="kind" value={kind} />
-              <input type="hidden" name="granted" value={at ? 'false' : 'true'} />
-              <button
-                type="submit"
-                className="shrink-0 rounded-pill border border-line-strong px-3 py-1.5 text-body-sm font-medium hover:bg-surface"
+        {consentKinds.length > 0 && (
+          <section className="space-y-3 rounded-card border border-line bg-paper-sunk p-4">
+            <h2 className="text-h3 font-bold text-ink">{t('consentTitle')}</h2>
+            <p className="text-body-sm text-ink-soft">
+              {integrations ? t('consentIntro') : t('consentWithdrawOnly')}
+            </p>
+            {consentKinds.map(([kind, at, label, body]) => (
+              <form
+                key={kind}
+                action={setTrainingConsentAction}
+                className="flex items-start justify-between gap-4 border-t border-line pt-3"
               >
-                {at ? t('consentWithdraw') : t('consentGrant')}
-              </button>
-            </form>
-          ))}
-          <p className="border-t border-line pt-3 text-caption text-text-muted">
-            {t('consentWithdrawNote')}
-          </p>
-        </section>
+                <div className="min-w-0">
+                  <p className="font-medium text-ink">{label}</p>
+                  <p className="text-caption text-ink-soft">{body}</p>
+                  {at && (
+                    <p className="mt-1 text-caption text-text-muted">
+                      {t('consentGrantedAt', { date: dateFormat.format(at) })}
+                    </p>
+                  )}
+                </div>
+                <input type="hidden" name="kind" value={kind} />
+                <input type="hidden" name="granted" value={at ? 'false' : 'true'} />
+                <button
+                  type="submit"
+                  className="shrink-0 rounded-pill border border-line-strong px-3 py-1.5 text-body-sm font-medium hover:bg-surface"
+                >
+                  {at ? t('consentWithdraw') : t('consentGrant')}
+                </button>
+              </form>
+            ))}
+            <p className="border-t border-line pt-3 text-caption text-text-muted">
+              {t('consentWithdrawNote')}
+            </p>
+          </section>
+        )}
       </main>
     </AppShell>
   );
