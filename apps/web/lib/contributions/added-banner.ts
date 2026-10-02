@@ -46,6 +46,26 @@ export function addedPoints(raw: string | string[] | undefined): number | null {
 }
 
 /**
+ * Whether the banner shows at all, and with which figure.
+ *
+ * `?added=0` IS a banner — without the number. It is what an add that earned
+ * nothing redirects with: the member was off site (proximity pays only on the
+ * spot), or the ledger had already paid. Until 2026-09 it rendered nothing, so
+ * the member who added a pitch from home — the one whose facility most
+ * certainly waits for somebody else to verify it — was the one member told
+ * nothing at all: no thanks, no "it goes live after a check". The banner's
+ * second line is that note, and it is true for every add.
+ *
+ * Zero is still never SHOWN as a figure (see `addedPoints`); only the
+ * acknowledgement survives.
+ */
+export function addedBanner(raw: string | string[] | undefined): { points: number | null } | null {
+  if (raw === '0') return { points: null };
+  const points = addedPoints(raw);
+  return points === null ? null : { points };
+}
+
+/**
  * What the action should put in the redirect: the real award, or 0 when the
  * ledger paid nothing. Read from POINTS_BY_EVENT rather than written as a
  * literal so the banner cannot drift from what was actually awarded.

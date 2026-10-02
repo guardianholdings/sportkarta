@@ -1,8 +1,9 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useCallback, useActionState, useEffect, useRef, useState } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 
+import { usePosition, type PositionPhase } from '@/components/facility/position-fields';
 import { Button } from '@/components/ui/button';
 import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 
@@ -15,10 +16,19 @@ import { redeemCheckinAction, type CheckinState } from './actions';
  * `navigator.geolocation`. Everything else is a plain form post.
  *
  * THE LOCATION IS OPTIONAL AND THE PAGE SAYS SO. Declining the permission
- * prompt still checks you in — it just does not pay — so the button is enabled
- * from the start and never waits on the prompt. A check-in flow that blocks
- * until somebody grants location access would strand every member who tapped
- * "no" once, months ago, and cannot remember how to undo it.
+ * prompt still checks you in — it just does not pay. A check-in flow that
+ * blocks until somebody grants location access would strand every member who
+ * tapped "no" once, months ago, and cannot remember how to undo it.
+ *
+ * BUT THE TAP WAITS FOR THE FIX. A check-in is recorded ONCE per member and
+ * occurrence (`ON CONFLICT DO NOTHING`, lib/sessions/checkin.ts): a check-in
+ * sent without coordinates is final, and a second scan only answers "already
+ * checked in". So the natural action — scan, tap straight away — used to lose
+ * the points for good whenever the tap beat the location fix. Now the tap asks
+ * for the position (the tap is the gesture a browser wants behind that
+ * question), waits for it, and only then posts. Recording WITHOUT a position
+ * is still possible, but only as a deliberate second choice («без точки»)
+ * once asking has failed or is taking a while — never by accident.
  *
  * The coordinates go into hidden fields and travel exactly once, to be turned
  * into a distance in metres server-side. They are never stored (migration 0014).
@@ -32,8 +42,6 @@ import { redeemCheckinAction, type CheckinState } from './actions';
  * [locale] layout wraps the tree in NextIntlClientProvider — the same reason
  * obekt/[slug]/verify-form.tsx already does this.
  */
-
-type Permission = 'idle' | 'asking' | 'granted' | 'denied' | 'unsupported' | 'insecure';
 
 interface Props {
   token: string;
@@ -76,50 +84,89 @@ function errorKey(code: string | undefined): string {
   return ERROR_KEYS[code as keyof typeof ERROR_KEYS] ?? 'error.generic';
 }
 
+/**
+ * The line under the button, per phase — literal keys, for the same reasons as
+ * OUTCOME_KEYS. Idle and granted both read as the promise about what the
+ * position is used for; everything else says what went wrong and what the
+ * member can still do.
+ */
+export const PHASE_KEYS = {
+  idle: 'locationHint',
+  asking: 'locating',
+  granted: 'locationHint',
+  denied: 'locationDenied',
+  unavailable: 'locationUnavailable',
+  unsupported: 'locationUnsupported',
+  insecure: 'locationInsecure',
+} as const satisfies Record<PositionPhase, string>;
+
+const PHASE_WARNS: Record<PositionPhase, boolean> = {
+  idle: false,
+  asking: false,
+  granted: false,
+  denied: true,
+  unavailable: true,
+  unsupported: true,
+  insecure: true,
+};
+
+/**
+ * Whether a tap on «Отбелязвам присъствие» may post right away. Exported for
+ * the tests. Only with a fix in hand — or where no fix can ever come (no
+ * geolocation, or an insecure origin that refuses before asking), in which case
+ * waiting would only strand the member.
+ */
+export function submitsImmediately(phase: PositionPhase): boolean {
+  return phase === 'granted' || phase === 'unsupported' || phase === 'insecure';
+}
+
+/**
+ * How long a check-in tap waits on an unanswered request before the «без точки»
+ * choice appears beside it. Long enough that the member who is about to get a
+ * fix is not invited to give it up; short enough that one whose request was
+ * dropped is not left staring at "locating…".
+ */
+export const UNSCORED_OFFER_AFTER_MS = 3_000;
+
+/**
+ * Whether the deliberate «без точки» choice is on screen. Exported for the
+ * tests. Offered once asking has visibly failed, or once a tap has waited
+ * UNSCORED_OFFER_AFTER_MS on a request that may never answer (Safari has been
+ * seen to drop one silently), so a member is never left with no way to record
+ * their attendance — and never offered it in the instant before a fix lands.
+ */
+export function offersUnscored(phase: PositionPhase, stalled: boolean): boolean {
+  if (phase === 'denied' || phase === 'unavailable') return true;
+  return stalled && phase === 'asking';
+}
+
 export function CheckinForm({ token, occurrenceId }: Props) {
   const t = useTranslations('Checkin');
   const [state, submit, pending] = useActionState(redeemCheckinAction, initial);
-  const [permission, setPermission] = useState<Permission>('idle');
-  const latRef = useRef<HTMLInputElement>(null);
-  const lonRef = useRef<HTMLInputElement>(null);
-
-  // Callable, not just an effect: Safari refuses a gesture-less geolocation
-  // request and does so silently, so on an iPhone the button below is the only
-  // form of this question the member ever sees. See position-fields.tsx.
-  const requestPosition = useCallback(() => {
-    if (!('geolocation' in navigator)) {
-      setPermission('unsupported');
-      return;
-    }
-    // Secure-context API: over plain HTTP the object exists but every call is
-    // denied without a prompt, so "turn location on" is advice the member
-    // cannot act on. Say what is actually true instead.
-    if (!window.isSecureContext) {
-      setPermission('insecure');
-      return;
-    }
-    setPermission('asking');
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        // Written straight into the form fields rather than into React state:
-        // the value is used once, at submit, and keeping it out of state keeps
-        // it out of anything that might later serialise the component.
-        if (latRef.current) latRef.current.value = String(position.coords.latitude);
-        if (lonRef.current) lonRef.current.value = String(position.coords.longitude);
-        setPermission('granted');
-      },
-      () => {
-        setPermission('denied');
-      },
-      // A short timeout: a member standing on a pitch waiting for a spinner is
-      // worse than a member checked in without points.
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60_000 },
-    );
-  }, []);
+  // Never asks on load: a member who already allowed location gets the fix
+  // silently, everybody else is asked by the check-in tap itself.
+  const { phase, latRef, lonRef, request } = usePosition();
+  const formRef = useRef<HTMLFormElement>(null);
+  // Set by a check-in tap that is waiting for the fix; cleared once it posts.
+  const [waiting, setWaiting] = useState(false);
+  // That tap has waited UNSCORED_OFFER_AFTER_MS with no answer.
+  const [stalled, setStalled] = useState(false);
 
   useEffect(() => {
-    requestPosition();
-  }, [requestPosition]);
+    setStalled(false);
+    if (!waiting || phase !== 'asking') return;
+    const timer = setTimeout(() => setStalled(true), UNSCORED_OFFER_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [waiting, phase]);
+
+  useEffect(() => {
+    if (!waiting || phase !== 'granted') return;
+    setWaiting(false);
+    // The fix is already in the hidden inputs (written before the phase
+    // flipped), so this posts WITH it. requestSubmit rather than a direct call
+    // to the action so the form goes through the same path as a tap.
+    formRef.current?.requestSubmit();
+  }, [waiting, phase]);
 
   if (state.status === 'ok') {
     const points = state.pointsAwarded ?? 0;
@@ -140,8 +187,18 @@ export function CheckinForm({ token, occurrenceId }: Props) {
     );
   }
 
+  function onCheckinClick(event: React.MouseEvent<HTMLButtonElement>) {
+    if (submitsImmediately(phase)) return;
+    // Hold the post and ask instead; the effect above posts once the fix lands.
+    // A repeat tap while waiting asks again, which is the only recourse when a
+    // request was dropped without an answer.
+    event.preventDefault();
+    setWaiting(true);
+    request();
+  }
+
   return (
-    <form action={submit} className="space-y-3">
+    <form ref={formRef} action={submit} className="space-y-3">
       <input type="hidden" name="token" value={token} />
       <input type="hidden" name="occurrenceId" value={occurrenceId} />
       <input type="hidden" name="lat" ref={latRef} />
@@ -151,28 +208,36 @@ export function CheckinForm({ token, occurrenceId }: Props) {
           results (out of range, daily cap) describe the anti-abuse layer's
           behaviour toward one person, which is a behavioural record rather than
           a product metric — see rule 2 in lib/analytics-events.ts. */}
-      <Button type="submit" disabled={pending} data-umami-event={ANALYTICS_EVENTS.checkinSubmit}>
+      <Button
+        type="submit"
+        disabled={pending}
+        onClick={onCheckinClick}
+        data-umami-event={ANALYTICS_EVENTS.checkinSubmit}
+      >
         {pending ? t('pending') : t('submit')}
       </Button>
 
-      {permission === 'asking' && <p className="text-body-sm text-text-muted">{t('locating')}</p>}
-      {permission === 'insecure' && (
-        <p className="text-body-sm text-warning">{t('locationInsecure')}</p>
-      )}
-      {permission === 'denied' && (
-        <button
-          type="button"
-          onClick={requestPosition}
-          className="min-h-11 self-start rounded-md border border-warning-border px-3 text-body-sm font-medium text-warning"
+      <p
+        aria-live="polite"
+        className={
+          PHASE_WARNS[phase] ? 'text-body-sm text-warning' : 'text-body-sm text-text-muted'
+        }
+      >
+        {t(PHASE_KEYS[phase])}
+      </p>
+
+      {offersUnscored(phase, stalled) && (
+        <Button
+          type="submit"
+          variant="ghost"
+          size="sm"
+          disabled={pending}
+          // Deliberate: posts with whatever the hidden fields hold (nothing),
+          // and stops a late fix from posting a second time behind it.
+          onClick={() => setWaiting(false)}
         >
-          {t('locationRetry')}
-        </button>
-      )}
-      {(permission === 'denied' || permission === 'unsupported') && (
-        <p className="text-body-sm text-warning">{t('locationDenied')}</p>
-      )}
-      {permission === 'granted' && (
-        <p className="text-body-sm text-text-muted">{t('locationHint')}</p>
+          {t('submitWithoutLocation')}
+        </Button>
       )}
 
       {state.status === 'error' && (

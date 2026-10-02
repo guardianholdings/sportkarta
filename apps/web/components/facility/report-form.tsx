@@ -8,7 +8,9 @@ import { Radio } from '@/components/ui/radio';
 import { Textarea } from '@/components/ui/textarea';
 import { Link } from '@/i18n/navigation';
 import { submitReport, type ReportState } from '@/app/[locale]/obekt/[slug]/report-actions';
+import { PhotoFieldStatus, usePhotoField } from '@/components/facility/photo-field';
 import { PositionFields, PositionNotice, usePosition } from '@/components/facility/position-fields';
+import { PHOTO_ACCEPT } from '@/lib/photo-downscale';
 
 const ISSUES = [
   'broken_equipment',
@@ -21,19 +23,38 @@ const ISSUES = [
 const MAX_BODY = 500;
 const initialState: ReportState = { status: 'idle' };
 
+/**
+ * The server hands out a replacement token only alongside `error: 'expired'`;
+ * every later answer (a rate limit, a bad photo) comes without one. Carrying
+ * the last one forward keeps the form on the fresh token instead of falling
+ * back to the page's dead one and going round the expiry once more. Exported
+ * for the tests.
+ */
+export async function submitKeepingToken(
+  previous: ReportState,
+  formData: FormData,
+): Promise<ReportState> {
+  const next = await submitReport(previous, formData);
+  return next.formToken || !previous.formToken ? next : { ...next, formToken: previous.formToken };
+}
+
 interface ReportFormProps {
   slug: string;
   /** HMAC-signed, server-issued token for the min-time-on-form anti-spam check. */
   formToken: string;
 }
 
+/**
+ * The anonymous «report a problem» flow. Collapsed to one button until tapped.
+ *
+ * THE COLLAPSED STATE MOUNTS NOTHING THAT TOUCHES LOCATION. This component sits
+ * on every facility page for every visitor, so anything its first render does,
+ * every search visitor gets. The position hook lives in the body below, which
+ * exists only after the «Съобщи проблем» tap — and that tap is what asks.
+ */
 export function ReportForm({ slug, formToken }: ReportFormProps) {
   const t = useTranslations('Report');
-  const tContribute = useTranslations('Contribute');
-  const { phase, latRef, lonRef, request } = usePosition();
   const [open, setOpen] = useState(false);
-  const [bodyLen, setBodyLen] = useState(0);
-  const [state, formAction, pending] = useActionState(submitReport, initialState);
 
   if (!open) {
     return (
@@ -42,6 +63,30 @@ export function ReportForm({ slug, formToken }: ReportFormProps) {
       </Button>
     );
   }
+
+  return <ReportFormBody slug={slug} formToken={formToken} onCancel={() => setOpen(false)} />;
+}
+
+function ReportFormBody({
+  slug,
+  formToken,
+  onCancel,
+}: ReportFormProps & {
+  onCancel: () => void;
+}) {
+  const t = useTranslations('Report');
+  // Mounted by the open tap, so asking on mount IS asking from that tap: the
+  // visitor has just said they want to report something about this place. And
+  // literally so — React flushes the effects of a render caused by a click
+  // synchronously, inside that click's dispatch, so the browser still sees
+  // the call as the tap's. The button in PositionNotice stays as the fallback.
+  const { phase, latRef, lonRef, request } = usePosition({ askOnMount: true });
+  const photo = usePhotoField();
+  const [bodyLen, setBodyLen] = useState(0);
+  const [state, formAction, pending] = useActionState(submitKeepingToken, initialState);
+  // A fresh token once the page's own has gone stale, so "send again" can
+  // actually succeed instead of failing the same way forever (report-actions.ts).
+  const token = state.formToken ?? formToken;
 
   if (state.status === 'ok') {
     return (
@@ -54,21 +99,24 @@ export function ReportForm({ slug, formToken }: ReportFormProps) {
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <PositionFields latRef={latRef} lonRef={lonRef} />
+      <h2 className="text-h4 font-bold text-ink">{t('title')}</h2>
       <PositionNotice
         phase={phase}
         labels={{
-          locating: tContribute('locating'),
-          granted: tContribute('locationGranted'),
-          denied: tContribute('locationDenied'),
-          insecure: tContribute('locationInsecure'),
-          retry: tContribute('locationRetry'),
+          idle: t('location.idle'),
+          locating: t('location.locating'),
+          granted: t('location.granted'),
+          denied: t('location.denied'),
+          unavailable: t('location.unavailable'),
+          unsupported: t('location.unsupported'),
+          insecure: t('location.insecure'),
+          request: t('location.request'),
         }}
         onRequest={request}
       />
-      <h2 className="text-h4 font-bold text-ink">{t('title')}</h2>
 
       <input type="hidden" name="slug" value={slug} />
-      <input type="hidden" name="ts" value={formToken} />
+      <input type="hidden" name="ts" value={token} />
       {/* Honeypot: off-screen, hidden from AT + tab order. Bots fill it. */}
       <div aria-hidden="true" className="absolute left-[-9999px] h-0 w-0 overflow-hidden">
         <label>
@@ -116,10 +164,12 @@ export function ReportForm({ slug, formToken }: ReportFormProps) {
         <input
           type="file"
           name="photo"
-          accept="image/jpeg,image/png,image/webp"
+          accept={PHOTO_ACCEPT}
+          onChange={photo.onChange}
           className="w-full rounded-input border border-line-strong bg-surface px-3 py-2 text-body-sm file:mr-3 file:rounded-pill file:border-0 file:bg-brand-subtle file:px-3 file:py-1 file:text-brand"
         />
         <span className="text-caption font-medium text-warning">{t('photoHint')}</span>
+        <PhotoFieldStatus status={photo.status} />
       </label>
 
       {state.status === 'error' && (
@@ -132,7 +182,7 @@ export function ReportForm({ slug, formToken }: ReportFormProps) {
         <Button type="submit" disabled={pending}>
           {pending ? t('submitting') : t('submit')}
         </Button>
-        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+        <Button type="button" variant="ghost" onClick={onCancel}>
           {t('cancel')}
         </Button>
       </div>

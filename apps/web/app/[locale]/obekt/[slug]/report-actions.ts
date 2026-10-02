@@ -10,7 +10,7 @@ import {
   distanceToGeomSql,
   parseCoordinates,
 } from '@/lib/contributions/proximity';
-import { verifyFormToken } from '@/lib/form-token';
+import { checkFormToken, issueFormToken } from '@/lib/form-token';
 import { InvalidPhotoError, MAX_PHOTO_BYTES, processReportPhoto } from '@/lib/image';
 import { clientIpFromForwardedFor } from '@/lib/rate-limit';
 import { reportRateLimiter } from '@/lib/report-rate-limit';
@@ -27,8 +27,6 @@ const ISSUES = new Set([
   'does_not_exist',
   'other',
 ]);
-const MIN_FORM_MS = 3_000; // faster than a human could read+fill => bot
-const MAX_FORM_MS = 2 * 60 * 60 * 1000; // stale/replayed form
 const MAX_BODY = 500;
 const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -36,6 +34,12 @@ const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 export interface ReportState {
   status: 'idle' | 'ok' | 'error';
   error?: string;
+  /**
+   * A replacement anti-spam token, sent only with `error: 'expired'`. The form
+   * posts it from then on: the token the page was rendered with can never pass
+   * again, and without a new one every retry failed the same way.
+   */
+  formToken?: string;
 }
 
 export async function submitReport(_prev: ReportState, formData: FormData): Promise<ReportState> {
@@ -48,10 +52,21 @@ export async function submitReport(_prev: ReportState, formData: FormData): Prom
 
   // 2) Min-time-on-form using the HMAC-signed, server-issued timestamp (a bot
   //    cannot forge the signature to skip the delay).
-  const issuedAt = verifyFormToken(formData.get('ts') as string | null);
-  const elapsed = issuedAt === null ? -1 : Date.now() - issuedAt;
-  if (issuedAt === null || elapsed < MIN_FORM_MS || elapsed > MAX_FORM_MS) {
-    return { status: 'error', error: 'tooFast' };
+  //
+  //    The two failures are answered differently because they are different:
+  //    "too fast" is cured by waiting, so the same token is retried. A stale or
+  //    unverifiable token — the page was open over two hours, or since before a
+  //    key change — can never pass, and answering it "too fast, try again" (as
+  //    this did until 2026-09) sent an honest reporter round a loop that could
+  //    not end. So it gets its own message AND a fresh token. That hands a bot
+  //    nothing it could not get by loading the page: the new token is issued
+  //    NOW, so the minimum time still has to pass before it is accepted.
+  const submittedToken = formData.get('ts');
+  const verdict = checkFormToken(typeof submittedToken === 'string' ? submittedToken : null);
+  if (!verdict.ok) {
+    return verdict.reason === 'tooFast'
+      ? { status: 'error', error: 'tooFast' }
+      : { status: 'error', error: 'expired', formToken: issueFormToken() };
   }
 
   // 3) Per-IP sliding-window rate limit. IP comes from Caddy's X-Forwarded-For
