@@ -10,17 +10,13 @@ const KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9/_.-]*$/;
 export interface LocalVolumeStorageOptions {
   /** Directory backing the volume (STORAGE_DIR); resolved to an absolute path. */
   rootDir: string;
-  /** URL prefix the web app serves files under. Default: "/uploads". */
-  publicPrefix?: string;
 }
 
 export class LocalVolumeStorage implements StorageAdapter {
   private readonly rootDir: string;
-  private readonly publicPrefix: string;
 
   constructor(options: LocalVolumeStorageOptions) {
     this.rootDir = path.resolve(options.rootDir);
-    this.publicPrefix = options.publicPrefix ?? '/uploads';
   }
 
   async put(key: string, data: Uint8Array, options?: StoragePutOptions): Promise<StorageObject> {
@@ -48,11 +44,6 @@ export class LocalVolumeStorage implements StorageAdapter {
 
   async delete(key: string): Promise<void> {
     await rm(this.resolvePath(key), { force: true });
-  }
-
-  publicUrl(key: string): string {
-    this.assertValidKey(key);
-    return `${this.publicPrefix}/${key}`;
   }
 
   private resolvePath(key: string): string {

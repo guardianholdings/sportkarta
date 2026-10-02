@@ -1,6 +1,7 @@
 import { getDb, sql, type SQL } from '@sportkarta/db';
 
 import { scopeClause, type ModerationActor } from './moderation';
+import { photosLookupClause, type PhotoLookup } from './photos';
 
 /**
  * Reads behind the moderation screens. Every query carries the same scope
@@ -9,14 +10,24 @@ import { scopeClause, type ModerationActor } from './moderation';
  * construction.
  */
 
-export interface QueuePhoto {
+/**
+ * A photo as a moderator sees it. No storage key: the screen shows the image
+ * itself, through /api/photos/[id] (lib/photos.ts), and a key is an internal
+ * detail nobody should be deciding on.
+ */
+export interface ModerationPhoto {
   id: string;
   facilityId: string;
   facilityName: string | null;
-  municipalityName: string | null;
-  storagePath: string;
+  /** users.id, or null for an anonymous report photo or an erased uploader. */
   uploadedBy: string | null;
+  /** The uploader's display name, so a repeat uploader is recognisable. */
+  uploaderName: string | null;
   createdAt: string;
+}
+
+export interface QueuePhoto extends ModerationPhoto {
+  municipalityName: string | null;
   flags: QueueFlag[];
 }
 
@@ -27,6 +38,8 @@ export interface QueueReport {
   municipalityName: string | null;
   issue: string;
   body: string | null;
+  /** The attached photo, unless it has been refused (its file is then gone). */
+  photoId: string | null;
   createdAt: string;
   flags: QueueFlag[];
 }
@@ -64,38 +77,72 @@ function flagsSubquery(targetType: 'photo' | 'report' | 'facility', idColumn: SQ
   )`;
 }
 
+function toModerationPhoto(row: Record<string, unknown>): ModerationPhoto {
+  const name = (row.uploader_name as string | null) ?? null;
+  return {
+    id: String(row.id),
+    facilityId: String(row.facility_id),
+    facilityName: (row.facility_name as string | null) ?? null,
+    uploadedBy: (row.uploaded_by as string | null) ?? null,
+    uploaderName: name && name.trim() ? name : null,
+    createdAt: String(row.created_at),
+  };
+}
+
 export async function queuePhotos(actor: ModerationActor, limit = 50): Promise<QueuePhoto[]> {
   const result = await getDb().execute(sql`
     SELECT p.id, p.facility_id, f.name AS facility_name, m.name_bg AS municipality_name,
-           p.storage_path, p.uploaded_by, p.created_at,
+           p.uploaded_by, u.display_name AS uploader_name, p.created_at,
            ${flagsSubquery('photo', sql`p.id`)} AS flags
     FROM facility_photos p
     JOIN facilities f ON f.id = p.facility_id
     LEFT JOIN municipalities m ON m.id = f.municipality_id
+    LEFT JOIN users u ON u.id = p.uploaded_by
     WHERE p.status = 'pending' AND ${scopeClause(actor)}
     ORDER BY p.created_at
     LIMIT ${limit}
   `);
   return result.rows.map((row) => ({
-    id: String(row.id),
-    facilityId: String(row.facility_id),
-    facilityName: (row.facility_name as string | null) ?? null,
+    ...toModerationPhoto(row),
     municipalityName: (row.municipality_name as string | null) ?? null,
-    storagePath: String(row.storage_path),
-    uploadedBy: (row.uploaded_by as string | null) ?? null,
-    createdAt: String(row.created_at),
     flags: flagsOf(row.flags),
   }));
+}
+
+/**
+ * APPROVED photos within scope, newest upload first — the takedown list.
+ * `lookup` narrows it to one photo or one facility (lib/photos.ts
+ * parsePhotoLookup), because a complaint names a specific picture and the
+ * newest two dozen will not contain it for long.
+ */
+export async function publishedPhotos(
+  actor: ModerationActor,
+  lookup: PhotoLookup | null,
+  limit = 24,
+): Promise<ModerationPhoto[]> {
+  const result = await getDb().execute(sql`
+    SELECT p.id, p.facility_id, f.name AS facility_name,
+           p.uploaded_by, u.display_name AS uploader_name, p.created_at
+    FROM facility_photos p
+    JOIN facilities f ON f.id = p.facility_id
+    LEFT JOIN users u ON u.id = p.uploaded_by
+    WHERE p.status = 'approved' AND ${scopeClause(actor)} AND ${photosLookupClause(lookup)}
+    ORDER BY p.created_at DESC
+    LIMIT ${limit}
+  `);
+  return result.rows.map(toModerationPhoto);
 }
 
 export async function queueReports(actor: ModerationActor, limit = 50): Promise<QueueReport[]> {
   const result = await getDb().execute(sql`
     SELECT r.id, r.facility_id, f.name AS facility_name, m.name_bg AS municipality_name,
            r.issue, r.body, r.created_at,
+           CASE WHEN ph.status <> 'rejected' THEN ph.id END AS photo_id,
            ${flagsSubquery('report', sql`r.id`)} AS flags
     FROM facility_reports r
     JOIN facilities f ON f.id = r.facility_id
     LEFT JOIN municipalities m ON m.id = f.municipality_id
+    LEFT JOIN facility_photos ph ON ph.id = r.photo_id
     WHERE r.status = 'pending' AND ${scopeClause(actor)}
     ORDER BY r.created_at
     LIMIT ${limit}
@@ -107,6 +154,7 @@ export async function queueReports(actor: ModerationActor, limit = 50): Promise<
     municipalityName: (row.municipality_name as string | null) ?? null,
     issue: String(row.issue),
     body: (row.body as string | null) ?? null,
+    photoId: row.photo_id ? String(row.photo_id) : null,
     createdAt: String(row.created_at),
     flags: flagsOf(row.flags),
   }));
@@ -188,6 +236,8 @@ export async function moderationSla(
 
   // Decisions are scoped by the municipality recorded ON THE DECISION, so the
   // figure stays stable even if a facility's boundary is corrected later.
+  // A takedown ('removed', 0032) is not a queue decision — it has no queue
+  // time to measure — so it stays out of the median it would drag toward zero.
   const decisionScope =
     actor.role === 'admin'
       ? sql`TRUE`
@@ -202,6 +252,7 @@ export async function moderationSla(
       ) / 3600.0 AS median_hours
     FROM moderation_decisions d
     WHERE d.decided_at >= now() - ${`${String(windowDays)} days`}::interval
+      AND d.decision <> 'removed'
       AND ${decisionScope}
   `);
 
@@ -249,6 +300,7 @@ export async function ambassadorActivity(windowDays = 30): Promise<AmbassadorSum
                 ORDER BY extract(epoch FROM d.decided_at - d.queued_at)) / 3600.0
          FROM moderation_decisions d
         WHERE d.actor_id = u.id AND d.decided_at >= now() - ${`${String(windowDays)} days`}::interval
+          AND d.decision <> 'removed'
       ) AS median_hours,
       (SELECT max(d.decided_at) FROM moderation_decisions d WHERE d.actor_id = u.id)
         AS last_decision_at

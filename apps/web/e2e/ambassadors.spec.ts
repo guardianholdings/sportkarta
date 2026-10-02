@@ -130,9 +130,10 @@ test.describe('ambassadors', () => {
     const inScope = facilities.find((f) => f.municipality_id === mine)?.id as string;
     const outOfScope = facilities.find((f) => f.municipality_id === theirs)?.id as string;
     const stamp = Date.now();
-    await query(
+    const inserted = await query<{ id: string; storage_path: string }>(
       `INSERT INTO facility_photos (facility_id, storage_path, status)
-       VALUES ($1::uuid, $2, 'pending'), ($3::uuid, $4, 'pending')`,
+       VALUES ($1::uuid, $2, 'pending'), ($3::uuid, $4, 'pending')
+       RETURNING id, storage_path`,
       [
         inScope,
         `photos/e2e-scope-in-${stamp}.webp`,
@@ -140,16 +141,21 @@ test.describe('ambassadors', () => {
         `photos/e2e-scope-out-${stamp}.webp`,
       ],
     );
+    const photoId = (fragment: string): string =>
+      inserted.find((row) => row.storage_path.includes(fragment))?.id as string;
+    // The queue shows the photo itself (through the row-deciding route), not a
+    // storage key, so items are recognised by the image they link to.
+    const thumb = (id: string) => page.locator(`a[href="/api/photos/${id}"]`);
 
     try {
       await page.goto('/admin/moderation');
-      await expect(page.getByText(`photos/e2e-scope-in-${stamp}.webp`)).toBeVisible();
-      await expect(page.getByText(`photos/e2e-scope-out-${stamp}.webp`)).toHaveCount(0);
+      await expect(thumb(photoId('scope-in'))).toBeVisible();
+      await expect(thumb(photoId('scope-out'))).toHaveCount(0);
 
       // Approving in scope works and is logged.
       await page
         .getByRole('listitem')
-        .filter({ hasText: `photos/e2e-scope-in-${stamp}.webp` })
+        .filter({ has: thumb(photoId('scope-in')) })
         .getByRole('button', { name: /одобри|approve/i })
         .click();
 

@@ -1,6 +1,7 @@
 import { getDb, publicFacilityVisible, sql, type SQL } from '@sportkarta/db';
 
 import type { PublicFilters } from '@/lib/filters';
+import { PHOTO_PUBLIC } from '@/lib/photos';
 
 /**
  * Read-side queries for the PUBLIC map + facility pages. Server-only.
@@ -146,7 +147,11 @@ export interface FacilityDetail {
   /** Latest crowd-reported condition; null = nobody has reported one yet. */
   condition: string | null;
   conditionReportedAt: string | null;
-  photos: string[];
+  /**
+   * Public photo IDS, oldest first — never storage keys. Pages render them
+   * through lib/photo-url.ts, i.e. the route that re-checks PHOTO_PUBLIC.
+   */
+  photoIds: string[];
 }
 
 /** Full detail for /obekt/[slug]; null when unknown or not public. */
@@ -161,11 +166,11 @@ export async function getFacilityBySlug(slug: string): Promise<FacilityDetail | 
            (SELECT max(e.created_at) FROM facility_edits e
              WHERE e.facility_id = f.id AND e.actor IS NOT NULL) AS last_verified_at,
            COALESCE(
-             (SELECT array_agg(p.storage_path ORDER BY p.created_at)
+             (SELECT array_agg(p.id::text ORDER BY p.created_at)
               FROM facility_photos p
-              WHERE p.facility_id = f.id AND p.status = 'approved'),
+              WHERE p.facility_id = f.id AND ${PHOTO_PUBLIC}),
              '{}'
-           ) AS photos
+           ) AS photo_ids
     FROM facilities f
     LEFT JOIN municipalities m ON m.id = f.municipality_id
     WHERE f.slug = ${slug} AND f.status <> 'gone'
@@ -190,6 +195,6 @@ export async function getFacilityBySlug(slug: string): Promise<FacilityDetail | 
     lastVerifiedAt: row.last_verified_at ? String(row.last_verified_at) : null,
     condition: (row.condition as string | null) ?? null,
     conditionReportedAt: row.condition_reported_at ? String(row.condition_reported_at) : null,
-    photos: (row.photos as string[] | null) ?? [],
+    photoIds: (row.photo_ids as string[] | null) ?? [],
   };
 }

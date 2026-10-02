@@ -225,6 +225,13 @@
       "when": 1785109200000,
       "tag": "0031_seed_fixtures_unverified",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1785112800000,
+      "tag": "0032_photo_takedown",
+      "breakpoints": true
     }
   ]
 }

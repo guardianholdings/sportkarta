@@ -14,6 +14,16 @@ import type { Role } from './roles';
  * Every decision that does land is written to the append-only
  * moderation_decisions log in the same transaction, so "decided but unlogged"
  * is not a reachable state.
+ *
+ * A photo that ends up refused — rejected in the queue, or taken down after it
+ * was published — also loses its FILE. The usual reason to refuse a photo is
+ * that it shows people; keeping the image on the volume, and in every nightly
+ * backup, would keep exactly the personal data the decision refused, for no
+ * purpose. The delete runs only AFTER the transaction has committed: deleting
+ * first and then failing to commit would leave a live row pointing at nothing,
+ * while a failed delete after commit leaves only an orphan file no public
+ * request can reach (the serving route answers from the row, and the row now
+ * says rejected).
  */
 
 export interface ModerationActor {
@@ -22,6 +32,8 @@ export interface ModerationActor {
 }
 
 export type PhotoDecision = 'approved' | 'rejected';
+/** The log value for taking an APPROVED photo down again (migration 0032). */
+export type PhotoTakedown = 'removed';
 export type ReportDecision = 'reviewed' | 'dismissed';
 export type FacilityDecision = 'verified' | 'gone';
 
@@ -36,6 +48,15 @@ interface SqlRunner {
 
 interface TransactionalDb extends SqlRunner {
   transaction<T>(callback: (tx: SqlRunner) => Promise<T>): Promise<T>;
+}
+
+/**
+ * Where a refused photo's file is deleted from: the storage adapter in the app
+ * (`getStorage()`), a recorder in tests. Required, not optional, so no caller
+ * can decide a photo and forget the file.
+ */
+export interface PhotoFiles {
+  delete(key: string): Promise<void>;
 }
 
 /**
@@ -67,7 +88,8 @@ async function logDecision(
     facilityId: string;
     municipalityId: number | null;
     decision: string;
-    queuedAt: string;
+    /** The item's own created_at, or `now()` for a decision that had no queue. */
+    queuedAt: string | SQL;
   },
 ): Promise<void> {
   await tx.execute(sql`
@@ -82,14 +104,34 @@ async function logDecision(
   `);
 }
 
+/**
+ * Delete a refused photo's file, after its decision committed. Best effort by
+ * design: the decision is already true and must not be reported as failed
+ * because the volume hiccuped, and the storage delete is idempotent, so a
+ * later retry is harmless. Logs the photo id and the error CODE only — never
+ * the message, which for a filesystem error embeds the path.
+ */
+async function discardPhotoFile(files: PhotoFiles, photoId: string, key: string): Promise<void> {
+  try {
+    await files.delete(key);
+  } catch (error) {
+    const code = (error as { code?: unknown } | null)?.code;
+    console.error(
+      `[moderation] photo ${photoId} was refused but its file could not be deleted:`,
+      typeof code === 'string' ? code : error instanceof Error ? error.name : 'unknown error',
+    );
+  }
+}
+
 /** Approve or reject a pending photo, inside the actor's scope. */
 export async function decidePhoto(
   db: TransactionalDb,
   actor: ModerationActor,
   photoId: string,
   decision: PhotoDecision,
+  files: PhotoFiles,
 ): Promise<DecisionResult> {
-  return db.transaction(async (tx) => {
+  const decided = await db.transaction(async (tx) => {
     const updated = await tx.execute(sql`
       UPDATE facility_photos p
       SET status = ${decision}::photo_status
@@ -98,10 +140,10 @@ export async function decidePhoto(
         AND f.id = p.facility_id
         AND p.status = 'pending'
         AND ${scopeClause(actor)}
-      RETURNING p.id, p.facility_id, p.created_at, f.municipality_id
+      RETURNING p.id, p.facility_id, p.storage_path, p.created_at, f.municipality_id
     `);
     const row = updated.rows[0];
-    if (!row) return { applied: false };
+    if (!row) return null;
 
     await logDecision(tx, actor, {
       targetType: 'photo',
@@ -111,8 +153,65 @@ export async function decidePhoto(
       decision,
       queuedAt: String(row.created_at),
     });
-    return { applied: true };
+    return { storagePath: String(row.storage_path) };
   });
+  if (!decided) return { applied: false };
+
+  // Committed. Only now is it safe to destroy the evidence of the upload.
+  if (decision === 'rejected') await discardPhotoFile(files, photoId, decided.storagePath);
+  return { applied: true };
+}
+
+/**
+ * Take an APPROVED photo down again — the notice-and-action path: a parent
+ * whose child is recognisable in it, a rights-holder, or an approval that was
+ * simply a mistake. Same shape as a queue decision: scoped in the statement,
+ * logged in the same transaction, the file deleted after commit.
+ *
+ * The photo goes to status 'rejected' (from the public's side a withdrawn photo
+ * and a refused one are the same thing: not shown), but the log records
+ * 'removed', so "it was public and we withdrew it" stays distinguishable from
+ * "it never went out". A takedown has no queue, so it is recorded as acted on
+ * the moment it was queued, and the SLA medians leave it out
+ * (lib/moderation-data.ts) rather than let it pull them toward zero.
+ */
+export async function unpublishPhoto(
+  db: TransactionalDb,
+  actor: ModerationActor,
+  photoId: string,
+  files: PhotoFiles,
+): Promise<DecisionResult> {
+  const takedown: PhotoTakedown = 'removed';
+  const removed = await db.transaction(async (tx) => {
+    const updated = await tx.execute(sql`
+      UPDATE facility_photos p
+      SET status = 'rejected'
+      FROM facilities f
+      WHERE p.id = ${photoId}::uuid
+        AND f.id = p.facility_id
+        AND p.status = 'approved'
+        AND ${scopeClause(actor)}
+      RETURNING p.id, p.facility_id, p.storage_path, f.municipality_id
+    `);
+    const row = updated.rows[0];
+    if (!row) return null;
+
+    await logDecision(tx, actor, {
+      targetType: 'photo',
+      targetId: String(row.id),
+      facilityId: String(row.facility_id),
+      municipalityId: (row.municipality_id as number | null) ?? null,
+      decision: takedown,
+      // now() is the transaction timestamp, so this equals decided_at's
+      // default exactly and moderation_decisions_order (decided >= queued) holds.
+      queuedAt: sql`now()`,
+    });
+    return { storagePath: String(row.storage_path) };
+  });
+  if (!removed) return { applied: false };
+
+  await discardPhotoFile(files, photoId, removed.storagePath);
+  return { applied: true };
 }
 
 /** Mark a pending problem report reviewed or dismissed, inside the actor's scope. */

@@ -18,6 +18,7 @@ import { addedPoints } from '@/lib/contributions/added-banner';
 import { issueFormToken } from '@/lib/form-token';
 import { serializeJsonLd } from '@/lib/json-ld';
 import { buildAlternates } from '@/lib/seo';
+import { photoUrl } from '@/lib/photo-url';
 import { getFacilityBySlug, type FacilityDetail } from '@/lib/public-data';
 import { Link } from '@/i18n/navigation';
 
@@ -27,8 +28,6 @@ import { AppShell } from '@/components/shell/app-shell';
 
 type PageParams = Promise<{ locale: string; slug: string }>;
 type PageSearchParams = Promise<Record<string, string | string[] | undefined>>;
-
-const UPLOADS_PREFIX = '/uploads';
 
 function displayName(facility: FacilityDetail, fallback: string): string {
   return facility.name ?? fallback;
@@ -170,14 +169,14 @@ export default async function FacilityPage({
             strings={await shareSheetStrings('facility')}
           />
 
-          {facility.photos.length > 1 && (
+          {facility.photoIds.length > 1 && (
             <SectionCard title={t('photos')}>
               <div className="grid grid-cols-3 gap-2">
-                {facility.photos.slice(1).map((path) => (
+                {facility.photoIds.slice(1).map((photoId) => (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    key={path}
-                    src={`${UPLOADS_PREFIX}/${path}`}
+                    key={photoId}
+                    src={photoUrl(photoId)}
                     alt={t('photoAlt', { name })}
                     loading="lazy"
                     className="aspect-square w-full rounded-md object-cover"

@@ -7,6 +7,7 @@ import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 import { facilityFamily, FAMILY_COLOR } from '@/lib/design/families';
 import { SPORT_VISUALS } from '@/lib/design/sport-visuals';
 import { NAV_PROVIDERS } from '@/lib/directions';
+import { photoUrl } from '@/lib/photo-url';
 import type { CanonicalSport } from '@sportkarta/lib/sports';
 
 /** The read-only public detail; the source of truth is lib/public-data. */
@@ -25,11 +26,9 @@ export interface FacilityDetailData {
   lat: number;
   lastVerifiedAt: string | null;
   condition: string | null;
-  photos: string[];
+  /** Approved photo ids (lib/public-data.ts), rendered through lib/photo-url.ts. */
+  photoIds: string[];
 }
-
-// Facility photos live on the storage volume under this prefix.
-const UPLOADS_PREFIX = '/uploads';
 
 function primaryVisual(sports: string[]) {
   const s = sports.find((x): x is CanonicalSport => x in SPORT_VISUALS);
@@ -62,7 +61,7 @@ export function FacilityDetailView({
   const name = facility.name ?? t('unnamed');
   const v = primaryVisual(facility.sportTypes);
   const area = [facility.quarter, facility.municipalityName].filter(Boolean).join(', ');
-  const photo = facility.photos[0];
+  const photo = facility.photoIds[0];
 
   const lighting =
     facility.lighting === null ? t('unknown') : facility.lighting ? t('yes') : t('no');
@@ -81,7 +80,7 @@ export function FacilityDetailView({
         {photo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={`${UPLOADS_PREFIX}/${photo}`}
+            src={photoUrl(photo)}
             alt={t('photoAlt', { name })}
             className="absolute inset-0 h-full w-full object-cover"
           />
