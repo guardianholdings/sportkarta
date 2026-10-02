@@ -1,0 +1,59 @@
+name: Uptime
+
+# Is the site up? Every ten minutes, ask production's /api/health — the same
+# ST_DWithin smoke query the deploy gate uses, so "up" means the web app AND
+# its database answer — and FAIL LOUDLY if it does not.
+#
+# Failing is the alert: GitHub emails a failed scheduled run to the person who
+# last changed this file's schedule, if their notification settings allow it
+# (github.com → Settings → Notifications → Actions → "Only notify for failed
+# workflows"). Nothing else is set up, and nothing else needs to be.
+#
+# Kept cheap on purpose: no checkout, no install, one curl with two retries —
+# a single slow answer during a deploy's container swap is not an outage, three
+# failures across ~40 seconds are.
+#
+# Scheduled runs can start several minutes late when GitHub is busy, and GitHub
+# pauses the schedules of a public repository after 60 days without a commit.
+# This is a smoke alarm, not a pager.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  health:
+    # Same switch as the deploy job: no server yet, nothing to watch.
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: GET /api/health (fails loudly)
+        env:
+          PROD_DOMAIN: ${{ secrets.PROD_DOMAIN }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          # The address deploy.yml publishes: the domain over TLS once
+          # PROD_DOMAIN is set, the bare server address until then.
+          if [ -n "$PROD_DOMAIN" ]; then
+            url="https://$PROD_DOMAIN/api/health"
+          else
+            url="http://$DEPLOY_HOST/api/health"
+          fi
+          for attempt in 1 2 3; do
+            if body=$(curl -fsS --max-time 15 "$url"); then
+              echo "$body"
+              exit 0
+            fi
+            echo "attempt $attempt/3 failed"
+            [ "$attempt" -lt 3 ] && sleep 20
+          done
+          echo "::error::SITE DOWN — $url failed three times in a row. What to do: deploy/RESTORE.md §1."
+          curl -sS --max-time 15 "$url" || true
+          exit 1

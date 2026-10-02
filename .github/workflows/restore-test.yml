@@ -1,0 +1,158 @@
+name: Restore rehearsal
+
+# A backup nobody has restored is a hope, not a backup. Every week this proves
+# the newest nightly dump of the app database can actually be restored — the
+# recovery path every migration's rollback note ends in ("restore from the
+# nightly") — and fails loudly when it cannot, or when the dumps have stopped.
+#
+# WHAT IT TOUCHES. It reaches the server exactly the way deploy.yml does (the
+# same pinned host key, key and secrets) and starts a THROWAWAY PostGIS
+# container: attached to no network at all (`--network none`, so nothing the
+# app uses can reach it or be reached from it), memory- and CPU-capped so it
+# cannot starve the live stack, with the backups volume mounted READ-ONLY. The
+# dump is restored into it, the /api/health smoke query and row counts are run
+# against the copy, and the container and its data are removed — on success,
+# on failure and on cancellation. The live database is never connected to.
+#
+# What it does NOT prove, and deploy/RESTORE.md says how to cover: the umami
+# and glitchtip dumps, the uploads volume, and an OFF-BOX copy (restic), which
+# does not exist yet — every dump it restores sits on the same disk as the
+# database it protects.
+on:
+  schedule:
+    # Tuesdays 05:20 UTC: after the 03:30 Sofia nightly dump, outside peak use.
+    - cron: '20 5 * * 2'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Its own group, NOT deploy.yml's: GitHub keeps one pending run per group and
+# a newer one replaces it, so sharing the group could silently drop a queued
+# deploy in favour of a rehearsal.
+concurrency:
+  group: restore-rehearsal
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # Identical to deploy.yml — see the note there on why the host key is
+      # pinned and what to do if the server is ever rebuilt.
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo 'sportkarta-prod ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAIqKmg1U69CxDz2Nd7YQHozf1wU3t/Wx3r7BI1RhVlt' > ~/.ssh/known_hosts
+          {
+            echo "Host vps"
+            echo "  HostName ${{ secrets.DEPLOY_HOST }}"
+            echo "  HostKeyAlias sportkarta-prod"
+            echo "  User deploy"
+            echo "  IdentityFile ~/.ssh/deploy_key"
+            echo "  StrictHostKeyChecking yes"
+            echo "  UserKnownHostsFile ~/.ssh/known_hosts"
+          } > ~/.ssh/config
+
+      - name: Restore the newest dump into a throwaway database (fails loudly)
+        env:
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          ssh vps "bash -s -- $RUN_ID" <<'REMOTE'
+          set -euo pipefail
+          name="sportkarta-restore-rehearsal-$1"
+          # Compose names volumes <project>_<volume>; the project is `sportkarta`
+          # (deploy/compose.prod.yml). The same image as the live database, so
+          # the rehearsal restores with the tools a real recovery would use.
+          volume=sportkarta_backups
+          image=postgis/postgis:16-3.4
+          fail() { echo "::error::RESTORE REHEARSAL FAILED: $*"; exit 1; }
+          trap 'docker rm -fv "$name" >/dev/null 2>&1 || true' EXIT
+
+          docker volume inspect "$volume" >/dev/null 2>&1 \
+            || fail "no $volume volume on the server — the backup service has never run"
+
+          docker run -d --rm --name "$name" --label sportkarta.restore-rehearsal=1 \
+            --network none --memory 1g --cpus 1 \
+            -e POSTGRES_USER=sportkarta -e POSTGRES_DB=postgres \
+            -e POSTGRES_PASSWORD="$(openssl rand -hex 16)" \
+            -v "$volume:/backups:ro" \
+            "$image" >/dev/null
+
+          # The image initialises, restarts once, then accepts connections;
+          # asking before the restart would race it. (The log is captured
+          # rather than piped into `grep -q`, which under pipefail can report
+          # a match as a failure.)
+          ready=no
+          for i in $(seq 1 90); do
+            logs=$(docker logs "$name" 2>&1 || true)
+            if [[ "$logs" == *"PostgreSQL init process complete"* ]] \
+               && docker exec "$name" pg_isready -U sportkarta -d postgres >/dev/null 2>&1; then
+              ready=yes
+              break
+            fi
+            sleep 2
+          done
+          [ "$ready" = yes ] || fail "the throwaway PostGIS never became ready"
+
+          # Newest nightly dump of the APP database (umami-/glitchtip- dumps
+          # sit beside it; the file names sort by their timestamp).
+          dump=$(docker exec "$name" sh -c 'ls -1 /backups/pg/sportkarta-*.dump 2>/dev/null | sort | tail -n 1')
+          [ -n "$dump" ] || fail "no sportkarta-*.dump in the backups volume"
+          age_hours=$(docker exec "$name" sh -c "echo \$(( (\$(date +%s) - \$(stat -c %Y '$dump')) / 3600 ))")
+          size=$(docker exec "$name" du -h "$dump" | cut -f1)
+          echo "newest dump: $dump ($size, ${age_hours}h old)"
+          # The nightly runs at 03:30; anything older than a day and a half
+          # means the backups stopped, whatever the restore below says.
+          [ "$age_hours" -le 36 ] || fail "the newest dump is ${age_hours}h old — the nightly backup has stopped"
+
+          # Into an EMPTY database from template0, as a disaster recovery would
+          # (deploy/RESTORE.md): the dump brings its own extensions.
+          docker exec "$name" createdb -U sportkarta -T template0 rehearsal
+          docker exec "$name" pg_restore -U sportkarta --dbname=rehearsal --no-owner \
+            --exit-on-error "$dump" || fail "pg_restore stopped on an error (above)"
+
+          psql() { docker exec "$name" psql -U sportkarta -d rehearsal -v ON_ERROR_STOP=1 -X "$@"; }
+
+          # /api/health's own smoke query (db/src/health.ts) …
+          health=$(psql -Atc "SELECT count(*) FROM _health WHERE ST_DWithin(geom::geography,
+            ST_SetSRID(ST_MakePoint(23.3219, 42.6977), 4326)::geography, 1000)") \
+            || fail "the /api/health smoke query errored on the restored copy"
+          [ "$health" -ge 1 ] || fail "the /api/health smoke query finds no row in the restored copy"
+          # … and the same question asked of the map's own data.
+          near=$(psql -Atc "SELECT count(*) FROM facilities WHERE ST_DWithin(geom::geography,
+            ST_SetSRID(ST_MakePoint(23.3219, 42.6977), 4326)::geography, 5000)") \
+            || fail "the facilities query errored on the restored copy"
+          [ "$near" -ge 1 ] || fail "no facility within 5 km of central Sofia in the restored copy"
+          echo "PostGIS $(psql -Atc 'SELECT postgis_lib_version()'); ST_DWithin smoke ok; $near facilities within 5 km of central Sofia"
+
+          # Row counts — what a recovery would bring back.
+          psql -P pager=off -c "
+            SELECT t AS table, n AS rows FROM (VALUES
+              ('facilities',               (SELECT count(*) FROM facilities)),
+              ('facility_edits',           (SELECT count(*) FROM facility_edits)),
+              ('facility_photos',          (SELECT count(*) FROM facility_photos)),
+              ('municipalities',           (SELECT count(*) FROM municipalities)),
+              ('users',                    (SELECT count(*) FROM users)),
+              ('points_ledger',            (SELECT count(*) FROM points_ledger)),
+              ('play_sessions',            (SELECT count(*) FROM play_sessions)),
+              ('play_session_occurrences', (SELECT count(*) FROM play_session_occurrences)),
+              ('play_session_rsvps',       (SELECT count(*) FROM play_session_rsvps)),
+              ('moderation_decisions',     (SELECT count(*) FROM moderation_decisions)),
+              ('applied migrations',       (SELECT count(*) FROM drizzle.__drizzle_migrations))
+            ) AS c(t, n)"
+          facilities=$(psql -Atc "SELECT count(*) FROM facilities")
+          [ "$facilities" -ge 1 ] || fail "the restored copy has no facilities"
+          echo "Restore rehearsal passed: $dump restores cleanly and answers the health query."
+          REMOTE
+
+      # Belt and braces: if the SSH session died before its own trap ran, no
+      # rehearsal container may be left running beside production.
+      - name: Remove any leftover rehearsal container
+        if: always()
+        run: |
+          ssh vps 'docker ps -aq --filter label=sportkarta.restore-rehearsal=1 | xargs -r docker rm -fv' || true
