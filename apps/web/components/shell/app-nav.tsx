@@ -1,5 +1,6 @@
 import { CalendarDays, Map as MapIcon, Plus, Trophy, User } from 'lucide-react';
 
+import { LocaleSwitcher } from '@/components/shell/locale-switcher';
 import { PopsMark } from '@/components/shell/pops-mark';
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
@@ -72,6 +73,9 @@ export function NavRail({
           </Link>
         )}
       </div>
+      {/* Pinned to the rail's foot. A client component, so the rail itself
+          stays hook-free and still renders in server and client trees alike. */}
+      <LocaleSwitcher variant="rail" />
     </nav>
   );
 }

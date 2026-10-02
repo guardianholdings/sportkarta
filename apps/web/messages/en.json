@@ -1647,6 +1647,9 @@
     "support": "Support us",
     "campaigns": "Campaigns"
   },
+  "LocaleSwitcher": {
+    "switchTo": "Български"
+  },
   "AdminPrivate": {
     "title": "Private venues",
     "intro": "Paid commercial venues (gyms, halls, studios) appear on the public map, the API and the open data only while the category is switched on. Hiding a business hides all of its venues at once.",
