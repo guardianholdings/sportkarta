@@ -5,6 +5,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -122,6 +123,23 @@ export const users = pgTable(
      * that makes consent non-specific and therefore invalid.
      */
     trainingHealthConsentAt: timestamptz('training_health_consent_at'),
+    /**
+     * When an admin suspended the account (0033). NULL = not suspended.
+     *
+     * A suspended account is SIGNED OUT on its next request: getCurrentUser()
+     * reads the row only WHERE suspended_at IS NULL, so every gate behind it sees
+     * an anonymous visitor regardless of the session cookie cache. The suspend
+     * action also deletes the member's sessions and forces the passport private
+     * in the same transaction — and `users_suspended_is_private` below is what
+     * makes the second half a guarantee rather than a habit.
+     */
+    suspendedAt: timestamptz('suspended_at'),
+    /**
+     * Why, in the admin's words. Lives ONLY here — never in `admin_actions` —
+     * because it is free text about a person and this row is what erasure
+     * deletes. Cleared when the suspension is lifted.
+     */
+    suspendedReason: text('suspended_reason'),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
     updatedAt: timestamptz('updated_at').notNull().defaultNow(),
   },
@@ -168,6 +186,24 @@ export const users = pgTable(
     // in and being enumerable by a scraper, so a truncated or predictable
     // generator must fail closed rather than store something guessable.
     check('users_public_handle_shape', sql`${t.publicHandle} ~ '^[0-9a-f]{24}$'`),
+    // Suspension (0033): a suspension without a reason, or a reason left behind
+    // after lifting one, is unrepresentable.
+    check(
+      'users_suspension_pair',
+      sql`(${t.suspendedAt} IS NULL) = (${t.suspendedReason} IS NULL)`,
+    ),
+    check(
+      'users_suspended_reason_sane',
+      sql`${t.suspendedReason} IS NULL OR (btrim(${t.suspendedReason}) <> '' AND char_length(${t.suspendedReason}) <= 300)`,
+    ),
+    // A suspended account can never hold a public passport, so an abusive name
+    // leaves every leaderboard (all of which read leaderboard_eligible_members,
+    // public passports only) the moment the suspension commits. Lifting it
+    // re-publishes nothing: publishing stays the member's own act.
+    check(
+      'users_suspended_is_private',
+      sql`${t.suspendedAt} IS NULL OR ${t.profileVisibility} = 'private'`,
+    ),
   ],
 );
 
@@ -331,6 +367,73 @@ export const accountDeletions = pgTable(
   ],
 );
 
+/**
+ * Who CHANGED what (0033) — every privilege or visibility change an admin makes.
+ *
+ * The companion to `account_access_log` (0028), which records who READ whose
+ * data. Same three properties, and none of them may be relaxed:
+ *
+ *  - APPEND-ONLY, by trigger.
+ *  - NO FOREIGN KEYS. `actorId` and `subjectId` are `users.id` carried BY VALUE,
+ *    so an erasure — including one recorded here as 'account_erased' — cannot
+ *    delete the record of what was done to the account.
+ *  - NARROW. No free-text column. `detail` is a small object of scalars written
+ *    by one typed module (apps/web/lib/admin-actions.ts); the suspension reason
+ *    and a reset display name are deliberately NOT copied here, because an
+ *    append-only row is the one place erasure could never scrub them from.
+ *
+ * `subjectId` is NULL exactly for the two national switches (a setting, a
+ * business) — `admin_actions_subject_matches_action` lists those as an
+ * allowlist, so a new action must name an account until decided otherwise.
+ */
+export const adminAction = pgEnum('admin_action', [
+  'account_suspended',
+  'account_unsuspended',
+  'display_name_reset',
+  'passport_made_private',
+  'sessions_revoked',
+  'account_erased',
+  'ambassador_granted',
+  'ambassador_revoked',
+  'ambassador_scope_added',
+  'ambassador_scope_removed',
+  'setting_changed',
+  'business_visibility_changed',
+]);
+
+export const adminActions = pgTable(
+  'admin_actions',
+  {
+    id: bigint('id', { mode: 'number' }).generatedAlwaysAsIdentity().primaryKey(),
+    /** The admin who acted. No FK — survives their own erasure. */
+    actorId: text('actor_id').notNull(),
+    action: adminAction('action').notNull(),
+    /** The account acted on. No FK — survives THEIR erasure, which is the point. */
+    subjectId: text('subject_id'),
+    detail: jsonb('detail').notNull().default({}),
+    actedAt: timestamptz('acted_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('admin_actions_subject_acted_idx')
+      .on(t.subjectId, t.actedAt.desc())
+      .where(sql`${t.subjectId} IS NOT NULL`),
+    index('admin_actions_action_acted_idx').on(t.action, t.actedAt.desc()),
+    index('admin_actions_actor_acted_idx').on(t.actorId, t.actedAt.desc()),
+    check('admin_actions_actor_not_blank', sql`btrim(${t.actorId}) <> ''`),
+    check(
+      'admin_actions_subject_not_blank',
+      sql`${t.subjectId} IS NULL OR btrim(${t.subjectId}) <> ''`,
+    ),
+    check(
+      'admin_actions_subject_matches_action',
+      sql`(${t.subjectId} IS NULL) = (${t.action} IN ('setting_changed', 'business_visibility_changed'))`,
+    ),
+    check('admin_actions_detail_object', sql`jsonb_typeof(${t.detail}) = 'object'`),
+    check('admin_actions_detail_small', sql`octet_length(${t.detail}::text) <= 512`),
+    check('admin_actions_acted_at_finite', sql`isfinite(${t.actedAt})`),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type UserRole = (typeof userRole.enumValues)[number];
@@ -338,3 +441,5 @@ export type Session = typeof sessions.$inferSelect;
 export type Account = typeof accounts.$inferSelect;
 export type Verification = typeof verifications.$inferSelect;
 export type AccountDeletion = typeof accountDeletions.$inferSelect;
+export type AdminActionRow = typeof adminActions.$inferSelect;
+export type AdminActionValue = (typeof adminAction.enumValues)[number];
