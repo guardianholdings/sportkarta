@@ -33,8 +33,18 @@ function requireDatabaseUrl(): string {
  * - `statement_timeout` — server-side, so Postgres cancels the statement itself
  *   (lock waits included) rather than the client abandoning a query that keeps
  *   running and keeps its locks.
- * - `idle_in_transaction_session_timeout` — a transaction left open by a
- *   crashed handler would otherwise pin its row locks indefinitely.
+ *
+ * DELIBERATELY NOT `idle_in_transaction_session_timeout`. This pool is not only
+ * the web's: the worker reaches it through `getDb()` too, and its mail jobs
+ * hold a transaction open ACROSS the SMTP exchange by design — claim, send,
+ * commit, so a failed send rolls its claim back and is retried. An unreachable
+ * relay takes nodemailer two minutes to give up on, so any idle limit short
+ * enough to matter would have Postgres kill the session in the middle of a
+ * send: the mail goes out, the COMMIT fails on the dead connection, and the
+ * member is mailed again on the retry. The web's transactions wait on nothing
+ * slower than their own statements (each bounded by `statement_timeout`) and
+ * the local disk; a handler that throws is rolled back, and a process that dies
+ * takes its sockets with it, which ends the transaction on the server too.
  *
  * The worker's long `REFRESH MATERIALIZED VIEW` runs on its own pool
  * (apps/worker/src/index.ts) and is unaffected.
@@ -43,14 +53,14 @@ export const POOL_LIMITS = {
   max: 10,
   connectionTimeoutMillis: 5_000,
   statement_timeout: 15_000,
-  idle_in_transaction_session_timeout: 30_000,
 } as const satisfies pg.PoolConfig;
 
 /**
- * An idle client losing its connection (Postgres restarted, the container
- * recycled) is emitted as an `error` on the POOL. With no listener that is an
- * unhandled 'error' event, which crashes the whole web process — so it is
- * caught and reported. Only the error's class and SQLSTATE are logged: the
+ * A connection can be lost at any moment — Postgres restarted, the container
+ * recycled, a backend terminated by an operator — and node-postgres reports it
+ * as an `error` event on the CLIENT. With no listener that is an unhandled
+ * 'error' event, which crashes the whole process (the web server, or the worker
+ * halfway through a run). Only the error's class and SQLSTATE are logged: the
  * message of a pg error can quote the statement, and statements carry the
  * values a member typed.
  */
@@ -75,9 +85,19 @@ export function getDb() {
 export function getPool(): pg.Pool {
   if (!pool) {
     pool = new pg.Pool({ connectionString: requireDatabaseUrl(), ...POOL_LIMITS });
-    pool.on('error', (error) => {
-      console.error('[db-pool] idle client error:', describePoolError(error));
+    // Every connection gets its own listener, once, when the pool opens it.
+    // pg-pool only listens to a client while it sits IDLE — it removes its
+    // listener on checkout — so a connection lost inside a transaction (the
+    // worker mid-send, a server action mid-write) had nobody to hear it.
+    pool.on('connect', (client) => {
+      client.on('error', (error) => {
+        console.error('[db-pool] connection error:', describePoolError(error));
+      });
     });
+    // pg-pool also re-emits an idle client's error on the pool itself. The
+    // connection's own listener above has already reported it; this one only
+    // keeps the re-emission from being an unhandled 'error'.
+    pool.on('error', () => undefined);
   }
   return pool;
 }
