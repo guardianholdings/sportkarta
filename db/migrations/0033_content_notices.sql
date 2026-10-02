@@ -62,8 +62,9 @@
 -- a session that belongs to no facility, and deciding it is the controller's
 -- act, not a volunteer's — the web app gives it to `requireRole('admin')` only.
 -- Widening the log would have meant a new target type in its allowlist CHECK
--- and relaxing a NOT NULL the SLA report relies on. So the notice row IS its own decision record, and the
--- guard trigger gives it the same property the log has: once decided, frozen.
+-- and relaxing a NOT NULL the SLA report relies on. So the notice row IS its
+-- own decision record, and the guard trigger gives it the same property the
+-- log has: once decided, frozen.
 --
 -- LOCKING. Everything but (2) is new. The ADD COLUMN in (2) is catalogue-only
 -- (nullable, no default — no rewrite), and both CHECKs are added NOT VALID for
@@ -71,11 +72,12 @@
 -- transaction would scan the table under the ACCESS EXCLUSIVE the ADD COLUMN
 -- already holds, and there is nothing to find — every existing row has a NULL
 -- reason, which satisfies the format CHECK, and the refusal CHECK is meant for
--- decisions taken from now on. NOT VALID constraints are enforced on every
--- INSERT from the moment they exist. The append-only triggers on
--- moderation_decisions are row-level BEFORE UPDATE/DELETE triggers and do not
--- fire for DDL. lock_timeout makes the whole file fail fast rather than queue
--- behind the nightly backup's ACCESS SHARE.
+-- decisions taken from now on (a takedown logged between 0032's deploy and
+-- this one has no reason, and must stay as it was written). NOT VALID
+-- constraints are enforced on every INSERT from the moment they exist. The
+-- append-only triggers on moderation_decisions are row-level BEFORE
+-- UPDATE/DELETE triggers and do not fire for DDL. lock_timeout makes the whole
+-- file fail fast rather than queue behind the nightly backup's ACCESS SHARE.
 --
 -- rollback (compensating SQL, reverse order; DESTRUCTIVE — drops every notice
 -- and the mail ledger). ROLL THE APPLICATION BACK FIRST: the moderation actions
