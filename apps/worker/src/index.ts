@@ -1,5 +1,5 @@
-import { materializeSessions, refreshStats } from '@sportkarta/db';
-import { createMailer } from '@sportkarta/lib/email';
+import { getPool, materializeSessions, refreshStats } from '@sportkarta/db';
+import { assertDelivered, createMailer } from '@sportkarta/lib/email';
 import { runImport } from '@sportkarta/import-osm';
 
 import { runDivisions } from './divisions-job.js';
@@ -56,6 +56,62 @@ interface ImportOsmJobData {
   dryRun?: boolean;
 }
 
+/**
+ * Retry policies, applied per queue (pg-boss's default is 2 retries with no
+ * delay — about four seconds of trying, which one DB blip or relay hiccup
+ * outlasts).
+ *
+ * MAIL: session.notify is enqueued exactly ONCE per event — a cancellation, a
+ * promotion — so a failed run that is not retried means somebody is never
+ * told. Five retries with exponential backoff from a minute cover roughly the
+ * next hour; the notification ledger makes every re-run mail only the people
+ * the last one missed.
+ *
+ * WEEKLY: the Monday jobs fire once a week and act on "the week that just
+ * closed", so a lost run cannot be made up next time. Ten retries with backoff
+ * from a minute keep trying for about a day (pg-boss doubles the delay, with
+ * jitter) — still the same week, so the digest's claim key and the freezes'
+ * "week that just closed" have not moved.
+ */
+const MAIL_RETRY = { retryLimit: 5, retryDelay: 60, retryBackoff: true } as const;
+const WEEKLY_RETRY = { retryLimit: 10, retryDelay: 60, retryBackoff: true } as const;
+
+/**
+ * An address-free category for a job-level failure: a Postgres SQLSTATE or a
+ * nodemailer code when there is one, else the error's class name. Never the
+ * message — a constraint violation quotes the row, an SMTP error the address.
+ */
+function jobFailureCategory(error: unknown): string {
+  const safe = (value: unknown): value is string =>
+    typeof value === 'string' && /^[A-Za-z0-9_]{1,40}$/.test(value);
+  if (error && typeof error === 'object') {
+    const { code, name } = error as { code?: unknown; name?: unknown };
+    if (safe(code)) return code;
+    if (safe(name)) return name;
+  }
+  return 'unknown';
+}
+
+/**
+ * Wrap a handler so a failure leaves a line in the log before pg-boss records
+ * it. pg-boss itself prints nothing when a handler throws — it only marks the
+ * job failed — so without this a weekly job could fail every retry and the
+ * container log would show no trace of it.
+ */
+function logged<R>(
+  queue: string,
+  handler: (jobs: PgBoss.Job<object>[]) => Promise<R>,
+): (jobs: PgBoss.Job<object>[]) => Promise<R> {
+  return async (jobs) => {
+    try {
+      return await handler(jobs);
+    } catch (error: unknown) {
+      console.error(`[worker] ${queue} job failed: ${jobFailureCategory(error)}`);
+      throw error;
+    }
+  };
+}
+
 /** Materialize one series (after create/edit), or all of them (the schedule). */
 interface SessionMaterializeJobData {
   sessionId?: string;
@@ -72,6 +128,20 @@ async function main(): Promise<void> {
     console.error('[pg-boss]', error);
   });
 
+  // The shared @sportkarta/db pool behind getDb(), which every mail, passport
+  // and dump job queries through. Same reasoning as statsPool below: an idle
+  // client's error (DB restart, failover) is emitted on the pool, and with no
+  // listener it is an uncaught exception that takes the whole worker down.
+  // The code only — a connection error can carry the connection string.
+  getPool().on('error', (error: unknown) => {
+    console.error(`[db-pool] idle client error: ${jobFailureCategory(error)}`);
+  });
+
+  // ONE mailer for the life of the process, so the SMTP transport's pool is
+  // reused across jobs instead of re-logging in to the relay per message.
+  const mailer = createMailer(process.env);
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+
   // Separate pool for REFRESH MATERIALIZED VIEW CONCURRENTLY (pg-boss owns its
   // own connections). CONCURRENTLY runs in autocommit, so a pool is fine. An
   // idle-client error (DB restart/failover) must be handled or it crashes the
@@ -82,19 +152,35 @@ async function main(): Promise<void> {
   });
 
   await boss.start();
-  await boss.createQueue(HEALTH_QUEUE);
-  await boss.createQueue(IMPORT_OSM_QUEUE);
-  await boss.createQueue(STATS_REFRESH_QUEUE);
-  await boss.createQueue(AUTH_CLEANUP_QUEUE);
-  await boss.createQueue(SESSION_MATERIALIZE_QUEUE);
-  await boss.createQueue(SESSION_NOTIFY_QUEUE);
-  await boss.createQueue(SESSION_REMINDERS_QUEUE);
-  await boss.createQueue(DIGEST_WEEKLY_QUEUE);
-  await boss.createQueue(OPENDATA_DUMP_QUEUE);
-  await boss.createQueue(PASSPORT_EVALUATE_QUEUE);
-  await boss.createQueue(BADGE_BACKFILL_QUEUE);
-  await boss.createQueue(STREAK_FREEZE_QUEUE);
-  await boss.createQueue(DIVISIONS_ROLLOVER_QUEUE);
+
+  /**
+   * Create a queue, and bring an EXISTING one up to the given retry policy.
+   * pg-boss's createQueue is INSERT ... ON CONFLICT DO NOTHING, so options
+   * passed to it never reach a queue production already has — updateQueue is
+   * what actually changes them. A fresh options object per call: pg-boss
+   * annotates the one it is handed.
+   */
+  async function ensureQueue(
+    name: string,
+    retry?: { retryLimit: number; retryDelay: number; retryBackoff: boolean },
+  ): Promise<void> {
+    await boss.createQueue(name, { name, ...retry });
+    if (retry) await boss.updateQueue(name, { name, ...retry });
+  }
+
+  await ensureQueue(HEALTH_QUEUE);
+  await ensureQueue(IMPORT_OSM_QUEUE);
+  await ensureQueue(STATS_REFRESH_QUEUE);
+  await ensureQueue(AUTH_CLEANUP_QUEUE);
+  await ensureQueue(SESSION_MATERIALIZE_QUEUE);
+  await ensureQueue(SESSION_NOTIFY_QUEUE, MAIL_RETRY);
+  await ensureQueue(SESSION_REMINDERS_QUEUE);
+  await ensureQueue(DIGEST_WEEKLY_QUEUE, WEEKLY_RETRY);
+  await ensureQueue(OPENDATA_DUMP_QUEUE);
+  await ensureQueue(PASSPORT_EVALUATE_QUEUE);
+  await ensureQueue(BADGE_BACKFILL_QUEUE);
+  await ensureQueue(STREAK_FREEZE_QUEUE, WEEKLY_RETRY);
+  await ensureQueue(DIVISIONS_ROLLOVER_QUEUE, WEEKLY_RETRY);
 
   await boss.work(HEALTH_QUEUE, async (jobs) => {
     for (const job of jobs) {
@@ -186,51 +272,66 @@ async function main(): Promise<void> {
   // no mailing list is ever left sitting in an archived queue row.
   //
   // Idempotency is play_session_notifications': the claim goes in before the
-  // send, in the same transaction, so a retry cannot mail anyone twice.
-  await boss.work(SESSION_NOTIFY_QUEUE, { batchSize: 1 }, async (jobs) => {
-    const mailer = createMailer(process.env);
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
-    let last: Awaited<ReturnType<typeof runSessionNotify>> | undefined;
-    for (const job of jobs) {
-      const data = (job.data ?? {}) as SessionNotifyJobData;
-      last = await runSessionNotify(data, { mailer, siteUrl });
-      // Counts and the pinned reason only. `reason` is validated against the
-      // vocabulary before it is logged: an unbounded string from a job payload
-      // interpolated into a log line is how a log gets forged.
-      const reason = data.reason && data.reason in NOTIFY_REASONS ? data.reason : 'unknown';
-      console.log(
-        `[worker] ${SESSION_NOTIFY_QUEUE} job ${job.id}: reason=${reason} ` +
-          `${String(last.candidates)} candidate(s), ${String(last.sent)} sent, ` +
-          `${String(last.skipped)} already told, ${String(last.failed)} failed`,
-      );
-    }
-    return last;
-  });
+  // send, in the same transaction, so a retry cannot mail anyone twice. Which
+  // is what makes it safe to THROW when anybody was not reached: this job is
+  // enqueued once per event, so the queue's retry (MAIL_RETRY) is the only
+  // second chance a cancellation notice gets.
+  await boss.work(
+    SESSION_NOTIFY_QUEUE,
+    { batchSize: 1 },
+    logged(SESSION_NOTIFY_QUEUE, async (jobs) => {
+      let last: Awaited<ReturnType<typeof runSessionNotify>> | undefined;
+      for (const job of jobs) {
+        const data = (job.data ?? {}) as SessionNotifyJobData;
+        last = await runSessionNotify(data, { mailer, siteUrl });
+        // Counts and the pinned reason only. `reason` is validated against the
+        // vocabulary before it is logged: an unbounded string from a job payload
+        // interpolated into a log line is how a log gets forged.
+        const reason = data.reason && data.reason in NOTIFY_REASONS ? data.reason : 'unknown';
+        console.log(
+          `[worker] ${SESSION_NOTIFY_QUEUE} job ${job.id}: reason=${reason} ` +
+            `${String(last.candidates)} candidate(s), ${String(last.sent)} sent, ` +
+            `${String(last.skipped)} skipped, ${String(last.failed)} failed, ` +
+            `${String(last.unattempted)} unattempted`,
+        );
+        assertDelivered(SESSION_NOTIFY_QUEUE, last);
+      }
+      return last;
+    }),
+  );
 
   // T-24h and T-2h reminders (Stage 4.2). Every ten minutes — but the query is
   // "starting within the lead time and NOT YET TOLD", not "starting in 24 h ± 5
   // min", so the schedule is a heartbeat rather than a window that can be
   // missed. A worker that was down all afternoon catches up on its next tick
   // instead of silently skipping everyone whose window it slept through.
-  await boss.work(SESSION_REMINDERS_QUEUE, { batchSize: 1 }, async (jobs) => {
-    const mailer = createMailer(process.env);
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
-    let last: Awaited<ReturnType<typeof runSessionReminders>> | undefined;
-    for (const job of jobs) {
-      last = await runSessionReminders({ mailer, siteUrl });
-      for (const [kind, report] of Object.entries(last)) {
-        // Quiet ticks are the common case; only say something when there was
-        // something to say, or the log becomes 144 empty lines a day.
-        if (report.candidates === 0) continue;
-        console.log(
-          `[worker] ${SESSION_REMINDERS_QUEUE} job ${job.id} ${kind}: ` +
-            `${String(report.sent)} sent, ${String(report.skipped)} already told, ` +
-            `${String(report.failed)} failed`,
-        );
+  //
+  // It does NOT throw on a failed send, unlike session.notify: this sweep is its
+  // own retry. A failed send rolls its claim back, the recipient stays "not yet
+  // told", and the next tick picks them up — while deliverEach stops the tick at
+  // the first sign the relay is down, so a quota outage costs one login attempt
+  // every ten minutes instead of one per due reminder.
+  await boss.work(
+    SESSION_REMINDERS_QUEUE,
+    { batchSize: 1 },
+    logged(SESSION_REMINDERS_QUEUE, async (jobs) => {
+      let last: Awaited<ReturnType<typeof runSessionReminders>> | undefined;
+      for (const job of jobs) {
+        last = await runSessionReminders({ mailer, siteUrl });
+        for (const [kind, report] of Object.entries(last)) {
+          // Quiet ticks are the common case; only say something when there was
+          // something to say, or the log becomes 144 empty lines a day.
+          if (report.candidates === 0) continue;
+          console.log(
+            `[worker] ${SESSION_REMINDERS_QUEUE} job ${job.id} ${kind}: ` +
+              `${String(report.sent)} sent, ${String(report.skipped)} already told, ` +
+              `${String(report.failed)} failed, ${String(report.unattempted)} unattempted`,
+          );
+        }
       }
-    }
-    return last;
-  });
+      return last;
+    }),
+  );
   await boss.schedule(SESSION_REMINDERS_QUEUE, '*/10 * * * *');
 
   // Weekly city digest (Stage 4.4). Monday 08:00 EUROPE/SOFIA, not UTC: the
@@ -240,21 +341,27 @@ async function main(): Promise<void> {
   //
   // The job and /sedmitsata/[city] call the SAME query (weeklyDigest), and the
   // send is idempotent per subscriber per week through digest_sends — so a
-  // manual re-run, a retry or a second worker cannot mail anyone twice.
-  await boss.work(DIGEST_WEEKLY_QUEUE, { batchSize: 1 }, async (jobs) => {
-    const mailer = createMailer(process.env);
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
-    let last: Awaited<ReturnType<typeof runWeeklyDigest>> | undefined;
-    for (const job of jobs) {
-      last = await runWeeklyDigest({ mailer, siteUrl });
-      // Counts only — never an address (no PII in logs).
-      console.log(
-        `[worker] ${DIGEST_WEEKLY_QUEUE} job ${job.id}: ${String(last.subscribers)} subscriber(s), ` +
-          `${String(last.sent)} sent, ${String(last.skipped)} skipped, ${String(last.failed)} failed`,
-      );
-    }
-    return last;
-  });
+  // manual re-run, a retry or a second worker cannot mail anyone twice. Which
+  // is what makes it safe to throw when anybody was missed: WEEKLY_RETRY re-runs
+  // the job within the same week, and the claims skip everyone already mailed.
+  await boss.work(
+    DIGEST_WEEKLY_QUEUE,
+    { batchSize: 1 },
+    logged(DIGEST_WEEKLY_QUEUE, async (jobs) => {
+      let last: Awaited<ReturnType<typeof runWeeklyDigest>> | undefined;
+      for (const job of jobs) {
+        last = await runWeeklyDigest({ mailer, siteUrl });
+        // Counts only — never an address (no PII in logs).
+        console.log(
+          `[worker] ${DIGEST_WEEKLY_QUEUE} job ${job.id}: ${String(last.subscribers)} subscriber(s), ` +
+            `${String(last.sent)} sent, ${String(last.skipped)} skipped, ` +
+            `${String(last.failed)} failed, ${String(last.unattempted)} unattempted`,
+        );
+        assertDelivered(DIGEST_WEEKLY_QUEUE, last);
+      }
+      return last;
+    }),
+  );
   await boss.schedule(DIGEST_WEEKLY_QUEUE, '0 8 * * 1', {}, { tz: 'Europe/Sofia' });
 
   // Nightly open-data bulk dump (Stage 6.1). 03:40 EUROPE/SOFIA — deliberately
@@ -319,13 +426,24 @@ async function main(): Promise<void> {
   // timezone is the point: a week boundary is a wall-clock promise, so a UTC
   // cron would apply freezes an hour early or late for half the year and
   // occasionally decide the wrong week had just closed.
-  await boss.work(STREAK_FREEZE_QUEUE, async () => {
-    const report = await runStreakFreezes();
-    console.log(
-      `[worker] ${STREAK_FREEZE_QUEUE} considered ${String(report.evaluated)} member(s), ` +
-        `${String(report.recorded)} week(s) forgiven, ${String(report.failed)} failed`,
-    );
-  });
+  //
+  // A member whose evaluation failed is retried with the whole job (WEEKLY_RETRY):
+  // freezeCandidate() only ever looks at the week that just closed, so a freeze
+  // not applied this week can never be applied later. applyStreakFreeze is
+  // ON CONFLICT DO NOTHING, so the re-run cannot forgive a week twice.
+  await boss.work(
+    STREAK_FREEZE_QUEUE,
+    logged(STREAK_FREEZE_QUEUE, async () => {
+      const report = await runStreakFreezes();
+      console.log(
+        `[worker] ${STREAK_FREEZE_QUEUE} considered ${String(report.evaluated)} member(s), ` +
+          `${String(report.recorded)} week(s) forgiven, ${String(report.failed)} failed`,
+      );
+      if (report.failed > 0) {
+        throw new Error(`${STREAK_FREEZE_QUEUE}: ${String(report.failed)} member(s) failed`);
+      }
+    }),
+  );
   await boss.schedule(STREAK_FREEZE_QUEUE, '20 4 * * 1', {}, { tz: 'Europe/Sofia' });
 
   // Weekly divisions (B2). Monday 04:40 EUROPE/SOFIA — twenty minutes after the
@@ -337,15 +455,18 @@ async function main(): Promise<void> {
   // Also the bootstrap. There is no separate seeding job — see
   // divisions-job.ts: week one is the general case with no history, and a
   // missed week resumes rather than resets.
-  await boss.work(DIVISIONS_ROLLOVER_QUEUE, async () => {
-    const report = await runDivisions();
-    console.log(
-      `[worker] ${DIVISIONS_ROLLOVER_QUEUE} ${report.week}: ` +
-        (report.belowFloor
-          ? 'below floor, nothing written'
-          : `${String(report.groups)} group(s), ${String(report.members)} member(s)`),
-    );
-  });
+  await boss.work(
+    DIVISIONS_ROLLOVER_QUEUE,
+    logged(DIVISIONS_ROLLOVER_QUEUE, async () => {
+      const report = await runDivisions();
+      console.log(
+        `[worker] ${DIVISIONS_ROLLOVER_QUEUE} ${report.week}: ` +
+          (report.belowFloor
+            ? 'below floor, nothing written'
+            : `${String(report.groups)} group(s), ${String(report.members)} member(s)`),
+      );
+    }),
+  );
   await boss.schedule(DIVISIONS_ROLLOVER_QUEUE, '40 4 * * 1', {}, { tz: 'Europe/Sofia' });
 
   console.log('[worker] started, listening for jobs');
@@ -356,6 +477,7 @@ async function main(): Promise<void> {
       void boss
         .stop({ graceful: true })
         .then(() => statsPool.end())
+        .then(() => mailer.close?.())
         .then(() => {
           process.exit(0);
         });

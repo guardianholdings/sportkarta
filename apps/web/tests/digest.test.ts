@@ -1,6 +1,6 @@
 import { renderSql, type SQL } from '@sportkarta/db';
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { newUnsubscribeToken, subscribe, unsubscribe, unsubscribeByToken } from '@/lib/digest';
 
@@ -75,6 +75,11 @@ describe('unsubscribeByToken', () => {
   });
 });
 
+const deliverySource = readFileSync(
+  new URL('../../../lib/src/email/delivery.ts', import.meta.url),
+  'utf8',
+);
+
 describe('one query, two consumers', () => {
   const pageSource = readFileSync(
     new URL('../app/[locale]/sedmitsata/[city]/page.tsx', import.meta.url),
@@ -122,8 +127,12 @@ describe('one query, two consumers', () => {
 
   it('keeps addresses out of the logs', () => {
     // Counts only. A mailer error can embed the recipient or the relay
-    // credentials, so the catch logs the message and nothing else.
-    const logLines = jobSource.match(/console\.(log|error)\([^;]*\);/gs) ?? [];
+    // credentials, so the catch logs a category and nothing else. The
+    // per-recipient loop now lives in lib/src/email/delivery.ts (shared with
+    // session mail), so its log lines are checked there too.
+    const logLines = [jobSource, deliverySource].flatMap(
+      (source) => source.match(/(console\.(log|error)|logError)\([^;]*\);/gs) ?? [],
+    );
     expect(logLines.length).toBeGreaterThan(0);
     for (const line of logLines) {
       expect(line).not.toMatch(/recipient\.email|\.email\b/);
@@ -168,11 +177,93 @@ describe('the digest job never logs an address', () => {
   it('logs a category, not the mailer error message', () => {
     // "550 5.1.1 <ivan@example.org>: Recipient address rejected" IS the error
     // message, so logging it writes every bounced address into the container log.
-    expect(jobSource).not.toMatch(/console\.error\([^)]*error\.message/s);
-    expect(jobSource).toMatch(/failureCategory\(error\)/);
+    // The job hands its loop to deliverEach, which categorises.
+    expect(jobSource).toMatch(/deliverEach\(/);
+    for (const source of [jobSource, deliverySource]) {
+      expect(source).not.toMatch(/(console\.error|logError)\([^)]*error\.message/s);
+    }
+    expect(deliverySource).toMatch(/mailFailureCategory\(error\)/);
+  });
+
+  it('fails the job when anybody was missed, so the queue retries this week', () => {
+    // The digest runs once a week: a swallowed failure used to mean that
+    // subscriber simply missed the week.
+    const workerSource = readFileSync(
+      new URL('../../worker/src/index.ts', import.meta.url),
+      'utf8',
+    );
+    expect(workerSource).toMatch(/assertDelivered\(DIGEST_WEEKLY_QUEUE, last\)/);
+    expect(workerSource).toMatch(/ensureQueue\(DIGEST_WEEKLY_QUEUE, WEEKLY_RETRY\)/);
+  });
+
+  it('sends the RFC 8058 one-click header to the POST endpoint, not the confirm page', () => {
+    expect(jobSource).toMatch(
+      /oneClickUnsubscribeUrl: `\$\{base\}\/api\/digest\/unsubscribe\/\$\{recipient\.unsubscribeToken\}`/,
+    );
   });
 
   it('throws rather than mailing a message key when a string is missing', () => {
     expect(jobSource).toMatch(/is missing from messages\//);
+  });
+});
+
+describe('one-click unsubscribe endpoint (RFC 8058)', () => {
+  // The route calls unsubscribeByToken; the database behind it is faked here.
+  // What is under test is the HTTP contract a mail provider relies on.
+  const TOKEN = 'Zm9vYmFyYmF6cXV4cXV1eGNvcmdl';
+  const params = (token: string) => ({ params: Promise.resolve({ token }) });
+
+  async function loadRoute(removed: { nameBg: string; nameEn: string } | null) {
+    vi.resetModules();
+    const unsubscribeByTokenMock = vi.fn(() => Promise.resolve(removed));
+    vi.doMock('@/lib/digest', () => ({ unsubscribeByToken: unsubscribeByTokenMock }));
+    vi.doMock('@sportkarta/db', () => ({ getDb: () => ({}) }));
+    const route = await import('../app/api/digest/unsubscribe/[token]/route');
+    return { route, unsubscribeByTokenMock };
+  }
+
+  afterEach(() => {
+    vi.doUnmock('@/lib/digest');
+    vi.doUnmock('@sportkarta/db');
+  });
+
+  it('unsubscribes on the POST a mail provider sends, with no redirect', async () => {
+    const { route, unsubscribeByTokenMock } = await loadRoute({ nameBg: 'София', nameEn: 'Sofia' });
+    const request = new Request(`http://localhost/api/digest/unsubscribe/${TOKEN}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'List-Unsubscribe=One-Click',
+    });
+    const response = await route.POST(request, params(TOKEN));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('location')).toBeNull();
+    expect(unsubscribeByTokenMock).toHaveBeenCalledWith(expect.anything(), TOKEN);
+  });
+
+  it('answers an unknown token exactly like a known one (no token oracle)', async () => {
+    const { route } = await loadRoute(null);
+    const response = await route.POST(
+      new Request('http://localhost/x', { method: 'POST' }),
+      params(TOKEN),
+    );
+    expect(response.status).toBe(200);
+  });
+
+  it('never touches the database for a token that cannot exist', async () => {
+    const { route, unsubscribeByTokenMock } = await loadRoute(null);
+    const response = await route.POST(
+      new Request('http://localhost/x', { method: 'POST' }),
+      params('short'),
+    );
+    expect(response.status).toBe(200);
+    expect(unsubscribeByTokenMock).not.toHaveBeenCalled();
+  });
+
+  it('never unsubscribes on a GET — a link scanner gets the confirm page', async () => {
+    const { route, unsubscribeByTokenMock } = await loadRoute({ nameBg: 'София', nameEn: 'Sofia' });
+    const response = await route.GET(new Request('http://localhost/x'), params(TOKEN));
+    expect(response.status).toBe(303);
+    expect(response.headers.get('location')).toMatch(new RegExp(`/sedmitsata/otpisvane/${TOKEN}$`));
+    expect(unsubscribeByTokenMock).not.toHaveBeenCalled();
   });
 });

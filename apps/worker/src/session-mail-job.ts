@@ -11,7 +11,15 @@ import {
   type SessionMailRecipient,
   type SessionNotificationKind,
 } from '@sportkarta/db';
-import { renderSessionMail, type Mailer, type SessionMailStrings } from '@sportkarta/lib/email';
+import {
+  deliverEach,
+  emptyDeliveryReport,
+  renderSessionMail,
+  type DeliveryOutcome,
+  type DeliveryReport,
+  type Mailer,
+  type SessionMailStrings,
+} from '@sportkarta/lib/email';
 
 /**
  * Session mail: confirmations, promotions, reminders and cancellations
@@ -32,6 +40,14 @@ import { renderSessionMail, type Mailer, type SessionMailStrings } from '@sportk
  *
  * NO PII IN LOGS: counts and error CATEGORIES only. An SMTP rejection embeds
  * the recipient in its message, so `error.message` is never logged.
+ *
+ * RETRIES. A failed send rolls its claim back, and the per-recipient loop
+ * (`deliverEach`, lib/src/email/delivery.ts) stops at the first sign that the
+ * relay itself is down. What happens next depends on the job: the reminder
+ * sweep IS its own retry (it re-reads "not yet told" every ten minutes), but a
+ * `session.notify` job is enqueued exactly once — a cancellation, a promotion —
+ * so its handler throws on any failure and pg-boss runs it again with backoff.
+ * The ledger makes that re-run mail only the people who were not reached.
  */
 
 const MESSAGES_BY_LOCALE = new Map<string, Record<string, Record<string, string>>>();
@@ -65,6 +81,7 @@ export function sessionMailStrings(locale: string): SessionMailStrings {
     subjectReminder: pick('subjectReminder'),
     subjectCancelled: pick('subjectCancelled'),
     greeting: pick('greeting'),
+    greetingNoName: pick('greetingNoName'),
     leadConfirmed: pick('leadConfirmed'),
     leadWaitlisted: pick('leadWaitlisted'),
     leadPromoted: pick('leadPromoted'),
@@ -94,24 +111,12 @@ export interface SessionMailOptions {
   locale?: string;
 }
 
-export interface SessionMailReport {
-  candidates: number;
-  sent: number;
-  /** Already told — the ledger refused the claim. */
-  skipped: number;
-  failed: number;
-}
-
-const FAILURE_LOG = 'session mail recipient failed:';
-
-/** A coarse, address-free classification (the digest job's, verbatim in spirit). */
-function failureCategory(error: unknown): string {
-  if (error && typeof error === 'object' && 'code' in error) {
-    const code = (error as { code: unknown }).code;
-    if (typeof code === 'string' && /^[A-Za-z0-9_]{1,32}$/.test(code)) return code;
-  }
-  return 'send_failed';
-}
+/**
+ * Counts per run. `skipped` is "already told" (the ledger refused the claim) or
+ * "no longer true" (see `stillApplies`); `unattempted` is who the run never
+ * reached because the transport went down first.
+ */
+export type SessionMailReport = DeliveryReport;
 
 /**
  * Claim, render, send — in one transaction, in that order.
@@ -126,7 +131,7 @@ async function sendOne(
   strings: SessionMailStrings,
   sports: Record<string, string>,
   options: SessionMailOptions,
-): Promise<boolean> {
+): Promise<DeliveryOutcome> {
   const db = getDb();
   return db.transaction(async (tx) => {
     const claimed = await claimNotification(
@@ -139,7 +144,7 @@ async function sendOne(
       // again rather than silently swallowed by the ledger.
       recipient.rsvpSeq,
     );
-    if (!claimed) return false;
+    if (!claimed) return 'skipped';
 
     const base = options.siteUrl.replace(/\/+$/, '');
     const sessionUrl = `${base}/sesiya/${recipient.occurrenceId}`;
@@ -154,51 +159,65 @@ async function sendOne(
         facilityUrl: recipient.facilitySlug ? `${base}/obekt/${recipient.facilitySlug}` : undefined,
         sessionUrl,
         calendarUrl: `${base}/kalendar/sesiya/${recipient.occurrenceId}.ics`,
-        // Only if they already have a feed. Minting one here would create a
-        // credential for somebody who never asked for it.
-        feedUrl: recipient.calendarToken
-          ? `${base}/kalendar/${recipient.calendarToken}.ics`
-          : undefined,
+        // Only for members who already have a feed, and only a link to the
+        // profile where it is managed. The feed URL itself is a credential: a
+        // forwarded confirmation would hand the recipient a permanent view of
+        // where this member plays.
+        calendarSettingsUrl: recipient.hasCalendarFeed ? `${base}/profil` : undefined,
         capacity: recipient.capacity,
         going: recipient.going,
-        position: recipient.position,
+        // The place ON THE WAITLIST, not the queue position (see the recipient
+        // type) — the same number the session page shows.
+        waitlistPlace: recipient.waitlistPlace ?? undefined,
       },
       strings,
     );
 
     await options.mailer.send({ ...message, to: recipient.email });
-    return true;
+    return 'sent';
   });
+}
+
+/**
+ * Whether a status-bearing notice is still TRUE when the job runs. A job can
+ * run minutes after it was enqueued — and, now that failed runs are retried
+ * with backoff, up to an hour later — by which time a waitlisted member may
+ * have been promoted. Telling them "you are number 2 on the waitlist" after
+ * they are already going is worse than silence; the promotion mail is the one
+ * that is true. Skipped rather than claimed, so nothing is recorded as told.
+ */
+function stillApplies(kind: SessionNotificationKind, recipient: SessionMailRecipient): boolean {
+  switch (kind) {
+    case 'rsvp_waitlisted':
+      return recipient.rsvpStatus === 'waitlisted' && recipient.waitlistPlace !== null;
+    case 'rsvp_confirmed':
+    case 'promoted':
+      return recipient.rsvpStatus === 'going';
+    default:
+      return true;
+  }
 }
 
 async function deliver(
   recipients: SessionMailRecipient[],
   kind: SessionNotificationKind,
-  options: SessionMailOptions,
+  options: SessionMailOptions & { job: string },
 ): Promise<SessionMailReport> {
+  // No member locale is stored anywhere yet (users has no locale column), so
+  // worker mail is Bulgarian — the default locale — until one is.
   const locale = options.locale ?? 'bg';
   const strings = sessionMailStrings(locale);
   const sports = sportLabels(locale);
-  const report: SessionMailReport = {
-    candidates: recipients.length,
-    sent: 0,
-    skipped: 0,
-    failed: 0,
-  };
-
-  for (const recipient of recipients) {
-    try {
-      if (await sendOne(recipient, kind, strings, sports, options)) report.sent += 1;
-      else report.skipped += 1;
-    } catch (error: unknown) {
-      report.failed += 1;
-      // A CATEGORY, never the message: an SMTP rejection reads
-      // "550 5.1.1 <ivan@example.org>: Recipient address rejected", and logging
-      // it would write every bounced address into the container log.
-      console.error(`[worker] ${FAILURE_LOG} ${failureCategory(error)}`);
-    }
-  }
-  return report;
+  // Counting, categorising (never the message — an SMTP rejection quotes the
+  // address) and stopping on a down transport all live in deliverEach.
+  return deliverEach(
+    recipients,
+    async (recipient) =>
+      stillApplies(kind, recipient)
+        ? sendOne(recipient, kind, strings, sports, options)
+        : 'skipped',
+    { job: options.job },
+  );
 }
 
 /** Reasons the web app may enqueue. Pinned — job data is arbitrary JSON. */
@@ -239,23 +258,22 @@ export async function runSessionNotify(
 ): Promise<SessionMailReport> {
   const db = getDb();
   const reason = data.reason;
-  if (!reason || !(reason in NOTIFY_REASONS)) {
-    return { candidates: 0, sent: 0, skipped: 0, failed: 0 };
-  }
+  const job = { ...options, job: 'session.notify' };
+  if (!reason || !(reason in NOTIFY_REASONS)) return emptyDeliveryReport();
 
   if (reason === 'series_cancelled') {
     const sessionId = uuidOrNull(data.sessionId);
-    if (!sessionId) return { candidates: 0, sent: 0, skipped: 0, failed: 0 };
+    if (!sessionId) return emptyDeliveryReport();
     const recipients = await seriesCancellationRecipients(db, sessionId);
-    return deliver(recipients, 'occurrence_cancelled', options);
+    return deliver(recipients, 'occurrence_cancelled', job);
   }
 
   const occurrenceId = uuidOrNull(data.occurrenceId);
-  if (!occurrenceId) return { candidates: 0, sent: 0, skipped: 0, failed: 0 };
+  if (!occurrenceId) return emptyDeliveryReport();
 
   if (reason === 'occurrence_cancelled') {
     const recipients = await cancellationRecipients(db, occurrenceId);
-    return deliver(recipients, 'occurrence_cancelled', options);
+    return deliver(recipients, 'occurrence_cancelled', job);
   }
 
   // The targeted kinds. `userIds` is capped: an unbounded list from a job
@@ -264,7 +282,7 @@ export async function runSessionNotify(
     .filter((id): id is string => typeof id === 'string' && id.length > 0 && id.length <= 64)
     .slice(0, 500);
   const recipients = await recipientsFor(db, occurrenceId, userIds);
-  return deliver(recipients, reason as SessionNotificationKind, options);
+  return deliver(recipients, reason as SessionNotificationKind, job);
 }
 
 /**
@@ -274,12 +292,20 @@ export async function runSessionNotify(
  */
 export async function runSessionReminders(
   options: SessionMailOptions,
-): Promise<Record<ReminderKind, SessionMailReport>> {
+): Promise<Partial<Record<ReminderKind, SessionMailReport>>> {
   const db = getDb();
   const kinds: ReminderKind[] = ['reminder_24h', 'reminder_2h'];
-  const out = {} as Record<ReminderKind, SessionMailReport>;
+  const out: Partial<Record<ReminderKind, SessionMailReport>> = {};
   for (const kind of kinds) {
-    out[kind] = await deliver(await dueReminders(db, kind), kind, options);
+    const report = await deliver(await dueReminders(db, kind), kind, {
+      ...options,
+      job: 'session.reminders',
+    });
+    out[kind] = report;
+    // The relay is refusing us: do not open the 2 h batch against the same
+    // wall. This sweep does not throw — its next tick, ten minutes on, is the
+    // retry, and everyone not reached is still "not yet told".
+    if (report.transportDown) break;
   }
   return out;
 }

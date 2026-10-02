@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation';
 
 import { routing } from '@/i18n/routing';
 import { deleteAccount } from '@/lib/account-deletion';
+import { getBoss } from '@/lib/admin-boss';
 import { getAuth } from '@/lib/auth';
 import { subscribe, unsubscribe } from '@/lib/digest';
 import { requireUser } from '@/lib/auth-session';
@@ -76,7 +77,22 @@ export async function deleteAccountAction(
     await auth.api.signOut({ headers: await headers() });
   }
 
-  const summary = await deleteAccount(getDb(), user.id);
+  // An organiser's erasure cancels their series (a DB trigger); the enqueue
+  // tells the members holding RSVPs. Best-effort, like every session.notify
+  // enqueue: a queue that is briefly down must not undo a completed erasure.
+  // The message, never the error object (the sesiya actions' rule).
+  const summary = await deleteAccount(getDb(), user.id, {
+    enqueue: async (queue, data) => {
+      try {
+        await (await getBoss()).send(queue, data);
+      } catch (error: unknown) {
+        console.error(
+          '[gdpr] could not enqueue session cancellation notice:',
+          error instanceof Error ? error.message : 'unknown',
+        );
+      }
+    },
+  });
   // No email, no name, no id of the person — only that an erasure completed.
   console.info(
     `[gdpr] account erased; audit rows preserved=${summary.auditRowsPreserved}, photos anonymised=${summary.photosAnonymized}`,

@@ -60,13 +60,31 @@ interface TransactionalDb extends SqlRunner {
   transaction<T>(callback: (tx: SqlRunner) => Promise<T>): Promise<T>;
 }
 
+/** Enqueue hook, injected so the logic is testable without a running pg-boss. */
+export type Enqueue = (queue: string, data: Record<string, unknown>) => Promise<void>;
+
+/** The queue the worker's session mail listens on (apps/worker/src/index.ts). */
+export const SESSION_NOTIFY_QUEUE = 'session.notify';
+
+export interface DeleteAccountOptions {
+  /**
+   * Called AFTER the erasure commits, once per series this person organised
+   * that the erasure cancelled — see the play-layer comment in deleteAccount.
+   */
+  enqueue?: Enqueue;
+}
+
 function countFrom(result: { rows: Record<string, unknown>[] }): number {
   const value = result.rows[0]?.n;
   return typeof value === 'number' ? value : Number(value ?? 0);
 }
 
-export async function deleteAccount(db: TransactionalDb, userId: string): Promise<DeletionSummary> {
-  return db.transaction(async (tx) => {
+export async function deleteAccount(
+  db: TransactionalDb,
+  userId: string,
+  options: DeleteAccountOptions = {},
+): Promise<DeletionSummary> {
+  const { summary, orphanedSessionIds } = await db.transaction(async (tx) => {
     const auditRowsPreserved = countFrom(
       await tx.execute(sql`SELECT count(*)::int AS n FROM facility_edits WHERE actor = ${userId}`),
     );
@@ -100,6 +118,12 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
     // ON DELETE SET NULL and the play_sessions_orphan_cancel trigger cancels the
     // series — future occurrences with it. Nothing is done here to make that
     // happen; the count is taken so the tombstone can evidence that it did.
+    //
+    // The ids are taken too, for one reason: the trigger cancels silently, and
+    // everyone holding an RSVP to those evenings would otherwise turn up to a
+    // session that no longer exists. They are handed to the same
+    // `series_cancelled` notification an organiser's own cancel button sends,
+    // after the commit. A session id is a public object, not personal data.
     const rsvpsErased = countFrom(
       await tx.execute(
         sql`SELECT count(*)::int AS n FROM play_session_rsvps WHERE user_id = ${userId}`,
@@ -110,12 +134,13 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
         sql`SELECT count(*)::int AS n FROM play_session_checkins WHERE user_id = ${userId}`,
       ),
     );
-    const sessionsCancelled = countFrom(
-      await tx.execute(
-        sql`SELECT count(*)::int AS n FROM play_sessions
-             WHERE organizer_id = ${userId} AND status = 'scheduled'`,
-      ),
+    const organised = await tx.execute(
+      sql`SELECT count(*)::int AS n, coalesce(array_agg(id::text), '{}') AS ids
+            FROM play_sessions
+           WHERE organizer_id = ${userId} AND status = 'scheduled'`,
     );
+    const sessionsCancelled = countFrom(organised);
+    const orphanedIds = organised.rows[0]?.ids;
 
     // Digest opt-ins are consent and leave with the account (Stage 4.4).
     // Results do NOT: a result is a fact about a game other people played in
@@ -195,20 +220,34 @@ export async function deleteAccount(db: TransactionalDb, userId: string): Promis
     await tx.execute(sql`DELETE FROM users WHERE id = ${userId}`);
 
     return {
-      userId,
-      auditRowsPreserved,
-      photosAnonymized,
-      conditionReportsAnonymized,
-      pointsErased,
-      moderationDecisionsPreserved,
-      sessionsCancelled,
-      rsvpsErased,
-      checkinsErased,
-      digestSubscriptionsErased,
-      resultsAnonymized,
-      badgesErased,
-      campaignResultsAnonymized,
-      sessionNotificationsErased,
+      summary: {
+        userId,
+        auditRowsPreserved,
+        photosAnonymized,
+        conditionReportsAnonymized,
+        pointsErased,
+        moderationDecisionsPreserved,
+        sessionsCancelled,
+        rsvpsErased,
+        checkinsErased,
+        digestSubscriptionsErased,
+        resultsAnonymized,
+        badgesErased,
+        campaignResultsAnonymized,
+        sessionNotificationsErased,
+      },
+      orphanedSessionIds: Array.isArray(orphanedIds) ? orphanedIds.map(String) : [],
     };
   });
+
+  // After the commit, never inside it: a notification must not go out for an
+  // erasure that rolled back. The worker reads the cancelled occurrences and
+  // their RSVPs from the live tables at send time (the members' RSVPs survive
+  // the organiser's erasure), and the notification ledger dedupes the send.
+  if (options.enqueue) {
+    for (const sessionId of orphanedSessionIds) {
+      await options.enqueue(SESSION_NOTIFY_QUEUE, { reason: 'series_cancelled', sessionId });
+    }
+  }
+  return summary;
 }

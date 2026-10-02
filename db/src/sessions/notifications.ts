@@ -49,7 +49,15 @@ export interface SessionMailRecipient {
   facilitySlug: string | null;
   capacity: number | null;
   going: number;
+  /** Place in the whole queue, going and waiting together (the view's row_number). */
   position: number;
+  /**
+   * Place ON THE WAITLIST — 1 for the first person waiting — or null while
+   * going. This, not `position`, is the number a member is told: with 10
+   * places the first person waiting is 11th in the queue, and "you are number
+   * 11 on the waitlist" reads as no chance at all.
+   */
+  waitlistPlace: number | null;
   rsvpStatus: 'going' | 'waitlisted';
   /**
    * The arrival ticket behind this RSVP. Withdrawing and re-joining draws a
@@ -58,8 +66,26 @@ export interface SessionMailRecipient {
    * withdrawn and made again".
    */
   rsvpSeq: number;
-  /** The member's private feed token, when they have minted one. */
-  calendarToken: string | null;
+  /**
+   * Whether the member has minted a calendar feed. A boolean, deliberately:
+   * the token itself is a credential and has no business in a mail path — the
+   * mail links to the profile page where the feed is managed.
+   */
+  hasCalendarFeed: boolean;
+}
+
+/**
+ * A member's place ON THE WAITLIST, from a `play_session_rsvp_positions` row:
+ * position minus capacity while waitlisted (so the first person waiting is 1),
+ * NULL while going. Written once and shared by the session page and the mail,
+ * so the page and the inbox cannot disagree about somebody's number. The
+ * capacity is the view's own column — the same one its going/waitlisted CASE
+ * reads — so the arithmetic cannot drift from the status it qualifies.
+ */
+export function waitlistPlaceSql(alias: string): SQL {
+  const p = sql.identifier(alias);
+  return sql`CASE WHEN ${p}.rsvp_status = 'waitlisted'
+                  THEN (${p}.position - ${p}.capacity)::int END`;
 }
 
 /**
@@ -86,8 +112,9 @@ function recipientColumns(): SQL {
     u.id AS user_id,
     u.email,
     u.display_name,
-    ct.token AS calendar_token,
+    EXISTS (SELECT 1 FROM calendar_tokens ct WHERE ct.user_id = u.id) AS has_calendar_feed,
     pos.position::int AS position,
+    ${waitlistPlaceSql('pos')} AS waitlist_place,
     pos.seq AS rsvp_seq,
     pos.rsvp_status,
     (SELECT count(*)::int FROM play_session_rsvp_positions g
@@ -102,7 +129,6 @@ function recipientJoins(): SQL {
     JOIN facilities f ON f.id = s.facility_id
     JOIN play_session_rsvp_positions pos ON pos.occurrence_id = o.id
     JOIN users u ON u.id = pos.user_id
-    LEFT JOIN calendar_tokens ct ON ct.user_id = u.id
   `;
 }
 
@@ -125,10 +151,14 @@ function toRecipient(row: Record<string, unknown>): SessionMailRecipient {
     capacity: row.capacity === null || row.capacity === undefined ? null : Number(row.capacity),
     going: Number(row.going ?? 0),
     position: Number(row.position ?? 0),
+    waitlistPlace:
+      row.waitlist_place === null || row.waitlist_place === undefined
+        ? null
+        : Number(row.waitlist_place),
     rsvpStatus: row.rsvp_status === 'waitlisted' ? 'waitlisted' : 'going',
     // bigint arrives as a string from node-postgres; these are small counters.
     rsvpSeq: Number(row.rsvp_seq ?? 0),
-    calendarToken: (row.calendar_token as string | null) ?? null,
+    hasCalendarFeed: row.has_calendar_feed === true,
   };
 }
 

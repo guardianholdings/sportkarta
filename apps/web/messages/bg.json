@@ -598,6 +598,7 @@
     "event_facility_added": "добавено съоръжение",
     "event_facility_verified": "потвърдено съоръжение",
     "event_condition_reported": "съобщено състояние",
+    "event_session_attended": "потвърдено присъствие",
     "addFacilityLink": "Добави съоръжение"
   },
   "AdminAmbassadors": {
@@ -659,6 +660,7 @@
   "DigestEmail": {
     "subject": "Тази седмица в {city}",
     "greeting": "Здравей, {name}! Ето какво се играе тази седмица в {city}.",
+    "greetingNoName": "Здравей! Ето какво се играе тази седмица в {city}.",
     "introOne": "{count} тренировка тази седмица.",
     "introOther": "{count} тренировки тази седмица.",
     "monday": "Понеделник",
@@ -833,6 +835,7 @@
     "event_facility_verified": "потвърдено съоръжение",
     "event_condition_reported": "съобщено състояние",
     "event_session_checkin": "участие в тренировка",
+    "event_session_attended": "потвърдено присъствие",
     "activityTitle": "Активност по месеци",
     "monthlyContributions": "{count, plural, one {# принос} other {# приноса}}",
     "monthlyCheckins": "{count, plural, one {# тренировка} other {# тренировки}}",
@@ -1231,6 +1234,7 @@
     "subjectReminder": "Напомняне: {title}",
     "subjectCancelled": "Отменена тренировка: {title}",
     "greeting": "Здравейте, {name},",
+    "greetingNoName": "Здравейте,",
     "leadConfirmed": "Записани сте за „{title}“.",
     "leadWaitlisted": "Вие сте номер {position} в списъка на чакащите за „{title}“. Ако някой се откаже, ще ви пишем.",
     "leadPromoted": "Освободи се място и вече сте записани за „{title}“.",

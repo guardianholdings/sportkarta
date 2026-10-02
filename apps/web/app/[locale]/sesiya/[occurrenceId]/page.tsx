@@ -189,9 +189,11 @@ export default async function SessionPage({ params }: { params: PageParams }) {
               <>
                 {view.viewerStatus && (
                   <p className="text-body-sm text-ink-soft">
+                    {/* The place ON THE WAITLIST (1 = next in line), never the
+                      queue position — see OccurrenceView.viewerWaitlistPlace. */}
                     {view.viewerStatus === 'going'
                       ? t('youAreGoing')
-                      : t('youAreWaitlisted', { position: view.viewerPosition ?? 0 })}
+                      : t('youAreWaitlisted', { position: view.viewerWaitlistPlace ?? 1 })}
                   </p>
                 )}
                 <RsvpForm

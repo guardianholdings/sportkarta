@@ -11,7 +11,14 @@ import {
   type DigestRecipient,
 } from '@sportkarta/db';
 import { assignCitySlugs, cityDisplayName, type MunicipalityRow } from '@sportkarta/lib/cities';
-import { renderWeeklyDigest, type DigestStrings, type Mailer } from '@sportkarta/lib/email';
+import {
+  deliverEach,
+  renderWeeklyDigest,
+  type DeliveryOutcome,
+  type DeliveryReport,
+  type DigestStrings,
+  type Mailer,
+} from '@sportkarta/lib/email';
 import { SOFIA_TZ } from '@sportkarta/lib/recurrence';
 
 /**
@@ -31,6 +38,12 @@ import { SOFIA_TZ } from '@sportkarta/lib/recurrence';
  *
  * NO PII IN LOGS: counts only. The address is read at send time and never put
  * into a job payload that would outlive the account it names.
+ *
+ * RETRIES. The digest runs once a week, so "the next run" is next Monday and a
+ * failed recipient would simply miss the week. The handler therefore throws
+ * whenever anybody was not reached, and pg-boss re-runs the job with backoff;
+ * the claim key is this week's start, so the re-run mails only the subscribers
+ * the first attempt missed.
  */
 
 const MESSAGES_BY_LOCALE = new Map<string, Record<string, Record<string, string>>>();
@@ -71,6 +84,7 @@ export function digestStrings(locale: string): DigestStrings {
   return {
     subject: pick('subject'),
     greeting: pick('greeting'),
+    greetingNoName: pick('greetingNoName'),
     introOne: pick('introOne'),
     introOther: pick('introOther'),
     weekdays: [
@@ -98,12 +112,9 @@ export interface DigestRunOptions {
   mailer: Mailer;
 }
 
-export interface DigestRunReport {
+export interface DigestRunReport extends DeliveryReport {
+  /** Subscriptions considered — `candidates` under its digest name. */
   subscribers: number;
-  sent: number;
-  /** Already sent this week, or the city had nothing on. */
-  skipped: number;
-  failed: number;
 }
 
 /** municipality id → URL slug, resolved exactly as the web app resolves it. */
@@ -115,32 +126,18 @@ async function citySlugs(db: ReturnType<typeof getDb>): Promise<Map<number, stri
   return new Map(cities.map((city) => [city.id, city.slug]));
 }
 
-const DIGEST_FAILURE_LOG = 'digest.weekly recipient failed:';
-
-/**
- * A coarse, address-free classification. Postgres and nodemailer both put an
- * error `code` on the object; anything else collapses to 'send_failed'.
- */
-function failureCategory(error: unknown): string {
-  if (error && typeof error === 'object' && 'code' in error) {
-    const code = (error as { code: unknown }).code;
-    if (typeof code === 'string' && /^[A-Za-z0-9_]{1,32}$/.test(code)) return code;
-  }
-  return 'send_failed';
-}
-
 export async function runWeeklyDigest(options: DigestRunOptions): Promise<DigestRunReport> {
   const db = getDb();
   const now = options.now ?? new Date();
+  // No member locale is stored anywhere yet (users has no locale column), so
+  // the digest is Bulgarian — the default locale — until one is.
   const locale = options.locale ?? 'bg';
   const strings = digestStrings(locale);
   const sports = sportLabels(locale);
   const weekStart = weekStartFor(now, SOFIA_TZ);
   const weekStartDate = formatWeekStart(weekStart);
 
-  const report: DigestRunReport = { subscribers: 0, sent: 0, skipped: 0, failed: 0 };
   const recipients = await digestRecipients(db);
-  report.subscribers = recipients.length;
   // The same slug assignment the web app serves (@sportkarta/lib/cities), over
   // the same stable ordering — so the link in the email is the URL that exists.
   const slugByCity = await citySlugs(db);
@@ -149,8 +146,14 @@ export async function runWeeklyDigest(options: DigestRunOptions): Promise<Digest
   // change between two people.
   const weeks = new Map<number, Awaited<ReturnType<typeof weeklyDigest>>>();
 
-  for (const recipient of recipients) {
-    try {
+  // deliverEach counts, logs a CATEGORY per failure (never the message: an
+  // SMTP rejection reads "550 5.1.1 <ivan@example.org>: Recipient address
+  // rejected", and logging it would write every bounced address into the
+  // container log on the first Monday with a stale subscriber list), and stops
+  // the run when the relay itself is refusing us.
+  const report = await deliverEach(
+    recipients,
+    async (recipient): Promise<DeliveryOutcome> => {
       let week = weeks.get(recipient.municipalityId);
       if (!week) {
         week = await weeklyDigest(db, {
@@ -161,10 +164,7 @@ export async function runWeeklyDigest(options: DigestRunOptions): Promise<Digest
         weeks.set(recipient.municipalityId, week);
       }
       // A mail that says "nothing is on" is not worth an inbox.
-      if (week.occurrences.length === 0) {
-        report.skipped += 1;
-        continue;
-      }
+      if (week.occurrences.length === 0) return 'skipped';
       const delivered = await sendOne(db, recipient, week, weekStartDate, strings, options, {
         slug: slugByCity.get(recipient.municipalityId) ?? '',
         // The override-aware display name — "София", not the municipality's
@@ -172,20 +172,12 @@ export async function runWeeklyDigest(options: DigestRunOptions): Promise<Digest
         name: cityDisplayName(recipient.municipalityNameBg, recipient.municipalityNameEn, locale),
         sports,
       });
-      if (delivered) report.sent += 1;
-      else report.skipped += 1;
-    } catch (error: unknown) {
-      report.failed += 1;
-      // A CATEGORY, never the message. An SMTP rejection reads
-      // "550 5.1.1 <ivan@example.org>: Recipient address rejected" — logging
-      // `error.message` would write every bounced address into the container
-      // log on the first Monday with a stale subscriber list. The counts in the
-      // report are what an operator acts on; the address is never needed.
-      console.error(`[worker] ${DIGEST_FAILURE_LOG} ${failureCategory(error)}`);
-    }
-  }
+      return delivered ? 'sent' : 'skipped';
+    },
+    { job: 'digest.weekly' },
+  );
 
-  return report;
+  return { ...report, subscribers: report.candidates };
 }
 
 async function sendOne(
@@ -225,7 +217,11 @@ async function sendOne(
           going: occurrence.going,
         })),
         weekUrl: citySlugPath,
+        // The body links the human confirm page (a GET that changes nothing,
+        // so a mail scanner fetching it unsubscribes nobody); the header names
+        // the RFC 8058 POST endpoint the mail client's own button calls.
         unsubscribeUrl: `${base}/sedmitsata/otpisvane/${recipient.unsubscribeToken}`,
+        oneClickUnsubscribeUrl: `${base}/api/digest/unsubscribe/${recipient.unsubscribeToken}`,
       },
       strings,
     );

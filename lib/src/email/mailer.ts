@@ -11,10 +11,21 @@ export interface MailMessage {
   /** Plain-text body. Always required — OTP mail must survive HTML-off clients. */
   text: string;
   html?: string;
+  /**
+   * Extra header fields, e.g. List-Unsubscribe on the weekly digest. Values
+   * must be single-line: a CR or LF in a header value is header injection, and
+   * the SMTP transport refuses the message rather than folding it.
+   */
+  headers?: Record<string, string>;
 }
 
 export interface Mailer {
   send(message: MailMessage): Promise<void>;
+  /**
+   * Release pooled connections, if the transport holds any. Optional: only
+   * SMTP keeps a pool, and a long-lived process calls this on shutdown.
+   */
+  close?(): Promise<void>;
 }
 
 /**

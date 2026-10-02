@@ -15,6 +15,7 @@ const STRINGS: SessionMailStrings = {
   subjectReminder: 'Reminder: {title}',
   subjectCancelled: 'Cancelled: {title}',
   greeting: 'Hi {name},',
+  greetingNoName: 'Hi,',
   leadConfirmed: 'You are signed up for {title}.',
   leadWaitlisted: 'You are number {position} on the waitlist for {title}.',
   leadPromoted: 'A spot opened up and you are now going to {title}.',
@@ -86,7 +87,7 @@ describe('renderSessionMail', () => {
 
   it('never leaves an unfilled placeholder in the body', () => {
     for (const kind of ALL_KINDS) {
-      const body = mail({ kind, position: 3, hoursBefore: 24 }).text;
+      const body = mail({ kind, waitlistPlace: 3, hoursBefore: 24 }).text;
       expect(body).not.toMatch(/\{\w+\}/);
     }
   });
@@ -101,8 +102,24 @@ describe('renderSessionMail', () => {
     expect(mail().to).toBe('');
   });
 
-  it('states the waitlist position', () => {
-    expect(mail({ kind: 'rsvp_waitlisted', position: 3 }).text).toContain('number 3');
+  it('states the place on the waitlist it is given', () => {
+    // The caller passes the WAITLIST place (position minus capacity); the
+    // renderer prints it as is. See db/src/session-mail-recipients.test.ts for
+    // the arithmetic against the real view.
+    expect(mail({ kind: 'rsvp_waitlisted', waitlistPlace: 1 }).text).toContain(
+      'You are number 1 on the waitlist',
+    );
+  });
+
+  it('greets a member who never set a name without a dangling comma', () => {
+    // OTP sign-up creates the account with an empty display name, and the
+    // first mail such a member got opened with «Здравейте, ,».
+    for (const recipientName of ['', '   ']) {
+      const body = mail({ recipientName }).text;
+      expect(body.split('\n')[0]).toBe(STRINGS.greetingNoName);
+      expect(body).not.toMatch(/Hi\s*,\s*,/);
+    }
+    expect(mail({ recipientName: '  Иван ' }).text.split('\n')[0]).toBe('Hi Иван,');
   });
 
   it('carries a withdrawal link in every message that is not a cancellation', () => {
@@ -133,11 +150,13 @@ describe('renderSessionMail', () => {
     expect(body.match(/Иван/g)).toHaveLength(1);
   });
 
-  it('includes the private feed link only when the member has one', () => {
+  it('points a member with a feed at the profile, never at the feed itself', () => {
     expect(mail().text).not.toContain(STRINGS.calendarFeed);
-    expect(mail({ feedUrl: 'https://pops.bg/kalendar/tok.ics' }).text).toContain(
-      'https://pops.bg/kalendar/tok.ics',
-    );
+    const body = mail({ calendarSettingsUrl: 'https://pops.bg/profil' }).text;
+    expect(body).toContain(`${STRINGS.calendarFeed}: https://pops.bg/profil`);
+    // The feed URL is /kalendar/<token>.ics — a credential. Nothing shaped like
+    // one may appear in a message that gets forwarded.
+    expect(body).not.toMatch(/\/kalendar\/[A-Za-z0-9_-]{22,}\.ics/);
   });
 
   it('defaults the reminder lead-in hours from the kind', () => {
