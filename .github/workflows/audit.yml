@@ -1,14 +1,20 @@
-# Weekly OSM data audit (docs/ROADMAP.md §3: <2% mismatch gate).
+# Weekly OSM IMPORT CANARY (docs/ROADMAP.md §3: <2% mismatch gate).
 #
-# Today this is a full-pipeline canary: fresh Geofabrik extract → migrate →
-# live import into an ephemeral CI database → 25-sample audit. It fails
-# loudly on download/checksum breakage, osmium changes, constraint
-# violations, import nondeterminism, or >2% field mismatch.
+# A full-pipeline canary: fresh Geofabrik extract → migrate → live import into
+# an EPHEMERAL CI database → 25-sample audit. It fails loudly on
+# download/checksum breakage, osmium changes, constraint violations, import
+# nondeterminism, or >2% field mismatch.
 #
-# TODO(prod): once the VPS database holds imported data, point the audit at
-# production via the deploy SSH path (run `pnpm import:osm:audit` inside the
-# worker container) so this becomes a true drift audit of live data.
-name: OSM audit
+# IT SAYS NOTHING ABOUT PRODUCTION'S DATA. Every run imports into a throwaway
+# database and samples that, so a green run means "the importer still works on
+# today's extract" — not "the live map is right". (It was called "OSM audit"
+# and read as the latter while ~69 commercial gyms sat on the production map as
+# free.) A true drift audit of live data would run `pnpm import:osm:audit`
+# inside the worker container over the deploy SSH path; that is still to do.
+#
+# The Geofabrik fetches retry a 5xx/429 (scripts/import-osm/src/download.ts):
+# the one red run in its first ten was a single transient 502.
+name: OSM import canary
 
 on:
   schedule:

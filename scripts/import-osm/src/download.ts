@@ -16,6 +16,34 @@ export interface ExtractInfo {
   downloaded: boolean;
 }
 
+/** Pauses between attempts: three tries in all, about a minute end to end. */
+export const RETRY_DELAYS_MS = [15_000, 45_000] as const;
+
+/**
+ * `fetch`, retried on what a mirror does when it is having a bad minute: a
+ * network error, a 5xx or a 429. Anything else — a 404 after Geofabrik moves
+ * the file, say — is answered at once, because retrying it only delays the
+ * failure. The weekly canary went red on 2026-09-07 for one transient 502.
+ */
+export async function fetchWithRetry(
+  url: string,
+  delays: readonly number[] = RETRY_DELAYS_MS,
+  sleep: (ms: number) => Promise<void> = (ms) => new Promise((done) => setTimeout(done, ms)),
+): Promise<Response> {
+  for (let attempt = 0; ; attempt += 1) {
+    const last = attempt >= delays.length;
+    try {
+      const response = await fetch(url);
+      if (last || (response.status < 500 && response.status !== 429)) return response;
+      // Drain the refused body so the connection is released before retrying.
+      await response.body?.cancel();
+    } catch (error) {
+      if (last) throw error;
+    }
+    await sleep(delays[attempt] ?? 0);
+  }
+}
+
 async function fileMd5(filePath: string): Promise<string> {
   const hash = createHash('md5');
   await pipeline(createReadStream(filePath), hash);
@@ -42,7 +70,7 @@ export async function ensureExtract(
     return { pbfPath, md5: await fileMd5(pbfPath), downloaded: false };
   }
 
-  const md5Response = await fetch(`${EXTRACT_URL}.md5`);
+  const md5Response = await fetchWithRetry(`${EXTRACT_URL}.md5`);
   if (!md5Response.ok) {
     throw new Error(`Geofabrik md5 fetch failed: HTTP ${String(md5Response.status)}`);
   }
@@ -58,7 +86,7 @@ export async function ensureExtract(
     }
   }
 
-  const response = await fetch(EXTRACT_URL);
+  const response = await fetchWithRetry(EXTRACT_URL);
   if (!response.ok || !response.body) {
     throw new Error(`Geofabrik download failed: HTTP ${String(response.status)}`);
   }
