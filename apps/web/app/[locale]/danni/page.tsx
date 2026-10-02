@@ -89,7 +89,9 @@ export default async function OpenDataPage({ params }: { params: PageParams }) {
           <p className="text-ink-soft">{t('apiIntro')}</p>
           <p className="text-body-sm text-ink-soft">
             {t('apiBaseLabel')}:{' '}
-            <code className="rounded-sm bg-paper-sunk px-1">
+            {/* break-all: a URL has no spaces to wrap at, and at phone width the
+              full API address pushed the whole page ~110px sideways. */}
+            <code className="break-all rounded-sm bg-paper-sunk px-1">
               {siteUrl()}/api/opendata/{OPEN_DATA_API_VERSION}
             </code>
           </p>
@@ -146,7 +148,7 @@ export default async function OpenDataPage({ params }: { params: PageParams }) {
                 {t(`datasets.${dataset.descriptionKey}`)}
               </p>
               <p className="text-caption text-ink-soft">
-                <code className="rounded-sm bg-paper-sunk px-1">{apiUrl(dataset)}</code>
+                <code className="break-all rounded-sm bg-paper-sunk px-1">{apiUrl(dataset)}</code>
               </p>
               <p className="text-caption text-ink-soft">
                 {t('apiFormatLabel')}: {dataset.formats.join(', ')}
