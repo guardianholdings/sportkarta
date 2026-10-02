@@ -149,6 +149,7 @@ export function SignInForm({ googleEnabled, next }: { googleEnabled: boolean; ne
 
       {googleEnabled && !onCodeStep && (
         <form action={googleSignInAction} className="space-y-2">
+          <input type="hidden" name="locale" value={locale} />
           <input type="hidden" name="next" value={next} />
           <div className="text-center text-caption text-text-muted">{t('or')}</div>
           <Button type="submit" variant="secondary" block>

@@ -1,7 +1,13 @@
 import { renderSql, type SQL } from '@sportkarta/db';
 import { describe, expect, it } from 'vitest';
 
-import { canAccessAdminPanel, hasAtLeast, syncAdminRole, toRole } from '@/lib/roles';
+import {
+  canAccessAdminPanel,
+  hasAtLeast,
+  isRevokedAdmin,
+  syncAdminRole,
+  toRole,
+} from '@/lib/roles';
 
 function recordingDb() {
   const statements: { sql: string; params: unknown[] }[] = [];
@@ -83,5 +89,32 @@ describe('syncAdminRole', () => {
       expect(statement.sql).toMatch(/WHERE id = \$1/);
       expect(statement.params[0]).toBe('user_1');
     }
+  });
+});
+
+describe('isRevokedAdmin', () => {
+  // getCurrentUser runs this on EVERY request: a removed admin with a live
+  // sliding session must lose the role on their next page view, not at a
+  // sign-in that may never come.
+  const allowlist = new Set(['pavel@example.org']);
+
+  it('flags an admin whose address has left the allowlist', () => {
+    expect(isRevokedAdmin('admin', 'former@example.org', allowlist)).toBe(true);
+  });
+
+  it('leaves a listed admin alone, whatever the address casing', () => {
+    expect(isRevokedAdmin('admin', 'pavel@example.org', allowlist)).toBe(false);
+    expect(isRevokedAdmin('admin', ' Pavel@Example.org ', allowlist)).toBe(false);
+  });
+
+  it('never touches ambassadors or members', () => {
+    // Only the admin role is environment-managed.
+    expect(isRevokedAdmin('ambassador', 'former@example.org', allowlist)).toBe(false);
+    expect(isRevokedAdmin('user', 'former@example.org', allowlist)).toBe(false);
+  });
+
+  it('revokes nothing when the allowlist is empty', () => {
+    // Same rule as syncAdminRole: a dropped variable must not lock out every admin.
+    expect(isRevokedAdmin('admin', 'anyone@example.org', new Set())).toBe(false);
   });
 });

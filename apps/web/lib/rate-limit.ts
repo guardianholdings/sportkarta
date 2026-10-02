@@ -38,6 +38,18 @@ export class SlidingWindowRateLimiter {
     return { allowed: true, retryAfterMs: 0 };
   }
 
+  /**
+   * Hand back the most recent allowed hit. For limiters that count only
+   * FAILURES: take a slot before the attempt runs (so a burst of parallel
+   * attempts cannot all slip past), and release it when the attempt succeeds.
+   */
+  release(key: string): void {
+    const times = this.hits.get(key);
+    if (!times) return;
+    times.pop();
+    if (times.length === 0) this.hits.delete(key);
+  }
+
   /** Drop keys whose hits have all aged out — bounds memory under many IPs. */
   private maybePrune(t: number): void {
     if (++this.checksSincePrune < 1000) return;

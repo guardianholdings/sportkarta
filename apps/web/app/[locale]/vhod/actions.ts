@@ -1,18 +1,29 @@
 'use server';
 
-import { MailNotConfiguredError } from '@sportkarta/lib/email';
+import { getLocale } from 'next-intl/server';
 import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { redirect as redirectOffSite } from 'next/navigation';
 
+import { getPathname, redirect } from '@/i18n/navigation';
 import { routing } from '@/i18n/routing';
-import { getAuth, LOCALE_HEADER } from '@/lib/auth';
-import { otpEmailRateLimiter, otpIpRateLimiter } from '@/lib/auth-rate-limit';
+import { getAuth, sendSignInCode } from '@/lib/auth';
+import {
+  beginCodeAttempt,
+  GLOBAL_SEND_KEY,
+  otpEmailRateLimiter,
+  otpGlobalSendLimiter,
+  otpIpRateLimiter,
+} from '@/lib/auth-rate-limit';
 import { clientIpFromForwardedFor } from '@/lib/rate-limit';
-import { safeRedirectOr } from '@/lib/safe-redirect';
+import { SIGN_IN_PATH, signInDestination } from '@/lib/sign-in-destination';
 
 /**
  * Email-OTP sign-in (docs/ROADMAP.md §5). Two steps in one action: request a
  * code, then exchange it for a session.
+ *
+ * This action is the ONLY way to request or redeem a code — better-auth's REST
+ * endpoints for both are disabled (lib/auth-surface.ts) — so the limiters here
+ * are the whole defence, not a layer in front of a side door.
  *
  * Nothing here logs the address or the code. Failures are reported with a
  * generic message so the form cannot be used to discover which addresses have
@@ -23,6 +34,7 @@ export type SignInError =
   | 'invalid_email'
   | 'invalid_code'
   | 'throttled'
+  | 'verify_throttled'
   | 'mail_unavailable'
   | 'auth_unavailable'
   | 'unknown';
@@ -46,6 +58,23 @@ async function clientKey(): Promise<string> {
 function resolveLocale(value: FormDataEntryValue | null): string {
   const candidate = String(value ?? '').toLowerCase();
   return routing.locales.find((locale) => locale === candidate) ?? routing.defaultLocale;
+}
+
+const CAP_WARNING_INTERVAL_MS = 10 * 60 * 1000;
+let lastCapWarningAt = 0;
+
+/**
+ * The global send cap refusing is an operator event — either a flood or a
+ * launch-day peak the cap was not sized for — so it is logged, but at most every
+ * ten minutes: under a flood, one line per refused request would bury the log.
+ */
+function warnGlobalCapReached(): void {
+  const now = Date.now();
+  if (now - lastCapWarningAt < CAP_WARNING_INTERVAL_MS) return;
+  lastCapWarningAt = now;
+  console.warn(
+    '[auth] hourly sign-in code cap reached (OTP_SEND_LIMIT_PER_HOUR); codes are refused until it frees up',
+  );
 }
 
 export async function signInAction(_prev: SignInState, formData: FormData): Promise<SignInState> {
@@ -85,37 +114,32 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
        */
       return { step: resend ? 'code' : 'email', email, error: 'throttled' };
     }
-
-    try {
-      await auth.api.sendVerificationOTP({
-        body: { email, type: 'sign-in' },
-        // The locale header is what makes the code arrive in the language the
-        // member is reading the site in.
-        headers: new Headers({ [LOCALE_HEADER]: locale }),
-      });
-      return { step: 'code', email, error: null };
-    } catch (error) {
-      if (error instanceof MailNotConfiguredError) {
-        console.error('[auth] OTP requested but no mail transport is configured');
-        return { step: 'email', email, error: 'mail_unavailable' };
-      }
-      // Production logs get the error type only — the message can carry the
-      // address. Local development gets the whole thing, or nothing is
-      // debuggable.
-      console.error(
-        '[auth] sending a sign-in code failed:',
-        process.env.NODE_ENV === 'production'
-          ? error instanceof Error
-            ? error.name
-            : typeof error
-          : error,
-      );
-      return { step: 'email', email, error: 'unknown' };
+    // Checked last, so a request the per-client limits refuse does not use up
+    // the site-wide allowance. Not the member's doing, so not "too many
+    // attempts": no code can be sent right now.
+    if (!otpGlobalSendLimiter.check(GLOBAL_SEND_KEY).allowed) {
+      warnGlobalCapReached();
+      return { step: resend ? 'code' : 'email', email, error: 'mail_unavailable' };
     }
+
+    // The code is mailed HERE, not by better-auth, so a failed send reaches the
+    // member as an error instead of «Изпратихме код» for a code that never left.
+    const outcome = await sendSignInCode(email, locale);
+    return outcome === 'sent'
+      ? { step: 'code', email, error: null }
+      : { step: 'email', email, error: outcome };
   }
 
   const code = String(formData.get('code') ?? '').trim();
   if (!CODE_PATTERN.test(code)) return { step: 'code', email, error: 'invalid_code' };
+
+  /**
+   * Brute-force bound. better-auth allows 3 guesses per code, but a new code
+   * resets that count, and it applies no limit at all to in-process calls — so
+   * this is what caps guesses per address (and per host) over time.
+   */
+  const attempt = beginCodeAttempt(email, await clientKey());
+  if (!attempt) return { step: 'code', email, error: 'verify_throttled' };
 
   try {
     await auth.api.signInEmailOTP({
@@ -123,16 +147,18 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
       headers: await headers(),
     });
   } catch (error) {
-    // Wrong, expired or already-used code — all the same message to the user.
-    // Detail is logged only outside production (it can name the address).
+    // Wrong, expired or already-used code — all the same message to the user,
+    // and all one counted failure. Detail is logged only outside production
+    // (it can name the address).
     if (process.env.NODE_ENV !== 'production') {
       console.error('[auth] code verification failed:', error);
     }
     return { step: 'code', email, error: 'invalid_code' };
   }
+  attempt.succeeded();
 
-  const next = String(formData.get('next') ?? '');
-  redirect(safeRedirectOr(next, '/profil'));
+  // In the language the member signed in with, whatever prefix `next` carried.
+  return redirect({ href: signInDestination(formData.get('next')), locale });
 }
 
 /**
@@ -141,24 +167,27 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
  */
 export async function googleSignInAction(formData: FormData): Promise<void> {
   const auth = getAuth();
-  if (!auth) redirect('/vhod');
+  const locale = resolveLocale(formData.get('locale'));
+  if (!auth) return redirect({ href: SIGN_IN_PATH, locale });
 
-  const next = String(formData.get('next') ?? '');
   const response = await auth.api.signInSocial({
     body: {
       provider: 'google',
-      callbackURL: safeRedirectOr(next, '/profil'),
+      callbackURL: getPathname({ href: signInDestination(formData.get('next')), locale }),
     },
     headers: await headers(),
   });
 
-  redirect(response.url ?? '/vhod');
+  // Off to Google: an absolute URL, so the plain Next redirect, not the i18n one.
+  if (response.url) return redirectOffSite(response.url);
+  return redirect({ href: SIGN_IN_PATH, locale });
 }
 
+/** Signing out keeps the language: the home page in the locale the member was reading. */
 export async function signOutAction(): Promise<void> {
   const auth = getAuth();
   if (auth) {
     await auth.api.signOut({ headers: await headers() });
   }
-  redirect('/');
+  return redirect({ href: '/', locale: await getLocale() });
 }

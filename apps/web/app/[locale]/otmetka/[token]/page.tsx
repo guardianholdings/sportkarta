@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
 import { getCurrentUser } from '@/lib/auth-session';
+import { signInHref } from '@/lib/sign-in-destination';
 import { checkinSecret } from '@/lib/checkin-config';
 import { occurrenceView } from '@/lib/sessions/occurrence';
 
@@ -82,7 +83,7 @@ export default async function CheckinPage({ params }: { params: PageParams }) {
             it may well have expired by the time they are back, which the page
             will then say plainly. */}
         <Link
-          href={`/vhod?next=${encodeURIComponent(`/otmetka/${token}`)}`}
+          href={signInHref(`/otmetka/${token}`)}
           className="font-medium text-link hover:text-link-hover"
         >
           {t('signInLink')}

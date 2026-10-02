@@ -1,8 +1,9 @@
 'use server';
 
 import { getDb } from '@sportkarta/db';
-import { redirect } from 'next/navigation';
+import { getLocale } from 'next-intl/server';
 
+import { redirect } from '@/i18n/navigation';
 import { requireUser } from '@/lib/auth-session';
 import { addFacilityRateLimiter } from '@/lib/contribution-rate-limit';
 import { addedRedirectValue } from '@/lib/contributions/added-banner';
@@ -83,5 +84,10 @@ export async function addFacilityAction(
 
   // Outside the try: redirect() signals by throwing, and catching it here would
   // both swallow the navigation and delete a photo that now has a facility.
-  redirect(`/obekt/${slug}?added=${String(awardedPoints)}`);
+  // In the member's language: an unprefixed next/navigation path is the
+  // Bulgarian page, which greeted English members' reward in Bulgarian.
+  return redirect({
+    href: `/obekt/${slug}?added=${String(awardedPoints)}`,
+    locale: await getLocale(),
+  });
 }

@@ -14,6 +14,7 @@ import { FacilitySponsorBlock } from '@/components/facility/facility-sponsor';
 import { ReportForm } from '@/components/facility/report-form';
 import { MiniMapLoader } from '@/components/map/mini-map-loader';
 import { getCurrentUser } from '@/lib/auth-session';
+import { signInHref } from '@/lib/sign-in-destination';
 import { addedPoints } from '@/lib/contributions/added-banner';
 import { issueFormToken } from '@/lib/form-token';
 import { serializeJsonLd } from '@/lib/json-ld';
@@ -218,7 +219,7 @@ export default async function FacilityPage({
             ) : (
               <p className="text-body-sm text-ink-soft">
                 <Link
-                  href={{ pathname: '/vhod', query: { next: `/obekt/${facility.slug}` } }}
+                  href={signInHref(`/obekt/${facility.slug}`)}
                   className="font-medium text-brand hover:text-brand-hover"
                 >
                   {tContribute('signInToContribute')}

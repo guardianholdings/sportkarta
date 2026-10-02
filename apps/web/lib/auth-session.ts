@@ -1,11 +1,23 @@
 import 'server-only';
 
 import { getDb, sql } from '@sportkarta/db';
+import { getLocale } from 'next-intl/server';
 import { headers } from 'next/headers';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
+
+import { redirect } from '@/i18n/navigation';
 
 import { getAuth } from './auth';
-import { ADMIN_PANEL_MIN_ROLE, hasAtLeast, toRole, type Role } from './roles';
+import { resolveAdminEmails } from './auth-config';
+import {
+  ADMIN_PANEL_MIN_ROLE,
+  hasAtLeast,
+  isRevokedAdmin,
+  syncAdminRole,
+  toRole,
+  type Role,
+} from './roles';
+import { REQUEST_PATH_HEADER, signInHref } from './sign-in-destination';
 
 /**
  * Session + authorization helpers. Replaces the Stage 1 admin-session module:
@@ -25,9 +37,23 @@ export interface CurrentUser {
   role: Role;
 }
 
-/** Public sign-in route (Bulgarian-first slugs, like the rest of the site). */
-export const SIGN_IN_PATH = '/vhod';
-export const PROFILE_PATH = '/profil';
+export { PROFILE_PATH, SIGN_IN_PATH } from './sign-in-destination';
+
+let adminEmails: ReadonlySet<string> | undefined;
+
+/**
+ * The admin role as of THIS request. ADMIN_EMAILS is re-checked on every
+ * authorization, not only at sign-in: a removed admin with a live 30-day
+ * sliding session would otherwise keep every right for as long as they kept
+ * visiting. The demotion is written back (syncAdminRole) rather than only
+ * computed here, because session-organiser checks read `users.role` in SQL.
+ */
+async function currentRole(userId: string, email: string, stored: unknown): Promise<Role> {
+  adminEmails ??= resolveAdminEmails(process.env);
+  if (!isRevokedAdmin(stored, email, adminEmails)) return toRole(stored);
+  await syncAdminRole(getDb(), userId, adminEmails);
+  return 'user';
+}
 
 /**
  * Verify the session, then read the profile from the database.
@@ -62,13 +88,25 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     displayName: String(row.display_name ?? ''),
     homeCity: (row.home_city as string | null) ?? null,
     isMinor: row.is_minor === true,
-    role: toRole(row.role),
+    role: await currentRole(String(row.id), String(row.email), row.role),
   };
+}
+
+/**
+ * Send an anonymous visitor to sign in — in the language of the page they were
+ * on, and carrying that page as `next`, so the code step returns them to it.
+ * The path comes from middleware (REQUEST_PATH_HEADER); a bare next/navigation
+ * redirect to '/vhod' used to drop both, landing English visitors on the
+ * Bulgarian form and everyone on /profil afterwards.
+ */
+async function redirectToSignIn(): Promise<never> {
+  const [headerStore, locale] = await Promise.all([headers(), getLocale()]);
+  return redirect({ href: signInHref(headerStore.get(REQUEST_PATH_HEADER)), locale });
 }
 
 export async function requireUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();
-  if (!user) redirect(SIGN_IN_PATH);
+  if (!user) return redirectToSignIn();
   return user;
 }
 
@@ -79,7 +117,7 @@ export async function requireUser(): Promise<CurrentUser> {
  */
 export async function requireRole(minimum: Role): Promise<CurrentUser> {
   const user = await getCurrentUser();
-  if (!user) redirect(SIGN_IN_PATH);
+  if (!user) return redirectToSignIn();
   if (!hasAtLeast(user.role, minimum)) notFound();
   return user;
 }

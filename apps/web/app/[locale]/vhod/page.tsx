@@ -1,9 +1,10 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { redirect } from 'next/navigation';
 
+import { redirect } from '@/i18n/navigation';
 import { resolveGoogleAuth } from '@/lib/auth-config';
-import { getCurrentUser, PROFILE_PATH } from '@/lib/auth-session';
+import { getCurrentUser } from '@/lib/auth-session';
 import { isAuthAvailable } from '@/lib/auth';
+import { signInDestination } from '@/lib/sign-in-destination';
 
 import { SignInForm } from './sign-in-form';
 import { AppShell } from '@/components/shell/app-shell';
@@ -18,16 +19,18 @@ export default async function SignInPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string | string[] }>;
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations('SignIn');
 
-  if (await getCurrentUser()) redirect(PROFILE_PATH);
+  const { next } = await searchParams;
+  // Already signed in: go where the link was headed (a shared session, a QR
+  // scan), in this page's language — not to the profile, and not in Bulgarian.
+  if (await getCurrentUser()) return redirect({ href: signInDestination(next), locale });
 
   const available = isAuthAvailable();
-  const { next } = await searchParams;
 
   return (
     <AppShell active="/profil">
@@ -49,7 +52,10 @@ export default async function SignInPage({
           <p className="text-body-sm text-ink-soft">{t('intro')}</p>
         </header>
         {available ? (
-          <SignInForm googleEnabled={resolveGoogleAuth(process.env).enabled} next={next ?? ''} />
+          <SignInForm
+            googleEnabled={resolveGoogleAuth(process.env).enabled}
+            next={typeof next === 'string' ? next : ''}
+          />
         ) : (
           <p role="alert" className="text-body-sm text-danger">
             {t('error_auth_unavailable')}
