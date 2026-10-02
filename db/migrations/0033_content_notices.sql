@@ -30,9 +30,17 @@
 --
 --   2. `moderation_decisions.reason` — a slug from the closed vocabulary in
 --      lib/src/moderation (labels live in messages/*.json, never here). From now
---      on a REFUSAL — a rejected photo, a facility marked gone — must carry
---      one: `moderation_decisions_refusal_has_reason`. Approvals and report
---      triage need none, and the ~all-NULL history stays exactly as it was.
+--      on a REFUSAL — a rejected photo, a published photo taken down (0032's
+--      'removed'), a facility marked gone — must carry one:
+--      `moderation_decisions_refusal_has_reason`. Approvals and report triage
+--      need none, and the ~all-NULL history stays exactly as it was.
+--
+--      The CHECK compares `decision::text`, for the reason 0032 spells out:
+--      'removed' is added by 0032's ALTER TYPE ... ADD VALUE, and on
+--      production 0032 and this file run in the SAME migrator transaction. An
+--      enum-typed literal 'removed' would be coerced through enum_in — a "use"
+--      of a label added in the current transaction, which PostgreSQL refuses —
+--      while a text literal only converts the row's value OUT of the enum.
 --
 --   3. `moderation_notifications` — the worker's idempotency ledger for the
 --      mail those two produce (statement of reasons, notice receipt, notice
@@ -53,9 +61,8 @@
 -- ambassador's authority is a municipality. A notice can concern a passport or
 -- a session that belongs to no facility, and deciding it is the controller's
 -- act, not a volunteer's — the web app gives it to `requireRole('admin')` only.
--- Widening the log would have meant a new enum value used in the same
--- transaction that adds it (refused by Postgres) and relaxing a NOT NULL the
--- SLA report relies on. So the notice row IS its own decision record, and the
+-- Widening the log would have meant a new target type in its allowlist CHECK
+-- and relaxing a NOT NULL the SLA report relies on. So the notice row IS its own decision record, and the
 -- guard trigger gives it the same property the log has: once decided, frozen.
 --
 -- LOCKING. Everything but (2) is new. The ADD COLUMN in (2) is catalogue-only
@@ -170,9 +177,9 @@ ALTER TABLE "moderation_decisions" ADD COLUMN "reason" text;--> statement-breakp
 ALTER TABLE "moderation_decisions" ADD CONSTRAINT "moderation_decisions_reason_format"
   CHECK ("reason" IS NULL OR "reason" ~ '^[a-z][a-z0-9_]{2,39}$') NOT VALID;--> statement-breakpoint
 ALTER TABLE "moderation_decisions" ADD CONSTRAINT "moderation_decisions_refusal_has_reason"
-  CHECK ("decision" NOT IN ('rejected', 'gone') OR "reason" IS NOT NULL) NOT VALID;--> statement-breakpoint
+  CHECK ("decision"::text NOT IN ('rejected', 'removed', 'gone') OR "reason" IS NOT NULL) NOT VALID;--> statement-breakpoint
 COMMENT ON COLUMN "moderation_decisions"."reason" IS
-  'Why, as a slug from lib/src/moderation (labels in messages/*.json). Required for rejected/gone from 0033 on; NULL on older rows and on approvals.';--> statement-breakpoint
+  'Why, as a slug from lib/src/moderation (labels in messages/*.json). Required for rejected/removed/gone from 0033 on; NULL on older rows and on approvals.';--> statement-breakpoint
 CREATE TABLE "moderation_notifications" (
 	"id" bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "moderation_notifications_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1),
 	"kind" "moderation_notification_kind" NOT NULL,

@@ -22,7 +22,13 @@ import { pendingNotices, type QueueNotice } from '@/lib/notices';
 import { photoUrl } from '@/lib/photo-url';
 import { parsePhotoLookup } from '@/lib/photos';
 
-import { decideFacility, decideNotice, decidePhoto, resolveReport, unpublishPhoto } from './actions';
+import {
+  decideFacility,
+  decideNotice,
+  decidePhoto,
+  resolveReport,
+  unpublishPhoto,
+} from './actions';
 
 export const dynamic = 'force-dynamic';
 

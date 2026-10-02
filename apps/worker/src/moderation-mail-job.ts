@@ -17,7 +17,7 @@ import { groundOf, type ReasonContext } from '@sportkarta/lib/moderation';
 
 /**
  * Moderation mail (migration 0033): the statement of reasons to a member whose
- * photo or facility we refused (DSA Art. 17), and the receipt and the outcome
+ * photo we refused or took down, or whose facility we removed (DSA Art. 17), and the receipt and the outcome
  * to whoever sent a notice through /signal (Art. 16(4)-(5)).
  *
  * SENT ONLY FROM HERE, like every other mail but the sign-in code. The web app
@@ -50,11 +50,13 @@ function messages(locale: string): Messages {
 
 const STRING_KEYS = [
   'subjectPhotoRejected',
+  'subjectPhotoRemoved',
   'subjectFacilityRemoved',
   'subjectNoticeReceived',
   'subjectNoticeDecided',
   'greeting',
   'leadPhotoRejected',
+  'leadPhotoRemoved',
   'leadFacilityRemoved',
   'leadNoticeReceived',
   'leadNoticeActioned',
@@ -153,8 +155,9 @@ async function compose(
   if (subject.kind === 'decision') {
     const target = await decisionMailTarget(db, subject.decisionId);
     if (!target) return null;
+    // A takedown is explained from the photo vocabulary, like a rejection.
     const context: ReasonContext =
-      target.kind === 'photo_rejected' ? 'photo_rejected' : 'facility_gone';
+      target.kind === 'facility_removed' ? 'facility_gone' : 'photo_rejected';
     return {
       to: target.email,
       data: {

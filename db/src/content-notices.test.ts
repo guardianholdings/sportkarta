@@ -256,11 +256,23 @@ describe.skipIf(!hasDb)('content notices and moderation mail (requires running d
   });
 
   describe('statement of reasons', () => {
-    async function photoDecision(decision: 'rejected' | 'approved', reason: string | null) {
+    let photoSeq = 0;
+    async function photoDecision(
+      decision: 'rejected' | 'removed' | 'approved',
+      reason: string | null,
+    ) {
+      photoSeq += 1;
+      // A taken-down photo is stored as 'rejected' (0032); only the log says 'removed'.
+      const status = decision === 'removed' ? 'rejected' : decision;
       const photo = await client.query<{ id: string }>(
         `INSERT INTO facility_photos (facility_id, storage_path, status, uploaded_by)
          VALUES ($1::uuid, $2, $3::photo_status, $4) RETURNING id`,
-        [facilityId, `photos/e2e-notice-${String(Date.now())}.webp`, decision, UPLOADER],
+        [
+          facilityId,
+          `photos/e2e-notice-${String(Date.now())}-${String(photoSeq)}.webp`,
+          status,
+          UPLOADER,
+        ],
       );
       const photoId = photo.rows[0]?.id ?? '';
       const logged = await client.query<{ id: string }>(
@@ -302,6 +314,18 @@ describe.skipIf(!hasDb)('content notices and moderation mail (requires running d
       // Erasure sets uploaded_by NULL: the job that runs after it tells nobody.
       await client.query(`DELETE FROM users WHERE id = $1`, [UPLOADER]);
       expect(await decisionMailTarget(db, decisionId)).toBeNull();
+    });
+
+    it('requires a reason for a takedown too, and names it as one', async () => {
+      await expect(photoDecision('removed', null)).rejects.toThrow(
+        /moderation_decisions_refusal_has_reason/,
+      );
+      const decisionId = await photoDecision('removed', 'not_uploaders_rights');
+      expect(await decisionMailTarget(db, decisionId)).toMatchObject({
+        kind: 'photo_removed',
+        email: 'uploader@example.test',
+        reason: 'not_uploaders_rights',
+      });
     });
 
     it('tells nobody about an approval — it restricts nothing', async () => {

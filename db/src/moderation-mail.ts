@@ -22,7 +22,7 @@ interface SqlRunner {
 /** A refusal and the member it restricted. */
 export interface DecisionMailTarget {
   decisionId: number;
-  kind: 'photo_rejected' | 'facility_removed';
+  kind: 'photo_rejected' | 'photo_removed' | 'facility_removed';
   email: string;
   reason: string | null;
   facilityName: string | null;
@@ -35,8 +35,10 @@ export interface DecisionMailTarget {
 /**
  * The member a refusal restricted, or null when there is nobody to tell.
  *
- * ONLY REFUSALS. An approved photo or a verified facility restricts nothing, and
- * Art. 17 is about restrictions; the join below simply matches no other kind.
+ * ONLY REFUSALS: a photo rejected in the queue, a published one taken down
+ * (0032's 'removed'), a facility marked gone. An approved photo or a verified
+ * facility restricts nothing, and Art. 17 is about restrictions; the join below
+ * simply matches no other kind.
  *
  * WHO. A photo's uploader is `facility_photos.uploaded_by` (NULL for the
  * anonymous report flow — nobody to tell). A crowd facility's author is the
@@ -49,7 +51,7 @@ export async function decisionMailTarget(
   decisionId: number,
 ): Promise<DecisionMailTarget | null> {
   const result = await db.execute(sql`
-    SELECT d.id, d.target_type, d.reason, f.name AS facility_name,
+    SELECT d.id, d.target_type, d.decision::text AS decision, d.reason, f.name AS facility_name,
            CASE WHEN f.status <> 'gone' THEN f.slug END AS facility_slug,
            to_char(d.decided_at AT TIME ZONE 'Europe/Sofia', 'DD.MM.YYYY') AS decided_on,
            u.email
@@ -65,14 +67,19 @@ export async function decisionMailTarget(
                 LIMIT 1)
            END
      WHERE d.id = ${decisionId}
-       AND ((d.target_type = 'photo' AND d.decision = 'rejected')
-         OR (d.target_type = 'facility' AND d.decision = 'gone'))
+       AND ((d.target_type = 'photo' AND d.decision::text IN ('rejected', 'removed'))
+         OR (d.target_type = 'facility' AND d.decision::text = 'gone'))
   `);
   const row = result.rows[0];
   if (!row || typeof row.email !== 'string' || row.email.trim() === '') return null;
   return {
     decisionId: Number(row.id),
-    kind: row.target_type === 'photo' ? 'photo_rejected' : 'facility_removed',
+    kind:
+      row.target_type === 'facility'
+        ? 'facility_removed'
+        : row.decision === 'removed'
+          ? 'photo_removed'
+          : 'photo_rejected',
     email: row.email,
     reason: (row.reason as string | null) ?? null,
     facilityName: (row.facility_name as string | null) ?? null,

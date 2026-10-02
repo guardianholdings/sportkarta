@@ -164,6 +164,7 @@ describe('moderation reasons and mail', () => {
     const strings: ModerationMailStrings = bg.ModerationEmail;
     const kinds = [
       'photo_rejected',
+      'photo_removed',
       'facility_removed',
       'notice_received',
       'notice_actioned',

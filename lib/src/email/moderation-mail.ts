@@ -29,6 +29,7 @@ import type { MailMessage } from './mailer.js';
 
 export type ModerationMailKind =
   | 'photo_rejected'
+  | 'photo_removed'
   | 'facility_removed'
   | 'notice_received'
   | 'notice_actioned'
@@ -36,12 +37,15 @@ export type ModerationMailKind =
 
 export interface ModerationMailStrings {
   subjectPhotoRejected: string;
+  subjectPhotoRemoved: string;
   subjectFacilityRemoved: string;
   subjectNoticeReceived: string;
   subjectNoticeDecided: string;
   greeting: string;
   /** `{facility}` */
   leadPhotoRejected: string;
+  /** `{facility}` — a published photo taken down again (0032). */
+  leadPhotoRemoved: string;
   /** `{facility}` */
   leadFacilityRemoved: string;
   /** `{url}` `{date}` */
@@ -70,7 +74,7 @@ export interface ModerationMailStrings {
 
 export interface ModerationMailData {
   kind: ModerationMailKind;
-  /** The facility the content belonged to, for the two refusal kinds. */
+  /** The facility the content belonged to, for the three refusal kinds. */
   facilityName?: string | null | undefined;
   /** Link to the facility when it is still public (a rejected photo's). */
   facilityUrl?: string | undefined;
@@ -106,6 +110,8 @@ function subjectFor(kind: ModerationMailKind, s: ModerationMailStrings): string 
   switch (kind) {
     case 'photo_rejected':
       return s.subjectPhotoRejected;
+    case 'photo_removed':
+      return s.subjectPhotoRemoved;
     case 'facility_removed':
       return s.subjectFacilityRemoved;
     case 'notice_received':
@@ -122,6 +128,8 @@ function leadFor(data: ModerationMailData, s: ModerationMailStrings): string {
   switch (data.kind) {
     case 'photo_rejected':
       return fill(s.leadPhotoRejected, { facility });
+    case 'photo_removed':
+      return fill(s.leadPhotoRemoved, { facility });
     case 'facility_removed':
       return fill(s.leadFacilityRemoved, { facility });
     case 'notice_received':

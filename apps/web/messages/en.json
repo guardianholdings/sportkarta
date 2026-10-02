@@ -224,7 +224,7 @@
     "noticeDismiss": "No action",
     "reasonLabel": "Reason",
     "reasonPlaceholder": "Choose a reason…",
-    "refusalNote": "A refusal needs a reason: the author receives it by email together with how to contest the decision."
+    "refusalNote": "Every rejection, takedown or removal needs a reason: the author receives it by email together with how to contest the decision."
   },
   "AdminImport": {
     "title": "OSM import",
@@ -2345,7 +2345,7 @@
     "moderation": {
       "title": "How we moderate",
       "how": "New facilities appear on the map straight away — before another member or a moderator has checked them. Photos are published only after a moderator approves them. Moderators are the volunteer ambassadors for their municipality and the POPS administrators. Automated checks can only prompt — a person always decides.",
-      "reasons": "When we reject your photo or remove a facility you added, we email you what we decided, on what ground — a breach of these terms or illegal content — and how to contest the decision.",
+      "reasons": "When we reject or take down your photo or remove a facility you added, we email you what we decided, on what ground — a breach of these terms or illegal content — and how to contest the decision.",
       "restrictions": "We may refuse, edit or remove content that breaks these terms or the law. For serious or repeated breaches we may restrict or close the account."
     },
     "notices": {
@@ -2460,11 +2460,13 @@
   },
   "ModerationEmail": {
     "subjectPhotoRejected": "Your photo was not published — POPS",
+    "subjectPhotoRemoved": "A photo you uploaded was taken down — POPS",
     "subjectFacilityRemoved": "A facility you added was removed — POPS",
     "subjectNoticeReceived": "We received your notice — POPS",
     "subjectNoticeDecided": "Decision on your notice — POPS",
     "greeting": "Hello,",
     "leadPhotoRejected": "The photo you uploaded for {facility} was not published.",
+    "leadPhotoRemoved": "The photo you uploaded for {facility} was taken down from the site and its file deleted.",
     "leadFacilityRemoved": "The facility {facility}, which you added, was removed from the map.",
     "leadNoticeReceived": "We received your notice about {url} on {date}.",
     "leadNoticeActioned": "We reviewed your notice about {url} and took action against the content.",

@@ -8,11 +8,13 @@ import {
 
 const STRINGS: ModerationMailStrings = {
   subjectPhotoRejected: 'Your photo was not published',
+  subjectPhotoRemoved: 'Your photo was taken down',
   subjectFacilityRemoved: 'A facility you added was removed',
   subjectNoticeReceived: 'We received your notice',
   subjectNoticeDecided: 'Decision on your notice',
   greeting: 'Hello,',
   leadPhotoRejected: 'Your photo of {facility} was not published.',
+  leadPhotoRemoved: 'Your photo of {facility} was taken down.',
   leadFacilityRemoved: '{facility}, which you added, was removed from the map.',
   leadNoticeReceived: 'We received your notice about {url} on {date}.',
   leadNoticeActioned: 'We acted on your notice about {url}.',
@@ -59,6 +61,14 @@ describe('renderModerationMail — statement of reasons', () => {
     expect(text).toContain('To contest this, write to info@pops.bg.');
     expect(text).toContain('You may also go to court.');
     expect(text).toContain('Terms: https://pops.bg/usloviya');
+  });
+
+  it('tells a takedown apart from a refusal — the photo WAS public', () => {
+    const { subject, text } = mail({ kind: 'photo_removed', ground: 'law' });
+    expect(subject).toBe('Your photo was taken down');
+    expect(text).toContain('Your photo of Борисова градина was taken down.');
+    expect(text).toContain('Ground: the content appeared to be illegal.');
+    expect(text).toContain('You may also go to court.');
   });
 
   it('states the legal ground when the reason claims illegality', () => {

@@ -149,7 +149,14 @@ describe('decidePhoto', () => {
     // The usual reason to reject is that the photo shows people; keeping the
     // file (and every backup of it) would keep exactly what was refused.
     const db = fakeDb([[PHOTO_ROW], []]);
-    const result = await decidePhoto(db, AMBASSADOR, PHOTO, 'rejected', fakeFiles(db.events), REASON);
+    const result = await decidePhoto(
+      db,
+      AMBASSADOR,
+      PHOTO,
+      'rejected',
+      fakeFiles(db.events),
+      REASON,
+    );
 
     expect(result.applied).toBe(true);
     expect(db.events).toEqual(['commit', `delete ${STORED}`]);
@@ -183,7 +190,14 @@ describe('decidePhoto', () => {
   it('stands by a committed rejection even when the file delete fails', async () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const db = fakeDb([[PHOTO_ROW], []]);
-    const result = await decidePhoto(db, AMBASSADOR, PHOTO, 'rejected', fakeFiles(db.events, true), REASON);
+    const result = await decidePhoto(
+      db,
+      AMBASSADOR,
+      PHOTO,
+      'rejected',
+      fakeFiles(db.events, true),
+      REASON,
+    );
     expect(result.applied).toBe(true);
     expect(db.events).toEqual(['commit', `delete ${STORED}`]);
     // The failure is reported by photo id and error code; the log carries no
@@ -349,7 +363,14 @@ describe('a refused photo carries its reason', () => {
 
   it('logs no reason against an approval', async () => {
     const db = fakeDb([[PHOTO_ROW], [{ id: 3 }]]);
-    await decidePhoto(db, AMBASSADOR, PHOTO, 'approved', fakeFiles(db.events), 'identifiable_person');
+    await decidePhoto(
+      db,
+      AMBASSADOR,
+      PHOTO,
+      'approved',
+      fakeFiles(db.events),
+      'identifiable_person',
+    );
     expect(db.statements[1]?.params).not.toContain('identifiable_person');
   });
 });

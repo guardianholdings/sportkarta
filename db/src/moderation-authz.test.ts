@@ -303,17 +303,18 @@ describe.skipIf(!hasDb)('moderation scope (requires running database)', () => {
   it('accepts a takedown in the log for photos only (0032)', async () => {
     // queued_at = now(): a takedown has no queue, and now() is the transaction
     // timestamp, so it equals decided_at's default and satisfies the order CHECK.
+    // A takedown is a refusal, so since 0033 it carries its reason.
     await client.query(
       `INSERT INTO moderation_decisions
-         (actor_id, target_type, target_id, facility_id, municipality_id, decision, queued_at)
-       VALUES ($1, 'photo', $2::uuid, $3::uuid, $4, 'removed', now())`,
+         (actor_id, target_type, target_id, facility_id, municipality_id, decision, reason, queued_at)
+       VALUES ($1, 'photo', $2::uuid, $3::uuid, $4, 'removed', 'identifiable_person', now())`,
       [SOFIA_AMBASSADOR, sofiaPhoto, sofiaFacility, sofiaId],
     );
     await expect(
       client.query(
         `INSERT INTO moderation_decisions
-           (actor_id, target_type, target_id, facility_id, municipality_id, decision, queued_at)
-         VALUES ($1, 'report', $2::uuid, $3::uuid, $4, 'removed', now())`,
+           (actor_id, target_type, target_id, facility_id, municipality_id, decision, reason, queued_at)
+         VALUES ($1, 'report', $2::uuid, $3::uuid, $4, 'removed', 'identifiable_person', now())`,
         [SOFIA_AMBASSADOR, sofiaReport, sofiaFacility, sofiaId],
       ),
     ).rejects.toThrow(/moderation_decisions_decision_matches_target/);
