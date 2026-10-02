@@ -17,6 +17,7 @@ import {
   STATUS_VALUES,
 } from '@/lib/admin-data';
 import { requireAdmin } from '@/lib/auth-session';
+import { formatCoordinate } from '@/lib/facility-editor';
 
 import { saveFacility } from '../actions';
 
@@ -185,7 +186,7 @@ export default async function AdminFacilityEditPage({
                 <Input
                   name="lat"
                   inputMode="decimal"
-                  defaultValue={facility.lat.toFixed(6)}
+                  defaultValue={formatCoordinate(facility.lat)}
                   autoComplete="off"
                 />
               </label>
@@ -194,7 +195,7 @@ export default async function AdminFacilityEditPage({
                 <Input
                   name="lon"
                   inputMode="decimal"
-                  defaultValue={facility.lon.toFixed(6)}
+                  defaultValue={formatCoordinate(facility.lon)}
                   autoComplete="off"
                 />
               </label>

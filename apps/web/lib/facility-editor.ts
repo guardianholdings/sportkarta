@@ -16,9 +16,25 @@ export interface Point {
   lat: number;
 }
 
-/** Six decimals ≈ 11 cm: the precision the add-facility flow stores. */
+/**
+ * What the editor's lat/lon inputs show: six decimals ≈ 11 cm, the precision
+ * the add-facility flow stores. The page pre-fills the form with THIS, and the
+ * save compares against it, so the two cannot round differently.
+ */
+export function formatCoordinate(value: number): string {
+  return value.toFixed(6);
+}
+
+/**
+ * Six decimals, rounded exactly as the form displays them. Not
+ * `Math.round(v * 1e6) / 1e6`: OSM centroids carry seven decimals, and on a
+ * half-way value the two disagree (42.6977085 shows as 42.697708 but
+ * Math.round gives 42.697709) — about one OSM facility in ten — so every save
+ * of an untouched form recorded a phantom ~10 cm move, which as a crowd `geom`
+ * edit froze the pin against every future import.
+ */
 function round6(value: number): number {
-  return Math.round(value * 1e6) / 1e6;
+  return Number(formatCoordinate(value));
 }
 
 /**
@@ -42,7 +58,11 @@ export function parseLocation(
   return { lon: round6(point.lon), lat: round6(point.lat) };
 }
 
-/** Did the operator actually move it? Compared at the stored precision. */
+/**
+ * Did the operator actually move it? Compared at the precision the form shows,
+ * so an untouched form — or the full-precision value pasted back in — is never
+ * a move.
+ */
 export function locationChanged(current: Point, next: Point): boolean {
   return round6(current.lon) !== next.lon || round6(current.lat) !== next.lat;
 }

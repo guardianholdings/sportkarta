@@ -4,7 +4,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { feedHref, parseFeedParams } from '@/app/[locale]/admin/(protected)/redakcii/params';
-import { locationChanged, parseLocation } from '@/lib/facility-editor';
+import { formatCoordinate, locationChanged, parseLocation } from '@/lib/facility-editor';
 
 /**
  * The admin editor's new fields and the crowd-edit feed's URL handling
@@ -42,6 +42,47 @@ describe('locationChanged', () => {
     expect(locationChanged({ lon: 23.3219, lat: 42.6977 }, { lon: 23.3229, lat: 42.6977 })).toBe(
       true,
     );
+  });
+
+  /** What saving the editor without touching the pin submits. */
+  function untouched(current: { lon: number; lat: number }) {
+    const next = parseLocation(formatCoordinate(current.lon), formatCoordinate(current.lat));
+    if (next === null || next === 'invalid') throw new Error('expected a point');
+    return next;
+  }
+
+  it('is not a move when the untouched form is saved, on half-way OSM coordinates', () => {
+    // Seven-decimal OSM centroids. 42.6977085 is shown as 42.697708, where
+    // Math.round(v * 1e6) / 1e6 gives 42.697709 — a phantom ~10 cm crowd move
+    // on every save, freezing the pin against every future import.
+    const osm = { lon: 23.3219335, lat: 42.6977085 };
+    expect(formatCoordinate(osm.lat)).toBe('42.697708');
+    expect(locationChanged(osm, untouched(osm))).toBe(false);
+  });
+
+  it('is not a move for any seven-decimal point saved untouched', () => {
+    for (let i = 0; i < 20_000; i += 1) {
+      // Deterministic sweep across Bulgaria's extent, in 1e-7 steps.
+      const point = {
+        lon: Math.round((22.4 + ((i * 7919) % 6_000_000) / 1e7) * 1e7) / 1e7,
+        lat: Math.round((41.3 + ((i * 104_729) % 2_800_000) / 1e7) * 1e7) / 1e7,
+      };
+      expect(locationChanged(point, untouched(point)), JSON.stringify(point)).toBe(false);
+    }
+  });
+
+  it('is not a move when the full-precision value is pasted back in', () => {
+    const osm = { lon: 23.3219335, lat: 42.6977085 };
+    const pasted = parseLocation(String(osm.lon), String(osm.lat));
+    if (pasted === null || pasted === 'invalid') throw new Error('expected a point');
+    expect(locationChanged(osm, pasted)).toBe(false);
+  });
+
+  it('is a move at the smallest step the form can express', () => {
+    const osm = { lon: 23.3219335, lat: 42.6977085 };
+    const moved = parseLocation(formatCoordinate(osm.lon), '42.697709');
+    if (moved === null || moved === 'invalid') throw new Error('expected a point');
+    expect(locationChanged(osm, moved)).toBe(true);
   });
 });
 
