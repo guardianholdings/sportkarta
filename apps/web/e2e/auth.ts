@@ -27,40 +27,44 @@ const OUTBOX = process.env.MAIL_OUTBOX_DIR?.trim() || './var/mail';
 export const ADMIN_EMAIL = 'e2e@example.org';
 
 interface Delivered {
-  text: string;
+  /** The outbox file name, or mailpit's message ID. */
+  id: string;
+  at: number;
+  /** Present for the outbox; mailpit serves it from a second endpoint. */
+  text?: string;
 }
 
 /**
- * Newest message addressed to `email` in the file outbox, or null.
+ * Every message in the file outbox addressed to `email`.
  *
- * Filenames are ISO timestamps, so sorting them orders the outbox. Scanning by
- * recipient rather than emptying the directory first is deliberate: better-auth
- * sends the code in the background, so a send can land just after the action
- * returns — deleting the directory underneath it loses the message and the test
- * waits forever for a code that was never written.
+ * Scanning by recipient rather than emptying the directory first is
+ * deliberate: better-auth sends the code in the background, so a send can land
+ * just after the action returns — deleting the directory underneath it loses
+ * the message and the test waits forever for a code that was never written.
  */
-async function latestInOutbox(email: string, since: number): Promise<Delivered | null> {
+async function fromOutbox(email: string): Promise<Delivered[]> {
   let files: string[];
   try {
-    files = (await readdir(OUTBOX)).filter((name) => name.endsWith('.json')).sort();
+    files = (await readdir(OUTBOX)).filter((name) => name.endsWith('.json'));
   } catch {
-    return null;
+    return [];
   }
-  for (const name of files.reverse()) {
+  const found: Delivered[] = [];
+  for (const name of files) {
     try {
       const message = JSON.parse(await readFile(path.join(OUTBOX, name), 'utf8')) as {
         to: string;
         text: string;
         sentAt: string;
       };
-      // `since` rules out a code left by an earlier run for the same address:
-      // that one has been rotated and would fail verification.
-      if (message.to === email && Date.parse(message.sentAt) >= since) return message;
+      if (message.to === email) {
+        found.push({ id: name, at: Date.parse(message.sentAt), text: message.text });
+      }
     } catch {
       // A message being written right now: skip it, the poll will retry.
     }
   }
-  return null;
+  return found;
 }
 
 interface MailpitSummary {
@@ -70,43 +74,67 @@ interface MailpitSummary {
 }
 
 /**
- * Newest message addressed to `email` in mailpit, or null.
+ * Every message in mailpit addressed to `email`.
  *
  * mailpit's `to:` search is a substring match, so the recipient is compared
  * exactly here — `e2e@example.org` must not pick up a code sent to
- * `x-e2e@example.org`. `since` does the same job as for the outbox: an earlier
- * run's code for the same address has been rotated.
+ * `x-e2e@example.org`.
  */
-async function latestInMailpit(
-  base: string,
-  email: string,
-  since: number,
-): Promise<Delivered | null> {
+async function fromMailpit(base: string, email: string): Promise<Delivered[]> {
   const query = encodeURIComponent(`to:"${email}"`);
   const search = await fetch(`${base}/api/v1/search?query=${query}&limit=50`);
-  if (!search.ok) return null;
+  if (!search.ok) return [];
   const { messages } = (await search.json()) as { messages?: MailpitSummary[] };
-  const newest = (messages ?? [])
+  return (messages ?? [])
     .filter((m) => (m.To ?? []).some((to) => to.Address.toLowerCase() === email.toLowerCase()))
-    .filter((m) => Date.parse(m.Created) >= since)
-    .sort((a, b) => Date.parse(b.Created) - Date.parse(a.Created))[0];
-  if (!newest) return null;
-  const message = await fetch(`${base}/api/v1/message/${encodeURIComponent(newest.ID)}`);
-  if (!message.ok) return null;
-  const { Text } = (await message.json()) as { Text?: string };
-  return { text: Text ?? '' };
+    .map((m) => ({ id: m.ID, at: Date.parse(m.Created) }));
 }
 
-export async function readOtp(email: string, since: number): Promise<string> {
+async function deliveredTo(email: string): Promise<Delivered[]> {
+  return MAILPIT ? fromMailpit(MAILPIT, email) : fromOutbox(email);
+}
+
+async function textOf(message: Delivered): Promise<string> {
+  if (message.text !== undefined || !MAILPIT) return message.text ?? '';
+  const response = await fetch(`${MAILPIT}/api/v1/message/${encodeURIComponent(message.id)}`);
+  if (!response.ok) return '';
+  const { Text } = (await response.json()) as { Text?: string };
+  return Text ?? '';
+}
+
+/**
+ * What the sink already holds for `email`. Take it BEFORE asking for a code,
+ * and pass it to readOtp: none of it can be the code that request sends.
+ *
+ * `since` alone could not say so. It carries a second of slack for the clock
+ * difference between this process and the sink, and the admin tests sign in as
+ * one shared address back to back — so the previous test's code, landed a few
+ * hundred milliseconds earlier and since rotated, passed for the new one, and
+ * the sign-in failed on «Кодът е грешен или изтекъл» until the retry.
+ */
+export async function alreadyDelivered(email: string): Promise<ReadonlySet<string>> {
+  return new Set((await deliveredTo(email)).map((message) => message.id));
+}
+
+/**
+ * The code in the newest message to `email` that arrived after `since` and is
+ * not in `seen`. `since` rules out a code left by an earlier run for the same
+ * address: that one has been rotated and would fail verification.
+ */
+export async function readOtp(
+  email: string,
+  since: number,
+  seen: ReadonlySet<string> = new Set(),
+): Promise<string> {
   let code: string | undefined;
   await expect
     .poll(
       async () => {
-        const message = MAILPIT
-          ? await latestInMailpit(MAILPIT, email, since)
-          : await latestInOutbox(email, since);
-        if (!message) return undefined;
-        code = /\b(\d{6})\b/.exec(message.text)?.[1];
+        const newest = (await deliveredTo(email))
+          .filter((message) => !seen.has(message.id) && message.at >= since)
+          .sort((a, b) => b.at - a.at)[0];
+        if (!newest) return undefined;
+        code = /\b(\d{6})\b/.exec(await textOf(newest))?.[1];
         return code;
       },
       { message: `no sign-in code was delivered to ${email}`, timeout: 10_000 },
@@ -122,12 +150,13 @@ export async function readOtp(email: string, since: number): Promise<string> {
 export async function signIn(page: Page, email: string, expectUrl: RegExp): Promise<void> {
   await page.goto('/vhod');
   await page.getByLabel(/имейл|email/i).fill(email);
+  const seen = await alreadyDelivered(email);
   // One second of slack for clock granularity between this process and the
   // mail sink (a file's timestamp, or mailpit's receive time).
   const since = Date.now() - 1000;
   await page.getByRole('button', { name: /изпрати код|send code/i }).click();
 
-  const code = await readOtp(email, since);
+  const code = await readOtp(email, since, seen);
   await page.getByLabel(/код|code/i).fill(code);
   await page.getByRole('button', { name: /^(влез|sign in)$/i }).click();
   await page.waitForURL(expectUrl);

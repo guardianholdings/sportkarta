@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { config } from 'dotenv';
 import pg from 'pg';
 
-import { ADMIN_EMAIL, signIn } from './auth';
+import { ADMIN_EMAIL, alreadyDelivered, readOtp, signIn } from './auth';
 
 // Repo-root .env: DATABASE_URL. The admin account is bootstrapped from
 // ADMIN_EMAILS (see ci.yml); Playwright runs with cwd = apps/web, so ../../.env
@@ -71,7 +71,13 @@ test.describe('admin authz', () => {
   test('a wrong code never creates a session', async ({ page }) => {
     await page.goto('/vhod');
     await page.getByLabel(/имейл|email/i).fill(ADMIN_EMAIL);
+    const seen = await alreadyDelivered(ADMIN_EMAIL);
+    const since = Date.now() - 1000;
     await page.getByRole('button', { name: /изпрати код|send code/i }).click();
+    // The real code is never used, but this test waits for it to land: still in
+    // flight when the test ended, it would arrive inside the next admin
+    // sign-in's wait and be taken for that one's code.
+    await readOtp(ADMIN_EMAIL, since, seen);
     await page.getByLabel(/код|code/i).fill('000000');
     await page.getByRole('button', { name: /^(влез|sign in)$/i }).click();
 
