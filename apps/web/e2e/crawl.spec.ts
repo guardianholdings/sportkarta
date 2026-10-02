@@ -68,11 +68,32 @@ const ADMIN_ONLY = [
 ];
 const ADMIN_ROUTES = [...MEMBER_ROUTES, ...ADMIN_ONLY];
 
+/**
+ * Landing routes that answer a role with redirect() instead of a page, and
+ * where they must send it. Behind the root loading boundary that redirect is
+ * not a 3xx: the page streams a 200 shell carrying Next's refresh marker
+ * (e2e/responses.ts), and the browser leaves the moment it hydrates. Under
+ * `next start` that is at once, so reading such a page's DOM races its own
+ * navigation ("Execution context was destroyed") — every role's crawl failed
+ * that way against the production build. So a redirect is read from the HTML,
+ * held to this map in BOTH directions (an anonymous visitor who is NOT sent
+ * away from /danni/klyuchove is a leak; a signed-in member who IS sent away
+ * from /profil has lost their session), and its destination is checked with
+ * the links instead of being crawled for them.
+ */
+const ANONYMOUS_REDIRECTS: Record<string, string> = { '/danni/klyuchove': '/vhod' };
+const SIGNED_IN_REDIRECTS: Record<string, string> = { '/vhod': '/profil' };
+
 interface CrawlResult {
   badPages: string[];
   deadLinks: string[];
   emptyLinks: string[];
   antiPatterns: string[];
+}
+
+interface Fetched {
+  status: number | 'unreachable';
+  html: string;
 }
 
 // Locally the e2e server can be `next dev` (playwright.config.ts), which
@@ -83,32 +104,73 @@ interface CrawlResult {
 // rendered the not-found UI counts as the 404 it would have been, because
 // behind the root loading boundary notFound() arrives with a 200 status line
 // (e2e/responses.ts). Without that, a dead link could no longer fail the crawl.
-async function statusOf(page: Page, url: string, nav: boolean): Promise<number | 'unreachable'> {
+//
+// Always over `page.request` (the browser context's cookies, no JavaScript):
+// a fetched page cannot navigate itself away before it has been read.
+async function fetchRoute(page: Page, url: string): Promise<Fetched> {
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
-      if (nav) {
-        const r = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-        if (!r) return 0;
-        return rendersNotFound(r.status(), await r.text()) ? 404 : r.status();
-      }
       const r = await page.request.get(url, { maxRedirects: 5, timeout: 30_000 });
-      return rendersNotFound(r.status(), await r.text()) ? 404 : r.status();
+      const html = await r.text();
+      return { status: rendersNotFound(r.status(), html) ? 404 : r.status(), html };
     } catch {
       await new Promise((r) => setTimeout(r, 500 * (attempt + 1))); // back off; the route is likely compiling
     }
   }
-  return 'unreachable';
+  return { status: 'unreachable', html: '' };
 }
 
-async function crawl(page: Page, routes: string[]): Promise<CrawlResult> {
+function isBad(status: Fetched['status']): boolean {
+  return status === 'unreachable' || status === 404 || status >= 500;
+}
+
+/** Open a page that is known to render, for the checks only a DOM can answer. */
+async function openInBrowser(page: Page, route: string): Promise<boolean> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await page.goto(route, { waitUntil: 'load', timeout: 30_000 });
+      return true;
+    } catch {
+      await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+    }
+  }
+  return false;
+}
+
+async function crawl(
+  page: Page,
+  routes: string[],
+  redirects: Record<string, string>,
+): Promise<CrawlResult> {
   const res: CrawlResult = { badPages: [], deadLinks: [], emptyLinks: [], antiPatterns: [] };
   const links = new Map<string, string>(); // internal target → first source route
 
   // 1. Visit each landing surface (sequential): assert it renders, collect links.
   for (const route of routes) {
-    const status = await statusOf(page, route, true);
-    if (status === 'unreachable' || status === 404 || status >= 500) {
+    const { status, html } = await fetchRoute(page, route);
+    if (isBad(status)) {
       res.badPages.push(`${route} → ${String(status)}`);
+      continue;
+    }
+
+    const sentTo = softRedirectTarget(html);
+    const expected = redirects[route] ?? null;
+    if (sentTo !== expected) {
+      res.badPages.push(
+        `${route} → ${sentTo === null ? 'rendered' : `redirected to ${sentTo}`}, expected ${
+          expected === null ? 'a page' : `a redirect to ${expected}`
+        }`,
+      );
+      continue;
+    }
+    if (sentTo !== null) {
+      // Nothing of its own to read; where it leads must still be alive.
+      if (!links.has(sentTo)) links.set(sentTo, route);
+      continue;
+    }
+
+    if (!(await openInBrowser(page, route))) {
+      res.badPages.push(`${route} → unreachable in the browser`);
       continue;
     }
 
@@ -137,10 +199,8 @@ async function crawl(page: Page, routes: string[]): Promise<CrawlResult> {
     const batch = entries.slice(i, i + CONCURRENCY);
     const results = await Promise.all(
       batch.map(async ([target, src]) => {
-        const status = await statusOf(page, target, false);
-        return status === 'unreachable' || status === 404 || status >= 500
-          ? `${src} → ${target} (${String(status)})`
-          : null;
+        const { status } = await fetchRoute(page, target);
+        return isBad(status) ? `${src} → ${target} (${String(status)})` : null;
       }),
     );
     for (const bad of results) if (bad) res.deadLinks.push(bad);
@@ -203,7 +263,7 @@ test.describe('link crawler', () => {
   test.describe.configure({ timeout: 240_000 });
 
   test('anonymous', async ({ page }) => {
-    assertClean(await crawl(page, PUBLIC_ROUTES));
+    assertClean(await crawl(page, PUBLIC_ROUTES, ANONYMOUS_REDIRECTS));
     // Auth-gating: an anonymous visitor reaches no member/admin surface.
     await assertDenied(page, [...MEMBER_ONLY, ...ADMIN_ONLY], 'anonymous');
   });
@@ -257,7 +317,7 @@ test.describe('link crawler', () => {
 
   test('member', async ({ page }) => {
     await signIn(page, `crawl-member-${String(Date.now())}@example.org`, /\/profil/);
-    assertClean(await crawl(page, MEMBER_ROUTES));
+    assertClean(await crawl(page, MEMBER_ROUTES, SIGNED_IN_REDIRECTS));
     // A plain member reaches no admin/ambassador surface.
     await assertDenied(page, ADMIN_ONLY, 'member');
   });
@@ -293,6 +353,6 @@ test.describe('link crawler', () => {
 
   test('admin', async ({ page }) => {
     await signIn(page, ADMIN_EMAIL, /\/profil/);
-    assertClean(await crawl(page, ADMIN_ROUTES));
+    assertClean(await crawl(page, ADMIN_ROUTES, SIGNED_IN_REDIRECTS));
   });
 });
