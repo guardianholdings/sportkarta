@@ -244,6 +244,22 @@
     "skipToContent": "Skip to content",
     "loading": "Loading…"
   },
+  "NotFound": {
+    "metaTitle": "Page not found",
+    "code": "Error 404",
+    "title": "This page doesn't exist",
+    "body": "The link may be out of date, or the place may have been taken off the map. Start again from the map, or see what's being played this week.",
+    "toMap": "Back to the map",
+    "toSessions": "Upcoming sessions"
+  },
+  "ErrorPage": {
+    "code": "Something went wrong",
+    "title": "This page couldn't load",
+    "body": "We've hit a temporary problem on our side. Try again in a moment — if it still fails, head back to the map.",
+    "retry": "Try again",
+    "toMap": "Back to the map",
+    "reference": "Reference code: {digest}"
+  },
   "Map": {
     "discoverTitle": "Discover places",
     "searchPlaceholder": "Search a place or activity",
