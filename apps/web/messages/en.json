@@ -699,7 +699,7 @@
     "recipients": {
       "title": "Who receives data",
       "intro": "We do not sell data and do not use it for advertising. We share it only with the following recipients, and only as far as needed:",
-      "hosting": "Hetzner Online GmbH (Germany) — hosting and backups. The server and the database are in a data centre in Finland (EU); encrypted copies of the database and the uploaded photos are kept in a separate Hetzner data centre in Germany (EU).",
+      "hosting": "Hetzner Online GmbH (Germany) — hosting and backups. The server and the database are in a data centre in Finland (EU); once off-server backups are switched on, encrypted copies of the database and the uploaded photos are kept in a separate Hetzner data centre in Germany (EU).",
       "network": "Cloudflare, Inc. (USA) — network protection and delivery. Every visit to the site passes through Cloudflare’s network on its way to our server, so Cloudflare processes your IP address and the requests themselves (including which pages you open) to deliver the site and protect it from attacks, and keeps technical logs of this for a limited time under its own terms. It keeps copies only of the site’s design files, fonts and icons, which are the same for everyone — never of pages, photos or anything about you.",
       "mail": "Migadu-Mail GmbH (Switzerland) — our email. The site’s messages to you (sign-in codes, session confirmations and reminders, decisions on your contributions) are sent through Migadu, so your address and their content pass through it; messages you write to us are kept in our mailbox there until we delete them — write to us if you want yours deleted.",
       "people": "People at POPS: a session organiser sees the display names of those signed up; ambassadors (volunteer moderators for their municipality) see the contributions and facility reports there; administrators can use the admin panel, and every time they open an account it is recorded.",
@@ -719,7 +719,7 @@
       "notices": "The name and email in a content notice — up to {days} days after the decision on it; the notice itself and the decision are kept as a record.",
       "logs": "Records of administrators opening accounts — with no time limit, so that every such access can be checked.",
       "errors": "Error reports in GlitchTip — up to 90 days.",
-      "backups": "Backups — of the database for up to 14 days on the server, and of the database and uploaded photos for about 8 weeks in a separate data centre. A deleted account or photo disappears from them as the copies expire."
+      "backups": "Backups — of the database for up to 14 days on the server, and of the database and uploaded photos for about 8 weeks in a separate data centre, once that is switched on. A deleted account or photo disappears from them as the copies expire."
     },
     "rights": {
       "title": "Your rights",

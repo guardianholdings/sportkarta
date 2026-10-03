@@ -131,8 +131,10 @@ empty is also acceptable.
 
 ## 5. Off-box copies
 
-Since 2026-10-03 restic pushes every night to **Hetzner Object Storage in
-Falkenstein (FSN1)** — a different data centre from the server (Helsinki).
+Off-box copies go to **Hetzner Object Storage in Falkenstein (FSN1)** — a
+different data centre from the server (Helsinki); chosen 2026-10-03, and
+restic pushes there every night once the S3 key pair and the passphrase are in
+the secrets (steps 1–2).
 Hetzner already hosts everything else, so this adds no company to the privacy
 policy, and restic encrypts before it uploads, so Hetzner only ever holds
 ciphertext. The bucket's name is in the `RESTIC_REPOSITORY` secret (this
