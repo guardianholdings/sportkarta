@@ -1,6 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 
-import { renderOgCard } from '@/lib/og/card';
+import { cachedOgCard } from '@/lib/og/card';
 import { OG_PALETTE } from '@/lib/og/palette';
 
 /**
@@ -28,7 +28,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     getTranslations({ locale: lang, namespace: 'Og' }),
     getTranslations({ locale: lang, namespace: 'Metadata' }),
   ]);
-  return renderOgCard({
+  return cachedOgCard({
     title: tOg('site.title'),
     subtitle: tMeta('description'),
     wordmark: tOg('wordmark'),

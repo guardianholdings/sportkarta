@@ -26,10 +26,16 @@
 export const ROOT_CLIENT_NAMESPACES = [
   'Access',
   'Ads',
+  // The error boundary (app/[locale]/error.tsx) can render on any page.
+  'ErrorPage',
   'Facility',
   'Footer',
+  // The language switcher sits in the footer, on every page.
+  'LocaleSwitcher',
   'Map',
   'Nav',
+  // The DSA notice form (/signal) has no layout of its own.
+  'Notice',
   'Sport',
   'Surface',
 ] as const;
@@ -37,10 +43,17 @@ export const ROOT_CLIENT_NAMESPACES = [
 export const CLIENT_SCOPES = {
   admin: {
     dir: 'app/[locale]/admin/(protected)',
-    namespaces: ['AdminAmbassadors', 'AdminCampaigns', 'AdminEdit', 'AdminMap', 'AdminVerify'],
+    namespaces: [
+      'AdminAccounts',
+      'AdminAmbassadors',
+      'AdminCampaigns',
+      'AdminEdit',
+      'AdminMap',
+      'AdminVerify',
+    ],
   },
   addFacility: { dir: 'app/[locale]/dobavi', namespaces: ['AddFacility', 'Contribute'] },
-  checkin: { dir: 'app/[locale]/otmetka', namespaces: ['Checkin'] },
+  checkin: { dir: 'app/[locale]/otmetka', namespaces: ['Checkin', 'Contribute'] },
   designSystem: { dir: 'app/[locale]/design-system', namespaces: ['DesignSystem'] },
   facility: {
     dir: 'app/[locale]/obekt',
