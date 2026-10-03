@@ -1,10 +1,17 @@
 import { config } from 'dotenv';
 import pg from 'pg';
 
+import { fixtureRetirementsRecorded, retireSeedFixtures } from '../src/seed-fixtures.js';
 import { refreshStats } from '../src/stats.js';
 import { backfillSlugs } from './backfill-slugs.js';
 import { loadPopulation } from './load-population.js';
-import { isProductionSeed, seedSteps, type SeedStep } from './seed-plan.js';
+import {
+  EXPORT_DIR_ENV,
+  fixtureScopeRefusal,
+  isProductionSeed,
+  seedSteps,
+  type SeedStep,
+} from './seed-plan.js';
 
 // Root .env (relative to this file: db/scripts/ -> repo root).
 config({ path: new URL('../../.env', import.meta.url).pathname });
@@ -130,7 +137,8 @@ const SEED_FACILITIES: SeedFacility[] = [
 // facilities in distinct municipalities instead of creating their own
 // (creating would drift the stats materialized views), so the seed must
 // provide that world. The production scope (`--production`, deploy.yml) writes
-// only the _health row, population and the stats refresh.
+// only the _health row, the fixtures' retirement (once), population and the
+// stats refresh.
 async function runStep(client: pg.Client, step: SeedStep): Promise<void> {
   switch (step) {
     case 'health': {
@@ -213,6 +221,36 @@ async function runStep(client: pg.Client, step: SeedStep): Promise<void> {
       console.log(`seed: assigned ${String(slugged)} facility slug(s)`);
       return;
     }
+    case 'retire_fixtures': {
+      // Boss decision #18 (db/src/seed-fixtures.ts): export, then retire, the
+      // fixtures that reached this database — in ONE transaction, so a failed
+      // export changes nothing. A no-op once they are retired.
+      await client.query('BEGIN');
+      try {
+        const report = await retireSeedFixtures(client, {
+          exportDir: process.env[EXPORT_DIR_ENV],
+        });
+        await client.query('COMMIT');
+        if (report.retired === 0) {
+          console.log(
+            `seed: no seed fixtures to retire (${String(report.present)} fixture id(s) present, none visible and unretired)`,
+          );
+        } else {
+          // Counts and a server path only: the deploy log is public.
+          console.log(
+            `seed: retired ${String(report.retired)} seed fixture(s) (status gone); export written to ${String(report.exportPath)}`,
+          );
+          const kept = Object.entries(report.dependents)
+            .map(([table, n]) => `${table} ${String(n)}`)
+            .join(', ');
+          console.log(`seed: rows referencing them, all kept: ${kept}`);
+        }
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      }
+      return;
+    }
     case 'population': {
       // Municipality population (per-10k); rows for unknown codes are skipped.
       const populated = await loadPopulation(client);
@@ -237,13 +275,26 @@ async function main(): Promise<void> {
   const production = isProductionSeed(process.argv.slice(2));
   console.log(
     production
-      ? 'seed: production scope — no fixtures (_health, population, stats only)'
+      ? 'seed: production scope — no fixtures (_health, fixture retirement, population, stats)'
       : 'seed: fixture scope (dev/CI) — placeholder municipalities + fixture facilities',
   );
+  // The environment half of the guard needs no database: refuse before
+  // connecting.
+  if (!production) {
+    const refusal = fixtureScopeRefusal({ env: process.env, retirementsRecorded: 0 });
+    if (refusal) throw new Error(`refusing the fixture seed: ${refusal}`);
+  }
 
   const client = new pg.Client({ connectionString: url });
   await client.connect();
   try {
+    if (!production) {
+      const refusal = fixtureScopeRefusal({
+        env: process.env,
+        retirementsRecorded: await fixtureRetirementsRecorded(client),
+      });
+      if (refusal) throw new Error(`refusing the fixture seed: ${refusal}`);
+    }
     for (const step of seedSteps(production)) {
       await runStep(client, step);
     }

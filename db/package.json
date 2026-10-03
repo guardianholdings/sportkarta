@@ -13,6 +13,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/seed.ts",
+    "db:restore-seed-fixtures": "tsx scripts/restore-seed-fixtures.ts",
     "db:backfill-slugs": "tsx scripts/backfill-slugs.ts",
     "db:load-population": "tsx scripts/load-population.ts",
     "db:refresh-stats": "tsx scripts/refresh-stats.ts",

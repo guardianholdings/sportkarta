@@ -102,6 +102,23 @@ their own name in steps 4–6, stopping `umami` or the three `glitchtip*`
 services instead of `web`/`worker`). Nobody's data is in them; starting them
 empty is also acceptable.
 
+## 3a. Undo the seed fixtures' retirement (Boss decision #18)
+
+Every deploy runs `pnpm db:seed --production`, which once retired the seven
+seed fixtures (`status = 'gone'` — nothing deleted; their rows are also in
+every nightly dump) after writing them to the `seed-exports` volume. To put
+them back on the map, Claude runs, in `/opt/sportkarta`:
+
+1. **Find the export**:
+   `docker run --rm -v sportkarta_seed-exports:/exports:ro alpine:3.20 ls -l /exports/seed-fixtures`
+2. **Restore it** — one transaction, each change audited, then the statistics
+   views are refreshed:
+   `C --profile ops run --rm migrate pnpm db:restore-seed-fixtures /exports/seed-fixtures/<file>.json`
+
+Later deploys leave restored fixtures alone: retirement runs once per row. The
+export holds facility rows and counts only, and stays on this server — never
+copy it into the repository, an issue or a workflow log.
+
 ## 4. The server is gone — rebuild it
 
 1. **YOU** — Hetzner console → new server: **CPX32**, **Ubuntu 24.04**,
