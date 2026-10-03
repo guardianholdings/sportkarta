@@ -200,21 +200,39 @@ jobs:
             echo "  StrictHostKeyChecking yes"
             echo "  UserKnownHostsFile ~/.ssh/known_hosts"
           } > ~/.ssh/config
-      # No PROD_DOMAIN secret yet = IP-only mode: plain HTTP on the server
-      # address, Caddyfile.ip (no TLS, no subdomains). Setting PROD_DOMAIN
-      # later flips everything back to the TLS Caddyfile and https URLs in
-      # one deploy — nothing else to change.
+      # The canonical host. A PROD_DOMAIN repository VARIABLE wins over the
+      # PROD_DOMAIN secret it replaces: a domain is public, and as a secret
+      # GitHub printed it as *** in every log line that names the site.
+      # Neither set = IP-only mode: plain HTTP on the server address,
+      # Caddyfile.ip (no TLS, no subdomains). Setting one flips everything to
+      # the TLS Caddyfile and https URLs in one deploy — nothing else to change
+      # (sign-in, canonical links, the sitemap and mail links all read SITE_URL).
       - name: Compute public base URL
         id: base
+        env:
+          PROD_DOMAIN: ${{ vars.PROD_DOMAIN || secrets.PROD_DOMAIN }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
-          if [ -n "${{ secrets.PROD_DOMAIN }}" ]; then
-            echo "url=https://${{ secrets.PROD_DOMAIN }}" >> "$GITHUB_OUTPUT"
+          if [ -n "$PROD_DOMAIN" ]; then
+            echo "domain=$PROD_DOMAIN" >> "$GITHUB_OUTPUT"
+            echo "url=https://$PROD_DOMAIN" >> "$GITHUB_OUTPUT"
+            # The server's own sslip.io name is where the site lived before it
+            # had a domain, so early links, bookmarks and printed QR codes point
+            # there. It keeps answering, with a redirect (deploy/Caddyfile).
+            legacy=""
+            if printf '%s' "$DEPLOY_HOST" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}$' \
+              && [ "$DEPLOY_HOST.sslip.io" != "$PROD_DOMAIN" ]; then
+              legacy="$DEPLOY_HOST.sslip.io"
+            fi
+            echo "legacy=$legacy" >> "$GITHUB_OUTPUT"
           else
-            echo "url=http://${{ secrets.DEPLOY_HOST }}" >> "$GITHUB_OUTPUT"
+            echo "domain=" >> "$GITHUB_OUTPUT"
+            echo "url=http://$DEPLOY_HOST" >> "$GITHUB_OUTPUT"
+            echo "legacy=" >> "$GITHUB_OUTPUT"
           fi
       - name: Ship compose, Caddyfile, initdb
         run: |
-          if [ -n "${{ secrets.PROD_DOMAIN }}" ]; then
+          if [ -n "${{ steps.base.outputs.domain }}" ]; then
             scp deploy/Caddyfile vps:/opt/sportkarta/Caddyfile
           else
             scp deploy/Caddyfile.ip vps:/opt/sportkarta/Caddyfile
@@ -225,7 +243,8 @@ jobs:
         run: |
           ssh vps 'umask 077 && cat > /opt/sportkarta/.env' <<'EOF'
           # Rendered by deploy.yml — do not edit by hand.
-          DOMAIN=${{ secrets.PROD_DOMAIN }}
+          DOMAIN=${{ steps.base.outputs.domain }}
+          LEGACY_HOSTS=${{ steps.base.outputs.legacy }}
           SITE_URL=${{ steps.base.outputs.url }}
           IMAGE_TAG=${{ env.DEPLOY_SHA }}
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}

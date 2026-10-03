@@ -29,6 +29,9 @@ services:
       - '443:443/udp'
     environment:
       DOMAIN: ${DOMAIN}
+      # Other names that answer with a redirect to DOMAIN (deploy/Caddyfile):
+      # the server's old sslip.io name. Rendered by deploy.yml; may be empty.
+      LEGACY_HOSTS: ${LEGACY_HOSTS:-}
       # Lock on the Umami/GlitchTip dashboards (deploy/Caddyfile). Rendered by
       # deploy.yml on every deploy; required, because a missing hash would make
       # Caddy refuse the whole config and take the site down with it.

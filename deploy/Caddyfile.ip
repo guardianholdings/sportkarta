@@ -1,7 +1,7 @@
 # Caddy v2 — IP-only mode: plain HTTP on :80, no TLS, no subdomains.
-# deploy.yml ships THIS file as the server's Caddyfile while the PROD_DOMAIN
-# secret is unset, and deploy/Caddyfile (Let's Encrypt + subdomains) once it
-# is set. Umami and GlitchTip stay reachable only inside the compose network
+# deploy.yml ships THIS file as the server's Caddyfile while PROD_DOMAIN (a
+# repository variable, or the older secret) is unset, and deploy/Caddyfile
+# (Let's Encrypt + subdomains) once it is set. Umami and GlitchTip stay reachable only inside the compose network
 # in this mode — they get their subdomains back with the domain.
 
 :80 {

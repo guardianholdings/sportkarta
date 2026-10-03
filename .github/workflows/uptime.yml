@@ -36,11 +36,12 @@ jobs:
     steps:
       - name: GET /api/health (fails loudly)
         env:
-          PROD_DOMAIN: ${{ secrets.PROD_DOMAIN }}
+          PROD_DOMAIN: ${{ vars.PROD_DOMAIN || secrets.PROD_DOMAIN }}
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
           # The address deploy.yml publishes: the domain over TLS once
-          # PROD_DOMAIN is set, the bare server address until then.
+          # PROD_DOMAIN (variable, or the older secret) is set, the bare server
+          # address until then.
           if [ -n "$PROD_DOMAIN" ]; then
             url="https://$PROD_DOMAIN/api/health"
           else

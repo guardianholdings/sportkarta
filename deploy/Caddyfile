@@ -1,9 +1,10 @@
-# Caddy v2 — automatic Let's Encrypt for all three hosts.
-# DOMAIN and ADMIN_TOOLS_HASH come from /opt/sportkarta/.env via compose.
+# Caddy v2 — automatic Let's Encrypt for every host below.
+# DOMAIN, LEGACY_HOSTS and ADMIN_TOOLS_HASH come from /opt/sportkarta/.env via
+# compose.
 
-# Shared by every host. HSTS without includeSubDomains/preload on purpose: while
-# the site lives on a borrowed wildcard-DNS name (sslip.io), those flags would
-# make a promise about hosts we do not own.
+# Shared by every host. HSTS without includeSubDomains/preload on purpose: the
+# same snippet covers the server's borrowed wildcard-DNS name (sslip.io, see
+# LEGACY_HOSTS), and those flags would make a promise about hosts we do not own.
 (hardening) {
 	header {
 		Strict-Transport-Security "max-age=31536000"
@@ -96,9 +97,20 @@ glitchtip.{$DOMAIN} {
 	}
 }
 
-# Anything that arrives addressed to something other than the three hosts above
-# — most importantly the raw server IP, which is where every existing link and
-# bookmark points — is redirected to the canonical host rather than dropped.
+# The other names the site answers to, each with its own certificate and a
+# permanent redirect to the canonical host: www, and LEGACY_HOSTS — the
+# server's sslip.io name, where the site lived before it had a domain, so early
+# links, bookmarks and printed QR codes point there. deploy.yml renders
+# LEGACY_HOSTS and it may be empty; Caddy expands an env placeholder before it
+# parses, so the line then simply lists one address. 308 keeps method and path.
+www.{$DOMAIN} {$LEGACY_HOSTS} {
+	import hardening
+	redir https://{$DOMAIN}{uri} 308
+}
+
+# Anything that arrives over plain HTTP addressed to none of the hosts above
+# — most importantly the raw server IP, which is where the earliest links and
+# bookmarks point — is redirected to the canonical host rather than dropped.
 #
 # Without this the switch from IP-only mode reads as an outage: Caddy answers a
 # non-matching host with an empty 200 or a closed connection, and the previous
