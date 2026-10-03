@@ -578,6 +578,7 @@ export function MapExplorer({
           <AdCreative id={ad.id} url={ad.url} alt={ad.alt} label={tAds('label')} />
         </div>
       )}
+      <MapLegalLinks />
     </div>
   );
 
@@ -977,6 +978,36 @@ function EmptyState({
       </div>
       {action}
     </div>
+  );
+}
+
+// ── Legal links ───────────────────────────────────────────────────────────
+
+/**
+ * The legal set — privacy, terms, contact and the DSA notice form — on the one
+ * page without the site footer: the full-screen map hides it (site-footer.tsx),
+ * and the map is where almost every visit starts. It closes the results list,
+ * which is capped at 60 rows, so the end of the panel is always reachable, just
+ * as the footer ends every other page. Same labels, same 44px tap targets.
+ */
+function MapLegalLinks() {
+  const t = useTranslations('Footer');
+  const link = 'inline-flex min-h-11 items-center font-medium text-ink-soft hover:text-brand';
+  return (
+    <nav className="mt-4 flex flex-wrap items-center gap-x-4 border-t border-line pt-1 text-caption">
+      <Link href="/privacy" className={link}>
+        {t('privacy')}
+      </Link>
+      <Link href="/usloviya" className={link}>
+        {t('terms')}
+      </Link>
+      <Link href="/kontakt" className={link}>
+        {t('contact')}
+      </Link>
+      <Link href="/signal" className={link}>
+        {t('notice')}
+      </Link>
+    </nav>
   );
 }
 
