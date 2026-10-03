@@ -29,7 +29,6 @@ export const PRIVACY_RECIPIENTS = [
   'hosting',
   'network',
   'mail',
-  'backups',
   'people',
   'external',
   'noSale',

@@ -329,6 +329,10 @@ services:
       # default, so an unconfigured deployment behaves exactly as before.
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      # The S3 signing region. Without it restic signs for us-east-1, which an
+      # S3-compatible host that names its regions by location rejects — Hetzner
+      # Object Storage wants `fsn1` for fsn1.your-objectstorage.com.
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-}
       B2_ACCOUNT_ID: ${B2_ACCOUNT_ID:-}
       B2_ACCOUNT_KEY: ${B2_ACCOUNT_KEY:-}
       TZ: Europe/Sofia

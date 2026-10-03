@@ -129,19 +129,35 @@ empty is also acceptable.
      members must sign up again. Say so publicly and plainly.
 6. Map tiles: Claude rebuilds and loads them per `deploy/tiles/README.md`.
 
-## 5. Off-box copies — set these up before you need them
+## 5. Off-box copies
 
-1. **YOU** — Backblaze → B2 → create a private bucket and an application key
-   limited to it.
-2. **YOU** — GitHub → Settings → Secrets and variables → Actions → add
-   `RESTIC_REPOSITORY` (e.g. `s3:s3.eu-central-003.backblazeb2.com/<bucket>`),
+Since 2026-10-03 restic pushes every night to **Hetzner Object Storage in
+Falkenstein (FSN1)** — a different data centre from the server (Helsinki).
+Hetzner already hosts everything else, so this adds no company to the privacy
+policy, and restic encrypts before it uploads, so Hetzner only ever holds
+ciphertext. The bucket's name is in the `RESTIC_REPOSITORY` secret (this
+repository is public; the name is not published here).
+
+To set it up again (a new bucket, rotated keys):
+
+1. **YOU** — Hetzner Console → Object Storage → Create Bucket (Falkenstein,
+   private), then Security → S3 Credentials → Generate credentials. The
+   secret key is shown only once.
+2. Claude opens secure macOS input boxes — hidden input, asked twice — that
+   put each value straight into a GitHub Actions secret, so it never enters a
+   chat: `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (the S3 key pair) and
    `RESTIC_PASSWORD` (a long random phrase — **also keep it in your password
-   manager**: without it the copies can never be read), and `AWS_ACCESS_KEY_ID`
-   / `AWS_SECRET_ACCESS_KEY` (the B2 key id and key).
-3. Merge anything to `main`, or run **Deploy** by hand, so the server gets them.
-4. The next morning Claude checks the backup log for `restic push complete`
-   and runs `C run --rm backup restic snapshots`. After that, local dumps are
-   kept for 3 days and the history lives off-box.
+   manager**: without it the copies can never be read). Claude sets the
+   non-secret parts itself: `RESTIC_REPOSITORY`
+   (`s3:https://fsn1.your-objectstorage.com/<bucket>`) and the
+   `BACKUP_S3_REGION` repository variable (`fsn1`; without it restic signs for
+   us-east-1, which Hetzner rejects).
+3. Deploy — merge anything to `main`, or run **Deploy** with `rollback_to` =
+   main HEAD — so the server gets them.
+4. Claude runs the job once by hand (`C exec -T backup /usr/local/bin/backup.sh`),
+   looks for `restic push complete`, and runs
+   `C run --rm backup restic snapshots`. From then on local dumps are kept for
+   3 days and the history lives off-box (14 daily + 8 weekly snapshots).
 5. Once, to prove it: Claude restores the newest restic snapshot of
    `/backups/pg` into a scratch directory on the server and runs the rehearsal
    commands against that dump.
