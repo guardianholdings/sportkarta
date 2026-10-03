@@ -72,11 +72,22 @@
 -- request reads — adds two NULLable columns with no default (catalog-only, no
 -- rewrite) and three CHECKs whose validation scan passes trivially because both
 -- columns are NULL everywhere. It is a single ALTER statement so the table is
--- locked and scanned once, and it is placed LAST, with the COMMENTs, so the
--- ACCESS EXCLUSIVE lock is held for the last milliseconds of the transaction
--- (the 0007/0020 house rule). lock_timeout bounds the wait behind an in-flight
--- reader; SET LOCAL, reset at the end, so it cannot leak into a later migration
--- on a fresh database where the whole run is one transaction.
+-- locked and scanned once, and it is placed LAST in this file, with the
+-- COMMENTs (the 0007/0020 house rule). That keeps the lock short only within
+-- the file: the migrator runs the whole pending batch in ONE transaction, on
+-- production as on a fresh database, so when 0033 ships with 0034 and 0035
+-- the ACCESS EXCLUSIVE lock on `users` is held until the batch commits — every
+-- signed-in request waits for that, normally tens of milliseconds, at worst a
+-- few seconds (each later lock wait is bounded by its own lock_timeout).
+-- Acceptable pre-launch; a change that must hold `users` only briefly has to
+-- ship alone or last. lock_timeout bounds the wait behind an in-flight reader;
+-- SET LOCAL, reset at the end, so it does not leak into the next file.
+--
+-- Rolling back only the APPLICATION (deploy.yml `rollback_to`) silently lifts
+-- every active suspension: the older build's getCurrentUser never reads
+-- suspended_at, so a suspended member simply signs in again (only
+-- users_suspended_is_private still holds). Before an app-only rollback, check
+--   SELECT count(*) FROM users WHERE suspended_at IS NOT NULL;
 --
 -- rollback (compensating SQL, reverse order; revert the application first —
 -- getCurrentUser selects suspended_at, and would fail on every request):
