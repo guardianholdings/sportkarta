@@ -20,7 +20,7 @@ import { buildAlternates } from '@/lib/seo';
  * location-derived distances, public passports and boards, session and digest
  * mail, the moderation and access logs, the session user agent). This page is
  * the rewrite: every processing activity with its purpose and legal basis, the
- * recipients and the one transfer outside the EU, how long each thing is kept,
+ * recipients and the transfers outside the EU, how long each thing is kept,
  * the rights and the regulator, cookies, minors and automated decisions.
  *
  * IT DESCRIBES THE CODE, so the code is its source: the retention figures below

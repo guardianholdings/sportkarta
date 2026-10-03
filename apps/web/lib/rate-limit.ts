@@ -65,10 +65,13 @@ export class SlidingWindowRateLimiter {
  * Client IP for rate-limiting, from `X-Forwarded-For`.
  *
  * Take the RIGHTMOST hop, not the leftmost. The app is only reachable through
- * Caddy (deploy/Caddyfile; web:3000 is not published), and Caddy APPENDS the
- * real TCP peer as the last XFF entry. A client can prepend spoofed entries
- * (`X-Forwarded-For: 1.1.1.1, ...`) but cannot forge the one Caddy adds, so the
- * rightmost value is the trustworthy per-client key. Returns null when absent.
+ * Caddy (deploy/Caddyfile; web:3000 is not published), and Caddy REPLACES the
+ * header with exactly one address: the visitor's — read from Cloudflare's
+ * CF-Connecting-IP when the connection comes from Cloudflare's published
+ * ranges, the TCP peer otherwise (the Caddyfile's `visitor_address`). A client
+ * can send any X-Forwarded-For it likes and none of it survives; rightmost
+ * stays the safe reading should a hop ever be appended after Caddy's.
+ * Returns null when absent.
  */
 export function clientIpFromForwardedFor(xff: string | null | undefined): string | null {
   if (!xff) return null;

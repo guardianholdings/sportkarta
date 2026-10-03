@@ -1,6 +1,37 @@
 # Caddy v2 — automatic Let's Encrypt for every host below.
 # DOMAIN, LEGACY_HOSTS and ADMIN_TOOLS_HASH come from /opt/sportkarta/.env via
 # compose.
+#
+# The site's own names are PROXIED by Cloudflare (orange-cloud DNS records):
+# visitors reach Cloudflare's edge, and Cloudflare reaches this server. Three
+# things follow, each handled below: whose address a request comes from and how
+# this server gets its certificates (the global options), and what Cloudflare
+# may keep copies of (`@edge_never`). The legacy sslip.io name is not proxied,
+# and everything here is equally correct for direct traffic.
+{
+	servers {
+		# Whose address is it? Through Cloudflare the TCP peer is Cloudflare's
+		# edge, and the visitor's address arrives in CF-Connecting-IP, which
+		# Cloudflare sets itself, overwriting anything the visitor sent. It is
+		# believed ONLY when the peer is inside Cloudflare's published ranges
+		# (https://www.cloudflare.com/ips/, fetched 2026-10-03; they change
+		# rarely, and a missing range only makes those visitors share a
+		# rate-limit bucket). From anywhere else the header is the visitor's own
+		# claim and the TCP peer stands. {client_ip} is the result.
+		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+		client_ip_headers CF-Connecting-IP
+	}
+
+	# Certificates. Cloudflare terminates the visitor's TLS at its edge, so the
+	# TLS-ALPN-01 challenge can never reach this server; HTTP-01 can, because
+	# Cloudflare forwards plain-HTTP requests to port 80 unchanged — which is
+	# why its "Always Use HTTPS" must stay OFF (Caddy redirects to HTTPS
+	# itself). Offering only the challenge that works keeps every issuance and
+	# renewal from first burning a failed validation.
+	cert_issuer acme {
+		disable_tlsalpn_challenge
+	}
+}
 
 # Shared by every host. HSTS without includeSubDomains/preload on purpose: the
 # same snippet covers the server's borrowed wildcard-DNS name (sslip.io, see
@@ -10,6 +41,17 @@
 		Strict-Transport-Security "max-age=31536000"
 		-Server
 	}
+}
+
+# What every proxied app is told about the visitor: exactly one address, the
+# one resolved in the global options. The web app keys its rate limits on the
+# LAST X-Forwarded-For hop (apps/web/lib/rate-limit.ts) and better-auth on the
+# last untrusted one; Caddy's default would append Cloudflare's edge as that
+# hop, and every visitor would share one bucket. CF-Connecting-IP is dropped so
+# nothing behind this proxy can mistake a forged one for the real thing.
+(visitor_address) {
+	header_up X-Forwarded-For {client_ip}
+	header_up -CF-Connecting-IP
 }
 
 # The two operator dashboards (Umami, GlitchTip) are for the operator only.
@@ -28,6 +70,16 @@
 	import hardening
 	encode zstd gzip
 
+	# What Cloudflare's edge may keep a copy of: only what is the same for
+	# everyone and never withdrawn — the content-hashed build assets, the map
+	# glyphs and the app icons. Everything else is decided per request by the
+	# app (a photo can be taken down, a passport made private, a partner
+	# hidden), and an edge copy would go on serving it after the decision.
+	# Cloudflare-CDN-Cache-Control is read by Cloudflare alone; the browser's
+	# caching stays with the app's own Cache-Control.
+	@edge_never not path /_next/static/* /fonts/* /icons/*
+	header @edge_never Cloudflare-CDN-Cache-Control "no-store"
+
 	# Self-served Protomaps tiles (Stage 2). file_server handles HTTP range
 	# requests natively — required for .pmtiles.
 	handle_path /tiles/* {
@@ -38,7 +90,9 @@
 	}
 
 	handle {
-		reverse_proxy web:3000
+		reverse_proxy web:3000 {
+			import visitor_address
+		}
 	}
 
 	# While a deploy swaps the web container (or it restarts), the proxy has
@@ -72,12 +126,16 @@ umami.{$DOMAIN} {
 	# count nobody; they accept events and reveal nothing.
 	@tracker path /script.js /api/send /api/batch
 	handle @tracker {
-		reverse_proxy umami:3000
+		reverse_proxy umami:3000 {
+			import visitor_address
+		}
 	}
 
 	handle {
 		import operator_only
-		reverse_proxy umami:3000
+		reverse_proxy umami:3000 {
+			import visitor_address
+		}
 	}
 }
 
@@ -88,12 +146,16 @@ glitchtip.{$DOMAIN} {
 	# — and each request is authenticated by the project's DSN key.
 	@ingest path_regexp ^/api/[0-9]+/(envelope|store|security|minidump)/
 	handle @ingest {
-		reverse_proxy glitchtip:8000
+		reverse_proxy glitchtip:8000 {
+			import visitor_address
+		}
 	}
 
 	handle {
 		import operator_only
-		reverse_proxy glitchtip:8000
+		reverse_proxy glitchtip:8000 {
+			import visitor_address
+		}
 	}
 }
 
@@ -117,7 +179,8 @@ www.{$DOMAIN} {$LEGACY_HOSTS} {
 # URL simply stops working. It also matters for correctness beyond convenience:
 # geolocation, and therefore every point a contribution can earn, requires the
 # secure origin, so anyone still on the bare-IP URL would keep silently scoring
-# nothing. 308 preserves the method and the path.
+# nothing. 308 preserves the method and the path. ACME HTTP-01 challenges on
+# this port are answered by Caddy before any route, this one included.
 :80 {
 	redir https://{$DOMAIN}{uri} 308
 }

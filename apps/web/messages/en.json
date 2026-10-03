@@ -621,7 +621,7 @@
     "back": "← Home",
     "title": "Privacy",
     "metaDescription": "What personal data POPS (“More than just sport”) processes, why and on what legal basis, who receives it, how long it is kept and what your rights are.",
-    "updated": "Last updated: 2 October 2026",
+    "updated": "Last updated: 3 October 2026",
     "intro": "POPS (“More than just sport”) is a non-profit project. This page explains what personal data we process, why and on what legal basis, who we share it with, how long we keep it and what your rights are. We collect as little data as possible and do not track users.",
     "controller": {
       "title": "Who is responsible for your data",
@@ -700,6 +700,7 @@
       "title": "Who receives data",
       "intro": "We do not sell data and do not use it for advertising. We share it only with the following recipients, and only as far as needed:",
       "hosting": "Hetzner Online GmbH (Germany) — hosting. The server and the database are in a data centre in Finland (EU).",
+      "network": "Cloudflare, Inc. (USA) — network protection and delivery. Every visit to the site passes through Cloudflare’s network on its way to our server, so Cloudflare processes your IP address and the requests themselves (including which pages you open) to deliver the site and protect it from attacks, and keeps technical logs of this for a limited time under its own terms. It keeps copies only of the site’s design files, fonts and icons, which are the same for everyone — never of pages, photos or anything about you.",
       "mail": "Google (Gmail) — sending our emails. The emails, including your address and their content, pass through Google, and a copy stays in the “Sent” folder of our mailbox until we delete it. Deleting your account does not remove it automatically — write to us if you want it deleted.",
       "backups": "Backblaze, Inc. — storing encrypted off-server backups, only once that service is switched on.",
       "people": "People at POPS: a session organiser sees the display names of those signed up; ambassadors (volunteer moderators for their municipality) see the contributions and facility reports there; administrators can use the admin panel, and every time they open an account it is recorded.",
@@ -708,7 +709,7 @@
     },
     "transfers": {
       "title": "Transfers outside the EU",
-      "body": "Your data is stored in the EU. It can leave the EU through our email provider — Google, which also processes data in the United States under the EU-U.S. Data Privacy Framework — and through the external services you choose yourself. If we switch on backups at Backblaze, we will keep them in an EU data centre."
+      "body": "Your data is stored in the EU. It can leave the EU through Cloudflare, whose network every visit to the site passes through, and through our email provider, Google; both also process data in the United States under the EU-U.S. Data Privacy Framework. It can also leave the EU through the external services you choose yourself. If we switch on backups at Backblaze, we will keep them in an EU data centre."
     },
     "retention": {
       "title": "How long we keep data",

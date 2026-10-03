@@ -27,6 +27,7 @@ export const PRIVACY_ACTIVITIES = [
 /** /privacy: recipients, one bullet each. */
 export const PRIVACY_RECIPIENTS = [
   'hosting',
+  'network',
   'mail',
   'backups',
   'people',
