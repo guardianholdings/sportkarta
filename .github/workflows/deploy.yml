@@ -363,6 +363,10 @@ jobs:
           # tags live in GHCR and are re-pulled (see `rollback_to` above).
           # `--production` seeds no fixtures — only the _health row, population
           # and the stats refresh (db/scripts/seed-plan.ts) — and is idempotent.
+          # It also retires, once, the seed fixtures a hand-run full seed left
+          # here (Boss decision #18): exported first to the server's
+          # seed-exports volume, then status 'gone', before the stats refresh.
+          # Every later deploy finds nothing to retire.
           # The health gate below depends on it: /api/health
           # smoke-queries the _health row, which migrations never create.
           # Without this step every deploy to a fresh box fails its health

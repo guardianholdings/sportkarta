@@ -201,6 +201,16 @@ services:
     restart: 'no'
     environment:
       DATABASE_URL: postgres://sportkarta:${POSTGRES_PASSWORD}@db:5432/sportkarta
+      # The fixture seed (plain `pnpm db:seed`) refuses to run where this is
+      # set: a full seed run by hand in this container is how seven fixture
+      # facilities reached the public map (db/scripts/seed-plan.ts).
+      SEED_FIXTURES_FORBIDDEN: 'true'
+      # `pnpm db:seed --production` writes the fixture rows here BEFORE it
+      # retires them (Boss decision #18). A server volume: the export never
+      # goes to GitHub or a log. Undo: deploy/RESTORE.md §3a.
+      SEED_FIXTURE_EXPORT_DIR: /exports/seed-fixtures
+    volumes:
+      - seed-exports:/exports
     depends_on:
       db:
         condition: service_healthy
@@ -348,5 +358,8 @@ volumes:
   uploads:
   tiles:
   backups:
+  # What the production seed exports before it changes rows (the seed
+  # fixtures' retirement, Boss decision #18). Never pruned, never off-box.
+  seed-exports:
   caddy-data:
   caddy-config:
