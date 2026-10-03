@@ -100,6 +100,12 @@ describe.skipIf(!hasDb)('moderation journey (requires running database)', () => 
                WHERE f.id = ${facilityId}::uuid`,
         );
 
+      // A refusal needs a stated reason, and one without is turned away before
+      // scope is even looked at — so every refusal below carries a valid one,
+      // or the out-of-scope checks would pass for the wrong reason.
+      const photoReason = 'unusable_quality';
+      const goneReason = 'does_not_exist';
+
       // Out of scope, or no moderation role at all: zero rows, whatever the
       // application gate would have said.
       const asOutsider = { id: outOfScope, role: 'ambassador' } as const;
@@ -107,10 +113,12 @@ describe.skipIf(!hasDb)('moderation journey (requires running database)', () => 
       expect(await decidePhoto(tx, asOutsider, photoId, 'approved', files)).toEqual({
         applied: false,
       });
-      expect(await decidePhoto(tx, asOutsider, refusedId, 'rejected', files)).toEqual({
+      expect(await decidePhoto(tx, asOutsider, refusedId, 'rejected', files, photoReason)).toEqual({
         applied: false,
       });
-      expect(await decideFacility(tx, asOutsider, facilityId, 'gone')).toEqual({ applied: false });
+      expect(await decideFacility(tx, asOutsider, facilityId, 'gone', goneReason)).toEqual({
+        applied: false,
+      });
       expect(await resolveReport(tx, asMember, reportId, 'dismissed')).toEqual({ applied: false });
       expect(await state()).toEqual({
         status: 'needs_verification',
@@ -121,17 +129,21 @@ describe.skipIf(!hasDb)('moderation journey (requires running database)', () => 
 
       // In scope: applied, exactly once.
       const asAmbassador = { id: inScope, role: 'ambassador' } as const;
+      // A photo or facility decision also names the moderation_decisions row
+      // it wrote — the outcome notice to the contributor is sent from it.
       expect(await decidePhoto(tx, asAmbassador, photoId, 'approved', files)).toEqual({
         applied: true,
+        decisionId: expect.any(Number),
       });
-      expect(await decidePhoto(tx, asAmbassador, refusedId, 'rejected', files)).toEqual({
-        applied: true,
-      });
+      expect(
+        await decidePhoto(tx, asAmbassador, refusedId, 'rejected', files, photoReason),
+      ).toEqual({ applied: true, decisionId: expect.any(Number) });
       expect(files.deleted).toEqual([refusedPath]);
       expect(await decideFacility(tx, asAmbassador, facilityId, 'verified')).toEqual({
         applied: true,
+        decisionId: expect.any(Number),
       });
-      expect(await decideFacility(tx, asAmbassador, facilityId, 'gone')).toEqual({
+      expect(await decideFacility(tx, asAmbassador, facilityId, 'gone', goneReason)).toEqual({
         applied: false,
       });
       // An admin's scope is the country.

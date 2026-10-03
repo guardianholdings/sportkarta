@@ -48,7 +48,11 @@ jobs:
         run: |
           set -uo pipefail
           report="$RUNNER_TEMP/audit.json"
-          pnpm audit --prod --json > "$report" 2>/dev/null
+          # pnpm audit exits 1 whenever ANY advisory exists, at any severity,
+          # and the step shell runs with -e — so without `|| true` the first
+          # high advisory failed the job before the critical-only verdict
+          # below was ever reached. The verdict is jq's, not this exit code.
+          pnpm audit --prod --json > "$report" 2>/dev/null || true
           if ! jq -e '.advisories | type == "object"' "$report" >/dev/null 2>&1; then
             # No parseable report means the registry did not answer, which
             # says nothing about our dependencies either way.
