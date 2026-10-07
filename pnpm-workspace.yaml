@@ -10,3 +10,11 @@ allowBuilds:
   '@swc/core': true
   esbuild: true
   sharp: true
+# Security pins. Each says why; remove one once the dependency that pulls it in
+# ships the fix itself.
+overrides:
+  # GHSA-5gmw-xhrv-c9v3, GHSA-85c8-ppgw-ccpr (critical, 5 Oct 2026): every
+  # tinypool before 2.1.2. Only vitest 3 uses it (vitest 4 has none), but
+  # better-auth's optional peer `vitest` puts it in the production audit, and
+  # the worker image copies the whole build stage. Drop this with vitest 4.
+  'tinypool@<2.1.2': ^2.1.2
