@@ -17,6 +17,21 @@ export interface MailMessage {
    * the SMTP transport refuses the message rather than folding it.
    */
   headers?: Record<string, string>;
+  /**
+   * Images the HTML part shows inline, referenced as `cid:<cid>` — today only
+   * the sign-in mail's mark. Inline rather than hosted: nothing is fetched when
+   * the mail is opened, so nothing can be tracked, and it shows even when a
+   * client blocks remote images.
+   */
+  attachments?: MailAttachment[];
+}
+
+export interface MailAttachment {
+  filename: string;
+  contentType: string;
+  /** Content-ID without the angle brackets. Sent with Content-Disposition: inline. */
+  cid: string;
+  content: Uint8Array;
 }
 
 export interface Mailer {

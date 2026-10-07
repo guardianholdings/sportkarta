@@ -1,4 +1,12 @@
-import { brandEmailHtml, MailNotConfiguredError, type Mailer } from '@sportkarta/lib/email';
+import {
+  MailNotConfiguredError,
+  signInCodeEmail,
+  type Mailer,
+  type SignInMailStrings,
+} from '@sportkarta/lib/email';
+
+import bg from '@/messages/bg.json';
+import en from '@/messages/en.json';
 
 import { OTP_TTL_SECONDS } from './auth-surface';
 
@@ -15,16 +23,23 @@ import { OTP_TTL_SECONDS } from './auth-surface';
  * becomes an error the form can show.
  *
  * Pure: everything with a side effect is injected, so tests/sign-in-code.test.ts
- * runs it against a real translator and a failing mailer.
+ * runs it against the real catalogues and a failing mailer.
  */
 
 export type SignInCodeOutcome = 'sent' | 'mail_unavailable' | 'unknown';
 
-/** The two AuthEmail messages, from a translator already bound to the member's locale. */
-export type AuthEmailTranslate = (
-  key: 'otpSubject' | 'otpBody',
-  values?: Record<string, string | number>,
-) => string;
+/**
+ * AuthEmail in the member's UI language, RAW: the mail renderer fills
+ * `{code}`, `{minutes}` and `<link>` itself and escapes the result.
+ *
+ * Read from the catalogue rather than through next-intl, as the worker does
+ * for its mails: a renamed or missing key then fails the typecheck here,
+ * instead of next-intl's fallback ("AuthEmail.subject") going out as a
+ * subject line.
+ */
+export function signInMailStrings(locale: string): SignInMailStrings {
+  return (locale === 'en' ? en : bg).AuthEmail;
+}
 
 /**
  * Long enough for any healthy relay (Gmail answers in one to three seconds),
@@ -44,7 +59,8 @@ export interface SignInCodeDelivery {
   email: string;
   /** Mint and store a fresh code; resolves to the plain code, which only this mail ever carries. */
   issueCode: () => Promise<string>;
-  translate: AuthEmailTranslate;
+  /** The member's UI locale: the mail's language, font subset and link paths. */
+  locale: string;
   mailer: Mailer;
   /** Receives a log line plus, in production, only a redacted detail. */
   log: (line: string, detail?: unknown) => void;
@@ -109,15 +125,18 @@ export async function deliverSignInCode(delivery: SignInCodeDelivery): Promise<S
     return 'unknown';
   }
 
-  const text = delivery.translate('otpBody', { code, minutes: OTP_TTL_SECONDS / 60 });
   try {
+    // Rendering is pure, but it sits inside the try anyway: whatever goes
+    // wrong between a minted code and a handed-over mail, the member gets an
+    // answer rather than a crashed action.
+    const mail = signInCodeEmail({
+      code,
+      minutes: OTP_TTL_SECONDS / 60,
+      strings: signInMailStrings(delivery.locale),
+      locale: delivery.locale,
+    });
     await withTimeout(
-      delivery.mailer.send({
-        to: delivery.email,
-        subject: delivery.translate('otpSubject'),
-        text,
-        html: brandEmailHtml(text),
-      }),
+      delivery.mailer.send({ to: delivery.email, ...mail }),
       delivery.timeoutMs ?? MAIL_SEND_TIMEOUT_MS,
     );
     return 'sent';

@@ -14,6 +14,9 @@ export * from './weekly-digest.js';
 export * from './session-mail.js';
 export * from './delivery.js';
 export * from './moderation-mail.js';
+export * from './sign-in-mail.js';
+export { POPS_MARK_PNG } from './assets/pops-mark.js';
+export { UNBOUNDED_800_WOFF2 } from './assets/unbounded-800.js';
 export { FileMailer, ConsoleMailer } from './file.js';
 export { DEFAULT_FROM_NAME, formatFrom, SmtpMailer } from './smtp.js';
 

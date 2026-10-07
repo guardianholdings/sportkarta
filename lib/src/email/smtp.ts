@@ -1,6 +1,6 @@
 import type { Transporter } from 'nodemailer';
 
-import type { MailEnv, Mailer, MailMessage } from './mailer.js';
+import type { MailAttachment, MailEnv, Mailer, MailMessage } from './mailer.js';
 
 /**
  * The display name a bare SMTP_FROM address is sent under. Production's
@@ -25,6 +25,18 @@ function assertSingleLineHeaders(headers: Record<string, string>): void {
   for (const [name, value] of Object.entries(headers)) {
     if (/[\r\n]/.test(name) || /[\r\n]/.test(value)) {
       throw new Error('mail header contains a line break');
+    }
+  }
+}
+
+/**
+ * An attachment's filename, type and Content-ID all become MIME header values,
+ * so they get the same one-line rule.
+ */
+function assertSingleLineAttachments(attachments: readonly MailAttachment[]): void {
+  for (const { filename, contentType, cid } of attachments) {
+    if ([filename, contentType, cid].some((value) => /[\r\n]/.test(value))) {
+      throw new Error('mail attachment header contains a line break');
     }
   }
 }
@@ -87,6 +99,7 @@ export class SmtpMailer implements Mailer {
 
   async send(message: MailMessage): Promise<void> {
     if (message.headers) assertSingleLineHeaders(message.headers);
+    if (message.attachments) assertSingleLineAttachments(message.attachments);
     const transport = await this.getTransport();
     await transport.sendMail({
       from: formatFrom(this.env.SMTP_FROM ?? ''),
@@ -95,6 +108,20 @@ export class SmtpMailer implements Mailer {
       text: message.text,
       ...(message.html ? { html: message.html } : {}),
       ...(message.headers ? { headers: message.headers } : {}),
+      ...(message.attachments?.length
+        ? {
+            // With a cid, nodemailer files the part under multipart/related
+            // next to the HTML, which is what lets clients show it in place
+            // instead of listing it as a download.
+            attachments: message.attachments.map((attachment) => ({
+              filename: attachment.filename,
+              contentType: attachment.contentType,
+              cid: attachment.cid,
+              content: Buffer.from(attachment.content),
+              contentDisposition: 'inline' as const,
+            })),
+          }
+        : {}),
     });
   }
 

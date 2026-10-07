@@ -74,4 +74,23 @@ describe('FileMailer', () => {
     expect(written.to).toBe('igrach@example.org');
     expect(written.text).toContain('123456');
   });
+
+  it('records an inline attachment by name and size, not as a byte array', async () => {
+    const dir = path.join(await mkdtemp(path.join(tmpdir(), 'sk-mail-')), 'outbox');
+    await new FileMailer(dir).send({
+      to: 'igrach@example.org',
+      subject: 's',
+      text: 't',
+      attachments: [
+        { filename: 'mark.png', contentType: 'image/png', cid: 'mark@x', content: Buffer.alloc(3) },
+      ],
+    });
+    const [name] = await readdir(dir);
+    const written = JSON.parse(await readFile(path.join(dir, name as string), 'utf8')) as {
+      attachments: unknown;
+    };
+    expect(written.attachments).toEqual([
+      { filename: 'mark.png', contentType: 'image/png', cid: 'mark@x', bytes: 3 },
+    ]);
+  });
 });

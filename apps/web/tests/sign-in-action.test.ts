@@ -1,11 +1,7 @@
 import { DisabledMailer } from '@sportkarta/lib/email';
-import { createTranslator } from 'next-intl';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { deliverSignInCode, type SignInCodeOutcome } from '@/lib/sign-in-code';
-
-import bg from '../messages/bg.json';
-import en from '../messages/en.json';
 
 /**
  * The sign-in server action, with only the framework and better-auth mocked:
@@ -105,12 +101,7 @@ describe('requesting a code', () => {
       deliverSignInCode({
         email,
         issueCode: () => Promise.resolve('123456'),
-        translate: (key, values) =>
-          createTranslator({
-            locale,
-            messages: locale === 'en' ? en : bg,
-            namespace: 'AuthEmail',
-          })(key, values),
+        locale,
         mailer: new DisabledMailer('SMTP_HOST is unset'),
         log: vi.fn(),
         verboseErrors: false,

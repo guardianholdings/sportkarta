@@ -21,9 +21,26 @@ export class FileMailer implements Mailer {
     // Random suffix: two sends inside the same millisecond must not collide.
     const suffix = Math.random().toString(36).slice(2, 8);
     const file = path.join(this.dir, `${stamp}-${suffix}.json`);
+    // An attachment is recorded by name and size, not as a JSON array of bytes.
+    const { attachments, ...rest } = message;
     await writeFile(
       file,
-      JSON.stringify({ sentAt: new Date().toISOString(), ...message }, null, 2),
+      JSON.stringify(
+        {
+          sentAt: new Date().toISOString(),
+          ...rest,
+          ...(attachments
+            ? {
+                attachments: attachments.map(({ content, ...meta }) => ({
+                  ...meta,
+                  bytes: content.byteLength,
+                })),
+              }
+            : {}),
+        },
+        null,
+        2,
+      ),
       {
         encoding: 'utf8',
         mode: 0o600,
