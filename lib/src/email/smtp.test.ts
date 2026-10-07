@@ -94,6 +94,56 @@ describe('SmtpMailer', () => {
     expect(sendMail).not.toHaveBeenCalled();
   });
 
+  it('hands an attachment to nodemailer inline, under its Content-ID', async () => {
+    const mailer = new SmtpMailer(ENV);
+    const content = new Uint8Array([137, 80, 78, 71]);
+    await mailer.send({
+      to: 'a@example.org',
+      subject: 's',
+      text: 't',
+      html: '<img src="cid:mark@pops.bg">',
+      attachments: [
+        { filename: 'mark.png', contentType: 'image/png', cid: 'mark@pops.bg', content },
+      ],
+    });
+    const sent = sendMail.mock.calls[0]?.[0] as { attachments: Record<string, unknown>[] };
+    expect(sent.attachments).toEqual([
+      {
+        filename: 'mark.png',
+        contentType: 'image/png',
+        cid: 'mark@pops.bg',
+        content: Buffer.from(content),
+        contentDisposition: 'inline',
+      },
+    ]);
+  });
+
+  it('sends no attachments field when there are none', async () => {
+    const mailer = new SmtpMailer(ENV);
+    await mailer.send({ to: 'a@example.org', subject: 's', text: 't', attachments: [] });
+    expect(sendMail.mock.calls[0]?.[0]).not.toHaveProperty('attachments');
+  });
+
+  it('refuses an attachment whose MIME header fields carry a line break', async () => {
+    const mailer = new SmtpMailer(ENV);
+    await expect(
+      mailer.send({
+        to: 'a@example.org',
+        subject: 's',
+        text: 't',
+        attachments: [
+          {
+            filename: 'mark.png',
+            contentType: 'image/png',
+            cid: 'mark@pops.bg>\r\nBcc: victim@example.org',
+            content: new Uint8Array(1),
+          },
+        ],
+      }),
+    ).rejects.toThrow(/line break/);
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
   it('closes the pool on shutdown and rebuilds it if used again', async () => {
     const mailer = new SmtpMailer(ENV);
     await mailer.send({ to: 'a@example.org', subject: 's', text: 't' });

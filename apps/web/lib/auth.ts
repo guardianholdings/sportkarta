@@ -5,7 +5,6 @@ import { accounts, sessions, users, verifications } from '@sportkarta/db/schema'
 import { createMailer, type Mailer } from '@sportkarta/lib/email';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { getTranslations } from 'next-intl/server';
 
 import {
   resolveAdminEmails,
@@ -216,12 +215,11 @@ let mailer: Mailer | undefined;
  */
 export async function sendSignInCode(email: string, locale: string): Promise<SignInCodeOutcome> {
   const auth = requireAuth();
-  const t = await getTranslations({ locale, namespace: 'AuthEmail' });
   mailer ??= createMailer(process.env);
   return deliverSignInCode({
     email,
     issueCode: () => auth.api.createVerificationOTP({ body: { email, type: 'sign-in' } }),
-    translate: (key, values) => t(key, values),
+    locale,
     mailer,
     log: (line, detail) => {
       if (detail === undefined) console.error(line);

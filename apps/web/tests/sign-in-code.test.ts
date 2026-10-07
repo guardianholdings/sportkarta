@@ -1,12 +1,12 @@
-import { DisabledMailer, MemoryMailer, type Mailer } from '@sportkarta/lib/email';
-import { createTranslator } from 'next-intl';
+import { DisabledMailer, MemoryMailer, POPS_MARK_CID, type Mailer } from '@sportkarta/lib/email';
 import { describe, expect, it, vi } from 'vitest';
 
+import { OTP_TTL_SECONDS } from '@/lib/auth-surface';
 import {
   deliverSignInCode,
   describeErrorForLog,
   redactLogArgs,
-  type AuthEmailTranslate,
+  signInMailStrings,
   type SignInCodeDelivery,
 } from '@/lib/sign-in-code';
 
@@ -14,15 +14,7 @@ import bg from '../messages/bg.json';
 import en from '../messages/en.json';
 
 const ADDRESS = 'member@example.org';
-
-function translatorFor(locale: 'bg' | 'en'): AuthEmailTranslate {
-  const t = createTranslator({
-    locale,
-    messages: locale === 'en' ? en : bg,
-    namespace: 'AuthEmail',
-  });
-  return (key, values) => t(key, values);
-}
+const MINUTES = OTP_TTL_SECONDS / 60;
 
 /** The error nodemailer throws when a relay refuses every recipient. */
 function envelopeRejection(): Error {
@@ -44,7 +36,7 @@ function delivery(overrides: Partial<SignInCodeDelivery> = {}): SignInCodeDelive
   return {
     email: ADDRESS,
     issueCode: () => Promise.resolve('482913'),
-    translate: translatorFor('bg'),
+    locale: 'bg',
     mailer: new MemoryMailer(),
     log: vi.fn(),
     verboseErrors: false,
@@ -60,23 +52,41 @@ function logged(log: SignInCodeDelivery['log']): string {
 describe('deliverSignInCode', () => {
   it('mails the code in the language the member is using', async () => {
     const mailer = new MemoryMailer();
-    const outcome = await deliverSignInCode(delivery({ mailer, translate: translatorFor('en') }));
+    const outcome = await deliverSignInCode(delivery({ mailer, locale: 'en' }));
 
     expect(outcome).toBe('sent');
     expect(mailer.sent).toHaveLength(1);
-    expect(mailer.sent[0]?.to).toBe(ADDRESS);
-    // The English catalogue's subject — not the Bulgarian one every code used
-    // to arrive with, whatever the member was reading the site in.
-    expect(mailer.sent[0]?.subject).toBe(en.AuthEmail.otpSubject);
-    expect(mailer.sent[0]?.text).toContain('482913');
-    expect(mailer.sent[0]?.text).toContain('10 minutes');
-    expect(mailer.sent[0]?.html).toContain('482913');
+    const mail = mailer.sent[0];
+    expect(mail?.to).toBe(ADDRESS);
+    // The English catalogue's subject, code first — not the Bulgarian one every
+    // code used to arrive with, whatever the member was reading the site in.
+    expect(mail?.subject).toBe(en.AuthEmail.subject.replace('{code}', '482913'));
+    expect(mail?.text).toContain('482913');
+    expect(mail?.text).toContain(`${String(MINUTES)} minutes`);
+    expect(mail?.html).toContain('482913');
+    expect(mail?.html).toContain('<html lang="en"');
   });
 
   it('mails Bulgarian to a Bulgarian-language member', async () => {
     const mailer = new MemoryMailer();
     await deliverSignInCode(delivery({ mailer }));
-    expect(mailer.sent[0]?.subject).toBe(bg.AuthEmail.otpSubject);
+    expect(mailer.sent[0]?.subject).toBe(bg.AuthEmail.subject.replace('{code}', '482913'));
+    expect(mailer.sent[0]?.text).toContain(`${String(MINUTES)} минути`);
+  });
+
+  it('sends the coral mark inline, as the CID the HTML points at', async () => {
+    const mailer = new MemoryMailer();
+    await deliverSignInCode(delivery({ mailer }));
+    const mail = mailer.sent[0];
+    expect(mail?.attachments).toEqual([expect.objectContaining({ cid: POPS_MARK_CID })]);
+    expect(mail?.html).toContain(`src="cid:${POPS_MARK_CID}"`);
+  });
+
+  it('states the minutes the code really lives, from OTP_TTL_SECONDS', async () => {
+    const mailer = new MemoryMailer();
+    await deliverSignInCode(delivery({ mailer, locale: 'en' }));
+    // Whatever OTP_TTL_SECONDS says, the copy says the same: never a stale "10".
+    expect(mailer.sent[0]?.html).toContain(`Valid for ${String(MINUTES)} minutes`);
   });
 
   it('reports a missing transport instead of claiming the code was sent', async () => {
@@ -128,6 +138,15 @@ describe('deliverSignInCode', () => {
     const error = envelopeRejection();
     await deliverSignInCode(delivery({ mailer: rejectingMailer(error), log, verboseErrors: true }));
     expect(log).toHaveBeenCalledWith(expect.any(String), error);
+  });
+});
+
+describe('signInMailStrings', () => {
+  it('reads AuthEmail from the catalogue of the member’s locale, Bulgarian by default', () => {
+    expect(signInMailStrings('en')).toBe(en.AuthEmail);
+    expect(signInMailStrings('bg')).toBe(bg.AuthEmail);
+    // An unknown locale falls back to the default locale, as the site does.
+    expect(signInMailStrings('de')).toBe(bg.AuthEmail);
   });
 });
 
