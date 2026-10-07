@@ -1,0 +1,82 @@
+name: Umami admin
+
+# Operator-only Umami maintenance on the server, over the deploy SSH path. The
+# logic and its reasons are in deploy/umami-admin.sh. Actions → Umami admin →
+# Run workflow, on main:
+#   check     — read-only: the Website ID and aggregate counts.
+#   bootstrap — Umami's default admin login gets the dashboard lock's password
+#               (ADMIN_TOOLS_PASSWORD, through the bcrypt hash the deploy
+#               already put on the server) and the site gets its Umami website.
+#               Prints the Website ID for the UMAMI_WEBSITE_ID variable.
+# Nothing here reads a plaintext password, and nothing prints a hash or token.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: check (read-only) or bootstrap (Umami admin password + website row)
+        type: choice
+        options: [check, bootstrap]
+        default: check
+      utm_source:
+        description: check only — also count pageviews tagged with this utm_source
+        required: false
+        default: ''
+      hours:
+        description: check only — how many hours back to count
+        required: false
+        default: '2'
+
+# Its own group, not deploy.yml's: a run queued in a group replaces the one
+# already waiting there, so sharing would let this cancel a pending deploy.
+concurrency:
+  group: umami-admin
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  umami:
+    # As deploy.yml: production is touched from main only.
+    if: github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      # deploy.yml's "Configure SSH", with the same pinned host key: if the
+      # server is ever rebuilt, replace the key in both files.
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo 'sportkarta-prod ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAIqKmg1U69CxDz2Nd7YQHozf1wU3t/Wx3r7BI1RhVlt' > ~/.ssh/known_hosts
+          {
+            echo "Host vps"
+            echo "  HostName ${{ secrets.DEPLOY_HOST }}"
+            echo "  HostKeyAlias sportkarta-prod"
+            echo "  User deploy"
+            echo "  IdentityFile ~/.ssh/deploy_key"
+            echo "  StrictHostKeyChecking yes"
+            echo "  UserKnownHostsFile ~/.ssh/known_hosts"
+          } > ~/.ssh/config
+      - name: Run on the server
+        env:
+          MODE: ${{ inputs.mode }}
+          TAG: ${{ inputs.utm_source }}
+          HOURS: ${{ inputs.hours }}
+        run: |
+          set -euo pipefail
+          # ssh hands the arguments to the server's shell as one line, so only
+          # values that need no quoting may pass (the script checks them again).
+          [[ "$MODE" =~ ^(check|bootstrap)$ ]] || { echo "::error::mode: check or bootstrap"; exit 1; }
+          [[ "$TAG" =~ ^[A-Za-z0-9._-]{0,40}$ ]] || { echo "::error::utm_source: letters, digits and . _ - only"; exit 1; }
+          [[ "$HOURS" =~ ^[1-9][0-9]{0,2}$ ]] || { echo "::error::hours: 1 to 999"; exit 1; }
+          scp deploy/umami-admin.sh vps:/opt/sportkarta/umami-admin.sh
+          # shellcheck disable=SC2029 # expanded here on purpose: checked values only
+          ssh vps "bash /opt/sportkarta/umami-admin.sh '$MODE' '$TAG' '$HOURS'" | tee "$RUNNER_TEMP/umami.txt"
+          {
+            echo '```'
+            cat "$RUNNER_TEMP/umami.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
