@@ -174,12 +174,13 @@ export function SignInForm({
           Slow mail is the commonest reason a member never gets past this
           screen (our relay has held codes for up to 41 minutes), so the step
           says what to expect, where to look, which code counts — and offers the
-          ways in that need no mail at all.
+          ways in that need no mail at all. A plain block, not a labelled
+          region: its heading mentions „кода“, and a region named after it
+          would also answer to the code field's label (getByLabel, screen
+          reader label lists).
         */
-        <section aria-labelledby={`${codeHintId}-help`} className="space-y-3">
-          <h2 id={`${codeHintId}-help`} className="text-body-sm font-semibold text-ink">
-            {t('codeHelpTitle')}
-          </h2>
+        <div className="space-y-3">
+          <h2 className="text-body-sm font-semibold text-ink">{t('codeHelpTitle')}</h2>
           <ul className="list-disc space-y-1 pl-5 text-body-sm text-ink-soft">
             <li>{t('codeHelpDelay')}</li>
             <li>{t('codeHelpSpam')}</li>
@@ -191,7 +192,7 @@ export function SignInForm({
               <ProviderButtons providers={providers} locale={locale} next={next} />
             </>
           )}
-        </section>
+        </div>
       ) : (
         providers.length > 0 && (
           <div className="space-y-2">
