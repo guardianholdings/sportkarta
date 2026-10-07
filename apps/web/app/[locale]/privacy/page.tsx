@@ -7,7 +7,14 @@ import { externalLink, legalLinks } from '@/components/legal/legal-links';
 import { OrganisationDetails } from '@/components/legal/organisation-details';
 import { AppShell } from '@/components/shell/app-shell';
 import { Link } from '@/i18n/navigation';
-import { PRIVACY_ACTIVITIES, PRIVACY_RECIPIENTS, PRIVACY_RETENTION } from '@/lib/legal-pages';
+import { enabledSignInProviders, SIGN_IN_PROVIDER_NAMES } from '@/lib/auth-config';
+import { OTP_TTL_SECONDS } from '@/lib/auth-surface';
+import {
+  PRIVACY_ACTIVITIES,
+  PRIVACY_PROVIDER_ONLY,
+  PRIVACY_RECIPIENTS,
+  PRIVACY_RETENTION,
+} from '@/lib/legal-pages';
 import { organisation } from '@/lib/organisation';
 import { buildAlternates } from '@/lib/seo';
 
@@ -24,11 +31,11 @@ import { buildAlternates } from '@/lib/seo';
  * the rights and the regulator, cookies, minors and automated decisions.
  *
  * IT DESCRIBES THE CODE, so the code is its source: the retention figures below
- * mirror auth.ts (10-minute codes, 30-day sessions), the worker's nightly
- * cleanup, deploy/backup/backup.sh (14 days local, 14 daily + 8 weekly
- * off-box) and NOTIFIER_CONTACT_RETENTION_DAYS, which is passed in rather than
- * typed into the message so the two cannot drift. Change a behaviour, change
- * this page.
+ * mirror auth.ts (sign-in codes live OTP_TTL_SECONDS, sessions 30 days), the
+ * worker's nightly cleanup, deploy/backup/backup.sh (14 days local, 14 daily +
+ * 8 weekly off-box), NOTIFIER_CONTACT_RETENTION_DAYS and OTP_TTL_SECONDS — both
+ * passed in rather than typed into the messages so they cannot drift — and the
+ * sign-in providers that are switched on. Change a behaviour, change this page.
  *
  * Dynamic so the controller's identity (ORG_*, CONTACT_EMAIL) applies from the
  * container env without a rebuild; the page itself holds no user data.
@@ -63,7 +70,19 @@ export default async function PrivacyPage({ params }: { params: PageParams }) {
   setRequestLocale(locale);
   const t = await getTranslations('Privacy');
   const org = organisation();
-  const rich = { ...legalLinks, days: NOTIFIER_CONTACT_RETENTION_DAYS };
+  // Only the providers that are on are named, and their paragraphs are printed
+  // only while at least one is: with every flag off the notice is unchanged.
+  const providers = enabledSignInProviders(process.env);
+  const providerNames = new Intl.ListFormat(locale, { type: 'disjunction' }).format(
+    providers.map((provider) => SIGN_IN_PROVIDER_NAMES[provider]),
+  );
+  const printed = (key: string) => providers.length > 0 || !PRIVACY_PROVIDER_ONLY.has(key);
+  const rich = {
+    ...legalLinks,
+    days: NOTIFIER_CONTACT_RETENTION_DAYS,
+    minutes: OTP_TTL_SECONDS / 60,
+    providers: providerNames,
+  };
 
   return (
     <AppShell>
@@ -85,9 +104,11 @@ export default async function PrivacyPage({ params }: { params: PageParams }) {
         <Section id="processing" title={t('processing.title')}>
           <p className="text-ink-soft">{t('processing.intro')}</p>
           <dl className="space-y-3">
-            {PRIVACY_ACTIVITIES.map((key) => (
+            {PRIVACY_ACTIVITIES.filter(printed).map((key) => (
               <div key={key} className="space-y-0.5">
-                <dt className="font-semibold text-ink">{t(`processing.${key}.title`)}</dt>
+                <dt className="font-semibold text-ink">
+                  {t(`processing.${key}.title`, { providers: providerNames })}
+                </dt>
                 <dd className="text-ink-soft">{t.rich(`processing.${key}.body`, rich)}</dd>
                 <dd className="text-caption text-text-muted">
                   {t.rich(`processing.${key}.basis`, rich)}
@@ -100,7 +121,7 @@ export default async function PrivacyPage({ params }: { params: PageParams }) {
         <Section id="recipients" title={t('recipients.title')}>
           <p className="text-ink-soft">{t('recipients.intro')}</p>
           <ul className="list-disc space-y-2 pl-5 text-ink-soft">
-            {PRIVACY_RECIPIENTS.map((key) => (
+            {PRIVACY_RECIPIENTS.filter(printed).map((key) => (
               <li key={key}>{t.rich(`recipients.${key}`, rich)}</li>
             ))}
           </ul>
@@ -129,6 +150,9 @@ export default async function PrivacyPage({ params }: { params: PageParams }) {
 
         <Section id="cookies" title={t('cookies.title')}>
           <p className="text-ink-soft">{t('cookies.body')}</p>
+          {providers.length > 0 && (
+            <p className="text-ink-soft">{t('cookies.providers', { providers: providerNames })}</p>
+          )}
           <p className="text-ink-soft">{t('cookies.cache')}</p>
         </Section>
 

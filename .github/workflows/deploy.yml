@@ -264,6 +264,16 @@ jobs:
           AUTH_GOOGLE_ENABLED=${{ vars.AUTH_GOOGLE_ENABLED || 'false' }}
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+          # Sign in with Apple and with Facebook: each OFF unless its variable
+          # is "true" AND all its secrets are set. APPLE_PRIVATE_KEY is written
+          # by "Render derived settings" below (a .p8 is multi-line).
+          AUTH_APPLE_ENABLED=${{ vars.AUTH_APPLE_ENABLED || 'false' }}
+          APPLE_CLIENT_ID=${{ secrets.APPLE_CLIENT_ID }}
+          APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}
+          APPLE_KEY_ID=${{ secrets.APPLE_KEY_ID }}
+          AUTH_FACEBOOK_ENABLED=${{ vars.AUTH_FACEBOOK_ENABLED || 'false' }}
+          FACEBOOK_CLIENT_ID=${{ secrets.FACEBOOK_CLIENT_ID }}
+          FACEBOOK_CLIENT_SECRET=${{ secrets.FACEBOOK_CLIENT_SECRET }}
           SMTP_HOST=${{ secrets.SMTP_HOST }}
           SMTP_PORT=${{ vars.SMTP_PORT || '587' }}
           SMTP_USER=${{ secrets.SMTP_USER }}
@@ -303,6 +313,7 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
         run: |
           set -euo pipefail
           # QR check-in signs its tokens with CHECKIN_TOKEN_SECRET, and with it
@@ -333,11 +344,18 @@ jobs:
           print(f"smtp+tls://{q(user)}:{q(pw)}@{host}:{port}" if host and user else "consolemail://")
           PY
           )
+          # Sign in with Apple's .p8 key is a multi-line PEM, and a compose .env
+          # value is one line, so only its base64 body is written — the form
+          # apps/web/lib/apple-client-secret.ts expects. `%b` first turns any
+          # literal \n escapes into line breaks so the PEM armour lines go too.
+          # No secret = an empty value = Apple stays off.
+          apple_key=$(printf '%b\n' "${APPLE_PRIVATE_KEY:-}" | sed '/-----/d' | tr -d '\r\n\t ')
           {
             printf "CHECKIN_TOKEN_SECRET='%s'\n" "$checkin"
             printf "ADMIN_TOOLS_HASH='%s'\n" "$hash"
             printf "GLITCHTIP_EMAIL_URL='%s'\n" "$gt_mail"
             printf "GLITCHTIP_FROM_EMAIL='%s'\n" "${SMTP_FROM:-}"
+            printf "APPLE_PRIVATE_KEY='%s'\n" "$apple_key"
           } | ssh vps 'umask 077 && cat >> /opt/sportkarta/.env'
       - name: Log VPS into GHCR (private images)
         run: |

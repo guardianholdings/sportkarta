@@ -10,7 +10,16 @@ import { emailOTP } from 'better-auth/plugins';
  */
 
 export const OTP_LENGTH = 6;
-export const OTP_TTL_SECONDS = 10 * 60;
+/**
+ * 30 minutes (Boss decision #31, was 10). Our relay has held sign-in mail for
+ * 4–41 minutes before delivery, and a code that expires in transit is a member
+ * who cannot sign in. Everything that states the lifetime follows this
+ * constant: the mail, the code screen and the privacy page's retention line.
+ * The other guards stay as they were: 6 digits, a stored hash, 3 guesses per
+ * code, the per-address and per-host limits (lib/auth-rate-limit.ts), and only
+ * the newest code counts (tests/auth-providers-flow.test.ts pins that).
+ */
+export const OTP_TTL_SECONDS = 30 * 60;
 export const OTP_MAX_ATTEMPTS = 3;
 
 /**
@@ -50,9 +59,13 @@ export function authPlugins() {
  * `disabledPaths` does not affect it.
  *
  *  - /get-session and /sign-out: the session itself;
- *  - /callback/:id: where Google returns the visitor (ships off, but the
- *    callback must work the day the flag is turned on);
- *  - /error: where better-auth sends an OAuth failure.
+ *  - /callback/:id: where Google, Apple and Facebook return the visitor (each
+ *    ships off, but its callback must work the day its flag is turned on).
+ *    Apple returns by form POST, which better-auth answers with a redirect to
+ *    the same path as a GET, so the state cookie travels;
+ *  - /error: better-auth's own OAuth error page. Nothing sends visitors there
+ *    any more (lib/auth-providers.ts points every OAuth error at /vhod), but
+ *    the route exists, so it is classified.
  */
 export const PUBLIC_AUTH_PATHS = ['/get-session', '/sign-out', '/callback/:id', '/error'] as const;
 

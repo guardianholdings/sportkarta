@@ -7,6 +7,7 @@ import { redirect as redirectOffSite } from 'next/navigation';
 import { getPathname, redirect } from '@/i18n/navigation';
 import { routing } from '@/i18n/routing';
 import { getAuth, sendSignInCode } from '@/lib/auth';
+import { isSignInProvider, resolveSignInProviders, type SignInProvider } from '@/lib/auth-config';
 import {
   beginCodeAttempt,
   GLOBAL_SEND_KEY,
@@ -15,7 +16,7 @@ import {
   otpIpRateLimiter,
 } from '@/lib/auth-rate-limit';
 import { clientIpFromForwardedFor } from '@/lib/rate-limit';
-import { SIGN_IN_PATH, signInDestination } from '@/lib/sign-in-destination';
+import { SIGN_IN_PATH, signInDestination, signInHref } from '@/lib/sign-in-destination';
 
 /**
  * Email-OTP sign-in (docs/ROADMAP.md §5). Two steps in one action: request a
@@ -162,25 +163,47 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
 }
 
 /**
- * Google sign-in. Only reachable when the provider is configured; better-auth
- * returns the URL to hand the visitor off to.
+ * Sign-in with Google, Apple or Facebook — whichever are on. better-auth returns
+ * the URL to hand the visitor off to; the provider sends them back to
+ * /api/auth/callback/<provider>, and from there to `next` on success or to the
+ * sign-in page on failure, with the reason (`error=`) and the provider named,
+ * in the language they started in, so /vhod can say what happened instead of
+ * showing better-auth's bare error page.
  */
-export async function googleSignInAction(formData: FormData): Promise<void> {
+export async function providerSignInAction(formData: FormData): Promise<void> {
   const auth = getAuth();
   const locale = resolveLocale(formData.get('locale'));
-  if (!auth) return redirect({ href: SIGN_IN_PATH, locale });
+  const provider = formData.get('provider');
+  if (
+    !auth ||
+    !isSignInProvider(provider) ||
+    !resolveSignInProviders(process.env)[provider].enabled
+  ) {
+    return redirect({ href: SIGN_IN_PATH, locale });
+  }
 
+  const destination = signInDestination(formData.get('next'));
   const response = await auth.api.signInSocial({
     body: {
-      provider: 'google',
-      callbackURL: getPathname({ href: signInDestination(formData.get('next')), locale }),
+      provider,
+      callbackURL: getPathname({ href: destination, locale }),
+      errorCallbackURL: getPathname({
+        href: oauthErrorHref(provider, formData.get('next')),
+        locale,
+      }),
     },
     headers: await headers(),
   });
 
-  // Off to Google: an absolute URL, so the plain Next redirect, not the i18n one.
+  // Off to the provider: an absolute URL, so the plain Next redirect, not the i18n one.
   if (response.url) return redirectOffSite(response.url);
   return redirect({ href: SIGN_IN_PATH, locale });
+}
+
+/** /vhod?[next=…&]provider=…; better-auth appends `&error=<code>`. */
+function oauthErrorHref(provider: SignInProvider, next: FormDataEntryValue | null) {
+  const href = signInHref(typeof next === 'string' ? next : null);
+  return { pathname: href.pathname, query: { ...href.query, provider } };
 }
 
 /** Signing out keeps the language: the home page in the locale the member was reading. */

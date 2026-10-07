@@ -1,9 +1,11 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { redirect } from '@/i18n/navigation';
-import { resolveGoogleAuth } from '@/lib/auth-config';
+import { enabledSignInProviders } from '@/lib/auth-config';
 import { getCurrentUser } from '@/lib/auth-session';
 import { isAuthAvailable } from '@/lib/auth';
+import { OTP_TTL_SECONDS } from '@/lib/auth-surface';
+import { parseOAuthError } from '@/lib/oauth-error';
 import { signInDestination } from '@/lib/sign-in-destination';
 
 import { SignInForm } from './sign-in-form';
@@ -14,18 +16,24 @@ export const metadata = { robots: { index: false, follow: false } };
 // Session-dependent and cookie-setting: never prerender.
 export const dynamic = 'force-dynamic';
 
+type QueryValue = string | string[] | undefined;
+
+function single(value: QueryValue): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
 export default async function SignInPage({
   params,
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ next?: string | string[] }>;
+  searchParams: Promise<{ next?: QueryValue; error?: QueryValue; provider?: QueryValue }>;
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations('SignIn');
 
-  const { next } = await searchParams;
+  const { next, error, provider } = await searchParams;
   // Already signed in: go where the link was headed (a shared session, a QR
   // scan), in this page's language — not to the profile, and not in Bulgarian.
   if (await getCurrentUser()) return redirect({ href: signInDestination(next), locale });
@@ -53,8 +61,10 @@ export default async function SignInPage({
         </header>
         {available ? (
           <SignInForm
-            googleEnabled={resolveGoogleAuth(process.env).enabled}
-            next={typeof next === 'string' ? next : ''}
+            providers={enabledSignInProviders(process.env)}
+            codeMinutes={OTP_TTL_SECONDS / 60}
+            oauthError={parseOAuthError(single(error), single(provider))}
+            next={single(next) ?? ''}
           />
         ) : (
           <p role="alert" className="text-body-sm text-danger">
