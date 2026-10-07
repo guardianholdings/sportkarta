@@ -10,19 +10,21 @@ import {
   resolveAdminEmails,
   resolveAuthBaseUrl,
   resolveAuthSecret,
-  resolveGoogleAuth,
-  type GoogleAuthState,
+  resolveSignInProviders,
+  SIGN_IN_PROVIDERS,
+  type SignInProviderStates,
 } from './auth-config';
-import { authPlugins, DISABLED_AUTH_PATHS } from './auth-surface';
+import { authOptions, type BetterAuthLogLevel } from './auth-options';
 import { syncAdminRole } from './roles';
 import { deliverSignInCode, redactLogArgs, type SignInCodeOutcome } from './sign-in-code';
 
 /**
  * better-auth, self-hosted in our own Postgres (docs/ROADMAP.md §0/§5).
  *
- * Sign-in is email OTP through the SMTP abstraction; Google is optional and
- * ships disabled, so the platform has zero external identity dependencies out
- * of the box.
+ * Sign-in is email OTP through the SMTP abstraction; Google, Apple and Facebook
+ * are optional and each ships disabled behind its own flag, so the platform has
+ * zero external identity dependencies out of the box. The options themselves
+ * live in lib/auth-options.ts, where the flow tests build the same instance.
  *
  * The instance is built lazily and may be null: a production deployment without
  * AUTH_SECRET must degrade to "sign-in unavailable" rather than take down the
@@ -33,8 +35,6 @@ import { deliverSignInCode, redactLogArgs, type SignInCodeOutcome } from './sign
  * own limiters apply (lib/auth-rate-limit.ts), and mails the code itself
  * (sendSignInCode below) so a failed send is reported instead of swallowed.
  */
-
-const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 /**
  * Private ranges Caddy and the compose network sit in. better-auth strips the
@@ -54,8 +54,6 @@ function resolveTrustedProxies(): string[] {
     .filter(Boolean);
 }
 
-type BetterAuthLogLevel = 'debug' | 'info' | 'warn' | 'error';
-
 /**
  * better-auth's log sink. Its default prints raw error objects, and those can
  * carry an address (a nodemailer rejection lists its recipients; a constraint
@@ -72,91 +70,34 @@ function logBetterAuth(level: BetterAuthLogLevel, message: string, ...args: unkn
 
 /**
  * Deliberately un-annotated: better-auth infers the API surface (including the
- * plugin endpoints and our additional user fields) from this options object,
+ * plugin endpoints and our additional user fields) from the options object,
  * and annotating the return type would erase all of it.
  */
 function createAuthInstance(
   secret: string,
-  google: GoogleAuthState,
+  providers: SignInProviderStates,
   adminEmails: ReadonlySet<string>,
 ) {
-  return betterAuth({
-    appName: 'POPS',
-    secret,
-    baseURL: resolveAuthBaseUrl(process.env),
-    database: drizzleAdapter(getDb(), {
-      provider: 'pg',
-      // Keys must be the mapped table names (the `modelName` values below),
-      // because the adapter looks the schema up by table name, not by model.
-      // Our tables are plural like the rest of the schema, and better-auth's
-      // `name` field lives in the display_name column.
-      schema: { users, sessions, accounts, verifications },
+  return betterAuth(
+    authOptions({
+      secret,
+      baseURL: resolveAuthBaseUrl(process.env),
+      database: drizzleAdapter(getDb(), {
+        provider: 'pg',
+        // Keys must be the mapped table names (the `modelName` values in
+        // lib/auth-options.ts), because the adapter looks the schema up by
+        // table name, not by model. Our tables are plural like the rest of the
+        // schema, and better-auth's `name` field lives in display_name.
+        schema: { users, sessions, accounts, verifications },
+      }),
+      providers,
+      trustedProxies: resolveTrustedProxies(),
+      log: logBetterAuth,
+      // Bootstrap/revoke the admin role from ADMIN_EMAILS on every sign-in, so
+      // the first admin exists without any manual SQL.
+      afterSessionCreated: (userId) => syncAdminRole(getDb(), userId, adminEmails),
     }),
-    user: {
-      modelName: 'users',
-      fields: { name: 'displayName' },
-      additionalFields: {
-        homeCity: { type: 'string', required: false, input: true },
-        // input:false on both — a client must never be able to declare itself
-        // an adult or an admin. is_minor comes from the profile action's DOB
-        // derivation, role from the allowlist sync below.
-        isMinor: { type: 'boolean', required: false, defaultValue: false, input: false },
-        role: { type: 'string', required: false, defaultValue: 'user', input: false },
-      },
-    },
-    session: {
-      modelName: 'sessions',
-      expiresIn: SESSION_TTL_SECONDS,
-      updateAge: 60 * 60 * 24,
-      // Short-lived signed cookie cache: most requests then need no session
-      // SELECT, while a revoked session still dies within five minutes.
-      cookieCache: { enabled: true, maxAge: 5 * 60 },
-    },
-    account: { modelName: 'accounts' },
-    verification: { modelName: 'verifications' },
-    emailAndPassword: { enabled: false },
-    // Every REST endpoint the browser does not need answers 404. In-process
-    // `auth.api.*` calls (the server actions) never go through this check.
-    disabledPaths: [...DISABLED_AUTH_PATHS],
-    logger: { log: logBetterAuth },
-    // On by default in production only; enabled explicitly so development and
-    // CI behave the same way. It now guards only what is still public
-    // (/get-session, /sign-out, the OAuth callback); the OTP throttles live in
-    // lib/auth-rate-limit.ts, in front of the only path that reaches OTP.
-    rateLimit: { enabled: true, storage: 'memory' },
-    advanced: {
-      // NOT disableIpTracking: that flag also switches off better-auth's entire
-      // rate limiter (it returns null before any rule is consulted), which would
-      // leave the public /api/auth/* endpoints unthrottled. The address is
-      // instead used transiently for rate limiting and dropped before the
-      // session row is written (databaseHooks below), which is exactly what the
-      // privacy page promises.
-      ipAddress: { trustedProxies: resolveTrustedProxies() },
-    },
-    databaseHooks: {
-      session: {
-        create: {
-          // Last stop before the insert: no visitor IP reaches storage.
-          // sessions.ip_address additionally has a CHECK as the backstop, so a
-          // regression here fails loudly instead of silently retaining IPs.
-          before: (session) => Promise.resolve({ data: { ...session, ipAddress: null } }),
-          after: async (session) => {
-            // Bootstrap/revoke the admin role from ADMIN_EMAILS on every
-            // sign-in, so the first admin exists without any manual SQL.
-            await syncAdminRole(getDb(), session.userId, adminEmails);
-          },
-        },
-      },
-    },
-    ...(google.enabled
-      ? {
-          socialProviders: {
-            google: { clientId: google.clientId, clientSecret: google.clientSecret },
-          },
-        }
-      : {}),
-    plugins: authPlugins(),
-  });
+  );
 }
 
 type Auth = ReturnType<typeof createAuthInstance>;
@@ -170,12 +111,16 @@ function buildAuth(): Auth | null {
     return null;
   }
 
-  const google = resolveGoogleAuth(process.env);
-  if (!google.enabled && google.reason === 'missing_credentials') {
-    console.warn('[auth] AUTH_GOOGLE_ENABLED=true but credentials are missing — Google is off');
+  const providers = resolveSignInProviders(process.env);
+  // A flag switched on without (valid) credentials: say which, never what.
+  for (const name of SIGN_IN_PROVIDERS) {
+    const state = providers[name];
+    if (!state.enabled && state.reason !== 'flag_off') {
+      console.warn(`[auth] ${name} sign-in is flagged on but off: ${state.reason}`);
+    }
   }
 
-  return createAuthInstance(secret, google, resolveAdminEmails(process.env));
+  return createAuthInstance(secret, providers, resolveAdminEmails(process.env));
 }
 
 /** null when auth cannot run in this environment (see buildAuth). */
@@ -210,8 +155,8 @@ let mailer: Mailer | undefined;
  * into its send callback, which read `ctx.request.headers` — and an in-process
  * `auth.api.*` call has no `request`, only `headers`, so every code went out in
  * Bulgarian. The code itself is minted by better-auth's server-only
- * createVerificationOTP (hashed, 10 minutes, 3 attempts, exactly as before) and
- * never leaves this function except inside the mail.
+ * createVerificationOTP (hashed, OTP_TTL_SECONDS, 3 attempts) and never leaves
+ * this function except inside the mail.
  */
 export async function sendSignInCode(email: string, locale: string): Promise<SignInCodeOutcome> {
   const auth = requireAuth();

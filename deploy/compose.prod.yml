@@ -61,6 +61,15 @@ services:
       AUTH_GOOGLE_ENABLED: ${AUTH_GOOGLE_ENABLED:-false}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # Apple and Facebook: the same rule, each behind its own flag.
+      AUTH_APPLE_ENABLED: ${AUTH_APPLE_ENABLED:-false}
+      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
+      APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+      APPLE_KEY_ID: ${APPLE_KEY_ID:-}
+      APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
+      AUTH_FACEBOOK_ENABLED: ${AUTH_FACEBOOK_ENABLED:-false}
+      FACEBOOK_CLIENT_ID: ${FACEBOOK_CLIENT_ID:-}
+      FACEBOOK_CLIENT_SECRET: ${FACEBOOK_CLIENT_SECRET:-}
       # SMTP relay for sign-in codes. Unset = no mail is sent at all (never a
       # fallback that would write one-time codes to logs or disk).
       SMTP_HOST: ${SMTP_HOST:-}

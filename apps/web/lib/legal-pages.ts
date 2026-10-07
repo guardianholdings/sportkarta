@@ -12,6 +12,9 @@ export const PRIVACY_ACTIVITIES = [
   'browsing',
   'analytics',
   'account',
+  // Printed only while at least one of Google, Apple or Facebook is switched
+  // on (PRIVACY_PROVIDER_ONLY): the page describes what the site really does.
+  'signInProviders',
   'contributions',
   'location',
   'passport',
@@ -31,8 +34,16 @@ export const PRIVACY_RECIPIENTS = [
   'mail',
   'people',
   'external',
+  'signInProviders',
   'noSale',
 ] as const;
+
+/**
+ * Keys of the lists above that /privacy prints only while a sign-in provider is
+ * on (lib/auth-config.ts enabledSignInProviders). With every flag off — how the
+ * providers ship — the notice reads exactly as it did before them.
+ */
+export const PRIVACY_PROVIDER_ONLY: ReadonlySet<string> = new Set(['signInProviders']);
 
 /** /privacy: retention, one bullet each. */
 export const PRIVACY_RETENTION = [

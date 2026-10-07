@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   PRIVACY_ACTIVITIES,
+  PRIVACY_PROVIDER_ONLY,
   PRIVACY_RECIPIENTS,
   PRIVACY_RETENTION,
   TERMS_SECTIONS,
@@ -66,6 +67,7 @@ describe('the privacy notice', () => {
       'rights.ask',
       'rights.complaint',
       'cookies.body',
+      'cookies.providers',
       'cookies.cache',
       'minors.body',
       'automated.body',
@@ -79,6 +81,25 @@ describe('the privacy notice', () => {
   it('prints the notifier retention from the constant, not as a typed number', () => {
     expect(expectString('Privacy.retention.notices')).toContain('{days}');
     expect(expectString('Notice.contactHint')).toContain('{days}');
+  });
+
+  it('prints the code lifetime from OTP_TTL_SECONDS, not as a typed number', () => {
+    expect(expectString('Privacy.retention.codes')).toContain('{minutes}');
+    expect(expectString('SignIn.codeHint')).toContain('{minutes}');
+  });
+
+  it('names only the sign-in providers that are on, and only while one is', () => {
+    for (const key of PRIVACY_PROVIDER_ONLY) {
+      expect([...PRIVACY_ACTIVITIES, ...PRIVACY_RECIPIENTS] as string[]).toContain(key);
+    }
+    for (const path of [
+      'processing.signInProviders.title',
+      'processing.signInProviders.body',
+      'recipients.signInProviders',
+      'cookies.providers',
+    ]) {
+      expect(expectString(`Privacy.${path}`), path).toContain('{providers}');
+    }
   });
 
   it('uses only link tags the page supplies', () => {

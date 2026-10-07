@@ -621,7 +621,7 @@
     "back": "← Home",
     "title": "Privacy",
     "metaDescription": "What personal data POPS (“More than just sport”) processes, why and on what legal basis, who receives it, how long it is kept and what your rights are.",
-    "updated": "Last updated: 3 October 2026",
+    "updated": "Last updated: 8 October 2026",
     "intro": "POPS (“More than just sport”) is a non-profit project. This page explains what personal data we process, why and on what legal basis, who we share it with, how long we keep it and what your rights are. We collect as little data as possible and do not track users.",
     "controller": {
       "title": "Who is responsible for your data",
@@ -644,6 +644,11 @@
         "title": "Account and sign-in",
         "body": "If you create an account: your email address (for sign-in with a one-time code), a display name, an optional city and whether you are under 18. Your date of birth, if you enter it in your profile, is used once to work out that category and is never stored. While you are signed in, we keep your browser type (user agent) with the session, but not your IP address.",
         "basis": "Basis: contract — the <terms>Terms of use</terms> you accept when you sign in (Art. 6(1)(b))."
+      },
+      "signInProviders": {
+        "title": "Signing in with {providers}",
+        "body": "If you choose to sign in with {providers}, the service sends us your email address, whether it has verified it, and your account ID there; it may also send your name and profile picture there. We keep only the email address and the ID: they are how we recognise you the next time you sign in, until you delete your POPS profile. We do not store the name or the picture: you choose your POPS display name yourself. We do not receive your password, your contacts or your friends list, we never post anything on your behalf, and we keep no keys to your account with the service.",
+        "basis": "Basis: contract — the <terms>Terms of use</terms> you accept when you sign in (Art. 6(1)(b)). Signing in with {providers} is your choice: you can always sign in with an email code instead."
       },
       "contributions": {
         "title": "Contributions and points",
@@ -704,6 +709,7 @@
       "mail": "Migadu-Mail GmbH (Switzerland) — our email. The site’s messages to you (sign-in codes, session confirmations and reminders, decisions on your contributions) are sent through Migadu, so your address and their content pass through it; messages you write to us are kept in our mailbox there until we delete them — write to us if you want yours deleted.",
       "people": "People at POPS: a session organiser sees the display names of those signed up; ambassadors (volunteer moderators for their municipality) see the contributions and facility reports there; administrators can use the admin panel, and every time they open an account it is recorded.",
       "external": "External services you choose. The default map is served entirely from our own server, but if you pick an external map layer (CyclOSM, Thunderforest Transport, Tracestrack Topo), your browser loads tiles directly from that provider, and the “Directions” button opens Waze or Google Maps at the facility. They see your IP address, as they would if you visited their site.",
+      "signInProviders": "{providers}, if you choose to sign in with them. The service learns that you are signing in to POPS and handles that under its own privacy policy; we send it no data about you.",
       "noSale": "Ads and partner logos on the site receive no data about you: they are shown the same to everyone, and we count neither their views nor their clicks."
     },
     "transfers": {
@@ -713,7 +719,7 @@
     "retention": {
       "title": "How long we keep data",
       "account": "Your account — until you delete it. You can delete it yourself from <profile>My profile</profile>: the profile, email, sessions, points, sign-ups and check-ins, training log and subscriptions go at once, and your contributions stay in the shared data anonymously, as “former user”.",
-      "codes": "Sign-in codes — 10 minutes; then they expire and are deleted automatically.",
+      "codes": "Sign-in codes — {minutes} minutes; then they expire and are deleted automatically.",
       "sessions": "Sign-in sessions, with the browser type — until you sign out or 30 days after your last visit.",
       "contributions": "The change log of facility data and the moderation decisions — with no time limit, because the history of the open data must stay traceable; once your account is deleted, those records are no longer linked to you.",
       "notices": "The name and email in a content notice — up to {days} days after the decision on it; the notice itself and the decision are kept as a record.",
@@ -731,6 +737,7 @@
     "cookies": {
       "title": "Cookies and data in your browser",
       "body": "We use no analytics or advertising cookies, and the site sets no language cookie. When you sign in, your browser keeps a session cookie (up to 30 days) and a short-lived signed cookie (5 minutes) so we do not have to look the session up on every request. They are strictly necessary for signing in and are deleted when you sign out.",
+      "providers": "If you sign in with {providers}, your browser also keeps a short signed cookie (up to 5 minutes) during the sign-in itself, which links your request to the service's answer. It is strictly necessary too.",
       "cache": "So that the map works offline, your browser caches the app's files and icons, an offline page and the map tiles you viewed last. They contain no data about you and you can clear them in your browser settings."
     },
     "minors": {
@@ -760,11 +767,25 @@
     "changeEmail": "Use another email",
     "sending": "Sending…",
     "verifying": "Signing in…",
-    "codeHint": "The code is valid for 10 minutes.",
+    "codeHint": "The code is valid for {minutes} minutes.",
+    "codeHelpTitle": "No code yet?",
+    "codeHelpDelay": "The email can take a few minutes to arrive.",
+    "codeHelpSpam": "Check your Spam folder too.",
+    "codeHelpNewest": "If you ask for a new code, only the newest one works.",
+    "codeHelpProviders": "You can also sign in without a code:",
     "submitEmail": "Send code",
     "submitCode": "Sign in",
     "or": "or",
     "google": "Sign in with Google",
+    "apple": "Sign in with Apple",
+    "facebook": "Sign in with Facebook",
+    "oauthError_account_not_linked": "This email already has a POPS profile. Sign in with an email code.",
+    "oauthError_account_not_linked_google": "This email already has a POPS profile. Sign in with an email code or with Google.",
+    "oauthError_email_not_found": "Your {provider} account has no email address, and POPS needs one for a profile. Sign in with an email code or another way.",
+    "oauthError_email_not_found_unnamed": "We did not receive an email address, and POPS needs one for a profile. Sign in with an email code or another way.",
+    "oauthError_cancelled": "Signing in with {provider} was cancelled. Try again or sign in with an email code.",
+    "oauthError_failed": "Signing in with {provider} did not work. Try again or sign in with an email code.",
+    "oauthError_failed_unnamed": "Signing in did not work. Try again or sign in with an email code.",
     "privacyNote": "By signing in you accept the <terms>Terms of use</terms>. How we process your data: <privacy>Privacy</privacy>. We do not store IP addresses.",
     "error_invalid_email": "Check the email address.",
     "error_invalid_code": "The code is wrong or expired. Try again.",

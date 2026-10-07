@@ -1,9 +1,14 @@
+import type { KeyObject } from 'node:crypto';
+
+import { parseApplePrivateKey } from './apple-client-secret';
+import { SIGN_IN_PROVIDERS, type SignInProvider } from './sign-in-providers';
+
 /**
  * Pure configuration resolution for better-auth (docs/ROADMAP.md §5).
  *
  * Kept free of any better-auth import so the feature-flag and fail-closed rules
- * are unit-testable, and so the sign-in page can ask "is Google on?" without
- * constructing an auth instance.
+ * are unit-testable, and so the sign-in page can ask "which providers are on?"
+ * without constructing an auth instance.
  */
 
 export interface AuthEnv {
@@ -13,6 +18,16 @@ export interface AuthEnv {
   AUTH_GOOGLE_ENABLED?: string | undefined;
   GOOGLE_CLIENT_ID?: string | undefined;
   GOOGLE_CLIENT_SECRET?: string | undefined;
+  AUTH_APPLE_ENABLED?: string | undefined;
+  /** The Services ID (Apple's client_id on the web), not the app's bundle ID. */
+  APPLE_CLIENT_ID?: string | undefined;
+  APPLE_TEAM_ID?: string | undefined;
+  APPLE_KEY_ID?: string | undefined;
+  /** The .p8 key: the file as is, with `\n` escapes, or its base64 body. */
+  APPLE_PRIVATE_KEY?: string | undefined;
+  AUTH_FACEBOOK_ENABLED?: string | undefined;
+  FACEBOOK_CLIENT_ID?: string | undefined;
+  FACEBOOK_CLIENT_SECRET?: string | undefined;
   ADMIN_EMAILS?: string | undefined;
   NODE_ENV?: string | undefined;
 }
@@ -40,20 +55,87 @@ export type GoogleAuthState =
   | { enabled: true; clientId: string; clientSecret: string }
   | { enabled: false; reason: 'flag_off' | 'missing_credentials' };
 
+export type AppleAuthState =
+  | { enabled: true; clientId: string; teamId: string; keyId: string; privateKey: KeyObject }
+  | { enabled: false; reason: 'flag_off' | 'missing_credentials' | 'invalid_private_key' };
+
+export type FacebookAuthState =
+  | { enabled: true; clientId: string; clientSecret: string }
+  | { enabled: false; reason: 'flag_off' | 'missing_credentials' };
+
+/** The sign-in providers besides the email code: lib/sign-in-providers.ts. */
+export {
+  isSignInProvider,
+  SIGN_IN_PROVIDER_NAMES,
+  SIGN_IN_PROVIDERS,
+  type SignInProvider,
+} from './sign-in-providers';
+
+function flagOn(value: string | undefined): boolean {
+  return value?.trim().toLowerCase() === 'true';
+}
+
 /**
- * Google login is optional by design: the platform must be deployable with zero
- * external identity dependencies (ROADMAP §0). It turns on only when the flag
- * is explicitly "true" AND both credentials are present — a half-configured
- * provider stays off rather than producing a button that dead-ends.
+ * Every provider is optional by design: the platform must be deployable with
+ * zero external identity dependencies (ROADMAP §0). Each turns on only when its
+ * own flag is explicitly "true" AND all of its credentials are present — a
+ * half-configured provider stays off rather than producing a button that
+ * dead-ends.
  */
 export function resolveGoogleAuth(env: AuthEnv): GoogleAuthState {
-  if (env.AUTH_GOOGLE_ENABLED?.trim().toLowerCase() !== 'true') {
-    return { enabled: false, reason: 'flag_off' };
-  }
+  if (!flagOn(env.AUTH_GOOGLE_ENABLED)) return { enabled: false, reason: 'flag_off' };
   const clientId = env.GOOGLE_CLIENT_ID?.trim();
   const clientSecret = env.GOOGLE_CLIENT_SECRET?.trim();
   if (!clientId || !clientSecret) return { enabled: false, reason: 'missing_credentials' };
   return { enabled: true, clientId, clientSecret };
+}
+
+/**
+ * Apple has no static client secret: we sign one with the .p8 key at runtime
+ * (lib/apple-client-secret.ts). A key that does not parse as an EC P-256
+ * private key keeps the provider off — better a missing button than one that
+ * fails at Apple's token endpoint after the visitor has already approved.
+ */
+export function resolveAppleAuth(env: AuthEnv): AppleAuthState {
+  if (!flagOn(env.AUTH_APPLE_ENABLED)) return { enabled: false, reason: 'flag_off' };
+  const clientId = env.APPLE_CLIENT_ID?.trim();
+  const teamId = env.APPLE_TEAM_ID?.trim();
+  const keyId = env.APPLE_KEY_ID?.trim();
+  const rawKey = env.APPLE_PRIVATE_KEY?.trim();
+  if (!clientId || !teamId || !keyId || !rawKey) {
+    return { enabled: false, reason: 'missing_credentials' };
+  }
+  const privateKey = parseApplePrivateKey(rawKey);
+  if (!privateKey) return { enabled: false, reason: 'invalid_private_key' };
+  return { enabled: true, clientId, teamId, keyId, privateKey };
+}
+
+export function resolveFacebookAuth(env: AuthEnv): FacebookAuthState {
+  if (!flagOn(env.AUTH_FACEBOOK_ENABLED)) return { enabled: false, reason: 'flag_off' };
+  const clientId = env.FACEBOOK_CLIENT_ID?.trim();
+  const clientSecret = env.FACEBOOK_CLIENT_SECRET?.trim();
+  if (!clientId || !clientSecret) return { enabled: false, reason: 'missing_credentials' };
+  return { enabled: true, clientId, clientSecret };
+}
+
+export interface SignInProviderStates {
+  google: GoogleAuthState;
+  apple: AppleAuthState;
+  facebook: FacebookAuthState;
+}
+
+export function resolveSignInProviders(env: AuthEnv): SignInProviderStates {
+  return {
+    google: resolveGoogleAuth(env),
+    apple: resolveAppleAuth(env),
+    facebook: resolveFacebookAuth(env),
+  };
+}
+
+/** The providers whose buttons the sign-in screens show, in display order. */
+export function enabledSignInProviders(env: AuthEnv): SignInProvider[] {
+  const states = resolveSignInProviders(env);
+  return SIGN_IN_PROVIDERS.filter((provider) => states[provider].enabled);
 }
 
 /** null = auth cannot run. Callers degrade (503) instead of crashing the site. */

@@ -6,12 +6,27 @@ import { useActionState, useId } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link } from '@/i18n/navigation';
+import type { OAuthError } from '@/lib/oauth-error';
+import { SIGN_IN_PROVIDER_NAMES, type SignInProvider } from '@/lib/sign-in-providers';
 
-import { googleSignInAction, signInAction, type SignInState } from './actions';
+import { providerSignInAction, signInAction, type SignInState } from './actions';
 
 const INITIAL: SignInState = { step: 'email', email: '', error: null };
 
-export function SignInForm({ googleEnabled, next }: { googleEnabled: boolean; next: string }) {
+export function SignInForm({
+  providers,
+  codeMinutes,
+  oauthError,
+  next,
+}: {
+  /** The providers that are on, in display order (lib/auth-config.ts). */
+  providers: SignInProvider[];
+  /** The code's lifetime, from OTP_TTL_SECONDS. */
+  codeMinutes: number;
+  /** Why a provider sent the visitor back here, if it did (lib/oauth-error.ts). */
+  oauthError: OAuthError | null;
+  next: string;
+}) {
   const t = useTranslations('SignIn');
   const locale = useLocale();
   const [state, action, pending] = useActionState<SignInState, FormData>(signInAction, INITIAL);
@@ -20,6 +35,12 @@ export function SignInForm({ googleEnabled, next }: { googleEnabled: boolean; ne
 
   return (
     <div className="space-y-6">
+      {oauthError && !onCodeStep && (
+        <p role="alert" className="text-body-sm text-danger">
+          <OAuthErrorLine error={oauthError} googleOn={providers.includes('google')} />
+        </p>
+      )}
+
       <form action={action} className="space-y-4">
         <input type="hidden" name="locale" value={locale} />
         <input type="hidden" name="next" value={next} />
@@ -70,7 +91,7 @@ export function SignInForm({ googleEnabled, next }: { googleEnabled: boolean; ne
               Hints belong in aria-describedby.
             */}
             <p id={codeHintId} className="text-caption text-text-muted">
-              {t('codeHint')}
+              {t('codeHint', { minutes: codeMinutes })}
             </p>
           </>
         ) : (
@@ -148,15 +169,36 @@ export function SignInForm({ googleEnabled, next }: { googleEnabled: boolean; ne
         )}
       </form>
 
-      {googleEnabled && !onCodeStep && (
-        <form action={googleSignInAction} className="space-y-2">
-          <input type="hidden" name="locale" value={locale} />
-          <input type="hidden" name="next" value={next} />
-          <div className="text-center text-caption text-text-muted">{t('or')}</div>
-          <Button type="submit" variant="secondary" block>
-            {t('google')}
-          </Button>
-        </form>
+      {onCodeStep ? (
+        /*
+          Slow mail is the commonest reason a member never gets past this
+          screen (our relay has held codes for up to 41 minutes), so the step
+          says what to expect, where to look, which code counts — and offers the
+          ways in that need no mail at all.
+        */
+        <section aria-labelledby={`${codeHintId}-help`} className="space-y-3">
+          <h2 id={`${codeHintId}-help`} className="text-body-sm font-semibold text-ink">
+            {t('codeHelpTitle')}
+          </h2>
+          <ul className="list-disc space-y-1 pl-5 text-body-sm text-ink-soft">
+            <li>{t('codeHelpDelay')}</li>
+            <li>{t('codeHelpSpam')}</li>
+            <li>{t('codeHelpNewest')}</li>
+          </ul>
+          {providers.length > 0 && (
+            <>
+              <p className="text-body-sm text-ink-soft">{t('codeHelpProviders')}</p>
+              <ProviderButtons providers={providers} locale={locale} next={next} />
+            </>
+          )}
+        </section>
+      ) : (
+        providers.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-center text-caption text-text-muted">{t('or')}</div>
+            <ProviderButtons providers={providers} locale={locale} next={next} />
+          </div>
+        )
       )}
 
       {/* Signing in is when the account contract starts (GDPR Art. 6(1)(b)), so
@@ -176,5 +218,91 @@ export function SignInForm({ googleEnabled, next }: { googleEnabled: boolean; ne
         })}
       </p>
     </div>
+  );
+}
+
+function OAuthErrorLine({ error, googleOn }: { error: OAuthError; googleOn: boolean }) {
+  const t = useTranslations('SignIn');
+  const provider = error.provider ? SIGN_IN_PROVIDER_NAMES[error.provider] : null;
+  switch (error.kind) {
+    case 'account_not_linked':
+      // Decision (a): the address already has a profile, and this provider may
+      // not open it. Point at the ways that can — Google only when it is on and
+      // was not the one that just failed.
+      return googleOn && error.provider !== 'google'
+        ? t('oauthError_account_not_linked_google')
+        : t('oauthError_account_not_linked');
+    case 'email_not_found':
+      return provider
+        ? t('oauthError_email_not_found', { provider })
+        : t('oauthError_email_not_found_unnamed');
+    case 'cancelled':
+      return provider ? t('oauthError_cancelled', { provider }) : t('oauthError_failed_unnamed');
+    case 'failed':
+      return provider ? t('oauthError_failed', { provider }) : t('oauthError_failed_unnamed');
+  }
+}
+
+/**
+ * One form, one submit button per provider: works without JavaScript, and the
+ * action re-checks that the provider named is really on.
+ */
+function ProviderButtons({
+  providers,
+  locale,
+  next,
+}: {
+  providers: SignInProvider[];
+  locale: string;
+  next: string;
+}) {
+  const t = useTranslations('SignIn');
+  return (
+    <form action={providerSignInAction} className="space-y-2">
+      <input type="hidden" name="locale" value={locale} />
+      <input type="hidden" name="next" value={next} />
+      {providers.map((provider) =>
+        provider === 'apple' ? (
+          <AppleButton key={provider} label={t('apple')} />
+        ) : (
+          <Button
+            key={provider}
+            type="submit"
+            name="provider"
+            value={provider}
+            variant="secondary"
+            block
+          >
+            {t(provider)}
+          </Button>
+        ),
+      )}
+    </form>
+  );
+}
+
+/**
+ * Sign in with Apple, drawn to Apple's Human Interface Guidelines for the web:
+ * the black style, Apple's logo to the left of the title, the system font, and
+ * the same size and shape as the other sign-in buttons (never less prominent).
+ * Built in-house rather than with Apple's JS button, which would load a script
+ * from Apple on every visit to /vhod — before anyone has chosen Apple.
+ */
+function AppleButton({ label }: { label: string }) {
+  return (
+    <Button
+      type="submit"
+      name="provider"
+      value="apple"
+      block
+      className="bg-black font-[system-ui] text-white hover:bg-black/85 active:bg-black/85"
+      iconLeft={
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" />
+        </svg>
+      }
+    >
+      {label}
+    </Button>
   );
 }
