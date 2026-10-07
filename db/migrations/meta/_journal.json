@@ -253,6 +253,13 @@
       "when": 1785123600000,
       "tag": "0035_training_municipality",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1785127200000,
+      "tag": "0036_hiking_landmarks_unverified",
+      "breakpoints": true
     }
   ]
 }
