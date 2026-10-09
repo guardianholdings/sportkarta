@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 
 import { defineConfig, devices } from '@playwright/test';
+import { config as loadDotenv } from 'dotenv';
 
 /**
  * Which server the suite drives, and where sign-in codes go.
@@ -33,7 +34,12 @@ const RATE_LIMITS = {
 // B0 diagnostic (draft PR only): E2E_STANDALONE runs the server the way the
 // Docker image does — `node apps/web/server.js` on HOSTNAME=0.0.0.0 — instead
 // of `next start`, which warns that it does not support output: standalone.
+// The standalone server never runs next.config.ts, which is what loads the
+// repo-root .env for `next start`; production gets its environment from
+// compose instead. So the same values are handed over here, through this
+// process's environment (dotenv never overrides a value already set).
 const standalone = Boolean(process.env.E2E_STANDALONE);
+if (standalone) loadDotenv({ path: '../../.env' });
 
 const productionServer = {
   command: standalone ? 'node .next/standalone/apps/web/server.js' : 'pnpm start',

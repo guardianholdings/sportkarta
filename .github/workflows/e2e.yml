@@ -111,11 +111,16 @@ jobs:
       - name: Lay out the standalone server as the web image does
         working-directory: apps/web
         run: |
-          cp -r .next/static .next/standalone/apps/web/.next/static
-          cp -r public .next/standalone/apps/web/public
+          # Contents, not the directories: the standalone output already has a
+          # public/ (traced fonts), and Docker's COPY merges into it.
+          mkdir -p .next/standalone/apps/web/.next/static .next/standalone/apps/web/public
+          cp -r .next/static/. .next/standalone/apps/web/.next/static/
+          cp -r public/. .next/standalone/apps/web/public/
           mkdir -p .next/standalone/apps/web/.next/cache
           chmod -R a-w .next/standalone
           chmod -R u+w .next/standalone/apps/web/.next/cache
+          mkdir -p "$RUNNER_TEMP/storage"
+          test -f .next/standalone/apps/web/public/sw.js
       - name: Install Playwright browsers
         run: pnpm --filter @sportkarta/web exec playwright install --with-deps chromium webkit
       - name: Playwright e2e
@@ -125,6 +130,9 @@ jobs:
           NODE_EXTRA_CA_CERTS: ${{ runner.temp }}/mailpit/cert.pem
           E2E_STANDALONE: '1'
           E2E_WEBKIT: '1'
+          # Production mounts an absolute volume; the relative dev value in .env
+          # would resolve inside the read-only standalone tree.
+          STORAGE_DIR: ${{ runner.temp }}/storage
         run: pnpm --filter @sportkarta/web exec playwright test e2e/b0-add-diagnostic.spec.ts
       # `failure()` alone skips these on a timeout-cancel — which is how every
       # run before 2026-09 ended, so none of them left any evidence.
