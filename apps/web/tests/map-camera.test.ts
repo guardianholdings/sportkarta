@@ -8,6 +8,9 @@ import {
   clampCenter,
   FIT_MARGIN_PX,
   insideVisibleFrame,
+  latitudeAt,
+  mercatorY,
+  southLimitLat,
   widthFitZoom,
 } from '../components/map/camera';
 import { createCluster, createPin } from '../components/map/markers';
@@ -81,6 +84,100 @@ describe('phone pan limit', () => {
     );
     // Desktop goes back to MapLibre's own constraint and the viewport box.
     expect(canvas).toMatch(/map\.setTransformConstrain\(null\);\s*map\.setMaxBounds\(BG_BOUNDS\);/);
+  });
+});
+
+/**
+ * Boss, 2026-10-09: on a phone the home map showed an empty beige band of about
+ * 100px between Bulgaria and the list sheet. The basemap is a Bulgaria-only
+ * extract with no tiles south of about 41°N, and the opening view centred the
+ * country in a frame much taller than it, so the room below fell off the tiles.
+ */
+describe('phone south limit', () => {
+  const [[, south], [, north]] = BULGARIA_BOUNDS;
+  /** Latitude `offset` CSS px below (+) or above (−) a camera centre at `lat`. */
+  const latAt = (lat: number, zoom: number, offset: number) =>
+    latitudeAt(mercatorY(lat) + offset / (512 * 2 ** zoom));
+  /** Edges of the tile row holding `lat` at tile zoom `z`: the archive keeps whole tiles. */
+  const rowTop = (lat: number, z: number) =>
+    latitudeAt(Math.floor(mercatorY(lat) * 2 ** z) / 2 ** z);
+  const rowBottom = (lat: number, z: number) =>
+    latitudeAt((Math.floor(mercatorY(lat) * 2 ** z) + 1) / 2 ** z);
+  /** Half the visible map above the default half sheet and the 56px tab bar (map-explorer SNAP_PX). */
+  const halfAboveSheet = (height: number) => (height - (0.4 * height + 56)) / 2;
+  /** Where `cameraForBounds` puts the centre: the box's mercator middle. */
+  const fitted = { lng: 25.5, lat: latitudeAt((mercatorY(south) + mercatorY(north)) / 2) };
+  const PHONES = [
+    [360, 780],
+    [390, 844],
+    [430, 932],
+  ] as const;
+
+  it('the regression, as arithmetic: centred, the frame ran ~100px off the tiles', () => {
+    const zoom = widthFitZoom(390, BULGARIA_BOUNDS);
+    const half = halfAboveSheet(844);
+    const old = clampCenter(fitted, BULGARIA_BOUNDS);
+    const tileEdge = rowBottom(south, Math.floor(zoom));
+    const bandPx = (mercatorY(latAt(old.lat, zoom, half)) - mercatorY(tileEdge)) * 512 * 2 ** zoom;
+    expect(bandPx).toBeGreaterThan(90);
+    expect(bandPx).toBeLessThan(115);
+  });
+
+  it('opens with the bottom of the visible map on the southern edge, on every phone', () => {
+    for (const [width, height] of [...PHONES, [768, 1024] as const]) {
+      const zoom = widthFitZoom(width, BULGARIA_BOUNDS);
+      const halfHeight = halfAboveSheet(height);
+      const centre = clampCenter(fitted, BULGARIA_BOUNDS, { zoom, halfHeight });
+      expect(latAt(centre.lat, zoom, halfHeight)).toBeCloseTo(south, 9);
+      expect(centre.lng).toBe(fitted.lng);
+    }
+  });
+
+  it('sends the spare room north, where the archive still has tiles', () => {
+    for (const [width, height] of PHONES) {
+      const fit = widthFitZoom(width, BULGARIA_BOUNDS);
+      // The opening zoom and the zoom-out floor (`widthFit - 0.1`, map-canvas).
+      for (const zoom of [fit, fit - 0.1]) {
+        const halfHeight = halfAboveSheet(height);
+        const centre = clampCenter(fitted, BULGARIA_BOUNDS, { zoom, halfHeight });
+        expect(latAt(centre.lat, zoom, -halfHeight)).toBeLessThan(rowTop(north, Math.floor(zoom)));
+      }
+    }
+  });
+
+  it('a flick south at the opening zoom cannot reopen the band', () => {
+    const zoom = widthFitZoom(390, BULGARIA_BOUNDS);
+    const halfHeight = halfAboveSheet(844);
+    // Where the old clamp let the centre go, and a flick far past it.
+    for (const lat of [south, 14.26]) {
+      const centre = clampCenter({ lng: 25.5, lat }, BULGARIA_BOUNDS, { zoom, halfHeight });
+      expect(latAt(centre.lat, zoom, halfHeight)).toBeCloseTo(south, 9);
+    }
+  });
+
+  it('zoomed in, it only trims the last half-frame above the edge', () => {
+    const frame = { zoom: 14, halfHeight: 225 };
+    const kulata = { lng: 23.37, lat: 41.39 };
+    expect(clampCenter(kulata, BULGARIA_BOUNDS, frame)).toEqual(kulata);
+    const atEdge = clampCenter({ lng: 23.37, lat: south }, BULGARIA_BOUNDS, frame);
+    expect(atEdge.lat - south).toBeLessThan(0.01);
+    expect(latAt(atEdge.lat, 14, 225)).toBeCloseTo(south, 9);
+  });
+
+  it('wins over the box’s northern edge when the sheet is collapsed', () => {
+    // 390x844 with the sheet at `peek`: 168px plus the tab bar.
+    const zoom = widthFitZoom(390, BULGARIA_BOUNDS);
+    const halfHeight = (844 - 168 - 56) / 2;
+    expect(southLimitLat(south, { zoom, halfHeight })).toBeGreaterThan(north);
+    const centre = clampCenter(fitted, BULGARIA_BOUNDS, { zoom, halfHeight });
+    expect(latAt(centre.lat, zoom, halfHeight)).toBeCloseTo(south, 9);
+  });
+
+  it('is wired into the phone constraint, and re-applied when only the padding changes', () => {
+    const canvas = read('components/map/map-canvas.tsx');
+    expect(canvas).toMatch(/clampCenter\(lngLat, BULGARIA_BOUNDS, \{\s*zoom: clampedZoom,/);
+    // MapLibre does not re-run the constraint on setPadding (a sheet snap).
+    expect(canvas).toMatch(/const held = centreInBulgaria\(now, map\.getZoom\(\)\)\.center;/);
   });
 });
 

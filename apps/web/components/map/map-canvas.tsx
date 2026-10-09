@@ -480,14 +480,28 @@ export default function MapCanvas({
     const countryCamera = () => map.cameraForBounds(BG_BOUNDS, { padding: FIT_MARGIN_PX });
 
     // Mobile's pan limit: pin the camera centre inside the country's box (see
-    // `clampCenter` for why the centre and not the viewport). A transform
-    // constraint REPLACES MapLibre's default one, including its zoom clamp, so
-    // the min/max zoom is re-applied here.
+    // `clampCenter` for why the centre and not the viewport), and keep the
+    // bottom of the visible frame on the basemap's southern edge (see
+    // `southLimitLat`: below it there are no tiles, only the background). A
+    // transform constraint REPLACES MapLibre's default one, including its zoom
+    // clamp, so the min/max zoom is re-applied here — first, because the south
+    // limit depends on the zoom it is computed for.
+    //
+    // The frame is read from the transform being constrained: its padding is
+    // the sheet plus the tab bar, so a sheet snap and the limit always agree.
+    const frameHalfHeight = () => {
+      const { height, padding } = map.transform;
+      return Math.max(0, (height - (padding.top ?? 0) - (padding.bottom ?? 0)) / 2);
+    };
     const centreInBulgaria = (lngLat: maplibregl.LngLat, zoom: number) => {
-      const centre = clampCenter(lngLat, BULGARIA_BOUNDS);
+      const clampedZoom = Math.min(Math.max(zoom, map.getMinZoom()), map.getMaxZoom());
+      const centre = clampCenter(lngLat, BULGARIA_BOUNDS, {
+        zoom: clampedZoom,
+        halfHeight: frameHalfHeight(),
+      });
       return {
         center: new maplibregl.LngLat(centre.lng, centre.lat),
-        zoom: Math.min(Math.max(zoom, map.getMinZoom()), map.getMaxZoom()),
+        zoom: clampedZoom,
       };
     };
 
@@ -511,6 +525,14 @@ export default function MapCanvas({
         // Clamp to maxZoom as well: setMinZoom THROWS above it, and on a small
         // canvas the fit math can legitimately land there.
         map.setMinZoom(Math.min(Math.max(0, widthFit - 0.1), map.getMaxZoom()));
+        // MapLibre re-runs a transform constraint when the centre, the zoom or
+        // the canvas size changes, but NOT when only the padding does
+        // (Transform.setPadding). The south limit depends on the frame's
+        // height, so re-apply it here: otherwise collapsing the sheet after a
+        // pan would drop the frame's bottom off the tiles until the next drag.
+        const now = map.getCenter();
+        const held = centreInBulgaria(now, map.getZoom()).center;
+        if (held.lat !== now.lat || held.lng !== now.lng) map.jumpTo({ center: held });
       } else {
         map.setTransformConstrain(null);
         map.setMaxBounds(BG_BOUNDS);
