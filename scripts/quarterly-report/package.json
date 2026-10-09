@@ -11,13 +11,13 @@
     "@sportkarta/db": "workspace:*",
     "@sportkarta/lib": "workspace:*",
     "dotenv": "^16.4.0",
-    "pg": "^8.13.0"
+    "pg": "^8.23.1"
   },
   "devDependencies": {
-    "@playwright/test": "^1.53.0",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^22.10.0",
-    "@types/pg": "^8.11.0",
-    "tsx": "^4.19.0",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.15",
     "typescript": "^5.8.0"
   }
 }
