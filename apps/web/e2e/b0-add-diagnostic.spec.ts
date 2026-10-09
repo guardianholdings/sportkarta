@@ -6,11 +6,15 @@
  * add committed after it), and the existing add test passes. That test uses a
  * 1x1 JPEG, a desktop Chrome, a member, and blocks the service worker. This
  * spec drives the add the way it happens for real — a phone-sized photo with
- * EXIF orientation, a member AND an admin, the production service worker, a
- * phone viewport — follows the redirect, and records everything the browser
- * saw: page errors, console errors, failed requests, HTTP errors and the
- * server action's own response. The server's stderr lands in the job log
- * under [WebServer].
+ * EXIF orientation, a member AND an admin, the production service worker,
+ * phone and Safari engines, English, no GPS fix — follows the redirect, and
+ * records everything the browser saw: page errors, console errors, failed
+ * requests, HTTP errors and the server action's own response. The server's
+ * stderr lands in the job log under [WebServer].
+ *
+ * Round 2 runs it against the server the way production runs it (E2E_STANDALONE:
+ * `node apps/web/server.js`, HOSTNAME=0.0.0.0, the app tree read-only except
+ * .next/cache, as in the Docker image) instead of `next start`.
  */
 import { devices, expect, test, type Page, type TestInfo } from '@playwright/test';
 import { config } from 'dotenv';
@@ -18,14 +22,15 @@ import pg from 'pg';
 import sharp from 'sharp';
 
 import bg from '../messages/bg.json';
+import en from '../messages/en.json';
 
 import { ADMIN_EMAIL, signIn } from './auth';
 
 // Repo-root .env (Playwright runs with cwd = apps/web).
 config({ path: '../../.env' });
 
-/** Both error.tsx and global-error.tsx render this title. */
-const ERROR_BOUNDARY = bg.ErrorPage.title;
+const MESSAGES = { bg, en } as const;
+type Locale = keyof typeof MESSAGES;
 const SUBMIT = /добави съоръжението|add facility/i;
 
 async function query<T extends Record<string, unknown>>(
@@ -103,13 +108,29 @@ function watch(page: Page): Seen {
           `content-type=${headers['content-type'] ?? '-'} x-nextjs-action-not-found=${headers['x-nextjs-action-not-found'] ?? '-'}`,
       );
     }
-    if (r.status() >= 400)
+    if (r.status() >= 400) {
       seen.httpErrors.push(`${req.method()} ${url.pathname}${url.search} -> ${r.status()}`);
+    }
   });
   return seen;
 }
 
-async function addAndFollow(page: Page, testInfo: TestInfo, email: string, label: string) {
+interface AddOptions {
+  locale?: Locale;
+  /** Grant a GPS fix at the pin (the usual phone case). Off = a desktop without one. */
+  position?: boolean;
+  access?: 'free' | 'paid';
+}
+
+async function addAndFollow(
+  page: Page,
+  testInfo: TestInfo,
+  email: string,
+  label: string,
+  { locale = 'bg', position = true, access = 'free' }: AddOptions = {},
+) {
+  const m = MESSAGES[locale];
+  const prefix = locale === 'bg' ? '' : `/${locale}`;
   const seen = watch(page);
   await signIn(page, email, /\/profil/);
 
@@ -119,9 +140,12 @@ async function addAndFollow(page: Page, testInfo: TestInfo, email: string, label
   const lon = (23.25 + (stamp % 4000) / 100000).toFixed(5);
   const lat = (42.62 + (Math.floor(stamp / 4000) % 3000) / 100000).toFixed(5);
   const name = `E2E B0 ${label} ${stamp}`;
-  await page.context().setGeolocation({ longitude: Number(lon), latitude: Number(lat) });
+  if (position) {
+    await page.context().grantPermissions(['geolocation']);
+    await page.context().setGeolocation({ longitude: Number(lon), latitude: Number(lat) });
+  }
 
-  await page.goto(`/dobavi?lon=${lon}&lat=${lat}`);
+  await page.goto(`${prefix}/dobavi?lon=${lon}&lat=${lat}`);
   const swControlled = await page.evaluate(() => Boolean(navigator.serviceWorker?.controller));
   const photo = await realPhoto();
   await page.locator('input[name="photo"]').setInputFiles({
@@ -131,51 +155,64 @@ async function addAndFollow(page: Page, testInfo: TestInfo, email: string, label
   });
   await page.getByRole('button', { name: /баскетбол|basketball/i }).click();
   await page.getByLabel(/име|name/i).fill(name);
+  if (access !== 'free') await page.locator('select[name="access"]').selectOption(access);
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: SUBMIT }) });
-  await expect(form.getByText(bg.Contribute.locationGranted)).toBeVisible();
+  if (position) await expect(form.getByText(m.Contribute.locationGranted)).toBeVisible();
+  else await page.waitForTimeout(1_500);
   await page.getByRole('button', { name: SUBMIT }).click();
 
   const outcome = await Promise.race([
     page.waitForURL(/\/obekt\/[a-z0-9-]+\?added=\d+$/, { timeout: 45_000 }).then(() => 'landed'),
     page
-      .getByText(ERROR_BOUNDARY)
+      .getByText(m.ErrorPage.title)
       .waitFor({ timeout: 45_000 })
       .then(() => 'error-boundary'),
   ]).catch((e: unknown) => `neither within 45 s: ${String(e).slice(0, 200)}`);
   // Let the page's client effects run (map, the forms' position fixes).
   await page.waitForTimeout(4_000);
-  const errorAfterLanding = await page.getByText(ERROR_BOUNDARY).count();
+  const errorAfterLanding = await page.getByText(m.ErrorPage.title).count();
   const reference = await page
     .getByText(/Код за справка|Reference/)
     .first()
     .textContent({ timeout: 500 })
     .catch(() => null);
   const landedUrl = new URL(page.url());
+  const h1 = await page
+    .locator('h1')
+    .first()
+    .textContent({ timeout: 500 })
+    .catch(() => null);
+  // What a direct request for the landed URL answers, as the same account.
+  const directStatus = (await page.request.get(page.url())).status();
 
-  // A fresh load of the same page as the same signed-in account. With the
-  // service worker in control, reload() reports no network response (the
-  // worker answers the navigation), so the status then comes from a direct GET
-  // with the same cookies.
-  const reload = await page.reload();
-  const reloadStatus = reload?.status() ?? (await page.request.get(page.url())).status();
+  // A fresh load of the same page as the same signed-in account.
+  await page.reload();
   await page.waitForTimeout(3_000);
-  const errorAfterReload = await page.getByText(ERROR_BOUNDARY).count();
+  const errorAfterReload = await page.getByText(m.ErrorPage.title).count();
 
-  const rows = await query<{ id: string; status: string; access: string }>(
-    `SELECT id, status, access FROM facilities WHERE name = $1`,
+  const rows = await query<{ id: string; status: string; access: string; municipality: boolean }>(
+    `SELECT id, status, access, municipality_id IS NOT NULL AS municipality
+       FROM facilities WHERE name = $1`,
     [name],
   );
+  const awarded = landedUrl.searchParams.get('added');
   const report = {
     label,
+    server: process.env.E2E_STANDALONE ? 'standalone (as production)' : 'next start',
+    engine: page.context().browser()?.browserType().name() ?? null,
+    locale,
+    position,
+    access,
     photoBytes: photo.byteLength,
     swControlled,
     outcome,
     landed: `${landedUrl.pathname.replace(/\/obekt\/.+$/, '/obekt/<slug>')}${landedUrl.search}`,
+    h1: h1?.includes('E2E B0') ? '<the new place>' : h1,
+    directStatus,
     errorAfterLanding,
     reference,
-    reloadStatus,
     errorAfterReload,
-    saved: rows.map((r) => `${r.status}/${r.access}`),
+    saved: rows.map((r) => `${r.status}/${r.access}/municipality=${String(r.municipality)}`),
     ...seen,
   };
   console.log(`B0 DIAGNOSTIC ${JSON.stringify(report, null, 2)}`);
@@ -193,60 +230,125 @@ async function addAndFollow(page: Page, testInfo: TestInfo, email: string, label
   expect.soft(rows, 'the add was saved').toHaveLength(1);
   expect.soft(outcome, 'the redirect landed on the new place').toBe('landed');
   expect.soft(errorAfterLanding, 'no error boundary after landing').toBe(0);
-  expect.soft(reloadStatus, 'a fresh load answers 200').toBe(200);
   expect.soft(errorAfterReload, 'no error boundary after a fresh load').toBe(0);
   expect.soft(seen.pageErrors, 'no uncaught page errors').toEqual([]);
-  const points = landedUrl.searchParams.get('added');
-  if (outcome === 'landed' && points !== null) {
+  if (access === 'paid') {
+    // Finding 1 (CEO, 2026-10-09): paid places are hidden while
+    // public_show_paid is false, so the redirect lands on a 404. Recorded
+    // here, fixed in B.
+    expect.soft(directStatus, 'finding 1: a paid add lands on a 404').toBe(404);
+    return;
+  }
+  expect.soft(directStatus, 'the new place answers 200').toBe(200);
+  if (outcome === 'landed' && awarded !== null) {
     await expect(
       page.getByText(
-        Number(points) > 0
-          ? bg.Contribute.thanksWithPoints.replace('{points}', points)
-          : bg.Contribute.thanksNoPoints,
+        Number(awarded) > 0
+          ? m.Contribute.thanksWithPoints.replace('{points}', awarded)
+          : m.Contribute.thanksNoPoints,
       ),
     ).toBeVisible();
   }
 }
 
-const memberEmail = (label: string) => `e2e-b0-${label}@example.org`;
+async function freshMember(label: string): Promise<string> {
+  const email = `e2e-b0-${label}@example.org`;
+  await query(`DELETE FROM users WHERE email = $1`, [email]);
+  return email;
+}
+
+const iphone = devices['iPhone 13'];
+const phone = {
+  viewport: iphone.viewport,
+  userAgent: iphone.userAgent,
+  deviceScaleFactor: iphone.deviceScaleFactor,
+  isMobile: true,
+  hasTouch: true,
+};
+const safari = devices['Desktop Safari'];
 
 test.describe('B0 diagnostic: add, then follow the redirect', () => {
-  test.use({ permissions: ['geolocation'] });
   test.setTimeout(150_000);
 
-  test.describe('desktop, service worker blocked (as the suite runs)', () => {
-    test('member', async ({ page }, testInfo) => {
-      await query(`DELETE FROM users WHERE email = $1`, [memberEmail('desktop-member')]);
-      await addAndFollow(page, testInfo, memberEmail('desktop-member'), 'desktop-member');
+  test.describe('Chromium', () => {
+    test.skip(({ browserName }) => browserName !== 'chromium', 'the webkit project runs below');
+
+    test.describe('desktop, service worker blocked (as the suite runs)', () => {
+      test('member', async ({ page }, testInfo) => {
+        await addAndFollow(page, testInfo, await freshMember('desktop-member'), 'desktop-member');
+      });
+      test('admin', async ({ page }, testInfo) => {
+        await addAndFollow(page, testInfo, ADMIN_EMAIL, 'desktop-admin');
+      });
+      test('admin, English, no GPS fix', async ({ page }, testInfo) => {
+        await addAndFollow(page, testInfo, ADMIN_EMAIL, 'desktop-admin-en-nogps', {
+          locale: 'en',
+          position: false,
+        });
+      });
+      test('member, paid (finding 1)', async ({ page }, testInfo) => {
+        const email = await freshMember('desktop-member-paid');
+        await addAndFollow(page, testInfo, email, 'desktop-member-paid', { access: 'paid' });
+      });
     });
-    test('admin', async ({ page }, testInfo) => {
-      await addAndFollow(page, testInfo, ADMIN_EMAIL, 'desktop-admin');
+
+    test.describe('desktop, service worker allowed (as production runs)', () => {
+      test.use({ serviceWorkers: 'allow' });
+      test('admin', async ({ page }, testInfo) => {
+        await addAndFollow(page, testInfo, ADMIN_EMAIL, 'desktop-admin-sw');
+      });
+      test('admin, no GPS fix', async ({ page }, testInfo) => {
+        await addAndFollow(page, testInfo, ADMIN_EMAIL, 'desktop-admin-sw-nogps', {
+          position: false,
+        });
+      });
+    });
+
+    test.describe('phone viewport (iPhone 13 metrics), service worker allowed', () => {
+      test.use({ serviceWorkers: 'allow', ...phone });
+      test('member', async ({ page }, testInfo) => {
+        await addAndFollow(page, testInfo, await freshMember('phone-member'), 'phone-member');
+      });
+      test('admin', async ({ page }, testInfo) => {
+        await addAndFollow(page, testInfo, ADMIN_EMAIL, 'phone-admin');
+      });
     });
   });
 
-  test.describe('desktop, service worker allowed (as production runs)', () => {
-    test.use({ serviceWorkers: 'allow' });
-    test('admin', async ({ page }, testInfo) => {
-      await addAndFollow(page, testInfo, ADMIN_EMAIL, 'desktop-admin-sw');
-    });
-  });
+  // The `webkit` project exists only when E2E_WEBKIT is set (the diagnostic
+  // workflow installs the browser); browserName cannot be switched per group.
+  test.describe('WebKit (Safari engine)', () => {
+    test.skip(({ browserName }) => browserName !== 'webkit', 'needs the webkit project');
 
-  test.describe('phone viewport (iPhone 13 metrics on Chromium), service worker allowed', () => {
-    const iphone = devices['iPhone 13'];
-    test.use({
-      serviceWorkers: 'allow',
-      viewport: iphone.viewport,
-      userAgent: iphone.userAgent,
-      deviceScaleFactor: iphone.deviceScaleFactor,
-      isMobile: true,
-      hasTouch: true,
+    test.describe('desktop, service worker allowed', () => {
+      test.use({
+        serviceWorkers: 'allow',
+        viewport: safari.viewport,
+        userAgent: safari.userAgent,
+        deviceScaleFactor: safari.deviceScaleFactor,
+      });
+      test('admin', async ({ page }, testInfo) => {
+        await addAndFollow(page, testInfo, ADMIN_EMAIL, 'safari-admin');
+      });
+      test('admin, no GPS fix', async ({ page }, testInfo) => {
+        await addAndFollow(page, testInfo, ADMIN_EMAIL, 'safari-admin-nogps', {
+          position: false,
+        });
+      });
+      test('member, English', async ({ page }, testInfo) => {
+        const email = await freshMember('safari-member-en');
+        await addAndFollow(page, testInfo, email, 'safari-member-en', { locale: 'en' });
+      });
     });
-    test('member', async ({ page }, testInfo) => {
-      await query(`DELETE FROM users WHERE email = $1`, [memberEmail('phone-member')]);
-      await addAndFollow(page, testInfo, memberEmail('phone-member'), 'phone-member');
-    });
-    test('admin', async ({ page }, testInfo) => {
-      await addAndFollow(page, testInfo, ADMIN_EMAIL, 'phone-admin');
+
+    test.describe('iPhone 13, service worker allowed', () => {
+      test.use({ serviceWorkers: 'allow', ...phone });
+      test('member', async ({ page }, testInfo) => {
+        await addAndFollow(page, testInfo, await freshMember('iphone-member'), 'iphone-member');
+      });
+      test('admin', async ({ page }, testInfo) => {
+        await addAndFollow(page, testInfo, ADMIN_EMAIL, 'iphone-admin');
+      });
     });
   });
 });
