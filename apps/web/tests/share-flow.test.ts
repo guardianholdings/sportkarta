@@ -11,6 +11,7 @@ import {
   isShareCancel,
   type ShareNavigator,
 } from '../components/share/share-flow';
+import { facilitySharePlace } from '../lib/share/facility-place';
 import bg from '../messages/bg.json';
 import en from '../messages/en.json';
 
@@ -195,6 +196,86 @@ describe('the address printed on story images', () => {
       const src = readFileSync(file, 'utf8');
       return /tStory\('(?:session\.)?callToAction'\)/.test(src);
     });
+    expect(offenders).toEqual([]);
+  });
+});
+
+/**
+ * L05, 2026-10-09: seven replies under an Instagram Reel read
+ * „way-313548695 — свободна спортна площадка в POPS.“ The facility share text
+ * fell back to the slug, and an unnamed place's slug is its map ID.
+ */
+describe('the facility share text', () => {
+  const MAP_ID = /\b(?:way|node|relation)-\d+/;
+  const unnamed = {
+    name: null,
+    municipalityName: 'София',
+    quarter: null,
+    slug: 'way-313548695',
+  };
+
+  for (const [locale, messages] of [
+    ['bg', bg],
+    ['en', en],
+  ] as const) {
+    const t = createTranslator({ locale, messages });
+    const shareText = (facility: Parameters<typeof facilitySharePlace>[0]) =>
+      t('ShareSheet.textFacility', { place: facilitySharePlace(facility, t('Facility.unnamed')) });
+
+    it(`never names an unnamed place by its slug or map ID (${locale})`, () => {
+      const text = shareText(unnamed);
+      expect(text).not.toContain(unnamed.slug);
+      expect(text).not.toMatch(MAP_ID);
+      // It names it the way the page does, plus where it is.
+      expect(text).toContain(t('Facility.unnamed'));
+      expect(text).toContain('София');
+    });
+
+    it(`falls back to the quarter, then to the bare label (${locale})`, () => {
+      expect(shareText({ ...unnamed, municipalityName: null, quarter: 'Лозенец' })).toContain(
+        `${t('Facility.unnamed')}, Лозенец`,
+      );
+      const bare = shareText({ ...unnamed, municipalityName: null, quarter: null });
+      expect(bare.startsWith(`${t('Facility.unnamed')} `)).toBe(true);
+      expect(bare).not.toMatch(MAP_ID);
+    });
+
+    it(`keeps a real name exactly as it is (${locale})`, () => {
+      const text = shareText({ ...unnamed, name: 'Борисова градина' });
+      expect(text.startsWith('Борисова градина — ')).toBe(true);
+      expect(text).not.toContain('София');
+    });
+
+    it(`treats a blank name as no name (${locale})`, () => {
+      expect(shareText({ ...unnamed, name: '  ' })).toContain(t('Facility.unnamed'));
+    });
+  }
+
+  it('is built through facilitySharePlace on the facility page, never from the slug', () => {
+    const page = readFileSync(
+      path.join(__dirname, '..', 'app', '[locale]', 'obekt', '[slug]', 'page.tsx'),
+      'utf8',
+    );
+    expect(page).toMatch(/textFacility', \{\s*place: facilitySharePlace\(/);
+  });
+
+  it('has no name-or-slug fallback anywhere a share, OG title or alt text is built', () => {
+    const roots = [path.join(__dirname, '..', 'app'), path.join(__dirname, '..', 'components')];
+    const files: string[] = [];
+    const visit = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const full = path.join(dir, name);
+        // The admin tools show a slug on purpose: it is how a moderator tells
+        // two unnamed import candidates apart. Nothing there is shared.
+        if (statSync(full).isDirectory()) {
+          if (name !== 'admin') visit(full);
+        } else if (/\.tsx?$/.test(name)) files.push(full);
+      }
+    };
+    roots.forEach(visit);
+    const offenders = files.filter((file) =>
+      /\bname\s*\?\?\s*(?:[\w.]+\.)?slug\b/.test(readFileSync(file, 'utf8')),
+    );
     expect(offenders).toEqual([]);
   });
 });
