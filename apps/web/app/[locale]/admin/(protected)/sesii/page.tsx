@@ -91,6 +91,8 @@ export default async function AdminBulkSessionsPage({
     'selectAll',
     'clearAll',
     'create',
+    'createConfirm',
+    'createConfirmOnce',
     'csvPaste',
     'csvUpload',
     'csvParse',
@@ -107,6 +109,9 @@ export default async function AdminBulkSessionsPage({
     'confirmImport',
     'createdCount',
     'skippedCount',
+    'createdHint',
+    'viewCreated',
+    'createMore',
     'templateHint',
     'facility',
     'rrule',
@@ -146,8 +151,8 @@ export default async function AdminBulkSessionsPage({
   ];
   // t.raw, NOT t: several of these carry a {count} placeholder that the client
   // component fills in itself, and next-intl's t() throws FORMATTING_ERROR when
-  // a placeholder has no value. Raw templates in, interpolation at the point of
-  // use — which is also why the client has its own tiny replace().
+  // a placeholder has no value. Raw ICU templates in, formatted at the point of
+  // use by useLabels (components/admin/use-labels.ts), plurals included.
   const labels = Object.fromEntries(labelKeys.map((key) => [key, String(t.raw(key))]));
 
   const fieldKeys = [

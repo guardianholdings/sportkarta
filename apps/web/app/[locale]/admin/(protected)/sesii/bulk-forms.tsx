@@ -1,6 +1,11 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useState } from 'react';
+
+import { Button, buttonVariants } from '@/components/ui/button';
+import { useLabels, type Labels } from '@/components/admin/use-labels';
+import { Link } from '@/i18n/navigation';
+import { useFormAction } from '@/lib/use-form-action';
 
 import {
   commitCsvAction,
@@ -29,12 +34,12 @@ export interface FacilityOption {
 }
 
 /**
- * Flat label bag passed from the server component — the page owns i18n, this
- * file owns interaction. `L` is the accessor: an unknown key renders as itself
- * rather than as "undefined", so a missing translation is visible, not silent.
+ * Flat label bags passed from the server component — the page owns i18n, this
+ * file owns interaction. `labels` are ICU templates (useLabels, so a count can
+ * be «1 тренировка» or «5 тренировки»); `fieldLabels` are plain option names.
+ * Either way an unknown key renders as itself, so a missing translation is
+ * visible, not silent.
  */
-export type Labels = Readonly<Record<string, string>>;
-
 function labelOf(labels: Labels, key: string): string {
   return labels[key] ?? key;
 }
@@ -53,7 +58,7 @@ export function BulkCreateTabs({
   labels: Labels;
   fieldLabels: Labels;
 }) {
-  const L = (key: string): string => labelOf(labels, key);
+  const t = useLabels(labels);
   const [tab, setTab] = useState<'grid' | 'csv'>('grid');
   return (
     <div className="space-y-4">
@@ -72,7 +77,7 @@ export function BulkCreateTabs({
                 : 'px-3 py-2 text-body-sm text-text-muted hover:text-ink'
             }
           >
-            {key === 'grid' ? L('gridTab') : L('csvTab')}
+            {key === 'grid' ? t('gridTab') : t('csvTab')}
           </button>
         ))}
       </div>
@@ -106,13 +111,20 @@ function GridForm({
   labels: Labels;
   fieldLabels: Labels;
 }) {
-  const L = (key: string): string => labelOf(labels, key);
+  const t = useLabels(labels);
   const F = (key: string): string => labelOf(fieldLabels, key);
-  const [state, action, pending] = useActionState(createGridAction, EMPTY);
+  // Never reset: after a refusal, and after «Създай още», the slot and the
+  // ticked facilities are still there (A-2, A-10).
+  const [state, formProps, pending] = useFormAction(createGridAction, EMPTY);
   const [city, setCity] = useState('');
   const [sportFilter, setSportFilter] = useState('');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [weekdays, setWeekdays] = useState<Set<number>>(new Set());
+  // The result panel stays up until the operator asks for another batch; the
+  // form underneath is only hidden, so nothing in it is lost meanwhile.
+  const [dismissed, setDismissed] = useState<BulkState | null>(null);
+  const showDone = state.step === 'done' && state !== dismissed;
 
   const cities = [...new Set(facilities.map((f) => f.cityName))].sort();
   const visible = facilities.filter(
@@ -131,232 +143,277 @@ function GridForm({
     });
   };
 
-  if (state.step === 'done') return <DonePanel state={state} labels={labels} />;
+  const toggleWeekday = (day: number): void => {
+    setWeekdays((prev) => {
+      const next = new Set(prev);
+      if (next.has(day)) next.delete(day);
+      else next.add(day);
+      return next;
+    });
+  };
+
+  // One tap used to commit N series that repeat weekly with no end date. The
+  // count and that fact are said first. In onSubmit rather than on the button,
+  // so the browser's own validation (a missing title, a date) comes first and
+  // the question is only asked of a batch that can actually be created.
+  const confirmMessage =
+    weekdays.size > 0
+      ? t('createConfirm', { count: selected.size })
+      : t('createConfirmOnce', { count: selected.size });
 
   return (
-    <form action={action} className="space-y-6">
-      <fieldset className="grid gap-3 sm:grid-cols-2">
-        <Field label={L('sport')}>
-          <select
-            name="sport"
-            required
-            className="w-full rounded-md border border-line-strong bg-surface p-2"
-          >
-            {sports.map((sport) => (
-              <option key={sport} value={sport}>
-                {F(sport)}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label={L('sessionTitle')}>
-          <input
-            name="title"
-            required
-            maxLength={120}
-            className="w-full rounded-md border border-line-strong bg-surface p-2"
-          />
-        </Field>
-        <Field label={L('startDate')}>
-          <input
-            type="date"
-            name="date"
-            required
-            className="w-full rounded-md border border-line-strong bg-surface p-2"
-          />
-        </Field>
-        <Field label={L('startTime')}>
-          <input
-            type="time"
-            name="time"
-            required
-            step={60}
-            className="w-full rounded-md border border-line-strong bg-surface p-2"
-          />
-        </Field>
-        <Field label={L('duration')}>
-          <input
-            type="number"
-            name="duration"
-            defaultValue={90}
-            min={15}
-            max={480}
-            className="w-full rounded-md border border-line-strong bg-surface p-2"
-          />
-        </Field>
-        <Field label={L('capacity')}>
-          <input
-            type="number"
-            name="capacity"
-            min={1}
-            max={500}
-            className="w-full rounded-md border border-line-strong bg-surface p-2"
-          />
-        </Field>
-        <Field label={L('skillLevel')}>
-          <select
-            name="skillLevel"
-            className="w-full rounded-md border border-line-strong bg-surface p-2"
-          >
-            {['any', 'beginner', 'intermediate', 'advanced'].map((level) => (
-              <option key={level} value={level}>
-                {F(level)}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label={L('visibility')}>
-          <select
-            name="visibility"
-            className="w-full rounded-md border border-line-strong bg-surface p-2"
-          >
-            {['public', 'unlisted'].map((value) => (
-              <option key={value} value={value}>
-                {F(value)}
-              </option>
-            ))}
-          </select>
-        </Field>
-      </fieldset>
-
-      <fieldset>
-        <legend className="mb-1 text-caption font-medium text-ink-soft">{L('weekdays')}</legend>
-        <div className="flex flex-wrap gap-2">
-          {WEEKDAYS.map((day) => (
-            <label
-              key={day}
-              className="flex items-center gap-1.5 rounded-pill border border-line-strong px-2.5 py-1 text-body-sm"
+    <>
+      {showDone && (
+        <DonePanel
+          state={state}
+          labels={labels}
+          onMore={() => {
+            setDismissed(state);
+          }}
+        />
+      )}
+      <form
+        {...formProps}
+        hidden={showDone}
+        onSubmit={(event) => {
+          if (!window.confirm(confirmMessage)) {
+            event.preventDefault();
+            return;
+          }
+          formProps.onSubmit(event);
+        }}
+        className="space-y-6"
+      >
+        <fieldset className="grid gap-3 sm:grid-cols-2">
+          <Field label={t('sport')}>
+            <select
+              name="sport"
+              required
+              className="w-full rounded-md border border-line-strong bg-surface p-2"
             >
-              <input type="checkbox" name="weekday" value={day} />
-              {F(`weekday${String(day)}`)}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+              {sports.map((sport) => (
+                <option key={sport} value={sport}>
+                  {F(sport)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label={t('sessionTitle')}>
+            <input
+              name="title"
+              required
+              maxLength={120}
+              className="w-full rounded-md border border-line-strong bg-surface p-2"
+            />
+          </Field>
+          <Field label={t('startDate')}>
+            <input
+              type="date"
+              name="date"
+              required
+              className="w-full rounded-md border border-line-strong bg-surface p-2"
+            />
+          </Field>
+          <Field label={t('startTime')}>
+            <input
+              type="time"
+              name="time"
+              required
+              step={60}
+              className="w-full rounded-md border border-line-strong bg-surface p-2"
+            />
+          </Field>
+          <Field label={t('duration')}>
+            <input
+              type="number"
+              name="duration"
+              defaultValue={90}
+              min={15}
+              max={480}
+              className="w-full rounded-md border border-line-strong bg-surface p-2"
+            />
+          </Field>
+          <Field label={t('capacity')}>
+            <input
+              type="number"
+              name="capacity"
+              min={1}
+              max={500}
+              className="w-full rounded-md border border-line-strong bg-surface p-2"
+            />
+          </Field>
+          <Field label={t('skillLevel')}>
+            <select
+              name="skillLevel"
+              className="w-full rounded-md border border-line-strong bg-surface p-2"
+            >
+              {['any', 'beginner', 'intermediate', 'advanced'].map((level) => (
+                <option key={level} value={level}>
+                  {F(level)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label={t('visibility')}>
+            <select
+              name="visibility"
+              className="w-full rounded-md border border-line-strong bg-surface p-2"
+            >
+              {['public', 'unlisted'].map((value) => (
+                <option key={value} value={value}>
+                  {F(value)}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </fieldset>
 
-      <fieldset className="space-y-2">
-        <legend className="text-caption font-medium text-ink-soft">{L('facilities')}</legend>
-        <div className="flex flex-wrap gap-2">
-          <select
-            value={city}
-            onChange={(e) => {
-              setCity(e.target.value);
-            }}
-            className="rounded-md border border-line-strong bg-surface p-2 text-body-sm"
-          >
-            <option value="">{L('filterCity')}</option>
-            {cities.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-          <select
-            value={sportFilter}
-            onChange={(e) => {
-              setSportFilter(e.target.value);
-            }}
-            className="rounded-md border border-line-strong bg-surface p-2 text-body-sm"
-          >
-            <option value="">{L('filterSport')}</option>
-            {sports.map((sport) => (
-              <option key={sport} value={sport}>
-                {F(sport)}
-              </option>
-            ))}
-          </select>
-          <input
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-            }}
-            placeholder={L('filterName')}
-            className="min-w-40 flex-1 rounded-md border border-line-strong bg-surface p-2 text-body-sm"
-          />
-          {/* Bulk selection acts on what is FILTERED, which is the whole point:
-              "every football pitch in Plovdiv" is two filters and one click. */}
-          <button
-            type="button"
-            onClick={() => {
-              setSelected((prev) => new Set([...prev, ...visible.map((f) => f.id)]));
-            }}
-            className="rounded-pill border border-line-strong bg-surface px-3 py-2 text-body-sm font-semibold text-ink-soft hover:bg-surface-2"
-          >
-            {L('selectAll')}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSelected(new Set());
-            }}
-            className="rounded-pill border border-line-strong bg-surface px-3 py-2 text-body-sm font-semibold text-ink-soft hover:bg-surface-2"
-          >
-            {L('clearAll')}
-          </button>
-        </div>
-
-        <p className="text-body-sm text-ink-soft">
-          {L('selectedCount').replace('{count}', String(selected.size))}
-        </p>
-
-        {/* The filters above act on the SHIPPED list, so if the server capped it
-            the missing facilities are unfindable, not merely unlisted — say so
-            instead of letting the list look complete (AUDIT-F1). */}
-        {facilities.length < facilityTotal && (
-          <p className="rounded-md border border-warning-border bg-warning-bg px-3 py-2 text-body-sm text-warning">
-            {L('facilityListTruncated')
-              .replace('{shown}', String(facilities.length))
-              .replace('{total}', String(facilityTotal))}
-          </p>
-        )}
-
-        <ul className="max-h-80 divide-y divide-line overflow-y-auto rounded-card border border-line bg-surface">
-          {visible.map((facility) => (
-            <li key={facility.id}>
-              <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-body-sm hover:bg-paper-sunk">
+        <fieldset>
+          <legend className="mb-1 text-caption font-medium text-ink-soft">{t('weekdays')}</legend>
+          <div className="flex flex-wrap gap-2">
+            {WEEKDAYS.map((day) => (
+              <label
+                key={day}
+                className="flex min-h-11 items-center gap-1.5 rounded-pill border border-line-strong px-3 text-body-sm"
+              >
                 <input
                   type="checkbox"
-                  checked={selected.has(facility.id)}
+                  name="weekday"
+                  value={day}
+                  checked={weekdays.has(day)}
                   onChange={() => {
-                    toggle(facility.id);
+                    toggleWeekday(day);
                   }}
                 />
-                <span className="flex-1">{facility.name}</span>
-                <span className="text-caption text-text-muted">{facility.cityName}</span>
+                {F(`weekday${String(day)}`)}
               </label>
-            </li>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="space-y-2">
+          <legend className="text-caption font-medium text-ink-soft">{t('facilities')}</legend>
+          <div className="flex flex-wrap gap-2">
+            <select
+              value={city}
+              onChange={(e) => {
+                setCity(e.target.value);
+              }}
+              className="rounded-md border border-line-strong bg-surface p-2 text-body-sm"
+            >
+              <option value="">{t('filterCity')}</option>
+              {cities.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={sportFilter}
+              onChange={(e) => {
+                setSportFilter(e.target.value);
+              }}
+              className="rounded-md border border-line-strong bg-surface p-2 text-body-sm"
+            >
+              <option value="">{t('filterSport')}</option>
+              {sports.map((sport) => (
+                <option key={sport} value={sport}>
+                  {F(sport)}
+                </option>
+              ))}
+            </select>
+            <input
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+              }}
+              placeholder={t('filterName')}
+              className="min-w-40 flex-1 rounded-md border border-line-strong bg-surface p-2 text-body-sm"
+            />
+            {/* Bulk selection acts on what is FILTERED, which is the whole point:
+                "every football pitch in Plovdiv" is two filters and one click. */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelected((prev) => new Set([...prev, ...visible.map((f) => f.id)]));
+              }}
+              className="rounded-pill border border-line-strong bg-surface px-3 py-2 text-body-sm font-semibold text-ink-soft hover:bg-surface-2"
+            >
+              {t('selectAll')}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelected(new Set());
+              }}
+              className="rounded-pill border border-line-strong bg-surface px-3 py-2 text-body-sm font-semibold text-ink-soft hover:bg-surface-2"
+            >
+              {t('clearAll')}
+            </button>
+          </div>
+
+          <p className="text-body-sm text-ink-soft">
+            {t('selectedCount', { count: selected.size })}
+          </p>
+
+          {/* The filters above act on the SHIPPED list, so if the server capped it
+              the missing facilities are unfindable, not merely unlisted — say so
+              instead of letting the list look complete (AUDIT-F1). */}
+          {facilities.length < facilityTotal && (
+            <p className="rounded-md border border-warning-border bg-warning-bg px-3 py-2 text-body-sm text-warning">
+              {t('facilityListTruncated', { shown: facilities.length, total: facilityTotal })}
+            </p>
+          )}
+
+          <ul className="max-h-80 divide-y divide-line overflow-y-auto rounded-card border border-line bg-surface">
+            {visible.map((facility) => (
+              <li key={facility.id}>
+                <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-body-sm hover:bg-paper-sunk">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(facility.id)}
+                    onChange={() => {
+                      toggle(facility.id);
+                    }}
+                  />
+                  <span className="flex-1">{facility.name}</span>
+                  <span className="text-caption text-text-muted">{facility.cityName}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          {/* The submitted set is the ticked one, not the visible one — changing a
+              filter must never silently change what is about to be created. */}
+          {[...selected].map((id) => (
+            <input key={id} type="hidden" name="facilityId" value={id} />
           ))}
-        </ul>
-        {/* The submitted set is the ticked one, not the visible one — changing a
-            filter must never silently change what is about to be created. */}
-        {[...selected].map((id) => (
-          <input key={id} type="hidden" name="facilityId" value={id} />
-        ))}
-      </fieldset>
+        </fieldset>
 
-      {state.error && <ErrorLine code={state.error} labels={labels} />}
+        {state.error && <ErrorLine code={state.error} labels={labels} />}
 
-      <button
-        type="submit"
-        disabled={pending || selected.size === 0}
-        className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover disabled:opacity-50"
-      >
-        {L('create')} ({selected.size})
-      </button>
-    </form>
+        <button
+          type="submit"
+          disabled={pending || selected.size === 0}
+          className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover disabled:opacity-50"
+        >
+          {t('create')} ({selected.size})
+        </button>
+      </form>
+    </>
   );
 }
 
 function CsvForm({ labels }: { labels: Labels }) {
-  const L = (key: string): string => labelOf(labels, key);
-  const [state, action, pending] = useActionState(parseCsvAction, EMPTY);
+  const t = useLabels(labels);
+  // A refused file comes back with the paste still in the box (A-2).
+  const [state, formProps, pending] = useFormAction(parseCsvAction, EMPTY);
   if (state.step === 'map') return <MappingForm state={state} labels={labels} />;
 
   return (
-    <form action={action} className="space-y-3">
-      <p className="text-body-sm text-ink-soft">{L('templateHint')}</p>
+    <form {...formProps} className="space-y-3">
+      <p className="text-body-sm text-ink-soft">{t('templateHint')}</p>
       <label className="block text-body-sm font-medium text-ink-soft">
-        {L('csvPaste')}
+        {t('csvPaste')}
         <textarea
           name="csv"
           rows={8}
@@ -364,7 +421,7 @@ function CsvForm({ labels }: { labels: Labels }) {
         />
       </label>
       <label className="block text-body-sm font-medium text-ink-soft">
-        {L('csvUpload')}
+        {t('csvUpload')}
         <input type="file" name="file" accept=".csv,text/csv" className="mt-1 block text-body-sm" />
       </label>
       {state.error && <ErrorLine code={state.error} labels={labels} />}
@@ -373,7 +430,7 @@ function CsvForm({ labels }: { labels: Labels }) {
         disabled={pending}
         className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover disabled:opacity-50"
       >
-        {L('csvParse')}
+        {t('csvParse')}
       </button>
     </form>
   );
@@ -394,25 +451,26 @@ const MAPPABLE = [
 ] as const;
 
 function MappingForm({ state, labels }: { state: BulkState; labels: Labels }) {
-  const L = (key: string): string => labelOf(labels, key);
-  const [next, action, pending] = useActionState(previewCsvAction, EMPTY);
+  const t = useLabels(labels);
+  // Never reset: a reset would put every column choice back to the guess.
+  const [next, formProps, pending] = useFormAction(previewCsvAction, EMPTY);
   if (next.step === 'preview') return <PreviewForm state={next} labels={labels} />;
 
   return (
-    <form action={action} className="space-y-4">
+    <form {...formProps} className="space-y-4">
       <input type="hidden" name="csv" value={state.csv ?? ''} />
-      <h2 className="text-h4 font-bold text-ink">{L('mapColumns')}</h2>
-      <p className="text-body-sm text-ink-soft">{L('mapHint')}</p>
+      <h2 className="text-h4 font-bold text-ink">{t('mapColumns')}</h2>
+      <p className="text-body-sm text-ink-soft">{t('mapHint')}</p>
       <div className="grid gap-3 sm:grid-cols-2">
         {MAPPABLE.map((field) => (
           <label key={field} className="block text-body-sm">
-            <span className="text-caption font-medium text-ink-soft">{L(field) ?? field}</span>
+            <span className="text-caption font-medium text-ink-soft">{t(field)}</span>
             <select
               name={`map.${field}`}
               defaultValue={state.mapping?.[field] ?? ''}
               className="mt-1 w-full rounded-md border border-line-strong bg-surface p-2"
             >
-              <option value="">{L('ignoreColumn')}</option>
+              <option value="">{t('ignoreColumn')}</option>
               {(state.headers ?? []).map((header, index) => (
                 <option key={`${header}-${String(index)}`} value={index}>
                   {header || `#${String(index + 1)}`}
@@ -453,73 +511,107 @@ function MappingForm({ state, labels }: { state: BulkState; labels: Labels }) {
         </div>
       )}
 
+      {next.error && <ErrorLine code={next.error} labels={labels} />}
+
       <button
         type="submit"
         disabled={pending}
         className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover disabled:opacity-50"
       >
-        {L('preview')}
+        {t('preview')}
       </button>
     </form>
   );
 }
 
 function PreviewForm({ state, labels }: { state: BulkState; labels: Labels }) {
-  const L = (key: string): string => labelOf(labels, key);
-  const [done, action, pending] = useActionState(commitCsvAction, EMPTY);
+  const t = useLabels(labels);
+  const [done, formProps, pending] = useFormAction(commitCsvAction, EMPTY);
   if (done.step === 'done') return <DonePanel state={done} labels={labels} />;
 
   return (
-    <form action={action} className="space-y-4">
+    <form {...formProps} className="space-y-4">
       <input type="hidden" name="csv" value={state.csv ?? ''} />
       {Object.entries(state.mapping ?? {}).map(([field, index]) => (
         <input key={field} type="hidden" name={`map.${field}`} value={index} />
       ))}
-      <h2 className="text-h4 font-bold text-ink">{L('preview')}</h2>
-      <p className="text-body-sm text-ink-soft">{L('previewHint')}</p>
+      <h2 className="text-h4 font-bold text-ink">{t('preview')}</h2>
+      <p className="text-body-sm text-ink-soft">{t('previewHint')}</p>
       <RowTable rows={state.preview ?? []} labels={labels} />
+      {done.error && <ErrorLine code={done.error} labels={labels} />}
       <button
         type="submit"
         disabled={pending || (state.validCount ?? 0) === 0}
         className="rounded-pill bg-brand px-5 py-3 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover disabled:opacity-50"
       >
-        {L('confirmImport').replace('{count}', String(state.validCount ?? 0))}
+        {t('confirmImport', { count: state.validCount ?? 0 })}
       </button>
     </form>
   );
 }
 
-function DonePanel({ state, labels }: { state: BulkState; labels: Labels }) {
-  const L = (key: string): string => labelOf(labels, key);
+/**
+ * What a create did, and where to go from it. The series are created now; their
+ * dates are materialized by the worker a moment later, which is why the link is
+ * to the public schedule rather than to occurrences that may not exist yet.
+ */
+function DonePanel({
+  state,
+  labels,
+  onMore,
+}: {
+  state: BulkState;
+  labels: Labels;
+  /** Back to the form as it was — the grid keeps its slot and its ticks. */
+  onMore?: () => void;
+}) {
+  const t = useLabels(labels);
+  const created = state.created ?? 0;
   return (
     <div className="space-y-4">
-      <p className="rounded-md border border-success-border bg-success-bg px-3 py-2 text-body-sm text-success">
-        {L('createdCount').replace('{count}', String(state.created ?? 0))}
-      </p>
+      <div
+        role="status"
+        className="space-y-1 rounded-md border border-success-border bg-success-bg px-3 py-2 text-body-sm text-success"
+      >
+        <p className="font-semibold">{t('createdCount', { count: created })}</p>
+        {created > 0 && <p>{t('createdHint')}</p>}
+      </div>
       {(state.skipped ?? []).length > 0 && (
         <>
           <p className="rounded-md border border-warning-border bg-warning-bg px-3 py-2 text-body-sm text-warning">
-            {L('skippedCount').replace('{count}', String(state.skipped?.length ?? 0))}
+            {t('skippedCount', { count: state.skipped?.length ?? 0 })}
           </p>
           <RowTable rows={state.skipped ?? []} labels={labels} />
         </>
       )}
+      <div className="flex flex-wrap gap-3">
+        {created > 0 && (
+          <Link href="/sesii" className={buttonVariants({ variant: 'secondary' })}>
+            {t('viewCreated')}
+          </Link>
+        )}
+        {onMore && (
+          <Button type="button" onClick={onMore}>
+            {t('createMore')}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
 
 function RowTable({ rows, labels }: { rows: BulkState['preview'] & object; labels: Labels }) {
-  const L = (key: string): string => labelOf(labels, key);
+  const t = useLabels(labels);
   return (
     <div className="overflow-x-auto rounded-card border border-line bg-surface">
       <table className="w-full text-body-sm">
         <thead className="bg-paper-sunk">
           <tr>
-            <th className="t-overline px-2 py-1.5 text-left font-semibold">{L('rowNumber')}</th>
-            <th className="t-overline px-2 py-1.5 text-left font-semibold">{L('facility')}</th>
-            <th className="t-overline px-2 py-1.5 text-left font-semibold">{L('sessionTitle')}</th>
-            <th className="t-overline px-2 py-1.5 text-left font-semibold">{L('status')}</th>
-            <th className="t-overline px-2 py-1.5 text-left font-semibold">{L('reason')}</th>
+            <th className="t-overline px-2 py-1.5 text-left font-semibold">{t('rowNumber')}</th>
+            <th className="t-overline px-2 py-1.5 text-left font-semibold">{t('facility')}</th>
+            <th className="t-overline px-2 py-1.5 text-left font-semibold">{t('sessionTitle')}</th>
+            <th className="t-overline px-2 py-1.5 text-left font-semibold">{t('status')}</th>
+            <th className="t-overline px-2 py-1.5 text-left font-semibold">{t('reason')}</th>
           </tr>
         </thead>
         <tbody>
@@ -530,11 +622,11 @@ function RowTable({ rows, labels }: { rows: BulkState['preview'] & object; label
               <td className="px-2 py-1">{row.title}</td>
               <td className="px-2 py-1">
                 <span className={row.ok ? 'text-success' : 'text-warning'}>
-                  {row.ok ? L('rowOk') : L('rowError')}
+                  {row.ok ? t('rowOk') : t('rowError')}
                 </span>
               </td>
               <td className="px-2 py-1 text-ink-soft">
-                {row.error ? (L(`error_${row.error}`) ?? row.error) : ''}
+                {row.error ? t(`error_${row.error}`) : ''}
               </td>
             </tr>
           ))}
@@ -554,10 +646,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function ErrorLine({ code, labels }: { code: string; labels: Labels }) {
-  const L = (key: string): string => labelOf(labels, key);
+  const t = useLabels(labels);
   return (
-    <p className="rounded-md border border-danger-border bg-danger-bg px-3 py-2 text-body-sm text-danger">
-      {L(`error_${code}`) ?? L(code) ?? code}
+    <p
+      role="alert"
+      className="rounded-md border border-danger-border bg-danger-bg px-3 py-2 text-body-sm text-danger"
+    >
+      {t(`error_${code}`)}
     </p>
   );
 }
