@@ -2,6 +2,8 @@ import { getDb } from '@sportkarta/db';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Badge } from '@/components/ui/badge';
+import { buttonVariants } from '@/components/ui/button';
+import { ConfirmButton } from '@/components/ui/confirm-button';
 import { requireRole } from '@/lib/auth-session';
 import { listPartners } from '@/lib/partners';
 import { Link } from '@/i18n/navigation';
@@ -93,13 +95,20 @@ export default async function AdminPartnersPage({ params }: { params: PageParams
                     )}
                   </td>
                   <td className="py-2 text-right">
+                    {/* Visibility is half of PARTNER_RENDERABLE: one tap adds or
+                        withdraws the logo, the ads and the adoptions on every
+                        page at once, so it names that first (A-8). */}
                     <form action={setVisibleAction.bind(null, p.slug, !p.visible)}>
-                      <button
-                        type="submit"
-                        className="rounded-pill border border-line-strong bg-surface px-3 py-1 text-caption font-semibold text-ink-soft hover:bg-surface-2"
+                      <ConfirmButton
+                        className={buttonVariants({ variant: 'secondary' })}
+                        message={
+                          p.visible
+                            ? t('hideConfirm', { name: p.nameBg })
+                            : t('publishConfirm', { name: p.nameBg })
+                        }
                       >
                         {p.visible ? t('hide') : t('publish')}
-                      </button>
+                      </ConfirmButton>
                     </form>
                   </td>
                 </tr>

@@ -1,6 +1,7 @@
 import { CircleDashed, Navigation, ShieldCheck } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 
+import { facilityTitle } from '@/components/map/facility-label';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Stat } from '@/components/ui/stat';
@@ -8,8 +9,21 @@ import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 import { facilityFamily, FAMILY_COLOR } from '@/lib/design/families';
 import { SPORT_VISUALS } from '@/lib/design/sport-visuals';
 import { NAV_PROVIDERS } from '@/lib/directions';
+import { formatDate } from '@/lib/format';
+import { placeLabel } from '@/lib/geo';
 import { photoUrl } from '@/lib/photo-url';
 import type { CanonicalSport } from '@sportkarta/lib/sports';
+
+/**
+ * An activity hue as TEXT. The raw hues are graphics colours: as 13px labels on
+ * the surface they measured 2.6–4.5:1 (bike, calisthenics, swimming, running,
+ * rackets all under AA), and the Chip primitive darkens its label by the same
+ * 35% for the same reason (components/ui/chip.tsx). The dot, the icon and the
+ * tint keep the raw colour.
+ */
+function readableOn(color: string): string {
+  return `color-mix(in oklab, ${color}, black 35%)`;
+}
 
 /** The read-only public detail; the source of truth is lib/public-data. */
 export interface FacilityDetailData {
@@ -63,9 +77,22 @@ export function FacilityDetailView({
   const tCondition = useTranslations('Condition');
   const locale = useLocale();
 
-  const name = facility.name ?? t('unnamed');
+  const area = placeLabel(facility.quarter, facility.municipalityName);
+  // The same name the map list and the place pages give it (facility-label.ts):
+  // «Баскетбол — София» for an unnamed facility, rather than the generic noun
+  // the list never shows — tapping «Фитнес — София» used to open a page called
+  // «Спортно съоръжение» (UX audit 2026-10-10).
+  const name = facilityTitle(
+    { name: facility.name, sports: facility.sportTypes, place: area },
+    {
+      locale,
+      unnamed: t('unnamed'),
+      sport: (sport) => tSport(sport),
+      unnamedAt: (what, place) => t('unnamedAt', { what, place }),
+    },
+  );
+  const named = Boolean(facility.name?.trim());
   const v = primaryVisual(facility.sportTypes);
-  const area = [facility.quarter, facility.municipalityName].filter(Boolean).join(', ');
   const photo = facility.photoIds[0];
 
   const lighting =
@@ -74,11 +101,9 @@ export function FacilityDetailView({
   // "no" — an indoor hall imported without a roof tag is not open-air.
   const covered = !facility.coveredKnown ? t('unknown') : facility.covered ? t('yes') : t('no');
   const surface = facility.surface ? tSurface(facility.surface) : t('unknown');
-  const lastVerified = facility.lastVerifiedAt
-    ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(
-        new Date(facility.lastVerifiedAt),
-      )
-    : null;
+  // Sofia's calendar day, not the server's UTC one (lib/format.ts).
+  const lastVerified = facility.lastVerifiedAt ? formatDate(facility.lastVerifiedAt, locale) : null;
+  const awaiting = facility.status === 'needs_verification';
   const coords = `${facility.lat.toFixed(4)}, ${facility.lon.toFixed(4)}`;
 
   return (
@@ -106,7 +131,7 @@ export function FacilityDetailView({
         {facility.sportTypes.length > 0 && (
           <span
             className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-pill bg-surface px-2.5 py-1 text-caption font-semibold shadow-sm"
-            style={{ color: v.color }}
+            style={{ color: readableOn(v.color) }}
           >
             <span className="size-2 rounded-full" style={{ background: v.color }} />
             {tSport(facility.sportTypes[0] ?? '')}
@@ -118,7 +143,8 @@ export function FacilityDetailView({
         <header>
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">{name}</h1>
           <p className="mt-1.5 font-mono text-caption text-text-muted">
-            {area ? `${area} · ` : ''}
+            {/* An unnamed facility already carries its place in the heading. */}
+            {named && area ? `${area} · ` : ''}
             {coords}
           </p>
         </header>
@@ -139,7 +165,7 @@ export function FacilityDetailView({
         {/* Condition + verification — needs-verification is a data-quality signal,
             not a reason to hide the facility, so it is SAID rather than hidden. */}
         <div className="flex flex-wrap items-center gap-2">
-          {facility.status === 'needs_verification' ? (
+          {awaiting ? (
             <Badge tone="warning" icon={<CircleDashed size={13} />}>
               {t('awaitingVerification')}
             </Badge>
@@ -150,12 +176,18 @@ export function FacilityDetailView({
               {tCondition(facility.condition)}
             </span>
           ) : null}
-          <span className="font-mono text-caption text-text-muted">
-            {lastVerified ? t('lastVerified', { date: lastVerified }) : t('neverVerified')}
-          </span>
+          {/* «Очаква проверка» already says it was never checked; the line
+              only adds news when there IS a date, or for an active record. */}
+          {(lastVerified || !awaiting) && (
+            <span className="font-mono text-caption text-text-muted">
+              {lastVerified ? t('lastVerified', { date: lastVerified }) : t('neverVerified')}
+            </span>
+          )}
         </div>
 
-        {facility.sportTypes.length > 0 && (
+        {/* With one sport the hero pill already names it; the row is for the
+            facilities that have more than one. */}
+        {facility.sportTypes.length > 1 && (
           <div className="flex flex-wrap gap-2">
             {facility.sportTypes.map((s) => {
               const sv = s in SPORT_VISUALS ? SPORT_VISUALS[s as CanonicalSport] : null;
@@ -167,7 +199,7 @@ export function FacilityDetailView({
                   className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-caption font-medium"
                   style={{
                     background: `color-mix(in srgb, ${color} 12%, var(--surface))`,
-                    color,
+                    color: readableOn(color),
                   }}
                 >
                   <Icon size={13} />
@@ -179,7 +211,11 @@ export function FacilityDetailView({
         )}
 
         <p className="text-caption text-text-muted">
-          {t('dataSource')}: {tSource(facility.source)} · © OpenStreetMap
+          {/* An OSM record is attributed once, not «OpenStreetMap · © OpenStreetMap». */}
+          {t('dataSource')}:{' '}
+          {facility.source === 'osm'
+            ? '© OpenStreetMap'
+            : `${tSource(facility.source)} · © OpenStreetMap`}
         </p>
 
         {showDirections && (

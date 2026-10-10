@@ -1,9 +1,10 @@
 'use server';
 
 import { getDb, revertAccountEdits, revertCrowdEdit } from '@sportkarta/db';
+import { getLocale } from 'next-intl/server';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 
+import { redirect } from '@/i18n/navigation';
 import { requireRole } from '@/lib/auth-session';
 
 import { feedHref, REVERT_WINDOWS_HOURS, type FeedParams } from './params';
@@ -32,7 +33,8 @@ export async function revertEditAction(editId: number, back: FeedParams): Promis
   const user = await requireRole('admin');
   const result = await revertCrowdEdit(getDb(), { editId, actorId: user.id });
   if (result.outcome === 'reverted') refreshPublicViews();
-  redirect(feedHref(back, { rezultat: result.outcome }));
+  // i18n redirects throughout, so an admin working in /en stays there (A-14).
+  redirect({ href: feedHref(back, { rezultat: result.outcome }), locale: await getLocale() });
 }
 
 export async function revertAccountAction(back: FeedParams, formData: FormData): Promise<void> {
@@ -41,7 +43,7 @@ export async function revertAccountAction(back: FeedParams, formData: FormData):
   const hours = Number(formData.get('chasa'));
   // Only the offered windows: the form is a pointer, not a parameter surface.
   if (accountId === '' || !(REVERT_WINDOWS_HOURS as readonly number[]).includes(hours)) {
-    redirect(feedHref(back, { rezultat: 'not_found' }));
+    redirect({ href: feedHref(back, { rezultat: 'not_found' }), locale: await getLocale() });
   }
 
   const result = await revertAccountEdits(getDb(), {
@@ -50,13 +52,14 @@ export async function revertAccountAction(back: FeedParams, formData: FormData):
     actorId: user.id,
   });
   if (result.reverted > 0) refreshPublicViews();
-  redirect(
-    feedHref(back, {
+  redirect({
+    href: feedHref(back, {
       rezultat: 'bulk',
       n: String(result.reverted),
       s: String(result.superseded),
       a: String(result.already + result.notRevertable),
       ...(result.truncated ? { t: '1' } : {}),
     }),
-  );
+    locale: await getLocale(),
+  });
 }

@@ -49,12 +49,17 @@ export async function DigestPanel({
               <form action={setDigestSubscriptionAction}>
                 <input type="hidden" name="municipalityId" value={city.id} />
                 <input type="hidden" name="subscribed" value={subscribed ? 'false' : 'true'} />
+                {/* The visible label repeats down the list («Абонирай ме»), so the
+                    accessible name carries the city; 44px like every target. */}
                 <button
                   type="submit"
+                  aria-label={
+                    subscribed ? t('optOutFor', { city: name }) : t('optInFor', { city: name })
+                  }
                   className={
                     subscribed
-                      ? 'rounded-pill border border-line-strong bg-surface px-3 py-1.5 text-caption font-semibold text-ink-soft hover:bg-surface-2'
-                      : 'rounded-pill bg-brand px-3 py-1.5 text-caption font-semibold text-on-brand hover:bg-brand-hover'
+                      ? 'min-h-11 rounded-pill border border-line-strong bg-surface px-3 py-1.5 text-caption font-semibold text-ink-soft hover:bg-surface-2'
+                      : 'min-h-11 rounded-pill bg-brand px-3 py-1.5 text-caption font-semibold text-on-brand hover:bg-brand-hover'
                   }
                 >
                   {subscribed ? t('optOut') : t('optIn')}

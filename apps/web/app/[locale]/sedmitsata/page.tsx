@@ -74,7 +74,11 @@ export default async function WeeklyIndexPage({ params }: { params: PageParams }
       <main className="mx-auto max-w-2xl px-4 py-5">
         <header className="mb-5">
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('indexTitle')}</h1>
-          <p className="mt-1.5 text-body-sm text-ink-soft">{t('indexIntro')}</p>
+          {/* «Изберете град…» only above a list of cities to pick from: on an
+              empty week it pointed at a list that was not there (L-6). */}
+          {rows.length > 0 && (
+            <p className="mt-1.5 text-body-sm text-ink-soft">{t('indexIntro')}</p>
+          )}
         </header>
 
         {rows.length === 0 ? (
@@ -98,7 +102,9 @@ export default async function WeeklyIndexPage({ params }: { params: PageParams }
               <li key={city.id}>
                 <Link
                   href={`/sedmitsata/${city.slug}`}
-                  className="flex items-center gap-3 rounded-card border border-line bg-surface px-4 py-3 shadow-sm hover:bg-surface-2"
+                  // The ring restated: `shadow-sm` sits in the utilities
+                  // layer and erased the global :focus-visible ring (D-5).
+                  className="flex items-center gap-3 rounded-card border border-line bg-surface px-4 py-3 shadow-sm hover:bg-surface-2 focus-visible:shadow-[var(--ring)]"
                   data-umami-event={ANALYTICS_EVENTS.weeklyOpen}
                 >
                   <span className="flex-1 truncate text-body-sm font-semibold text-ink">

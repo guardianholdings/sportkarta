@@ -77,6 +77,14 @@ function flagsSubquery(targetType: 'photo' | 'report' | 'facility', idColumn: SQ
   )`;
 }
 
+/**
+ * A timestamp as ISO text, so the screens format it in Sofia time
+ * (lib/format). String(Date) prints the process's UTC rendering instead.
+ */
+function iso(value: unknown): string {
+  return value instanceof Date ? value.toISOString() : String(value);
+}
+
 function toModerationPhoto(row: Record<string, unknown>): ModerationPhoto {
   const name = (row.uploader_name as string | null) ?? null;
   return {
@@ -85,7 +93,7 @@ function toModerationPhoto(row: Record<string, unknown>): ModerationPhoto {
     facilityName: (row.facility_name as string | null) ?? null,
     uploadedBy: (row.uploaded_by as string | null) ?? null,
     uploaderName: name && name.trim() ? name : null,
-    createdAt: String(row.created_at),
+    createdAt: iso(row.created_at),
   };
 }
 
@@ -155,7 +163,7 @@ export async function queueReports(actor: ModerationActor, limit = 50): Promise<
     issue: String(row.issue),
     body: (row.body as string | null) ?? null,
     photoId: row.photo_id ? String(row.photo_id) : null,
-    createdAt: String(row.created_at),
+    createdAt: iso(row.created_at),
     flags: flagsOf(row.flags),
   }));
 }
@@ -179,19 +187,25 @@ export async function queueFacilities(
     name: (row.name as string | null) ?? null,
     municipalityName: (row.municipality_name as string | null) ?? null,
     quarter: (row.quarter as string | null) ?? null,
-    createdAt: String(row.created_at),
+    createdAt: iso(row.created_at),
     flags: flagsOf(row.flags),
   }));
 }
 
 export interface ModerationSla {
-  /** Items waiting right now, by type. */
+  /** Items waiting right now in the crowd queue, by type. */
   pendingPhotos: number;
   pendingReports: number;
+  /** Crowd-added facilities awaiting a second pair of eyes — the list below the panel. */
   pendingFacilities: number;
-  /** Age of the oldest waiting item, in hours; null when the queue is empty. */
+  /**
+   * Imported facilities (OSM, municipal registers) awaiting verification: the
+   * verify deck's backlog, counted apart from the crowd queue.
+   */
+  importBacklog: number;
+  /** Age of the oldest waiting crowd item, in hours; null when the queue is empty. */
   oldestPendingHours: number | null;
-  /** Median time from queued to decided, in hours, over the window. */
+  /** Median time from queued to decided over the window, crowd queue only. */
   medianHours: number | null;
   decisionsInWindow: number;
   windowDays: number;
@@ -199,6 +213,16 @@ export interface ModerationSla {
 
 /**
  * Queue depth and time-to-decision for the SLA panel.
+ *
+ * THE CROWD QUEUE, AND THE IMPORT BACKLOG BESIDE IT (UX audit 2026-10-10,
+ * A-7). The panel used to count every facility awaiting verification — some
+ * 6,900 of them OSM imports waiting for the verify deck — next to a list that
+ * shows only crowd-added ones, and its oldest item and median were the import
+ * date of the map. A member's photo, report or new facility is the queue whose
+ * speed this measures; the backlog is a separate number with its own screen.
+ * So the depth, the oldest item and the median all describe the crowd queue:
+ * decisions about imported facilities stay out of the median exactly like
+ * their rows stay out of the depth, so numerator and denominator still agree.
  *
  * The median is `percentile_cont`, not an average: one item that sat for a
  * month would drag a mean far away from what the queue actually feels like.
@@ -213,13 +237,12 @@ export async function moderationSla(
         WHERE p.status = 'pending' AND ${scopeClause(actor)})::int AS pending_photos,
       (SELECT count(*) FROM facility_reports r JOIN facilities f ON f.id = r.facility_id
         WHERE r.status = 'pending' AND ${scopeClause(actor)})::int AS pending_reports,
-      -- Every facility awaiting a decision, not only crowd-added ones: the
-      -- verify deck serves imported facilities too, and their decisions land in
-      -- the same log the median is computed from. Counting only crowd rows here
-      -- would make the numerator and denominator describe different queues.
       (SELECT count(*) FROM facilities f
-        WHERE f.status = 'needs_verification' AND ${scopeClause(actor)})::int
+        WHERE f.status = 'needs_verification' AND f.source = 'crowd' AND ${scopeClause(actor)})::int
         AS pending_facilities,
+      (SELECT count(*) FROM facilities f
+        WHERE f.status = 'needs_verification' AND f.source <> 'crowd' AND ${scopeClause(actor)})::int
+        AS import_backlog,
       (SELECT extract(epoch FROM now() - min(oldest)) / 3600.0 FROM (
          SELECT min(p.created_at) AS oldest FROM facility_photos p
            JOIN facilities f ON f.id = p.facility_id
@@ -230,7 +253,7 @@ export async function moderationSla(
           WHERE r.status = 'pending' AND ${scopeClause(actor)}
          UNION ALL
          SELECT min(f.created_at) FROM facilities f
-          WHERE f.status = 'needs_verification' AND ${scopeClause(actor)}
+          WHERE f.status = 'needs_verification' AND f.source = 'crowd' AND ${scopeClause(actor)}
        ) ages) AS oldest_pending_hours
   `);
 
@@ -253,6 +276,12 @@ export async function moderationSla(
     FROM moderation_decisions d
     WHERE d.decided_at >= now() - ${`${String(windowDays)} days`}::interval
       AND d.decision <> 'removed'
+      -- The crowd queue only: a verify-deck decision about an imported
+      -- facility was "queued" when the map was imported, months before.
+      AND NOT EXISTS (
+        SELECT 1 FROM facilities f
+        WHERE d.target_type = 'facility' AND f.id = d.facility_id AND f.source <> 'crowd'
+      )
       AND ${decisionScope}
   `);
 
@@ -265,6 +294,7 @@ export async function moderationSla(
     pendingPhotos: Number(depthRow.pending_photos ?? 0),
     pendingReports: Number(depthRow.pending_reports ?? 0),
     pendingFacilities: Number(depthRow.pending_facilities ?? 0),
+    importBacklog: Number(depthRow.import_backlog ?? 0),
     oldestPendingHours: asNumber(depthRow.oldest_pending_hours),
     medianHours: asNumber(timingRow.median_hours),
     decisionsInWindow: Number(timingRow.decisions ?? 0),
@@ -318,7 +348,7 @@ export async function ambassadorActivity(windowDays = 30): Promise<AmbassadorSum
       : [],
     decisions: Number(row.decisions ?? 0),
     medianHours: row.median_hours === null ? null : Number(row.median_hours),
-    lastDecisionAt: row.last_decision_at ? String(row.last_decision_at) : null,
+    lastDecisionAt: row.last_decision_at ? iso(row.last_decision_at) : null,
   }));
 }
 

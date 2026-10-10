@@ -100,7 +100,9 @@ function toListRow(r: Record<string, unknown>): FacilityListRow {
     sportTypes: (r.sport_types as string[] | null) ?? [],
     status: r.status as FacilityStatus,
     source: r.source as FacilitySource,
-    updatedAt: String(r.updated_at),
+    // ISO, so the page formats it in Sofia time (lib/format) — String(Date)
+    // printed the process's UTC rendering, and the page sliced «Sat Oct 10».
+    updatedAt: r.updated_at instanceof Date ? r.updated_at.toISOString() : String(r.updated_at),
     lon: Number(r.lon),
     lat: Number(r.lat),
   };
@@ -116,6 +118,31 @@ export async function municipalityOptions(): Promise<MunicipalityOption[]> {
   const result = await db.execute(
     sql`SELECT id, name_bg FROM municipalities ORDER BY name_bg COLLATE "bg-BG-x-icu"`,
   );
+  return result.rows.map((r) => {
+    const row = r as { id: number; name_bg: string };
+    return { id: Number(row.id), nameBg: row.name_bg };
+  });
+}
+
+/**
+ * The municipalities an actor's filters may offer: all of them for an admin,
+ * their own for an ambassador (UX audit 2026-10-10, A-16). Every query behind
+ * those filters is scoped, so the ~265 others only ever filtered an
+ * ambassador's list down to nothing. Empty for an ambassador with no scope —
+ * the screens say so instead of showing an empty queue.
+ */
+export async function municipalityOptionsFor(
+  actor: ModerationActor,
+): Promise<MunicipalityOption[]> {
+  if (actor.role === 'admin') return municipalityOptions();
+  if (actor.role !== 'ambassador') return [];
+  const result = await getDb().execute(sql`
+    SELECT m.id, m.name_bg
+    FROM ambassador_municipalities am
+    JOIN municipalities m ON m.id = am.municipality_id
+    WHERE am.user_id = ${actor.id}
+    ORDER BY m.name_bg COLLATE "bg-BG-x-icu"
+  `);
   return result.rows.map((r) => {
     const row = r as { id: number; name_bg: string };
     return { id: Number(row.id), nameBg: row.name_bg };
@@ -138,12 +165,19 @@ export interface DashboardCounts {
  * links to (lib/moderation-data.ts) carries scopeClause, and a number that
  * disagrees with the list behind it is a number nobody trusts. The facility and
  * photo counts now carry the same predicate; an admin's is `TRUE`, so their
- * national view is unchanged. `municipalities` stays the national total: it is
- * context, not a queue.
+ * national view is unchanged. `municipalities` is the country's total for an
+ * admin and an ambassador's OWN count for them (A-16): «265 общини» on the
+ * dashboard of someone who moderates two was the same mismatch again.
  */
 export async function dashboardCounts(actor: ModerationActor): Promise<DashboardCounts> {
   const db = getDb();
   const scope = scopeClause(actor);
+  const municipalities =
+    actor.role === 'admin'
+      ? sql`(SELECT count(*) FROM municipalities)`
+      : actor.role === 'ambassador'
+        ? sql`(SELECT count(*) FROM ambassador_municipalities am WHERE am.user_id = ${actor.id})`
+        : sql`0`;
   const result = await db.execute(sql`
     SELECT
       count(*) FILTER (WHERE f.status = 'active') AS active,
@@ -152,7 +186,7 @@ export async function dashboardCounts(actor: ModerationActor): Promise<Dashboard
       (SELECT count(*) FROM facility_photos p
          JOIN facilities f ON f.id = p.facility_id
         WHERE p.status = 'pending' AND ${scope}) AS pending_photos,
-      (SELECT count(*) FROM municipalities) AS municipalities
+      ${municipalities} AS municipalities
     FROM facilities f
     WHERE ${scope}
   `);
@@ -253,8 +287,8 @@ export interface FacilityDetail extends VerifyCard {
  *
  * Scoped since Stage 3.3: an ambassador may only open a facility inside their
  * municipalities. Without this, the editor would be a way around the moderation
- * boundary — it can set status and rewrite fields nationwide, and it does not
- * go through the logged moderation path at all.
+ * boundary — it rewrites fields and moves pins outside the logged moderation
+ * path (its status is decided through that path since the UX audit's A-4).
  */
 export async function getFacility(
   actor: ModerationActor,
@@ -371,20 +405,34 @@ export interface ImportJobRow {
   state: string;
   dryRun: boolean;
   actor: string | null;
+  /**
+   * Who queued it, by display name (or email when they have none) — the job
+   * stores an account id, which told the operator nothing (A-17). Null when
+   * that account no longer exists.
+   */
+  actorName: string | null;
   createdOn: string;
   completedOn: string | null;
+}
+
+/** ISO text, so the page formats it in Sofia time; String(Date) printed UTC. */
+function isoTime(value: unknown): string {
+  return value instanceof Date ? value.toISOString() : String(value);
 }
 
 /** pg-boss keeps finished jobs in pgboss.job until archival, then pgboss.archive. */
 export async function listImportJobs(): Promise<ImportJobRow[]> {
   const db = getDb();
   const result = await db.execute(sql`
-    SELECT id, state, data, created_on, completed_on FROM (
+    SELECT jobs.id, jobs.state, jobs.data, jobs.created_on, jobs.completed_on,
+           NULLIF(btrim(u.display_name), '') AS actor_display_name, u.email AS actor_email
+    FROM (
       SELECT id, state, data, created_on, completed_on FROM pgboss.job WHERE name = 'import.osm'
       UNION ALL
       SELECT id, state, data, created_on, completed_on FROM pgboss.archive WHERE name = 'import.osm'
     ) jobs
-    ORDER BY created_on DESC
+    LEFT JOIN users u ON u.id = jobs.data ->> 'actor'
+    ORDER BY jobs.created_on DESC
     LIMIT 20
   `);
   return result.rows.map((r) => {
@@ -395,8 +443,9 @@ export async function listImportJobs(): Promise<ImportJobRow[]> {
       state: String(row.state),
       dryRun: data.dryRun !== false,
       actor: data.actor ?? null,
-      createdOn: String(row.created_on),
-      completedOn: row.completed_on ? String(row.completed_on) : null,
+      actorName: ((row.actor_display_name ?? row.actor_email) as string | null) ?? null,
+      createdOn: isoTime(row.created_on),
+      completedOn: row.completed_on ? isoTime(row.completed_on) : null,
     };
   });
 }
@@ -434,8 +483,9 @@ export async function getImportJob(id: string): Promise<ImportJobDetail | null> 
     state,
     dryRun: data.dryRun !== false,
     actor: data.actor ?? null,
-    createdOn: String(row.created_on),
-    completedOn: row.completed_on ? String(row.completed_on) : null,
+    actorName: null,
+    createdOn: isoTime(row.created_on),
+    completedOn: row.completed_on ? isoTime(row.completed_on) : null,
     report: typeof output?.report === 'string' ? output.report : null,
     // A retry carries the previous attempt's error too, which is worth seeing.
     error: state === 'failed' || state === 'retry' ? jobErrorMessage(row.output) : null,

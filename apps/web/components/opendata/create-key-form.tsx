@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useFormAction } from '@/lib/use-form-action';
 
 import { createApiKeyAction } from '@/app/[locale]/danni/klyuchove/actions';
 import { Button } from '@/components/ui/button';
@@ -33,11 +33,11 @@ export function CreateKeyForm({
     errors: Record<string, string>;
   };
 }) {
-  const [state, action, pending] = useActionState(createApiKeyAction, EMPTY_KEY_STATE);
+  const [state, formProps, pending] = useFormAction(createApiKeyAction, EMPTY_KEY_STATE);
 
   return (
     <div className="space-y-3">
-      <form action={action} className="space-y-2">
+      <form {...formProps} className="space-y-2">
         <label className="block text-body-sm font-medium" htmlFor="label">
           {strings.labelField}
         </label>

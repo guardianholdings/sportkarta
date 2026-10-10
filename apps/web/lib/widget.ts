@@ -1,4 +1,5 @@
 import type { MunicipalityAccountability } from './accountability';
+import { formatNumber, formatPercent } from './format';
 
 /**
  * The embeddable municipality widget (docs/ROADMAP.md §5, Stage 3.4).
@@ -73,9 +74,18 @@ export interface WidgetInput {
   strings: WidgetStrings;
 }
 
-function share(part: number, whole: number): string | null {
+/**
+ * Every figure the widget PRINTS goes through the reader's locale — «98,8%»,
+ * «12 345» on a Bulgarian municipality's site, which is where this is embedded.
+ * (The CSS flex shares below stay `toFixed`: CSS has one decimal point.)
+ */
+function share(part: number, whole: number, locale: string): string | null {
   if (whole <= 0) return null;
-  return `${((part / whole) * 100).toFixed(0)}%`;
+  return formatPercent((part / whole) * 100, locale, 0);
+}
+
+function count(value: number, locale: string): string {
+  return formatNumber(value, locale, { maximumFractionDigits: 0 });
 }
 
 /** One headline figure. */
@@ -93,7 +103,11 @@ function stat(value: string, label: string): string {
  * "condition" would leave a screen-reader user with a bar they are told exists
  * and cannot read. Colour is never the only channel.
  */
-function conditionBar(data: MunicipalityAccountability, strings: WidgetStrings): string {
+function conditionBar(
+  data: MunicipalityAccountability,
+  strings: WidgetStrings,
+  locale: string,
+): string {
   const segments: [number, string, string][] = [
     [data.conditionExcellent, '#0B7A40', strings.conditionExcellent],
     [data.conditionGood, '#0FA958', strings.conditionGood],
@@ -111,21 +125,24 @@ function conditionBar(data: MunicipalityAccountability, strings: WidgetStrings):
     })
     .join('');
   const label = `${strings.conditionHeading}: ${segments
-    .map(([n, , text]) => `${text} ${String(n)}`)
+    .map(([n, , text]) => `${text} ${count(n, locale)}`)
     .join(', ')}`;
   return `<div class="bar" role="img" aria-label="${escapeHtml(label)}">${bars}</div>`;
 }
 
 export function renderWidget(input: WidgetInput): string {
-  const { data, strings } = input;
-  const per10k = data.per10k === null ? strings.na : data.per10k.toFixed(1);
-  const freeShare = share(data.free, data.total) ?? strings.na;
+  const { data, strings, locale } = input;
+  const per10k =
+    data.per10k === null
+      ? strings.na
+      : formatNumber(data.per10k, locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const freeShare = share(data.free, data.total, locale) ?? strings.na;
   const median =
     data.reportsMedianHours === null
       ? strings.na
       : data.reportsMedianHours >= 48
-        ? `${(data.reportsMedianHours / 24).toFixed(0)} ${strings.days}`
-        : `${data.reportsMedianHours.toFixed(0)} ${strings.hours}`;
+        ? `${count(data.reportsMedianHours / 24, locale)} ${strings.days}`
+        : `${count(data.reportsMedianHours, locale)} ${strings.hours}`;
 
   // lang is the widget's own locale, so a screen reader on a Bulgarian
   // municipality's English page still pronounces these labels correctly.
@@ -159,13 +176,13 @@ a{color:inherit}
 <h1>${escapeHtml(input.cityName)}</h1>
 <p class="sub">${escapeHtml(strings.title)}</p>
 <div class="g">
-${stat(String(data.total), strings.total)}
+${stat(count(data.total, locale), strings.total)}
 ${stat(per10k, strings.per10k)}
 ${stat(freeShare, strings.freeShare)}
-${stat(String(data.reportsOpen), strings.openReports)}
+${stat(count(data.reportsOpen, locale), strings.openReports)}
 ${stat(median, strings.medianResponse)}
 </div>
-${conditionBar(data, strings)}
+${conditionBar(data, strings, locale)}
 <footer>
 <a href="${escapeHtml(input.pageUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(strings.more)}</a>
 · ${escapeHtml(strings.attribution)}

@@ -45,6 +45,12 @@ export interface SignInState {
   /** Echoed back so step two knows which address to verify. */
   email: string;
   error: SignInError | null;
+  /**
+   * A NEW code went out because the member asked for one. A successful resend
+   * used to return exactly the state it started from, so nothing on screen
+   * said that the button had done anything (UX audit 2026-10-10).
+   */
+  resent?: boolean;
 }
 
 // Deliberately loose: the mail server is the real authority on deliverability.
@@ -127,7 +133,7 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
     // member as an error instead of «Изпратихме код» for a code that never left.
     const outcome = await sendSignInCode(email, locale);
     return outcome === 'sent'
-      ? { step: 'code', email, error: null }
+      ? { step: 'code', email, error: null, ...(resend ? { resent: true } : {}) }
       : { step: 'email', email, error: outcome };
   }
 

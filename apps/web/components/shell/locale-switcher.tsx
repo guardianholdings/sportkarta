@@ -68,7 +68,7 @@ function SwitchLink({
         hrefLang={target}
         lang={target}
         className={cn(
-          'flex flex-col items-center gap-1 rounded-md px-2 py-2 text-[11px] font-semibold text-ink-soft hover:bg-surface-2',
+          'flex flex-col items-center gap-1 rounded-md px-2 py-2 text-overline font-semibold text-ink-soft hover:bg-surface-2',
           className,
         )}
       >

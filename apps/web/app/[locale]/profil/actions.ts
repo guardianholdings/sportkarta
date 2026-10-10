@@ -88,7 +88,9 @@ export async function deleteAccountAction(
     `[gdpr] account erased; audit rows preserved=${summary.auditRowsPreserved}, photos anonymised=${summary.photosAnonymized}`,
   );
 
-  return redirect({ href: '/', locale: await getLocale() });
+  // To a page that SAYS it happened: the map gave no sign that an irreversible
+  // deletion had just gone through (UX audit 2026-10-10).
+  return redirect({ href: '/vhod?deleted=1', locale: await getLocale() });
 }
 
 /**

@@ -1,4 +1,5 @@
 import { verifyCheckinToken } from '@sportkarta/lib/checkin-token';
+import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
@@ -27,9 +28,25 @@ import { CheckinForm } from './checkin-form';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { robots: { index: false, follow: false } };
-
 type PageParams = Promise<{ locale: string; token: string }>;
+
+/**
+ * A real title (D-4) — the metadata used to set only robots, so the tab read
+ * as the bare site title. The session's own title when the code is good, else
+ * what the page itself says. Same verification as the page, read-only.
+ */
+export async function generateMetadata({ params }: { params: PageParams }): Promise<Metadata> {
+  const { locale, token } = await params;
+  const robots = { index: false, follow: false };
+  const secret = checkinSecret();
+  const t = await getTranslations({ locale, namespace: 'Checkin' });
+  if (!secret) return { title: t('submit'), robots };
+  const verified = verifyCheckinToken(token, secret);
+  const view = verified.ok ? await occurrenceView(verified.occurrenceId, null) : null;
+  if (!view) return { title: t('invalidHeading'), robots };
+  const tSession = await getTranslations({ locale, namespace: 'Session' });
+  return { title: tSession('metaTitle', { title: view.title }), robots };
+}
 
 export default async function CheckinPage({ params }: { params: PageParams }) {
   const { locale, token } = await params;

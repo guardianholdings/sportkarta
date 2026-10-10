@@ -64,7 +64,7 @@ export function NavRail({
         {showAdd && (
           <Link
             href="/dobavi"
-            className="mt-2 flex flex-col items-center gap-1 rounded-md px-2 py-2 text-[11px] font-semibold text-ink-soft hover:bg-surface-2"
+            className="mt-2 flex flex-col items-center gap-1 rounded-md px-2 py-2 text-overline font-semibold text-ink-soft hover:bg-surface-2"
           >
             <span className="grid size-9 place-items-center rounded-full bg-accent text-on-accent shadow-xs">
               <Plus size={20} />
@@ -86,7 +86,7 @@ function NavRailItem({ item, active, label }: { item: NavItem; active: boolean; 
     <Link
       href={item.href}
       aria-current={active ? 'page' : undefined}
-      className={`flex flex-col items-center gap-1 rounded-md px-2 py-2 text-[11px] font-semibold ${
+      className={`flex flex-col items-center gap-1 rounded-md px-2 py-2 text-overline font-semibold ${
         active ? 'bg-brand-subtle text-brand' : 'text-ink-soft hover:bg-surface-2'
       }`}
     >
@@ -144,7 +144,7 @@ function TabItem({ item, active, label }: { item: NavItem; active: boolean; labe
       // icon + label measured 42px inside the 56px bar, leaving 7px of dead
       // strip above and below each tab and putting the primary navigation under
       // the 44px touch floor. The bar is unchanged; the hit area now fills it.
-      className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 self-stretch text-[11px] font-semibold ${
+      className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 self-stretch text-overline font-semibold ${
         active ? 'text-brand' : 'text-ink-soft'
       }`}
     >

@@ -75,6 +75,7 @@ export function sessionMailStrings(locale: string): SessionMailStrings {
     return value;
   };
   return {
+    locale,
     subjectConfirmed: pick('subjectConfirmed'),
     subjectWaitlisted: pick('subjectWaitlisted'),
     subjectPromoted: pick('subjectPromoted'),
@@ -91,7 +92,8 @@ export function sessionMailStrings(locale: string): SessionMailStrings {
     labelWhere: pick('labelWhere'),
     labelSpots: pick('labelSpots'),
     spots: pick('spots'),
-    spotsUnlimited: pick('spotsUnlimited'),
+    spotsUnlimitedOne: pick('spotsUnlimitedOne'),
+    spotsUnlimitedOther: pick('spotsUnlimitedOther'),
     viewSession: pick('viewSession'),
     addToCalendar: pick('addToCalendar'),
     withdraw: pick('withdraw'),

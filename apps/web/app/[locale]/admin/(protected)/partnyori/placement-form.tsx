@@ -1,9 +1,8 @@
 'use client';
 
-import { useActionState } from 'react';
-
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useFormAction } from '@/lib/use-form-action';
 
 import type { PlacementState } from './ad-actions';
 
@@ -52,10 +51,14 @@ export function PlacementForm({
   partnerId: number;
   slots: readonly string[];
 }) {
-  const [state, formAction, pending] = useActionState<PlacementState, FormData>(action, INITIAL);
+  // A refusal (the slot or the facility is taken for those dates) keeps what
+  // was typed; only a saved row clears the form for the next one (A-2).
+  const [state, formProps, pending] = useFormAction(action, INITIAL, {
+    resetWhen: (next) => next.saved === true,
+  });
 
   return (
-    <form action={formAction} className="space-y-3">
+    <form {...formProps} className="space-y-3">
       <input type="hidden" name="partnerId" value={partnerId} />
 
       <label className="flex flex-col gap-1.5">

@@ -3,7 +3,10 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { BarChart, type Bar } from '@/components/stats/bar-chart';
 import { StatsTable } from '@/components/stats/stats-table';
+import { Link } from '@/i18n/navigation';
 import { cityDisplayName } from '@/lib/city-names';
+import { formatDate, formatNumber, formatPercent } from '@/lib/format';
+import { loadCityCatalog } from '@/lib/places';
 import { buildAlternates } from '@/lib/seo';
 import { getStatsSnapshot, type MunicipalityStat } from '@/lib/stats-data';
 import { pct } from '@/lib/stats-format';
@@ -26,7 +29,7 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   };
 }
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
+function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-card border border-line p-3">
       <div className="font-mono text-h2 font-bold text-ink tabular-nums">{value}</div>
@@ -42,25 +45,35 @@ export default async function StatsPage({ params }: { params: PageParams }) {
   const { locale } = await params;
   setRequestLocale(locale);
 
-  const [t, tSport, tAccess, snapshot] = await Promise.all([
+  const [t, tSport, tAccess, snapshot, cities] = await Promise.all([
     getTranslations('Stats'),
     getTranslations('Sport'),
     getTranslations('Access'),
     getStatsSnapshot(),
+    loadCityCatalog(),
   ]);
   const { national, municipalities, sports } = snapshot;
   const na = t('na');
-  const fmtPct = (v: number | null) => (v === null ? na : `${v.toFixed(1)}%`);
+  // «98,8%», «12 345», «12,46» — the reader's separators, not JavaScript's.
+  const fmtPct = (v: number | null) => (v === null ? na : formatPercent(v, locale));
+  const fmtCount = (v: number) => formatNumber(v, locale);
+  // A municipality's bar leads to its accountability page, when its slug is
+  // known (the views carry the EKATTE code, the catalogue maps it).
+  const municipalityHref = (m: MunicipalityStat) => {
+    const city = cities.byEkatte.get(m.ekatteCode);
+    return city ? `/obshtina/${city.slug}` : undefined;
+  };
 
   const topMunicipalities: Bar[] = municipalities.slice(0, 10).map((m) => ({
     label: cityDisplayName(m.nameBg, m.nameEn, locale),
     value: m.total,
-    display: String(m.total),
+    display: fmtCount(m.total),
+    href: municipalityHref(m),
   }));
   const topSports: Bar[] = sports.slice(0, 10).map((s) => ({
     label: tSport(s.sport),
     value: s.total,
-    display: String(s.total),
+    display: fmtCount(s.total),
   }));
   // All four access values, so the shares sum to 100% (no misleading omission).
   const accessBars: Bar[] = national
@@ -76,12 +89,15 @@ export default async function StatsPage({ params }: { params: PageParams }) {
     .map((m) => ({
       label: cityDisplayName(m.nameBg, m.nameEn, locale),
       value: m.per10k,
-      display: m.per10k.toFixed(2),
+      display: formatNumber(m.per10k, locale, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+      href: municipalityHref(m),
     }));
 
-  const generatedDate = national
-    ? new Intl.DateTimeFormat(locale, { dateStyle: 'long' }).format(new Date(national.generatedAt))
-    : '';
+  // Sofia's calendar day, whatever the server's time zone (lib/format.ts).
+  const generatedDate = national ? formatDate(national.generatedAt, locale) : '';
   const freeShare = national ? pct(national.free, national.total) : null;
   const needsShare = national ? pct(national.needsVerification, national.total) : null;
 
@@ -100,11 +116,14 @@ export default async function StatsPage({ params }: { params: PageParams }) {
 
         {national && (
           <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            <StatCard label={t('statTotal')} value={national.total} />
+            <StatCard label={t('statTotal')} value={fmtCount(national.total)} />
             <StatCard label={t('statFree')} value={fmtPct(freeShare)} />
             <StatCard label={t('statNeedsVerification')} value={fmtPct(needsShare)} />
-            <StatCard label={t('statMunicipalities')} value={national.municipalitiesCovered} />
-            <StatCard label={t('statSports')} value={national.sportsCount} />
+            <StatCard
+              label={t('statMunicipalities')}
+              value={fmtCount(national.municipalitiesCovered)}
+            />
+            <StatCard label={t('statSports')} value={fmtCount(national.sportsCount)} />
           </section>
         )}
 
@@ -138,7 +157,15 @@ export default async function StatsPage({ params }: { params: PageParams }) {
           <h2 id="dl-h" className="mb-2 text-h4 font-bold text-ink">
             {t('downloadHeading')}
           </h2>
-          <p className="text-body-sm text-text-muted">{t('downloadComingSoon')}</p>
+          <p className="text-body-sm text-ink-soft">
+            {t.rich('downloadOpenData', {
+              link: (chunks) => (
+                <Link href="/danni" className="font-medium text-link hover:text-link-hover">
+                  {chunks}
+                </Link>
+              ),
+            })}
+          </p>
         </section>
       </main>
     </AppShell>

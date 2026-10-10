@@ -1,8 +1,10 @@
 import { getDb } from '@sportkarta/db';
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 
+import { buttonVariants } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { AD_SLOTS, partnerPlacements } from '@/lib/ads';
+import { formatDate } from '@/lib/format';
 
 import {
   createPlacementAction,
@@ -30,8 +32,9 @@ export async function PlacementsPanel({
   partnerId: number;
   partnerSlug: string;
 }) {
-  const [t, placements] = await Promise.all([
+  const [t, locale, placements] = await Promise.all([
     getTranslations('AdminPartners'),
+    getLocale(),
     partnerPlacements(getDb(), partnerId),
   ]);
 
@@ -117,6 +120,8 @@ export async function PlacementsPanel({
                         : t('adStateLive')
                     : t('adStateDraft')}
                 </span>
+                {/* A paid surface changes for everyone the moment this is
+                    tapped, so the slot and the window are named first (A-8). */}
                 <form
                   action={setPlacementVisibleAction.bind(
                     null,
@@ -126,12 +131,20 @@ export async function PlacementsPanel({
                   )}
                   className="ml-auto"
                 >
-                  <button
-                    type="submit"
-                    className="rounded-md border border-line-strong px-3 py-1.5 text-body-sm"
+                  <ConfirmButton
+                    className={buttonVariants({ variant: 'secondary' })}
+                    message={
+                      placement.visible
+                        ? t('adUnpublishConfirm', { slot: t(`adSlot_${placement.slot}`) })
+                        : t('adPublishConfirm', {
+                            slot: t(`adSlot_${placement.slot}`),
+                            from: formatDate(placement.startsOn, locale),
+                            to: formatDate(placement.endsOn, locale),
+                          })
+                    }
                   >
                     {placement.visible ? t('adUnpublish') : t('adPublish')}
-                  </button>
+                  </ConfirmButton>
                 </form>
                 <form action={deletePlacementAction.bind(null, partnerSlug, placement.id)}>
                   <ConfirmButton

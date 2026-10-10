@@ -3,7 +3,7 @@
 import { getDb } from '@sportkarta/db';
 import { headers } from 'next/headers';
 
-import { verifyFormToken } from '@/lib/form-token';
+import { checkFormToken, issueFormToken } from '@/lib/form-token';
 import { enqueueModerationNotify } from '@/lib/moderation-notify';
 import { parseNotice, type NoticeProblem } from '@/lib/notice-input';
 import { noticeRateLimiter } from '@/lib/notice-rate-limit';
@@ -24,13 +24,15 @@ import { clientIpFromForwardedFor } from '@/lib/rate-limit';
  * that was stored but not acknowledged is still a notice we must decide.
  */
 
-const MIN_FORM_MS = 3_000;
-const MAX_FORM_MS = 2 * 60 * 60 * 1000;
-
 /** `error` is an i18n key suffix under `Notice.error`. */
 export interface NoticeState {
   status: 'idle' | 'ok' | 'error';
-  error?: NoticeProblem | 'tooFast' | 'rateLimited';
+  error?: NoticeProblem | 'tooFast' | 'expired' | 'rateLimited';
+  /**
+   * A replacement token, handed out with `expired` only — see submitReport,
+   * whose answer this now mirrors.
+   */
+  formToken?: string;
 }
 
 export async function submitNotice(_prev: NoticeState, formData: FormData): Promise<NoticeState> {
@@ -38,10 +40,17 @@ export async function submitNotice(_prev: NoticeState, formData: FormData): Prom
   const honeypot = formData.get('website');
   if (typeof honeypot === 'string' && honeypot.trim() !== '') return { status: 'ok' };
 
-  const issuedAt = verifyFormToken(formData.get('ts') as string | null);
-  const elapsed = issuedAt === null ? -1 : Date.now() - issuedAt;
-  if (issuedAt === null || elapsed < MIN_FORM_MS || elapsed > MAX_FORM_MS) {
-    return { status: 'error', error: 'tooFast' };
+  // "Too fast" is cured by waiting, so the same token is retried. A stale token
+  // (the page was open over two hours) can never pass: it used to get the same
+  // «too fast» answer and an instruction to reload — which threw away an
+  // explanation of up to 2,000 characters. It now gets a fresh token instead,
+  // issued NOW, so the minimum time still applies (UX audit 2026-10-10).
+  const submittedToken = formData.get('ts');
+  const verdict = checkFormToken(typeof submittedToken === 'string' ? submittedToken : null);
+  if (!verdict.ok) {
+    return verdict.reason === 'tooFast'
+      ? { status: 'error', error: 'tooFast' }
+      : { status: 'error', error: 'expired', formToken: issueFormToken() };
   }
 
   const ip = clientIpFromForwardedFor((await headers()).get('x-forwarded-for')) ?? 'unknown';

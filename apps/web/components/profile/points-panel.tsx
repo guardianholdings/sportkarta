@@ -1,6 +1,7 @@
 import { getLocale, getTranslations } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
+import { formatDate } from '@/lib/format';
 import type { PointsSummary } from '@/lib/points';
 
 /**
@@ -16,9 +17,8 @@ export async function PointsPanel({ summary }: { summary: PointsSummary }) {
   const [t, locale] = await Promise.all([getTranslations('Points'), getLocale()]);
   // pg returns a full timestamp string; slicing it would print "Tue Jul 22" in
   // both locales, which is neither Bulgarian nor the format the rest of the
-  // site uses (see the facility page).
-  const formatDate = (value: string): string =>
-    new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(value));
+  // site uses (see the facility page). Sofia's day, not the server's UTC one.
+  const dateOf = (value: string): string => formatDate(value, locale, 'medium');
 
   return (
     <section
@@ -41,7 +41,7 @@ export async function PointsPanel({ summary }: { summary: PointsSummary }) {
             {summary.entries.map((entry) => (
               <li key={`${entry.event}-${entry.createdAt}`} className="flex gap-2 py-1.5">
                 <span className="font-mono text-caption text-text-muted tabular-nums">
-                  {formatDate(entry.createdAt)}
+                  {dateOf(entry.createdAt)}
                 </span>
                 <span className="min-w-0 truncate">
                   {entry.facilitySlug ? (

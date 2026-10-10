@@ -45,6 +45,8 @@ export type StoryData = Pick<
 export async function trainingStory(
   userId: string,
   trainingId: string,
+  /** The story's language — the distance is written «5,2» in Bulgarian. */
+  locale: string,
   strings: {
     eyebrow: string;
     heroKm: string;
@@ -62,7 +64,7 @@ export async function trainingStory(
   const row = rows.find((r) => r.id === trainingId);
   if (!row) return null;
 
-  const km = formatKm(row.distanceM);
+  const km = formatKm(row.distanceM, locale);
   const minutes = formatMinutes(row.durationS);
 
   // The hero is the distance when there is one and the duration otherwise: a

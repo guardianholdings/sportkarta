@@ -9,6 +9,7 @@ import { getTranslations } from 'next-intl/server';
 
 import { Badge } from '@/components/ui/badge';
 import { Link } from '@/i18n/navigation';
+import { memberName } from '@/lib/member-name';
 
 /**
  * One week's division ladder — docs/ENGAGEMENT-IMPLEMENTATION.md D6.
@@ -46,7 +47,10 @@ export async function DivisionLadder({
   /** Highlights the viewer's own row. Never rendered, never used to filter. */
   viewerUserId?: string | null;
 }) {
-  const t = await getTranslations('Division');
+  const [t, tPassport] = await Promise.all([
+    getTranslations('Division'),
+    getTranslations('Passport'),
+  ]);
 
   // Renders NOTHING when there is no ladder — below the floor, or before the
   // first rollover has run. The same discipline `AdSlot` and the Local Legend
@@ -124,7 +128,7 @@ export async function DivisionLadder({
                           href={`/pasport/${row.handle}`}
                           className="font-medium text-link hover:text-link-hover"
                         >
-                          {row.displayName}
+                          {memberName(row.displayName, tPassport('unnamedMember'))}
                         </Link>
                         {mine && (
                           <Badge tone="brand" className="ml-2">

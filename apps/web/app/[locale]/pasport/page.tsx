@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { getDb } from '@sportkarta/db';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
@@ -27,7 +28,17 @@ import { shareSheetStrings } from '@/lib/share/sheet-strings';
  * badges are evaluated from live history on every read — that is what makes a
  * newly-added badge appear retroactively rather than after a cache expiry.
  */
-export const metadata = { robots: { index: false, follow: false } };
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'Passport' });
+  // A title of its own (UX audit 2026-10-10): it inherited the site's, so
+  // moving between /profil, /pasport and /vhod announced nothing at all.
+  return { title: t('title'), robots: { index: false, follow: false } };
+}
 export const dynamic = 'force-dynamic';
 
 export default async function PassportPage({ params }: { params: Promise<{ locale: string }> }) {

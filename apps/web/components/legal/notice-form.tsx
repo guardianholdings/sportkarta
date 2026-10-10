@@ -1,9 +1,10 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useActionState, useState } from 'react';
+import { useState } from 'react';
 
 import { submitNotice, type NoticeState } from '@/app/[locale]/signal/actions';
+import { useFormAction } from '@/lib/use-form-action';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,17 @@ import {
 } from '@/lib/notice-input';
 
 const initialState: NoticeState = { status: 'idle' };
+
+/**
+ * The server hands out a replacement token only alongside `expired`; carrying
+ * it forward keeps a later answer (a rate limit, a bad address) from sending
+ * the form back to the page's dead token — the report form's rule
+ * (components/facility/report-form.tsx).
+ */
+async function submitKeepingToken(previous: NoticeState, formData: FormData): Promise<NoticeState> {
+  const next = await submitNotice(previous, formData);
+  return next.formToken || !previous.formToken ? next : { ...next, formToken: previous.formToken };
+}
 
 const LABEL = 'font-mono text-overline uppercase tracking-overline text-text-muted';
 
@@ -40,7 +52,10 @@ interface NoticeFormProps {
 export function NoticeForm({ defaultUrl, formToken, retentionDays }: NoticeFormProps) {
   const t = useTranslations('Notice');
   const [explanationLen, setExplanationLen] = useState(0);
-  const [state, formAction, pending] = useActionState(submitNotice, initialState);
+  // An error keeps the explanation (up to 2,000 characters) and everything else
+  // the notifier wrote — React used to reset the form on every answer.
+  const [state, formProps, pending] = useFormAction(submitKeepingToken, initialState);
+  const token = state.formToken ?? formToken;
 
   if (state.status === 'ok') {
     return (
@@ -51,8 +66,8 @@ export function NoticeForm({ defaultUrl, formToken, retentionDays }: NoticeFormP
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-5">
-      <input type="hidden" name="ts" value={formToken} />
+    <form {...formProps} className="flex flex-col gap-5">
+      <input type="hidden" name="ts" value={token} />
       {/* Honeypot: off-screen, hidden from AT + tab order. Bots fill it. */}
       <div aria-hidden="true" className="absolute left-[-9999px] h-0 w-0 overflow-hidden">
         <label>

@@ -3,6 +3,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import type { MonthlyActivity, PassportHistoryEntry } from '@sportkarta/db';
 
 import { Link } from '@/i18n/navigation';
+import { formatDate, formatMonthYear } from '@/lib/format';
 
 /**
  * The member's OWN history: what they did, where, and when.
@@ -19,14 +20,13 @@ export async function HistoryList({ entries }: { entries: PassportHistoryEntry[]
     return <p className="text-body-sm text-ink-soft">{t('historyEmpty')}</p>;
   }
 
-  const formatDate = (value: string): string =>
-    new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(value));
-
   return (
     <ul className="space-y-1 text-body-sm">
       {entries.map((entry) => (
         <li key={`${entry.kind}-${entry.at}`} className="flex flex-wrap gap-2">
-          <span className="text-text-muted">{formatDate(entry.at)}</span>
+          {/* Sofia's calendar day in the reader's format — the bare locale
+              formatter printed the SERVER's (UTC) day, in US order for `en`. */}
+          <span className="text-text-muted">{formatDate(entry.at, locale)}</span>
           <span>
             {entry.facilitySlug ? (
               <Link
@@ -62,7 +62,7 @@ export async function HistoryList({ entries }: { entries: PassportHistoryEntry[]
  * leak by accident in a later change.
  */
 export async function PublicActivityList({ months }: { months: MonthlyActivity[] }) {
-  const t = await getTranslations('Passport');
+  const [t, locale] = await Promise.all([getTranslations('Passport'), getLocale()]);
 
   if (months.length === 0) {
     return <p className="text-body-sm text-ink-soft">{t('historyEmpty')}</p>;
@@ -72,7 +72,8 @@ export async function PublicActivityList({ months }: { months: MonthlyActivity[]
     <ul className="space-y-1 text-body-sm">
       {months.map((month) => (
         <li key={month.month} className="flex gap-3">
-          <span className="tabular-nums text-text-muted">{month.month}</span>
+          {/* «август 2026 г.», not the wire format «2026-08». */}
+          <span className="text-text-muted">{formatMonthYear(month.month, locale)}</span>
           <span>{t('monthlyContributions', { count: month.contributions })}</span>
           <span className="text-text-muted">{t('monthlyCheckins', { count: month.checkins })}</span>
         </li>

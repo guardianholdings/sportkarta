@@ -15,7 +15,8 @@ const strings: DigestStrings = {
   introOther: '{count} тренировки тази седмица.',
   weekdays: ['Понеделник', 'Вторник', 'Сряда', 'Четвъртък', 'Петък', 'Събота', 'Неделя'],
   spots: '{going} от {capacity} места',
-  spotsUnlimited: '{going} записани',
+  spotsUnlimitedOne: '{going} записан',
+  spotsUnlimitedOther: '{going} записани',
   viewWeek: 'Виж цялата седмица',
   unsubscribe: 'Отписване',
   footer: 'Получаваш този имейл, защото си се записал.',
@@ -90,6 +91,12 @@ describe('renderWeeklyDigest', () => {
     const text = renderWeeklyDigest(data, strings)?.text ?? '';
     expect(text).toContain('5 от 12 места');
     expect(text).toContain('3 записани');
+  });
+
+  it('says «1 записан», not «1 записани», for an open session with one sign-up', () => {
+    const lone = { ...entries[1], going: 1 } as DigestEntry;
+    const text = renderWeeklyDigest({ ...data, entries: [lone] }, strings)?.text ?? '';
+    expect(text).toContain('(1 записан)');
   });
 
   it('picks the singular or plural intro without shipping ICU syntax', () => {

@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
 
 import { cityDisplayName } from '@/lib/city-names';
+import { formatNumber, formatPercent } from '@/lib/format';
 import type { MunicipalityStat } from '@/lib/stats-data';
 import { pct } from '@/lib/stats-format';
 
@@ -72,12 +73,21 @@ export function StatsTable({
   }
 
   const na = t('na');
-  const fmtPct = (v: number | null) => (v === null ? na : `${v.toFixed(1)}%`);
-  const fmtNum = (v: number | null) => (v === null ? na : v.toFixed(2));
+  // The reader's separators: «98,8%» and «12,46» on the Bulgarian site.
+  const fmtPct = (v: number | null) => (v === null ? na : formatPercent(v, locale));
+  const fmtNum = (v: number | null) =>
+    v === null
+      ? na
+      : formatNumber(v, locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const columns: { key: SortKey; label: string; render: (r: Row) => string; numeric: boolean }[] = [
     { key: 'name', label: t('colMunicipality'), render: (r) => r.name, numeric: false },
-    { key: 'total', label: t('colTotal'), render: (r) => String(r.total), numeric: true },
+    {
+      key: 'total',
+      label: t('colTotal'),
+      render: (r) => formatNumber(r.total, locale),
+      numeric: true,
+    },
     { key: 'per10k', label: t('colPer10k'), render: (r) => fmtNum(r.per10k), numeric: true },
     { key: 'freePct', label: t('colFree'), render: (r) => fmtPct(r.freePct), numeric: true },
     { key: 'litPct', label: t('colLit'), render: (r) => fmtPct(r.litPct), numeric: true },

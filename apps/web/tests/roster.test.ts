@@ -120,6 +120,27 @@ describe('occurrenceRoster', () => {
     expect(db.statements[2]?.sql).toMatch(/p\.rsvp_id IS NULL/);
   });
 
+  it('reads an EMPTY name as no name, so the deck says «Без име» instead of a blank row', async () => {
+    // An email-code sign-up has display_name '' (NOT NULL DEFAULT ''), and the
+    // page's fallback is a `??` — it only ever fired for null.
+    const db = fakeDb([
+      [gateRow()],
+      [
+        {
+          user_id: 'member_1',
+          display_name: '',
+          position: '1',
+          rsvp_status: 'going',
+          checkin_method: null,
+        },
+      ],
+      [{ user_id: 'walkin_1', display_name: '   ', checkin_method: 'qr' }],
+    ]);
+    const roster = await occurrenceRoster(db, 'org_1', OCC);
+    expect(roster.members[0]?.displayName).toBeNull();
+    expect(roster.walkIns[0]?.displayName).toBeNull();
+  });
+
   it('reports a cancelled occurrence rather than hiding its roster', async () => {
     const db = fakeDb([[gateRow({ cancelled: true })], [], []]);
     const roster = await occurrenceRoster(db, 'org_1', OCC);

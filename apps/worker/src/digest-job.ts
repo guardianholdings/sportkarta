@@ -97,10 +97,12 @@ export function digestStrings(locale: string): DigestStrings {
       pick('sunday'),
     ],
     spots: pick('spots'),
-    spotsUnlimited: pick('spotsUnlimited'),
+    spotsUnlimitedOne: pick('spotsUnlimitedOne'),
+    spotsUnlimitedOther: pick('spotsUnlimitedOther'),
     viewWeek: pick('viewWeek'),
     unsubscribe: pick('unsubscribe'),
     footer: pick('footer'),
+    locale,
   };
 }
 

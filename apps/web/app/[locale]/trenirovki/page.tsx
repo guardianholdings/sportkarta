@@ -1,5 +1,4 @@
 import { getDb, memberParticipation, memberTrainings, trainingConsents } from '@sportkarta/db';
-import { sql } from '@sportkarta/db';
 import { buildShare, formatKm, formatMinutes } from '@sportkarta/lib/share';
 import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
 import type { Metadata } from 'next';
@@ -8,9 +7,14 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { ShareSheet } from '@/components/share/share-sheet';
 import { AppShell } from '@/components/shell/app-shell';
 import { TrainingForm } from '@/components/training/training-form';
+import { buttonVariants } from '@/components/ui/button';
+import { ConfirmButton } from '@/components/ui/confirm-button';
 import { requireUser } from '@/lib/auth-session';
+import { formatDate, formatDateTime, inReadingOrder } from '@/lib/format';
+import { capitalizeFirst } from '@/lib/grammar';
 import { siteUrl } from '@/lib/seo';
 import { shareSheetStrings } from '@/lib/share/sheet-strings';
+import { memberFacilities } from '@/lib/training-facilities';
 import { trainingIntegrationsEnabled } from '@/lib/training-integrations';
 import { deleteTrainingAction, setTrainingConsentAction } from './actions';
 
@@ -37,18 +41,6 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   return { title: t('metaTitle'), robots: { index: false, follow: false } };
 }
 
-/** The member's own recent facilities, so the picker is short and relevant. */
-async function nearbyFacilities(): Promise<{ id: string; name: string }[]> {
-  const result = await getDb().execute(sql`
-    SELECT id::text AS id, name
-    FROM facilities
-    WHERE status <> 'gone' AND name IS NOT NULL AND btrim(name) <> ''
-    ORDER BY updated_at DESC
-    LIMIT 100
-  `);
-  return result.rows.map((row) => ({ id: String(row.id), name: String(row.name) }));
-}
-
 export default async function TrainingPage({ params }: { params: PageParams }) {
   const { locale } = await params;
   setRequestLocale(locale);
@@ -67,20 +59,18 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
     memberTrainings(getDb(), user.id),
     memberParticipation(getDb(), user.id, { days: 30 }),
     trainingConsents(getDb(), user.id),
-    nearbyFacilities(),
+    // The member's own places, recent first — see lib/training-facilities.ts.
+    memberFacilities(getDb(), user.id),
   ]);
 
-  // Resolved server-side from the SAME list the form renders, so a sport can
-  // never appear in the picker without a label — and the labels come from the
-  // existing `Sport` namespace rather than a duplicate set of 29 keys, which is
-  // what the leaderboard filters already do.
-  const sportNames = Object.fromEntries(CANONICAL_SPORTS.map((slug) => [slug, sportName(slug)]));
-
-  const dateFormat = new Intl.DateTimeFormat(locale === 'bg' ? 'bg-BG' : 'en-GB', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: 'Europe/Sofia',
-  });
+  // Resolved server-side from the canonical list, so a sport can never appear
+  // in the picker without a label — and the labels come from the existing
+  // `Sport` namespace rather than a duplicate set of 29 keys, which is what the
+  // leaderboard filters already do. In the READER's order: the canonical list
+  // is sorted by English slug, which in Bulgarian is no order at all.
+  const sports = inReadingOrder(CANONICAL_SPORTS, locale, (slug) => sportName(slug)).map(
+    (slug) => ({ value: slug, label: sportName(slug) }),
+  );
 
   // The consent rows to render: both while an integration can use them, and
   // otherwise only one the member already granted — so it can be withdrawn.
@@ -114,7 +104,8 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
           ).map(([key, value]) => (
             <div key={key} className="rounded-card border border-line bg-surface p-3 text-center">
               <p className="text-h3 font-extrabold tabular-nums text-ink">{value}</p>
-              <p className="text-caption text-text-muted">{t(key)}</p>
+              {/* The label agrees with the number above it: «1 спорт», not «1 спорта». */}
+              <p className="text-caption text-text-muted">{t(key, { count: value })}</p>
             </div>
           ))}
         </section>
@@ -142,7 +133,7 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
         <section className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm">
           <h2 className="text-h3 font-bold text-ink">{t('addTitle')}</h2>
           <TrainingForm
-            sportNames={sportNames}
+            sports={sports}
             facilities={facilities}
             strings={{
               sport: t('fieldSport'),
@@ -180,54 +171,66 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
           {rows.length > 0 && (
             <ul className="divide-y divide-line rounded-card border border-line bg-surface">
               {rows.map((row) => (
-                <li key={row.id} className="flex items-center gap-3 px-4 py-3 text-body-sm">
-                  <div className="min-w-0 flex-1">
+                <li key={row.id} className="space-y-2 px-4 py-3 text-body-sm">
+                  <div className="min-w-0">
                     <p className="font-medium text-ink">
-                      {sportName(row.sport)}
+                      {/* Heads the row, so capitalised like the share text. */}
+                      {capitalizeFirst(sportName(row.sport), locale)}
                       {row.facilityName && (
                         <span className="ml-2 font-normal text-text-muted">{row.facilityName}</span>
                       )}
                     </p>
                     <p className="text-caption text-text-muted">
-                      {dateFormat.format(row.startedAt)} ·{' '}
-                      {t('durationMinutes', { minutes: Math.round(row.durationS / 60) })}
+                      {formatDateTime(row.startedAt, locale)} ·{' '}
+                      {t('durationMinutes', { minutes: formatMinutes(row.durationS) })}
+                      {/* The share's own formatter: «5,5 км» in Bulgarian. */}
                       {row.distanceM !== null &&
-                        ` · ${t('distanceKm', { km: Math.round(row.distanceM / 100) / 10 })}`}
+                        row.distanceM > 0 &&
+                        ` · ${t('distanceKm', { km: formatKm(row.distanceM, locale) ?? '' })}`}
                     </p>
                   </div>
-                  {/*
-                    A share on EVERY row, not only the newest. The moment a
-                    member wants to post is not always the moment they logged —
-                    a good run is worth posting that evening too.
-                  */}
-                  <ShareSheet
-                    size="sm"
-                    payload={buildShare({
-                      kind: 'training',
-                      locale,
-                      origin,
-                      page: '/klasirane',
-                      ref: row.id,
-                      text: (() => {
-                        const km = formatKm(row.distanceM);
-                        const minutes = formatMinutes(row.durationS);
-                        const sport = sportName(row.sport);
-                        return km
-                          ? tShare('textTrainingKm', { sport, km, minutes })
-                          : tShare('textTraining', { sport, minutes });
-                      })(),
-                    })}
-                    strings={sheetTraining}
-                  />
-                  <form action={deleteTrainingAction}>
-                    <input type="hidden" name="id" value={row.id} />
-                    <button
-                      type="submit"
-                      className="rounded border border-line-strong px-2 py-1 text-caption text-ink-soft hover:bg-paper-sunk"
-                    >
-                      {t('delete')}
-                    </button>
-                  </form>
+                  <div className="flex flex-wrap items-start gap-3">
+                    {/*
+                      A share on EVERY row, not only the newest. The moment a
+                      member wants to post is not always the moment they logged
+                      — a good run is worth posting that evening too.
+                    */}
+                    <ShareSheet
+                      size="sm"
+                      payload={buildShare({
+                        kind: 'training',
+                        locale,
+                        origin,
+                        page: '/klasirane',
+                        ref: row.id,
+                        text: (() => {
+                          const km = formatKm(row.distanceM, locale);
+                          const minutes = formatMinutes(row.durationS);
+                          // The caption OPENS with the sport, and sport names
+                          // are lower-case mid-sentence words: «Бягане · 30 мин.»
+                          const sport = capitalizeFirst(sportName(row.sport), locale);
+                          return km
+                            ? tShare('textTrainingKm', { sport, km, minutes })
+                            : tShare('textTraining', { sport, minutes });
+                        })(),
+                      })}
+                      strings={sheetTraining}
+                    />
+                    {/*
+                      Away from Share and behind a confirm: a deletion cannot
+                      be undone, and it was a 24px box one slip of the thumb
+                      from the share button (S-13).
+                    */}
+                    <form action={deleteTrainingAction} className="ml-auto">
+                      <input type="hidden" name="id" value={row.id} />
+                      <ConfirmButton
+                        message={t('deleteConfirm')}
+                        className={buttonVariants({ variant: 'secondary' })}
+                      >
+                        {t('delete')}
+                      </ConfirmButton>
+                    </form>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -263,7 +266,7 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
                   <p className="text-caption text-ink-soft">{body}</p>
                   {at && (
                     <p className="mt-1 text-caption text-text-muted">
-                      {t('consentGrantedAt', { date: dateFormat.format(at) })}
+                      {t('consentGrantedAt', { date: formatDate(at, locale) })}
                     </p>
                   )}
                 </div>

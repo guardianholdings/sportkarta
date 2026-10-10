@@ -92,3 +92,29 @@ describe('sport names are catalogue terms, not titles', () => {
     expect(capitalised.map(([key]) => key)).toEqual([]);
   });
 });
+
+/**
+ * The product addresses its reader formally (Вие) everywhere but friend-to-friend
+ * share texts. The map and the place pages had slipped into ти — «близо до
+ * теб», «Провери връзката и опитай пак», «Бъди първият», «Твоето
+ * местоположение» (UX audit 2026-10-10). Short command labels («Опитай пак»,
+ * «Виж детайли») are the usual imperative of a button and are left alone; what
+ * is pinned is a sentence that speaks to the reader as ти.
+ */
+describe('the discovery pages address the reader formally', () => {
+  const PRONOUN = /(^|[\s(„])(теб|твоят|твоята|твоето|твоите|твоя)(?=$|[\s.,!?)“])/iu;
+  const SENTENCE_IMPERATIVE = /[.!?]\s+(Бъди|Провери|Разшири|Разгледай|Виж|Добави|Опитай)\s/u;
+
+  function strings(value: unknown, path: string): [string, string][] {
+    if (typeof value === 'string') return [[path, value]];
+    if (typeof value !== 'object' || value === null) return [];
+    return Object.entries(value).flatMap(([key, child]) => strings(child, `${path}.${key}`));
+  }
+
+  it.each(['Map', 'Places', 'Stats', 'Accountability', 'OpenData'] as const)('%s', (ns) => {
+    const informal = strings(bg[ns], ns).filter(
+      ([, text]) => PRONOUN.test(text) || SENTENCE_IMPERATIVE.test(text),
+    );
+    expect(informal).toEqual([]);
+  });
+});

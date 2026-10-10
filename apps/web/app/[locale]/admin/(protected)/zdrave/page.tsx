@@ -141,11 +141,13 @@ export default async function AdminHealthPage({ params }: { params: Promise<{ lo
               {mail.map((row) => (
                 <tr key={row.queue} className="border-b border-line">
                   <td className="py-2 pr-3">{queueLabel(row.queue)}</td>
-                  <td className="py-2 pr-3 tabular-nums">{row.sent}</td>
+                  {/* — for a queue whose jobs report no recipients (one
+                      message each): its failed jobs are its failed mail. */}
+                  <td className="py-2 pr-3 tabular-nums">{row.sent ?? '—'}</td>
                   <td
-                    className={`py-2 pr-3 tabular-nums ${row.failed > 0 ? 'font-semibold text-danger' : ''}`}
+                    className={`py-2 pr-3 tabular-nums ${(row.failed ?? 0) > 0 ? 'font-semibold text-danger' : ''}`}
                   >
-                    {row.failed}
+                    {row.failed ?? '—'}
                   </td>
                   <td className="py-2 pr-3 tabular-nums">{row.jobs}</td>
                   <td

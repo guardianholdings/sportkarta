@@ -106,6 +106,12 @@ test.describe('session page and RSVP', () => {
     await page.getByRole('button', { name: bg.Session.join }).click();
     await expect(page.getByText(bg.Session.youAreGoing)).toBeVisible();
 
+    // Leaving asks first (S-7). Playwright dismisses a dialog it was not told
+    // about — which is exactly "stay signed up" — so the answer is explicit.
+    page.once('dialog', (dialog) => {
+      expect(dialog.message()).toBe(bg.Session.leaveConfirm);
+      void dialog.accept();
+    });
     await page.getByRole('button', { name: bg.Session.leave }).click();
     await expect(page.getByText(bg.Session.youAreGoing)).toBeHidden();
     await expect(page.getByRole('button', { name: bg.Session.join })).toBeVisible();

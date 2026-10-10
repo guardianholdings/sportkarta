@@ -1,7 +1,8 @@
 'use server';
 
-import { redirect } from 'next/navigation';
+import { getLocale } from 'next-intl/server';
 
+import { redirect } from '@/i18n/navigation';
 import { getBoss, IMPORT_QUEUE } from '@/lib/admin-boss';
 import { requireRole } from '@/lib/auth-session';
 
@@ -23,5 +24,9 @@ export async function enqueueImport(formData: FormData): Promise<void> {
   await boss.createQueue(IMPORT_QUEUE, { name: IMPORT_QUEUE, policy: 'stately' });
   const jobId = await boss.send(IMPORT_QUEUE, { dryRun, actor }, { singletonKey: IMPORT_QUEUE });
 
-  redirect(`/admin/import?${jobId ? 'enqueued=1' : 'conflict=1'}`);
+  // The i18n redirect keeps an /en admin in /en (A-14).
+  redirect({
+    href: { pathname: '/admin/import', query: jobId ? { enqueued: '1' } : { conflict: '1' } },
+    locale: await getLocale(),
+  });
 }

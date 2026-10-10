@@ -105,3 +105,33 @@ export function signInHref(next?: string | null): {
     ? { pathname: SIGN_IN_PATH, query: { next: destination } }
     : { pathname: SIGN_IN_PATH };
 }
+
+/** Why the visitor was sent to sign in — one line on /vhod says it. */
+export type SignInReason = 'add' | 'passport' | 'training' | 'contribute' | 'session' | 'checkin';
+
+/** An exact path, or a prefix ending in «/» for the pages that carry an id. */
+const REASONS: readonly [path: string, reason: SignInReason][] = [
+  ['/dobavi', 'add'],
+  ['/pasport', 'passport'],
+  ['/trenirovki', 'training'],
+  ['/obekt/', 'contribute'],
+  ['/sesiya/', 'session'],
+  ['/otmetka/', 'checkin'],
+];
+
+/**
+ * The reason behind a `next`, or null for "no particular reason" (the profile,
+ * anything else). A tap on «+» used to land on a bare «Вход в POPS» that never
+ * said adding a facility needs an account (UX audit 2026-10-10). Read from the
+ * same sanitised destination the redirect uses, so an unsafe `next` says
+ * nothing.
+ */
+export function signInReason(next: unknown): SignInReason | null {
+  const destination = safeDestination(next);
+  if (!destination) return null;
+  const path = destination.split(/[?#]/)[0] ?? '';
+  for (const [match, reason] of REASONS) {
+    if (match.endsWith('/') ? path.startsWith(match) : path === match) return reason;
+  }
+  return null;
+}

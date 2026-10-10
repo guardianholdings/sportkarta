@@ -1,12 +1,18 @@
 'use client';
 
-import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
-import { DISTANCE_SPORTS } from '@sportkarta/lib/training';
-import { useActionState, useState } from 'react';
+import { usesDistance } from '@sportkarta/lib/training';
+import { useState } from 'react';
 
 import { logTrainingAction, type TrainingFormState } from '@/app/[locale]/trenirovki/actions';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { useFormAction } from '@/lib/use-form-action';
 
 const EMPTY: TrainingFormState = { problems: [] };
+
+/** What the form opens on, and returns to after a save. */
+const DEFAULT_SPORT = 'running';
 
 /**
  * The manual training form (operator request 2026-07-26).
@@ -14,10 +20,17 @@ const EMPTY: TrainingFormState = { problems: [] };
  * A CLIENT COMPONENT for two reasons, neither of them decoration. The action
  * returns a LIST of problems rather than throwing on the first, so the member is
  * told everything that is wrong in one pass — that list has to land somewhere,
- * which is what `useActionState` is for. And the distance field appears only for
+ * which is what the action state is for. And the distance field appears only for
  * sports where a distance means something, which needs the selected sport before
- * submission. `useActionState` still submits without JavaScript, so this is not a
- * form that only works after hydration.
+ * submission. The form still submits without JavaScript (useFormAction keeps the
+ * `action` prop), so this is not a form that only works after hydration.
+ *
+ * WHAT A PROBLEM KEEPS. `useFormAction`, not a bare `useActionState`: React 19
+ * resets a form once its action settles, so a "duration out of range" used to
+ * come back above an EMPTY form — date, duration, distance, place and note all
+ * gone (UX audit 2026-10-10, S-4). Only a SAVE clears it, for the next one; the
+ * sport then returns to its default on both sides — the DOM select by the reset,
+ * the distance field by `onReset` — so the two cannot disagree.
  *
  * There is deliberately NO field for `source` or `evidence`. Both are set
  * server-side from the fact that this is the manual form; a field for either
@@ -27,7 +40,7 @@ const EMPTY: TrainingFormState = { problems: [] };
  */
 export function TrainingForm({
   strings,
-  sportNames,
+  sports,
   facilities,
 }: {
   strings: {
@@ -45,130 +58,141 @@ export function TrainingForm({
     optional: string;
     problems: Record<string, string>;
   };
-  sportNames: Record<string, string>;
+  /** Every canonical sport, labelled and already in the reader's order. */
+  sports: { value: string; label: string }[];
   facilities: { id: string; name: string }[];
 }) {
-  const [state, action, pending] = useActionState(logTrainingAction, EMPTY);
-  const [sport, setSport] = useState<string>('running');
+  const [state, formProps, pending] = useFormAction(logTrainingAction, EMPTY, {
+    resetWhen: (result) => result.saved === true,
+  });
+  const [sport, setSport] = useState<string>(DEFAULT_SPORT);
 
-  const showsDistance = (DISTANCE_SPORTS as readonly string[]).includes(sport);
-  const field = 'w-full rounded border border-line-strong px-3 py-1.5 text-body-sm';
+  const label = 'block text-body-sm font-medium';
 
   return (
-    <form action={action} className="space-y-3">
+    <form
+      {...formProps}
+      onReset={() => {
+        setSport(DEFAULT_SPORT);
+      }}
+      className="space-y-3"
+    >
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
-          <label className="block text-body-sm font-medium" htmlFor="sport">
+          <label className={label} htmlFor="sport">
             {strings.sport}
           </label>
-          <select
+          {/* Uncontrolled, so the post-save reset returns it to the default
+              option rather than to whatever React last rendered. */}
+          <Select
             id="sport"
             name="sport"
             required
-            value={sport}
+            defaultValue={DEFAULT_SPORT}
             onChange={(event) => {
               setSport(event.target.value);
             }}
-            className={field}
           >
-            {CANONICAL_SPORTS.map((slug) => (
-              <option key={slug} value={slug}>
-                {sportNames[slug] ?? slug}
+            {sports.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <div className="space-y-1">
-          <label className="block text-body-sm font-medium" htmlFor="startedAt">
+          <label className={label} htmlFor="startedAt">
             {strings.startedAt}
           </label>
-          <input id="startedAt" name="startedAt" type="datetime-local" required className={field} />
+          <Input id="startedAt" name="startedAt" type="datetime-local" required />
         </div>
 
         <div className="space-y-1">
-          <label className="block text-body-sm font-medium" htmlFor="duration">
+          <label className={label} htmlFor="duration">
             {strings.duration}
           </label>
-          <input
+          <Input
             id="duration"
             name="duration"
             type="text"
             inputMode="numeric"
             required
             placeholder="45"
-            className={field}
+            aria-describedby="duration-hint"
           />
-          <p className="text-caption text-ink-soft">{strings.durationHint}</p>
+          <p id="duration-hint" className="text-caption text-ink-soft">
+            {strings.durationHint}
+          </p>
         </div>
 
         {/*
           Distance appears only where it means something. Asking a climber for
           kilometres invites a number that is either blank or wrong, and a board
           that later ranks distance would inherit both.
+
+          TEXT with a decimal keypad, not type=number: a number input refused
+          5,5 outright (no step) and, where it accepts a comma at all, does so
+          by browser and locale. The action reads both «5,5» and «5.5»
+          (parseDistanceKm), so what the member types is what is stored (S-3).
         */}
-        {showsDistance && (
+        {usesDistance(sport) && (
           <div className="space-y-1">
-            <label className="block text-body-sm font-medium" htmlFor="distanceKm">
+            <label className={label} htmlFor="distanceKm">
               {strings.distanceKm}{' '}
               <span className="font-normal text-text-muted">{strings.optional}</span>
             </label>
-            <input
+            <Input
               id="distanceKm"
               name="distanceKm"
-              type="number"
-              min={0}
-              max={1000}
-              className={field}
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
             />
           </div>
         )}
 
         <div className="space-y-1">
-          <label className="block text-body-sm font-medium" htmlFor="elevationM">
+          <label className={label} htmlFor="elevationM">
             {strings.elevationM}{' '}
             <span className="font-normal text-text-muted">{strings.optional}</span>
           </label>
-          <input
+          <Input
             id="elevationM"
             name="elevationM"
             type="number"
+            inputMode="numeric"
             min={0}
             max={30000}
-            className={field}
           />
         </div>
 
         <div className="space-y-1">
-          <label className="block text-body-sm font-medium" htmlFor="facilityId">
+          <label className={label} htmlFor="facilityId">
             {strings.facility}{' '}
             <span className="font-normal text-text-muted">{strings.optional}</span>
           </label>
-          <select id="facilityId" name="facilityId" defaultValue="" className={field}>
+          <Select id="facilityId" name="facilityId" defaultValue="">
             <option value="">{strings.facilityNone}</option>
             {facilities.map((facility) => (
               <option key={facility.id} value={facility.id}>
                 {facility.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 
       <div className="space-y-1">
-        <label className="block text-body-sm font-medium" htmlFor="note">
+        <label className={label} htmlFor="note">
           {strings.note} <span className="font-normal text-text-muted">{strings.optional}</span>
         </label>
-        <input id="note" name="note" type="text" maxLength={500} className={field} />
+        <Input id="note" name="note" type="text" maxLength={500} />
       </div>
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-pill bg-brand px-4 py-2 text-body-sm font-semibold text-on-brand shadow-xs hover:bg-brand-hover disabled:opacity-60"
-      >
+      <Button type="submit" disabled={pending}>
         {strings.submit}
-      </button>
+      </Button>
 
       {/*
         One live region for both outcomes, announced politely. EVERY problem is

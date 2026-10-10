@@ -35,7 +35,10 @@ export function SiteFooter() {
           <span className="font-display text-body-sm font-bold">{t('wordmark')}</span>
         </Link>
       </div>
-      <nav className="mx-auto flex max-w-2xl flex-wrap items-center gap-x-5 gap-y-2 px-4 pb-6 pt-2 text-caption">
+      <nav
+        aria-label={t('navLabel')}
+        className="mx-auto flex max-w-2xl flex-wrap items-center gap-x-5 gap-y-2 px-4 pb-6 pt-2 text-caption"
+      >
         {/* Кампании lives here for the reason this footer exists: it was BURIED
             with zero inbound links anywhere in the product. A campaign STRIP
             cannot fix that on its own — it renders nothing the day the last

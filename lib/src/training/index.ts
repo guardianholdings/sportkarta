@@ -285,6 +285,26 @@ export function parseDuration(raw: string): number | null {
   return Number(text) * 60;
 }
 
+/**
+ * Kilometres as a person types them, to whole METRES (`distance_m`).
+ *
+ * A decimal COMMA is how Bulgarian writes 5,5, and a phone's decimal keypad set
+ * to Bulgarian offers nothing else — so it is accepted beside a point, and a
+ * space used as a thousands separator is ignored. ROUNDED, never truncated: the
+ * form used to post a whole number of kilometres and the action `Math.trunc`ed
+ * it, so a 5,5 km run was stored as 5 km — and «5,5» itself failed as an
+ * "impossible" distance (UX audit 2026-10-10, S-3).
+ *
+ * Null for an empty field (distance is optional); NaN for anything that is not a
+ * number, which `normalizeTraining` reports alongside every other problem.
+ */
+export function parseDistanceKm(raw: string): number | null {
+  const text = raw.replace(/\s+/g, '').replace(',', '.');
+  if (text === '') return null;
+  if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) return Number.NaN;
+  return Math.round(Number(text) * 1000);
+}
+
 /** Seconds back to `H:MM`, for a form that is being re-rendered after an error. */
 export function formatDuration(seconds: number): string {
   const total = Math.max(Math.trunc(seconds), 0);

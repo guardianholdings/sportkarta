@@ -1,6 +1,7 @@
 import { getTranslations } from 'next-intl/server';
 
 import { getCurrentUser } from '@/lib/auth-session';
+import { capitalizeFirst } from '@/lib/grammar';
 import { OG_PALETTE } from '@/lib/og/palette';
 import { renderStoryCard } from '@/lib/og/story';
 import { siteHost } from '@/lib/seo';
@@ -48,11 +49,13 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     getTranslations({ locale: lang, namespace: 'Sport' }),
   ]);
 
-  const data = await trainingStory(user.id, ref, {
+  const data = await trainingStory(user.id, ref, lang, {
     eyebrow: tStory('training.eyebrow'),
     heroKm: tStory('training.heroKm'),
     heroMin: tStory('training.heroMin'),
-    title: (sport) => tStory('training.title', { sport: tSport(sport) }),
+    // The title IS the sport, and sport names are lower-case catalogue words
+    // («бягане») — at the head of a story they read as a typo.
+    title: (sport) => tStory('training.title', { sport: capitalizeFirst(tSport(sport), lang) }),
     labelMinutes: tStory('label.minutes'),
     labelKm: tStory('label.km'),
     labelElevation: tStory('label.elevation'),

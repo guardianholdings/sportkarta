@@ -43,8 +43,17 @@ export type { PositionPhase } from './position-controller';
  * `askOnMount` is ONLY for a component that mounts FROM a tap — the report
  * form's body, which exists because the visitor just tapped «Съобщи проблем».
  * Everything else leaves it off and asks from the button in PositionNotice.
+ *
+ * `onFix` exists for ONE caller, /dobavi: there the member's position is the
+ * natural first guess for the pin of the facility they are standing at, and the
+ * pin — not this hook — is what gets posted as the facility's location, on the
+ * map in front of them and movable. Without it the form said «Местоположението
+ * е получено» while the pin stayed in central Sofia, and a member who trusted
+ * the notice filed their pitch there (UX audit 2026-10-10).
  */
-export function usePosition(options: { askOnMount?: boolean } = {}): {
+export function usePosition(
+  options: { askOnMount?: boolean; onFix?: (latitude: number, longitude: number) => void } = {},
+): {
   phase: PositionPhase;
   latRef: React.RefObject<HTMLInputElement | null>;
   lonRef: React.RefObject<HTMLInputElement | null>;
@@ -55,6 +64,12 @@ export function usePosition(options: { askOnMount?: boolean } = {}): {
   const lonRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<PositionPhase>('idle');
   const controller = useRef<PositionController | null>(null);
+  // Read at fix time, so a caller's inline callback never re-creates the
+  // controller (and never re-asks the browser).
+  const onFix = useRef(options.onFix);
+  useEffect(() => {
+    onFix.current = options.onFix;
+  });
 
   useEffect(() => {
     const created = createPositionController(
@@ -70,6 +85,7 @@ export function usePosition(options: { askOnMount?: boolean } = {}): {
         writeFix: (latitude, longitude) => {
           if (latRef.current) latRef.current.value = String(latitude);
           if (lonRef.current) lonRef.current.value = String(longitude);
+          onFix.current?.(latitude, longitude);
         },
       },
     );

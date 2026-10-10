@@ -1,9 +1,10 @@
 'use server';
 
 import { getDb } from '@sportkarta/db';
+import { getLocale } from 'next-intl/server';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 
+import { redirect } from '@/i18n/navigation';
 import { requireRole } from '@/lib/auth-session';
 import { discardContributionPhoto, storeContributionPhoto } from '@/lib/contributions/photo-upload';
 import { ContributionError } from '@/lib/contributions/errors';
@@ -77,7 +78,8 @@ export async function createPartnerAction(
   revalidatePath('/admin/partnyori');
   revalidatePath('/partnyori');
   revalidatePartnerSurfaces();
-  redirect(`/admin/partnyori/${slug}`);
+  // The i18n redirect keeps an /en admin in /en (A-14).
+  return redirect({ href: `/admin/partnyori/${slug}`, locale: await getLocale() });
 }
 
 export async function updatePartnerAction(
@@ -111,7 +113,9 @@ export async function updatePartnerAction(
   revalidatePath('/admin/partnyori');
   revalidatePath('/partnyori');
   revalidatePartnerSurfaces();
-  if (nextSlug !== currentSlug) redirect(`/admin/partnyori/${nextSlug}`);
+  if (nextSlug !== currentSlug) {
+    redirect({ href: `/admin/partnyori/${nextSlug}`, locale: await getLocale() });
+  }
   return { error: null, saved: true };
 }
 

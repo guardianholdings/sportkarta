@@ -2,6 +2,7 @@ import { getDb } from '@sportkarta/db';
 import { getLocale, getTranslations } from 'next-intl/server';
 
 import { facilitySponsor } from '@/lib/facility-sponsors';
+import { formatDate } from '@/lib/format';
 import { partnerText } from '@/lib/partners';
 
 /**
@@ -73,7 +74,7 @@ export async function FacilitySponsorBlock({ facilityId }: { facilityId: string 
           over public infrastructure, and saying when it runs out is the
           difference between an acknowledgment and an implied claim. */}
       <p className="mt-2 text-caption text-text-muted">
-        {t('sponsorUntil', { date: sponsor.endsOn })}
+        {t('sponsorUntil', { date: formatDate(sponsor.endsOn, await getLocale()) })}
       </p>
     </section>
   );

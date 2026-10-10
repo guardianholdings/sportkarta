@@ -101,7 +101,10 @@ export default async function SessionsIndexPage({
                 <li key={s.occurrenceId}>
                   <Link
                     href={`/sesiya/${s.occurrenceId}`}
-                    className="flex items-center gap-3 rounded-card border border-line bg-surface p-3 shadow-sm transition-[box-shadow,border-color] duration-150 ease-standard hover:border-brand-border hover:shadow-md"
+                    // `focus-visible:shadow-[var(--ring)]`: the shadow
+                    // utilities live in a later layer than the global
+                    // :focus-visible ring and erased it (D-5).
+                    className="flex items-center gap-3 rounded-card border border-line bg-surface p-3 shadow-sm transition-[box-shadow,border-color] duration-150 ease-standard hover:border-brand-border hover:shadow-md focus-visible:shadow-[var(--ring)]"
                   >
                     <span
                       className="grid size-12 shrink-0 place-items-center rounded-md"

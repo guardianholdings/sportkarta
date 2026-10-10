@@ -247,18 +247,39 @@ export function buildShare(input: BuildShareInput): SharePayload {
   return {
     kind: input.kind,
     text: input.text,
-    url: `${origin}${page}`,
+    url: `${origin}${localePath(page, input.locale)}`,
     storyPath: storyPath({ kind: input.kind, locale: input.locale, ref: input.ref }),
     cardPath: cardPath({ kind: input.kind, locale: input.locale, ref: input.ref }),
     personScoped: isPersonScoped(input.kind),
   };
 }
 
-/** Metres to a display distance, in km to one decimal. Null stays null. */
-export function formatKm(metres: number | null | undefined): string | null {
+/**
+ * A site path in the share's own language.
+ *
+ * The site serves Bulgarian unprefixed and English under `/en` (next-intl,
+ * `localePrefix: 'as-needed'`), so an English caption used to link to the
+ * BULGARIAN page — the reader followed an English invitation into a page they
+ * could not read (UX audit 2026-10-10, S-16). Anything that is not `en` is the
+ * default locale, as in `storyPath`.
+ */
+export function localePath(page: string, locale: string): string {
+  if (locale !== 'en') return page;
+  return page === '/' ? '/en' : `/en${page}`;
+}
+
+/**
+ * Metres to a display distance in km, to one decimal, written the way the
+ * reader writes numbers: «5,2» in Bulgarian, "5.2" in English (T-12 — a
+ * Bulgarian caption read «5.2 км»). Null stays null.
+ */
+export function formatKm(metres: number | null | undefined, locale: string): string | null {
   if (metres === null || metres === undefined || !Number.isFinite(metres)) return null;
   if (metres <= 0) return null;
-  return (Math.round(metres / 100) / 10).toFixed(1);
+  return new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'bg', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(Math.round(metres / 100) / 10);
 }
 
 /** Seconds to whole minutes — the unit every share surface prints. */
