@@ -7,7 +7,6 @@ import {
   CAMPAIGN_TEMPLATES,
   CITY_BOARD_MIN_MEMBERS,
 } from '@sportkarta/lib/campaigns';
-import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
@@ -36,7 +35,7 @@ export function CampaignForm({
   campaign,
   cities,
   quarters = [],
-  sportLabels,
+  sports,
   partners = [],
 }: {
   action: (state: CampaignFormState, formData: FormData) => Promise<CampaignFormState>;
@@ -48,7 +47,8 @@ export function CampaignForm({
    * only values that can ever score.
    */
   quarters?: QuarterOption[];
-  sportLabels: Record<string, string>;
+  /** Every canonical sport with its label, in the reader's alphabetical order. */
+  sports: { value: string; label: string }[];
   /** Sponsor candidates, already tier-filtered and localised by the server page. */
   partners?: { id: number; name: string }[];
 }) {
@@ -345,15 +345,15 @@ export function CampaignForm({
           <legend className="text-body-sm font-medium">{t('sportsLabel')}</legend>
           <p className="text-caption text-text-muted">{t('sportsHint')}</p>
           <div className="flex flex-wrap gap-x-4 gap-y-1">
-            {CANONICAL_SPORTS.map((sport) => (
-              <label key={sport} className="flex items-center gap-1.5 text-body-sm">
+            {sports.map((sport) => (
+              <label key={sport.value} className="flex items-center gap-1.5 text-body-sm">
                 <input
                   type="checkbox"
                   name="sports"
-                  value={sport}
-                  defaultChecked={selectedSports.has(sport)}
+                  value={sport.value}
+                  defaultChecked={selectedSports.has(sport.value)}
                 />
-                {sportLabels[sport] ?? sport}
+                {sport.label}
               </label>
             ))}
           </div>

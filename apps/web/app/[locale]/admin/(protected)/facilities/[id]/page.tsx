@@ -102,6 +102,7 @@ export default async function AdminFacilityEditPage({
   const gone = decideFacility.bind(null, facility.id, 'gone' as const);
   // In the reader's alphabet, not the slugs' (football is «футбол», not «f»).
   const sports = inReadingOrder(CANONICAL_SPORTS, locale, (sport) => tSport(sport));
+  const surfaces = inReadingOrder(CANONICAL_SURFACES, locale, (surface) => tSurface(surface));
 
   return (
     <main className="space-y-4">
@@ -141,7 +142,7 @@ export default async function AdminFacilityEditPage({
               <span className="text-caption font-medium text-ink-soft">{t('surface')}</span>
               <Select name="surface" defaultValue={facility.surface ?? ''}>
                 <option value="">{t('surfaceUnknown')}</option>
-                {CANONICAL_SURFACES.map((surface) => (
+                {surfaces.map((surface) => (
                   <option key={surface} value={surface}>
                     {tSurface(surface)}
                   </option>

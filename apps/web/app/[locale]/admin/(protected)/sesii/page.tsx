@@ -4,6 +4,7 @@ import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { requireRole } from '@/lib/auth-session';
+import { inReadingOrder } from '@/lib/format';
 
 import { BulkCreateTabs, type FacilityOption } from './bulk-forms';
 
@@ -182,7 +183,8 @@ export default async function AdminBulkSessionsPage({
       <BulkCreateTabs
         facilities={facilities}
         facilityTotal={facilityTotal}
-        sports={[...CANONICAL_SPORTS]}
+        // Both sport pickers list in the reader's alphabetical order.
+        sports={inReadingOrder(CANONICAL_SPORTS, locale, (sport) => tSport(sport))}
         labels={labels}
         fieldLabels={fieldLabels}
       />
