@@ -2,6 +2,7 @@ import type { ParticipationEntry } from '@sportkarta/db';
 import { getTranslations } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
+import { memberName } from '@/lib/member-name';
 
 /**
  * The sport participation board (operator request 2026-07-26).
@@ -30,7 +31,10 @@ export async function ParticipationTable({
   entries: ParticipationEntry[];
   highlightHandle?: string | null;
 }) {
-  const t = await getTranslations('Participation');
+  const [t, tPassport] = await Promise.all([
+    getTranslations('Participation'),
+    getTranslations('Passport'),
+  ]);
 
   if (entries.length === 0) {
     return <p className="text-body-sm text-ink-soft">{t('empty')}</p>;
@@ -72,7 +76,7 @@ export async function ParticipationTable({
                   href={`/pasport/${entry.handle}`}
                   className="font-medium text-link hover:text-link-hover"
                 >
-                  {entry.displayName}
+                  {memberName(entry.displayName, tPassport('unnamedMember'))}
                 </Link>
                 {entry.homeCity && (
                   <span className="ml-2 text-caption text-text-muted">{entry.homeCity}</span>

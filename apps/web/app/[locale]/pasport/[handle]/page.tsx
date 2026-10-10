@@ -7,6 +7,7 @@ import { ReportContentLink } from '@/components/legal/report-content-link';
 import { PublicBadgeGrid } from '@/components/passport/badge-grid';
 import { PublicActivityList } from '@/components/passport/history-list';
 import { StreakPanel } from '@/components/passport/streak-panel';
+import { hasDisplayName, memberName } from '@/lib/member-name';
 import { publicPassport } from '@/lib/passport';
 import { AppShell } from '@/components/shell/app-shell';
 
@@ -42,15 +43,20 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   const passport = await publicPassport(getDb(), handle);
   if (!passport) return { robots: { index: false, follow: false } };
   const t = await getTranslations({ locale, namespace: 'Passport' });
+  // A member who never set a name gets a title without one, not the in-sentence
+  // fallback: «Спортен паспорт на Участник без име» reads as a rendering bug.
+  const title = hasDisplayName(passport.displayName)
+    ? t('publicMetaTitle', { name: passport.displayName.trim() })
+    : t('publicMetaTitleUnnamed');
   return {
-    title: t('publicMetaTitle', { name: passport.displayName }),
+    title,
     // The PAGE stays noindex — "public means anyone I send the link to, not
     // indexed against your name forever". The card is a separate URL that
     // carries none of this metadata, so it enforces its own noindex through an
     // X-Robots-Tag HEADER; see the route. Shareable is not indexable.
     robots: { index: false, follow: false },
     openGraph: {
-      title: t('publicMetaTitle', { name: passport.displayName }),
+      title,
       type: 'profile',
       images: [
         { url: `/og/lichen/${locale}/pasport/${handle}/card.png`, width: 1200, height: 630 },
@@ -77,7 +83,9 @@ export default async function PublicPassportPage({ params }: { params: PageParam
     <AppShell>
       <main className="mx-auto max-w-2xl space-y-10 p-4">
         <header className="space-y-1 border-b border-line pb-3">
-          <h1 className="text-h2 font-extrabold tracking-tight text-ink">{passport.displayName}</h1>
+          <h1 className="text-h2 font-extrabold tracking-tight text-ink">
+            {memberName(passport.displayName, t('unnamedMember'))}
+          </h1>
           <p className="text-body-sm text-text-muted">
             {passport.homeCity
               ? t('publicSubtitleWithCity', {

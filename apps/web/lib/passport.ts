@@ -131,6 +131,8 @@ export interface OwnPassport {
     isPublic: boolean;
     showActivity: boolean;
     handle: string | null;
+    /** Whether the member has a display name — publishing needs one (S-1). */
+    hasName: boolean;
   };
 }
 
@@ -161,11 +163,13 @@ interface VisibilityRow {
   isPublic: boolean;
   showActivity: boolean;
   handle: string | null;
+  hasName: boolean;
 }
 
 async function readVisibility(db: SqlRunner, userId: string): Promise<VisibilityRow> {
   const result = await db.execute(sql`
-    SELECT profile_visibility, public_handle, public_show_activity
+    SELECT profile_visibility, public_handle, public_show_activity,
+           (btrim(display_name) <> '') AS has_name
     FROM users WHERE id = ${userId}
   `);
   const row = result.rows[0] ?? {};
@@ -176,6 +180,7 @@ async function readVisibility(db: SqlRunner, userId: string): Promise<Visibility
       row.public_handle === null || row.public_handle === undefined
         ? null
         : String(row.public_handle),
+    hasName: row.has_name === true,
   };
 }
 
@@ -225,6 +230,7 @@ export async function ownPassport(
       isPublic: visibility.isPublic,
       showActivity: visibility.showActivity,
       handle: visibility.handle,
+      hasName: visibility.hasName,
     },
   };
 }
@@ -318,6 +324,22 @@ export interface VisibilityUpdate {
 }
 
 /**
+ * Publishing was refused because the member has no display name.
+ *
+ * An email-code sign-up starts with `display_name = ''`, and a public passport
+ * is a page about a NAMED person: published nameless, it rendered as an empty
+ * heading and every board row as an empty link (UX audit 2026-10-10, S-1). The
+ * admin name reset already takes a passport private for the same reason
+ * (lib/account-controls.ts); this is the member's own path agreeing with it.
+ */
+export class PassportNameRequiredError extends Error {
+  constructor() {
+    super('name_required');
+    this.name = 'PassportNameRequiredError';
+  }
+}
+
+/**
  * Set passport visibility, returning the handle a public passport is reachable
  * at (null when private).
  *
@@ -339,16 +361,26 @@ export async function setPassportVisibility(
   update: VisibilityUpdate,
 ): Promise<string | null> {
   const current = await readVisibility(db, userId);
+  // PUBLISHING needs a name; staying public does not re-ask, so a member
+  // published before this rule can still change what their page shows — and
+  // going private never needs anything.
+  const publishing = update.isPublic && !current.isPublic;
+  if (publishing && !current.hasName) throw new PassportNameRequiredError();
   const handle = update.isPublic ? (current.handle ?? newPublicHandle()) : current.handle;
 
-  await db.execute(sql`
+  // The name condition is restated in the statement itself, so a name cleared
+  // between the read and the write (an admin reset) cannot be published.
+  const result = await db.execute(sql`
     UPDATE users
     SET profile_visibility = ${update.isPublic ? 'public' : 'private'}::profile_visibility,
         public_handle = ${handle},
         public_show_activity = ${update.showActivity},
         updated_at = now()
     WHERE id = ${userId}
+      ${publishing ? sql`AND btrim(display_name) <> ''` : sql``}
+    RETURNING id
   `);
+  if (publishing && result.rows.length === 0) throw new PassportNameRequiredError();
 
   return update.isPublic ? handle : null;
 }

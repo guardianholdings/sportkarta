@@ -1,7 +1,12 @@
 import { renderSql, type SQL } from '@sportkarta/db';
 import { describe, expect, it } from 'vitest';
 
-import { newPublicHandle, publicPassport, setPassportVisibility } from '@/lib/passport';
+import {
+  newPublicHandle,
+  PassportNameRequiredError,
+  publicPassport,
+  setPassportVisibility,
+} from '@/lib/passport';
 
 /**
  * The public passport's privacy boundary (Stage 5.1).
@@ -211,6 +216,7 @@ describe('visibility updates', () => {
         public_handle: null,
         public_show_activity: false,
         is_minor: true,
+        has_name: true,
       },
     ]);
     const handle = await setPassportVisibility(db, 'u1', { isPublic: true, showActivity: false });
@@ -225,6 +231,7 @@ describe('visibility updates', () => {
         public_handle: null,
         public_show_activity: false,
         is_minor: false,
+        has_name: true,
       },
     ]);
     const minted = await setPassportVisibility(fresh, 'u1', {
@@ -239,6 +246,7 @@ describe('visibility updates', () => {
         public_handle: 'b'.repeat(24),
         public_show_activity: false,
         is_minor: false,
+        has_name: true,
       },
     ]);
     // Re-publishing must not change the URL somebody has already shared.
@@ -254,6 +262,7 @@ describe('visibility updates', () => {
         public_handle: null,
         public_show_activity: false,
         is_minor: false,
+        has_name: true,
       },
     ]);
     await setPassportVisibility(db, 'u1', { isPublic: true, showActivity: false });
@@ -261,6 +270,58 @@ describe('visibility updates', () => {
     // The belt-and-braces `AND is_minor = false` that guarded this statement
     // went with the CHECK in 0020. Its absence is asserted, not assumed.
     expect(update).not.toContain('is_minor');
+  });
+});
+
+describe('publishing needs a name (S-1)', () => {
+  // An email-code sign-up starts with display_name '' — published, that was an
+  // empty <h1> and an empty link on every board.
+  const nameless = (visibility: 'private' | 'public') =>
+    fakeDb(() => [
+      {
+        profile_visibility: visibility,
+        public_handle: visibility === 'public' ? 'c'.repeat(24) : null,
+        public_show_activity: false,
+        has_name: false,
+      },
+    ]);
+
+  it('refuses to publish a member with no display name, and writes nothing', async () => {
+    const db = nameless('private');
+    await expect(
+      setPassportVisibility(db, 'u1', { isPublic: true, showActivity: false }),
+    ).rejects.toBeInstanceOf(PassportNameRequiredError);
+    expect(db.statements.some((s) => s.sql.includes('UPDATE users'))).toBe(false);
+    // The question is asked of the database, whitespace included.
+    expect(db.statements[0]?.sql).toContain("btrim(display_name) <> ''");
+  });
+
+  it('restates the name condition in the publishing UPDATE itself', async () => {
+    const db = fakeDb(() => [
+      { profile_visibility: 'private', public_handle: null, has_name: true, id: 'u1' },
+    ]);
+    await setPassportVisibility(db, 'u1', { isPublic: true, showActivity: false });
+    const update = db.statements.find((s) => s.sql.includes('UPDATE users'))?.sql ?? '';
+    // A name cleared between the read and the write cannot be published.
+    expect(update).toContain("btrim(display_name) <> ''");
+  });
+
+  it('never stands in the way of going private', async () => {
+    const db = nameless('public');
+    expect(await setPassportVisibility(db, 'u1', { isPublic: false, showActivity: false })).toBe(
+      null,
+    );
+    const update = db.statements.find((s) => s.sql.includes('UPDATE users'))?.sql ?? '';
+    expect(update).not.toContain('display_name');
+  });
+
+  it('lets a member who is already public change what the page shows', async () => {
+    // Published before the rule existed: hiding the activity list is not
+    // "publishing", and refusing it would block a privacy-increasing change.
+    const db = nameless('public');
+    expect(await setPassportVisibility(db, 'u1', { isPublic: true, showActivity: false })).toBe(
+      'c'.repeat(24),
+    );
   });
 });
 

@@ -1,23 +1,27 @@
 import { getTranslations } from 'next-intl/server';
 
-import { setPassportVisibilityAction } from '@/app/[locale]/pasport/actions';
-import { Button } from '@/components/ui/button';
+import { VisibilityForm } from '@/components/passport/visibility-form';
 import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 import type { OwnPassport } from '@/lib/passport';
 
 /**
  * Passport visibility controls.
  *
- * Plain forms rather than a client component, matching the digest panel: three
- * buttons that must work before hydration. Each button posts the TARGET state
- * rather than "flip it", so a double tap settles instead of flapping — which
- * matters more here than for a digest, because the flapping value is whether a
- * page about somebody is publicly readable.
+ * Each button posts the TARGET state rather than "flip it", so a double tap
+ * settles instead of flapping — which matters more here than for a digest,
+ * because the flapping value is whether a page about somebody is publicly
+ * readable. The buttons are small client forms (VisibilityForm) only so a
+ * refusal can be said beside them; they still post before hydration.
  *
  * Every member gets the same controls. A minors-only explanatory branch stood
  * here (the feature did not apply to them at all) until the operator decision
  * of 2026-07-25 — minors are treated as adults, so there is nothing left to
  * explain and no member for whom publishing is unavailable.
+ *
+ * ONE PRECONDITION: a name. A member who signed up with an email code has none,
+ * and a passport published without one was an empty heading and an empty link
+ * on every board (S-1). They are told so, and sent to the profile, instead of
+ * being offered a button the server refuses.
  */
 export async function VisibilityPanel({
   visibility,
@@ -35,20 +39,17 @@ export async function VisibilityPanel({
         {visibility.isPublic ? t('visibilityPublicExplainer') : t('visibilityPrivateExplainer')}
       </p>
 
-      <form action={setPassportVisibilityAction} className="flex flex-wrap items-center gap-3">
-        <input type="hidden" name="isPublic" value={visibility.isPublic ? 'false' : 'true'} />
-        <input
-          type="hidden"
-          name="showActivity"
-          value={visibility.showActivity ? 'true' : 'false'}
-        />
-        {/* The Button primitive, not hand-rolled twins: the old pair had no
-            visible focus ring, a 34px height and an off-scale radius — on the
-            CONSENT control of the whole passport. */}
-        <Button type="submit" variant={visibility.isPublic ? 'secondary' : 'primary'}>
-          {visibility.isPublic ? t('makePrivate') : t('makePublic')}
-        </Button>
-      </form>
+      <VisibilityForm
+        isPublic={!visibility.isPublic}
+        showActivity={visibility.showActivity}
+        label={visibility.isPublic ? t('makePrivate') : t('makePublic')}
+        variant={visibility.isPublic ? 'secondary' : 'primary'}
+        nameHelp={{
+          required: !visibility.isPublic && !visibility.hasName,
+          text: t('publishNeedsName'),
+          link: t('publishNeedsNameLink'),
+        }}
+      />
 
       {visibility.isPublic && publicUrl && (
         <p className="break-all text-body-sm">
@@ -67,18 +68,15 @@ export async function VisibilityPanel({
       )}
 
       {visibility.isPublic && (
-        <form action={setPassportVisibilityAction} className="space-y-2">
-          <input type="hidden" name="isPublic" value="true" />
-          <input
-            type="hidden"
-            name="showActivity"
-            value={visibility.showActivity ? 'false' : 'true'}
-          />
+        <div className="space-y-2">
           <p className="text-body-sm text-ink-soft">{t('activityExplainer')}</p>
-          <Button type="submit" variant="secondary" size="sm">
-            {visibility.showActivity ? t('hideActivity') : t('showActivity')}
-          </Button>
-        </form>
+          <VisibilityForm
+            isPublic
+            showActivity={!visibility.showActivity}
+            label={visibility.showActivity ? t('hideActivity') : t('showActivity')}
+            variant="secondary"
+          />
+        </div>
       )}
     </section>
   );

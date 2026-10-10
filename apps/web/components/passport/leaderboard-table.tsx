@@ -2,6 +2,7 @@ import type { LeaderboardEntry } from '@sportkarta/db';
 import { getTranslations } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
+import { memberName } from '@/lib/member-name';
 
 /**
  * The ranked table.
@@ -21,7 +22,10 @@ export async function LeaderboardTable({
   entries: LeaderboardEntry[];
   highlightHandle?: string | null;
 }) {
-  const t = await getTranslations('Leaderboard');
+  const [t, tPassport] = await Promise.all([
+    getTranslations('Leaderboard'),
+    getTranslations('Passport'),
+  ]);
 
   if (entries.length === 0) {
     return <p className="text-body-sm text-ink-soft">{t('empty')}</p>;
@@ -63,7 +67,7 @@ export async function LeaderboardTable({
                   href={`/pasport/${entry.handle}`}
                   className="font-medium text-link hover:text-link-hover"
                 >
-                  {entry.displayName}
+                  {memberName(entry.displayName, tPassport('unnamedMember'))}
                 </Link>
                 {entry.homeCity && (
                   <span className="ml-2 text-caption text-text-muted">{entry.homeCity}</span>

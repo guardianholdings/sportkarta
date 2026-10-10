@@ -31,7 +31,7 @@ export type RosterCheckinMethod = 'self' | 'organizer' | 'qr';
 
 export interface RosterMember {
   userId: string;
-  /** Display name, or null when the member never set one. */
+  /** Display name, or null when the member never set one (an empty name is none). */
   displayName: string | null;
   /** Queue position from the arrival-ticket view (1-based). */
   position: number;
@@ -64,6 +64,17 @@ export interface OccurrenceRoster {
   members: RosterMember[];
   walkIns: RosterWalkIn[];
   checkedInCount: number;
+}
+
+/**
+ * NULL for a member with no name — including the EMPTY one an email-code
+ * sign-up is created with (`display_name` is NOT NULL DEFAULT ''). Reading ''
+ * through as a name rendered a blank row on the deck, because the page's
+ * «Без име» fallback is a `??` and never fires for '' (UX audit 2026-10-10).
+ */
+function nameOrNull(value: unknown): string | null {
+  const name = value === null || value === undefined ? '' : String(value).trim();
+  return name === '' ? null : name;
 }
 
 export async function occurrenceRoster(
@@ -123,7 +134,7 @@ export async function occurrenceRoster(
 
   const members: RosterMember[] = memberRows.rows.map((row) => ({
     userId: String(row.user_id),
-    displayName: row.display_name === null ? null : String(row.display_name),
+    displayName: nameOrNull(row.display_name),
     position: Number(row.position),
     rsvpStatus: row.rsvp_status === 'waitlisted' ? 'waitlisted' : 'going',
     checkinMethod:
@@ -131,7 +142,7 @@ export async function occurrenceRoster(
   }));
   const walkIns: RosterWalkIn[] = walkInRows.rows.map((row) => ({
     userId: String(row.user_id),
-    displayName: row.display_name === null ? null : String(row.display_name),
+    displayName: nameOrNull(row.display_name),
     checkinMethod: String(row.checkin_method) as RosterCheckinMethod,
   }));
 
