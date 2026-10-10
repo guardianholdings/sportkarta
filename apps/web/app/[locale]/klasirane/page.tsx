@@ -230,6 +230,9 @@ export default async function LeaderboardPage({
         disclosure that names the current selection, and opens itself when one is
         active (so a shared /klasirane?sport=… link still shows its own state).
         `<details>` keeps this a server component with no client JS.
+
+        Place and sport apply to BOTH boards and stay here; the period applies
+        to one, and lives in that board's section below (S-18).
       */}
         <nav aria-label={t('filtersLabel')} className="space-y-4">
           <div className="space-y-2">
