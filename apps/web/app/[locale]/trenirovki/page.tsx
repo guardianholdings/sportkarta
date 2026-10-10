@@ -205,7 +205,7 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
                         page: '/klasirane',
                         ref: row.id,
                         text: (() => {
-                          const km = formatKm(row.distanceM);
+                          const km = formatKm(row.distanceM, locale);
                           const minutes = formatMinutes(row.durationS);
                           const sport = sportName(row.sport);
                           return km

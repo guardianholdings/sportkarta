@@ -48,7 +48,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     getTranslations({ locale: lang, namespace: 'Sport' }),
   ]);
 
-  const data = await trainingStory(user.id, ref, {
+  const data = await trainingStory(user.id, ref, lang, {
     eyebrow: tStory('training.eyebrow'),
     heroKm: tStory('training.heroKm'),
     heroMin: tStory('training.heroMin'),

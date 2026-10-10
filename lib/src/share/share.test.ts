@@ -8,6 +8,7 @@ import {
   formatMinutes,
   isPersonScoped,
   joinsTextAndUrl,
+  localePath,
   NETWORKS,
   networkUrl,
   PERSON_SCOPED_KINDS,
@@ -208,6 +209,36 @@ describe('buildShare', () => {
     expect(payload.url).toBe(`${ORIGIN}/obekt/park`);
   });
 
+  it('links an English share to the English page', () => {
+    // The site serves bg unprefixed and en under /en; an English caption used
+    // to send its reader to the Bulgarian page.
+    const en = buildShare({
+      kind: 'session',
+      locale: 'en',
+      origin: ORIGIN,
+      page: '/sesiya/s1',
+      text: 'x',
+      ref: 's1',
+    });
+    expect(en.url).toBe(`${ORIGIN}/en/sesiya/s1`);
+    const bg = buildShare({
+      kind: 'session',
+      locale: 'bg',
+      origin: ORIGIN,
+      page: '/sesiya/s1',
+      text: 'x',
+      ref: 's1',
+    });
+    expect(bg.url).toBe(`${ORIGIN}/sesiya/s1`);
+  });
+
+  it('prefixes only English, and the home page without a trailing slash', () => {
+    expect(localePath('/', 'en')).toBe('/en');
+    expect(localePath('/klasirane', 'en')).toBe('/en/klasirane');
+    expect(localePath('/klasirane', 'bg')).toBe('/klasirane');
+    expect(localePath('/klasirane', 'de')).toBe('/klasirane');
+  });
+
   it('flags person-scoped kinds so the caller cannot forget the no-store rule', () => {
     expect(
       buildShare({ kind: 'week', locale: 'bg', origin: ORIGIN, page: '/', text: 'x' }).personScoped,
@@ -221,11 +252,18 @@ describe('buildShare', () => {
 
 describe('formatting helpers', () => {
   it('prints km to one decimal and treats absent or zero distance as absent', () => {
-    expect(formatKm(5000)).toBe('5.0');
-    expect(formatKm(5450)).toBe('5.5');
-    expect(formatKm(null)).toBeNull();
-    expect(formatKm(0)).toBeNull();
-    expect(formatKm(Number.NaN)).toBeNull();
+    expect(formatKm(5000, 'en')).toBe('5.0');
+    expect(formatKm(5450, 'en')).toBe('5.5');
+    expect(formatKm(null, 'bg')).toBeNull();
+    expect(formatKm(0, 'bg')).toBeNull();
+    expect(formatKm(Number.NaN, 'bg')).toBeNull();
+  });
+
+  it('writes the decimal the way the reader does — a comma in Bulgarian', () => {
+    // A Bulgarian caption used to read «5.2 км».
+    expect(formatKm(5200, 'bg')).toBe('5,2');
+    expect(formatKm(5200, 'en')).toBe('5.2');
+    expect(formatKm(12_345, 'bg')).toBe('12,3');
   });
 
   it('rounds seconds to whole minutes and never goes negative', () => {
