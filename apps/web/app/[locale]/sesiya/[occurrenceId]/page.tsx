@@ -141,7 +141,9 @@ export default async function SessionPage({ params }: { params: PageParams }) {
           )}
           {!view.cancelled && view.started && (
             <p className="rounded-card border border-line bg-paper-sunk p-3 text-body-sm text-ink-soft">
-              {t('startedNotice')}
+              {/* Over is not the same as under way: last Tuesday's session
+                  said «вече е започнала» for ever (S-14). */}
+              {view.ended ? t('endedNotice') : t('startedNotice')}
             </p>
           )}
         </header>
@@ -189,24 +191,26 @@ export default async function SessionPage({ params }: { params: PageParams }) {
             </h2>
             {user ? (
               <>
-                {view.viewerStatus && (
-                  <p className="text-body-sm text-ink-soft">
-                    {/* The place ON THE WAITLIST (1 = next in line), never the
-                      queue position — see OccurrenceView.viewerWaitlistPlace. */}
-                    {view.viewerStatus === 'going'
-                      ? t('youAreGoing')
-                      : t('youAreWaitlisted', { position: view.viewerWaitlistPlace ?? 1 })}
-                  </p>
-                )}
                 <RsvpForm
                   occurrenceId={view.occurrenceId}
-                  attending={view.viewerStatus !== null}
+                  status={view.viewerStatus}
                   full={view.capacity !== null && view.going >= view.capacity}
+                  // The place ON THE WAITLIST (1 = next in line), never the
+                  // queue position — see OccurrenceView.viewerWaitlistPlace.
+                  statusText={
+                    view.viewerStatus === 'going'
+                      ? t('youAreGoing')
+                      : view.viewerStatus === 'waitlisted'
+                        ? t('youAreWaitlisted', { position: view.viewerWaitlistPlace ?? 1 })
+                        : null
+                  }
                   labels={{
                     join: t('join'),
                     joinFull: t('joinFull'),
                     leave: t('leave'),
                     pending: t('pending'),
+                    leaveConfirm: t('leaveConfirm'),
+                    leaveConfirmWaitlisted: t('leaveConfirmWaitlisted'),
                     genericError: t('error.generic'),
                     errors: {
                       rate_limited: t('error.rate_limited'),
@@ -287,10 +291,11 @@ export default async function SessionPage({ params }: { params: PageParams }) {
           </section>
         )}
 
-        {!view.cancelled && (
+        {!view.cancelled && !view.ended && (
           /* C6: the session invite is the one share with an ACTION attached — it
            recruits. Nothing person-scoped rides along: title, sport and day are
-           the public page's own content. */
+           the public page's own content. Not once it is over: «Покани
+           приятели» to an evening that has passed is a dead invitation. */
           <ShareSheet
             payload={buildShare({
               kind: 'session',
@@ -304,25 +309,29 @@ export default async function SessionPage({ params }: { params: PageParams }) {
           />
         )}
 
-        <section aria-labelledby="cal-h" className="space-y-2 border-t border-line pt-4">
-          <h2 id="cal-h" className="font-sans text-body-sm font-semibold">
-            {t('calendarHeading')}
-          </h2>
-          <p className="text-body-sm">
-            {/* A plain link, not a client download button: an .ics is a file the
+        {/* Nothing to put in a calendar once it is over. A cancelled one keeps
+            its link: the .ics is how a calendar learns of the cancellation. */}
+        {!view.ended && (
+          <section aria-labelledby="cal-h" className="space-y-2 border-t border-line pt-4">
+            <h2 id="cal-h" className="font-sans text-body-sm font-semibold">
+              {t('calendarHeading')}
+            </h2>
+            <p className="text-body-sm">
+              {/* A plain link, not a client download button: an .ics is a file the
               browser and the phone already know what to do with. */}
-            <a href={icsUrl} className="font-medium text-link hover:text-link-hover">
-              {t('addToCalendar')}
-            </a>
-          </p>
-          {user && (
-            <p className="text-body-sm text-ink-soft">
-              <Link href="/profil" className="font-medium text-link hover:text-link-hover">
-                {t('subscribeAll')}
-              </Link>
+              <a href={icsUrl} className="font-medium text-link hover:text-link-hover">
+                {t('addToCalendar')}
+              </a>
             </p>
-          )}
-        </section>
+            {user && (
+              <p className="text-body-sm text-ink-soft">
+                <Link href="/profil" className="font-medium text-link hover:text-link-hover">
+                  {t('subscribeAll')}
+                </Link>
+              </p>
+            )}
+          </section>
+        )}
 
         {/* The title and the organiser's name are members' words (DSA Art. 16). */}
         <ReportContentLink path={`/sesiya/${view.occurrenceId}`} />
