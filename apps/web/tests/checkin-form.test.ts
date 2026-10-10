@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -90,5 +92,21 @@ describe('check-in copy', () => {
         'string',
       );
     }
+  });
+});
+
+describe('the check-in form contract', () => {
+  it('uses useFormAction, so an error keeps the fix and a retry posts it again', () => {
+    // React 19 resets a <form action> once it settles: an error answer used to
+    // clear the hidden lat/lon a granted fix had written.
+    const source = readFileSync(
+      new URL('../app/[locale]/otmetka/[token]/checkin-form.tsx', import.meta.url),
+      'utf8',
+    );
+    expect(source).toMatch(/useFormAction\(redeemCheckinAction, initial\)/);
+    expect(source).toMatch(/<form \{\.\.\.formProps\}/);
+    expect(source).not.toMatch(/import \{[^}]*useActionState/);
+    // The fix effect submits the SAME form the hook owns.
+    expect(source).toMatch(/const formRef = formProps\.ref;/);
   });
 });
