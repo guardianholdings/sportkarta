@@ -219,8 +219,8 @@ test.describe('ambassadors', () => {
       )
     )[0];
 
-    // The editor can set status and rewrite every field, and it does not go
-    // through the logged moderation path — so it must refuse out of scope.
+    // The editor rewrites every field and moves pins outside the logged
+    // moderation path — so it must refuse out of scope.
     expect((await page.request.get(`/admin/facilities/${inScope?.id ?? ''}`)).status()).toBe(200);
     await expectHiddenLikeMissing(page, `/admin/facilities/${outOfScope?.id ?? ''}`);
 

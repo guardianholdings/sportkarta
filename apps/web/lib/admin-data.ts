@@ -287,8 +287,8 @@ export interface FacilityDetail extends VerifyCard {
  *
  * Scoped since Stage 3.3: an ambassador may only open a facility inside their
  * municipalities. Without this, the editor would be a way around the moderation
- * boundary — it can set status and rewrite fields nationwide, and it does not
- * go through the logged moderation path at all.
+ * boundary — it rewrites fields and moves pins outside the logged moderation
+ * path (its status is decided through that path since the UX audit's A-4).
  */
 export async function getFacility(
   actor: ModerationActor,
