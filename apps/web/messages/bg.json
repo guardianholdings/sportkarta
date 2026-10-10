@@ -482,7 +482,22 @@
     "clusterLabel": "{count, plural, one {# съоръжение} other {# съоръжения}} — приближи",
     "mapUnavailable": "Картата не може да се покаже на това устройство. Списъкът със съоръжения работи.",
     "expandPreview": "Разгъни описанието",
-    "collapsePreview": "Свий описанието"
+    "collapsePreview": "Свий описанието",
+    "controls": {
+      "toggleAttribution": "Покажи или скрий източниците на картата",
+      "mapFeedback": "Обратна връзка за картата",
+      "mapTitle": "Карта",
+      "markerTitle": "Маркер на картата",
+      "zoomIn": "Приближи",
+      "zoomOut": "Отдалечи",
+      "resetBearing": "Завърти картата на север",
+      "findMyLocation": "Намери ме",
+      "locationNotAvailable": "Местоположението не е достъпно",
+      "close": "Затвори",
+      "cooperativeWindows": "Използвайте Ctrl + колелцето на мишката, за да мащабирате картата",
+      "cooperativeMac": "Използвайте ⌘ + колелцето на мишката, за да мащабирате картата",
+      "cooperativeMobile": "Използвайте два пръста, за да местите картата"
+    }
   },
   "Facility": {
     "directions": "Упъти ме",

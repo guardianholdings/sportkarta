@@ -83,9 +83,9 @@ export function southLimitLat(southLat: number, frame: VisibleFrame): number {
 }
 
 /**
- * The phone map's pan limit: the camera CENTRE may not leave the box.
+ * The map's pan limit: the camera CENTRE may not leave the box.
  *
- * The mobile map cannot use MapLibre's `maxBounds`, because that constrains the
+ * The map cannot use MapLibre's `maxBounds`, because that constrains the
  * whole VIEWPORT: a portrait phone showing Bulgaria side to side spans about
  * four times the country's height, so a viewport-sized box would re-impose the
  * zoom floor the operator lifted (2026-08-07). With no box at all, two flicks
@@ -101,7 +101,8 @@ export function southLimitLat(southLat: number, frame: VisibleFrame): number {
  * and LAST, so it wins over the box's northern edge: when the frame is taller
  * than the room between the tile edge and the box's top (a phone with the sheet
  * collapsed), the centre goes north of the box rather than letting the frame's
- * bottom off the tiles. Desktop never passes a frame — it keeps `maxBounds`.
+ * bottom off the tiles. Desktop passes its frame too: `maxBounds` cropped the
+ * country on any map area narrower than Bulgaria is wide (UX audit 2026-10-10).
  */
 export function clampCenter(
   center: { lng: number; lat: number },

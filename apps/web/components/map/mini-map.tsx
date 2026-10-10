@@ -4,6 +4,7 @@ import maplibregl from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
 
 import { createStaticPin } from '@/components/map/markers';
+import { useMaplibreLocale } from '@/lib/map/controls-locale';
 import { ensurePmtilesProtocol } from '@/lib/map/pmtiles';
 import { buildMapStyle, mapAssetUrls } from '@/lib/map/style';
 
@@ -19,6 +20,7 @@ interface MiniMapProps {
 // no pan/zoom. Shares the pmtiles basemap + attribution; degrades to a plain
 // background when tiles are absent.
 export default function MiniMap({ lon, lat, label }: MiniMapProps) {
+  const maplibreLocale = useMaplibreLocale();
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -35,6 +37,7 @@ export default function MiniMap({ lon, lat, label }: MiniMapProps) {
         zoom: 15,
         interactive: false,
         attributionControl: { compact: true },
+        locale: maplibreLocale,
       });
     } catch (error) {
       console.error('MapLibre mini-map init failed', error);
@@ -49,7 +52,7 @@ export default function MiniMap({ lon, lat, label }: MiniMapProps) {
       marker.remove();
       map.remove();
     };
-  }, [lon, lat, label]);
+  }, [lon, lat, label, maplibreLocale]);
 
   return <div ref={containerRef} className="h-56 w-full overflow-hidden rounded-lg" />;
 }

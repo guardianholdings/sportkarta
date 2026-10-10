@@ -8,6 +8,7 @@ import type { Feature, FeatureCollection, Point, Polygon } from 'geojson';
 import maplibregl, { type GeoJSONSource } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
 
+import { useMaplibreLocale } from '@/lib/map/controls-locale';
 import { DEFAULT_LAYER, type ExternalMapLayer } from '@/lib/map/layers';
 import { ensurePmtilesProtocol } from '@/lib/map/pmtiles';
 import { buildMapStyle, externalLayerIds, mapAssetUrls } from '@/lib/map/style';
@@ -121,8 +122,9 @@ interface MapCanvasProps {
    * the width-fit of the national bounds — far enough to see the whole country
    * at once, and no further. It deliberately does NOT go to z0: the archive would
    * render as a speck on a blank page, which reads as a broken map rather than
-   * as freedom. Desktop keeps the frame, where the panel sits beside the map and
-   * the floor already fits the country comfortably.
+   * as freedom. Desktop keeps a floor that fits the whole country into the
+   * visible frame (both axes) — and, since 2026-10-10, the same centre-based pan
+   * limit, because the viewport box cropped the country there too.
    *
    * THE PAN LIMIT STAYS, IN A DIFFERENT FORM. Dropping the viewport box first
    * dropped every pan limit with it, and two flicks took a phone to Mali: an
@@ -132,6 +134,14 @@ interface MapCanvasProps {
    * re-imposing the floor.
    */
   unrestricted?: boolean;
+  /**
+   * Cooperative gestures: one finger scrolls the PAGE and the wheel scrolls it
+   * too; two fingers (or Ctrl/⌘ + wheel) move the map. For maps embedded in a
+   * scrolling page (the /igrishta listings), where a swipe meant to read on
+   * used to pan a 288px map instead (UX audit 2026-10-10). Never on the home
+   * map, which IS the page.
+   */
+  cooperative?: boolean;
 }
 
 const SOURCE_ID = 'facilities';
@@ -144,9 +154,9 @@ const NEARME_ID = 'nearme';
  * only by coincidence.
  *
  * It does two jobs here, and they are different: it is the furthest permitted
- * ZOOM-OUT (the camera that fits this box), and it is the PAN limit
- * (`maxBounds`). Without the second, a member at the zoom floor could still drag
- * the country off screen and sit looking at Greece.
+ * ZOOM-OUT (the camera that fits this box), and it bounds the PAN limit (the
+ * camera centre, `centreInBulgaria`). Without the second, a member at the zoom
+ * floor could still drag the country off screen and sit looking at Greece.
  */
 const BG_BOUNDS: maplibregl.LngLatBoundsLike =
   BULGARIA_BOUNDS as unknown as maplibregl.LngLatBoundsLike;
@@ -172,6 +182,13 @@ function toFeatureCollection(
 /** How far inside the visible frame a selected pin must sit to count as seen —
  *  roughly the pin's own height, since it is anchored at its tip. */
 const REVEAL_MARGIN_PX = 48;
+
+/**
+ * Where a facility picked at the country view is shown: one step past the
+ * source's `clusterMaxZoom` (14), so it stands as its own pin with the streets
+ * around it rather than as part of a number.
+ */
+const REVEAL_ZOOM = 15;
 
 function token(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -211,7 +228,10 @@ export default function MapCanvas({
   onBoundsChange = () => undefined,
   padding = {},
   unrestricted = false,
+  cooperative = false,
 }: MapCanvasProps) {
+  // Read once, at init: MapLibre takes its locale only in the constructor.
+  const maplibreLocale = useMaplibreLocale();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef(new Map<string, maplibregl.Marker>());
@@ -413,17 +433,17 @@ export default function MapCanvas({
         // replaces it with the fitted country before the first frame is drawn.
         center: [initialView?.lng ?? BULGARIA_CENTER.lng, initialView?.lat ?? BULGARIA_CENTER.lat],
         zoom: initialView?.zoom ?? BULGARIA_CENTER.zoom,
-        // THE PAN LIMIT. This platform is a national map of Bulgarian public
-        // facilities: there is nothing to see outside the country, the basemap
-        // tiles stop at the border, and panning into Greece shows an empty grey
-        // field that reads as a broken map rather than as "no data here".
-        //
-        // maxBounds constrains the VIEWPORT rather than the centre, so at the
-        // zoom floor — where the viewport is already larger than the box — the
-        // map simply cannot be dragged at all, which is the behaviour asked
-        // for. Zoomed in, panning stays free inside the box.
-        maxBounds: BG_BOUNDS,
+        // THE PAN LIMIT is not set here. This platform is a national map of
+        // Bulgarian public facilities: there is nothing to see outside the
+        // country, the basemap tiles stop at the border, and panning into
+        // Greece shows an empty field that reads as a broken map. But
+        // `maxBounds` constrains the whole VIEWPORT, which made the country
+        // impossible to show side to side on any map area narrower than it
+        // is; `applyPadding` below installs the centre constraint instead,
+        // before the first frame (see `centreInBulgaria`).
         attributionControl: { compact: true },
+        locale: maplibreLocale,
+        cooperativeGestures: cooperative,
       });
     } catch (error) {
       // WebGL unavailable (headless CI, low-end device): the list + filters keep
@@ -479,7 +499,7 @@ export default function MapCanvas({
     // full canvas is what put a third of the country behind the list panel.
     const countryCamera = () => map.cameraForBounds(BG_BOUNDS, { padding: FIT_MARGIN_PX });
 
-    // Mobile's pan limit: pin the camera centre inside the country's box (see
+    // The pan limit, on every layout: pin the camera centre inside the box (see
     // `clampCenter` for why the centre and not the viewport), and keep the
     // bottom of the visible frame on the basemap's southern edge (see
     // `southLimitLat`: below it there are no tiles, only the background). A
@@ -509,13 +529,22 @@ export default function MapCanvas({
       const p = framePadding();
       map.setPadding(p);
 
+      // The viewport box has to go — on BOTH layouts, and it is the reason not
+      // the extra: while it is set, MapLibre clamps the zoom so the viewport
+      // never exceeds it. On a phone that silently re-imposed the floor the
+      // `unrestricted` flag exists to lift. On desktop it cropped the country:
+      // Bulgaria is wider than tall (about 1.46 : 1 in Mercator), and any map
+      // area narrower than that — 820×800 beside the panel on a 1280×800
+      // laptop, 564×768 on a 1024×768 tablet — could never zoom out far enough
+      // to show it side to side; at 1024×768 Sofia and the coast were both off
+      // screen and the wheel did nothing (UX audit 2026-10-10). The centre
+      // constraint, with its south limit, takes over the pan limit everywhere.
+      // The fitted country is computed FIRST, before the floor moves.
+      const cam = unrestrictedRef.current ? null : countryCamera();
+      map.setMaxBounds(null);
+      map.setTransformConstrain(centreInBulgaria);
+
       if (unrestrictedRef.current) {
-        // The viewport box has to go, and it is the reason not the extra:
-        // while it is set, MapLibre clamps the zoom so the viewport never
-        // exceeds it, which silently re-imposes the floor this flag exists to
-        // lift. The centre constraint takes over the pan limit.
-        map.setMaxBounds(null);
-        map.setTransformConstrain(centreInBulgaria);
         // The floor is the WIDTH-fit of the country: measured against the
         // canvas width alone, ignoring both the sheet and the height, because
         // the height is what cannot be satisfied on a portrait screen.
@@ -525,26 +554,25 @@ export default function MapCanvas({
         // Clamp to maxZoom as well: setMinZoom THROWS above it, and on a small
         // canvas the fit math can legitimately land there.
         map.setMinZoom(Math.min(Math.max(0, widthFit - 0.1), map.getMaxZoom()));
-        // MapLibre re-runs a transform constraint when the centre, the zoom or
-        // the canvas size changes, but NOT when only the padding does
-        // (Transform.setPadding). The south limit depends on the frame's
-        // height, so re-apply it here: otherwise collapsing the sheet after a
-        // pan would drop the frame's bottom off the tiles until the next drag.
-        const now = map.getCenter();
-        const held = centreInBulgaria(now, map.getZoom()).center;
-        if (held.lat !== now.lat || held.lng !== now.lng) map.jumpTo({ center: held });
-      } else {
-        map.setTransformConstrain(null);
-        map.setMaxBounds(BG_BOUNDS);
-        const cam = countryCamera();
-        // On a phone-sized canvas the padding can exceed the viewport and
+      } else if (cam?.zoom !== undefined) {
+        // Desktop: the floor is the whole country fitted into the visible
+        // frame — both axes — so it is always one zoom-out away. On a
+        // phone-sized canvas the padding can exceed the viewport and
         // cameraForBounds then reports a zoom past maxZoom — setMinZoom throws
         // ("minZoom must be between -2 and the current maxZoom") instead of
         // clamping, so clamp here.
-        if (cam?.zoom !== undefined) {
-          map.setMinZoom(Math.min(Math.max(0, cam.zoom - 0.1), map.getMaxZoom()));
-        }
+        map.setMinZoom(Math.min(Math.max(0, cam.zoom - 0.1), map.getMaxZoom()));
       }
+
+      // MapLibre re-runs a transform constraint when the centre, the zoom or
+      // the canvas size changes, but NOT when only the padding does
+      // (Transform.setPadding). The south limit depends on the frame's height,
+      // so re-apply it here: otherwise collapsing the sheet (or the desktop
+      // list) after a pan would drop the frame's bottom off the tiles until the
+      // next drag.
+      const now = map.getCenter();
+      const held = centreInBulgaria(now, map.getZoom()).center;
+      if (held.lat !== now.lat || held.lng !== now.lng) map.jumpTo({ center: held });
 
       // Re-fit on every re-frame until the member takes over: the canvas and
       // the explorer's measured padding settle over the first renders (the
@@ -699,9 +727,16 @@ export default function MapCanvas({
     const point = points.find((p) => p.slug === selectedSlug);
     if (!point) return;
     revealedRef.current = selectedSlug;
-    // Still the automatic country fit: the whole country — this facility
-    // included — is already framed inside the visible area.
-    if (autoFitRef.current) return;
+    // Still the automatic country fit: nobody chose this zoom, and at it every
+    // facility sits inside a numbered cluster — picking «Фитнес — София» from
+    // the list changed nothing on the map, so nothing said WHERE it was (UX
+    // audit 2026-10-10). Go to it, just past the clustering, as the member's
+    // first zoom made for them; from then on their own zoom is respected.
+    if (autoFitRef.current) {
+      autoFitRef.current = false;
+      map.easeTo({ center: [point.lon, point.lat], zoom: REVEAL_ZOOM });
+      return;
+    }
     const canvas = map.getCanvas();
     const visible = insideVisibleFrame(
       map.project([point.lon, point.lat]),

@@ -77,13 +77,102 @@ describe('phone pan limit', () => {
     expect(north).toEqual({ lng: 25, lat: BULGARIA_BOUNDS[1][1] });
   });
 
-  it('is installed on the phone map, where the viewport box is dropped', () => {
+  it('is installed on every layout, with the viewport box dropped', () => {
     const canvas = read('components/map/map-canvas.tsx');
     expect(canvas).toMatch(
       /map\.setMaxBounds\(null\);\s*map\.setTransformConstrain\(centreInBulgaria\);/,
     );
-    // Desktop goes back to MapLibre's own constraint and the viewport box.
-    expect(canvas).toMatch(/map\.setTransformConstrain\(null\);\s*map\.setMaxBounds\(BG_BOUNDS\);/);
+    // Desktop no longer goes back to the viewport box (see 'desktop fit').
+    expect(canvas).not.toMatch(/setMaxBounds\(BG_BOUNDS\)/);
+    expect(canvas).not.toMatch(/maxBounds: BG_BOUNDS/);
+  });
+});
+
+/**
+ * UX audit 2026-10-10: on desktop the first view never showed the whole
+ * country — at 1440×900 Vidin and the coast were cut, at 1024×768 Sofia and
+ * Varna were both off screen, and zooming out did nothing. `maxBounds` keeps
+ * the whole VIEWPORT inside the box, and Bulgaria is wider than tall; a map
+ * area narrower than the box can only zoom out until its HEIGHT fills the box,
+ * by which point its width shows a slice of the country.
+ */
+describe('desktop fit', () => {
+  const [[west, south], [east, north]] = BULGARIA_BOUNDS;
+  // The country itself, west to east (BULGARIA_BOUNDS is a slightly larger box).
+  const COUNTRY_WEST = 22.36;
+  const COUNTRY_EAST = 28.61;
+  /** Longitude span a viewport of `width` px shows at `zoom`. */
+  const lonSpan = (width: number, zoom: number) => (width * 360) / (512 * 2 ** zoom);
+  /** The lowest zoom `maxBounds` allowed: the viewport's height fills the box. */
+  const viewportBoxFloor = (height: number) =>
+    Math.log2(height / ((mercatorY(south) - mercatorY(north)) * 512));
+  /** The floor now: the box fitted into the frame on BOTH axes. */
+  const fittedFloor = (width: number, height: number) =>
+    Math.min(
+      widthFitZoom(width, BULGARIA_BOUNDS),
+      Math.log2((height - 2 * FIT_MARGIN_PX) / ((mercatorY(south) - mercatorY(north)) * 512)),
+    );
+
+  // The map area beside the 460px list panel (nav rail + aside) on common screens.
+  const TABLET = { name: '1024×768 tablet', width: 564, height: 768 };
+  const CANVASES = [
+    TABLET,
+    { name: '1280×800 laptop', width: 820, height: 800 },
+    { name: '1440×900 laptop', width: 980, height: 900 },
+  ];
+
+  it.each(CANVASES)('the viewport box cut the country on a $name', ({ width, height }) => {
+    expect(lonSpan(width, viewportBoxFloor(height))).toBeLessThan(COUNTRY_EAST - COUNTRY_WEST);
+  });
+
+  it.each(CANVASES)('the fitted floor shows it side to side on a $name', ({ width, height }) => {
+    expect(lonSpan(width, fittedFloor(width, height))).toBeGreaterThanOrEqual(east - west - 0.01);
+  });
+
+  it('keeps the frame on the tiles there too: the south limit applies to desktop frames', () => {
+    // The fitted frame is taller than the country on these canvases, so the
+    // spare room must go north (where the archive has map), not south.
+    const { width, height } = TABLET;
+    const zoom = fittedFloor(width, height);
+    const centre = clampCenter({ lng: 25.3, lat: (south + north) / 2 }, BULGARIA_BOUNDS, {
+      zoom,
+      halfHeight: height / 2,
+    });
+    const bottom = latitudeAt(mercatorY(centre.lat) + height / 2 / (512 * 2 ** zoom));
+    expect(bottom).toBeGreaterThanOrEqual(south - 1e-6);
+  });
+
+  it('computes the desktop floor from the fitted country, both axes', () => {
+    const canvas = read('components/map/map-canvas.tsx');
+    expect(canvas).toMatch(/const cam = unrestrictedRef\.current \? null : countryCamera\(\);/);
+    expect(canvas).toMatch(/else if \(cam\?\.zoom !== undefined\)/);
+  });
+});
+
+describe('a facility picked at the country view', () => {
+  it('is shown, past the clustering, instead of left inside a number', () => {
+    const canvas = read('components/map/map-canvas.tsx');
+    const clusterMaxZoom = Number(/clusterMaxZoom: (\d+)/.exec(canvas)?.[1]);
+    const revealZoom = Number(/const REVEAL_ZOOM = (\d+)/.exec(canvas)?.[1]);
+    expect(revealZoom).toBeGreaterThan(clusterMaxZoom);
+    // At the automatic fit the map goes to it; otherwise the member's zoom stays.
+    expect(canvas).toMatch(
+      /if \(autoFitRef\.current\) \{\s*autoFitRef\.current = false;\s*map\.easeTo\(\{ center: \[point\.lon, point\.lat\], zoom: REVEAL_ZOOM \}\);/,
+    );
+  });
+});
+
+describe('maps inside a scrolling page', () => {
+  it('use cooperative gestures on the place listings, never on the home map', () => {
+    expect(read('components/map/place-map.tsx')).toMatch(/\n\s*cooperative\n/);
+    expect(read('components/map/map-canvas.tsx')).toMatch(/cooperativeGestures: cooperative/);
+    expect(read('components/map/map-explorer.tsx')).not.toMatch(/\bcooperative\b/);
+  });
+
+  it('speak the reader’s language, not MapLibre’s English', () => {
+    for (const file of ['components/map/map-canvas.tsx', 'components/map/mini-map.tsx']) {
+      expect(read(file), file).toMatch(/locale: maplibreLocale/);
+    }
   });
 });
 
