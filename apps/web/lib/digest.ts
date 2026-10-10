@@ -79,24 +79,61 @@ export async function unsubscribe(
   `);
 }
 
+/** The city a subscription is for — what the unsubscribe screens name. */
+export interface SubscriptionCity {
+  municipalityId: number;
+  nameBg: string;
+  nameEn: string;
+}
+
 /**
- * One-click unsubscribe, no session. Returns the city name for the confirmation
+ * One-click unsubscribe, no session. Returns the city for the confirmation
  * page, or null when the token is unknown — which is also what a second click
  * on the same link produces, and the UI says so rather than pretending to fail.
  */
 export async function unsubscribeByToken(
   db: SqlRunner,
   token: string,
-): Promise<{ nameBg: string; nameEn: string } | null> {
+): Promise<SubscriptionCity | null> {
   const result = await db.execute(sql`
     DELETE FROM digest_subscriptions d
      USING municipalities m
      WHERE m.id = d.municipality_id AND d.unsubscribe_token = ${token}
-    RETURNING m.name_bg, m.name_en
+    RETURNING m.id, m.name_bg, m.name_en
   `);
   const row = result.rows[0];
   if (!row) return null;
-  return { nameBg: String(row.name_bg), nameEn: String(row.name_en) };
+  return {
+    municipalityId: Number(row.id),
+    nameBg: String(row.name_bg),
+    nameEn: String(row.name_en),
+  };
+}
+
+/**
+ * Which city a token unsubscribes from — a READ, for the confirm page, which
+ * must not change anything on a GET (mail scanners fetch every link). Naming
+ * the city is the point: a member subscribed to two cities could not tell which
+ * one this link stops (UX audit 2026-10-10, L-6). Nothing here is more than the
+ * digest mail the token came in already says in its subject.
+ */
+export async function subscriptionByToken(
+  db: SqlRunner,
+  token: string,
+): Promise<SubscriptionCity | null> {
+  const result = await db.execute(sql`
+    SELECT m.id, m.name_bg, m.name_en
+      FROM digest_subscriptions d
+      JOIN municipalities m ON m.id = d.municipality_id
+     WHERE d.unsubscribe_token = ${token}
+  `);
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    municipalityId: Number(row.id),
+    nameBg: String(row.name_bg),
+    nameEn: String(row.name_en),
+  };
 }
 
 export interface DigestCity {

@@ -26,7 +26,9 @@ export async function confirmUnsubscribeAction(formData: FormData): Promise<void
   // no request path to resolve a relative redirect against, and localePrefix is
   // 'as-needed' so bg is unprefixed while en is not.
   const prefix = locale === routing.defaultLocale ? '' : `/${locale}`;
-  redirect(
-    `${prefix}/sedmitsata/otpisvane/${encodeURIComponent(token)}?done=${removed ? 'ok' : 'gone'}`,
-  );
+  // The municipality id rides along so the "done" screen can NAME the city
+  // (L-6) — the row it would be read from no longer exists. An id, not a name:
+  // nothing a member typed goes into the URL.
+  const done = removed ? `ok&m=${String(removed.municipalityId)}` : 'gone';
+  redirect(`${prefix}/sedmitsata/otpisvane/${encodeURIComponent(token)}?done=${done}`);
 }
