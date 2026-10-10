@@ -9,6 +9,7 @@ import { CampaignStandings } from '@/components/campaigns/campaign-standings';
 import { Link } from '@/i18n/navigation';
 import { getCurrentUser } from '@/lib/auth-session';
 import { localizedText } from '@/lib/campaigns';
+import { takesVav } from '@/lib/grammar';
 import { cityDisplayName, loadCityCatalog } from '@/lib/places';
 import { AppShell } from '@/components/shell/app-shell';
 import { campaignWindowLabel } from '@/lib/campaign-window';
@@ -82,6 +83,25 @@ export default async function CampaignPage({ params }: { params: PageParams }) {
   const blurb = localizedText(campaign.blurbBg, campaign.blurbEn, locale);
   const prize = localizedText(campaign.prizeBg, campaign.prizeEn, locale);
 
+  // The scope note NAMES the place: «…в избраната община» left a visitor to
+  // guess which municipality was meant (S-11). The FK makes a miss impossible;
+  // if it ever happened the note is left out rather than printed half-empty.
+  const scopeCity =
+    campaign.scope.kind === 'national'
+      ? undefined
+      : catalog.byId.get(campaign.scope.municipalityId);
+  const scopeCityName = scopeCity
+    ? cityDisplayName(scopeCity.nameBg, scopeCity.nameEn, locale)
+    : null;
+  const scopeNote =
+    campaign.scope.kind === 'national'
+      ? t('scopeNote_national')
+      : scopeCityName === null
+        ? null
+        : campaign.scope.kind === 'city'
+          ? t('scopeNote_city', { city: scopeCityName, cityVav: takesVav(scopeCityName) })
+          : t('scopeNote_quarter', { quarter: campaign.scope.quarter, city: scopeCityName });
+
   // The template picks the emphasis, not the data: `sprint` leads with the
   // countdown because it is short, `city_race` leads with the prize because the
   // competition is between towns rather than people.
@@ -140,7 +160,7 @@ export default async function CampaignPage({ params }: { params: PageParams }) {
               {t('capNote', { cap: campaign.rules.perDayCap })}
             </p>
           )}
-          <p className="text-caption text-text-muted">{t(`scopeNote_${campaign.scope.kind}`)}</p>
+          {scopeNote && <p className="text-caption text-text-muted">{scopeNote}</p>}
         </section>
 
         {campaign.status === 'closed' ? (

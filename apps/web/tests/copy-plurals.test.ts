@@ -1,5 +1,9 @@
+import { readFileSync } from 'node:fs';
+
 import { createTranslator } from 'next-intl';
 import { describe, expect, it } from 'vitest';
+
+import { takesVav } from '@/lib/grammar';
 
 import bg from '../messages/bg.json';
 import en from '../messages/en.json';
@@ -39,5 +43,37 @@ describe('ordinals (S-12, T-9)', () => {
     expect(enLeaderboard('standingRanked', { rank: 22, total: 40, points: 5 })).toBe(
       'You are 22nd of 40 members, with 5 points.',
     );
+  });
+});
+
+describe('a campaign names its place (S-11)', () => {
+  const bgCampaign = createTranslator({ locale: 'bg', messages: bg, namespace: 'Campaign' });
+  const enCampaign = createTranslator({ locale: 'en', messages: en, namespace: 'Campaign' });
+  const page = readFileSync(
+    new URL('../app/[locale]/kampanii/[slug]/page.tsx', import.meta.url),
+    'utf8',
+  );
+
+  it('says which municipality, with «във» where Bulgarian needs it', () => {
+    expect(bgCampaign('scopeNote_city', { city: 'Варна', cityVav: takesVav('Варна') })).toBe(
+      'Кампанията важи за съоръжения във Варна.',
+    );
+    expect(bgCampaign('scopeNote_city', { city: 'Пловдив', cityVav: takesVav('Пловдив') })).toBe(
+      'Кампанията важи за съоръжения в Пловдив.',
+    );
+    expect(enCampaign('scopeNote_city', { city: 'Plovdiv', cityVav: 'no' })).toBe(
+      'This campaign covers facilities in Plovdiv.',
+    );
+  });
+
+  it('says which quarter, and of which city', () => {
+    expect(bgCampaign('scopeNote_quarter', { quarter: 'Лозенец', city: 'София' })).toBe(
+      'Кампанията важи за съоръжения в квартал Лозенец (София).',
+    );
+  });
+
+  it('is fed the real names, not the generic sentence', () => {
+    expect(page).not.toContain('t(`scopeNote_${campaign.scope.kind}`)');
+    expect(page).toMatch(/t\('scopeNote_quarter', \{ quarter: campaign\.scope\.quarter, city:/);
   });
 });
