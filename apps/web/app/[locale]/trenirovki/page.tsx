@@ -174,7 +174,8 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
                 <li key={row.id} className="space-y-2 px-4 py-3 text-body-sm">
                   <div className="min-w-0">
                     <p className="font-medium text-ink">
-                      {sportName(row.sport)}
+                      {/* Heads the row, so capitalised like the share text. */}
+                      {capitalizeFirst(sportName(row.sport), locale)}
                       {row.facilityName && (
                         <span className="ml-2 font-normal text-text-muted">{row.facilityName}</span>
                       )}
