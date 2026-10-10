@@ -431,7 +431,6 @@
   "Map": {
     "discoverTitle": "Открий места",
     "searchPlaceholder": "Търси място или дейност",
-    "sort": "Сортирай",
     "nearby": "В близост",
     "nearMe": "Около мен",
     "radiusKm": "≤ {km} км",

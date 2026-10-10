@@ -272,6 +272,12 @@ export function MapExplorer({
 
   const listRef = useRef<HTMLDivElement>(null);
   const filterKey = filtersToSearchParams(filters).toString();
+  /**
+   * Bumped to fetch the SAME filters again. «Опитай пак» used to re-apply the
+   * current filters, which left `filterKey` unchanged — so the effect below
+   * never re-ran and the button did nothing at all.
+   */
+  const [attempt, setAttempt] = useState(0);
 
   // Offline awareness for the "your connection dropped" state.
   useEffect(() => {
@@ -285,9 +291,10 @@ export function MapExplorer({
     };
   }, []);
 
-  // Full filtered set for the map + list whenever the structured filters change.
-  // The locale rides along because `place` carries a municipality name, which
-  // has a bg and an en form (the API is not locale-routed).
+  // Full filtered set for the map + list whenever the structured filters change
+  // — or a retry asks for them again. The locale rides along because `place`
+  // carries a municipality name, which has a bg and an en form (the API is not
+  // locale-routed).
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
@@ -295,7 +302,10 @@ export function MapExplorer({
     const params = new URLSearchParams(filterKey);
     params.set('locale', locale);
     fetch(`/api/facilities?${params.toString()}`, { signal: controller.signal })
-      .then((r) => r.json() as Promise<FacilityFeatureCollection>)
+      .then((r) => {
+        if (!r.ok) throw new Error(`facilities ${String(r.status)}`);
+        return r.json() as Promise<FacilityFeatureCollection>;
+      })
       .then((fc) => {
         setPoints(
           fc.features.map((f) => ({
@@ -315,7 +325,18 @@ export function MapExplorer({
         setLoading(false);
       });
     return () => controller.abort();
-  }, [filterKey, locale]);
+  }, [filterKey, locale, attempt]);
+
+  // A load that failed for want of a connection retries itself when the
+  // connection comes back, instead of waiting for somebody to find the button.
+  useEffect(() => {
+    if (!loadError) return;
+    const retry = () => setAttempt((n) => n + 1);
+    window.addEventListener('online', retry);
+    return () => {
+      window.removeEventListener('online', retry);
+    };
+  }, [loadError]);
 
   function viewportParams(): [string, string][] {
     if (typeof window === 'undefined') return [];
@@ -524,7 +545,7 @@ export function MapExplorer({
           title={t('loadErrorTitle')}
           body={t('loadErrorBody')}
           action={
-            <Button size="sm" variant="secondary" onClick={() => applyFilters({ ...filters })}>
+            <Button size="sm" variant="secondary" onClick={() => setAttempt((n) => n + 1)}>
               {t('retry')}
             </Button>
           }
@@ -820,12 +841,10 @@ export function MapExplorer({
               </Button>
             </div>
             <div className="mt-3">{chipRow}</div>
-            <div className="mt-3 flex items-center justify-between">
-              {countLine}
-              <Button variant="ghost" size="sm" onClick={() => applyFilters({ ...filters })}>
-                {t('sort')}
-              </Button>
-            </div>
+            {/* No sort control: the list already orders itself — on-map first,
+              nearest first once located (list-rows.ts). The «Сортирай» button
+              that sat here re-applied the same filters and changed nothing. */}
+            <div className="mt-3">{countLine}</div>
           </div>
           {resultsBody}
         </aside>

@@ -431,7 +431,6 @@
   "Map": {
     "discoverTitle": "Discover places",
     "searchPlaceholder": "Search a place or activity",
-    "sort": "Sort",
     "nearby": "Nearby",
     "nearMe": "Around me",
     "radiusKm": "≤ {km} km",

@@ -115,3 +115,37 @@ describe('the count line', () => {
     expect(explorer).toMatch(/loading\s*\?\s*t\('resultsLoading'\)/);
   });
 });
+
+/**
+ * «Опитай пак» and «Сортирай» both called applyFilters with the filters already
+ * applied. The fetch effect is keyed on the serialised filters, which had not
+ * changed, so neither button did anything (UX audit 2026-10-10, M-3).
+ */
+describe('retrying a failed load', () => {
+  const explorer = readFileSync(
+    path.join(__dirname, '..', 'components', 'map', 'map-explorer.tsx'),
+    'utf8',
+  );
+
+  it('re-runs the fetch through an attempt counter in its dependencies', () => {
+    expect(explorer).toMatch(/\}, \[filterKey, locale, attempt\]\);/);
+    expect(explorer).toMatch(
+      /onClick=\{\(\) => setAttempt\(\(n\) => n \+ 1\)\}>\s*\{t\('retry'\)\}/,
+    );
+  });
+
+  it('retries by itself when the connection comes back', () => {
+    expect(explorer).toMatch(
+      /const retry = \(\) => setAttempt\(\(n\) => n \+ 1\);\s*window\.addEventListener\('online', retry\)/,
+    );
+  });
+
+  it('never re-applies the current filters as a way of doing something', () => {
+    expect(explorer).not.toMatch(/applyFilters\(\{ \.\.\.filters \}\)/);
+  });
+
+  it('offers no sort control, since there is no sort to choose', () => {
+    expect(explorer).not.toMatch(/t\('sort'\)/);
+    expect('sort' in bg.Map).toBe(false);
+  });
+});
