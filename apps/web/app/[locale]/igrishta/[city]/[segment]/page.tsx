@@ -9,6 +9,7 @@ import {
   citiesForSport,
   citySportCounts,
   getCityBySlug,
+  MIN_LISTING_FACILITIES,
   resolveSegmentScope,
   scopedFacilities,
   scopedFacilityCount,
@@ -32,8 +33,6 @@ export function generateStaticParams(): { city: string; segment: string }[] {
   return [];
 }
 
-const MIN_FACILITIES = 3;
-
 type PageParams = Promise<{ locale: string; city: string; segment: string }>;
 
 export async function generateMetadata({ params }: { params: PageParams }): Promise<Metadata> {
@@ -44,7 +43,7 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   const scope = await resolveSegmentScope(city.id, segment);
   if (!scope) return {};
   const count = await scopedFacilityCount(city.id, segmentScopeOptions(scope));
-  if (count < MIN_FACILITIES) return {};
+  if (count < MIN_LISTING_FACILITIES) return {};
 
   const [t, tSport] = await Promise.all([
     getTranslations({ locale, namespace: 'Places' }),
@@ -69,7 +68,7 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
   if (!scope) notFound();
   const opts = segmentScopeOptions(scope);
   const count = await scopedFacilityCount(city.id, opts);
-  if (count < MIN_FACILITIES) notFound();
+  if (count < MIN_LISTING_FACILITIES) notFound();
 
   const [t, tSport, mapPoints, facilities] = await Promise.all([
     getTranslations('Places'),
@@ -92,9 +91,9 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
     scope.kind === 'sport'
       ? await Promise.all([
           citySportCounts(city.id).then((rows) =>
-            rows.filter((s) => s.count >= MIN_FACILITIES && s.sport !== scope.sport),
+            rows.filter((s) => s.count >= MIN_LISTING_FACILITIES && s.sport !== scope.sport),
           ),
-          citiesForSport(scope.sport, city.id, MIN_FACILITIES),
+          citiesForSport(scope.sport, city.id, MIN_LISTING_FACILITIES),
         ])
       : [[], []];
 

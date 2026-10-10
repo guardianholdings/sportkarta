@@ -10,7 +10,7 @@ import {
   RESOLUTION_WINDOW_DAYS,
   municipalityAccountability,
 } from '@/lib/accountability';
-import { cityDisplayName, getCityBySlug } from '@/lib/places';
+import { cityDisplayName, getCityBySlug, MIN_LISTING_FACILITIES } from '@/lib/places';
 import { buildAlternates, siteUrl } from '@/lib/seo';
 import { pct } from '@/lib/stats-format';
 import { AppShell } from '@/components/shell/app-shell';
@@ -126,12 +126,18 @@ export default async function AccountabilityPage({ params }: { params: PageParam
   return (
     <AppShell>
       <main className="mx-auto max-w-4xl space-y-8 p-4">
-        <Link
-          href={`/igrishta/${city.slug}`}
-          className="text-body-sm font-medium text-link hover:text-link-hover"
-        >
-          {t('backToCity')}
-        </Link>
+        {/* The listing exists only from MIN_LISTING_FACILITIES up (it 404s as
+          thin content below that), and `total` is the same count over the same
+          visibility rule — so a municipality with one or two facilities gets
+          no link rather than a link to a 404. */}
+        {data.total >= MIN_LISTING_FACILITIES && (
+          <Link
+            href={`/igrishta/${city.slug}`}
+            className="text-body-sm font-medium text-link hover:text-link-hover"
+          >
+            {t('backToCity')}
+          </Link>
+        )}
 
         <header className="space-y-2">
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">

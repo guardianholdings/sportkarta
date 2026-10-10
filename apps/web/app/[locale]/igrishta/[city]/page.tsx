@@ -10,6 +10,7 @@ import { Link } from '@/i18n/navigation';
 import {
   citySportCounts,
   getCityBySlug,
+  MIN_LISTING_FACILITIES,
   scopedFacilities,
   scopedFacilityCount,
   scopedMapPoints,
@@ -36,8 +37,6 @@ export function generateStaticParams(): { city: string }[] {
   return [];
 }
 
-const MIN_FACILITIES = 3;
-
 type PageParams = Promise<{ locale: string; city: string }>;
 
 export async function generateMetadata({ params }: { params: PageParams }): Promise<Metadata> {
@@ -45,7 +44,7 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   const city = await getCityBySlug(slug);
   if (!city) return {};
   const count = await scopedFacilityCount(city.id);
-  if (count < MIN_FACILITIES) return {};
+  if (count < MIN_LISTING_FACILITIES) return {};
   const [t, tSport] = await Promise.all([
     getTranslations({ locale, namespace: 'Places' }),
     getTranslations({ locale, namespace: 'Sport' }),
@@ -66,7 +65,7 @@ export default async function CityPage({ params }: { params: PageParams }) {
   const city = await getCityBySlug(slug);
   if (!city) notFound();
   const count = await scopedFacilityCount(city.id);
-  if (count < MIN_FACILITIES) notFound();
+  if (count < MIN_LISTING_FACILITIES) notFound();
 
   // The map gets the whole municipality; the list gets its first page and a
   // pager (lib/places.ts: MAP_POINT_LIMIT, LIST_PAGE_SIZE).
@@ -81,7 +80,7 @@ export default async function CityPage({ params }: { params: PageParams }) {
   // „във Варна", not „в Варна" — the catalogue branches on it (lib/grammar.ts).
   const cityVav = takesVav(name);
   const { heading } = listingCopy({ locale, t, tSport }, { city, scope: null, count });
-  const crossSports = sportCounts.filter((s) => s.count >= MIN_FACILITIES);
+  const crossSports = sportCounts.filter((s) => s.count >= MIN_LISTING_FACILITIES);
 
   return (
     <AppShell>

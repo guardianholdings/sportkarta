@@ -86,6 +86,15 @@ export interface ScopedFacility {
 export const MAP_POINT_LIMIT = 5000;
 
 /**
+ * The fewest facilities a place listing (/igrishta/<city>[/<segment>]) needs to
+ * exist at all: below it the listing 404s as thin content and stays out of the
+ * sitemap. One number, because a page that LINKS to a listing has to ask the
+ * same question — /obshtina/<city> linked every municipality to its listing,
+ * and for the ones with fewer than three facilities that link was a 404.
+ */
+export const MIN_LISTING_FACILITIES = 3;
+
+/**
  * The SSR list is PAGED, not capped: it is the non-map way in (keyboard,
  * screen reader, no-JS, crawler), so every facility must be reachable from it.
  * Pages live at a path segment (see listPagePath) rather than ?page=, because
@@ -284,7 +293,7 @@ export interface SitemapEntry {
 }
 
 /** City pages (/igrishta/[city]) with ≥min facilities; lastmod = newest edit. */
-export async function sitemapCities(min = 3): Promise<SitemapEntry[]> {
+export async function sitemapCities(min = MIN_LISTING_FACILITIES): Promise<SitemapEntry[]> {
   const db = getDb();
   const { byId } = await loadCityCatalog();
   const result = await db.execute(sql`
@@ -312,7 +321,7 @@ export async function sitemapCities(min = 3): Promise<SitemapEntry[]> {
  * is linked from the city page and pasted into embed snippets — it is simply
  * not advertised to crawlers until there is something to read.
  */
-export async function sitemapMunicipalities(min = 3): Promise<SitemapEntry[]> {
+export async function sitemapMunicipalities(min = MIN_LISTING_FACILITIES): Promise<SitemapEntry[]> {
   const cities = await sitemapCities(min);
   return cities.map((entry) => ({
     path: entry.path.replace('/igrishta/', '/obshtina/'),
@@ -321,7 +330,7 @@ export async function sitemapMunicipalities(min = 3): Promise<SitemapEntry[]> {
 }
 
 /** City × sport pages with ≥min facilities. */
-export async function sitemapCitySports(min = 3): Promise<SitemapEntry[]> {
+export async function sitemapCitySports(min = MIN_LISTING_FACILITIES): Promise<SitemapEntry[]> {
   const db = getDb();
   const { byId } = await loadCityCatalog();
   const result = await db.execute(sql`
