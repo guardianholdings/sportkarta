@@ -1,6 +1,9 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useState } from 'react';
+
+import { useLabels, type Labels } from '@/components/admin/use-labels';
+import { useFormAction } from '@/lib/use-form-action';
 
 import { commitCsvAction, parseCsvAction, previewCsvAction, type MunicipalState } from './actions';
 
@@ -11,16 +14,15 @@ import { MUNICIPAL_FIELDS } from '@sportkarta/lib/import-municipal';
 /**
  * The municipal CSV inbox screens (docs/ROADMAP.md §8, Stage 6.3).
  *
- * upload/paste → map columns → preview (resolve conflicts) → done. A client
- * component only because the flow carries state between server actions; every
- * action still runs on the server and re-derives from the CSV, so nothing here
- * is trusted. `L` renders an unknown key as itself, so a missing translation is
- * visible rather than silently blank.
+ * upload/paste → map columns → preview (resolve conflicts) → done, with a way
+ * back from the preview to the columns. A client component only because the
+ * flow carries state between server actions; every action still runs on the
+ * server and re-derives from the CSV, so nothing here is trusted. `labels` are
+ * ICU templates (useLabels); an unknown key renders as itself, so a missing
+ * translation is visible rather than silently blank.
  */
 
-export type Labels = Readonly<Record<string, string>>;
-
-function L(labels: Labels, key: string): string {
+function fieldName(labels: Labels, key: string): string {
   return labels[key] ?? key;
 }
 
@@ -49,6 +51,9 @@ export function MunicipalImport(props: {
   );
 }
 
+const SUBMIT =
+  'min-h-11 rounded-pill bg-brand px-4 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover disabled:opacity-50';
+
 function MunicipalImportWizard({
   labels,
   fieldLabels,
@@ -60,13 +65,22 @@ function MunicipalImportWizard({
   sampleCsv: string;
   onReset: () => void;
 }) {
-  const [parseState, parse] = useActionState(parseCsvAction, EMPTY);
-  const [previewState, preview] = useActionState(previewCsvAction, EMPTY);
-  const [commitState, commit] = useActionState(commitCsvAction, EMPTY);
+  const t = useLabels(labels);
+  // useFormAction, not useActionState: React 19 resets a form after every
+  // result, so a refused file or a re-run preview put the inputs back to their
+  // defaults (A-2). Each step's button is disabled while its action runs — a
+  // 5,000-row preview takes a while, and a second tap only queued it again.
+  const [parseState, parseForm, parsing] = useFormAction(parseCsvAction, EMPTY);
+  const [previewState, previewForm, previewing] = useFormAction(previewCsvAction, EMPTY);
+  const [commitState, commitForm, committing] = useFormAction(commitCsvAction, EMPTY);
+  // «Назад към колоните» sets the current preview aside: the mapping step shows
+  // again, with the columns as the operator chose them, until it is submitted.
+  const [setAside, setSetAside] = useState<MunicipalState | null>(null);
 
   // The furthest-along state drives the screen. Each action returns the whole
   // state, so the last one submitted is the truth.
-  const state = pickState(parseState, previewState, commitState);
+  const state = pickState(setAside, parseState, previewState, commitState);
+  const mapping = setAside?.mapping ?? state.mapping;
 
   return (
     <div className="space-y-6">
@@ -75,30 +89,30 @@ function MunicipalImportWizard({
           role="alert"
           className="rounded-md border border-danger-border bg-danger-bg p-2 text-body-sm text-danger"
         >
-          {L(labels, `error_${state.error}`)}
+          {t(`error_${state.error}`)}
         </p>
       )}
 
       {state.step === 'input' && (
-        <form action={parse} className="space-y-3">
+        <form {...parseForm} className="space-y-3">
           <label className="block space-y-1">
-            <span className="text-body-sm font-medium">{L(labels, 'registryLabel')}</span>
+            <span className="text-body-sm font-medium">{t('registryLabel')}</span>
             <input
               name="registryLabel"
               defaultValue={state.registryLabel ?? ''}
               required
               maxLength={120}
-              placeholder={L(labels, 'registryPlaceholder')}
+              placeholder={t('registryPlaceholder')}
               className="w-full rounded-md border border-line-strong bg-surface px-2 py-1 text-body-sm"
             />
-            <span className="block text-caption text-text-muted">{L(labels, 'registryHint')}</span>
+            <span className="block text-caption text-text-muted">{t('registryHint')}</span>
           </label>
           <label className="block space-y-1">
-            <span className="text-body-sm font-medium">{L(labels, 'upload')}</span>
+            <span className="text-body-sm font-medium">{t('upload')}</span>
             <input type="file" name="file" accept=".csv,text/csv" className="block text-body-sm" />
           </label>
           <label className="block space-y-1">
-            <span className="text-body-sm font-medium">{L(labels, 'paste')}</span>
+            <span className="text-body-sm font-medium">{t('paste')}</span>
             <textarea
               name="csv"
               defaultValue={state.csv ?? ''}
@@ -108,33 +122,30 @@ function MunicipalImportWizard({
             />
           </label>
           <details className="text-caption text-ink-soft">
-            <summary className="cursor-pointer">{L(labels, 'templateHint')}</summary>
+            <summary className="cursor-pointer">{t('templateHint')}</summary>
             <pre className="mt-2 overflow-x-auto rounded-md bg-paper-sunk p-2">{sampleCsv}</pre>
           </details>
-          <button
-            type="submit"
-            className="min-h-11 rounded-pill bg-brand px-4 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover"
-          >
-            {L(labels, 'next')}
+          <button type="submit" disabled={parsing} aria-busy={parsing} className={SUBMIT}>
+            {t('next')}
           </button>
         </form>
       )}
 
       {state.step === 'map' && state.headers && (
-        <form action={preview} className="space-y-4">
+        <form {...previewForm} className="space-y-4">
           <input type="hidden" name="csv" value={state.csv ?? ''} />
           <input type="hidden" name="registryLabel" value={state.registryLabel ?? ''} />
-          <p className="text-body-sm text-ink-soft">{L(labels, 'mapHint')}</p>
+          <p className="text-body-sm text-ink-soft">{t('mapHint')}</p>
           <div className="grid gap-2 sm:grid-cols-2">
             {MUNICIPAL_FIELDS.map((field) => (
               <label key={field} className="flex items-center justify-between gap-2 text-body-sm">
-                <span className="font-medium">{L(fieldLabels, field)}</span>
+                <span className="font-medium">{fieldName(fieldLabels, field)}</span>
                 <select
                   name={`map.${field}`}
-                  defaultValue={state.mapping?.[field] ?? ''}
+                  defaultValue={mapping?.[field] ?? ''}
                   className="rounded-md border border-line-strong bg-surface px-2 py-1 text-body-sm"
                 >
-                  <option value="">{L(labels, 'ignoreColumn')}</option>
+                  <option value="">{t('ignoreColumn')}</option>
                   {state.headers?.map((header, index) => (
                     <option key={index} value={index}>
                       {header || `#${String(index + 1)}`}
@@ -170,17 +181,14 @@ function MunicipalImportWizard({
               </table>
             </div>
           )}
-          <button
-            type="submit"
-            className="min-h-11 rounded-pill bg-brand px-4 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover"
-          >
-            {L(labels, 'preview')}
+          <button type="submit" disabled={previewing} aria-busy={previewing} className={SUBMIT}>
+            {t('preview')}
           </button>
         </form>
       )}
 
       {state.step === 'preview' && state.rows && state.counts && (
-        <form action={commit} className="space-y-4">
+        <form {...commitForm} className="space-y-4">
           <input type="hidden" name="csv" value={state.csv ?? ''} />
           <input type="hidden" name="registryLabel" value={state.registryLabel ?? ''} />
           {Object.entries(state.mapping ?? {}).map(([field, index]) => (
@@ -188,21 +196,21 @@ function MunicipalImportWizard({
           ))}
 
           <div className="flex flex-wrap gap-3 text-body-sm">
-            <Badge label={L(labels, 'countNew')} value={state.counts.new} tone="green" />
-            <Badge label={L(labels, 'countMatch')} value={state.counts.match} tone="blue" />
-            <Badge label={L(labels, 'countConflict')} value={state.counts.conflict} tone="amber" />
-            <Badge label={L(labels, 'countInvalid')} value={state.counts.invalid} tone="red" />
+            <Badge label={t('countNew')} value={state.counts.new} tone="green" />
+            <Badge label={t('countMatch')} value={state.counts.match} tone="blue" />
+            <Badge label={t('countConflict')} value={state.counts.conflict} tone="amber" />
+            <Badge label={t('countInvalid')} value={state.counts.invalid} tone="red" />
           </div>
-          <p className="text-body-sm text-ink-soft">{L(labels, 'previewHint')}</p>
+          <p className="text-body-sm text-ink-soft">{t('previewHint')}</p>
 
           <div className="overflow-x-auto rounded-card border border-line bg-surface">
             <table className="w-full text-body-sm">
               <thead className="bg-paper-sunk">
                 <tr>
-                  <th className="t-overline px-2 py-1 text-left">{L(labels, 'rowNumber')}</th>
-                  <th className="t-overline px-2 py-1 text-left">{L(labels, 'name')}</th>
-                  <th className="t-overline px-2 py-1 text-left">{L(labels, 'status')}</th>
-                  <th className="t-overline px-2 py-1 text-left">{L(labels, 'resolution')}</th>
+                  <th className="t-overline px-2 py-1 text-left">{t('rowNumber')}</th>
+                  <th className="t-overline px-2 py-1 text-left">{t('name')}</th>
+                  <th className="t-overline px-2 py-1 text-left">{t('status')}</th>
+                  <th className="t-overline px-2 py-1 text-left">{t('resolution')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -211,15 +219,15 @@ function MunicipalImportWizard({
                     <td className="px-2 py-1 tabular-nums">{row.rowNumber}</td>
                     <td className="px-2 py-1">{row.name ?? '—'}</td>
                     <td className="px-2 py-1">
-                      <span className="font-medium">{L(labels, `status_${row.status}`)}</span>
+                      <span className="font-medium">{t(`status_${row.status}`)}</span>
                       {row.status === 'invalid' && row.error && (
                         <span className="block text-caption text-danger">
-                          {L(labels, `rowError_${row.error}`)}
+                          {t(`rowError_${row.error}`)}
                         </span>
                       )}
                       {row.status === 'conflict' && (
                         <span className="block text-caption text-warning">
-                          {L(labels, `conflict_${row.conflictReason ?? 'ambiguous'}`)}
+                          {t(`conflict_${row.conflictReason ?? 'ambiguous'}`)}
                         </span>
                       )}
                     </td>
@@ -230,26 +238,24 @@ function MunicipalImportWizard({
                           defaultValue="skip"
                           className="rounded-md border border-line-strong bg-surface px-2 py-1 text-caption"
                         >
-                          <option value="skip">{L(labels, 'resolveSkip')}</option>
-                          <option value="new">{L(labels, 'resolveNew')}</option>
+                          <option value="skip">{t('resolveSkip')}</option>
+                          <option value="new">{t('resolveNew')}</option>
                           {row.candidates.map((candidate) => (
                             <option
                               key={candidate.facilityId}
                               value={`link:${candidate.facilityId}`}
                             >
-                              {L(labels, 'resolveLink')}: {candidate.name ?? candidate.slug ?? '—'}{' '}
-                              ({candidate.distanceM} m)
+                              {t('resolveLink', {
+                                name: candidate.name ?? candidate.slug ?? '—',
+                                m: candidate.distanceM,
+                              })}
                             </option>
                           ))}
                         </select>
                       ) : row.status === 'invalid' ? (
-                        <span className="text-caption text-text-muted">
-                          {L(labels, 'willSkip')}
-                        </span>
+                        <span className="text-caption text-text-muted">{t('willSkip')}</span>
                       ) : (
-                        <span className="text-caption text-text-muted">
-                          {L(labels, 'willCommit')}
-                        </span>
+                        <span className="text-caption text-text-muted">{t('willCommit')}</span>
                       )}
                     </td>
                   </tr>
@@ -258,30 +264,39 @@ function MunicipalImportWizard({
             </table>
           </div>
 
-          <button
-            type="submit"
-            className="min-h-11 rounded-pill bg-brand px-4 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover"
-          >
-            {L(labels, 'confirmImport')}
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button type="submit" disabled={committing} aria-busy={committing} className={SUBMIT}>
+              {t('confirmImport')}
+            </button>
+            <button
+              type="button"
+              disabled={committing}
+              onClick={() => {
+                setSetAside(previewState);
+              }}
+              className="min-h-11 rounded-pill border border-line-strong bg-surface px-4 py-1.5 text-body-sm font-semibold text-ink-soft hover:bg-surface-2 disabled:opacity-50"
+            >
+              {t('backToMapping')}
+            </button>
+          </div>
         </form>
       )}
 
       {state.step === 'done' && state.committed && (
         <div className="space-y-2 rounded-card border border-success-border bg-success-bg p-4 text-body-sm">
-          <p className="font-medium">{L(labels, 'doneTitle')}</p>
+          <p className="font-medium">{t('doneTitle')}</p>
           <ul className="space-y-0.5">
             <li>
-              {L(labels, 'doneInserted')}: {state.committed.inserted}
+              {t('doneInserted')}: {state.committed.inserted}
             </li>
             <li>
-              {L(labels, 'doneUpdated')}: {state.committed.updated}
+              {t('doneUpdated')}: {state.committed.updated}
             </li>
             <li>
-              {L(labels, 'doneUnchanged')}: {state.committed.unchanged}
+              {t('doneUnchanged')}: {state.committed.unchanged}
             </li>
             <li>
-              {L(labels, 'doneSkipped')}: {state.committed.skipped + state.committed.invalid}
+              {t('doneSkipped')}: {state.committed.skipped + state.committed.invalid}
             </li>
           </ul>
           <button
@@ -289,7 +304,7 @@ function MunicipalImportWizard({
             onClick={onReset}
             className="inline-block cursor-pointer font-medium text-link hover:text-link-hover"
           >
-            {L(labels, 'importAnother')}
+            {t('importAnother')}
           </button>
         </div>
       )}
@@ -330,12 +345,15 @@ function Badge({
  * EMPTYs, so the error never rendered and React 19's post-action form reset
  * restored `defaultValue={state.csv ?? ''}` from the EMPTY state, silently
  * wiping the operator's pasted CSV (AUDIT-F4).
+ *
+ * `setAside` is the preview the operator stepped back from; it is skipped the
+ * same way until a new preview replaces it.
  */
-function pickState(...states: MunicipalState[]): MunicipalState {
+function pickState(setAside: MunicipalState | null, ...states: MunicipalState[]): MunicipalState {
   const order: MunicipalState['step'][] = ['input', 'map', 'preview', 'done'];
   let best = EMPTY;
   for (const state of states) {
-    if (state === EMPTY) continue;
+    if (state === EMPTY || state === setAside) continue;
     if (order.indexOf(state.step) >= order.indexOf(best.step)) best = state;
   }
   return best;
