@@ -1,8 +1,12 @@
 'use client';
 
-import { useActionState } from 'react';
-
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import type { PartnerRow } from '@/lib/partners';
+import { useFormAction } from '@/lib/use-form-action';
 
 import type { PartnerState } from './actions';
 
@@ -10,6 +14,11 @@ import type { PartnerState } from './actions';
  * Create/edit form for a partner. Labels arrive pre-translated as props (the
  * campaign-form rule: next-intl's server catalogue is not available here).
  * Bilingual content columns: bg required, en optional.
+ *
+ * The shared form controls, not page-local boxes: those drew their border in
+ * `--line`, 1.31:1 against the surface — an input an operator could not see on
+ * a phone in daylight (A-17). And useFormAction, so a refused slug or URL comes
+ * back above the form as it was typed, not an emptied one (A-2).
  */
 export interface PartnerFormLabels {
   slug: string;
@@ -35,7 +44,6 @@ export interface PartnerFormLabels {
 
 const INITIAL: PartnerState = { error: null };
 
-const field = 'w-full rounded-md border border-line bg-surface px-3 py-2 text-body-sm text-ink';
 const label = 'block text-body-sm font-semibold text-ink';
 
 export function PartnerForm({
@@ -47,41 +55,35 @@ export function PartnerForm({
   labels: PartnerFormLabels;
   partner?: PartnerRow;
 }) {
-  const [state, formAction, pending] = useActionState(action, INITIAL);
+  const [state, formProps, pending] = useFormAction(action, INITIAL);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form {...formProps} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1">
           <label className={label} htmlFor="p-slug">
             {labels.slug}
           </label>
-          <input
+          <Input
             id="p-slug"
             name="slug"
             required
             pattern="[a-z0-9]+(-[a-z0-9]+)*"
             maxLength={60}
             defaultValue={partner?.slug}
-            className={field}
           />
         </div>
         <div className="space-y-1">
           <label className={label} htmlFor="p-tier">
             {labels.tier}
           </label>
-          <select
-            id="p-tier"
-            name="tier"
-            defaultValue={partner?.tier ?? 'supporter'}
-            className={field}
-          >
+          <Select id="p-tier" name="tier" defaultValue={partner?.tier ?? 'supporter'}>
             {Object.entries(labels.tiers).map(([value, text]) => (
               <option key={value} value={value}>
                 {text}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -90,25 +92,23 @@ export function PartnerForm({
           <label className={label} htmlFor="p-name-bg">
             {labels.nameBg}
           </label>
-          <input
+          <Input
             id="p-name-bg"
             name="nameBg"
             required
             maxLength={120}
             defaultValue={partner?.nameBg}
-            className={field}
           />
         </div>
         <div className="space-y-1">
           <label className={label} htmlFor="p-name-en">
             {labels.nameEn}
           </label>
-          <input
+          <Input
             id="p-name-en"
             name="nameEn"
             maxLength={120}
             defaultValue={partner?.nameEn ?? ''}
-            className={field}
           />
         </div>
       </div>
@@ -117,13 +117,13 @@ export function PartnerForm({
         <label className={label} htmlFor="p-blurb-bg">
           {labels.blurbBg}
         </label>
-        <textarea
+        <Textarea
           id="p-blurb-bg"
           name="blurbBg"
           rows={3}
+          size="sm"
           maxLength={2000}
           defaultValue={partner?.blurbBg ?? ''}
-          className={field}
         />
         <p className="text-caption text-text-muted">{labels.blurbHint}</p>
       </div>
@@ -131,13 +131,13 @@ export function PartnerForm({
         <label className={label} htmlFor="p-blurb-en">
           {labels.blurbEn}
         </label>
-        <textarea
+        <Textarea
           id="p-blurb-en"
           name="blurbEn"
           rows={3}
+          size="sm"
           maxLength={2000}
           defaultValue={partner?.blurbEn ?? ''}
-          className={field}
         />
       </div>
 
@@ -146,26 +146,19 @@ export function PartnerForm({
           <label className={label} htmlFor="p-url">
             {labels.url}
           </label>
-          <input
+          <Input
             id="p-url"
             name="url"
             type="url"
             maxLength={300}
             defaultValue={partner?.url ?? ''}
-            className={field}
           />
         </div>
         <div className="space-y-1">
           <label className={label} htmlFor="p-logo">
             {labels.logo}
           </label>
-          <input
-            id="p-logo"
-            name="logo"
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            className={field}
-          />
+          <Input id="p-logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp" />
           <p className="text-caption text-text-muted">{labels.logoHint}</p>
         </div>
       </div>
@@ -175,46 +168,35 @@ export function PartnerForm({
           <label className={label} htmlFor="p-starts">
             {labels.startsOn}
           </label>
-          <input
-            id="p-starts"
-            name="startsOn"
-            type="date"
-            defaultValue={partner?.startsOn ?? ''}
-            className={field}
-          />
+          <Input id="p-starts" name="startsOn" type="date" defaultValue={partner?.startsOn ?? ''} />
         </div>
         <div className="space-y-1">
           <label className={label} htmlFor="p-ends">
             {labels.endsOn}
           </label>
-          <input
-            id="p-ends"
-            name="endsOn"
-            type="date"
-            defaultValue={partner?.endsOn ?? ''}
-            className={field}
-          />
+          <Input id="p-ends" name="endsOn" type="date" defaultValue={partner?.endsOn ?? ''} />
         </div>
         <div className="space-y-1">
           <label className={label} htmlFor="p-sort">
             {labels.sortOrder}
           </label>
-          <input
+          <Input
             id="p-sort"
             name="sortOrder"
             type="number"
             min={-10000}
             max={10000}
             defaultValue={partner?.sortOrder ?? 0}
-            className={field}
           />
         </div>
       </div>
 
-      <label className="flex items-center gap-2 text-body-sm text-ink">
-        <input type="checkbox" name="visible" defaultChecked={partner?.visible ?? false} />
-        {labels.visible}
-      </label>
+      <Checkbox
+        name="visible"
+        defaultChecked={partner?.visible ?? false}
+        label={labels.visible}
+        className="min-h-11"
+      />
 
       {state.error && (
         <p role="alert" className="text-body-sm text-danger">
@@ -227,13 +209,9 @@ export function PartnerForm({
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-md bg-brand px-4 py-2 text-body-sm font-semibold text-on-brand disabled:opacity-60"
-      >
+      <Button type="submit" disabled={pending}>
         {labels.submit}
-      </button>
+      </Button>
     </form>
   );
 }

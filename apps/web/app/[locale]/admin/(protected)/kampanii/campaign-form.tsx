@@ -9,7 +9,9 @@ import {
 } from '@sportkarta/lib/campaigns';
 import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
 import { useTranslations } from 'next-intl';
-import { useActionState, useState } from 'react';
+import { useState } from 'react';
+
+import { useFormAction } from '@/lib/use-form-action';
 
 import type { CampaignFormState } from './actions';
 
@@ -51,7 +53,10 @@ export function CampaignForm({
   partners?: { id: number; name: string }[];
 }) {
   const t = useTranslations('AdminCampaigns');
-  const [state, formAction, pending] = useActionState<CampaignFormState, FormData>(action, INITIAL);
+  // useFormAction, not useActionState: React 19 resets a <form action> after
+  // every result, so a refused slug or window used to come back above an empty
+  // form — every scoring weight and sport ticked by hand, gone (A-2).
+  const [state, formProps, pending] = useFormAction(action, INITIAL);
 
   const [scopeKind, setScopeKind] = useState(campaign?.scope.kind ?? 'national');
   const [municipalityId, setMunicipalityId] = useState(
@@ -86,7 +91,7 @@ export function CampaignForm({
   const field = 'w-full rounded-md border border-line-strong bg-surface px-3 py-2';
 
   return (
-    <form action={formAction} className="space-y-8">
+    <form {...formProps} className="space-y-8">
       {campaign && <input type="hidden" name="id" value={campaign.id} />}
 
       <section className="space-y-4">
@@ -397,8 +402,16 @@ export function CampaignForm({
         </label>
       </section>
 
-      {state.error && <p className="text-body-sm text-danger">{t(`error_${state.error}`)}</p>}
-      {state.saved && <p className="text-body-sm text-success">{t('saved')}</p>}
+      {state.error && (
+        <p role="alert" className="text-body-sm text-danger">
+          {t(`error_${state.error}`)}
+        </p>
+      )}
+      {state.saved && (
+        <p role="status" className="text-body-sm text-success">
+          {t('saved')}
+        </p>
+      )}
 
       <button
         type="submit"
