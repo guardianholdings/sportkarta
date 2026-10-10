@@ -236,3 +236,40 @@ describe('the filter sheet reads in alphabetical order', () => {
     expect(explorer).not.toMatch(/CANONICAL_SPORTS\.map\(|CANONICAL_SURFACES\.map\(/);
   });
 });
+
+/**
+ * Every chip, pin tap and preview close called router.replace on a
+ * force-dynamic page: a full server render of the home page each time, and
+ * offline a failed navigation that threw the map away for /offline.html
+ * (UX audit 2026-10-10, M-2). The address bar is now written with
+ * replaceState and read back through useSearchParams.
+ */
+describe('filters and selection live in the address bar, not in a server render', () => {
+  const explorer = readFileSync(
+    path.join(__dirname, '..', 'components', 'map', 'map-explorer.tsx'),
+    'utf8',
+  );
+  const page = readFileSync(
+    path.join(__dirname, '..', 'app', '[locale]', '(map)', 'page.tsx'),
+    'utf8',
+  );
+
+  it('never navigates to change a filter or a selection', () => {
+    expect(explorer).not.toMatch(/router\.(replace|push)\(/);
+    expect(explorer).not.toMatch(/useRouter/);
+    expect(explorer).toMatch(
+      /window\.history\.replaceState\(null, '', qs \? `\$\{pathname\}\?\$\{qs\}` : pathname\)/,
+    );
+  });
+
+  it('reads the filters, the selection and the view back from the URL', () => {
+    expect(explorer).toMatch(/const searchParams = useSearchParams\(\);/);
+    expect(explorer).toMatch(/parsePublicFilters\(urlParams\)/);
+    expect(explorer).toMatch(/useState\(\(\) => searchParams\.get\('selected'\)\)/);
+    expect(explorer).toMatch(/useState\(\(\) => parseView\(urlParams\)\)/);
+  });
+
+  it('the page hands over only the seed, so stale props cannot override the URL', () => {
+    expect(page).not.toMatch(/initialSelected=|initialView=|filters=\{filters\}/);
+  });
+});

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
 import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Dispatch, KeyboardEvent, RefObject, SetStateAction } from 'react';
 
@@ -34,13 +35,15 @@ import {
   ACCESS_OPTIONS,
   filtersToSearchParams,
   isDefaultAccess,
+  parsePublicFilters,
   type PublicFilters,
 } from '@/lib/filters';
 import { NAV_PROVIDERS } from '@/lib/directions';
 import { inReadingOrder } from '@/lib/format';
 import { formatKm } from '@/lib/geo';
 import { DEFAULT_LAYER, type ExternalMapLayer } from '@/lib/map/layers';
-import { Link, usePathname, useRouter } from '@/i18n/navigation';
+import { parseView } from '@/lib/map/view';
+import { Link } from '@/i18n/navigation';
 import { CANONICAL_SPORTS, CANONICAL_SURFACES, type CanonicalSport } from '@sportkarta/lib/sports';
 
 import type { FacilityFeatureCollection } from '@/lib/public-data';
@@ -137,11 +140,12 @@ const PREVIEW_PX = {
 } as const;
 
 interface MapExplorerProps {
-  filters: PublicFilters;
+  /**
+   * The server's first-paint seed for the URL's filters. The filters, the
+   * selection and the opening view are NOT props: the explorer reads them from
+   * the address bar (see `writeUrl`).
+   */
   initialFacilities: MapPoint[];
-  /** Null = no view in the URL: the canvas fits the whole country to the screen. */
-  initialView: MapView | null;
-  initialSelected: string | null;
   /** External raster basemaps the server configured (lib/map/external-layers.ts). */
   externalLayers?: ExternalMapLayer[];
   /**
@@ -165,10 +169,7 @@ function primaryVisual(sports: string[]) {
 }
 
 export function MapExplorer({
-  filters,
   initialFacilities,
-  initialView,
-  initialSelected,
   externalLayers = [],
   ad = null,
 }: MapExplorerProps) {
@@ -178,8 +179,32 @@ export function MapExplorer({
   const tSport = useTranslations('Sport');
   const tFacility = useTranslations('Facility');
   const locale = useLocale();
-  const router = useRouter();
-  const pathname = usePathname();
+
+  /**
+   * THE ADDRESS BAR IS THE STATE. Filters, the selection and the view live in
+   * the URL, written with history.replaceState (`writeUrl`), which Next folds
+   * into useSearchParams without a navigation.
+   *
+   * They used to be props of a force-dynamic page, changed with router.replace:
+   * every chip, every pin tap and every preview close was a full server render
+   * of the home page — the facility seed query and the ad slot included — and
+   * offline that navigation failed over to /offline.html, throwing the map
+   * away. The client already fetches /api/facilities for the filters itself.
+   *
+   * Read back from the URL rather than from props, so a back/forward restore of
+   * this page — whose cached server props are as old as the last real
+   * navigation — still opens with the filters, the facility and the view the
+   * address bar shows. A deep link (?selected=…) reads the same way.
+   */
+  const searchParams = useSearchParams();
+  const urlParams = Object.fromEntries(searchParams.entries());
+  const filterKey = filtersToSearchParams(parsePublicFilters(urlParams)).toString();
+  const filters = useMemo(
+    () => parsePublicFilters(Object.fromEntries(new URLSearchParams(filterKey).entries())),
+    [filterKey],
+  );
+  const [initialView] = useState(() => parseView(urlParams));
+  const [initialSelected] = useState(() => searchParams.get('selected'));
 
   // What a facility is called on every surface here — the card, the preview,
   // the pin's accessible name, the search index (see facility-label.ts).
@@ -288,7 +313,6 @@ export function MapExplorer({
   /** Set by a member's own select(), never by a deep link's first paint. */
   const moveFocusRef = useRef(false);
   const lastSelectedRef = useRef<string | null>(initialSelected);
-  const filterKey = filtersToSearchParams(filters).toString();
   /**
    * Bumped to fetch the SAME filters again. «Опитай пак» used to re-apply the
    * current filters, which left `filterKey` unchanged — so the effect below
@@ -363,15 +387,26 @@ export function MapExplorer({
       .filter((e): e is [string, string] => e[1] !== null);
   }
 
-  function applyFilters(next: PublicFilters) {
+  /**
+   * Filters + the map's own z/lat/lng + the selection, into the address bar —
+   * replaceState, so no history entry and no server render (see the comment on
+   * `searchParams` above). `pathname` is the window's, locale prefix included.
+   */
+  function writeUrl(next: PublicFilters, slug: string | null) {
     const params = filtersToSearchParams(next);
     for (const [k, v] of viewportParams()) params.set(k, v);
-    if (selectedSlug) params.set('selected', selectedSlug);
+    if (slug) params.set('selected', slug);
     const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    const { pathname } = window.location;
+    window.history.replaceState(null, '', qs ? `${pathname}?${qs}` : pathname);
   }
 
-  // Keep the map mounted: selection rides a search param, not a route change.
+  function applyFilters(next: PublicFilters) {
+    writeUrl(next, selectedSlug);
+  }
+
+  // Keep the map mounted: selection rides a search param, not a route change —
+  // and not a server render either (`writeUrl`).
   function select(slug: string | null) {
     const from = document.activeElement;
     if (
@@ -385,11 +420,7 @@ export function MapExplorer({
     moveFocusRef.current = true;
     setSelectedSlug(slug);
     setPreviewFull(false);
-    const params = filtersToSearchParams(filters);
-    for (const [k, v] of viewportParams()) params.set(k, v);
-    if (slug) params.set('selected', slug);
-    const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    writeUrl(filters, slug);
     if (slug) setSnap((s) => (s === 'peek' ? 'half' : s));
   }
 
