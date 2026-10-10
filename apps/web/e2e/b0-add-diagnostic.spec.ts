@@ -120,6 +120,12 @@ interface AddOptions {
   /** Grant a GPS fix at the pin (the usual phone case). Off = a desktop without one. */
   position?: boolean;
   access?: 'free' | 'paid';
+  /**
+   * Mechanism check: the server runs the action and commits, and the browser
+   * never gets the answer (a phone switching networks, a proxy dropping the
+   * stream). Today that shows the error page over a saved place.
+   */
+  loseResponse?: boolean;
 }
 
 async function addAndFollow(
@@ -127,18 +133,22 @@ async function addAndFollow(
   testInfo: TestInfo,
   email: string,
   label: string,
-  { locale = 'bg', position = true, access = 'free' }: AddOptions = {},
+  { locale = 'bg', position = true, access = 'free', loseResponse = false }: AddOptions = {},
 ) {
   const m = MESSAGES[locale];
   const prefix = locale === 'bg' ? '' : `/${locale}`;
   const seen = watch(page);
   await signIn(page, email, /\/profil/);
 
-  // A fresh point per run, south-west of the seeded Sofia facilities and away
-  // from the box contributions.spec.ts uses, so no duplicate guard can fire.
+  // A fresh point per add, south-west of the seeded Sofia facilities and away
+  // from the box contributions.spec.ts uses. Round 2 placed points by
+  // milliseconds and two adds could fall inside the 30 m duplicate radius;
+  // now the point moves ~11 m north per second and ~400 m east every 10 min,
+  // and no two adds in a run start within 3 s of each other.
   const stamp = Date.now();
-  const lon = (23.25 + (stamp % 4000) / 100000).toFixed(5);
-  const lat = (42.62 + (Math.floor(stamp / 4000) % 3000) / 100000).toFixed(5);
+  const seconds = Math.floor(stamp / 1000);
+  const lon = (23.25 + (Math.floor(seconds / 600) % 10) * 0.005).toFixed(5);
+  const lat = (42.62 + (seconds % 600) * 0.0001).toFixed(5);
   const name = `E2E B0 ${label} ${stamp}`;
   if (position) {
     await page.context().grantPermissions(['geolocation']);
@@ -159,6 +169,38 @@ async function addAndFollow(
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: SUBMIT }) });
   if (position) await expect(form.getByText(m.Contribute.locationGranted)).toBeVisible();
   else await page.waitForTimeout(1_500);
+  // The photo field holds the submit natively (a custom validity message)
+  // while the browser shrinks the photo; a tap before that is refused by the
+  // browser and sends nothing. Wait it out, and record how long it took.
+  const photoInput = page.locator('input[name="photo"]');
+  const photoStart = Date.now();
+  await expect
+    .poll(() => photoInput.evaluate((el: HTMLInputElement) => el.validationMessage), {
+      timeout: 90_000,
+    })
+    .toBe('');
+  const photoReadyMs = Date.now() - photoStart;
+  const sentPhotoBytes = await photoInput.evaluate(
+    (el: HTMLInputElement) => el.files?.[0]?.size ?? 0,
+  );
+  let lostResponseStatus: number | null = null;
+  let lostResponseNote: string | null = null;
+  if (loseResponse) {
+    await page.route(
+      (url) => url.pathname.endsWith('/dobavi'),
+      async (route) => {
+        const req = route.request();
+        if (req.method() !== 'POST' || !req.headers()['next-action']) return route.continue();
+        try {
+          const answered = await route.fetch({ maxRedirects: 0 });
+          lostResponseStatus = answered.status();
+        } catch (e: unknown) {
+          lostResponseNote = String(e).slice(0, 200);
+        }
+        return route.abort('connectionreset');
+      },
+    );
+  }
   await page.getByRole('button', { name: SUBMIT }).click();
 
   const outcome = await Promise.race([
@@ -170,6 +212,11 @@ async function addAndFollow(
   ]).catch((e: unknown) => `neither within 45 s: ${String(e).slice(0, 200)}`);
   // Let the page's client effects run (map, the forms' position fixes).
   await page.waitForTimeout(4_000);
+  const inlineError = await form
+    .getByRole('alert')
+    .first()
+    .textContent({ timeout: 500 })
+    .catch(() => null);
   const errorAfterLanding = await page.getByText(m.ErrorPage.title).count();
   const reference = await page
     .getByText(/Код за справка|Reference/)
@@ -204,8 +251,14 @@ async function addAndFollow(
     position,
     access,
     photoBytes: photo.byteLength,
+    photoReadyMs,
+    sentPhotoBytes,
+    loseResponse,
+    lostResponseStatus,
+    lostResponseNote,
     swControlled,
     outcome,
+    inlineError,
     landed: `${landedUrl.pathname.replace(/\/obekt\/.+$/, '/obekt/<slug>')}${landedUrl.search}`,
     h1: h1?.includes('E2E B0') ? '<the new place>' : h1,
     directStatus,
@@ -228,10 +281,24 @@ async function addAndFollow(
   }
 
   expect.soft(rows, 'the add was saved').toHaveLength(1);
+  if (loseResponse) {
+    // Today's behaviour, recorded rather than wished away: the place is
+    // saved and the member sees the error page. B turns this into an inline
+    // message that points to the saved place.
+    expect.soft(lostResponseStatus, 'the server answered the action').toBe(303);
+    expect.soft(outcome, 'mechanism: a lost answer after the save').toBe('error-boundary');
+    return;
+  }
   expect.soft(outcome, 'the redirect landed on the new place').toBe('landed');
   expect.soft(errorAfterLanding, 'no error boundary after landing').toBe(0);
   expect.soft(errorAfterReload, 'no error boundary after a fresh load').toBe(0);
-  expect.soft(seen.pageErrors, 'no uncaught page errors').toEqual([]);
+  // WebKit reports a prefetch that a navigation cancelled as an uncaught
+  // "… due to access control checks" error, and Next falls back to a full
+  // load. Recorded in the report, not failed on.
+  const pageErrors = seen.pageErrors.filter(
+    (e) => !/Fetch API cannot load .*_rsc=.* due to access control checks/.test(e),
+  );
+  expect.soft(pageErrors, 'no uncaught page errors').toEqual([]);
   if (access === 'paid') {
     // Finding 1 (CEO, 2026-10-09): paid places are hidden while
     // public_show_paid is false, so the redirect lands on a 404. Recorded
@@ -269,6 +336,9 @@ const safari = devices['Desktop Safari'];
 
 test.describe('B0 diagnostic: add, then follow the redirect', () => {
   test.setTimeout(150_000);
+  // One clean attempt per case: a retry hides exactly the flake we look for,
+  // and its second add can trip the first one's duplicate guard.
+  test.describe.configure({ retries: 0 });
 
   test.describe('Chromium', () => {
     test.skip(({ browserName }) => browserName !== 'chromium', 'the webkit project runs below');
@@ -276,6 +346,10 @@ test.describe('B0 diagnostic: add, then follow the redirect', () => {
     test.describe('desktop, service worker blocked (as the suite runs)', () => {
       test('member', async ({ page }, testInfo) => {
         await addAndFollow(page, testInfo, await freshMember('desktop-member'), 'desktop-member');
+      });
+      test('member, the answer is lost after the save (mechanism)', async ({ page }, testInfo) => {
+        const email = await freshMember('desktop-member-lost');
+        await addAndFollow(page, testInfo, email, 'desktop-member-lost', { loseResponse: true });
       });
       test('admin', async ({ page }, testInfo) => {
         await addAndFollow(page, testInfo, ADMIN_EMAIL, 'desktop-admin');
@@ -348,6 +422,15 @@ test.describe('B0 diagnostic: add, then follow the redirect', () => {
       });
       test('admin', async ({ page }, testInfo) => {
         await addAndFollow(page, testInfo, ADMIN_EMAIL, 'iphone-admin');
+      });
+    });
+
+    // Request interception needs the service worker out of the way.
+    test.describe('iPhone 13, service worker blocked', () => {
+      test.use({ serviceWorkers: 'block', ...phone });
+      test('member, the answer is lost after the save (mechanism)', async ({ page }, testInfo) => {
+        const email = await freshMember('iphone-member-lost');
+        await addAndFollow(page, testInfo, email, 'iphone-member-lost', { loseResponse: true });
       });
     });
   });
