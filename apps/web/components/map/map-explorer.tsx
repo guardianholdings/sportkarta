@@ -49,7 +49,7 @@ import {
   facilityTitle,
   type LabelStrings,
 } from './facility-label';
-import { matchRows } from './list-rows';
+import { matchRows, searchMatcher } from './list-rows';
 import type { MapBounds, MapPoint, MapView, NearMe } from './map-canvas';
 
 const MapCanvas = dynamic(() => import('./map-canvas'), {
@@ -415,6 +415,16 @@ export function MapExplorer({
     [points, labelStrings],
   );
 
+  // The pins follow the search. The canvas used to get every point whatever
+  // was typed, so the list said «2 съоръжения» over a map of thousands. It gets
+  // the set the list's search keeps — the same matcher over the same index —
+  // and `points` itself while the field is empty, so the canvas is not handed
+  // new data for nothing.
+  const searchedPoints = useMemo(() => {
+    const match = searchMatcher(query, locale);
+    return match ? points.filter((p) => match(searchIndex.get(p.slug) ?? '')) : points;
+  }, [points, query, locale, searchIndex]);
+
   // Search + near-me + distance sort + on-map-first (list-rows.ts). `matched`
   // is EVERY row that passes, and it is what the count reports; only the
   // rendered list is capped.
@@ -687,7 +697,7 @@ export function MapExplorer({
         className={`sk-map-primary absolute inset-0 ${listOpen ? 'lg:left-[460px]' : 'lg:left-[76px]'}`}
       >
         <MapCanvas
-          points={points}
+          points={searchedPoints}
           userLocation={userLocation}
           selectedSlug={selectedSlug}
           hoveredSlug={hoveredSlug}

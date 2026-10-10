@@ -8,6 +8,7 @@ import { facilitySearchText, type LabelStrings } from '../components/map/facilit
 import { matchRows, type ListQuery } from '../components/map/list-rows';
 import type { MapPoint } from '../components/map/map-canvas';
 import bg from '../messages/bg.json';
+import en from '../messages/en.json';
 
 /**
  * The map list and the count above it. The audit found the header printing the
@@ -77,6 +78,44 @@ describe('matchRows (what the list shows and the count reports)', () => {
     ]);
   });
 
+  it('matches Latin input against Cyrillic data, and the other way round', () => {
+    // A Latin keyboard is the default on many Bulgarian phones (M-6).
+    const slugs = (query: string) => matchRows(POINTS, { ...BASE, query }).map((r) => r.point.slug);
+    expect(slugs('mladost')).toEqual(['mladost']);
+    expect(slugs('Borisova gradina')).toEqual(['borisova-1', 'borisova-2']);
+    expect(slugs('plovdiv')).toEqual(['plovdiv']);
+    expect(slugs('sofia')).toEqual(['borisova-1', 'borisova-2', 'mladost']);
+    // The sport's own key works on the Bulgarian site too.
+    expect(slugs('basketball')).toEqual(['mladost']);
+  });
+
+  it('still matches a Cyrillic word half-typed', () => {
+    // «Дия» transliterates as a word ending in «ия» («dia»), which is no prefix
+    // of «diyan» — the Cyrillic half of the index is what finds it.
+    const diyan = [point('diyan', { name: 'Игрище Диян', place: 'Пловдив' })];
+    expect(matchRows(diyan, { ...BASE, query: 'Дия' })).toHaveLength(1);
+    expect(matchRows(diyan, { ...BASE, query: 'diyan' })).toHaveLength(1);
+  });
+
+  it('finds an English place name from a Cyrillic query', () => {
+    const tFacilityEn = createTranslator({ locale: 'en', messages: en, namespace: 'Facility' });
+    const tSportEn = createTranslator({ locale: 'en', messages: en, namespace: 'Sport' });
+    const LABELS_EN: LabelStrings = {
+      locale: 'en',
+      unnamed: tFacilityEn('unnamed'),
+      sport: (sport) => tSportEn(sport as 'football'),
+      unnamedAt: (what, place) => tFacilityEn('unnamedAt', { what, place }),
+    };
+    const sofia = [point('sofia-en', { place: 'Sofia' })];
+    const rows = matchRows(sofia, {
+      ...BASE,
+      locale: 'en',
+      query: 'софия',
+      searchText: (p) => facilitySearchText(p, LABELS_EN),
+    });
+    expect(rows).toHaveLength(1);
+  });
+
   it('applies the near-me radius only while near-me is on, nearest first', () => {
     const sofia = { lon: 23.32, lat: 42.7 };
     const near = matchRows(POINTS, { ...BASE, userLocation: sofia, radiusKm: 8 });
@@ -142,6 +181,11 @@ describe('retrying a failed load', () => {
 
   it('never re-applies the current filters as a way of doing something', () => {
     expect(explorer).not.toMatch(/applyFilters\(\{ \.\.\.filters \}\)/);
+  });
+
+  it('hands the canvas the searched set, so the pins follow the search', () => {
+    expect(explorer).toMatch(/<MapCanvas\s+points=\{searchedPoints\}/);
+    expect(explorer).toMatch(/const match = searchMatcher\(query, locale\);/);
   });
 
   it('offers no sort control, since there is no sort to choose', () => {

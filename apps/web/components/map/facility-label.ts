@@ -19,6 +19,8 @@
  * stays testable without a React tree.
  */
 
+import { transliterateBg } from '@sportkarta/lib/slug';
+
 export interface LabelSource {
   name: string | null;
   sports: readonly string[];
@@ -82,9 +84,22 @@ export function facilitySubtitle(f: LabelSource, s: LabelStrings): string {
  * Everything a search for this facility may match, lower-cased once. The field
  * promises "place or activity", so the sports and the place are in it — which is
  * also the only way an unnamed facility can be found by typing.
+ *
+ * In BOTH scripts: the text, then its official Latin transliteration (the one
+ * the slugs use, @sportkarta/lib/slug), then the sports' canonical keys. People
+ * type «sofia» on a Bulgarian phone with a Latin keyboard as often as «софия»,
+ * and the field used to find nothing for them (UX audit 2026-10-10, M-6). The
+ * matching side is `searchMatcher` in list-rows.ts.
  */
 export function facilitySearchText(f: LabelSource, s: LabelStrings): string {
-  return [facilityTitle(f, s), ...f.sports.map((sport) => s.sport(sport)), clean(f.place) ?? '']
+  const text = [
+    facilityTitle(f, s),
+    ...f.sports.map((sport) => s.sport(sport)),
+    clean(f.place) ?? '',
+  ]
     .join(' ')
     .toLocaleLowerCase(s.locale);
+  const keys = f.sports.join(' ').replace(/_/g, ' ');
+  // Newline-separated, so no needle can match across the seam of two forms.
+  return [text, transliterateBg(text), keys].join('\n');
 }
