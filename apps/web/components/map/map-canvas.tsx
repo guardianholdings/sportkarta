@@ -5,7 +5,7 @@
 // bundle (tests/client-imports.test.ts fails the build on it).
 import { BULGARIA_BOUNDS, BULGARIA_CENTER } from '@sportkarta/lib/geo';
 import type { Feature, FeatureCollection, Point, Polygon } from 'geojson';
-import maplibregl, { type GeoJSONSource } from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
 
 import { useMaplibreLocale } from '@/lib/map/controls-locale';
@@ -349,7 +349,7 @@ export default function MapCanvas({
         el = createCluster(count, clusterLabelRef.current(count));
         const clusterId = props.cluster_id as number;
         const expand = (viaKeyboard: boolean) => {
-          const src = map.getSource(SOURCE_ID) as GeoJSONSource | undefined;
+          const src = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
           src
             ?.getClusterExpansionZoom(clusterId)
             .then((zoom) => {
@@ -507,10 +507,12 @@ export default function MapCanvas({
     // clamp, so the min/max zoom is re-applied here — first, because the south
     // limit depends on the zoom it is computed for.
     //
-    // The frame is read from the transform being constrained: its padding is
-    // the sheet plus the tab bar, so a sheet snap and the limit always agree.
+    // The frame is read from the camera's own padding — the sheet plus the
+    // tab bar — so a sheet snap and the limit always agree. (Through the
+    // public getters: MapLibre 6 removed `map.transform`.)
     const frameHalfHeight = () => {
-      const { height, padding } = map.transform;
+      const height = map.getCanvas().clientHeight;
+      const padding = map.getPadding();
       return Math.max(0, (height - (padding.top ?? 0) - (padding.bottom ?? 0)) / 2);
     };
     const centreInBulgaria = (lngLat: maplibregl.LngLat, zoom: number) => {
@@ -675,7 +677,7 @@ export default function MapCanvas({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
-    (map.getSource(SOURCE_ID) as GeoJSONSource | undefined)?.setData(
+    (map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined)?.setData(
       toFeatureCollection(points, labelForRef.current),
     );
     scheduleSync();
@@ -755,7 +757,7 @@ export default function MapCanvas({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
-    const src = map.getSource(NEARME_ID) as GeoJSONSource | undefined;
+    const src = map.getSource(NEARME_ID) as maplibregl.GeoJSONSource | undefined;
     src?.setData(nearMe ? circlePolygon(nearMe.center, nearMe.radiusKm) : EMPTY);
   }, [nearMe]);
 
