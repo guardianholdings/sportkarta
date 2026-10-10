@@ -498,7 +498,22 @@
     "clusterLabel": "{count, plural, one {# facility} other {# facilities}} — zoom in",
     "mapUnavailable": "The map can’t be shown on this device. The facility list still works.",
     "expandPreview": "Expand the details",
-    "collapsePreview": "Collapse the details"
+    "collapsePreview": "Collapse the details",
+    "controls": {
+      "toggleAttribution": "Toggle attribution",
+      "mapFeedback": "Map feedback",
+      "mapTitle": "Map",
+      "markerTitle": "Map marker",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "resetBearing": "Reset bearing to north",
+      "findMyLocation": "Find my location",
+      "locationNotAvailable": "Location not available",
+      "close": "Close",
+      "cooperativeWindows": "Use Ctrl + scroll to zoom the map",
+      "cooperativeMac": "Use ⌘ + scroll to zoom the map",
+      "cooperativeMobile": "Use two fingers to move the map"
+    }
   },
   "Facility": {
     "directions": "Directions",

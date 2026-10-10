@@ -808,7 +808,8 @@ export function MapExplorer({
           // sits beside the map rather than over it, the floor is already
           // computed against nearly the whole canvas, and the frame costs
           // nothing. The phone keeps a pan limit of its own: the camera centre
-          // stays inside Bulgaria (map-canvas.tsx, `clampCenter`).
+          // stays inside Bulgaria, and the bottom of the visible map stays on
+          // the basemap's southern edge (map-canvas.tsx, `clampCenter`).
           unrestricted={!viewport.desktop}
           onMoveEnd={(v) => onMoveEndRef.current(v)}
           externalLayers={externalLayers}

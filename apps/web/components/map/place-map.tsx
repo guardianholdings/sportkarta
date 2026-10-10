@@ -61,6 +61,7 @@ export function PlaceMap({ facilities }: { facilities: PlaceMapFacility[] }) {
         unavailableLabel={t('mapUnavailable')}
         onSelect={(slug) => router.push(`/obekt/${slug}`)}
         onMoveEnd={() => undefined}
+        cooperative
       />
     </div>
   );
