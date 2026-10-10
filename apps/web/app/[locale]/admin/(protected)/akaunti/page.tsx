@@ -1,10 +1,11 @@
-import { getLocale, getTranslations, setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ACCOUNTS_PAGE_SIZE, listAccounts, type AccountFilters } from '@/lib/account-admin';
 import { requireRole } from '@/lib/auth-session';
+import { formatDate } from '@/lib/format';
 import { isRole, type Role } from '@/lib/roles';
 import { getPathname, Link } from '@/i18n/navigation';
 
@@ -80,15 +81,14 @@ export default async function AdminAccountsPage({
   // Set by the erase action's redirect (./[id]/actions.ts). Carries no id: the
   // account no longer exists, and neither should its trace in a URL.
   const erased = first(sp.iztrit) === '1';
-  const [t, activeLocale, { rows, total }] = await Promise.all([
+  const [t, { rows, total }] = await Promise.all([
     getTranslations('AdminAccounts'),
-    getLocale(),
     listAccounts(filters),
   ]);
 
-  const dateFmt = new Intl.DateTimeFormat(activeLocale, { dateStyle: 'medium' });
+  // Sofia's calendar day, not the server's UTC one (A-13).
   const fmt = (value: string | null): string =>
-    value ? dateFmt.format(new Date(value)) : t('none');
+    value ? formatDate(value, locale, 'medium') : t('none');
   const pages = Math.max(1, Math.ceil(total / ACCOUNTS_PAGE_SIZE));
 
   const roleLabel: Record<Role, string> = {
@@ -242,7 +242,9 @@ export default async function AdminAccountsPage({
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id} className="border-b border-line last:border-0">
-                  <th scope="row" className="t-overline py-2 pr-3 text-left font-normal">
+                  {/* No t-overline here: it set names and emails in 12px
+                      uppercase mono, the one thing this list is for (A-11). */}
+                  <th scope="row" className="py-2 pr-3 text-left font-normal">
                     <Link
                       href={`/admin/akaunti/${row.id}`}
                       className="font-medium text-link hover:text-link-hover"

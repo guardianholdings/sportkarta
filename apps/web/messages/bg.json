@@ -2462,7 +2462,7 @@
     "columnJoined": "Регистриран",
     "columnLastActive": "Последна активност",
     "empty": "Няма акаунти по тези критерии.",
-    "resultCount": "{count} акаунта",
+    "resultCount": "{count, plural, one {# акаунт} other {# акаунта}}",
     "previous": "Назад",
     "next": "Напред",
     "page": "Страница {page} от {pages}",
@@ -2471,7 +2471,7 @@
     "notFound": "Няма такъв акаунт.",
     "noName": "(без име)",
     "none": "—",
-    "unitMin": "{v} мин",
+    "unitMin": "{v} мин.",
     "unitKm": "{v} км",
     "yes": "да",
     "no": "не",
@@ -2529,6 +2529,20 @@
     "decisionsAboutTitle": "Решения за неговото съдържание",
     "decisionsAboutNote": "Това са решения СРЕЩУ или ЗА съдържанието на участника, не негов принос.",
     "decisionsAboutEmpty": "Няма решения за съдържание на този участник.",
+    "targetType": {
+      "photo": "Снимка",
+      "report": "Сигнал",
+      "facility": "Обект"
+    },
+    "decision": {
+      "approved": "одобрено",
+      "rejected": "отказано",
+      "removed": "свалено",
+      "reviewed": "прегледано",
+      "dismissed": "без действие",
+      "verified": "потвърдено",
+      "gone": "отбелязано като изчезнало"
+    },
     "playTitle": "Тренировки с други",
     "playSeries": "Организирани поредици",
     "playSeriesNote": "Поредица е „всеки вторник“, не отделна вечер.",

@@ -2462,7 +2462,7 @@
     "columnJoined": "Joined",
     "columnLastActive": "Last active",
     "empty": "No accounts match.",
-    "resultCount": "{count} accounts",
+    "resultCount": "{count, plural, one {# account} other {# accounts}}",
     "previous": "Previous",
     "next": "Next",
     "page": "Page {page} of {pages}",
@@ -2529,6 +2529,20 @@
     "decisionsAboutTitle": "Decisions about their content",
     "decisionsAboutNote": "These are decisions about the member's content, not their contributions.",
     "decisionsAboutEmpty": "No decisions about this member's content.",
+    "targetType": {
+      "photo": "Photo",
+      "report": "Report",
+      "facility": "Facility"
+    },
+    "decision": {
+      "approved": "approved",
+      "rejected": "rejected",
+      "removed": "taken down",
+      "reviewed": "reviewed",
+      "dismissed": "no action",
+      "verified": "verified",
+      "gone": "marked as gone"
+    },
     "playTitle": "Play sessions",
     "playSeries": "Series organised",
     "playSeriesNote": "A series is “every Tuesday”, not a single evening.",

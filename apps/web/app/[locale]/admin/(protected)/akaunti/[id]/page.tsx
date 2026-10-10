@@ -1,4 +1,4 @@
-import { getLocale, getTranslations, setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
 import { AdminActionLog } from '@/components/admin/admin-action-log';
@@ -11,6 +11,7 @@ import { SUSPENSION_REASON_MAX } from '@/lib/account-controls';
 import { adminActionHistory } from '@/lib/admin-actions';
 import { requireRole } from '@/lib/auth-session';
 import { cityDisplayName } from '@/lib/city-names';
+import { formatDate, formatDateTime, formatNumber } from '@/lib/format';
 import type { Role } from '@/lib/roles';
 import { Link } from '@/i18n/navigation';
 
@@ -72,7 +73,14 @@ export default async function AdminAccountPage({
   setRequestLocale(locale);
   const admin = await requireRole('admin');
 
-  const [t, activeLocale] = await Promise.all([getTranslations('AdminAccounts'), getLocale()]);
+  const [t, tPoints, tEdits, tSource, tRoster, tSport] = await Promise.all([
+    getTranslations('AdminAccounts'),
+    getTranslations('Points'),
+    getTranslations('AdminCrowdEdits'),
+    getTranslations('Source'),
+    getTranslations('Roster'),
+    getTranslations('Sport'),
+  ]);
 
   // Recorded first, and never inside a try/catch — see the header.
   await recordAccountAccess(admin.id, id, 'overview');
@@ -84,15 +92,14 @@ export default async function AdminAccountPage({
   ]);
   if (!detail) notFound();
 
-  const dateFmt = new Intl.DateTimeFormat(activeLocale, { dateStyle: 'medium' });
-  const dateTimeFmt = new Intl.DateTimeFormat(activeLocale, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: 'Europe/Sofia',
-  });
-  const d = (value: string | null): string => (value ? dateFmt.format(new Date(value)) : t('none'));
-  const dt = (value: string | null): string =>
-    value ? dateTimeFmt.format(new Date(value)) : t('none');
+  // Sofia time, both — the date-only one used to print the UTC day (A-13).
+  const d = (value: string | null): string =>
+    value ? formatDate(value, locale, 'medium') : t('none');
+  const dt = (value: string | null): string => (value ? formatDateTime(value, locale) : t('none'));
+  // Stored vocabularies in words, not slugs (A-14). An unknown value still
+  // prints as itself rather than as a missing-message key.
+  const say = (translate: typeof tSource, key: string, raw: string): string =>
+    translate.has(key) ? translate(key) : raw;
 
   const roleLabel: Record<Role, string> = {
     user: t('roleUser'),
@@ -255,9 +262,7 @@ export default async function AdminAccountPage({
             <ul className="flex flex-wrap gap-2">
               {authority.scope.map((row) => (
                 <li key={row.municipalityId}>
-                  <Badge tone="brand">
-                    {cityDisplayName(row.nameBg, row.nameEn, activeLocale)}
-                  </Badge>
+                  <Badge tone="brand">{cityDisplayName(row.nameBg, row.nameEn, locale)}</Badge>
                 </li>
               ))}
             </ul>
@@ -307,7 +312,7 @@ export default async function AdminAccountPage({
           head={[t('ledgerWhen'), t('ledgerEvent'), t('ledgerFacility'), t('ledgerPoints')]}
           rows={detail.ledger.map((row) => [
             dt(row.createdAt),
-            row.event,
+            say(tPoints, `event_${row.event}`, row.event),
             row.facilityName ?? t('none'),
             String(row.points),
           ])}
@@ -334,8 +339,8 @@ export default async function AdminAccountPage({
           rows={detail.contributions.map((row) => [
             dt(row.createdAt),
             row.facilityName ?? row.facilityId,
-            row.field,
-            row.source,
+            say(tEdits, `field.${row.field}`, row.field),
+            say(tSource, row.source, row.source),
           ])}
           empty={t('none')}
         />
@@ -350,9 +355,9 @@ export default async function AdminAccountPage({
             head={[t('ledgerWhen'), t('accessScope'), t('ledgerFacility'), t('ledgerEvent')]}
             rows={detail.decisionsAbout.map((row) => [
               dt(row.decidedAt),
-              row.targetType,
+              say(t, `targetType.${row.targetType}`, row.targetType),
               row.facilityName ?? t('none'),
-              row.decision,
+              say(t, `decision.${row.decision}`, row.decision),
             ])}
             empty={t('none')}
           />
@@ -372,7 +377,12 @@ export default async function AdminAccountPage({
               t('playCheckinMethod'),
               play.checkins.length === 0
                 ? t('none')
-                : play.checkins.map((row) => `${row.method}: ${String(row.count)}`).join(' · '),
+                : play.checkins
+                    .map(
+                      (row) =>
+                        `${say(tRoster, `method.${row.method}`, row.method)}: ${String(row.count)}`,
+                    )
+                    .join(' · '),
             ],
           ]}
         />
@@ -395,12 +405,17 @@ export default async function AdminAccountPage({
               t('trainingHasMetrics'),
             ]}
             rows={detail.trainings.map((row) => [
-              dateTimeFmt.format(row.startedAt),
-              row.sport,
+              formatDateTime(row.startedAt, locale),
+              say(tSport, row.sport, row.sport),
               t('unitMin', { v: Math.round(row.durationS / 60) }),
               row.distanceM === null
                 ? t('none')
-                : t('unitKm', { v: (row.distanceM / 1000).toFixed(1) }),
+                : t('unitKm', {
+                    v: formatNumber(row.distanceM / 1000, locale, {
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    }),
+                  }),
               row.facilityName ?? t('none'),
               row.hasRoute ? t('yes') : t('no'),
               row.hasMetrics ? t('yes') : t('no'),
@@ -419,7 +434,7 @@ export default async function AdminAccountPage({
               comms.digestCities.length === 0
                 ? t('none')
                 : comms.digestCities
-                    .map((row) => cityDisplayName(row.nameBg, row.nameEn, activeLocale))
+                    .map((row) => cityDisplayName(row.nameBg, row.nameEn, locale))
                     .join(' · '),
             ],
             [t('commsDigestSends'), `${String(comms.digestSends)} · ${d(comms.lastDigestAt)}`],
