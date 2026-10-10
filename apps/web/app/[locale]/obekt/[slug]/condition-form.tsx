@@ -2,12 +2,12 @@
 
 import { CANONICAL_CONDITION_TAGS, CONDITION_STATES } from '@sportkarta/lib/condition';
 import { useTranslations } from 'next-intl';
-import { useActionState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Radio } from '@/components/ui/radio';
 import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
+import { useFormAction } from '@/lib/use-form-action';
 
 import { reportConditionAction, type ContributionState } from './contribution-actions';
 import { ContributionThanks } from '@/components/facility/contribution-thanks';
@@ -34,13 +34,14 @@ export function ConditionForm({ slug }: { slug: string }) {
   const photo = usePhotoField();
   const tState = useTranslations('Condition');
   const tTag = useTranslations('ConditionTag');
-  const [state, action, pending] = useActionState<ContributionState, FormData>(
-    reportConditionAction,
-    INITIAL,
-  );
+  // Cleared after a SENT report, as before — never after an error, which used
+  // to throw away the photo the member had just taken (lib/use-form-action.ts).
+  const [state, formProps, pending] = useFormAction(reportConditionAction, INITIAL, {
+    resetWhen: (next) => next.status === 'ok',
+  });
 
   return (
-    <form action={action} className="flex flex-col gap-5">
+    <form {...formProps} className="flex flex-col gap-5">
       <PositionFields latRef={latRef} lonRef={lonRef} />
       <PositionNotice phase={phase} labels={locationLabels} onRequest={request} />
       <input type="hidden" name="slug" value={slug} />

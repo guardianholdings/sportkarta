@@ -1,7 +1,9 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useActionState, useState } from 'react';
+import { useState } from 'react';
+
+import { useFormAction } from '@/lib/use-form-action';
 
 import { Button } from '@/components/ui/button';
 import { Radio } from '@/components/ui/radio';
@@ -83,7 +85,9 @@ function ReportFormBody({
   const { phase, latRef, lonRef, request } = usePosition({ askOnMount: true });
   const photo = usePhotoField();
   const [bodyLen, setBodyLen] = useState(0);
-  const [state, formAction, pending] = useActionState(submitKeepingToken, initialState);
+  // An error (a stale token, a bad photo) keeps what the visitor wrote and the
+  // photo they took; on success the form is replaced by the thanks line.
+  const [state, formProps, pending] = useFormAction(submitKeepingToken, initialState);
   // A fresh token once the page's own has gone stale, so "send again" can
   // actually succeed instead of failing the same way forever (report-actions.ts).
   const token = state.formToken ?? formToken;
@@ -97,7 +101,7 @@ function ReportFormBody({
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form {...formProps} className="flex flex-col gap-4">
       <PositionFields latRef={latRef} lonRef={lonRef} />
       <h2 className="text-h4 font-bold text-ink">{t('title')}</h2>
       <PositionNotice

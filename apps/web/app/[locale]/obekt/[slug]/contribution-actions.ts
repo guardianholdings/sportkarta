@@ -32,6 +32,8 @@ export interface ContributionState {
    */
   onSite?: boolean;
   distanceM?: number | null;
+  /** A change TO a hiding access value went to a moderator instead of applying. */
+  accessProposed?: boolean;
 }
 
 const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -128,6 +130,7 @@ export async function verifyFacilityAction(
       ...(result.onSite === undefined
         ? {}
         : { onSite: result.onSite, distanceM: result.distanceM ?? null }),
+      ...(result.accessProposed ? { accessProposed: true } : {}),
     };
   } catch (error) {
     if (error instanceof ContributionError) return { status: 'error', error: error.code };

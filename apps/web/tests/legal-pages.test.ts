@@ -142,6 +142,7 @@ describe('the contact page and the notice form', () => {
       'email',
       'goodFaith',
       'tooFast',
+      'expired',
       'rateLimited',
       'unknown',
     ]) {

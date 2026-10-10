@@ -92,7 +92,21 @@ export default async function SupportPage({ params }: { params: PageParams }) {
             </dl>
           ) : (
             <p className="rounded-card border border-line bg-paper-sunk p-4 text-body-sm text-ink-soft">
-              {t('bankFallback')}
+              {/* «Пишете ни» used to be plain text, with the address two
+                  sections further down — the one step a donor must take. */}
+              {t.rich('bankFallback', {
+                write: (chunks) =>
+                  contactEmail ? (
+                    <a
+                      href={`mailto:${contactEmail}`}
+                      className="font-medium text-link hover:text-link-hover"
+                    >
+                      {chunks}
+                    </a>
+                  ) : (
+                    chunks
+                  ),
+              })}
             </p>
           )}
         </section>

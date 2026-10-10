@@ -1,4 +1,4 @@
-import { sql, type SQL } from '@sportkarta/db';
+import { publicFacilityVisible, sql, type SQL } from '@sportkarta/db';
 import { CANONICAL_SPORTS, facilitySlug, slugify } from '@sportkarta/lib';
 import { BULGARIA_BBOX, insideBulgaria } from '@sportkarta/lib/geo';
 
@@ -108,39 +108,50 @@ export interface AddFacilityResult {
   facilityId: string;
   slug: string;
   awarded: boolean;
+  /**
+   * Whether the public site shows the new facility (`publicFacilityVisible`).
+   * A paid one is hidden while `public_show_paid` is off, and its page is a 404
+   * — so the action must not land the member there (UX audit 2026-10-10).
+   */
+  visible: boolean;
 }
 
 /**
  * Reject a pin that duplicates an existing facility of the same sport within
  * DUPLICATE_RADIUS_METRES. Geography casts give true metres, so the radius does
  * not stretch with latitude.
+ *
+ * A duplicate the public cannot see (a hidden paid venue, a row without a slug)
+ * still blocks the add, but is never offered as a link: «Вижте съществуващото
+ * съоръжение» used to open a 404.
  */
 async function findNearbyDuplicate(
   db: SqlRunner,
   facility: NormalizedFacility,
-): Promise<string | null> {
+): Promise<{ publicSlug: string | null } | null> {
   // Two-stage on purpose: the geometry predicate can use facilities_geom_gist
   // (a geography cast cannot), and the geography distance then makes the radius
   // exact metres rather than degrees. ~0.0005° comfortably covers 30 m at
   // Bulgarian latitudes, so nothing real is filtered out before the exact test.
   const result = await db.execute(sql`
-    SELECT slug, id FROM facilities
-    WHERE status <> 'gone'
-      AND sport_types && ${sql.param(facility.sportTypes)}::text[]
+    SELECT f.slug, (${publicFacilityVisible}) AS visible FROM facilities f
+    WHERE f.status <> 'gone'
+      AND f.sport_types && ${sql.param(facility.sportTypes)}::text[]
       AND ST_DWithin(
-            geom,
+            f.geom,
             ST_SetSRID(ST_MakePoint(${facility.lon}, ${facility.lat}), 4326),
             0.0005
           )
       AND ST_DistanceSphere(
-            geom,
+            f.geom,
             ST_SetSRID(ST_MakePoint(${facility.lon}, ${facility.lat}), 4326)
           ) <= ${DUPLICATE_RADIUS_METRES}
+    ORDER BY 2 DESC
     LIMIT 1
   `);
   const row = result.rows[0];
   if (!row) return null;
-  return (row.slug as string | null) ?? String(row.id);
+  return { publicSlug: row.visible === true ? (row.slug as string) : null };
 }
 
 export async function addFacility(
@@ -173,7 +184,11 @@ export async function addFacility(
     // otherwise both pass a check made before either insert. Not airtight
     // without an exclusion constraint, but the window shrinks to a statement.
     const duplicate = await findNearbyDuplicate(tx, facility);
-    if (duplicate) throw new ContributionError('duplicate_nearby', duplicate);
+    if (duplicate) {
+      throw duplicate.publicSlug
+        ? new ContributionError('duplicate_nearby', duplicate.publicSlug)
+        : new ContributionError('duplicate_hidden');
+    }
 
     // The municipality is derived here, exactly as the importer does it at
     // insert time. Without it a crowd-added facility is missing from its city
@@ -272,6 +287,14 @@ export async function addFacility(
         })
       : false;
 
-    return { facilityId, slug, awarded, distanceM, onSite };
+    // Asked of the row itself, through the one public predicate, rather than
+    // inferred from `access`: the predicate also reads `public_show_paid`, so
+    // the landing stays right whichever way an admin sets it.
+    const shown = await tx.execute(
+      sql`SELECT (${publicFacilityVisible}) AS visible FROM facilities f WHERE f.id = ${facilityId}::uuid`,
+    );
+    const visible = shown.rows[0]?.visible === true;
+
+    return { facilityId, slug, awarded, distanceM, onSite, visible };
   });
 }

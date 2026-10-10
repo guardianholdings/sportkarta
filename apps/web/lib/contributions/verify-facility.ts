@@ -148,6 +148,28 @@ const SETTERS: Record<string, (value: JsonValue) => SQL> = {
   sport_types: (v) => sql`sport_types = ${sql.param(v as string[])}::text[]`,
 };
 
+/**
+ * Whether this account added the facility — the one thing `verifyFacility`
+ * refuses outright (`own_facility`). Asked by the facility page BEFORE it
+ * renders the checklist: the author used to land on it straight after adding,
+ * fill it in, and only then be told no (UX audit 2026-10-10). Same query as
+ * the guard inside the transaction, which stays the authority.
+ */
+export async function isFacilityAuthor(
+  db: { execute(query: SQL): Promise<{ rows: Record<string, unknown>[] }> },
+  facilityId: string,
+  userId: string,
+): Promise<boolean> {
+  const result = await db.execute(sql`
+    SELECT 1 FROM facility_edits
+    WHERE facility_id = ${facilityId}::uuid
+      AND field = 'created'
+      AND actor = ${userId}
+    LIMIT 1
+  `);
+  return result.rows.length > 0;
+}
+
 export async function verifyFacility(
   db: TransactionalDb,
   params: {

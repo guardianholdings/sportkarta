@@ -1,10 +1,10 @@
 'use client';
 
 import { useLocale, useTranslations } from 'next-intl';
-import { useActionState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useFormAction } from '@/lib/use-form-action';
 
 import { deleteAccountAction, updateProfileAction, type ProfileState } from './actions';
 
@@ -20,13 +20,11 @@ export function ProfileForm({
   isMinor: boolean;
 }) {
   const t = useTranslations('Profile');
-  const [state, action, pending] = useActionState<ProfileState, FormData>(
-    updateProfileAction,
-    INITIAL,
-  );
+  // A bad date of birth no longer reverts the name the member just typed.
+  const [state, formProps, pending] = useFormAction(updateProfileAction, INITIAL);
 
   return (
-    <form action={action} className="space-y-4">
+    <form {...formProps} className="space-y-4">
       <label className="flex flex-col gap-1.5">
         <span className="text-caption font-medium text-ink-soft">{t('displayNameLabel')}</span>
         <Input
@@ -60,10 +58,12 @@ export function ProfileForm({
         decision of 2026-07-25 (minors are treated as adults), so the copy no
         longer promises or withholds anything — it just reflects what was
         derived from a date we did not keep.
+
+        Only a MINOR is a fact here. `is_minor` defaults to false, and the date
+        is never kept, so «18 или повече години» was printed to everyone who
+        never gave a date at all (UX audit 2026-10-10).
       */}
-      <p className="text-body-sm text-ink-soft">
-        {isMinor ? t('categoryMinor') : t('categoryAdult')}
-      </p>
+      {isMinor && <p className="text-body-sm text-ink-soft">{t('categoryMinor')}</p>}
 
       {state.error && (
         <p role="alert" className="text-body-sm text-danger">
@@ -86,13 +86,10 @@ export function ProfileForm({
 export function DeleteAccountForm({ confirmationWord }: { confirmationWord: string }) {
   const t = useTranslations('Profile');
   const locale = useLocale();
-  const [state, action, pending] = useActionState<ProfileState, FormData>(
-    deleteAccountAction,
-    INITIAL,
-  );
+  const [state, formProps, pending] = useFormAction(deleteAccountAction, INITIAL);
 
   return (
-    <form action={action} className="space-y-3">
+    <form {...formProps} className="space-y-3">
       <p className="text-body-sm text-ink-soft">{t('deleteExplainer')}</p>
       <ul className="list-disc space-y-1 pl-5 text-body-sm text-ink-soft">
         <li>{t('deleteBulletProfile')}</li>

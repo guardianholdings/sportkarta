@@ -95,11 +95,28 @@ describe('addFacility', () => {
   };
 
   it('rejects a duplicate within the guard radius and writes nothing', async () => {
-    const db = fakeDb([[{ slug: 'sasedno-igrishte', id: FACILITY }]]);
+    const db = fakeDb([[{ slug: 'sasedno-igrishte', visible: true }]]);
     await expect(
       addFacility(db, { userId: USER, input, photoStoragePath: 'facilities/x.webp' }),
     ).rejects.toMatchObject({ code: 'duplicate_nearby', conflictSlug: 'sasedno-igrishte' });
     // Only the lookup ran — no INSERT was attempted.
+    expect(db.text()).not.toMatch(/INSERT/i);
+    // Whether the duplicate may be LINKED is the public predicate's answer.
+    expect(db.text()).toContain(PUBLIC_FACILITY_PREDICATE);
+  });
+
+  it('blocks a duplicate the public cannot see without linking to its 404', async () => {
+    // A hidden paid venue (or a slug-less row) at the same spot: still the same
+    // place, so still refused — but «Вижте съществуващото» would open a 404.
+    const db = fakeDb([[{ slug: 'platen-basein', visible: false }]]);
+    const refusal = await addFacility(db, {
+      userId: USER,
+      input,
+      photoStoragePath: 'facilities/x.webp',
+    }).catch((error: unknown) => error);
+    expect(refusal).toBeInstanceOf(ContributionError);
+    expect(refusal).toMatchObject({ code: 'duplicate_hidden' });
+    expect((refusal as ContributionError).conflictSlug).toBeUndefined();
     expect(db.text()).not.toMatch(/INSERT/i);
   });
 
@@ -112,6 +129,7 @@ describe('addFacility', () => {
       [], // photo insert
       [{ distance_m: 12 }], // audit insert returns the measured distance
       [{ id: 1 }], // award
+      [{ visible: true }], // the public predicate, asked of the new row
     ]);
     const result = await addFacility(db, {
       userId: USER,
@@ -122,6 +140,7 @@ describe('addFacility', () => {
 
     expect(result.facilityId).toBe(FACILITY);
     expect(result.awarded).toBe(true);
+    expect(result.visible).toBe(true);
 
     const text = db.text();
     // Provenance and moderation state are not negotiable.

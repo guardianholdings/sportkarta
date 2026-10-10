@@ -73,3 +73,49 @@ export function addedBanner(raw: string | string[] | undefined): { points: numbe
 export function addedRedirectValue(awarded: boolean): number {
   return awarded ? POINTS_BY_EVENT.facility_added : 0;
 }
+
+/**
+ * Where the add action sends the member (UX audit 2026-10-10).
+ *
+ * - A facility the public site does not show — a paid one while paid venues
+ *   are hidden — has no page: its /obekt URL is a 404, which is where members
+ *   landed straight after a successful add. It is thanked on /dobavi instead.
+ * - An add that earned nothing says WHY, with the same three answers the verify
+ *   and condition thanks give (lib/contributions/feedback.ts): `away` is the
+ *   distance in whole metres, or `none` when no position was shared. A
+ *   distance, never a coordinate — and only the member's own landing reads it.
+ */
+export function addedLanding(result: {
+  slug: string;
+  awarded: boolean;
+  visible: boolean;
+  onSite?: boolean;
+  distanceM?: number | null;
+}): string {
+  const query = new URLSearchParams({ added: String(addedRedirectValue(result.awarded)) });
+  if (!result.awarded && result.onSite === false) {
+    query.set(
+      'away',
+      result.distanceM === null || result.distanceM === undefined
+        ? 'none'
+        : String(Math.round(result.distanceM)),
+    );
+  }
+  if (!result.visible) return `/dobavi?saved=hidden&${query.toString()}`;
+  return `/obekt/${result.slug}?${query.toString()}`;
+}
+
+/**
+ * `?away=` back into the outcome `thanksMessage` reads, or null for "no reason
+ * to give". Forgeable like `?added=`, and harmless for the same reason: it only
+ * chooses which thank-you sentence renders.
+ */
+export function addedAway(
+  raw: string | string[] | undefined,
+): { onSite: false; distanceM: number | null } | null {
+  if (raw === 'none') return { onSite: false, distanceM: null };
+  if (typeof raw === 'string' && /^\d{1,7}$/.test(raw)) {
+    return { onSite: false, distanceM: Number(raw) };
+  }
+  return null;
+}

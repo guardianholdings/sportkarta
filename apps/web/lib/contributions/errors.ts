@@ -15,6 +15,8 @@ export type ContributionErrorCode =
   | 'invalid_coordinates'
   | 'outside_bulgaria'
   | 'duplicate_nearby'
+  /** A duplicate exists, but the public cannot see it (e.g. a hidden paid venue). */
+  | 'duplicate_hidden'
   | 'invalid_state'
   | 'facility_not_found'
   /** You cannot verify a facility you added yourself. */
