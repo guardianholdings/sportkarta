@@ -38,7 +38,9 @@ export async function CampaignSponsor({ partnerId }: { partnerId: number | null 
            on our own origin; a 32px logo gains nothing from next/image */
         <img
           src={`/api/partners/logo/${String(partner.id)}`}
-          alt={name}
+          // Decorative: the name is printed right beside it, and alt={name}
+          // made a screen reader say it twice (S-19).
+          alt=""
           width={32}
           height={32}
           className="size-8 shrink-0 object-contain"

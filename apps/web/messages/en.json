@@ -1229,6 +1229,8 @@
     "new": "new",
     "noneYet": "No badges earned yet.",
     "progress": "{have} of {need}",
+    "stateEarned": "earned",
+    "stateLocked": "not earned yet",
     "first_contribution": {
       "name": "First step",
       "description": "Your first contribution to the map."

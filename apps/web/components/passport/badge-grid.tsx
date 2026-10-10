@@ -86,7 +86,16 @@ export async function BadgeGrid({
                 )}
               </span>
             )}
-            <h3 className="text-body-sm font-semibold">{t(`${badge.slug}.name`)}</h3>
+            <h3 className="text-body-sm font-semibold">
+              {t(`${badge.slug}.name`)}
+              {/* Earned and locked differ only in tint, border and a grey
+                  coin — nothing a screen reader hears. The state is said in
+                  words, inside the heading, so heading navigation carries it
+                  too (S-19). */}
+              <span className="sr-only">
+                , {badge.earned ? t('stateEarned') : t('stateLocked')}
+              </span>
+            </h3>
             <p className="mt-1 text-caption">{t(`${badge.slug}.description`)}</p>
             {!badge.earned && (
               <p className="mt-2 text-caption tabular-nums text-text-muted">

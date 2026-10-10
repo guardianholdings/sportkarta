@@ -1229,6 +1229,8 @@
     "new": "ново",
     "noneYet": "Още няма спечелени отличия.",
     "progress": "{have} от {need}",
+    "stateEarned": "спечелено",
+    "stateLocked": "още не е спечелено",
     "first_contribution": {
       "name": "Първа крачка",
       "description": "Първият ви принос към картата."
