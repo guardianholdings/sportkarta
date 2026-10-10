@@ -13,9 +13,9 @@ import {
   scopedFacilities,
   scopedFacilityCount,
   scopedMapPoints,
-  type City,
 } from '@/lib/places';
 import { takesVav } from '@/lib/grammar';
+import { cityName, listingCopy } from '@/lib/place-headings';
 import { buildAlternates } from '@/lib/seo';
 import { AppShell } from '@/components/shell/app-shell';
 import { chipClass } from '@/components/ui/chip';
@@ -40,22 +40,21 @@ const MIN_FACILITIES = 3;
 
 type PageParams = Promise<{ locale: string; city: string }>;
 
-function cityName(city: City, locale: string): string {
-  return locale === 'en' ? city.nameEn : city.nameBg;
-}
-
 export async function generateMetadata({ params }: { params: PageParams }): Promise<Metadata> {
   const { locale, city: slug } = await params;
   const city = await getCityBySlug(slug);
   if (!city) return {};
   const count = await scopedFacilityCount(city.id);
   if (count < MIN_FACILITIES) return {};
-  const t = await getTranslations({ locale, namespace: 'Places' });
-  const name = cityName(city, locale);
-  const cityVav = takesVav(name);
+  const [t, tSport] = await Promise.all([
+    getTranslations({ locale, namespace: 'Places' }),
+    getTranslations({ locale, namespace: 'Sport' }),
+  ]);
+  // The same builder as pages 2..n (lib/place-headings.ts).
+  const copy = listingCopy({ locale, t, tSport }, { city, scope: null, count });
   return {
-    title: t('cityMetaTitle', { city: name, cityVav }),
-    description: t('cityMetaDescription', { city: name, cityVav, count }),
+    title: copy.metaTitle,
+    description: copy.metaDescription,
     alternates: buildAlternates(`/igrishta/${city.slug}`, locale),
   };
 }
@@ -81,6 +80,7 @@ export default async function CityPage({ params }: { params: PageParams }) {
   const name = cityName(city, locale);
   // „във Варна", not „в Варна" — the catalogue branches on it (lib/grammar.ts).
   const cityVav = takesVav(name);
+  const { heading } = listingCopy({ locale, t, tSport }, { city, scope: null, count });
   const crossSports = sportCounts.filter((s) => s.count >= MIN_FACILITIES);
 
   return (
@@ -91,9 +91,7 @@ export default async function CityPage({ params }: { params: PageParams }) {
         </Link>
 
         <header className="space-y-2">
-          <h1 className="text-h2 font-extrabold tracking-tight text-ink">
-            {t('cityH1', { city: name, cityVav })}
-          </h1>
+          <h1 className="text-h2 font-extrabold tracking-tight text-ink">{heading}</h1>
           <p className="text-ink-soft">{t('cityIntro', { city: name, cityVav, count })}</p>
           {/* Stage 3.4: the accountability figures for this municipality. Linked
             from here rather than only from the sitemap — the person looking at

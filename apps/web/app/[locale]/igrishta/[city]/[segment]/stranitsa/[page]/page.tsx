@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
+import { listingCopy, type ListingCopy } from '@/lib/place-headings';
 import {
   getCityBySlug,
   listPageCount,
@@ -28,10 +29,6 @@ export function generateStaticParams(): { page: string }[] {
 
 type PageParams = Promise<{ locale: string; city: string; segment: string; page: string }>;
 
-function cityName(city: City, locale: string): string {
-  return locale === 'en' ? city.nameEn : city.nameBg;
-}
-
 async function resolvePage(
   slug: string,
   segment: string,
@@ -47,28 +44,26 @@ async function resolvePage(
   return page <= listPageCount(total) ? { city, scope, page, total } : null;
 }
 
-/** The segment page's own heading and meta title, so page n names the same listing. */
-async function headings(
+/**
+ * The segment page's own heading and metadata (lib/place-headings.ts), so page
+ * n names the same listing — plus «— страница n от m» in the title.
+ */
+async function copyFor(
   locale: string,
   city: City,
   scope: SegmentScope,
-): Promise<{ heading: string; metaTitle: string }> {
+  page: number,
+  total: number,
+): Promise<ListingCopy> {
   const [t, tSport] = await Promise.all([
     getTranslations({ locale, namespace: 'Places' }),
     getTranslations({ locale, namespace: 'Sport' }),
   ]);
-  const name = cityName(city, locale);
-  if (scope.kind === 'sport') {
-    const sport = tSport(scope.sport);
-    return {
-      heading: t('sportH1', { sport, city: name }),
-      metaTitle: t('sportMetaTitle', { sport, city: name }),
-    };
-  }
-  return {
-    heading: t('quarterH1', { quarter: scope.quarter, city: name }),
-    metaTitle: t('quarterMetaTitle', { quarter: scope.quarter, city: name }),
-  };
+  return listingCopy(
+    { locale, t, tSport },
+    { city, scope, count: total },
+    { page, pages: listPageCount(total) },
+  );
 }
 
 export async function generateMetadata({ params }: { params: PageParams }): Promise<Metadata> {
@@ -76,10 +71,10 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   const resolved = await resolvePage(slug, segment, rawPage);
   if (!resolved) return {};
   const { city, scope, page, total } = resolved;
-  const t = await getTranslations({ locale, namespace: 'Places' });
-  const { metaTitle } = await headings(locale, city, scope);
+  const copy = await copyFor(locale, city, scope, page, total);
   return {
-    title: t('pagedHeading', { heading: metaTitle, page, pages: listPageCount(total) }),
+    title: copy.metaTitle,
+    description: copy.metaDescription,
     alternates: buildAlternates(listPagePath(`/igrishta/${city.slug}/${segment}`, page), locale),
   };
 }
@@ -93,7 +88,7 @@ export default async function SegmentListPage({ params }: { params: PageParams }
   const { city, scope, page, total } = resolved;
 
   const [{ heading }, facilities] = await Promise.all([
-    headings(locale, city, scope),
+    copyFor(locale, city, scope, page, total),
     scopedFacilities(city.id, segmentScopeOptions(scope), page),
   ]);
 
