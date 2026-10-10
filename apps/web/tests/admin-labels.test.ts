@@ -37,4 +37,11 @@ describe('labelTranslator', () => {
       expect(t(key, { count: 1 }), key).not.toMatch(/[{}]/);
     }
   });
+
+  it('formats the results screen too, and names every grid cell', () => {
+    const t = labelTranslator('bg', bg.AdminResults);
+    expect(t('saved', { count: 1 })).toBe('Запазен е 1 резултат.');
+    expect(t('saved', { count: 3 })).toBe('Запазени са 3 резултата.');
+    expect(t('cellLabel', { field: t('team'), row: 2 })).toBe('Отбор, ред 2');
+  });
 });

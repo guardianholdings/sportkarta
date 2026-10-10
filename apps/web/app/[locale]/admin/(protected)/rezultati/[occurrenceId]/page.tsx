@@ -77,10 +77,15 @@ export default async function ResultsEditorPage({
     'scoreHint',
     'note',
     'noteHint',
+    'cellLabel',
     'addRow',
+    'manualTab',
     'save',
     'saved',
     'csvImport',
+    'csvUpload',
+    'ignoreColumn',
+    'preview',
     'noResults',
     'error_participant_required',
     'error_participant_too_long',
@@ -97,8 +102,8 @@ export default async function ResultsEditorPage({
     'error_csv_truncated',
     'error_too_many_rows',
   ];
-  // t.raw for the same reason as /admin/sesii: the client component owns
-  // interpolation, so it needs the template rather than a formatted string.
+  // t.raw for the same reason as /admin/sesii: the client component formats
+  // the ICU templates itself (useLabels), counts included.
   const labels = Object.fromEntries(labelKeys.map((key) => [key, String(t.raw(key))]));
 
   return (

@@ -78,9 +78,10 @@ export default async function AdminResultsPage({
                           href={`/admin/rezultati/${occurrence.occurrenceId}`}
                           className="font-medium text-link hover:text-link-hover"
                         >
+                          {/* «Въведи» opens an editor; it saves nothing (A-15). */}
                           {occurrence.resultCount === 0
-                            ? t('save')
-                            : `${String(occurrence.resultCount)}`}
+                            ? t('enter')
+                            : t('editRecorded', { count: occurrence.resultCount })}
                         </Link>
                       </td>
                     </tr>
