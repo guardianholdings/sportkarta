@@ -69,6 +69,8 @@ export async function ParticipationTable({
                   ? 'border-b border-line bg-paper-sunk'
                   : 'border-b border-line'
               }
+              // The tint alone says nothing to a screen reader.
+              aria-current={entry.handle === highlightHandle ? 'true' : undefined}
             >
               <td className="py-2 pr-3 tabular-nums text-text-muted">{entry.rank}</td>
               <td className="py-2 pr-3">

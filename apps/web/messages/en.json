@@ -1309,6 +1309,7 @@
     "standingRanked": "You are ranked {rank} of {total} members, with {points} points.",
     "standingSignedOut": "Sign in to see your standing.",
     "standingNotPublic": "To take part in the leaderboard, make your sports passport public.",
+    "standingNoPoints": "You have no points on this leaderboard yet.",
     "standingPassportLink": "Go to my passport",
     "eligibilityNote": "Only members who have made their sports passport public appear here. Age is not a condition.",
     "nationalSectionTitle": "Overall board",

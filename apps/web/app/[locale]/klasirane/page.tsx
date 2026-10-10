@@ -22,9 +22,11 @@ import { ShareSheet } from '@/components/share/share-sheet';
 import { chipClass } from '@/components/ui/chip';
 import { getCurrentUser } from '@/lib/auth-session';
 import { resolveScope, scopeHref } from '@/lib/leaderboard';
+import { ownVisibility } from '@/lib/passport';
 import { cityDisplayName, loadCityCatalog } from '@/lib/places';
 import { siteUrl } from '@/lib/seo';
 import { shareSheetStrings } from '@/lib/share/sheet-strings';
+import { signInHref } from '@/lib/sign-in-destination';
 import { Link } from '@/i18n/navigation';
 import { AppShell } from '@/components/shell/app-shell';
 
@@ -100,7 +102,21 @@ export default async function LeaderboardPage({
     .map((row) => catalog.byId.get(row.municipalityId))
     .filter((city): city is NonNullable<typeof city> => city !== undefined);
 
-  const standing = user ? await memberStanding(getDb(), user.id, { scope, period }) : null;
+  const [standing, visibility] = user
+    ? await Promise.all([
+        memberStanding(getDb(), user.id, { scope, period }),
+        ownVisibility(getDb(), user.id),
+      ])
+    : [null, null];
+  // The viewer's own row on both boards. Only a PUBLIC passport has a handle
+  // here, and only an eligible member has a row to mark (S-18).
+  const ownHandle = visibility?.handle ?? null;
+  // This board, as it is now — what sign-in returns to.
+  const boardHref = scopeHref({
+    citySlug: resolved.city?.slug ?? null,
+    sport: resolved.sport,
+    period,
+  });
 
   /**
    * The member's own division, and the ladder for it (T4/T6).
@@ -270,32 +286,6 @@ export default async function LeaderboardPage({
               ))}
             </div>
           </details>
-
-          <div className="space-y-2">
-            <p className="t-overline text-text-muted">{t('filterPeriodLabel')}</p>
-            <div className="flex flex-wrap gap-2">
-              <Link
-                href={scopeHref({
-                  citySlug: resolved.city?.slug ?? null,
-                  sport: resolved.sport,
-                  period: 'all_time',
-                })}
-                className={filterClass(period === 'all_time')}
-              >
-                {t('periodAllTime')}
-              </Link>
-              <Link
-                href={scopeHref({
-                  citySlug: resolved.city?.slug ?? null,
-                  sport: resolved.sport,
-                  period: 'month',
-                })}
-                className={filterClass(period === 'month')}
-              >
-                {t('periodMonth')}
-              </Link>
-            </div>
-          </div>
         </nav>
 
         {/*
@@ -307,7 +297,7 @@ export default async function LeaderboardPage({
         <section className="space-y-2">
           <h2 className="text-h3 font-extrabold tracking-tight text-ink">{tp('sectionTitle')}</h2>
           <p className="text-body-sm text-ink-soft">{tp('intro')}</p>
-          <ParticipationTable entries={participation} />
+          <ParticipationTable entries={participation} highlightHandle={ownHandle} />
           <p className="text-caption text-text-muted">
             {tp('logPrompt')}{' '}
             <Link href="/trenirovki" className="font-medium text-link hover:text-link-hover">
@@ -321,13 +311,52 @@ export default async function LeaderboardPage({
             {t('contributionsSectionTitle')}
           </h2>
           <p className="text-body-sm text-ink-soft">{t('contributionsSectionBody')}</p>
-          <LeaderboardTable entries={entries} />
+          {/*
+            THE PERIOD LIVES WITH THE BOARD IT CHANGES. It sat above both
+            boards, but only this one has a period — the participation board
+            above is a rolling 90 days — so switching it visibly did nothing to
+            the first table on the page (S-18).
+          */}
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="t-overline text-text-muted">{t('filterPeriodLabel')}</p>
+            <Link
+              href={scopeHref({
+                citySlug: resolved.city?.slug ?? null,
+                sport: resolved.sport,
+                period: 'all_time',
+              })}
+              className={filterClass(period === 'all_time')}
+            >
+              {t('periodAllTime')}
+            </Link>
+            <Link
+              href={scopeHref({
+                citySlug: resolved.city?.slug ?? null,
+                sport: resolved.sport,
+                period: 'month',
+              })}
+              className={filterClass(period === 'month')}
+            >
+              {t('periodMonth')}
+            </Link>
+          </div>
+          <LeaderboardTable entries={entries} highlightHandle={ownHandle} />
         </section>
 
         {ladder.length === 0 && (
           <section className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm text-body-sm">
             <h2 className="font-semibold">{t('yourStandingTitle')}</h2>
-            {!user && <p className="text-ink-soft">{t('standingSignedOut')}</p>}
+            {!user && (
+              <p className="text-ink-soft">
+                {/* A way in, not just an instruction — back to this board after. */}
+                <Link
+                  href={signInHref(boardHref)}
+                  className="font-medium text-link hover:text-link-hover"
+                >
+                  {t('standingSignedOut')}
+                </Link>
+              </p>
+            )}
             {user && standing && (
               <p className="text-ink-soft">
                 {t('standingRanked', {
@@ -338,12 +367,17 @@ export default async function LeaderboardPage({
               </p>
             )}
             {/*
-            There is now ONE reason to be unranked — the passport is not public —
-            and it is something the member can change, so the copy points at the
-            control. The second branch that used to be here told minors the rule
-            did not apply to them; migration 0020 removed the rule.
+            TWO reasons to be unranked, and they need different words. A private
+            passport is something the member can change, so the copy points at
+            the control. A PUBLIC member with no points in this scope or period
+            was told to publish what they had already published (S-6). (The
+            branch that told minors the rule did not apply to them went with
+            migration 0020.)
           */}
-            {user && !standing && (
+            {user && !standing && visibility?.isPublic && (
+              <p className="text-ink-soft">{t('standingNoPoints')}</p>
+            )}
+            {user && !standing && !visibility?.isPublic && (
               <p className="text-ink-soft">
                 {t('standingNotPublic')}{' '}
                 <Link href="/pasport" className="font-medium text-link hover:text-link-hover">

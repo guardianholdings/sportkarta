@@ -185,6 +185,25 @@ async function readVisibility(db: SqlRunner, userId: string): Promise<Visibility
 }
 
 /**
+ * Whether the member's passport is public, and the handle it is public at.
+ *
+ * For a board that has to tell "not on it because private" from "on it with no
+ * points here yet" (S-6), and that marks the viewer's own row by handle (S-18).
+ * The handle is withheld while private: nothing should highlight, or link to, a
+ * page that is not published.
+ */
+export async function ownVisibility(
+  db: SqlRunner,
+  userId: string,
+): Promise<{ isPublic: boolean; handle: string | null }> {
+  const visibility = await readVisibility(db, userId);
+  return {
+    isPublic: visibility.isPublic,
+    handle: visibility.isPublic ? visibility.handle : null,
+  };
+}
+
+/**
  * The member's own passport.
  *
  * Badges are evaluated from history on every read — that is the whole design
