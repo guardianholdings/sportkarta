@@ -1,5 +1,4 @@
 import { getDb, memberParticipation, memberTrainings, trainingConsents } from '@sportkarta/db';
-import { sql } from '@sportkarta/db';
 import { buildShare, formatKm, formatMinutes } from '@sportkarta/lib/share';
 import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
 import type { Metadata } from 'next';
@@ -12,6 +11,7 @@ import { requireUser } from '@/lib/auth-session';
 import { inReadingOrder } from '@/lib/format';
 import { siteUrl } from '@/lib/seo';
 import { shareSheetStrings } from '@/lib/share/sheet-strings';
+import { memberFacilities } from '@/lib/training-facilities';
 import { trainingIntegrationsEnabled } from '@/lib/training-integrations';
 import { deleteTrainingAction, setTrainingConsentAction } from './actions';
 
@@ -38,18 +38,6 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   return { title: t('metaTitle'), robots: { index: false, follow: false } };
 }
 
-/** The member's own recent facilities, so the picker is short and relevant. */
-async function nearbyFacilities(): Promise<{ id: string; name: string }[]> {
-  const result = await getDb().execute(sql`
-    SELECT id::text AS id, name
-    FROM facilities
-    WHERE status <> 'gone' AND name IS NOT NULL AND btrim(name) <> ''
-    ORDER BY updated_at DESC
-    LIMIT 100
-  `);
-  return result.rows.map((row) => ({ id: String(row.id), name: String(row.name) }));
-}
-
 export default async function TrainingPage({ params }: { params: PageParams }) {
   const { locale } = await params;
   setRequestLocale(locale);
@@ -68,7 +56,8 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
     memberTrainings(getDb(), user.id),
     memberParticipation(getDb(), user.id, { days: 30 }),
     trainingConsents(getDb(), user.id),
-    nearbyFacilities(),
+    // The member's own places, recent first — see lib/training-facilities.ts.
+    memberFacilities(getDb(), user.id),
   ]);
 
   // Resolved server-side from the canonical list, so a sport can never appear
