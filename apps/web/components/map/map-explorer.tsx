@@ -197,7 +197,8 @@ export function MapExplorer({
   const [selectedSlug, setSelectedSlug] = useState<string | null>(initialSelected);
   const [hoveredSlug, setHoveredSlug] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
-  const [locateError, setLocateError] = useState(false);
+  /** Why locating failed: the browser said no, or simply had no position. */
+  const [locateError, setLocateError] = useState<'denied' | 'unavailable' | null>(null);
   const [loadError, setLoadError] = useState(false);
   /**
    * TRUE from the first render: the full set is always fetched on mount, and
@@ -400,32 +401,52 @@ export function MapExplorer({
     window.history.replaceState(null, '', `${window.location.pathname}?${sp.toString()}`);
   });
 
+  /**
+   * A failed location also switches «Около мен» back off: it used to stay on —
+   * counted as an active filter, highlighted in the sheet — around a location
+   * that did not exist.
+   */
   function locate() {
     if (!('geolocation' in navigator)) {
-      setLocateError(true);
+      setLocateError('unavailable');
+      setNearMeOn(false);
       return;
     }
     setLocating(true);
-    setLocateError(false);
+    setLocateError(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setUserLocation({ lon: pos.coords.longitude, lat: pos.coords.latitude });
         setLocating(false);
       },
-      () => {
-        setLocateError(true);
+      (error) => {
+        setLocateError(error.code === error.PERMISSION_DENIED ? 'denied' : 'unavailable');
         setLocating(false);
+        setNearMeOn(false);
       },
       { enableHighAccuracy: true, timeout: 10_000 },
     );
   }
 
   function toggleNearMe() {
-    if (!nearMeOn && !userLocation) {
-      locate();
+    if (nearMeOn) {
+      setNearMeOn(false);
+      return;
     }
-    setNearMeOn((v) => !v);
+    // On BEFORE locating, so a failure — even a synchronous one — wins.
+    setNearMeOn(true);
+    if (!userLocation) locate();
   }
+
+  // The notice sits over the sheet on a phone: it clears itself, and its close
+  // button clears it sooner. It used to stay for the rest of the visit.
+  useEffect(() => {
+    if (!locateError) return;
+    const timer = window.setTimeout(() => setLocateError(null), 10_000);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [locateError]);
 
   const nearMe = useMemo<NearMe | null>(
     () => (nearMeOn && userLocation ? { center: userLocation, radiusKm } : null),
@@ -1020,12 +1041,26 @@ export function MapExplorer({
         />
       )}
 
+      {/* What happened AND what to do next — a refusal is fixed in the
+        browser's settings, anything else by trying again — with a way to close
+        it. It used to be the first sentence alone, with no close and no end. */}
       {locateError && (
         <div
           role="alert"
-          className="absolute inset-x-4 bottom-20 z-40 rounded-md bg-danger-bg px-3 py-2 text-caption text-danger lg:inset-x-auto lg:left-24 lg:bottom-6"
+          className="absolute inset-x-4 bottom-20 z-40 flex items-start gap-1 rounded-md bg-danger-bg py-1 pr-1 pl-3 text-caption text-danger lg:inset-x-auto lg:left-24 lg:bottom-6 lg:max-w-sm"
         >
-          {t('locateError')}
+          <p className="flex-1 py-2">
+            <span className="font-semibold">{t('locateError')}</span>{' '}
+            {locateError === 'denied' ? t('locateDeniedHelp') : t('locateRetryHelp')}
+          </p>
+          <IconButton
+            aria-label={t('close')}
+            variant="ghost"
+            onClick={() => setLocateError(null)}
+            className="shrink-0 text-danger hover:text-danger"
+          >
+            <X size={18} />
+          </IconButton>
         </div>
       )}
     </div>

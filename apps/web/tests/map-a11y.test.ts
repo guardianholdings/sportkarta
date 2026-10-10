@@ -90,3 +90,31 @@ describe('the phone list keeps its place (M-9)', () => {
     );
   });
 });
+
+/**
+ * After a refused location request the red notice covered the phone's sheet for
+ * the rest of the visit — no close, no end, no next step — and «Около мен»
+ * stayed switched on around a location that did not exist (M-10).
+ */
+describe('a failed location request', () => {
+  it('switches «Около мен» back off', () => {
+    expect(explorer).toMatch(
+      /\(error\) => \{\s*setLocateError\([^)]*\);\s*setLocating\(false\);\s*setNearMeOn\(false\);/,
+    );
+    // Switched on BEFORE locating, so even a synchronous failure wins.
+    expect(explorer).toMatch(/setNearMeOn\(true\);\s*if \(!userLocation\) locate\(\);/);
+  });
+
+  it('can be closed, and closes itself', () => {
+    expect(explorer).toMatch(/onClick=\{\(\) => setLocateError\(null\)\}/);
+    expect(explorer).toMatch(/window\.setTimeout\(\(\) => setLocateError\(null\), 10_000\)/);
+  });
+
+  it('says what to do next', () => {
+    expect(explorer).toMatch(
+      /locateError === 'denied' \? t\('locateDeniedHelp'\) : t\('locateRetryHelp'\)/,
+    );
+    expect(bg.Map.locateError).toBe('Местоположението ви не е достъпно.');
+    expect(bg.Map.locateDeniedHelp).toMatch(/^Разрешете достъпа до местоположението/);
+  });
+});
