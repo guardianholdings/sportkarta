@@ -37,14 +37,10 @@ jobs:
       # the bumps weekly.
       - name: Dependency audit (fails on a critical advisory in what ships)
         env:
-          # Accepted, each with its reason. Remove an id when its fix lands.
-          #  GHSA-jrc7-96c5-q579  maplibre-gl <=6.4.0: the sanitizer MapLibre
-          #    runs over ATTRIBUTION html can be bypassed. Its only input here
-          #    is the attribution of our own sources — constants in
-          #    apps/web/lib/map/{style,external-layers}.ts and the self-built
-          #    pmtiles archive — never anything a visitor or a third party
-          #    writes. The fix is the 6.x major, which is map work of its own.
-          ACCEPTED: GHSA-jrc7-96c5-q579
+          # Accepted, each with its reason (space-separated ids). Remove an id
+          # when its fix lands. Empty since 10 Oct 2026, when maplibre-gl 6.13
+          # closed GHSA-jrc7-96c5-q579.
+          ACCEPTED: ''
         run: |
           set -uo pipefail
           report="$RUNNER_TEMP/audit.json"
