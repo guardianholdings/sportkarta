@@ -9,6 +9,7 @@ import {
   MAX_DURATION_S,
   MIN_DURATION_S,
   normalizeTraining,
+  parseDistanceKm,
   parseDuration,
   TRAINING_EVIDENCE,
   TRAINING_SOURCES,
@@ -184,6 +185,37 @@ describe('parseDuration', () => {
     for (const raw of ['0:45', '1:30', '12:00']) {
       expect(formatDuration(parseDuration(raw) ?? 0)).toBe(raw.replace(/^0(\d):/, '$1:'));
     }
+  });
+});
+
+describe('parseDistanceKm', () => {
+  it('reads a decimal comma as well as a point, into whole metres', () => {
+    // «5,5» is how a Bulgarian writes it, and what a bg decimal keypad types.
+    expect(parseDistanceKm('5,5')).toBe(5500);
+    expect(parseDistanceKm('5.5')).toBe(5500);
+    expect(parseDistanceKm('10,35')).toBe(10_350);
+    expect(parseDistanceKm(' 42 ')).toBe(42_000);
+    expect(parseDistanceKm('1 000,5')).toBe(1_000_500);
+    expect(parseDistanceKm(',5')).toBe(500);
+  });
+
+  it('rounds to the metre instead of truncating to the kilometre', () => {
+    // The old action stored Math.trunc(5.5) * 1000 — a 5,5 km run as 5 km.
+    expect(parseDistanceKm('5.5')).not.toBe(5000);
+    expect(parseDistanceKm('0,0005')).toBe(1);
+    expect(parseDistanceKm('5.55')).toBe(5550);
+  });
+
+  it('is null when left empty — distance is optional', () => {
+    expect(parseDistanceKm('')).toBeNull();
+    expect(parseDistanceKm('   ')).toBeNull();
+  });
+
+  it('is NaN for anything that is not a number, so the validator reports it', () => {
+    for (const raw of ['пет', '5km', '5,5,5', '-3', '1e3', '5.5.5']) {
+      expect(Number.isNaN(parseDistanceKm(raw)), raw).toBe(true);
+    }
+    expect(problems({ distanceM: parseDistanceKm('пет') })).toEqual(['distance_out_of_range']);
   });
 });
 

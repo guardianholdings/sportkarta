@@ -1,6 +1,8 @@
 import { getDb } from '@sportkarta/db';
 import { getTranslations } from 'next-intl/server';
 
+import { formatMonthYear } from '@/lib/format';
+import { memberName } from '@/lib/member-name';
 import { publicPassport } from '@/lib/passport';
 import { renderOgCard } from '@/lib/og/card';
 import { OG_PALETTE } from '@/lib/og/palette';
@@ -61,12 +63,17 @@ export async function GET(_request: Request, { params }: { params: Params }) {
   // a page and outlives the decision to publish. Its keys are pinned by
   // tests/passport-share-privacy.test.ts.
   const share = toPassportShare(passport);
-  const t = await getTranslations({ locale: lang, namespace: 'Og' });
+  const [t, tPassport] = await Promise.all([
+    getTranslations({ locale: lang, namespace: 'Og' }),
+    getTranslations({ locale: lang, namespace: 'Passport' }),
+  ]);
 
   return renderOgCard({
     eyebrow: share.homeCity,
-    title: share.displayName,
-    subtitle: t('passport.since', { month: share.memberSince }),
+    // Never an empty title: an email-code sign-up has display_name ''.
+    title: memberName(share.displayName, tPassport('unnamedMember')),
+    // «Член от октомври 2026 г.», not «Член от 2026-10».
+    subtitle: t('passport.since', { month: formatMonthYear(share.memberSince, lang) }),
     stats: [
       // The label AGREES with the number. Bulgarian has no bare plural noun
       // that works for both: a fixed "тренировки" renders "1 тренировки", which

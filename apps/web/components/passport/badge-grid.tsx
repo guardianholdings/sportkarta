@@ -3,6 +3,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import type { BadgeState } from '@sportkarta/lib/badges';
 
 import { badgeArt } from '@/lib/design/badge-art';
+import { formatMonthYear } from '@/lib/format';
 
 /**
  * The badge grid.
@@ -85,7 +86,16 @@ export async function BadgeGrid({
                 )}
               </span>
             )}
-            <h3 className="text-body-sm font-semibold">{t(`${badge.slug}.name`)}</h3>
+            <h3 className="text-body-sm font-semibold">
+              {t(`${badge.slug}.name`)}
+              {/* Earned and locked differ only in tint, border and a grey
+                  coin — nothing a screen reader hears. The state is said in
+                  words, inside the heading, so heading navigation carries it
+                  too (S-19). */}
+              <span className="sr-only">
+                , {badge.earned ? t('stateEarned') : t('stateLocked')}
+              </span>
+            </h3>
             <p className="mt-1 text-caption">{t(`${badge.slug}.description`)}</p>
             {!badge.earned && (
               <p className="mt-2 text-caption tabular-nums text-text-muted">
@@ -124,14 +134,8 @@ export async function PublicBadgeGrid({ badges }: { badges: PublicBadgeView[] })
   }
 
   // The privacy contract keeps month granularity; the READER still deserves
-  // „август 2026", not the wire format.
-  const monthFormat = new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'bg-BG', {
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
-  const monthLabel = (earnedMonth: string) =>
-    monthFormat.format(new Date(`${earnedMonth}-01T00:00:00Z`));
+  // „август 2026 г.", not the wire format — the one month formatter.
+  const monthLabel = (earnedMonth: string) => formatMonthYear(earnedMonth, locale);
 
   return (
     <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">

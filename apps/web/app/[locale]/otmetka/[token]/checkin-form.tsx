@@ -1,11 +1,12 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useActionState, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { usePosition, type PositionPhase } from '@/components/facility/position-fields';
 import { Button } from '@/components/ui/button';
 import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
+import { useFormAction } from '@/lib/use-form-action';
 
 import { redeemCheckinAction, type CheckinState } from './actions';
 
@@ -142,11 +143,14 @@ export function offersUnscored(phase: PositionPhase, stalled: boolean): boolean 
 
 export function CheckinForm({ token, occurrenceId }: Props) {
   const t = useTranslations('Checkin');
-  const [state, submit, pending] = useActionState(redeemCheckinAction, initial);
+  // useFormAction, the app's one form contract: an error answer leaves the
+  // form as it was (React 19 would reset it), a pre-hydration tap still posts,
+  // and its ref is the form the fix effect below submits.
+  const [state, formProps, pending] = useFormAction(redeemCheckinAction, initial);
   // Never asks on load: a member who already allowed location gets the fix
   // silently, everybody else is asked by the check-in tap itself.
   const { phase, latRef, lonRef, request } = usePosition();
-  const formRef = useRef<HTMLFormElement>(null);
+  const formRef = formProps.ref;
   // Set by a check-in tap that is waiting for the fix; cleared once it posts.
   const [waiting, setWaiting] = useState(false);
   // That tap has waited UNSCORED_OFFER_AFTER_MS with no answer.
@@ -166,7 +170,7 @@ export function CheckinForm({ token, occurrenceId }: Props) {
     // flipped), so this posts WITH it. requestSubmit rather than a direct call
     // to the action so the form goes through the same path as a tap.
     formRef.current?.requestSubmit();
-  }, [waiting, phase]);
+  }, [waiting, phase, formRef]);
 
   if (state.status === 'ok') {
     const points = state.pointsAwarded ?? 0;
@@ -198,7 +202,7 @@ export function CheckinForm({ token, occurrenceId }: Props) {
   }
 
   return (
-    <form ref={formRef} action={submit} className="space-y-3">
+    <form {...formProps} className="space-y-3">
       <input type="hidden" name="token" value={token} />
       <input type="hidden" name="occurrenceId" value={occurrenceId} />
       <input type="hidden" name="lat" ref={latRef} />

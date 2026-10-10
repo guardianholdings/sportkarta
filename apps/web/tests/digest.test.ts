@@ -2,7 +2,13 @@ import { renderSql, type SQL } from '@sportkarta/db';
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { newUnsubscribeToken, subscribe, unsubscribe, unsubscribeByToken } from '@/lib/digest';
+import {
+  newUnsubscribeToken,
+  subscribe,
+  subscriptionByToken,
+  unsubscribe,
+  unsubscribeByToken,
+} from '@/lib/digest';
 
 /**
  * The digest opt-in (docs/ROADMAP.md §6, Stage 4.4). The week query itself is
@@ -59,9 +65,10 @@ describe('subscribe', () => {
 
 describe('unsubscribeByToken', () => {
   it('needs no user id — the token alone stops the mail', async () => {
-    const db = fakeDb([[{ name_bg: 'София', name_en: 'Sofia' }]]);
+    const db = fakeDb([[{ id: 68, name_bg: 'София', name_en: 'Sofia' }]]);
     const removed = await unsubscribeByToken(db, 'tok3n');
-    expect(removed).toEqual({ nameBg: 'София', nameEn: 'Sofia' });
+    // The id goes to the "done" screen, which names the city (L-6).
+    expect(removed).toEqual({ municipalityId: 68, nameBg: 'София', nameEn: 'Sofia' });
     const statement = db.statements[0];
     // Somebody who has lost interest must not have to sign in to make it stop.
     expect(statement?.sql).not.toMatch(/user_id/i);
@@ -72,6 +79,25 @@ describe('unsubscribeByToken', () => {
     // Which is also what a second click on the same link produces.
     const db = fakeDb([[]]);
     expect(await unsubscribeByToken(db, 'stale')).toBeNull();
+  });
+});
+
+describe('subscriptionByToken', () => {
+  it('names the city for the confirm page WITHOUT unsubscribing (a GET must not)', async () => {
+    const db = fakeDb([[{ id: 68, name_bg: 'София', name_en: 'Sofia' }]]);
+    expect(await subscriptionByToken(db, 'tok3n')).toEqual({
+      municipalityId: 68,
+      nameBg: 'София',
+      nameEn: 'Sofia',
+    });
+    const statement = db.statements[0];
+    expect(statement?.sql).toMatch(/^\s*SELECT/);
+    expect(statement?.sql).not.toMatch(/DELETE|UPDATE/i);
+    expect(statement?.params).toEqual(['tok3n']);
+  });
+
+  it('is null for an unknown token', async () => {
+    expect(await subscriptionByToken(fakeDb([[]]), 'stale')).toBeNull();
   });
 });
 
@@ -157,6 +183,13 @@ describe('unsubscribe is a POST, not a GET', () => {
     // read the mail — and would be a CSRF sink for any leaked token.
     expect(pageSource).not.toMatch(/unsubscribeByToken/);
     expect(pageSource).toMatch(/<form action=\{confirmUnsubscribeAction\}>/);
+    // It READS the city to name it (L-6) — subscriptionByToken is a SELECT.
+    expect(pageSource).toMatch(/subscriptionByToken\(/);
+  });
+
+  it('names the city once it is done, from an id rather than anything typed', () => {
+    expect(actionSource).toMatch(/ok&m=\$\{String\(removed\.municipalityId\)\}/);
+    expect(pageSource).toMatch(/t\('unsubscribedCity', \{ city \}\)/);
   });
 
   it('does the delete in a server action that needs no session', () => {

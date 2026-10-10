@@ -30,6 +30,12 @@ export interface OccurrenceView {
   cancelled: boolean;
   /** True once it has started; RSVP closes then. */
   started: boolean;
+  /**
+   * True once it is OVER (`ends_at`, the database's clock). Started is not
+   * enough: a session from last Tuesday still said «вече е започнала» and still
+   * offered an invite and a calendar file for an evening that had passed (S-14).
+   */
+  ended: boolean;
   facilityName: string | null;
   facilitySlug: string | null;
   organizerName: string | null;
@@ -112,6 +118,7 @@ export async function occurrenceView(
       o.starts_at,
       (o.status = 'cancelled') AS cancelled,
       (o.starts_at <= now()) AS started,
+      (o.ends_at <= now()) AS ended,
       s.title, s.description, s.sport, s.skill_level, s.duration_minutes,
       s.capacity::int AS capacity,
       f.name AS facility_name, f.slug AS facility_slug,
@@ -153,6 +160,7 @@ export async function occurrenceView(
     durationMinutes: Number(row.duration_minutes),
     cancelled: row.cancelled === true,
     started: row.started === true,
+    ended: row.ended === true,
     facilityName: (row.facility_name as string | null) ?? null,
     facilitySlug: (row.facility_slug as string | null) ?? null,
     organizerName: (row.organizer_name as string | null) ?? null,

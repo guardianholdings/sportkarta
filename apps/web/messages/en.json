@@ -1032,8 +1032,9 @@
     "spotsUnlimited": "{going} going",
     "at": "at {facility}",
     "subscribe": "Email me this every Monday",
-    "subscribed": "You are subscribed to the weekly programme.",
-    "unsubscribed": "Unsubscribed. You will not receive the weekly programme again.",
+    "subscribed": "Your subscription is active.",
+    "unsubscribed": "Your subscription has been stopped.",
+    "unsubscribedCity": "Your subscription to the weekly programme for {city} has been stopped.",
     "unsubscribeInvalid": "This unsubscribe link is invalid or has already been used.",
     "backToMap": "See everything on the map",
     "weekOf": "Week of {date}",
@@ -1041,6 +1042,7 @@
     "optOut": "Stop emails",
     "noCities": "No cities have a weekly programme yet.",
     "unsubscribeConfirmTitle": "Unsubscribe from the weekly programme",
+    "unsubscribeConfirmTitleCity": "Unsubscribe from the weekly programme for {city}",
     "unsubscribeConfirmBody": "Press the button to stop the emails. You do not need to sign in.",
     "indexTitle": "This week",
     "indexIntro": "Pick a city to see what is being played this week.",
@@ -1063,7 +1065,8 @@
     "saturday": "Saturday",
     "sunday": "Sunday",
     "spots": "{going} of {capacity} places",
-    "spotsUnlimited": "{going} going",
+    "spotsUnlimitedOne": "{going} going",
+    "spotsUnlimitedOther": "{going} going",
     "viewWeek": "See the whole week",
     "unsubscribe": "Unsubscribe",
     "footer": "You are receiving this because you subscribed to the weekly programme on POPS."
@@ -1234,12 +1237,17 @@
     "visibilityTitle": "Who can see my passport",
     "visibilityPrivateExplainer": "Your passport is private. Nobody else can see it.",
     "visibilityPublicExplainer": "Your passport is public at this address. It shows only badges, totals and streaks — never when or where you played. Your name and city will also appear on the leaderboards, in campaigns and in divisions.",
+    "visibilityPublishConsequences": "If you make it public, anyone with the link will see your badges, totals and streaks — never when or where you played. Your name and city will also appear on the leaderboards, in campaigns and in divisions.",
     "makePublic": "Make it public",
     "makePrivate": "Make it private",
+    "publishNeedsName": "To publish your passport, first add a name in your profile — it is the name the leaderboards will show.",
+    "publishNeedsNameLink": "Add a name in your profile",
     "activityExplainer": "Optionally show your activity by month too — counts of contributions and sessions only, with no places or dates.",
     "showActivity": "Show activity by month",
     "hideActivity": "Hide activity by month",
     "publicMetaTitle": "{name}’s sports passport",
+    "publicMetaTitleUnnamed": "Sports passport",
+    "unnamedMember": "Unnamed member",
     "publicSubtitle": "On POPS since {since}",
     "publicSubtitleWithCity": "{city} · on POPS since {since}",
     "streak_atRisk": "No attendance recorded yet this week — your streak continues if you show up before Sunday."
@@ -1248,6 +1256,8 @@
     "new": "new",
     "noneYet": "No badges earned yet.",
     "progress": "{have} of {need}",
+    "stateEarned": "earned",
+    "stateLocked": "not earned yet",
     "first_contribution": {
       "name": "First step",
       "description": "Your first contribution to the map."
@@ -1266,14 +1276,14 @@
     },
     "three_municipalities": {
       "name": "Beyond my town",
-      "description": "Contributions in 3 different municipalities."
+      "description": "You contributed in 3 different municipalities."
     },
     "five_sports": {
       "name": "All-rounder",
-      "description": "Contributions to places for 5 different sports."
+      "description": "You contributed to places for 5 different sports."
     },
     "first_game": {
-      "name": "First game",
+      "name": "First session",
       "description": "You attended your first session."
     },
     "regular_10": {
@@ -1282,11 +1292,11 @@
     },
     "streak_days_7": {
       "name": "Seven in a row",
-      "description": "Active seven days running."
+      "description": "You were active 7 days in a row."
     },
     "streak_weeks_4": {
       "name": "A month in motion",
-      "description": "Played every week for 4 weeks."
+      "description": "You trained every week for 4 weeks running."
     },
     "regular_25": {
       "name": "Steady",
@@ -1326,9 +1336,10 @@
     "columnContributions": "Contributions",
     "empty": "Nobody is on this leaderboard yet.",
     "yourStandingTitle": "Your standing",
-    "standingRanked": "You are ranked {rank} of {total} members, with {points} points.",
+    "standingRanked": "You are {rank, selectordinal, one {#st} two {#nd} few {#rd} other {#th}} of {total, plural, one {# member} other {# members}}, with {points, plural, one {# point} other {# points}}.",
     "standingSignedOut": "Sign in to see your standing.",
     "standingNotPublic": "To take part in the leaderboard, make your sports passport public.",
+    "standingNoPoints": "You have no points on this leaderboard yet.",
     "standingPassportLink": "Go to my passport",
     "eligibilityNote": "Only members who have made their sports passport public appear here. Age is not a condition.",
     "nationalSectionTitle": "Overall board",
@@ -1352,8 +1363,8 @@
     "weightValue": "{weight} pts",
     "capNote": "At most {cap} points per day — so it is a competition, not a race for who has the most free time.",
     "scopeNote_national": "This campaign covers the whole country.",
-    "scopeNote_city": "This campaign covers facilities in the selected municipality.",
-    "scopeNote_quarter": "This campaign covers facilities in the selected quarter.",
+    "scopeNote_city": "This campaign covers facilities in {city}.",
+    "scopeNote_quarter": "This campaign covers facilities in {quarter}, {city}.",
     "event_facility_added": "facility added",
     "event_facility_verified": "facility verified",
     "event_condition_reported": "condition reported",
@@ -1371,7 +1382,7 @@
     "noResults": "No ranked entries.",
     "eligibilityNote": "The public standings show only members with a public sports passport. Everyone's points count — a member without a public passport can win a prize without appearing publicly.",
     "yourStandingTitle": "Your standing",
-    "yourScore": "You have {score} points in this campaign.",
+    "yourScore": "You have {score, plural, one {# point} other {# points}} in this campaign.",
     "placingNote": "The final placings also include members without a public passport, so your place there can be lower than in the public table.",
     "yourStandingNone": "You have no points in this campaign yet.",
     "awaitingTitle": "The campaign has finished",
@@ -1565,10 +1576,11 @@
   "Session": {
     "metaTitle": "{title} — session",
     "metaDescription": "{title} at {facility}. See when it is, how many places are left, and sign up.",
-    "metaDescriptionNoPlace": "{title} — a free play session. See when it is, how many places are left, and sign up.",
+    "metaDescriptionNoPlace": "{title} — a free group training session. See when it is, how many places are left, and sign up.",
     "backToFacility": "← Back to the facility",
     "cancelledNotice": "This session has been cancelled.",
     "startedNotice": "This session has already started.",
+    "endedNotice": "This session has ended.",
     "labelWhen": "When",
     "labelWhere": "Where",
     "labelSport": "Sport",
@@ -1582,6 +1594,8 @@
     "join": "I'm in",
     "joinFull": "Join the waitlist",
     "leave": "Withdraw",
+    "leaveConfirm": "Withdraw from this session? Your place will go to somebody else.",
+    "leaveConfirmWaitlisted": "Leave the waitlist? If you sign up again, you will go to the back of it.",
     "pending": "One moment…",
     "youAreGoing": "You are signed up for this session.",
     "youAreWaitlisted": "You are number {position} on the waitlist.",
@@ -1642,12 +1656,13 @@
     "labelWhere": "Where",
     "labelSpots": "Places",
     "spots": "{going} of {capacity}",
-    "spotsUnlimited": "{going} signed up",
+    "spotsUnlimitedOne": "{going} signed up",
+    "spotsUnlimitedOther": "{going} signed up",
     "viewSession": "Session page",
     "addToCalendar": "Add to calendar",
     "withdraw": "Cannot make it? Withdraw here",
     "calendarFeed": "Subscribe your calendar to all your sessions",
-    "footer": "POPS — play outside."
+    "footer": "POPS — More than just sport"
   },
   "Checkin": {
     "disabled": "QR check-in is unavailable right now. Ask the organiser.",
@@ -1669,6 +1684,9 @@
     "scanHint": "Scan this code to record your attendance.",
     "rotates": "The code changes every {seconds} seconds.",
     "keepScreenOn": "Keep the screen on while everybody scans.",
+    "windowOpensAt": "Check-in opens on {time}. The code will appear here by itself then.",
+    "windowOpenUntil": "Check-in is open until {time}.",
+    "windowClosedAt": "Check-in closed on {time}.",
     "outcome": {
       "scored": "Attendance recorded. You earned {points} points.",
       "unscored_method": "Attendance recorded.",
@@ -2264,23 +2282,23 @@
   },
   "Participation": {
     "sectionTitle": "Who is training",
-    "intro": "Number of trainings in the last 90 days. It counts turning up, not performance.",
-    "tableCaption": "Ranking by number of trainings",
+    "intro": "Number of training sessions in the last 90 days. It counts turning up, not performance.",
+    "tableCaption": "Ranking by number of training sessions",
     "columnRank": "Rank",
     "columnMember": "Member",
-    "columnSessions": "Trainings",
+    "columnSessions": "Training sessions",
     "columnMinutes": "Minutes",
-    "empty": "Nobody has logged a training here yet.",
+    "empty": "Nobody has logged a training session here yet.",
     "logPrompt": "Are you logging your own training?",
     "logLink": "Open your log"
   },
   "Training": {
     "metaTitle": "My training",
     "title": "Training log",
-    "intro": "Log a training even when it is not part of an organised session. The log is private. If your passport is public, your number of trainings and minutes appear on the “Who plays” board.",
-    "statSessions": "trainings (30 days)",
-    "statMinutes": "minutes",
-    "statSports": "sports",
+    "intro": "Log a training session even when it was not an organised group session. The log is private. If your passport is public, your number of training sessions and minutes appear on the “Who is training” board.",
+    "statSessions": "{count, plural, one {training session} other {training sessions}} (30 days)",
+    "statMinutes": "{count, plural, one {minute} other {minutes}}",
+    "statSports": "{count, plural, one {sport} other {sports}}",
     "addTitle": "New training",
     "fieldSport": "Sport",
     "fieldStartedAt": "Start",
@@ -2299,10 +2317,11 @@
     "durationMinutes": "{minutes} min",
     "distanceKm": "{km} km",
     "delete": "Delete",
+    "deleteConfirm": "Delete this training session? This cannot be undone.",
     "problems": {
       "sportUnknown": "Choose a sport from the list.",
       "duration": "Duration must be between 1 minute and 24 hours.",
-      "distance": "That distance looks impossible.",
+      "distance": "Distance must be a number up to 1000 km, for example 5.5.",
       "elevation": "That elevation gain looks impossible.",
       "startedAtInvalid": "Enter a date and time.",
       "startedAtFuture": "You cannot log a training in the future.",
@@ -2354,7 +2373,7 @@
       "x": "X"
     },
     "triggerTraining": "Share the training",
-    "triggerWeek": "Share the week",
+    "triggerThirtyDays": "Share your last 30 days",
     "triggerPassport": "Share the passport",
     "triggerDivision": "Share the division",
     "triggerLegend": "Share the place",
@@ -2363,10 +2382,10 @@
     "triggerCampaign": "Share the campaign",
     "textTraining": "{sport} · {minutes} min. Logged a training on POPS.",
     "textTrainingKm": "{sport} · {km} km in {minutes} min. Logged a training on POPS.",
-    "textWeek": "{sessions} trainings in the last 30 days. We count turning up, not performance.",
+    "textWeek": "{sessions, plural, one {# training session} other {# training sessions}} in the last 30 days. We count turning up, not performance.",
     "textPassport": "{points} points for contributions to the map of free sports facilities.",
-    "textDivision": "{tier}, {rank}th place this week.",
-    "textLegend": "{place}: the most regular person here has come {days} days.",
+    "textDivision": "{tier}: {rank, selectordinal, one {#st} two {#nd} few {#rd} other {#th}} place this week.",
+    "textLegend": "{place}: the most regular person here has turned up on {days, plural, one {# day} other {# days}}.",
     "textFacility": "{place} — a free sports facility on POPS.",
     "textSession": "{title} — {day}. Come along.",
     "textCampaign": "{title} — join in."
@@ -2391,8 +2410,8 @@
     },
     "week": {
       "eyebrow": "last 30 days",
-      "heroLabel": "trainings",
-      "title": "Trainings in the last 30 days"
+      "heroLabel": "training sessions",
+      "title": "Training sessions in the last 30 days"
     },
     "passport": {
       "eyebrow": "sports passport",

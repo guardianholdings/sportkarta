@@ -1,4 +1,5 @@
 import { getDb } from '@sportkarta/db';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
@@ -21,12 +22,22 @@ import { markPresentAction } from './actions';
  * check-ins landing while the phone sits on a bench still appear.
  */
 export const dynamic = 'force-dynamic';
-export const metadata = { robots: { index: false, follow: false } };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const REFRESH_SECONDS = 60;
 
 type PageParams = Promise<{ locale: string; occurrenceId: string }>;
+
+/**
+ * A real title (D-4): the metadata used to set only robots, so the organiser's
+ * tab read as the bare site title. Static on purpose — the session's own title
+ * would need the organiser gate run a second time just for the <title>.
+ */
+export async function generateMetadata({ params }: { params: PageParams }): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'Roster' });
+  return { title: t('signedUp'), robots: { index: false, follow: false } };
+}
 
 /** "сряда, 12 август · 18:30" — a read-aloud date, not the wire format. */
 function formatLocal(startsAtLocal: string, locale: string): string {

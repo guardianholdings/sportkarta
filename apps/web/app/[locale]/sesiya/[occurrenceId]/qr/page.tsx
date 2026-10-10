@@ -6,6 +6,12 @@ import QRCode from 'qrcode';
 
 import { requireUser } from '@/lib/auth-session';
 import { checkinSecret } from '@/lib/checkin-config';
+import { formatDateTime } from '@/lib/format';
+import {
+  CHECKIN_CLOSES_AFTER_MINUTES,
+  CHECKIN_OPENS_BEFORE_MINUTES,
+  checkinWindowSql,
+} from '@/lib/sessions/checkin';
 import { siteUrl } from '@/lib/seo';
 
 /**
@@ -40,12 +46,23 @@ interface OrganizerView {
   startsAtLocal: string;
   checkedIn: number;
   going: number;
+  /** When check-in opens and closes — the window `checkIn` enforces. */
+  opensAt: Date;
+  closesAt: Date;
+  /** Where now() is against that window, asked of the DATABASE's clock. */
+  window: 'before' | 'open' | 'after';
 }
 
 async function organizerView(occurrenceId: string, actorId: string): Promise<OrganizerView | null> {
   const result = await getDb().execute(sql`
     SELECT s.title,
            to_char(o.starts_at_local, 'YYYY-MM-DD"T"HH24:MI:SS') AS starts_at_local,
+           o.starts_at, o.ends_at,
+           -- The SAME expression checkIn evaluates, so the screen can never
+           -- show a code the redemption would refuse as out of window.
+           ${checkinWindowSql()} AS checkin_open,
+           (o.ends_at + make_interval(mins => ${CHECKIN_CLOSES_AFTER_MINUTES}) < now())
+             AS checkin_over,
            (SELECT count(*)::int FROM play_session_checkins c WHERE c.occurrence_id = o.id)
              AS checked_in,
            (SELECT count(*)::int FROM play_session_rsvp_positions p
@@ -61,11 +78,16 @@ async function organizerView(occurrenceId: string, actorId: string): Promise<Org
   `);
   const row = result.rows[0];
   if (!row) return null;
+  const startsAt = new Date(row.starts_at as string | number | Date);
+  const endsAt = new Date(row.ends_at as string | number | Date);
   return {
     title: String(row.title),
     startsAtLocal: String(row.starts_at_local),
     checkedIn: Number(row.checked_in ?? 0),
     going: Number(row.going ?? 0),
+    opensAt: new Date(startsAt.getTime() - CHECKIN_OPENS_BEFORE_MINUTES * 60_000),
+    closesAt: new Date(endsAt.getTime() + CHECKIN_CLOSES_AFTER_MINUTES * 60_000),
+    window: row.checkin_open === true ? 'open' : row.checkin_over === true ? 'after' : 'before',
   };
 }
 
@@ -93,6 +115,35 @@ export default async function CheckinQrPage({ params }: { params: PageParams }) 
           className="rounded border border-warning-border bg-warning-bg p-3 text-warning"
         >
           {t('disabled')}
+        </p>
+      </main>
+    );
+  }
+
+  /**
+   * OUTSIDE THE WINDOW THERE IS NO CODE (S-14). The screen used to mint codes
+   * the night before and the day after, and every scan of one failed with
+   * «checkin_window_closed» while the organiser's screen looked fine. Before
+   * the window it says when it opens and keeps refreshing, so the code appears
+   * by itself; after, it says when it closed.
+   */
+  if (view.window !== 'open') {
+    return (
+      <main className="mx-auto max-w-md space-y-4 p-4 text-center">
+        {view.window === 'before' && <meta httpEquiv="refresh" content="60" />}
+        <header className="space-y-1">
+          <h1 className="text-h2 font-extrabold tracking-tight text-ink">{view.title}</h1>
+          <p className="text-body-sm text-text-muted">
+            {t('attendance', { checkedIn: view.checkedIn, going: view.going })}
+          </p>
+        </header>
+        <p
+          role="status"
+          className="rounded-card border border-line bg-paper-sunk p-4 text-body text-ink"
+        >
+          {view.window === 'before'
+            ? t('windowOpensAt', { time: formatDateTime(view.opensAt, locale) })
+            : t('windowClosedAt', { time: formatDateTime(view.closesAt, locale) })}
         </p>
       </main>
     );
@@ -133,6 +184,9 @@ export default async function CheckinQrPage({ params }: { params: PageParams }) 
       <div className="mx-auto w-full max-w-[320px]" dangerouslySetInnerHTML={{ __html: svg }} />
 
       <p className="text-body-sm text-ink-soft">{t('scanHint')}</p>
+      <p className="text-body-sm text-ink-soft">
+        {t('windowOpenUntil', { time: formatDateTime(view.closesAt, locale) })}
+      </p>
       <p className="text-caption text-text-muted">
         {t('rotates', { seconds: Math.round(WINDOW_MS / 1000) })}
       </p>

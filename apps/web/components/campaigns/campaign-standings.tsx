@@ -2,6 +2,7 @@ import type { FrozenResultRow, StandingRow } from '@sportkarta/db';
 import { getTranslations } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
+import { memberName } from '@/lib/member-name';
 
 /**
  * Campaign standings, live or frozen.
@@ -25,7 +26,10 @@ export async function CampaignStandings({
   leaderboardType: 'individual' | 'city';
   cityNames: Record<number, string>;
 }) {
-  const t = await getTranslations('Campaign');
+  const [t, tPassport] = await Promise.all([
+    getTranslations('Campaign'),
+    getTranslations('Passport'),
+  ]);
 
   if (rows.length === 0) {
     return <p className="text-body-sm text-ink-soft">{t('noScoresYet')}</p>;
@@ -67,7 +71,7 @@ export async function CampaignStandings({
                     href={`/pasport/${row.handle}`}
                     className="font-medium text-link hover:text-link-hover"
                   >
-                    {row.displayName}
+                    {memberName(row.displayName, tPassport('unnamedMember'))}
                   </Link>
                 ) : (
                   t('withheld')
@@ -104,7 +108,10 @@ export async function FrozenStandings({
   leaderboardType: 'individual' | 'city';
   cityNames: Record<number, string>;
 }) {
-  const t = await getTranslations('Campaign');
+  const [t, tPassport] = await Promise.all([
+    getTranslations('Campaign'),
+    getTranslations('Passport'),
+  ]);
 
   if (rows.length === 0) {
     return <p className="text-body-sm text-ink-soft">{t('noResults')}</p>;
@@ -130,7 +137,7 @@ export async function FrozenStandings({
                 href={`/pasport/${row.handle}`}
                 className="font-medium text-link hover:text-link-hover"
               >
-                {row.displayName}
+                {memberName(row.displayName, tPassport('unnamedMember'))}
               </Link>
             ) : (
               t('withheld')

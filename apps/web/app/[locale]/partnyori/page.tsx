@@ -47,7 +47,9 @@ function PartnerCard({ partner, locale }: { partner: PartnerRow; locale: string 
            route on our own origin; a fixed 64px logo gains nothing from next/image */
         <img
           src={`/api/partners/logo/${String(partner.id)}`}
-          alt={name}
+          // Decorative: the name is the card's own text, right beside it, and
+          // alt={name} announced it twice (S-19).
+          alt=""
           width={64}
           height={64}
           className="size-16 shrink-0 rounded-md border border-line bg-surface object-contain p-1"

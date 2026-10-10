@@ -34,6 +34,12 @@ export type SessionMailKind =
   | 'occurrence_cancelled';
 
 export interface SessionMailStrings {
+  /**
+   * The locale these strings are in. It writes the date as well: «събота,
+   * 12 октомври 2026 г., 18:30» and "Saturday 12 October 2026, 18:30" are copy
+   * too, not a format the renderer may pick for itself.
+   */
+  locale: string;
   /** `{title}` — one subject line per kind. */
   subjectConfirmed: string;
   subjectWaitlisted: string;
@@ -66,8 +72,13 @@ export interface SessionMailStrings {
   labelSpots: string;
   /** `{going}` `{capacity}` */
   spots: string;
-  /** `{going}` */
-  spotsUnlimited: string;
+  /**
+   * `{going}`, in two explicit forms rather than an ICU plural, like the
+   * digest's intro: this runs in the worker with no next-intl, and «1 записани»
+   * is what a single form printed for the first person to sign up.
+   */
+  spotsUnlimitedOne: string;
+  spotsUnlimitedOther: string;
 
   viewSession: string;
   addToCalendar: string;
@@ -116,18 +127,31 @@ function fill(template: string, values: Record<string, string | number>): string
 }
 
 /**
- * `YYYY-MM-DDTHH:MM:SS` → `DD.MM.YYYY, HH:MM`. Pure string surgery on a wall
- * clock: constructing a Date here would re-interpret the civil time as an
- * instant in whatever zone the worker container happens to be in, which is the
- * single most common way a "18:00" session becomes "21:00" in somebody's mail.
+ * `YYYY-MM-DDTHH:MM:SS` → «събота, 12 октомври 2026 г., 18:30» (T-20). It read
+ * «12.10.2026, 18:30» in both languages, with no weekday — the one thing a
+ * reminder is read for.
+ *
+ * The TIME is still string surgery on the wall clock: constructing an instant
+ * from it would re-interpret the civil time in whatever zone the worker
+ * container happens to be in, which is the single most common way a "18:00"
+ * session becomes "21:00" in somebody's mail. Only the DATE goes through Intl,
+ * for its weekday and month names — read at noon UTC and formatted in UTC, which
+ * names the same calendar day whatever zone anything runs in.
  */
-export function formatLocal(startsAtLocal: string): string {
+export function formatLocal(startsAtLocal: string, locale: string): string {
   // Matched rather than split: `'not-a-date'.split('-')` yields three truthy
   // parts and a truthiness check would happily render "date.a.not, ".
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(startsAtLocal);
   if (!match) return startsAtLocal;
   const [, year, month, day, hour, minute] = match;
-  return `${day}.${month}.${year}, ${hour}:${minute}`;
+  const date = new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'bg', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), 12)));
+  return `${date}, ${String(hour)}:${String(minute)}`;
 }
 
 function subjectFor(data: SessionMailData, strings: SessionMailStrings): string {
@@ -172,7 +196,9 @@ export function renderSessionMail(data: SessionMailData, strings: SessionMailStr
   const cancelled = data.kind === 'occurrence_cancelled';
   const spots =
     data.capacity === null
-      ? fill(strings.spotsUnlimited, { going: data.going })
+      ? fill(data.going === 1 ? strings.spotsUnlimitedOne : strings.spotsUnlimitedOther, {
+          going: data.going,
+        })
       : fill(strings.spots, { going: data.going, capacity: data.capacity });
 
   const name = data.recipientName.trim();
@@ -181,7 +207,7 @@ export function renderSessionMail(data: SessionMailData, strings: SessionMailStr
     '',
     leadFor(data, strings),
     '',
-    `${strings.labelWhen}: ${formatLocal(data.startsAtLocal)}`,
+    `${strings.labelWhen}: ${formatLocal(data.startsAtLocal, strings.locale)}`,
     `${strings.labelWhere}: ${data.facilityName} — ${data.sport}`,
   ];
   if (data.facilityUrl) lines.push(`  ${data.facilityUrl}`);

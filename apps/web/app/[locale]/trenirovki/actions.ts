@@ -1,7 +1,12 @@
 'use server';
 
 import { deleteTraining, getDb, recordTraining, setTrainingConsent } from '@sportkarta/db';
-import { normalizeTraining, parseDuration, type TrainingProblem } from '@sportkarta/lib/training';
+import {
+  normalizeTraining,
+  parseDistanceKm,
+  parseDuration,
+  type TrainingProblem,
+} from '@sportkarta/lib/training';
 import { revalidatePath } from 'next/cache';
 
 import { requireUser } from '@/lib/auth-session';
@@ -100,13 +105,13 @@ export async function logTrainingAction(
   // civil day, breaking the stored-Sofia-day guarantee of migration 0027.
   const startedAt = rawDate === '' ? new Date(Number.NaN) : sofiaWallClockToInstant(rawDate);
 
-  const distanceKm = optionalInt(formData.get('distanceKm'));
-
   const result = normalizeTraining({
     sport: String(formData.get('sport') ?? ''),
     startedAt,
     durationS: durationS ?? 0,
-    distanceM: distanceKm === null ? null : distanceKm * 1000,
+    // Kilometres in, METRES stored: «5,5» is 5 500 m. It was Math.trunc(km)
+    // * 1000, which kept a 5,5 km run as 5 km (S-3).
+    distanceM: parseDistanceKm(String(formData.get('distanceKm') ?? '')),
     elevationM: optionalInt(formData.get('elevationM')),
     facilityId: String(formData.get('facilityId') ?? '').trim() || null,
     note: String(formData.get('note') ?? ''),
