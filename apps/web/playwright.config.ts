@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 
 import { defineConfig, devices } from '@playwright/test';
+import { config as loadDotenv } from 'dotenv';
 
 /**
  * Which server the suite drives, and where sign-in codes go.
@@ -30,13 +31,24 @@ const RATE_LIMITS = {
   OTP_SEND_LIMIT_PER_HOUR: process.env.OTP_SEND_LIMIT_PER_HOUR ?? '1000',
 };
 
+// B0 diagnostic (draft PR only): E2E_STANDALONE runs the server the way the
+// Docker image does — `node apps/web/server.js` on HOSTNAME=0.0.0.0 — instead
+// of `next start`, which warns that it does not support output: standalone.
+// The standalone server never runs next.config.ts, which is what loads the
+// repo-root .env for `next start`; production gets its environment from
+// compose instead. So the same values are handed over here, through this
+// process's environment (dotenv never overrides a value already set).
+const standalone = Boolean(process.env.E2E_STANDALONE);
+if (standalone) loadDotenv({ path: '../../.env' });
+
 const productionServer = {
-  command: 'pnpm start',
+  command: standalone ? 'node .next/standalone/apps/web/server.js' : 'pnpm start',
   url: 'http://localhost:3000',
   reuseExistingServer: !process.env.CI,
   // A built server boots in seconds; the build itself is a workflow step.
   timeout: 60_000,
   env: {
+    ...(standalone ? { HOSTNAME: '0.0.0.0', PORT: '3000' } : {}),
     // Production refuses the development fallback secret and the published
     // placeholder (lib/auth-config.ts). A throwaway per run: sessions only have
     // to outlive the suite.
@@ -113,6 +125,16 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    // B0 diagnostic (draft PR only): the Safari engine, for that spec alone.
+    ...(process.env.E2E_WEBKIT
+      ? [
+          {
+            name: 'webkit',
+            use: { ...devices['Desktop Safari'] },
+            testMatch: /b0-add-diagnostic\.spec\.ts/,
+          },
+        ]
+      : []),
   ],
   webServer: MAILPIT_URL ? productionServer : devServer,
 });
