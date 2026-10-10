@@ -154,7 +154,25 @@ describe('summarizeMailOutputs', () => {
       { queue: 'session.notify', jobs: 2, failedJobs: 0, sent: 5, failed: 1 },
       { queue: 'session.reminders', jobs: 1, failedJobs: 0, sent: 4, failed: 2 },
       { queue: 'digest.weekly', jobs: 1, failedJobs: 1, sent: 0, failed: 0 },
+      { queue: 'moderation.notify', jobs: 0, failedJobs: 0, sent: null, failed: null },
     ]);
+  });
+
+  it('shows the statement-of-reasons mail too, counted by its jobs (UX audit A-17)', () => {
+    // One message per job and no report: a relay failure fails the job, so
+    // failed jobs are the failed mail, and recipients are not invented.
+    const outcomes = summarizeMailOutputs([
+      { name: 'moderation.notify', state: 'completed', output: null },
+      { name: 'moderation.notify', state: 'completed', output: null },
+      { name: 'moderation.notify', state: 'failed', output: { message: 'relay refused' } },
+    ]);
+    expect(outcomes.find((row) => row.queue === 'moderation.notify')).toEqual({
+      queue: 'moderation.notify',
+      jobs: 3,
+      failedJobs: 1,
+      sent: null,
+      failed: null,
+    });
   });
 
   it('ignores malformed outputs rather than throwing', () => {
@@ -209,6 +227,7 @@ describe('queueHealth / mailOutcomes', () => {
       'session.notify',
       'session.reminders',
       'digest.weekly',
+      'moderation.notify',
     ]);
   });
 });

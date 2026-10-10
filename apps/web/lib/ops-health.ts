@@ -291,9 +291,28 @@ export async function scheduleHealth(db: SqlRunner): Promise<Schedules> {
   };
 }
 
-/** The queues that send mail, and the report shape each one returns. */
-export const MAIL_QUEUES = ['session.notify', 'session.reminders', 'digest.weekly'] as const;
+/**
+ * The queues that send mail. The first three return a per-recipient report;
+ * `moderation.notify` (the statement of reasons after a refusal, 0034) sends
+ * ONE message per job and reports nothing — its outcome is logged, and a relay
+ * failure throws, so its failed jobs ARE its failed mail. It was missing from
+ * the panel entirely (UX audit 2026-10-10, A-17): a moderation mail outage was
+ * invisible exactly where the operator looks for one.
+ */
+export const MAIL_QUEUES = [
+  'session.notify',
+  'session.reminders',
+  'digest.weekly',
+  'moderation.notify',
+] as const;
 export type MailQueue = (typeof MAIL_QUEUES)[number];
+
+/** The queues whose job output counts recipients. */
+const REPORTING_QUEUES: ReadonlySet<MailQueue> = new Set([
+  'session.notify',
+  'session.reminders',
+  'digest.weekly',
+]);
 
 export interface MailOutcome {
   queue: MailQueue;
@@ -301,9 +320,12 @@ export interface MailOutcome {
   jobs: number;
   /** Jobs that threw — nothing in them was sent, or it was rolled back. */
   failedJobs: number;
-  /** Messages delivered, and recipients the job could not deliver to. */
-  sent: number;
-  failed: number;
+  /**
+   * Messages delivered, and recipients the job could not deliver to; null for
+   * a queue whose jobs do not report recipients (read its failed jobs).
+   */
+  sent: number | null;
+  failed: number | null;
 }
 
 function count(value: unknown): number {
@@ -323,7 +345,10 @@ export function summarizeMailOutputs(
   rows: readonly { name: string; state: string; output: unknown }[],
 ): MailOutcome[] {
   const totals = new Map<MailQueue, MailOutcome>(
-    MAIL_QUEUES.map((queue) => [queue, { queue, jobs: 0, failedJobs: 0, sent: 0, failed: 0 }]),
+    MAIL_QUEUES.map((queue) => {
+      const counted = REPORTING_QUEUES.has(queue) ? 0 : null;
+      return [queue, { queue, jobs: 0, failedJobs: 0, sent: counted, failed: counted }];
+    }),
   );
   for (const row of rows) {
     const total = totals.get(row.name as MailQueue);
@@ -333,6 +358,7 @@ export function summarizeMailOutputs(
       total.failedJobs += 1;
       continue;
     }
+    if (total.sent === null || total.failed === null) continue;
     if (typeof row.output !== 'object' || row.output === null) continue;
     const reports =
       row.name === 'session.reminders'
