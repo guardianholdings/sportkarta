@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { redirect } from '@/i18n/navigation';
@@ -6,12 +7,22 @@ import { getCurrentUser } from '@/lib/auth-session';
 import { isAuthAvailable } from '@/lib/auth';
 import { OTP_TTL_SECONDS } from '@/lib/auth-surface';
 import { parseOAuthError } from '@/lib/oauth-error';
-import { signInDestination } from '@/lib/sign-in-destination';
+import { signInDestination, signInReason } from '@/lib/sign-in-destination';
 
 import { SignInForm } from './sign-in-form';
 import { AppShell } from '@/components/shell/app-shell';
 
-export const metadata = { robots: { index: false, follow: false } };
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'SignIn' });
+  // Its own title: it used to inherit the site's, so the tab and the screen
+  // reader's route announcement never said this was the sign-in page.
+  return { title: t('title'), robots: { index: false, follow: false } };
+}
 
 // Session-dependent and cookie-setting: never prerender.
 export const dynamic = 'force-dynamic';
@@ -27,13 +38,19 @@ export default async function SignInPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ next?: QueryValue; error?: QueryValue; provider?: QueryValue }>;
+  searchParams: Promise<{
+    next?: QueryValue;
+    error?: QueryValue;
+    provider?: QueryValue;
+    deleted?: QueryValue;
+  }>;
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations('SignIn');
 
-  const { next, error, provider } = await searchParams;
+  const { next, error, provider, deleted } = await searchParams;
+  const reason = signInReason(single(next));
   // Already signed in: go where the link was headed (a shared session, a QR
   // scan), in this page's language — not to the profile, and not in Bulgarian.
   if (await getCurrentUser()) return redirect({ href: signInDestination(next), locale });
@@ -55,8 +72,21 @@ export default async function SignInPage({
         which is the width this line always meant.)
       */}
       <main className="mx-auto w-full max-w-sm space-y-6 px-4 pt-10 pb-8 sm:pt-16">
+        {/* After «Изтрий профила ми» the member used to land on the map with
+            no word that anything had happened. */}
+        {deleted === '1' && (
+          <p
+            role="status"
+            className="rounded-card bg-success-bg px-4 py-3 text-body-sm text-success"
+          >
+            {t('deleted')}
+          </p>
+        )}
         <header className="space-y-2">
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
+          {/* Why they are here, when a page sent them: «+» used to land on a
+              bare «Вход в POPS». */}
+          {reason && <p className="text-body font-semibold text-ink">{t(`reason.${reason}`)}</p>}
           <p className="text-body-sm text-ink-soft">{t('intro')}</p>
         </header>
         {available ? (

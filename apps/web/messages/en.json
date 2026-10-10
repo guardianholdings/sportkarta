@@ -790,12 +790,22 @@
     "oauthError_failed_unnamed": "Signing in did not work. Try again or sign in with an email code.",
     "privacyNote": "By signing in you accept the <terms>Terms of use</terms>. How we process your data: <privacy>Privacy</privacy>. We do not store IP addresses.",
     "error_invalid_email": "Check the email address.",
-    "error_invalid_code": "The code is wrong or expired. Try again.",
+    "error_invalid_code": "The code is wrong or expired. Try again, or ask for a new code.",
+    "resent": "We sent a new code. Only the newest one works.",
+    "deleted": "Your profile has been deleted. Thank you for being with us.",
     "error_throttled": "Too many attempts — wait a few minutes.",
     "error_verify_throttled": "Too many wrong codes. Try again later — within an hour.",
     "error_mail_unavailable": "We cannot send a code right now. Try again later.",
     "error_auth_unavailable": "Sign-in is temporarily unavailable. The map and facilities still work.",
-    "error_unknown": "Something went wrong. Try again."
+    "error_unknown": "Something went wrong. Try again.",
+    "reason": {
+      "add": "Sign in to add a facility.",
+      "passport": "Sign in to see your sports passport.",
+      "training": "Sign in to open your training log.",
+      "contribute": "Sign in to confirm the details or report the condition of the facility.",
+      "session": "Sign in to sign up for the training session.",
+      "checkin": "Sign in to check in. After signing in, scan the code again."
+    }
   },
   "AuthEmail": {
     "subject": "{code} is your POPS sign-in code",
@@ -2012,6 +2022,7 @@
   },
   "Footer": {
     "wordmark": "POPS",
+    "navLabel": "More about the project",
     "stats": "Statistics",
     "openData": "Open data",
     "privacy": "Privacy",

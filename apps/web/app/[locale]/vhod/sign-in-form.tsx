@@ -1,7 +1,7 @@
 'use client';
 
 import { useLocale, useTranslations } from 'next-intl';
-import { useActionState, useId } from 'react';
+import { useActionState, useId, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +32,9 @@ export function SignInForm({
   const [state, action, pending] = useActionState<SignInState, FormData>(signInAction, INITIAL);
   const onCodeStep = state.step === 'code';
   const codeHintId = useId();
+  // Which of the step's three submits is in flight, so only THAT one says it
+  // is working: «Изпрати нов код» used to turn the main button into «Влизаме…».
+  const [pressed, setPressed] = useState<'main' | 'resend' | 'restart'>('main');
 
   return (
     <div className="space-y-6">
@@ -115,9 +118,14 @@ export function SignInForm({
             {t(`error_${state.error}`)}
           </p>
         )}
+        {state.resent && !state.error && (
+          <p role="status" className="text-body-sm text-success">
+            {t('resent')}
+          </p>
+        )}
 
-        <Button type="submit" block disabled={pending}>
-          {pending
+        <Button type="submit" block disabled={pending} onClick={() => setPressed('main')}>
+          {pending && pressed === 'main'
             ? onCodeStep
               ? t('verifying')
               : t('sending')
@@ -151,8 +159,9 @@ export function SignInForm({
               variant="ghost"
               size="sm"
               disabled={pending}
+              onClick={() => setPressed('resend')}
             >
-              {t('resend')}
+              {pending && pressed === 'resend' ? t('sending') : t('resend')}
             </Button>
             <Button
               type="submit"
@@ -162,6 +171,7 @@ export function SignInForm({
               variant="ghost"
               size="sm"
               disabled={pending}
+              onClick={() => setPressed('restart')}
             >
               {t('changeEmail')}
             </Button>

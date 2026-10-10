@@ -1,4 +1,4 @@
-import { sql, type SQL } from '@sportkarta/db';
+import { publicFacilityVisible, sql, type SQL } from '@sportkarta/db';
 import { awardKey, POINTS_BY_EVENT, type PointsEvent } from '@sportkarta/lib/points';
 
 /**
@@ -68,8 +68,11 @@ export async function pointsSummary(
   const totalResult = await db.execute(sql`
     SELECT coalesce(sum(points), 0)::int AS total FROM points_ledger WHERE user_id = ${userId}
   `);
+  // The slug only when the public site shows the facility: a paid add (hidden
+  // while paid venues are) used to link straight to its own 404.
   const entriesResult = await db.execute(sql`
-    SELECT p.event, p.points, p.facility_id, p.created_at, f.name, f.slug
+    SELECT p.event, p.points, p.facility_id, p.created_at, f.name,
+           CASE WHEN ${publicFacilityVisible} THEN f.slug END AS slug
     FROM points_ledger p
     LEFT JOIN facilities f ON f.id = p.facility_id
     WHERE p.user_id = ${userId}

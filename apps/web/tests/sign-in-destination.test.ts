@@ -7,8 +7,35 @@ import {
   safeDestination,
   signInDestination,
   signInHref,
+  signInReason,
   withoutLocalePrefix,
 } from '@/lib/sign-in-destination';
+
+describe('signInReason — /vhod says why the visitor is there', () => {
+  it('names the page that sent them, in either language', () => {
+    expect(signInReason('/dobavi')).toBe('add');
+    expect(signInReason('/en/dobavi?lon=23.3&lat=42.7')).toBe('add');
+    expect(signInReason('/pasport')).toBe('passport');
+    expect(signInReason('/trenirovki')).toBe('training');
+    expect(signInReason('/obekt/borisova-gradina')).toBe('contribute');
+    expect(signInReason('/sesiya/123')).toBe('session');
+    expect(signInReason('/otmetka/abc')).toBe('checkin');
+  });
+
+  it('says nothing for the profile, a public passport, or an unsafe next', () => {
+    for (const next of [
+      undefined,
+      '',
+      '/profil',
+      '/pasport/ivan',
+      '//evil.example/dobavi',
+      'https://x.y/dobavi',
+      '/vhod',
+    ]) {
+      expect(signInReason(next), String(next)).toBeNull();
+    }
+  });
+});
 
 describe('withoutLocalePrefix', () => {
   it('strips a leading locale segment and nothing else', () => {

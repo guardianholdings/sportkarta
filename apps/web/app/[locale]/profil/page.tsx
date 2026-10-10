@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { calendarToken, getDb } from '@sportkarta/db';
 import { Activity, BookOpenCheck, Download, ShieldCheck } from 'lucide-react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
@@ -18,7 +19,17 @@ import { Link } from '@/i18n/navigation';
 import { signOutAction } from '../vhod/actions';
 import { DeleteAccountForm, ProfileForm } from './profile-form';
 
-export const metadata = { robots: { index: false, follow: false } };
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'Profile' });
+  // A title of its own (UX audit 2026-10-10): it inherited the site's, so
+  // moving between /profil, /pasport and /vhod announced nothing at all.
+  return { title: t('title'), robots: { index: false, follow: false } };
+}
 
 // Per-request: session cookie + live profile read.
 export const dynamic = 'force-dynamic';

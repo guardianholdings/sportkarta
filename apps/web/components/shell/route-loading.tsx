@@ -1,5 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 
+import { AppShell } from '@/components/shell/app-shell';
 import { LoadingMark } from '@/components/shell/loading-mark';
 
 /**
@@ -16,12 +17,20 @@ import { LoadingMark } from '@/components/shell/loading-mark';
  * campaign, passport and city URL. So loading screens live only on segments
  * whose pages cannot 404, and tests/route-boundaries.test.ts fails the build
  * the moment one lands above a notFound().
+ *
+ * INSIDE THE SHELL. The fallback replaces the page, and the page owns its
+ * AppShell — so a full-screen mark here took the tab bar and the rail away on
+ * every tab tap (all four tabs are dynamic) and put them back a moment later
+ * (UX audit 2026-10-10). The mark now sits in the content area of the same
+ * chrome; no tab is highlighted until the page itself says which one it is.
  */
 export default async function RouteLoading() {
   const t = await getTranslations('Nav');
   return (
-    <div className="grid min-h-dvh place-items-center bg-paper">
-      <LoadingMark size={88} label={t('loading')} className="text-accent" />
-    </div>
+    <AppShell>
+      <div className="grid min-h-[70dvh] place-items-center">
+        <LoadingMark size={72} label={t('loading')} className="text-accent" />
+      </div>
+    </AppShell>
   );
 }
