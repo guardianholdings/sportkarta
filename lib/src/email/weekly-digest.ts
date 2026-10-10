@@ -45,8 +45,9 @@ export interface DigestStrings {
   weekdays: readonly string[];
   /** `{going}` `{capacity}` */
   spots: string;
-  /** `{going}` */
-  spotsUnlimited: string;
+  /** `{going}` — two explicit forms, for the same reason as the intro. */
+  spotsUnlimitedOne: string;
+  spotsUnlimitedOther: string;
   viewWeek: string;
   unsubscribe: string;
   footer: string;
@@ -125,7 +126,9 @@ export function renderWeeklyDigest(
     }
     const spots =
       entry.capacity === null
-        ? fill(strings.spotsUnlimited, { going: entry.going })
+        ? fill(entry.going === 1 ? strings.spotsUnlimitedOne : strings.spotsUnlimitedOther, {
+            going: entry.going,
+          })
         : fill(strings.spots, { going: entry.going, capacity: entry.capacity });
     lines.push(
       `  ${timeOf(entry.startsAtLocal)}  ${entry.title} — ${entry.sport}, ${entry.facilityName} (${spots})`,

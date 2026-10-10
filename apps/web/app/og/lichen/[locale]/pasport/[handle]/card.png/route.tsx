@@ -1,6 +1,7 @@
 import { getDb } from '@sportkarta/db';
 import { getTranslations } from 'next-intl/server';
 
+import { formatMonthYear } from '@/lib/format';
 import { memberName } from '@/lib/member-name';
 import { publicPassport } from '@/lib/passport';
 import { renderOgCard } from '@/lib/og/card';
@@ -71,7 +72,8 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     eyebrow: share.homeCity,
     // Never an empty title: an email-code sign-up has display_name ''.
     title: memberName(share.displayName, tPassport('unnamedMember')),
-    subtitle: t('passport.since', { month: share.memberSince }),
+    // «Член от октомври 2026 г.», not «Член от 2026-10».
+    subtitle: t('passport.since', { month: formatMonthYear(share.memberSince, lang) }),
     stats: [
       // The label AGREES with the number. Bulgarian has no bare plural noun
       // that works for both: a fixed "тренировки" renders "1 тренировки", which

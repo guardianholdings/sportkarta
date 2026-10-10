@@ -10,7 +10,8 @@ import { TrainingForm } from '@/components/training/training-form';
 import { buttonVariants } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { requireUser } from '@/lib/auth-session';
-import { inReadingOrder } from '@/lib/format';
+import { formatDate, formatDateTime, inReadingOrder } from '@/lib/format';
+import { capitalizeFirst } from '@/lib/grammar';
 import { siteUrl } from '@/lib/seo';
 import { shareSheetStrings } from '@/lib/share/sheet-strings';
 import { memberFacilities } from '@/lib/training-facilities';
@@ -71,12 +72,6 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
     (slug) => ({ value: slug, label: sportName(slug) }),
   );
 
-  const dateFormat = new Intl.DateTimeFormat(locale === 'bg' ? 'bg-BG' : 'en-GB', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: 'Europe/Sofia',
-  });
-
   // The consent rows to render: both while an integration can use them, and
   // otherwise only one the member already granted — so it can be withdrawn.
   const integrations = trainingIntegrationsEnabled();
@@ -109,7 +104,8 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
           ).map(([key, value]) => (
             <div key={key} className="rounded-card border border-line bg-surface p-3 text-center">
               <p className="text-h3 font-extrabold tabular-nums text-ink">{value}</p>
-              <p className="text-caption text-text-muted">{t(key)}</p>
+              {/* The label agrees with the number above it: «1 спорт», not «1 спорта». */}
+              <p className="text-caption text-text-muted">{t(key, { count: value })}</p>
             </div>
           ))}
         </section>
@@ -184,10 +180,12 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
                       )}
                     </p>
                     <p className="text-caption text-text-muted">
-                      {dateFormat.format(row.startedAt)} ·{' '}
-                      {t('durationMinutes', { minutes: Math.round(row.durationS / 60) })}
+                      {formatDateTime(row.startedAt, locale)} ·{' '}
+                      {t('durationMinutes', { minutes: formatMinutes(row.durationS) })}
+                      {/* The share's own formatter: «5,5 км» in Bulgarian. */}
                       {row.distanceM !== null &&
-                        ` · ${t('distanceKm', { km: Math.round(row.distanceM / 100) / 10 })}`}
+                        row.distanceM > 0 &&
+                        ` · ${t('distanceKm', { km: formatKm(row.distanceM, locale) ?? '' })}`}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-start gap-3">
@@ -207,7 +205,9 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
                         text: (() => {
                           const km = formatKm(row.distanceM, locale);
                           const minutes = formatMinutes(row.durationS);
-                          const sport = sportName(row.sport);
+                          // The caption OPENS with the sport, and sport names
+                          // are lower-case mid-sentence words: «Бягане · 30 мин.»
+                          const sport = capitalizeFirst(sportName(row.sport), locale);
                           return km
                             ? tShare('textTrainingKm', { sport, km, minutes })
                             : tShare('textTraining', { sport, minutes });
@@ -265,7 +265,7 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
                   <p className="text-caption text-ink-soft">{body}</p>
                   {at && (
                     <p className="mt-1 text-caption text-text-muted">
-                      {t('consentGrantedAt', { date: dateFormat.format(at) })}
+                      {t('consentGrantedAt', { date: formatDate(at, locale) })}
                     </p>
                   )}
                 </div>

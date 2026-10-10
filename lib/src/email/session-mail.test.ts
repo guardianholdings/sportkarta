@@ -25,7 +25,8 @@ const STRINGS: SessionMailStrings = {
   labelWhere: 'Where',
   labelSpots: 'Spots',
   spots: '{going} of {capacity}',
-  spotsUnlimited: '{going} going',
+  spotsUnlimitedOne: '{going} person going',
+  spotsUnlimitedOther: '{going} going',
   viewSession: 'Session page',
   addToCalendar: 'Add to calendar',
   withdraw: 'Cannot make it? Withdraw here',
@@ -141,6 +142,12 @@ describe('renderSessionMail', () => {
 
   it('says "N going" when the session has no capacity limit', () => {
     expect(mail({ capacity: null, going: 7 }).text).toContain('7 going');
+  });
+
+  it('agrees the count with the noun — the singular form for exactly one', () => {
+    // A single «{going} записани» printed «1 записани» to the first sign-up.
+    expect(mail({ capacity: null, going: 1 }).text).toContain('1 person going');
+    expect(mail({ capacity: null, going: 0 }).text).toContain('0 going');
   });
 
   it('names nobody but the recipient', () => {

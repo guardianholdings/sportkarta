@@ -77,3 +77,58 @@ describe('a campaign names its place (S-11)', () => {
     expect(page).toMatch(/t\('scopeNote_quarter', \{ quarter: campaign\.scope\.quarter, city:/);
   });
 });
+
+describe('counts that can be 1 (S-15, T-10, T-16)', () => {
+  const t = {
+    session: createTranslator({ locale: 'bg', messages: bg, namespace: 'Session' }),
+    digest: createTranslator({ locale: 'bg', messages: bg, namespace: 'Digest' }),
+    share: createTranslator({ locale: 'bg', messages: bg, namespace: 'ShareSheet' }),
+    shareEn: createTranslator({ locale: 'en', messages: en, namespace: 'ShareSheet' }),
+    campaign: createTranslator({ locale: 'bg', messages: bg, namespace: 'Campaign' }),
+    training: createTranslator({ locale: 'bg', messages: bg, namespace: 'Training' }),
+    checkin: createTranslator({ locale: 'bg', messages: bg, namespace: 'Checkin' }),
+    roster: createTranslator({ locale: 'bg', messages: bg, namespace: 'Roster' }),
+  };
+
+  it('agrees «записан» with one and «записани» with more', () => {
+    expect(t.session('spotsUnlimited', { going: 1 })).toBe('1 записан');
+    expect(t.session('spotsUnlimited', { going: 4 })).toBe('4 записани');
+    expect(t.digest('spotsUnlimited', { going: 1 })).toBe('1 записан');
+    expect(t.checkin('attendance', { checkedIn: 1, going: 1 })).toBe('1 отбелязан от 1 записан');
+    expect(t.roster('attendance', { checkedIn: 0, going: 3 })).toBe('0 отбелязани · 3 записани');
+  });
+
+  it('shares one training, one day and one point in the singular', () => {
+    expect(t.share('textWeek', { sessions: 1 })).toMatch(/^1 тренировка за последните 30 дни\./);
+    expect(t.shareEn('textWeek', { sessions: 1 })).toMatch(/^1 training session in the last/);
+    expect(t.share('textLegend', { place: 'Южен парк', days: 1 })).toBe(
+      'Южен парк: най-редовният тук е идвал 1 ден.',
+    );
+    expect(t.campaign('yourScore', { score: 1 })).toBe('Имате 1 точка в тази кампания.');
+  });
+
+  it('labels the training totals in agreement with the number above them', () => {
+    expect(t.training('statSports', { count: 1 })).toBe('спорт');
+    expect(t.training('statSports', { count: 3 })).toBe('спорта');
+    expect(t.training('statSessions', { count: 1 })).toBe('тренировка (30 дни)');
+    expect(t.training('statMinutes', { count: 1 })).toBe('минута');
+  });
+
+  it('gives the worker two plain forms, never ICU it cannot interpret', () => {
+    // lib/src/email renders with a {placeholder} fill, not next-intl.
+    for (const catalogue of [bg, en]) {
+      for (const ns of [catalogue.DigestEmail, catalogue.SessionEmail]) {
+        for (const form of [ns.spotsUnlimitedOne, ns.spotsUnlimitedOther]) {
+          expect(form).toContain('{going}');
+          expect(form).not.toMatch(/plural|#/);
+        }
+      }
+    }
+    expect(bg.SessionEmail.spotsUnlimitedOne).toBe('{going} записан');
+  });
+
+  it('names the 30-day summary trigger for what it shares', () => {
+    expect(bg.ShareSheet.triggerThirtyDays).toBe('Сподели последните 30 дни');
+    expect('triggerWeek' in bg.ShareSheet).toBe(false);
+  });
+});

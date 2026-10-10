@@ -21,7 +21,9 @@ import type { ShareSheetStrings } from '@/components/share/share-sheet';
 
 const TRIGGER_KEY: Record<ShareKind, string> = {
   training: 'triggerTraining',
-  week: 'triggerWeek',
+  // The `week` kind is the member's last 30 DAYS of training (weekStory), so
+  // its trigger says that — «Сподели седмицата» promised a different number.
+  week: 'triggerThirtyDays',
   badge: 'triggerPassport',
   passport: 'triggerPassport',
   division: 'triggerDivision',

@@ -7,6 +7,7 @@ import { ReportContentLink } from '@/components/legal/report-content-link';
 import { PublicBadgeGrid } from '@/components/passport/badge-grid';
 import { PublicActivityList } from '@/components/passport/history-list';
 import { StreakPanel } from '@/components/passport/streak-panel';
+import { formatMonthYear } from '@/lib/format';
 import { hasDisplayName, memberName } from '@/lib/member-name';
 import { publicPassport } from '@/lib/passport';
 import { AppShell } from '@/components/shell/app-shell';
@@ -73,6 +74,9 @@ export default async function PublicPassportPage({ params }: { params: PageParam
   const passport = await publicPassport(getDb(), handle);
   if (!passport) notFound();
 
+  // «В POPS от август 2026 г.» — the month is public, the wire format is not.
+  const since = formatMonthYear(passport.memberSince, locale);
+
   const totals = [
     { key: 'points', value: passport.totals.points },
     { key: 'contributions', value: passport.totals.contributions },
@@ -88,11 +92,8 @@ export default async function PublicPassportPage({ params }: { params: PageParam
           </h1>
           <p className="text-body-sm text-text-muted">
             {passport.homeCity
-              ? t('publicSubtitleWithCity', {
-                  city: passport.homeCity,
-                  since: passport.memberSince,
-                })
-              : t('publicSubtitle', { since: passport.memberSince })}
+              ? t('publicSubtitleWithCity', { city: passport.homeCity, since })
+              : t('publicSubtitle', { since })}
           </p>
         </header>
 

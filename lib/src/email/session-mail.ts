@@ -66,8 +66,13 @@ export interface SessionMailStrings {
   labelSpots: string;
   /** `{going}` `{capacity}` */
   spots: string;
-  /** `{going}` */
-  spotsUnlimited: string;
+  /**
+   * `{going}`, in two explicit forms rather than an ICU plural, like the
+   * digest's intro: this runs in the worker with no next-intl, and «1 записани»
+   * is what a single form printed for the first person to sign up.
+   */
+  spotsUnlimitedOne: string;
+  spotsUnlimitedOther: string;
 
   viewSession: string;
   addToCalendar: string;
@@ -172,7 +177,9 @@ export function renderSessionMail(data: SessionMailData, strings: SessionMailStr
   const cancelled = data.kind === 'occurrence_cancelled';
   const spots =
     data.capacity === null
-      ? fill(strings.spotsUnlimited, { going: data.going })
+      ? fill(data.going === 1 ? strings.spotsUnlimitedOne : strings.spotsUnlimitedOther, {
+          going: data.going,
+        })
       : fill(strings.spots, { going: data.going, capacity: data.capacity });
 
   const name = data.recipientName.trim();
