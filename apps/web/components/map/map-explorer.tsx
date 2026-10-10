@@ -933,12 +933,17 @@ export function MapExplorer({
         {/* The visible map region (right of the list). The add-facility FAB
             anchors to ITS bottom-left, so it sits on the map, not under the
             panel — operator request 2026-07-25. Mobile keeps the BottomNav
-            center FAB. */}
+            center FAB.
+
+            Its focus ring is explicit, as on the BottomNav FAB and the accent
+            Button: the global :focus-visible ring lives in @layer base, and the
+            `shadow-lg` utility here outranks it, so keyboard focus on this
+            button used to be invisible. */}
         <div className="relative min-w-0 flex-1">
           <Link
             href="/dobavi"
             aria-label={tNav('navAdd')}
-            className="pointer-events-auto absolute bottom-6 left-6 grid size-[54px] place-items-center rounded-full border-[3px] border-surface bg-accent text-on-accent shadow-lg transition-transform hover:scale-105 active:scale-[0.97]"
+            className="pointer-events-auto absolute bottom-6 left-6 grid size-[54px] place-items-center rounded-full border-[3px] border-surface bg-accent text-on-accent shadow-lg transition-[transform,box-shadow] duration-150 ease-standard hover:scale-105 focus-visible:shadow-[var(--ring-accent)] active:scale-[0.97]"
           >
             <Plus size={26} />
           </Link>
