@@ -37,6 +37,7 @@ import {
   type PublicFilters,
 } from '@/lib/filters';
 import { NAV_PROVIDERS } from '@/lib/directions';
+import { inReadingOrder } from '@/lib/format';
 import { formatKm } from '@/lib/geo';
 import { DEFAULT_LAYER, type ExternalMapLayer } from '@/lib/map/layers';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
@@ -1337,6 +1338,18 @@ function FilterSheet({
   const tSport = useTranslations('Sport');
   const tSurface = useTranslations('Surface');
   const tAccess = useTranslations('Access');
+  const locale = useLocale();
+  // In the reader's alphabetical order of the labels shown. The catalogues are
+  // ordered by their English slugs, which on the Bulgarian site put «стрелба с
+  // лък» first and lost «футбол» in the middle of 29 (lib/format.ts).
+  const sports = useMemo(
+    () => inReadingOrder(CANONICAL_SPORTS, locale, (s) => tSport(s)),
+    [locale, tSport],
+  );
+  const surfaces = useMemo(
+    () => inReadingOrder(CANONICAL_SURFACES, locale, (s) => tSurface(s)),
+    [locale, tSurface],
+  );
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -1403,7 +1416,7 @@ function FilterSheet({
         <div className="min-h-0 flex-1 overflow-y-auto px-5">
           <FilterGroup label={t('sport')}>
             <div className="flex flex-wrap gap-2">
-              {CANONICAL_SPORTS.map((s) => {
+              {sports.map((s) => {
                 const v = SPORT_VISUALS[s];
                 return (
                   <Chip
@@ -1473,7 +1486,7 @@ function FilterSheet({
 
           <FilterGroup label={t('surface')}>
             <div className="flex flex-wrap gap-2">
-              {CANONICAL_SURFACES.map((s) => (
+              {surfaces.map((s) => (
                 <Chip
                   key={s}
                   selected={filters.surfaces.includes(s)}

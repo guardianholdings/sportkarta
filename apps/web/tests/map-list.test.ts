@@ -216,3 +216,23 @@ describe('retrying a failed load', () => {
     expect('sort' in bg.Map).toBe(false);
   });
 });
+
+/**
+ * The filter sheet listed the 29 sports and the surfaces in the order of their
+ * English slugs — on the Bulgarian site «стрелба с лък, лека атлетика,
+ * бадминтон…», with «футбол» lost in the middle (UX audit 2026-10-10).
+ */
+describe('the filter sheet reads in alphabetical order', () => {
+  const explorer = readFileSync(
+    path.join(__dirname, '..', 'components', 'map', 'map-explorer.tsx'),
+    'utf8',
+  );
+
+  it('sorts both lists by the label it shows', () => {
+    expect(explorer).toMatch(/inReadingOrder\(CANONICAL_SPORTS, locale, \(s\) => tSport\(s\)\)/);
+    expect(explorer).toMatch(
+      /inReadingOrder\(CANONICAL_SURFACES, locale, \(s\) => tSurface\(s\)\)/,
+    );
+    expect(explorer).not.toMatch(/CANONICAL_SPORTS\.map\(|CANONICAL_SURFACES\.map\(/);
+  });
+});
