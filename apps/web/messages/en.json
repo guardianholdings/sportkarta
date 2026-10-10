@@ -2324,7 +2324,7 @@
     "logLink": "Open your log"
   },
   "Training": {
-    "metaTitle": "My training",
+    "metaTitle": "Training log",
     "title": "Training log",
     "intro": "Log a training session even when it was not an organised group session. The log is private. If your passport is public, your number of training sessions and minutes appear on the “Who is training” board.",
     "statSessions": "{count, plural, one {training session} other {training sessions}} (30 days)",
