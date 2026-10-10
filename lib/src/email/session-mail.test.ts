@@ -9,6 +9,7 @@ import {
 } from './session-mail.js';
 
 const STRINGS: SessionMailStrings = {
+  locale: 'en',
   subjectConfirmed: 'You are in: {title}',
   subjectWaitlisted: 'Waitlist: {title}',
   subjectPromoted: 'A spot opened: {title}',
@@ -62,18 +63,23 @@ const ALL_KINDS: SessionMailKind[] = [
 ];
 
 describe('formatLocal', () => {
-  it('renders the wall clock as written, with no timezone maths', () => {
-    expect(formatLocal('2026-07-24T18:00:00')).toBe('24.07.2026, 18:00');
+  it("names the weekday and the month, in the mail's language (T-20)", () => {
+    // It read «24.07.2026, 18:00» in both languages, with no weekday.
+    expect(formatLocal('2026-07-24T18:00:00', 'bg')).toBe('петък, 24 юли 2026 г., 18:00');
+    const en = formatLocal('2026-07-24T18:00:00', 'en');
+    expect(en).toMatch(/^Friday,? 24 July 2026, 18:00$/);
   });
 
-  it('does not shift the winter hour either', () => {
+  it('renders the wall clock as written, with no timezone maths', () => {
     // The bug this guards: constructing a Date from a civil string re-reads it
-    // as an instant in the container's zone, and 18:00 arrives as 20:00.
-    expect(formatLocal('2026-01-15T18:00:00')).toBe('15.01.2026, 18:00');
+    // as an instant in the container's zone, and 18:00 arrives as 20:00 —
+    // or, just after midnight, on the previous day.
+    expect(formatLocal('2026-01-15T18:00:00', 'bg')).toBe('четвъртък, 15 януари 2026 г., 18:00');
+    expect(formatLocal('2026-03-29T00:30:00', 'bg')).toBe('неделя, 29 март 2026 г., 00:30');
   });
 
   it('returns the input unchanged rather than inventing a date', () => {
-    expect(formatLocal('not-a-date')).toBe('not-a-date');
+    expect(formatLocal('not-a-date', 'bg')).toBe('not-a-date');
   });
 });
 

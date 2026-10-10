@@ -75,6 +75,7 @@ export function sessionMailStrings(locale: string): SessionMailStrings {
     return value;
   };
   return {
+    locale,
     subjectConfirmed: pick('subjectConfirmed'),
     subjectWaitlisted: pick('subjectWaitlisted'),
     subjectPromoted: pick('subjectPromoted'),
