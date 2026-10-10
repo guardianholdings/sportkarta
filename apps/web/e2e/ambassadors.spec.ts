@@ -98,6 +98,10 @@ test.describe('ambassadors', () => {
     // no power at all until scope is added.
     await expect(row.getByText(/без общини|no municipalities/i)).toBeVisible();
 
+    // Nothing is pre-selected (A-6): the operator picks the municipality.
+    await row
+      .getByRole('combobox', { name: /добави община|add municipality/i })
+      .selectOption({ index: 1 });
     await row.getByRole('button', { name: /добави община|add municipality/i }).click();
     // The grant is a server action; poll rather than racing its commit.
     await expect

@@ -1,11 +1,13 @@
-import { getLocale, getTranslations, setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { AdminActionLog } from '@/components/admin/admin-action-log';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
+import { Select } from '@/components/ui/select';
 import { municipalityOptions } from '@/lib/admin-data';
 import { AMBASSADOR_ACTIONS, adminActionHistory } from '@/lib/admin-actions';
 import { requireRole } from '@/lib/auth-session';
+import { formatDate, formatNumber } from '@/lib/format';
 import { ambassadorActivity } from '@/lib/moderation-data';
 
 import { addMunicipalityAction, removeMunicipalityAction, revokeAmbassadorAction } from './actions';
@@ -29,20 +31,26 @@ export default async function AdminAmbassadorsPage({
   setRequestLocale(locale);
   await requireRole('admin');
 
-  const [t, tLog, ambassadors, municipalities, activeLocale, history] = await Promise.all([
+  const [t, tLog, ambassadors, municipalities, history] = await Promise.all([
     getTranslations('AdminAmbassadors'),
     getTranslations('AdminAccounts.actionLog'),
     ambassadorActivity(),
     municipalityOptions(),
-    getLocale(),
     // Who granted, revoked, widened or narrowed whose authority (0033).
     adminActionHistory({ actions: AMBASSADOR_ACTIONS }, 30),
   ]);
 
-  const formatDate = (value: string): string =>
-    new Intl.DateTimeFormat(activeLocale, { dateStyle: 'medium' }).format(new Date(value));
+  // Sofia's calendar day, not the server's UTC one (A-13).
+  const formatDay = (value: string): string => formatDate(value, locale, 'medium');
   const formatHours = (hours: number | null): string =>
-    hours === null ? t('noData') : t('hours', { hours: hours.toFixed(1) });
+    hours === null
+      ? t('noData')
+      : t('hours', {
+          hours: formatNumber(hours, locale, {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          }),
+        });
 
   return (
     <main className="space-y-6">
@@ -101,7 +109,7 @@ export default async function AdminAmbassadorsPage({
                       <dt className="text-text-muted">{t('lastActive')}</dt>
                       <dd className="font-medium">
                         {ambassador.lastDecisionAt
-                          ? formatDate(ambassador.lastDecisionAt)
+                          ? formatDay(ambassador.lastDecisionAt)
                           : t('never')}
                       </dd>
                     </div>
@@ -140,20 +148,37 @@ export default async function AdminAmbassadorsPage({
                       </ul>
                     )}
 
+                    {/* No default: the alphabetically first municipality used to
+                        be pre-selected, so one stray tap granted it. The
+                        placeholder is disabled and the select required, and
+                        municipalities already in scope are not offered (A-6). */}
                     <form action={addMunicipalityAction} className="flex flex-wrap gap-2">
                       <input type="hidden" name="userId" value={ambassador.userId} />
-                      <select
-                        name="municipalityId"
-                        aria-label={t('addMunicipality')}
-                        className="rounded-md border border-line-strong bg-surface px-2 py-1 text-caption"
-                      >
-                        {municipalities.map((municipality) => (
-                          <option key={municipality.id} value={municipality.id}>
-                            {municipality.nameBg}
+                      <div className="w-64 max-w-full">
+                        <Select
+                          name="municipalityId"
+                          required
+                          defaultValue=""
+                          aria-label={t('addMunicipality')}
+                        >
+                          <option value="" disabled>
+                            {t('chooseMunicipality')}
                           </option>
-                        ))}
-                      </select>
-                      <Button type="submit" variant="secondary" size="sm">
+                          {municipalities
+                            .filter(
+                              (municipality) =>
+                                !ambassador.municipalities.some(
+                                  (assigned) => assigned.id === municipality.id,
+                                ),
+                            )
+                            .map((municipality) => (
+                              <option key={municipality.id} value={municipality.id}>
+                                {municipality.nameBg}
+                              </option>
+                            ))}
+                        </Select>
+                      </div>
+                      <Button type="submit" variant="secondary">
                         {t('addMunicipality')}
                       </Button>
                     </form>

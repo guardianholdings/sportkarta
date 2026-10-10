@@ -993,6 +993,7 @@
     "scope": "Municipalities",
     "noScope": "No municipalities — cannot moderate anything.",
     "addMunicipality": "Add municipality",
+    "chooseMunicipality": "Choose a municipality…",
     "removeMunicipality": "Remove {municipality}",
     "removeMunicipalityConfirm": "Remove {municipality} from this ambassador's scope?",
     "decisions": "Decisions (30 days)",

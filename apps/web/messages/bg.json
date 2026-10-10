@@ -993,6 +993,7 @@
     "scope": "Общини",
     "noScope": "Без общини — не може да модерира нищо.",
     "addMunicipality": "Добави община",
+    "chooseMunicipality": "Изберете община…",
     "removeMunicipality": "Премахни {municipality}",
     "removeMunicipalityConfirm": "Да премахна ли {municipality} от обхвата на амбасадора?",
     "decisions": "Решения (30 дни)",
