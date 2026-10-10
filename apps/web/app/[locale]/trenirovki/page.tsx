@@ -9,6 +9,7 @@ import { ShareSheet } from '@/components/share/share-sheet';
 import { AppShell } from '@/components/shell/app-shell';
 import { TrainingForm } from '@/components/training/training-form';
 import { requireUser } from '@/lib/auth-session';
+import { inReadingOrder } from '@/lib/format';
 import { siteUrl } from '@/lib/seo';
 import { shareSheetStrings } from '@/lib/share/sheet-strings';
 import { trainingIntegrationsEnabled } from '@/lib/training-integrations';
@@ -70,11 +71,14 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
     nearbyFacilities(),
   ]);
 
-  // Resolved server-side from the SAME list the form renders, so a sport can
-  // never appear in the picker without a label — and the labels come from the
-  // existing `Sport` namespace rather than a duplicate set of 29 keys, which is
-  // what the leaderboard filters already do.
-  const sportNames = Object.fromEntries(CANONICAL_SPORTS.map((slug) => [slug, sportName(slug)]));
+  // Resolved server-side from the canonical list, so a sport can never appear
+  // in the picker without a label — and the labels come from the existing
+  // `Sport` namespace rather than a duplicate set of 29 keys, which is what the
+  // leaderboard filters already do. In the READER's order: the canonical list
+  // is sorted by English slug, which in Bulgarian is no order at all.
+  const sports = inReadingOrder(CANONICAL_SPORTS, locale, (slug) => sportName(slug)).map(
+    (slug) => ({ value: slug, label: sportName(slug) }),
+  );
 
   const dateFormat = new Intl.DateTimeFormat(locale === 'bg' ? 'bg-BG' : 'en-GB', {
     dateStyle: 'medium',
@@ -142,7 +146,7 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
         <section className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm">
           <h2 className="text-h3 font-bold text-ink">{t('addTitle')}</h2>
           <TrainingForm
-            sportNames={sportNames}
+            sports={sports}
             facilities={facilities}
             strings={{
               sport: t('fieldSport'),

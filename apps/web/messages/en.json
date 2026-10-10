@@ -2280,7 +2280,7 @@
     "problems": {
       "sportUnknown": "Choose a sport from the list.",
       "duration": "Duration must be between 1 minute and 24 hours.",
-      "distance": "That distance looks impossible.",
+      "distance": "Distance must be a number up to 1000 km, for example 5.5.",
       "elevation": "That elevation gain looks impossible.",
       "startedAtInvalid": "Enter a date and time.",
       "startedAtFuture": "You cannot log a training in the future.",
