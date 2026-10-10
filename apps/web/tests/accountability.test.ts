@@ -231,6 +231,22 @@ describe('renderWidget', () => {
     );
   });
 
+  it('prints its figures the way the embedding site’s readers write them', () => {
+    // Embedded on Bulgarian municipal sites: «14,2» and «88%», not «14.2».
+    const bgHtml = widget({ per10k: 14.2, free: 1500, total: 1700 });
+    expect(bgHtml).toContain('>14,2<');
+    expect(bgHtml).toContain('>88%<');
+    const enHtml = renderWidget({
+      data: { ...SAMPLE, per10k: 14.2, total: 12345 },
+      cityName: 'Sofia',
+      pageUrl: 'https://pops.bg/en/obshtina/sofia',
+      locale: 'en',
+      strings: STRINGS,
+    });
+    expect(enHtml).toContain('>14.2<');
+    expect(enHtml).toContain('>12,345<');
+  });
+
   it('divides the condition bar by share, not by count of segments', () => {
     const html = widget({
       conditionExcellent: 1,

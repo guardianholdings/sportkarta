@@ -9,6 +9,7 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
+import { formatNumber } from '@/lib/format';
 import { OPEN_DATA_LIMITS } from '@/lib/opendata/limits';
 import { buildAlternates, siteUrl } from '@/lib/seo';
 import { AppShell } from '@/components/shell/app-shell';
@@ -50,10 +51,14 @@ function apiUrl(dataset: ExportDataset): string {
   return `${siteUrl()}/api/opendata/${OPEN_DATA_API_VERSION}/${dataset.id}`;
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${String(bytes)} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} kB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+/** «2,5 MB» on the Bulgarian site: the unit is international, the comma is not. */
+function formatBytes(bytes: number, locale: string): string {
+  if (bytes < 1024) return `${formatNumber(bytes, locale)} B`;
+  if (bytes < 1024 * 1024) {
+    return `${formatNumber(bytes / 1024, locale, { maximumFractionDigits: 0 })} kB`;
+  }
+  const mb = bytes / (1024 * 1024);
+  return `${formatNumber(mb, locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MB`;
 }
 
 export default async function OpenDataPage({ params }: { params: PageParams }) {
@@ -206,7 +211,7 @@ export default async function OpenDataPage({ params }: { params: PageParams }) {
                       {file.dataset}.{file.format}
                     </a>
                     <span className="text-ink-soft">
-                      {formatBytes(file.bytes)} · {file.rowCount} {t('dumpsRows')}
+                      {formatBytes(file.bytes, locale)} · {t('dumpsRows', { count: file.rowCount })}
                     </span>
                     <code className="text-caption text-text-muted">
                       {t('dumpsChecksum')} {file.sha256.slice(0, 16)}…

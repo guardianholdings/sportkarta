@@ -615,7 +615,7 @@
     "verificationNote": "\"Awaiting verification\" are automatically imported records not yet human-confirmed — the count is high before community verification begins.",
     "computationNote": "Percentages use a clear denominator (e.g. % lit = lit / those with known lighting). When the denominator is unknown or zero we show n/a — never interpolated.",
     "downloadHeading": "Download the data",
-    "downloadComingSoon": "The open-data portal (CSV/GeoJSON, API) is coming in a later stage."
+    "downloadOpenData": "All the data is free to download (CSV/GeoJSON) and to use through the API — see <link>Open data</link>."
   },
   "Privacy": {
     "back": "← Home",
@@ -1489,6 +1489,7 @@
     "na": "no data",
     "unitHours": "h",
     "unitDays": "days",
+    "daysCount": "{count, plural, one {# day} other {# days}}",
     "windowDays": "over the last {days} days",
     "fewerThan": "under {n}",
     "rankOf": "ranked {rank} of {of} municipalities",
@@ -1752,7 +1753,7 @@
     "dumpsNone": "No dumps have been published yet.",
     "dumpsManifest": "Index of every version (JSON)",
     "dumpsChecksum": "Checksum",
-    "dumpsRows": "rows",
+    "dumpsRows": "{count, plural, one {# row} other {# rows}}",
     "dumpsDownload": "Download",
     "licenseTitle": "Licence and attribution",
     "licenseIntro": "The database is published under the Open Database License 1.0 (ODbL).",

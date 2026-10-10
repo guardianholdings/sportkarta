@@ -10,6 +10,7 @@ import {
   RESOLUTION_WINDOW_DAYS,
   municipalityAccountability,
 } from '@/lib/accountability';
+import { formatDate, formatNumber, formatPercent } from '@/lib/format';
 import { cityDisplayName, getCityBySlug, MIN_LISTING_FACILITIES } from '@/lib/places';
 import { buildAlternates, siteUrl } from '@/lib/seo';
 import { pct } from '@/lib/stats-format';
@@ -82,17 +83,21 @@ export default async function AccountabilityPage({ params }: { params: PageParam
 
   const name = cityDisplayName(city.nameBg, city.nameEn, locale);
   const na = t('na');
+  // «98,8%», «1 234», «12,5» — the reader's separators, not JavaScript's.
+  const fmtCount = (value: number): string => formatNumber(value, locale);
   const fmtPct = (part: number, whole: number): string => {
     const value = pct(part, whole);
-    return value === null ? na : `${value.toFixed(1)}%`;
+    return value === null ? na : formatPercent(value, locale);
   };
+  // «1 ден», «19 дни»: a count of days agrees with its number.
+  const fmtDays = (days: number): string => t('daysCount', { count: Math.round(days) });
 
   const median =
     data.reportsMedianHours === null
       ? na
       : data.reportsMedianHours >= 48
-        ? `${(data.reportsMedianHours / 24).toFixed(0)} ${t('unitDays')}`
-        : `${data.reportsMedianHours.toFixed(0)} ${t('unitHours')}`;
+        ? fmtDays(data.reportsMedianHours / 24)
+        : `${fmtCount(Math.round(data.reportsMedianHours))} ${t('unitHours')}`;
 
   const conditionBars: Bar[] = (
     [
@@ -102,7 +107,7 @@ export default async function AccountabilityPage({ params }: { params: PageParam
       ['conditionUnusable', data.conditionUnusable],
       ['conditionUnreported', data.conditionUnreported],
     ] as const
-  ).map(([key, value]) => ({ label: t(key), value, display: String(value) }));
+  ).map(([key, value]) => ({ label: t(key), value, display: fmtCount(value) }));
 
   const provenanceBars: Bar[] = (
     [
@@ -110,7 +115,7 @@ export default async function AccountabilityPage({ params }: { params: PageParam
       ['sourceMunicipal', data.fromMunicipal],
       ['sourceCrowd', data.fromCrowd],
     ] as const
-  ).map(([key, value]) => ({ label: t(key), value, display: String(value) }));
+  ).map(([key, value]) => ({ label: t(key), value, display: fmtCount(value) }));
 
   // The snippet a municipality copies. Absolute, because it is pasted into
   // somebody else's HTML where a relative URL means their own domain.
@@ -119,9 +124,8 @@ export default async function AccountabilityPage({ params }: { params: PageParam
     `<iframe src="${embedUrl}" width="100%" height="260" ` +
     `style="border:0" loading="lazy" title="${name}"></iframe>`;
 
-  const generated = new Intl.DateTimeFormat(locale, { dateStyle: 'long' }).format(
-    new Date(data.generatedAt),
-  );
+  // Sofia's calendar day, whatever the server's time zone (lib/format.ts).
+  const generated = formatDate(data.generatedAt, locale);
 
   return (
     <AppShell>
@@ -152,10 +156,17 @@ export default async function AccountabilityPage({ params }: { params: PageParam
             {t('coverageHeading')}
           </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            <StatCard label={t('statTotal')} value={String(data.total)} />
+            <StatCard label={t('statTotal')} value={fmtCount(data.total)} />
             <StatCard
               label={t('statPer10k')}
-              value={data.per10k === null ? na : data.per10k.toFixed(1)}
+              value={
+                data.per10k === null
+                  ? na
+                  : formatNumber(data.per10k, locale, {
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    })
+              }
               note={
                 data.per10kRank === null || data.per10kOf === null
                   ? t('noPopulation')
@@ -163,7 +174,7 @@ export default async function AccountabilityPage({ params }: { params: PageParam
               }
             />
             <StatCard label={t('statFreeShare')} value={fmtPct(data.free, data.total)} />
-            <StatCard label={t('statLit')} value={String(data.lit)} />
+            <StatCard label={t('statLit')} value={fmtCount(data.lit)} />
           </div>
         </section>
 
@@ -173,14 +184,14 @@ export default async function AccountabilityPage({ params }: { params: PageParam
           </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             <StatCard label={t('statVerified')} value={fmtPct(data.active, data.total)} />
-            <StatCard label={t('statNeedsVerification')} value={String(data.needsVerification)} />
+            <StatCard label={t('statNeedsVerification')} value={fmtCount(data.needsVerification)} />
             <StatCard label={t('statWithPhoto')} value={fmtPct(data.withPhoto, data.total)} />
             <StatCard
               label={t('statContributors')}
               value={
                 data.contributors === null
                   ? t('fewerThan', { n: MIN_DISCLOSED_CONTRIBUTORS })
-                  : String(data.contributors)
+                  : fmtCount(data.contributors)
               }
               note={t('windowDays', { days: ACTIVITY_WINDOW_DAYS })}
             />
@@ -196,18 +207,14 @@ export default async function AccountabilityPage({ params }: { params: PageParam
             {t('responseHeading')}
           </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatCard label={t('statOpenReports')} value={String(data.reportsOpen)} />
+            <StatCard label={t('statOpenReports')} value={fmtCount(data.reportsOpen)} />
             <StatCard
               label={t('statOldestOpen')}
-              value={
-                data.reportsOldestOpenDays === null
-                  ? na
-                  : `${data.reportsOldestOpenDays.toFixed(0)} ${t('unitDays')}`
-              }
+              value={data.reportsOldestOpenDays === null ? na : fmtDays(data.reportsOldestOpenDays)}
             />
             <StatCard
               label={t('statResolved')}
-              value={String(data.reportsResolvedInWindow)}
+              value={fmtCount(data.reportsResolvedInWindow)}
               note={t('windowDays', { days: RESOLUTION_WINDOW_DAYS })}
             />
             <StatCard label={t('statMedianResponse')} value={median} />

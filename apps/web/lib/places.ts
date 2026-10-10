@@ -26,6 +26,11 @@ export type { City, MunicipalityRow } from '@sportkarta/lib/cities';
 interface CityCatalog {
   bySlug: Map<string, City>;
   byId: Map<number, City>;
+  /**
+   * By EKATTE code — the key the statistics views carry. Names would be the
+   * wrong key: two municipalities are called «Бяла».
+   */
+  byEkatte: Map<string, City>;
   all: City[];
 }
 
@@ -35,8 +40,11 @@ let catalogCache: CityCatalog | null = null;
 export async function loadCityCatalog(): Promise<CityCatalog> {
   if (catalogCache) return catalogCache;
   const db = getDb();
-  const result = await db.execute(sql`SELECT id, name_bg, name_en FROM municipalities ORDER BY id`);
-  const cities = assignCitySlugs(result.rows as unknown as MunicipalityRow[]);
+  const result = await db.execute(
+    sql`SELECT id, name_bg, name_en, ekatte_code FROM municipalities ORDER BY id`,
+  );
+  const rows = result.rows as unknown as (MunicipalityRow & { ekatte_code: string })[];
+  const cities = assignCitySlugs(rows);
 
   const bySlug = new Map<string, City>();
   const byId = new Map<number, City>();
@@ -44,8 +52,13 @@ export async function loadCityCatalog(): Promise<CityCatalog> {
     bySlug.set(city.slug, city);
     byId.set(city.id, city);
   }
+  const byEkatte = new Map<string, City>();
+  for (const row of rows) {
+    const city = byId.get(Number(row.id));
+    if (city) byEkatte.set(String(row.ekatte_code), city);
+  }
 
-  catalogCache = { bySlug, byId, all: cities };
+  catalogCache = { bySlug, byId, byEkatte, all: cities };
   return catalogCache;
 }
 
