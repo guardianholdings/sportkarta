@@ -168,6 +168,11 @@ describe('map count and cluster copy', () => {
     expect(tEn('showCount', { count: 1 })).toBe('Show 1 facility');
   });
 
+  it('offers no «Покажи 0 съоръжения» — it says there is nothing', () => {
+    expect(tBg('showCount', { count: 0 })).toBe('Няма съвпадения');
+    expect(tEn('showCount', { count: 0 })).toBe('No matches');
+  });
+
   it('names a cluster by its count, so a screen reader can announce it', () => {
     expect(tBg('clusterLabel', { count: 23 })).toBe('23 съоръжения — приближи');
     expect(tEn('clusterLabel', { count: 1 })).toBe('1 facility — zoom in');
