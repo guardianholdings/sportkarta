@@ -4,11 +4,13 @@ import { getDb } from '@sportkarta/db';
 import { detectDelimiter, parseCsv } from '@sportkarta/lib/csv';
 import { revalidatePath } from 'next/cache';
 
+import { readColumnMapping } from '@/lib/admin-csv';
 import { requireRole } from '@/lib/auth-session';
 import {
   guessResultMapping,
   previewResults,
   replaceResults,
+  RESULT_FIELDS,
   ResultError,
   resultRowsFromCsv,
   type ResultMapping,
@@ -90,7 +92,7 @@ export async function previewResultsCsvAction(
 ): Promise<ResultsState> {
   await requireRole('admin');
   const csv = String(formData.get('csv') ?? '');
-  const mapping = readMapping(formData);
+  const mapping = readColumnMapping(formData, RESULT_FIELDS);
   let rows: (ResultRowInput & { rowNumber: number })[];
   try {
     rows = resultRowsFromCsv(csv, mapping);
@@ -121,7 +123,7 @@ export async function commitResultsCsvAction(
   const csv = String(formData.get('csv') ?? '');
 
   try {
-    const rows = resultRowsFromCsv(csv, readMapping(formData));
+    const rows = resultRowsFromCsv(csv, readColumnMapping(formData, RESULT_FIELDS));
     // Re-validated inside replaceResults: a posted preview is a rendering, not
     // an authorisation.
     const outcome = await replaceResults(getDb(), occurrenceId, user.id, rows);
@@ -163,16 +165,4 @@ async function readCsv(formData: FormData): Promise<string> {
   const file = formData.get('file');
   if (file instanceof File && file.size > 0) return file.text();
   return String(formData.get('csv') ?? '');
-}
-
-function readMapping(formData: FormData): ResultMapping {
-  const mapping: ResultMapping = {};
-  for (const [key, value] of formData.entries()) {
-    if (!key.startsWith('map.')) continue;
-    const index = Number(value);
-    if (Number.isInteger(index) && index >= 0) {
-      mapping[key.slice(4) as keyof ResultMapping] = index;
-    }
-  }
-  return mapping;
 }

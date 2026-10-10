@@ -2,9 +2,10 @@
 
 import type { Resolution } from '@sportkarta/db';
 import { detectDelimiter, parseCsv } from '@sportkarta/lib/csv';
-import type { MunicipalField } from '@sportkarta/lib';
+import { MUNICIPAL_FIELDS } from '@sportkarta/lib/import-municipal';
 import { revalidatePath } from 'next/cache';
 
+import { readColumnMapping } from '@/lib/admin-csv';
 import { requireRole } from '@/lib/auth-session';
 import {
   commitMunicipal,
@@ -56,24 +57,6 @@ async function readCsv(formData: FormData): Promise<string> {
   const file = formData.get('file');
   if (file instanceof File && file.size > 0) return file.text();
   return String(formData.get('csv') ?? '');
-}
-
-function readMapping(formData: FormData): MunicipalMapping {
-  const mapping: MunicipalMapping = {};
-  for (const [key, raw] of formData.entries()) {
-    if (!key.startsWith('map.')) continue;
-    const value = String(raw);
-    // The "ignore" option submits an empty string, and Number('') is 0 — so
-    // without this guard every unmapped column would silently point at the
-    // first cell. That mislabelled a name as a lighting value, caught driving
-    // the real form.
-    if (value === '') continue;
-    const index = Number(value);
-    if (Number.isInteger(index) && index >= 0) {
-      mapping[key.slice(4) as MunicipalField] = index;
-    }
-  }
-  return mapping;
 }
 
 /**
@@ -147,7 +130,7 @@ export async function previewCsvAction(
   await requireRole('admin');
   const csv = String(formData.get('csv') ?? '');
   const registryLabel = readRegistryLabel(formData);
-  const mapping = readMapping(formData);
+  const mapping = readColumnMapping(formData, MUNICIPAL_FIELDS);
 
   try {
     const rows = rowsFromCsv(csv, mapping);
@@ -177,7 +160,7 @@ export async function commitCsvAction(
   await requireRole('admin');
   const csv = String(formData.get('csv') ?? '');
   const registryLabel = readRegistryLabel(formData);
-  const mapping = readMapping(formData);
+  const mapping = readColumnMapping(formData, MUNICIPAL_FIELDS);
   if (registryLabel === '') return { step: 'input', error: 'registry_required', csv };
 
   try {
