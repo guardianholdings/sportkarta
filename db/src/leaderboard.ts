@@ -173,10 +173,11 @@ export interface MemberStanding {
  * One member's own position — including well past the visible page, so someone
  * ranked 340th can still find out.
  *
- * Returns null when the member is not eligible — i.e. has not published their
- * passport. The caller explains that from the profile it already holds rather
- * than being told here: this function is not the right place to explain a
- * product rule.
+ * Returns null when the member has no row on THIS board — either not eligible
+ * (the passport is not public) or eligible with no points in this scope and
+ * period. The two need different words, and the caller tells them apart from
+ * the profile it already holds (/klasirane, S-6) rather than being told here:
+ * this function is not the right place to explain a product rule.
  */
 export async function memberStanding(
   db: SqlRunner,
