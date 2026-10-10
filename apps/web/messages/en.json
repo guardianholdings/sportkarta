@@ -1053,6 +1053,8 @@
     "weekOf": "Week of {date}",
     "optIn": "Subscribe",
     "optOut": "Stop emails",
+    "optInFor": "Subscribe me for {city}",
+    "optOutFor": "Stop the emails for {city}",
     "noCities": "No cities have a weekly programme yet.",
     "unsubscribeConfirmTitle": "Unsubscribe from the weekly programme",
     "unsubscribeConfirmTitleCity": "Unsubscribe from the weekly programme for {city}",

@@ -1053,6 +1053,8 @@
     "weekOf": "Седмица от {date}",
     "optIn": "Абонирай ме",
     "optOut": "Спри имейлите",
+    "optInFor": "Абонирай ме за {city}",
+    "optOutFor": "Спри имейлите за {city}",
     "noCities": "Още няма градове със седмична програма.",
     "unsubscribeConfirmTitle": "Отписване от седмичната програма",
     "unsubscribeConfirmTitleCity": "Отписване от седмичната програма на {city}",

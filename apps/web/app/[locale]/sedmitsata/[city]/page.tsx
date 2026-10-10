@@ -125,10 +125,9 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
           <section className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm">
             <p className="text-ink-soft">{t('empty', { city: name })}</p>
             <p className="text-body-sm text-text-muted">{t('emptyHint')}</p>
-            <Link
-              href={`/igrishta/${city.slug}`}
-              className="text-body-sm font-medium text-link hover:text-link-hover"
-            >
+            {/* To the map, as the label says: the city's listing page is a 404
+                for the ~35 municipalities with fewer than three facilities. */}
+            <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
               {t('backToMap')}
             </Link>
           </section>
