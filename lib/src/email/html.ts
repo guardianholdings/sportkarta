@@ -32,7 +32,7 @@ function linkify(escapedLine: string): string {
  * Wrap a plain-text mail body in the brand shell. `text` is the exact string
  * the `text:` part carries; blank lines become paragraph breaks.
  */
-export function brandEmailHtml(text: string): string {
+export function brandEmailHtml(text: string, lang?: string): string {
   const paragraphs = text
     .split(/\n{2,}/)
     .map((block) =>
@@ -46,7 +46,10 @@ export function brandEmailHtml(text: string): string {
     .join('');
 
   return (
-    '<!doctype html><html><body style="margin:0;padding:0;background:#F5F3EE">' +
+    // `lang` lets a mail client (and a screen reader) pick the right voice and
+    // hyphenation; only the site's own two locales are ever written into it.
+    `<!doctype html><html${lang === 'bg' || lang === 'en' ? ` lang="${lang}"` : ''}>` +
+    '<body style="margin:0;padding:0;background:#F5F3EE">' +
     '<div style="max-width:560px;margin:0 auto;padding:16px">' +
     '<div style="height:4px;border-radius:2px;background:#FF4A2B"></div>' +
     '<div style="background:#FEFDFB;border:1px solid #E3DFD4;border-radius:14px;margin-top:12px;padding:20px;' +

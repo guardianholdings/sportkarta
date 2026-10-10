@@ -102,6 +102,7 @@ export function digestStrings(locale: string): DigestStrings {
     viewWeek: pick('viewWeek'),
     unsubscribe: pick('unsubscribe'),
     footer: pick('footer'),
+    locale,
   };
 }
 

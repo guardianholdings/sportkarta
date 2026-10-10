@@ -43,6 +43,12 @@ export interface DigestStrings {
   introOther: string;
   /** Weekday names, Monday first — 7 entries. */
   weekdays: readonly string[];
+  /**
+   * The locale these strings are in. It writes each day's date in words
+   * («Вторник, 1 септември») instead of the raw `2026-09-01` the digest used
+   * to print (UX audit 2026-10-10), and the mail's `lang`.
+   */
+  locale?: string;
   /** `{going}` `{capacity}` */
   spots: string;
   /** `{going}` — two explicit forms, for the same reason as the intro. */
@@ -93,6 +99,20 @@ function dateOf(startsAtLocal: string): string {
   return startsAtLocal.split('T')[0] ?? '';
 }
 
+/** «1 септември» / «1 September» for a civil date; the raw date without a locale. */
+function dayMonth(civilDate: string, locale: string | undefined): string {
+  if (!locale) return civilDate;
+  const [year, month, day] = civilDate.split('-').map(Number);
+  if (!year || !month || !day) return civilDate;
+  // A calendar date, formatted in UTC so no time zone can move it to a
+  // neighbouring day.
+  return new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'bg', {
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(year, month - 1, day)));
+}
+
 /**
  * Render the digest. Returns `undefined` for an empty week: a mail that says
  * "nothing is on" is not worth an inbox, and the job skips rather than sends.
@@ -121,7 +141,7 @@ export function renderWeeklyDigest(
     if (date !== lastDate) {
       if (lastDate !== '') lines.push('');
       const weekday = strings.weekdays[weekdayIndex(entry.startsAtLocal)] ?? '';
-      lines.push(`${weekday}, ${date}`);
+      lines.push(`${weekday}, ${dayMonth(date, strings.locale)}`);
       lastDate = date;
     }
     const spots =
@@ -147,7 +167,7 @@ export function renderWeeklyDigest(
     // notification previews, logs and bounce reports.
     subject: fill(strings.subject, { city: data.cityName }),
     text,
-    html: brandEmailHtml(text),
+    html: brandEmailHtml(text, strings.locale),
     // A bulk mail with no native unsubscribe control gets "Report spam"
     // instead — and complaints count against the same sending account the
     // sign-in codes use. RFC 8058: the header names the POST endpoint, and

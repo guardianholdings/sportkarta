@@ -234,6 +234,6 @@ export function renderSessionMail(data: SessionMailData, strings: SessionMailStr
     subject: subjectFor(data, strings),
     text,
     // Same content, branded shell — the text part stays the source of truth.
-    html: brandEmailHtml(text),
+    html: brandEmailHtml(text, strings.locale),
   };
 }
