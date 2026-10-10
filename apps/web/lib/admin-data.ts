@@ -405,20 +405,34 @@ export interface ImportJobRow {
   state: string;
   dryRun: boolean;
   actor: string | null;
+  /**
+   * Who queued it, by display name (or email when they have none) — the job
+   * stores an account id, which told the operator nothing (A-17). Null when
+   * that account no longer exists.
+   */
+  actorName: string | null;
   createdOn: string;
   completedOn: string | null;
+}
+
+/** ISO text, so the page formats it in Sofia time; String(Date) printed UTC. */
+function isoTime(value: unknown): string {
+  return value instanceof Date ? value.toISOString() : String(value);
 }
 
 /** pg-boss keeps finished jobs in pgboss.job until archival, then pgboss.archive. */
 export async function listImportJobs(): Promise<ImportJobRow[]> {
   const db = getDb();
   const result = await db.execute(sql`
-    SELECT id, state, data, created_on, completed_on FROM (
+    SELECT jobs.id, jobs.state, jobs.data, jobs.created_on, jobs.completed_on,
+           NULLIF(btrim(u.display_name), '') AS actor_display_name, u.email AS actor_email
+    FROM (
       SELECT id, state, data, created_on, completed_on FROM pgboss.job WHERE name = 'import.osm'
       UNION ALL
       SELECT id, state, data, created_on, completed_on FROM pgboss.archive WHERE name = 'import.osm'
     ) jobs
-    ORDER BY created_on DESC
+    LEFT JOIN users u ON u.id = jobs.data ->> 'actor'
+    ORDER BY jobs.created_on DESC
     LIMIT 20
   `);
   return result.rows.map((r) => {
@@ -429,8 +443,9 @@ export async function listImportJobs(): Promise<ImportJobRow[]> {
       state: String(row.state),
       dryRun: data.dryRun !== false,
       actor: data.actor ?? null,
-      createdOn: String(row.created_on),
-      completedOn: row.completed_on ? String(row.completed_on) : null,
+      actorName: ((row.actor_display_name ?? row.actor_email) as string | null) ?? null,
+      createdOn: isoTime(row.created_on),
+      completedOn: row.completed_on ? isoTime(row.completed_on) : null,
     };
   });
 }
@@ -468,8 +483,9 @@ export async function getImportJob(id: string): Promise<ImportJobDetail | null> 
     state,
     dryRun: data.dryRun !== false,
     actor: data.actor ?? null,
-    createdOn: String(row.created_on),
-    completedOn: row.completed_on ? String(row.completed_on) : null,
+    actorName: null,
+    createdOn: isoTime(row.created_on),
+    completedOn: row.completed_on ? isoTime(row.completed_on) : null,
     report: typeof output?.report === 'string' ? output.report : null,
     // A retry carries the previous attempt's error too, which is worth seeing.
     error: state === 'failed' || state === 'retry' ? jobErrorMessage(row.output) : null,

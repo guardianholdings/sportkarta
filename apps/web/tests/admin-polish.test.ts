@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { SQL } from '@sportkarta/db';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { dashboardCounts, isUuid, municipalityOptionsFor } from '@/lib/admin-data';
+import { dashboardCounts, isUuid, listImportJobs, municipalityOptionsFor } from '@/lib/admin-data';
 import { moderationSla, queuePhotos } from '@/lib/moderation-data';
 
 /**
@@ -136,6 +136,43 @@ describe('the SLA panel measures the crowd queue (A-7)', () => {
     expect(timing?.sql).toMatch(
       /NOT EXISTS \(\s*SELECT 1 FROM facilities f\s*WHERE d\.target_type = 'facility' AND f\.id = d\.facility_id AND f\.source <> 'crowd'/,
     );
+  });
+});
+
+describe('the OSM import list names who queued it (A-17)', () => {
+  it('resolves the account to a name, and returns Sofia-formattable ISO times', async () => {
+    db.answers.push([
+      {
+        id: 'j1',
+        state: 'completed',
+        data: { dryRun: false, actor: 'user_1' },
+        created_on: new Date('2026-10-09T22:30:00Z'),
+        completed_on: new Date('2026-10-09T22:41:00Z'),
+        actor_display_name: 'Мария',
+        actor_email: 'maria@example.org',
+      },
+      {
+        id: 'j2',
+        state: 'failed',
+        data: { actor: 'user_gone' },
+        created_on: '2026-10-01T10:00:00.000Z',
+        completed_on: null,
+        actor_display_name: null,
+        actor_email: null,
+      },
+    ]);
+    const jobs = await listImportJobs();
+
+    expect(db.statements[0]?.sql).toMatch(/LEFT JOIN users u ON u\.id = jobs\.data ->> 'actor'/);
+    expect(jobs[0]).toMatchObject({
+      actor: 'user_1',
+      actorName: 'Мария',
+      dryRun: false,
+      createdOn: '2026-10-09T22:30:00.000Z',
+      completedOn: '2026-10-09T22:41:00.000Z',
+    });
+    // An erased account keeps its row and loses its name.
+    expect(jobs[1]).toMatchObject({ actor: 'user_gone', actorName: null, dryRun: true });
   });
 });
 

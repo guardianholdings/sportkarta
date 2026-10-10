@@ -278,7 +278,8 @@
       "failed": "failed",
       "retry": "retrying",
       "cancelled": "cancelled"
-    }
+    },
+    "formerUser": "deleted profile"
   },
   "AdminHealth": {
     "title": "System health",
