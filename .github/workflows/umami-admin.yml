@@ -8,14 +8,19 @@ name: Umami admin
 #               (ADMIN_TOOLS_PASSWORD, through the bcrypt hash the deploy
 #               already put on the server) and the site gets its Umami website.
 #               Prints the Website ID for the UMAMI_WEBSITE_ID variable.
+#   share     — Boss's read-only share link (#34.10), overview only, at the
+#               slug in the UMAMI_SHARE_SLUG secret. The slug is the link, so it
+#               goes over stdin and is never printed. A new secret value and a
+#               re-run replace the link.
+#   unshare   — every share link stops working at once.
 # Nothing here reads a plaintext password, and nothing prints a hash or token.
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: check (read-only) or bootstrap (Umami admin password + website row)
+        description: check (read-only), bootstrap (Umami admin password + website row), share or unshare (Boss's read-only link)
         type: choice
-        options: [check, bootstrap]
+        options: [check, bootstrap, share, unshare]
         default: check
       utm_source:
         description: check only — also count pageviews tagged with this utm_source
@@ -65,16 +70,19 @@ jobs:
           MODE: ${{ inputs.mode }}
           TAG: ${{ inputs.utm_source }}
           HOURS: ${{ inputs.hours }}
+          # Masked in the log by GitHub; sent on stdin, and only for share.
+          SLUG: ${{ secrets.UMAMI_SHARE_SLUG }}
         run: |
           set -euo pipefail
           # ssh hands the arguments to the server's shell as one line, so only
           # values that need no quoting may pass (the script checks them again).
-          [[ "$MODE" =~ ^(check|bootstrap)$ ]] || { echo "::error::mode: check or bootstrap"; exit 1; }
+          [[ "$MODE" =~ ^(check|bootstrap|share|unshare)$ ]] || { echo "::error::mode: check, bootstrap, share or unshare"; exit 1; }
           [[ "$TAG" =~ ^[A-Za-z0-9._-]{0,40}$ ]] || { echo "::error::utm_source: letters, digits and . _ - only"; exit 1; }
           [[ "$HOURS" =~ ^[1-9][0-9]{0,2}$ ]] || { echo "::error::hours: 1 to 999"; exit 1; }
           scp deploy/umami-admin.sh vps:/opt/sportkarta/umami-admin.sh
           # shellcheck disable=SC2029 # expanded here on purpose: checked values only
-          ssh vps "bash /opt/sportkarta/umami-admin.sh '$MODE' '$TAG' '$HOURS'" | tee "$RUNNER_TEMP/umami.txt"
+          if [ "$MODE" = share ]; then printf '%s\n' "$SLUG"; fi \
+            | ssh vps "bash /opt/sportkarta/umami-admin.sh '$MODE' '$TAG' '$HOURS'" | tee "$RUNNER_TEMP/umami.txt"
           {
             echo '```'
             cat "$RUNNER_TEMP/umami.txt"

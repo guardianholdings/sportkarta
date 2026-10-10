@@ -131,6 +131,45 @@ umami.{$DOMAIN} {
 		}
 	}
 
+	# Boss's read-only share link (#34.10). The share page sends its API calls
+	# with an Authorization header of its own, so the lock's credentials can
+	# never ride along; these requests skip the lock instead, GET only. Open:
+	# the share page itself, Umami's public static files, the share's token
+	# endpoint, and the website API calls that carry Umami's share token. Umami
+	# checks that token itself: signed with APP_SECRET, minted only for a share,
+	# and good for its one website, read-only. A request without it gets 401.
+	# The login, the admin UI and every other API path stay behind the lock.
+	# Revoking the link (Umami admin → unshare) needs no change here.
+	@share_page {
+		method GET HEAD
+		path /share/* /_next/static/* /images/* /intl/* /favicon.ico /favicon-16x16.png /favicon-32x32.png /apple-touch-icon.png /android-chrome-192x192.png /android-chrome-512x512.png /safari-pinned-tab.svg /site.webmanifest /datamaps.world.json /iso-3166-2.json /api/config
+	}
+	handle @share_page {
+		reverse_proxy umami:3000 {
+			import visitor_address
+		}
+	}
+	@share_token {
+		method GET
+		path_regexp ^/api/share/[A-Za-z0-9]+$
+	}
+	handle @share_token {
+		reverse_proxy umami:3000 {
+			import visitor_address
+		}
+	}
+	@share_api {
+		method GET
+		path /api/websites/*
+		header X-Umami-Share-Context 1
+		header X-Umami-Share-Token *
+	}
+	handle @share_api {
+		reverse_proxy umami:3000 {
+			import visitor_address
+		}
+	}
+
 	handle {
 		import operator_only
 		reverse_proxy umami:3000 {
