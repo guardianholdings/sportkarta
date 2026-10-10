@@ -2277,6 +2277,7 @@
     "durationMinutes": "{minutes} min",
     "distanceKm": "{km} km",
     "delete": "Delete",
+    "deleteConfirm": "Delete this training session? This cannot be undone.",
     "problems": {
       "sportUnknown": "Choose a sport from the list.",
       "duration": "Duration must be between 1 minute and 24 hours.",

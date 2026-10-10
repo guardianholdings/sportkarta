@@ -7,6 +7,8 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { ShareSheet } from '@/components/share/share-sheet';
 import { AppShell } from '@/components/shell/app-shell';
 import { TrainingForm } from '@/components/training/training-form';
+import { buttonVariants } from '@/components/ui/button';
+import { ConfirmButton } from '@/components/ui/confirm-button';
 import { requireUser } from '@/lib/auth-session';
 import { inReadingOrder } from '@/lib/format';
 import { siteUrl } from '@/lib/seo';
@@ -173,8 +175,8 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
           {rows.length > 0 && (
             <ul className="divide-y divide-line rounded-card border border-line bg-surface">
               {rows.map((row) => (
-                <li key={row.id} className="flex items-center gap-3 px-4 py-3 text-body-sm">
-                  <div className="min-w-0 flex-1">
+                <li key={row.id} className="space-y-2 px-4 py-3 text-body-sm">
+                  <div className="min-w-0">
                     <p className="font-medium text-ink">
                       {sportName(row.sport)}
                       {row.facilityName && (
@@ -188,39 +190,46 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
                         ` · ${t('distanceKm', { km: Math.round(row.distanceM / 100) / 10 })}`}
                     </p>
                   </div>
-                  {/*
-                    A share on EVERY row, not only the newest. The moment a
-                    member wants to post is not always the moment they logged —
-                    a good run is worth posting that evening too.
-                  */}
-                  <ShareSheet
-                    size="sm"
-                    payload={buildShare({
-                      kind: 'training',
-                      locale,
-                      origin,
-                      page: '/klasirane',
-                      ref: row.id,
-                      text: (() => {
-                        const km = formatKm(row.distanceM);
-                        const minutes = formatMinutes(row.durationS);
-                        const sport = sportName(row.sport);
-                        return km
-                          ? tShare('textTrainingKm', { sport, km, minutes })
-                          : tShare('textTraining', { sport, minutes });
-                      })(),
-                    })}
-                    strings={sheetTraining}
-                  />
-                  <form action={deleteTrainingAction}>
-                    <input type="hidden" name="id" value={row.id} />
-                    <button
-                      type="submit"
-                      className="rounded border border-line-strong px-2 py-1 text-caption text-ink-soft hover:bg-paper-sunk"
-                    >
-                      {t('delete')}
-                    </button>
-                  </form>
+                  <div className="flex flex-wrap items-start gap-3">
+                    {/*
+                      A share on EVERY row, not only the newest. The moment a
+                      member wants to post is not always the moment they logged
+                      — a good run is worth posting that evening too.
+                    */}
+                    <ShareSheet
+                      size="sm"
+                      payload={buildShare({
+                        kind: 'training',
+                        locale,
+                        origin,
+                        page: '/klasirane',
+                        ref: row.id,
+                        text: (() => {
+                          const km = formatKm(row.distanceM);
+                          const minutes = formatMinutes(row.durationS);
+                          const sport = sportName(row.sport);
+                          return km
+                            ? tShare('textTrainingKm', { sport, km, minutes })
+                            : tShare('textTraining', { sport, minutes });
+                        })(),
+                      })}
+                      strings={sheetTraining}
+                    />
+                    {/*
+                      Away from Share and behind a confirm: a deletion cannot
+                      be undone, and it was a 24px box one slip of the thumb
+                      from the share button (S-13).
+                    */}
+                    <form action={deleteTrainingAction} className="ml-auto">
+                      <input type="hidden" name="id" value={row.id} />
+                      <ConfirmButton
+                        message={t('deleteConfirm')}
+                        className={buttonVariants({ variant: 'secondary' })}
+                      >
+                        {t('delete')}
+                      </ConfirmButton>
+                    </form>
+                  </div>
                 </li>
               ))}
             </ul>

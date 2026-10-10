@@ -47,3 +47,19 @@ describe('distance (S-3)', () => {
     expect(action).not.toMatch(/distanceKm \* 1000/);
   });
 });
+
+describe('deleting a training (S-13)', () => {
+  const page = readFileSync(
+    new URL('../app/[locale]/trenirovki/page.tsx', import.meta.url),
+    'utf8',
+  );
+
+  it('asks first, at full touch size, apart from Share', () => {
+    const form = /<form action=\{deleteTrainingAction\}[\s\S]*?<\/form>/.exec(page)?.[0] ?? '';
+    expect(form).toContain('<ConfirmButton');
+    expect(form).toContain("message={t('deleteConfirm')}");
+    // buttonVariants' default size is md: h-11, the 44px floor.
+    expect(form).toContain("className={buttonVariants({ variant: 'secondary' })}");
+    expect(form).toMatch(/className="ml-auto"/);
+  });
+});
