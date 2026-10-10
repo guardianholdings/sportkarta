@@ -74,3 +74,31 @@ describe('places.ts asks the shared visibility question', () => {
     ).toBeGreaterThanOrEqual(facilityQueries);
   });
 });
+
+/**
+ * A listing exists only from MIN_LISTING_FACILITIES up — below that the route
+ * 404s as thin content. /obshtina/<city> linked every municipality back to its
+ * listing regardless, so for the ones with one or two facilities its first link
+ * was a 404 (UX audit 2026-10-10, M-15). The pages that decide and the page that
+ * links now read one constant, and the link sits behind it.
+ */
+describe('the listing threshold is one number', () => {
+  const read = (...parts: string[]) => readFileSync(join(__dirname, '..', ...parts), 'utf8');
+  const city = read('app', '[locale]', 'igrishta', '[city]', 'page.tsx');
+  const segment = read('app', '[locale]', 'igrishta', '[city]', '[segment]', 'page.tsx');
+  const obshtina = read('app', '[locale]', 'obshtina', '[city]', 'page.tsx');
+
+  it('the listings use the shared constant, not a literal of their own', () => {
+    for (const source of [city, segment]) {
+      expect(source).toContain('MIN_LISTING_FACILITIES');
+      expect(source).not.toMatch(/const MIN_\w+\s*=\s*\d/);
+    }
+  });
+
+  it('the municipality page links to its listing only when the listing exists', () => {
+    expect(obshtina).toMatch(
+      /data\.total >= MIN_LISTING_FACILITIES && \(\s*<Link\s+href=\{`\/igrishta\/\$\{city\.slug\}`\}/,
+    );
+    expect(obshtina.match(/href=\{`\/igrishta\//g)).toHaveLength(1);
+  });
+});

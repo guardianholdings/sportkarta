@@ -9,14 +9,15 @@ import {
   citiesForSport,
   citySportCounts,
   getCityBySlug,
+  MIN_LISTING_FACILITIES,
   resolveSegmentScope,
   scopedFacilities,
   scopedFacilityCount,
   scopedMapPoints,
   segmentScopeOptions,
-  type City,
 } from '@/lib/places';
 import { capitalizeFirst, takesVav } from '@/lib/grammar';
+import { cityName, listingCopy } from '@/lib/place-headings';
 import { buildAlternates } from '@/lib/seo';
 import { AppShell } from '@/components/shell/app-shell';
 import { chipClass } from '@/components/ui/chip';
@@ -32,13 +33,7 @@ export function generateStaticParams(): { city: string; segment: string }[] {
   return [];
 }
 
-const MIN_FACILITIES = 3;
-
 type PageParams = Promise<{ locale: string; city: string; segment: string }>;
-
-function cityName(city: City, locale: string): string {
-  return locale === 'en' ? city.nameEn : city.nameBg;
-}
 
 export async function generateMetadata({ params }: { params: PageParams }): Promise<Metadata> {
   const { locale, city: slug, segment } = await params;
@@ -48,35 +43,18 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   const scope = await resolveSegmentScope(city.id, segment);
   if (!scope) return {};
   const count = await scopedFacilityCount(city.id, segmentScopeOptions(scope));
-  if (count < MIN_FACILITIES) return {};
+  if (count < MIN_LISTING_FACILITIES) return {};
 
   const [t, tSport] = await Promise.all([
     getTranslations({ locale, namespace: 'Places' }),
     getTranslations({ locale, namespace: 'Sport' }),
   ]);
-  const name = cityName(city, locale);
-  const cityVav = takesVav(name);
-  const alternates = buildAlternates(`/igrishta/${city.slug}/${segment}`, locale);
-
-  if (scope.kind === 'sport') {
-    const sport = tSport(scope.sport);
-    return {
-      // The sport OPENS the title, so it is capitalised there and only there.
-      title: t('sportMetaTitle', { sport: capitalizeFirst(sport, locale), city: name, cityVav }),
-      description: t('sportMetaDescription', { sport, city: name, cityVav, count }),
-      alternates,
-    };
-  }
-  const quarterVav = takesVav(scope.quarter);
+  // The same builder as pages 2..n (lib/place-headings.ts).
+  const copy = listingCopy({ locale, t, tSport }, { city, scope, count });
   return {
-    title: t('quarterMetaTitle', { quarter: scope.quarter, quarterVav, city: name }),
-    description: t('quarterMetaDescription', {
-      quarter: scope.quarter,
-      quarterVav,
-      city: name,
-      count,
-    }),
-    alternates,
+    title: copy.metaTitle,
+    description: copy.metaDescription,
+    alternates: buildAlternates(`/igrishta/${city.slug}/${segment}`, locale),
   };
 }
 
@@ -90,7 +68,7 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
   if (!scope) notFound();
   const opts = segmentScopeOptions(scope);
   const count = await scopedFacilityCount(city.id, opts);
-  if (count < MIN_FACILITIES) notFound();
+  if (count < MIN_LISTING_FACILITIES) notFound();
 
   const [t, tSport, mapPoints, facilities] = await Promise.all([
     getTranslations('Places'),
@@ -102,14 +80,7 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
   // „във Варна", not „в Варна" — the catalogue branches on it (lib/grammar.ts).
   const cityVav = takesVav(name);
 
-  const heading =
-    scope.kind === 'sport'
-      ? t('sportH1', {
-          sport: capitalizeFirst(tSport(scope.sport), locale),
-          city: name,
-          cityVav,
-        })
-      : t('quarterH1', { quarter: scope.quarter, quarterVav: takesVav(scope.quarter), city: name });
+  const { heading } = listingCopy({ locale, t, tSport }, { city, scope, count });
   const intro =
     scope.kind === 'sport'
       ? t('sportIntro', { sport: tSport(scope.sport), city: name, cityVav, count })
@@ -120,9 +91,9 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
     scope.kind === 'sport'
       ? await Promise.all([
           citySportCounts(city.id).then((rows) =>
-            rows.filter((s) => s.count >= MIN_FACILITIES && s.sport !== scope.sport),
+            rows.filter((s) => s.count >= MIN_LISTING_FACILITIES && s.sport !== scope.sport),
           ),
-          citiesForSport(scope.sport, city.id, MIN_FACILITIES),
+          citiesForSport(scope.sport, city.id, MIN_LISTING_FACILITIES),
         ])
       : [[], []];
 

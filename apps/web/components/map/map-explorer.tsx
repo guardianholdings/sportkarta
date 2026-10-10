@@ -16,7 +16,9 @@ import {
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react';
+import type { Dispatch, KeyboardEvent, RefObject, SetStateAction } from 'react';
 
 import { AdCreative } from '@/components/ads/ad-creative';
 import { BottomNav, NavRail } from '@/components/shell/app-nav';
@@ -33,12 +35,15 @@ import {
   ACCESS_OPTIONS,
   filtersToSearchParams,
   isDefaultAccess,
+  parsePublicFilters,
   type PublicFilters,
 } from '@/lib/filters';
 import { NAV_PROVIDERS } from '@/lib/directions';
+import { inReadingOrder } from '@/lib/format';
 import { formatKm } from '@/lib/geo';
 import { DEFAULT_LAYER, type ExternalMapLayer } from '@/lib/map/layers';
-import { Link, usePathname, useRouter } from '@/i18n/navigation';
+import { parseView } from '@/lib/map/view';
+import { Link } from '@/i18n/navigation';
 import { CANONICAL_SPORTS, CANONICAL_SURFACES, type CanonicalSport } from '@sportkarta/lib/sports';
 
 import type { FacilityFeatureCollection } from '@/lib/public-data';
@@ -49,7 +54,7 @@ import {
   facilityTitle,
   type LabelStrings,
 } from './facility-label';
-import { matchRows } from './list-rows';
+import { countOnMap, matchRows, searchMatcher } from './list-rows';
 import type { MapBounds, MapPoint, MapView, NearMe } from './map-canvas';
 
 const MapCanvas = dynamic(() => import('./map-canvas'), {
@@ -135,11 +140,12 @@ const PREVIEW_PX = {
 } as const;
 
 interface MapExplorerProps {
-  filters: PublicFilters;
+  /**
+   * The server's first-paint seed for the URL's filters. The filters, the
+   * selection and the opening view are NOT props: the explorer reads them from
+   * the address bar (see `writeUrl`).
+   */
   initialFacilities: MapPoint[];
-  /** Null = no view in the URL: the canvas fits the whole country to the screen. */
-  initialView: MapView | null;
-  initialSelected: string | null;
   /** External raster basemaps the server configured (lib/map/external-layers.ts). */
   externalLayers?: ExternalMapLayer[];
   /**
@@ -163,10 +169,7 @@ function primaryVisual(sports: string[]) {
 }
 
 export function MapExplorer({
-  filters,
   initialFacilities,
-  initialView,
-  initialSelected,
   externalLayers = [],
   ad = null,
 }: MapExplorerProps) {
@@ -176,8 +179,32 @@ export function MapExplorer({
   const tSport = useTranslations('Sport');
   const tFacility = useTranslations('Facility');
   const locale = useLocale();
-  const router = useRouter();
-  const pathname = usePathname();
+
+  /**
+   * THE ADDRESS BAR IS THE STATE. Filters, the selection and the view live in
+   * the URL, written with history.replaceState (`writeUrl`), which Next folds
+   * into useSearchParams without a navigation.
+   *
+   * They used to be props of a force-dynamic page, changed with router.replace:
+   * every chip, every pin tap and every preview close was a full server render
+   * of the home page — the facility seed query and the ad slot included — and
+   * offline that navigation failed over to /offline.html, throwing the map
+   * away. The client already fetches /api/facilities for the filters itself.
+   *
+   * Read back from the URL rather than from props, so a back/forward restore of
+   * this page — whose cached server props are as old as the last real
+   * navigation — still opens with the filters, the facility and the view the
+   * address bar shows. A deep link (?selected=…) reads the same way.
+   */
+  const searchParams = useSearchParams();
+  const urlParams = Object.fromEntries(searchParams.entries());
+  const filterKey = filtersToSearchParams(parsePublicFilters(urlParams)).toString();
+  const filters = useMemo(
+    () => parsePublicFilters(Object.fromEntries(new URLSearchParams(filterKey).entries())),
+    [filterKey],
+  );
+  const [initialView] = useState(() => parseView(urlParams));
+  const [initialSelected] = useState(() => searchParams.get('selected'));
 
   // What a facility is called on every surface here — the card, the preview,
   // the pin's accessible name, the search index (see facility-label.ts).
@@ -196,7 +223,8 @@ export function MapExplorer({
   const [selectedSlug, setSelectedSlug] = useState<string | null>(initialSelected);
   const [hoveredSlug, setHoveredSlug] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
-  const [locateError, setLocateError] = useState(false);
+  /** Why locating failed: the browser said no, or simply had no position. */
+  const [locateError, setLocateError] = useState<'denied' | 'unavailable' | null>(null);
   const [loadError, setLoadError] = useState(false);
   /**
    * TRUE from the first render: the full set is always fetched on mount, and
@@ -270,8 +298,27 @@ export function MapExplorer({
   const [layerMenuOpen, setLayerMenuOpen] = useState(false);
   const [viewBounds, setViewBounds] = useState<MapBounds | null>(null);
 
-  const listRef = useRef<HTMLDivElement>(null);
-  const filterKey = filtersToSearchParams(filters).toString();
+  /**
+   * One ref PER LIST. The results body is mounted twice — the desktop panel and
+   * the phone sheet, one of them display:none — and a single shared ref ended up
+   * on whichever mounted last, so on a laptop the marker hover-sync scrolled the
+   * hidden phone list and the visible one never moved.
+   */
+  const desktopListRef = useRef<HTMLDivElement>(null);
+  const mobileListRef = useRef<HTMLDivElement>(null);
+  const desktopPreviewRef = useRef<HTMLElement>(null);
+  const mobilePreviewRef = useRef<HTMLDivElement>(null);
+  /** The card (or pin) a preview was opened from — where focus returns on close. */
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  /** Set by a member's own select(), never by a deep link's first paint. */
+  const moveFocusRef = useRef(false);
+  const lastSelectedRef = useRef<string | null>(initialSelected);
+  /**
+   * Bumped to fetch the SAME filters again. «Опитай пак» used to re-apply the
+   * current filters, which left `filterKey` unchanged — so the effect below
+   * never re-ran and the button did nothing at all.
+   */
+  const [attempt, setAttempt] = useState(0);
 
   // Offline awareness for the "your connection dropped" state.
   useEffect(() => {
@@ -285,9 +332,10 @@ export function MapExplorer({
     };
   }, []);
 
-  // Full filtered set for the map + list whenever the structured filters change.
-  // The locale rides along because `place` carries a municipality name, which
-  // has a bg and an en form (the API is not locale-routed).
+  // Full filtered set for the map + list whenever the structured filters change
+  // — or a retry asks for them again. The locale rides along because `place`
+  // carries a municipality name, which has a bg and an en form (the API is not
+  // locale-routed).
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
@@ -295,7 +343,10 @@ export function MapExplorer({
     const params = new URLSearchParams(filterKey);
     params.set('locale', locale);
     fetch(`/api/facilities?${params.toString()}`, { signal: controller.signal })
-      .then((r) => r.json() as Promise<FacilityFeatureCollection>)
+      .then((r) => {
+        if (!r.ok) throw new Error(`facilities ${String(r.status)}`);
+        return r.json() as Promise<FacilityFeatureCollection>;
+      })
       .then((fc) => {
         setPoints(
           fc.features.map((f) => ({
@@ -315,7 +366,18 @@ export function MapExplorer({
         setLoading(false);
       });
     return () => controller.abort();
-  }, [filterKey, locale]);
+  }, [filterKey, locale, attempt]);
+
+  // A load that failed for want of a connection retries itself when the
+  // connection comes back, instead of waiting for somebody to find the button.
+  useEffect(() => {
+    if (!loadError) return;
+    const retry = () => setAttempt((n) => n + 1);
+    window.addEventListener('online', retry);
+    return () => {
+      window.removeEventListener('online', retry);
+    };
+  }, [loadError]);
 
   function viewportParams(): [string, string][] {
     if (typeof window === 'undefined') return [];
@@ -325,23 +387,40 @@ export function MapExplorer({
       .filter((e): e is [string, string] => e[1] !== null);
   }
 
-  function applyFilters(next: PublicFilters) {
+  /**
+   * Filters + the map's own z/lat/lng + the selection, into the address bar —
+   * replaceState, so no history entry and no server render (see the comment on
+   * `searchParams` above). `pathname` is the window's, locale prefix included.
+   */
+  function writeUrl(next: PublicFilters, slug: string | null) {
     const params = filtersToSearchParams(next);
-    for (const [k, v] of viewportParams()) params.set(k, v);
-    if (selectedSlug) params.set('selected', selectedSlug);
-    const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }
-
-  // Keep the map mounted: selection rides a search param, not a route change.
-  function select(slug: string | null) {
-    setSelectedSlug(slug);
-    setPreviewFull(false);
-    const params = filtersToSearchParams(filters);
     for (const [k, v] of viewportParams()) params.set(k, v);
     if (slug) params.set('selected', slug);
     const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    const { pathname } = window.location;
+    window.history.replaceState(null, '', qs ? `${pathname}?${qs}` : pathname);
+  }
+
+  function applyFilters(next: PublicFilters) {
+    writeUrl(next, selectedSlug);
+  }
+
+  // Keep the map mounted: selection rides a search param, not a route change —
+  // and not a server render either (`writeUrl`).
+  function select(slug: string | null) {
+    const from = document.activeElement;
+    if (
+      slug &&
+      from instanceof HTMLElement &&
+      from !== document.body &&
+      !from.closest('[data-preview]')
+    ) {
+      returnFocusRef.current = from;
+    }
+    moveFocusRef.current = true;
+    setSelectedSlug(slug);
+    setPreviewFull(false);
+    writeUrl(filters, slug);
     if (slug) setSnap((s) => (s === 'peek' ? 'half' : s));
   }
 
@@ -354,32 +433,52 @@ export function MapExplorer({
     window.history.replaceState(null, '', `${window.location.pathname}?${sp.toString()}`);
   });
 
+  /**
+   * A failed location also switches «Около мен» back off: it used to stay on —
+   * counted as an active filter, highlighted in the sheet — around a location
+   * that did not exist.
+   */
   function locate() {
     if (!('geolocation' in navigator)) {
-      setLocateError(true);
+      setLocateError('unavailable');
+      setNearMeOn(false);
       return;
     }
     setLocating(true);
-    setLocateError(false);
+    setLocateError(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setUserLocation({ lon: pos.coords.longitude, lat: pos.coords.latitude });
         setLocating(false);
       },
-      () => {
-        setLocateError(true);
+      (error) => {
+        setLocateError(error.code === error.PERMISSION_DENIED ? 'denied' : 'unavailable');
         setLocating(false);
+        setNearMeOn(false);
       },
       { enableHighAccuracy: true, timeout: 10_000 },
     );
   }
 
   function toggleNearMe() {
-    if (!nearMeOn && !userLocation) {
-      locate();
+    if (nearMeOn) {
+      setNearMeOn(false);
+      return;
     }
-    setNearMeOn((v) => !v);
+    // On BEFORE locating, so a failure — even a synchronous one — wins.
+    setNearMeOn(true);
+    if (!userLocation) locate();
   }
+
+  // The notice sits over the sheet on a phone: it clears itself, and its close
+  // button clears it sooner. It used to stay for the rest of the visit.
+  useEffect(() => {
+    if (!locateError) return;
+    const timer = window.setTimeout(() => setLocateError(null), 10_000);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [locateError]);
 
   const nearMe = useMemo<NearMe | null>(
     () => (nearMeOn && userLocation ? { center: userLocation, radiusKm } : null),
@@ -393,6 +492,16 @@ export function MapExplorer({
     () => new Map(points.map((p) => [p.slug, facilitySearchText(p, labelStrings)])),
     [points, labelStrings],
   );
+
+  // The pins follow the search. The canvas used to get every point whatever
+  // was typed, so the list said «2 съоръжения» over a map of thousands. It gets
+  // the set the list's search keeps — the same matcher over the same index —
+  // and `points` itself while the field is empty, so the canvas is not handed
+  // new data for nothing.
+  const searchedPoints = useMemo(() => {
+    const match = searchMatcher(query, locale);
+    return match ? points.filter((p) => match(searchIndex.get(p.slug) ?? '')) : points;
+  }, [points, query, locale, searchIndex]);
 
   // Search + near-me + distance sort + on-map-first (list-rows.ts). `matched`
   // is EVERY row that passes, and it is what the count reports; only the
@@ -410,18 +519,54 @@ export function MapExplorer({
     [points, userLocation, nearMe, query, viewBounds, searchIndex, locale],
   );
   const listItems = useMemo(() => matched.slice(0, 60), [matched]);
+  /**
+   * Zoomed in, the list runs on past what the map shows — on-map rows first,
+   * then the rest of the country. The count and a divider say where that
+   * happens; under a bare national count, Varna's rows read as part of Sofia.
+   */
+  const onMapCount = useMemo(() => countOnMap(matched), [matched]);
 
   const selected = useMemo(
     () => (selectedSlug ? (points.find((p) => p.slug === selectedSlug) ?? null) : null),
     [selectedSlug, points],
   );
 
+  /**
+   * Focus follows the preview: into it when the member opens one, back to the
+   * card it came from when they close it. Activating a card with Enter used to
+   * drop focus on <body> — the card unmounted under the keyboard — so a
+   * keyboard or screen-reader user started again from the top of the page after
+   * every facility they looked at.
+   */
+  useEffect(() => {
+    const previous = lastSelectedRef.current;
+    lastSelectedRef.current = selectedSlug;
+    if (!moveFocusRef.current) return;
+    moveFocusRef.current = false;
+    if (selectedSlug) {
+      const preview = viewport.desktop ? desktopPreviewRef.current : mobilePreviewRef.current;
+      preview?.querySelector<HTMLElement>('[data-preview-heading]')?.focus({ preventScroll: true });
+      return;
+    }
+    const origin = returnFocusRef.current;
+    returnFocusRef.current = null;
+    const list = viewport.desktop ? desktopListRef.current : mobileListRef.current;
+    const card = previous ? list?.querySelector<HTMLElement>(`[data-slug="${previous}"]`) : null;
+    const target = origin?.isConnected && origin.getClientRects().length > 0 ? origin : card;
+    target?.focus({ preventScroll: true });
+  }, [selectedSlug, viewport.desktop]);
+
+  function onPreviewKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Escape') select(null);
+  }
+
   // Marker hover → highlight the card AND scroll it into view by computed
-  // scrollTop (the seed explicitly rejects scrollIntoView).
+  // scrollTop (the seed explicitly rejects scrollIntoView) — in the list that
+  // is actually on screen.
   function onHoverMarker(slug: string | null) {
     setHoveredSlug(slug);
     if (!slug) return;
-    const box = listRef.current;
+    const box = viewport.desktop ? desktopListRef.current : mobileListRef.current;
     const el = box?.querySelector<HTMLElement>(`[data-slug="${slug}"]`);
     if (box && el) {
       box.scrollTo({ top: el.offsetTop - box.offsetTop - 12, behavior: 'smooth' });
@@ -461,62 +606,21 @@ export function MapExplorer({
   // No number is better than a wrong one: while the full set is loading,
   // `points` is the 100-row seed (or the previous filter's set), and after a
   // failed load it is stale — the list says so, the count stays quiet.
+  // A polite live region: typing a search or toggling a chip changes the list
+  // without moving focus, and this is how a screen reader hears what it found.
   const countLine = (
-    <span className="font-mono text-caption text-ink-soft">
+    <span role="status" className="font-mono text-caption text-ink-soft">
       {loadError
         ? null
         : loading
           ? t('resultsLoading')
-          : t('resultsCount', { count: matched.length })}
+          : onMapCount < matched.length
+            ? t('resultsOnMap', { onMap: onMapCount, total: matched.length })
+            : t('resultsCount', { count: matched.length })}
     </span>
   );
 
-  function ResultCard({ point, km }: { point: MapPoint; km: number | null }) {
-    const v = primaryVisual(point.sports);
-    const isSel = point.slug === selectedSlug;
-    const subtitle = facilitySubtitle(point, labelStrings);
-    return (
-      <button
-        type="button"
-        data-slug={point.slug}
-        onMouseEnter={() => setHoveredSlug(point.slug)}
-        onMouseLeave={() => setHoveredSlug((h) => (h === point.slug ? null : h))}
-        onClick={() => select(point.slug)}
-        className={`flex w-full items-center gap-3 rounded-card border bg-surface p-2.5 text-left transition-[box-shadow,border-color,transform] duration-150 ease-standard focus-visible:shadow-[var(--ring)] ${
-          isSel
-            ? 'border-brand shadow-md -translate-y-px'
-            : hoveredSlug === point.slug
-              ? 'border-brand-border shadow-lg -translate-y-0.5'
-              : 'border-line shadow-sm hover:border-brand-border'
-        }`}
-      >
-        <span
-          className="grid size-12 shrink-0 place-items-center rounded-md text-on-brand"
-          style={{
-            background: `color-mix(in srgb, ${v.color} 16%, var(--surface))`,
-            color: v.color,
-          }}
-        >
-          <v.Icon size={22} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-body-sm font-bold text-ink">
-            {facilityTitle(point, labelStrings)}
-          </span>
-          {subtitle && (
-            <span className="block truncate text-caption text-text-muted">{subtitle}</span>
-          )}
-        </span>
-        {km !== null && (
-          <span className="shrink-0 font-mono text-caption text-ink-soft">
-            {t('distanceKm', { km: formatKm(km, locale) })}
-          </span>
-        )}
-      </button>
-    );
-  }
-
-  const resultsBody = (
+  const resultsBody = (listRef: RefObject<HTMLDivElement | null>) => (
     <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-4 pb-24 lg:pb-4">
       {loadError ? (
         <EmptyState
@@ -524,7 +628,7 @@ export function MapExplorer({
           title={t('loadErrorTitle')}
           body={t('loadErrorBody')}
           action={
-            <Button size="sm" variant="secondary" onClick={() => applyFilters({ ...filters })}>
+            <Button size="sm" variant="secondary" onClick={() => setAttempt((n) => n + 1)}>
               {t('retry')}
             </Button>
           }
@@ -558,10 +662,28 @@ export function MapExplorer({
         />
       ) : (
         <ul className="space-y-2.5 pt-1">
-          {listItems.map(({ point, km }) => (
-            <li key={point.slug}>
-              <ResultCard point={point} km={km} />
-            </li>
+          {listItems.map(({ point, km, onMap }, i) => (
+            <Fragment key={point.slug}>
+              {!onMap && (i === 0 || listItems[i - 1]?.onMap) && (
+                <li className="flex items-center gap-3 pt-2 font-mono text-overline uppercase tracking-overline text-text-muted">
+                  <span aria-hidden className="h-px flex-1 bg-line" />
+                  {t('outsideMap')}
+                  <span aria-hidden className="h-px flex-1 bg-line" />
+                </li>
+              )}
+              <li>
+                <ResultCard
+                  point={point}
+                  title={facilityTitle(point, labelStrings)}
+                  subtitle={facilitySubtitle(point, labelStrings)}
+                  distance={km === null ? null : t('distanceKm', { km: formatKm(km, locale) })}
+                  selected={point.slug === selectedSlug}
+                  hovered={point.slug === hoveredSlug}
+                  onSelect={select}
+                  onHover={setHoveredSlug}
+                />
+              </li>
+            </Fragment>
           ))}
         </ul>
       )}
@@ -666,7 +788,7 @@ export function MapExplorer({
         className={`sk-map-primary absolute inset-0 ${listOpen ? 'lg:left-[460px]' : 'lg:left-[76px]'}`}
       >
         <MapCanvas
-          points={points}
+          points={searchedPoints}
           userLocation={userLocation}
           selectedSlug={selectedSlug}
           hoveredSlug={hoveredSlug}
@@ -810,42 +932,61 @@ export function MapExplorer({
                 onChange={(e) => setQuery(e.target.value)}
                 aria-label={t('searchPlaceholder')}
               />
+              {/* The label stays «Филтри» with the count beside it. It used to be
+                replaced BY the count, so the button's whole name was «2». */}
               <Button
                 variant="secondary"
                 iconLeft={<SlidersHorizontal size={18} />}
                 onClick={() => setFilterOpen(true)}
+                aria-haspopup="dialog"
+                aria-label={
+                  activeCount > 0 ? t('filtersActive', { count: activeCount }) : undefined
+                }
                 className="shrink-0"
               >
-                {activeCount > 0 ? String(activeCount) : t('filters')}
+                {t('filters')}
+                {activeCount > 0 && (
+                  <Badge tone="brand" variant="solid">
+                    {activeCount}
+                  </Badge>
+                )}
               </Button>
             </div>
             <div className="mt-3">{chipRow}</div>
-            <div className="mt-3 flex items-center justify-between">
-              {countLine}
-              <Button variant="ghost" size="sm" onClick={() => applyFilters({ ...filters })}>
-                {t('sort')}
-              </Button>
-            </div>
+            {/* No sort control: the list already orders itself — on-map first,
+              nearest first once located (list-rows.ts). The «Сортирай» button
+              that sat here re-applied the same filters and changed nothing. */}
+            <div className="mt-3">{countLine}</div>
           </div>
-          {resultsBody}
+          {resultsBody(desktopListRef)}
         </aside>
 
         {/* The visible map region (right of the list). The add-facility FAB
             anchors to ITS bottom-left, so it sits on the map, not under the
             panel — operator request 2026-07-25. Mobile keeps the BottomNav
-            center FAB. */}
+            center FAB.
+
+            Its focus ring is explicit, as on the BottomNav FAB and the accent
+            Button: the global :focus-visible ring lives in @layer base, and the
+            `shadow-lg` utility here outranks it, so keyboard focus on this
+            button used to be invisible. */}
         <div className="relative min-w-0 flex-1">
           <Link
             href="/dobavi"
             aria-label={tNav('navAdd')}
-            className="pointer-events-auto absolute bottom-6 left-6 grid size-[54px] place-items-center rounded-full border-[3px] border-surface bg-accent text-on-accent shadow-lg transition-transform hover:scale-105 active:scale-[0.97]"
+            className="pointer-events-auto absolute bottom-6 left-6 grid size-[54px] place-items-center rounded-full border-[3px] border-surface bg-accent text-on-accent shadow-lg transition-[transform,box-shadow] duration-150 ease-standard hover:scale-105 focus-visible:shadow-[var(--ring-accent)] active:scale-[0.97]"
           >
             <Plus size={26} />
           </Link>
         </div>
 
         {selected && (
-          <aside className="pointer-events-auto absolute right-4 top-4 w-[380px] rounded-sheet border border-line bg-surface shadow-float">
+          <aside
+            ref={desktopPreviewRef}
+            data-preview
+            onKeyDown={onPreviewKeyDown}
+            className="pointer-events-auto absolute right-4 top-4 w-[380px] rounded-sheet border border-line bg-surface shadow-float"
+          >
             {detailPanel(false)}
           </aside>
         )}
@@ -853,13 +994,66 @@ export function MapExplorer({
 
       {/* ═══ MOBILE: bottom sheet + tab bar + FAB ═══ */}
       <div className="lg:hidden">
-        {selected ? (
+        {/*
+          The list stays MOUNTED under the preview — hidden (visibility, so it
+          keeps its layout and its scroll offset) and inert. It used to be
+          swapped OUT for the preview, so closing a preview rebuilt the list
+          from the top: whoever had scrolled to the 40th card started again,
+          after every facility they opened. The preview comes later in the
+          tree, so it paints above.
+        */}
+        <section
+          id="facility-list-mobile"
+          inert={selected !== null}
+          className={`absolute inset-x-0 bottom-14 z-30 flex flex-col rounded-t-xl border-t border-line-strong bg-surface shadow-float transition-[height] duration-200 ease-standard ${SNAP_H[snap]} ${selected ? 'invisible' : ''}`}
+        >
+          <button
+            type="button"
+            aria-label={t('resize')}
+            onClick={() => setSnap((s) => SNAP_NEXT[s])}
+            className="flex justify-center pt-2.5 pb-1.5"
+          >
+            <span className="h-1 w-10 rounded-full bg-line-strong" />
+          </button>
+          <div className="flex items-center justify-between px-4 pb-2">
+            {countLine}
+            <button
+              type="button"
+              onClick={() => setFilterOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-pill bg-paper-sunk px-3 py-1.5 text-caption font-medium text-ink-soft"
+            >
+              <SlidersHorizontal size={15} />
+              {t('filters')}
+              {activeCount > 0 && (
+                <Badge tone="brand" variant="solid" className="ml-0.5">
+                  {activeCount}
+                </Badge>
+              )}
+            </button>
+          </div>
+          <div className="px-4 pb-3">
+            <Input
+              iconLeft={<Search size={18} />}
+              placeholder={t('searchPlaceholder')}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label={t('searchPlaceholder')}
+            />
+          </div>
+          <div className="px-4 pb-3">{chipRow}</div>
+          {resultsBody(mobileListRef)}
+        </section>
+
+        {selected && (
           <div
             className={`absolute inset-x-0 bottom-14 z-30 flex flex-col rounded-t-xl border-t border-line-strong bg-surface shadow-float transition-[height] duration-200 ease-standard ${
               PREVIEW_H[previewFull ? 'full' : 'half']
             }`}
+            ref={mobilePreviewRef}
+            data-preview
             role="dialog"
             aria-label={selectedTitle}
+            onKeyDown={onPreviewKeyDown}
           >
             {/* The same handle as the list sheet: it grows the preview to full
                 height ON REQUEST, and back. */}
@@ -874,47 +1068,6 @@ export function MapExplorer({
             </button>
             <div className="min-h-0 flex-1">{detailPanel(!previewFull)}</div>
           </div>
-        ) : (
-          <section
-            id="facility-list-mobile"
-            className={`absolute inset-x-0 bottom-14 z-30 flex flex-col rounded-t-xl border-t border-line-strong bg-surface shadow-float transition-[height] duration-200 ease-standard ${SNAP_H[snap]}`}
-          >
-            <button
-              type="button"
-              aria-label={t('resize')}
-              onClick={() => setSnap((s) => SNAP_NEXT[s])}
-              className="flex justify-center pt-2.5 pb-1.5"
-            >
-              <span className="h-1 w-10 rounded-full bg-line-strong" />
-            </button>
-            <div className="flex items-center justify-between px-4 pb-2">
-              {countLine}
-              <button
-                type="button"
-                onClick={() => setFilterOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-pill bg-paper-sunk px-3 py-1.5 text-caption font-medium text-ink-soft"
-              >
-                <SlidersHorizontal size={15} />
-                {t('filters')}
-                {activeCount > 0 && (
-                  <Badge tone="brand" variant="solid" className="ml-0.5">
-                    {activeCount}
-                  </Badge>
-                )}
-              </button>
-            </div>
-            <div className="px-4 pb-3">
-              <Input
-                iconLeft={<Search size={18} />}
-                placeholder={t('searchPlaceholder')}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                aria-label={t('searchPlaceholder')}
-              />
-            </div>
-            <div className="px-4 pb-3">{chipRow}</div>
-            {resultsBody}
-          </section>
         )}
 
         <BottomNav
@@ -942,15 +1095,96 @@ export function MapExplorer({
         />
       )}
 
+      {/* What happened AND what to do next — a refusal is fixed in the
+        browser's settings, anything else by trying again — with a way to close
+        it. It used to be the first sentence alone, with no close and no end. */}
       {locateError && (
         <div
           role="alert"
-          className="absolute inset-x-4 bottom-20 z-40 rounded-md bg-danger-bg px-3 py-2 text-caption text-danger lg:inset-x-auto lg:left-24 lg:bottom-6"
+          className="absolute inset-x-4 bottom-20 z-40 flex items-start gap-1 rounded-md bg-danger-bg py-1 pr-1 pl-3 text-caption text-danger lg:inset-x-auto lg:left-24 lg:bottom-6 lg:max-w-sm"
         >
-          {t('locateError')}
+          <p className="flex-1 py-2">
+            <span className="font-semibold">{t('locateError')}</span>{' '}
+            {locateError === 'denied' ? t('locateDeniedHelp') : t('locateRetryHelp')}
+          </p>
+          <IconButton
+            aria-label={t('close')}
+            variant="ghost"
+            onClick={() => setLocateError(null)}
+            className="shrink-0 text-danger hover:text-danger"
+          >
+            <X size={18} />
+          </IconButton>
         </div>
       )}
     </div>
+  );
+}
+
+// ── Result card ───────────────────────────────────────────────────────────
+
+/**
+ * One row of the map list. A MODULE-LEVEL component on purpose: it was declared
+ * inside MapExplorer's render, which made it a new component type on every
+ * render — so every state change (a hover, a keystroke, a selection) unmounted
+ * and remounted all ~60 cards, and the card that had just been activated with
+ * Enter vanished from under the keyboard focus, which fell to <body>.
+ */
+function ResultCard({
+  point,
+  title,
+  subtitle,
+  distance,
+  selected,
+  hovered,
+  onSelect,
+  onHover,
+}: {
+  point: MapPoint;
+  title: string;
+  subtitle: string;
+  /** «на 0,4 км», once the member has located themselves. */
+  distance: string | null;
+  selected: boolean;
+  hovered: boolean;
+  onSelect: (slug: string) => void;
+  onHover: Dispatch<SetStateAction<string | null>>;
+}) {
+  const v = primaryVisual(point.sports);
+  return (
+    <button
+      type="button"
+      data-slug={point.slug}
+      onMouseEnter={() => onHover(point.slug)}
+      onMouseLeave={() => onHover((h) => (h === point.slug ? null : h))}
+      onClick={() => onSelect(point.slug)}
+      className={`flex w-full items-center gap-3 rounded-card border bg-surface p-2.5 text-left transition-[box-shadow,border-color,transform] duration-150 ease-standard focus-visible:shadow-[var(--ring)] ${
+        selected
+          ? 'border-brand shadow-md -translate-y-px'
+          : hovered
+            ? 'border-brand-border shadow-lg -translate-y-0.5'
+            : 'border-line shadow-sm hover:border-brand-border'
+      }`}
+    >
+      <span
+        className="grid size-12 shrink-0 place-items-center rounded-md text-on-brand"
+        style={{
+          background: `color-mix(in srgb, ${v.color} 16%, var(--surface))`,
+          color: v.color,
+        }}
+      >
+        <v.Icon size={22} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-body-sm font-bold text-ink">{title}</span>
+        {subtitle && (
+          <span className="block truncate text-caption text-text-muted">{subtitle}</span>
+        )}
+      </span>
+      {distance !== null && (
+        <span className="shrink-0 font-mono text-caption text-ink-soft">{distance}</span>
+      )}
+    </button>
   );
 }
 
@@ -1061,7 +1295,15 @@ function FacilityPreview({
         className={`flex min-h-0 flex-1 items-start gap-3 overflow-y-auto ${compact ? 'px-4 pt-1 pb-3' : 'p-4'}`}
       >
         <div className="min-w-0 flex-1">
-          <h2 className="text-h3 font-extrabold tracking-tight text-ink">{title}</h2>
+          {/* Where focus lands when the preview opens (the explorer's focus
+            effect): the facility's name is the first thing announced. */}
+          <h2
+            tabIndex={-1}
+            data-preview-heading
+            className="text-h3 font-extrabold tracking-tight text-ink"
+          >
+            {title}
+          </h2>
           {subtitle && <p className="mt-1 text-body-sm text-text-muted">{subtitle}</p>}
         </div>
         {compact && (
@@ -1098,6 +1340,14 @@ function FacilityPreview({
 
 // ── Filter sheet ──────────────────────────────────────────────────────────
 
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** The controls inside `root` that Tab can reach, in document order. */
+function focusables(root: HTMLElement | null): HTMLElement[] {
+  return root ? Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)) : [];
+}
+
 function FilterSheet({
   filters,
   nearMeOn,
@@ -1124,18 +1374,76 @@ function FilterSheet({
   const tSport = useTranslations('Sport');
   const tSurface = useTranslations('Surface');
   const tAccess = useTranslations('Access');
+  const locale = useLocale();
+  // In the reader's alphabetical order of the labels shown. The catalogues are
+  // ordered by their English slugs, which on the Bulgarian site put «стрелба с
+  // лък» first and lost «футбол» in the middle of 29 (lib/format.ts).
+  const sports = useMemo(
+    () => inReadingOrder(CANONICAL_SPORTS, locale, (s) => tSport(s)),
+    [locale, tSport],
+  );
+  const surfaces = useMemo(
+    () => inReadingOrder(CANONICAL_SURFACES, locale, (s) => tSurface(s)),
+    [locale, tSurface],
+  );
+  const titleId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * A MODAL dialog, and it behaves like one: focus moves in when it opens
+   * (to its close button, the first control), stays inside while it is open,
+   * Escape closes it, and focus goes back to the button that opened it. It was a
+   * plain div — a screen reader was never told a dialog had opened, Tab walked
+   * out into the map behind the scrim, and closing it left focus nowhere.
+   */
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    focusables(panelRef.current)[0]?.focus();
+    return () => {
+      if (opener?.isConnected) opener.focus();
+    };
+  }, []);
+
+  function onKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      onClose();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const items = focusables(panelRef.current);
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (!first || !last) return;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
 
   return (
-    <div className="absolute inset-0 z-50 flex items-end justify-center lg:items-center">
-      <button
-        type="button"
-        aria-label={t('close')}
-        onClick={onClose}
-        className="absolute inset-0 bg-overlay-scrim"
-      />
-      <div className="relative flex max-h-[86dvh] w-full flex-col rounded-t-xl bg-surface shadow-float lg:max-w-md lg:rounded-sheet">
+    <div
+      className="absolute inset-0 z-50 flex items-end justify-center lg:items-center"
+      onKeyDown={onKeyDown}
+    >
+      {/* Tap-outside-to-close, for pointers only: keyboard and screen-reader
+        users have Escape and the labelled close button inside the dialog, and
+        a second «Затвори» outside it would only be a way out of the trap. */}
+      <div aria-hidden onClick={onClose} className="absolute inset-0 bg-overlay-scrim" />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative flex max-h-[86dvh] w-full flex-col rounded-t-xl bg-surface shadow-float lg:max-w-md lg:rounded-sheet"
+      >
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
-          <h2 className="text-h3 font-extrabold tracking-tight text-ink">{t('filters')}</h2>
+          <h2 id={titleId} className="text-h3 font-extrabold tracking-tight text-ink">
+            {t('filters')}
+          </h2>
           <IconButton aria-label={t('close')} variant="surface" round onClick={onClose}>
             <X size={18} />
           </IconButton>
@@ -1144,7 +1452,7 @@ function FilterSheet({
         <div className="min-h-0 flex-1 overflow-y-auto px-5">
           <FilterGroup label={t('sport')}>
             <div className="flex flex-wrap gap-2">
-              {CANONICAL_SPORTS.map((s) => {
+              {sports.map((s) => {
                 const v = SPORT_VISUALS[s];
                 return (
                   <Chip
@@ -1214,7 +1522,7 @@ function FilterSheet({
 
           <FilterGroup label={t('surface')}>
             <div className="flex flex-wrap gap-2">
-              {CANONICAL_SURFACES.map((s) => (
+              {surfaces.map((s) => (
                 <Chip
                   key={s}
                   selected={filters.surfaces.includes(s)}

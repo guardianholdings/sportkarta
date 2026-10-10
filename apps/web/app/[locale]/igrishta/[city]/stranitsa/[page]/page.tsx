@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
+import { listingCopy, type ListingCopy } from '@/lib/place-headings';
 import {
   getCityBySlug,
   listPageCount,
@@ -27,10 +28,6 @@ export function generateStaticParams(): { page: string }[] {
 
 type PageParams = Promise<{ locale: string; city: string; page: string }>;
 
-function cityName(city: City, locale: string): string {
-  return locale === 'en' ? city.nameEn : city.nameBg;
-}
-
 /**
  * The city and page, or null for anything that is not a real list page. No
  * thin-content guard is needed here: a page 2 exists only when the city has
@@ -48,20 +45,33 @@ async function resolvePage(
   return page <= listPageCount(total) ? { city, page, total } : null;
 }
 
+/** Page 1's own heading and metadata, plus «— страница n от m» in the title. */
+async function copyFor(
+  locale: string,
+  city: City,
+  page: number,
+  total: number,
+): Promise<ListingCopy> {
+  const [t, tSport] = await Promise.all([
+    getTranslations({ locale, namespace: 'Places' }),
+    getTranslations({ locale, namespace: 'Sport' }),
+  ]);
+  return listingCopy(
+    { locale, t, tSport },
+    { city, scope: null, count: total },
+    { page, pages: listPageCount(total) },
+  );
+}
+
 export async function generateMetadata({ params }: { params: PageParams }): Promise<Metadata> {
   const { locale, city: slug, page: rawPage } = await params;
   const resolved = await resolvePage(slug, rawPage);
   if (!resolved) return {};
   const { city, page, total } = resolved;
-  const t = await getTranslations({ locale, namespace: 'Places' });
-  const name = cityName(city, locale);
+  const copy = await copyFor(locale, city, page, total);
   return {
-    title: t('pagedHeading', {
-      heading: t('cityMetaTitle', { city: name }),
-      page,
-      pages: listPageCount(total),
-    }),
-    description: t('cityMetaDescription', { city: name, count: total }),
+    title: copy.metaTitle,
+    description: copy.metaDescription,
     alternates: buildAlternates(listPagePath(`/igrishta/${city.slug}`, page), locale),
   };
 }
@@ -74,15 +84,15 @@ export default async function CityListPage({ params }: { params: PageParams }) {
   if (!resolved) notFound();
   const { city, page, total } = resolved;
 
-  const [t, facilities] = await Promise.all([
-    getTranslations('Places'),
+  const [{ heading }, facilities] = await Promise.all([
+    copyFor(locale, city, page, total),
     scopedFacilities(city.id, {}, page),
   ]);
 
   return (
     <PlaceListPage
       basePath={`/igrishta/${city.slug}`}
-      heading={t('cityH1', { city: cityName(city, locale) })}
+      heading={heading}
       page={page}
       total={total}
       facilities={facilities}

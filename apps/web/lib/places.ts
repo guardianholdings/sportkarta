@@ -26,6 +26,11 @@ export type { City, MunicipalityRow } from '@sportkarta/lib/cities';
 interface CityCatalog {
   bySlug: Map<string, City>;
   byId: Map<number, City>;
+  /**
+   * By EKATTE code — the key the statistics views carry. Names would be the
+   * wrong key: two municipalities are called «Бяла».
+   */
+  byEkatte: Map<string, City>;
   all: City[];
 }
 
@@ -35,8 +40,11 @@ let catalogCache: CityCatalog | null = null;
 export async function loadCityCatalog(): Promise<CityCatalog> {
   if (catalogCache) return catalogCache;
   const db = getDb();
-  const result = await db.execute(sql`SELECT id, name_bg, name_en FROM municipalities ORDER BY id`);
-  const cities = assignCitySlugs(result.rows as unknown as MunicipalityRow[]);
+  const result = await db.execute(
+    sql`SELECT id, name_bg, name_en, ekatte_code FROM municipalities ORDER BY id`,
+  );
+  const rows = result.rows as unknown as (MunicipalityRow & { ekatte_code: string })[];
+  const cities = assignCitySlugs(rows);
 
   const bySlug = new Map<string, City>();
   const byId = new Map<number, City>();
@@ -44,8 +52,13 @@ export async function loadCityCatalog(): Promise<CityCatalog> {
     bySlug.set(city.slug, city);
     byId.set(city.id, city);
   }
+  const byEkatte = new Map<string, City>();
+  for (const row of rows) {
+    const city = byId.get(Number(row.id));
+    if (city) byEkatte.set(String(row.ekatte_code), city);
+  }
 
-  catalogCache = { bySlug, byId, all: cities };
+  catalogCache = { bySlug, byId, byEkatte, all: cities };
   return catalogCache;
 }
 
@@ -84,6 +97,15 @@ export interface ScopedFacility {
  * not a working limit, and the page discloses it if it is ever reached.
  */
 export const MAP_POINT_LIMIT = 5000;
+
+/**
+ * The fewest facilities a place listing (/igrishta/<city>[/<segment>]) needs to
+ * exist at all: below it the listing 404s as thin content and stays out of the
+ * sitemap. One number, because a page that LINKS to a listing has to ask the
+ * same question — /obshtina/<city> linked every municipality to its listing,
+ * and for the ones with fewer than three facilities that link was a 404.
+ */
+export const MIN_LISTING_FACILITIES = 3;
 
 /**
  * The SSR list is PAGED, not capped: it is the non-map way in (keyboard,
@@ -284,7 +306,7 @@ export interface SitemapEntry {
 }
 
 /** City pages (/igrishta/[city]) with ≥min facilities; lastmod = newest edit. */
-export async function sitemapCities(min = 3): Promise<SitemapEntry[]> {
+export async function sitemapCities(min = MIN_LISTING_FACILITIES): Promise<SitemapEntry[]> {
   const db = getDb();
   const { byId } = await loadCityCatalog();
   const result = await db.execute(sql`
@@ -312,7 +334,7 @@ export async function sitemapCities(min = 3): Promise<SitemapEntry[]> {
  * is linked from the city page and pasted into embed snippets — it is simply
  * not advertised to crawlers until there is something to read.
  */
-export async function sitemapMunicipalities(min = 3): Promise<SitemapEntry[]> {
+export async function sitemapMunicipalities(min = MIN_LISTING_FACILITIES): Promise<SitemapEntry[]> {
   const cities = await sitemapCities(min);
   return cities.map((entry) => ({
     path: entry.path.replace('/igrishta/', '/obshtina/'),
@@ -321,7 +343,7 @@ export async function sitemapMunicipalities(min = 3): Promise<SitemapEntry[]> {
 }
 
 /** City × sport pages with ≥min facilities. */
-export async function sitemapCitySports(min = 3): Promise<SitemapEntry[]> {
+export async function sitemapCitySports(min = MIN_LISTING_FACILITIES): Promise<SitemapEntry[]> {
   const db = getDb();
   const { byId } = await loadCityCatalog();
   const result = await db.execute(sql`

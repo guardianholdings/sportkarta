@@ -11,6 +11,7 @@ import {
   widthFitZoom,
 } from '../components/map/camera';
 import { createCluster, createPin } from '../components/map/markers';
+import { parseView } from '../lib/map/view';
 
 /**
  * The map's camera rules, which an audit found broken on phones:
@@ -46,9 +47,20 @@ describe('first view', () => {
   });
 
   it('the home page no longer hands the canvas a fixed camera when the URL has none', () => {
-    const page = read('app/[locale]/(map)/page.tsx');
-    expect(page).not.toMatch(/return \{ \.\.\.BULGARIA_CENTER \}/);
-    expect(page).toMatch(/function parseView\(sp: SearchParams\): MapView \| null/);
+    // The view is parsed from the address bar by the explorer itself now
+    // (lib/map/view.ts), so a back/forward restore opens where the URL says.
+    const view = read('lib/map/view.ts');
+    expect(view).not.toMatch(/return \{ \.\.\.BULGARIA_CENTER \}/);
+    expect(view).toMatch(/export function parseView\(sp: UrlParams\): MapView \| null/);
+    expect(parseView({})).toBeNull();
+    expect(parseView({ z: '12', lat: '42.7', lng: '23.32' })).toEqual({
+      lng: 23.32,
+      lat: 42.7,
+      zoom: 12,
+    });
+    // A view outside the country, or a zoom out of range, is no view at all.
+    expect(parseView({ z: '12', lat: '14.26', lng: '-8.43' })).toBeNull();
+    expect(parseView({ z: '25', lat: '42.7', lng: '23.32' })).toBeNull();
     // …and the canvas fits the box for a null view instead.
     const canvas = read('components/map/map-canvas.tsx');
     expect(canvas).toMatch(/useRef\(initialView === null\)/);
@@ -158,8 +170,11 @@ describe('phone pin preview', () => {
   const explorer = read('components/map/map-explorer.tsx');
 
   it('opens as a half sheet, not a full-height cover over the pin it describes', () => {
-    const start = explorer.indexOf('{selected ? (');
-    const sheet = explorer.slice(start, explorer.indexOf('role="dialog"', start));
+    // The phone preview is rendered BESIDE the list now (the list stays mounted
+    // under it), so it is found by its own ref rather than by a ternary.
+    const end = explorer.indexOf('ref={mobilePreviewRef}');
+    const start = explorer.lastIndexOf('{selected && (', end);
+    const sheet = explorer.slice(start, end);
     expect(sheet.length).toBeGreaterThan(0);
     // The old sheet hard-coded the full height; the open state is now chosen.
     expect(sheet).not.toMatch(/h-\[calc\(100dvh-3\.5rem\)\]/);
