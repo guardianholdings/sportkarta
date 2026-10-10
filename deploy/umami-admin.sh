@@ -15,8 +15,16 @@
 #   check      Read-only. The Website ID and, for the last <hours>, aggregate
 #              counts: pageviews, visits, and pageviews whose utm_source is
 #              <utm_source>. Nothing about any single visitor is printed.
+#   share      Boss's read-only share link (#34.10): the site's website gets
+#              exactly one share, overview only, at the slug read from stdin
+#              (the workflow sends the UMAMI_SHARE_SLUG secret). The slug is
+#              never printed: this job's log is public, and the slug is the
+#              link. The same slug again changes nothing; a new slug replaces
+#              the old link, which stops working at once.
+#   unshare    Deletes the site's shares: every share link stops working at
+#              once. Nothing else changes.
 #
-# Usage: umami-admin.sh bootstrap | check [utm_source] [hours]
+# Usage: umami-admin.sh bootstrap | check [utm_source] [hours] | share | unshare
 # Writes only to Umami's own database (`umami`), never the app's.
 set -euo pipefail
 
@@ -30,8 +38,8 @@ die() {
 }
 
 case "$mode" in
-  bootstrap | check) ;;
-  *) die "usage: umami-admin.sh bootstrap | check [utm_source] [hours]" ;;
+  bootstrap | check | share | unshare) ;;
+  *) die "usage: umami-admin.sh bootstrap | check [utm_source] [hours] | share | unshare" ;;
 esac
 tag_re='^[A-Za-z0-9._-]{0,40}$'
 [[ $tag =~ $tag_re ]] || die "utm_source: letters, digits and . _ - only, at most 40"
@@ -56,8 +64,11 @@ sql() {
     psql -X -q -t -A -v ON_ERROR_STOP=1 -v VERBOSITY=terse -U sportkarta -d umami \
     2>&1 1>&3 3>&-); } 3>&1 || rc=$?
   if [ -n "$err" ]; then
+    # The share slug is the link itself, so it is masked the same way.
     # shellcheck disable=SC2016 # literal $ signs in a pattern, not expansions
-    printf '%s\n' "$err" | sed -E 's/\$2[aby]\$[0-9]{2}\$[./A-Za-z0-9]{53}/[hash]/g' >&2
+    local masks=(-e 's/\$2[aby]\$[0-9]{2}\$[./A-Za-z0-9]{53}/[hash]/g')
+    [ -z "${slug:-}" ] || masks+=(-e "s/$slug/[slug]/g")
+    printf '%s\n' "$err" | sed -E "${masks[@]}" >&2
   fi
   return "$rc"
 }
@@ -88,6 +99,53 @@ SQL
   counts=$(printf '%s\n' "$out" | grep '^since=' || true)
   [ -n "$counts" ] || die "no counts came back"
   echo "$counts${tag:+ (utm_source=$tag)}"
+  exit 0
+fi
+
+# share / unshare. share_type 1 is Umami's ENTITY_TYPE.website (3.3.0,
+# src/lib/constants.ts); a share row is what Umami's own "Share" button makes.
+if [ "$mode" = share ] || [ "$mode" = unshare ]; then
+  slug=''
+  if [ "$mode" = share ]; then
+    IFS= read -r slug || true
+    # Umami's own share slugs are 8-50 letters and digits (SHARE_ID_REGEX).
+    slug_re='^[A-Za-z0-9]{16,50}$'
+    [[ $slug =~ $slug_re ]] || die "share: no usable slug on stdin (16-50 letters and digits; is UMAMI_SHARE_SLUG set?); nothing changed"
+  fi
+  out=$(
+    {
+      printf '\\set domain %s\n\\set slug %s\n\\set mode %s\n' "'$domain'" "'$slug'" "'$mode'"
+      cat <<'SQL'
+BEGIN;
+WITH site AS (
+  SELECT website_id FROM website WHERE domain = :'domain' AND deleted_at IS NULL
+), gone AS (
+  DELETE FROM share s USING site
+   WHERE s.entity_id = site.website_id AND s.share_type = 1
+     AND (:'mode' = 'unshare' OR s.slug <> :'slug')
+  RETURNING s.share_id
+), made AS (
+  INSERT INTO share (share_id, entity_id, name, share_type, slug, parameters, created_at, updated_at)
+  SELECT gen_random_uuid(), website_id, 'Read-only overview (#34.10)', 1, :'slug',
+         '{"overview": true}'::jsonb, now(), now()
+    FROM site
+   WHERE :'mode' = 'share' AND NOT EXISTS (SELECT 1 FROM share WHERE slug = :'slug')
+  RETURNING share_id
+)
+SELECT 'sites=' || (SELECT count(*) FROM site) || ' removed=' || (SELECT count(*) FROM gone)
+    || ' created=' || (SELECT count(*) FROM made);
+COMMIT;
+SQL
+    } | sql
+  ) || die "Umami's database refused (see above); nothing changed"
+  sites=$(printf '%s\n' "$out" | sed -n 's/^sites=\([0-9]*\) .*/\1/p')
+  [ "$sites" = 1 ] || die "$sites websites for $domain (expected 1; run bootstrap or check)"
+  printf '%s\n' "$out" | sed -n 's/^sites=1 //p'
+  if [ "$mode" = share ]; then
+    echo "Share link: https://umami.$domain/share/<UMAMI_SHARE_SLUG> (overview only; not printed here)"
+  else
+    echo "Every share link for $domain is gone"
+  fi
   exit 0
 fi
 
