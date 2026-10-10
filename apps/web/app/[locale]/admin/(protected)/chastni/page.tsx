@@ -3,7 +3,8 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { AdminActionLog } from '@/components/admin/admin-action-log';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { ConfirmButton } from '@/components/ui/confirm-button';
 import { adminActionHistory, SUBJECTLESS_ACTIONS } from '@/lib/admin-actions';
 import { requireRole } from '@/lib/auth-session';
 
@@ -71,11 +72,16 @@ export default async function AdminPrivatePage({
             <span className="text-caption text-text-muted">{t('refreshNote')}</span>
           </p>
         </div>
+        {/* One tap flips a whole category nationally — the map, the API, the
+            open data and tonight's immutable dump — so it says so first (A-8). */}
         <form action={setShowPaidAction}>
           <input type="hidden" name="value" value={masterOn ? 'false' : 'true'} />
-          <Button type="submit" variant={masterOn ? 'secondary' : 'primary'}>
+          <ConfirmButton
+            className={buttonVariants({ variant: masterOn ? 'secondary' : 'primary' })}
+            message={masterOn ? t('disableConfirm') : t('enableConfirm')}
+          >
             {masterOn ? t('disable') : t('enable')}
-          </Button>
+          </ConfirmButton>
         </form>
       </section>
 

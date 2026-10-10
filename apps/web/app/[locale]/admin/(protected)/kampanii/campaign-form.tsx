@@ -7,9 +7,10 @@ import {
   CAMPAIGN_TEMPLATES,
   CITY_BOARD_MIN_MEMBERS,
 } from '@sportkarta/lib/campaigns';
-import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
 import { useTranslations } from 'next-intl';
-import { useActionState, useState } from 'react';
+import { useState } from 'react';
+
+import { useFormAction } from '@/lib/use-form-action';
 
 import type { CampaignFormState } from './actions';
 
@@ -34,7 +35,7 @@ export function CampaignForm({
   campaign,
   cities,
   quarters = [],
-  sportLabels,
+  sports,
   partners = [],
 }: {
   action: (state: CampaignFormState, formData: FormData) => Promise<CampaignFormState>;
@@ -46,12 +47,16 @@ export function CampaignForm({
    * only values that can ever score.
    */
   quarters?: QuarterOption[];
-  sportLabels: Record<string, string>;
+  /** Every canonical sport with its label, in the reader's alphabetical order. */
+  sports: { value: string; label: string }[];
   /** Sponsor candidates, already tier-filtered and localised by the server page. */
   partners?: { id: number; name: string }[];
 }) {
   const t = useTranslations('AdminCampaigns');
-  const [state, formAction, pending] = useActionState<CampaignFormState, FormData>(action, INITIAL);
+  // useFormAction, not useActionState: React 19 resets a <form action> after
+  // every result, so a refused slug or window used to come back above an empty
+  // form — every scoring weight and sport ticked by hand, gone (A-2).
+  const [state, formProps, pending] = useFormAction(action, INITIAL);
 
   const [scopeKind, setScopeKind] = useState(campaign?.scope.kind ?? 'national');
   const [municipalityId, setMunicipalityId] = useState(
@@ -86,7 +91,7 @@ export function CampaignForm({
   const field = 'w-full rounded-md border border-line-strong bg-surface px-3 py-2';
 
   return (
-    <form action={formAction} className="space-y-8">
+    <form {...formProps} className="space-y-8">
       {campaign && <input type="hidden" name="id" value={campaign.id} />}
 
       <section className="space-y-4">
@@ -340,15 +345,15 @@ export function CampaignForm({
           <legend className="text-body-sm font-medium">{t('sportsLabel')}</legend>
           <p className="text-caption text-text-muted">{t('sportsHint')}</p>
           <div className="flex flex-wrap gap-x-4 gap-y-1">
-            {CANONICAL_SPORTS.map((sport) => (
-              <label key={sport} className="flex items-center gap-1.5 text-body-sm">
+            {sports.map((sport) => (
+              <label key={sport.value} className="flex items-center gap-1.5 text-body-sm">
                 <input
                   type="checkbox"
                   name="sports"
-                  value={sport}
-                  defaultChecked={selectedSports.has(sport)}
+                  value={sport.value}
+                  defaultChecked={selectedSports.has(sport.value)}
                 />
-                {sportLabels[sport] ?? sport}
+                {sport.label}
               </label>
             ))}
           </div>
@@ -397,8 +402,16 @@ export function CampaignForm({
         </label>
       </section>
 
-      {state.error && <p className="text-body-sm text-danger">{t(`error_${state.error}`)}</p>}
-      {state.saved && <p className="text-body-sm text-success">{t('saved')}</p>}
+      {state.error && (
+        <p role="alert" className="text-body-sm text-danger">
+          {t(`error_${state.error}`)}
+        </p>
+      )}
+      {state.saved && (
+        <p role="status" className="text-body-sm text-success">
+          {t('saved')}
+        </p>
+      )}
 
       <button
         type="submit"

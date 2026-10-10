@@ -4,6 +4,7 @@ import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { requireRole } from '@/lib/auth-session';
+import { inReadingOrder } from '@/lib/format';
 
 import { BulkCreateTabs, type FacilityOption } from './bulk-forms';
 
@@ -91,6 +92,8 @@ export default async function AdminBulkSessionsPage({
     'selectAll',
     'clearAll',
     'create',
+    'createConfirm',
+    'createConfirmOnce',
     'csvPaste',
     'csvUpload',
     'csvParse',
@@ -107,6 +110,9 @@ export default async function AdminBulkSessionsPage({
     'confirmImport',
     'createdCount',
     'skippedCount',
+    'createdHint',
+    'viewCreated',
+    'createMore',
     'templateHint',
     'facility',
     'rrule',
@@ -146,8 +152,8 @@ export default async function AdminBulkSessionsPage({
   ];
   // t.raw, NOT t: several of these carry a {count} placeholder that the client
   // component fills in itself, and next-intl's t() throws FORMATTING_ERROR when
-  // a placeholder has no value. Raw templates in, interpolation at the point of
-  // use — which is also why the client has its own tiny replace().
+  // a placeholder has no value. Raw ICU templates in, formatted at the point of
+  // use by useLabels (components/admin/use-labels.ts), plurals included.
   const labels = Object.fromEntries(labelKeys.map((key) => [key, String(t.raw(key))]));
 
   const fieldKeys = [
@@ -177,7 +183,8 @@ export default async function AdminBulkSessionsPage({
       <BulkCreateTabs
         facilities={facilities}
         facilityTotal={facilityTotal}
-        sports={[...CANONICAL_SPORTS]}
+        // Both sport pickers list in the reader's alphabetical order.
+        sports={inReadingOrder(CANONICAL_SPORTS, locale, (sport) => tSport(sport))}
         labels={labels}
         fieldLabels={fieldLabels}
       />

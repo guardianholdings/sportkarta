@@ -7,14 +7,22 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 
 import { Button } from '@/components/ui/button';
 import type { VerifyCard } from '@/lib/admin-data';
+import { arrangeDeck } from '@/lib/admin-verify-deck';
 
 import { decideFacility, type VerifyDecision } from './actions';
 
 /**
- * One-keystroke clearing: V/В = active, S/С = skip (rotates to the back of
- * the local deck), G/Г = gone. Optimistic advance — the server action runs in
- * the background and is status-guarded, so a stale decision is a no-op. When
- * the local deck is exhausted the page refreshes for the next batch.
+ * One-keystroke clearing: V/В = active, S/С = skip (to the back of the deck),
+ * G/Г = gone — after a confirmation, because «gone» takes the facility off the
+ * map and emails its author the reason (A-12). Optimistic advance — the server
+ * action runs in the background and is status-guarded, so a stale decision is
+ * a no-op. When the local deck is exhausted the page refreshes for the next
+ * batch.
+ *
+ * Every decision revalidates the page, so a fresh batch arrives in name order
+ * after each one. Decided cards are dropped from it and SKIPPED ones go to the
+ * back again — before, the next decision brought a skipped card straight back
+ * on top (A-3).
  */
 export function VerifyDeck({ cards, remaining }: { cards: VerifyCard[]; remaining: number }) {
   const t = useTranslations('AdminVerify');
@@ -28,11 +36,18 @@ export function VerifyDeck({ cards, remaining }: { cards: VerifyCard[]; remainin
 
   const [deck, setDeck] = useState<VerifyCard[]>(cards);
   const [cleared, setCleared] = useState(0);
+  // Decisions sent but not yet answered: the server's `remaining` already
+  // leaves out every decision it has applied, so only these are subtracted —
+  // subtracting every card cleared counted each decision twice (A-3).
+  const [inFlight, setInFlight] = useState(0);
   const decidedRef = useRef<Set<string>>(new Set());
+  // In the order they were skipped, so the back of the deck stays a queue.
+  const skippedRef = useRef<string[]>([]);
 
   useEffect(() => {
-    // Fresh server batch: drop cards already decided optimistically.
-    setDeck(cards.filter((c) => !decidedRef.current.has(c.id)));
+    // Fresh server batch: drop cards already decided optimistically, and put
+    // the skipped ones back where the operator sent them.
+    setDeck(arrangeDeck(cards, decidedRef.current, skippedRef.current));
   }, [cards]);
 
   const advance = useCallback(
@@ -40,21 +55,28 @@ export function VerifyDeck({ cards, remaining }: { cards: VerifyCard[]; remainin
       const card = deck[0];
       if (!card) return;
       if (decision === 'skip') {
+        skippedRef.current = [...skippedRef.current.filter((id) => id !== card.id), card.id];
         setDeck((d) => {
           const [head, ...rest] = d;
           return head && rest.length > 0 ? [...rest, head] : d;
         });
         return;
       }
+      if (decision === 'gone' && !window.confirm(t('goneConfirm'))) return;
       decidedRef.current.add(card.id);
       setCleared((n) => n + 1);
+      setInFlight((n) => n + 1);
       setDeck((d) => d.slice(1));
       startTransition(async () => {
-        await decideFacility(card.id, decision);
+        try {
+          await decideFacility(card.id, decision);
+        } finally {
+          setInFlight((n) => n - 1);
+        }
         if (deck.length <= 1) router.refresh();
       });
     },
-    [deck, router],
+    [deck, router, t],
   );
 
   useEffect(() => {
@@ -73,7 +95,7 @@ export function VerifyDeck({ cards, remaining }: { cards: VerifyCard[]; remainin
   }, [advance]);
 
   const card = deck[0];
-  const left = Math.max(remaining - cleared, deck.length);
+  const left = Math.max(remaining - inFlight, deck.length);
 
   if (!card) {
     return (

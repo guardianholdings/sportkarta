@@ -6,8 +6,10 @@ import { revalidatePath } from 'next/cache';
 
 import { MATERIALIZE_QUEUE } from '@/lib/sessions/sessions';
 import { getBoss } from '@/lib/admin-boss';
+import { readColumnMapping } from '@/lib/admin-csv';
 import { requireRole } from '@/lib/auth-session';
 import {
+  BULK_FIELDS,
   bulkCreateSessions,
   CsvFileError,
   guessMapping,
@@ -70,7 +72,7 @@ export async function parseCsvAction(_prev: BulkState, formData: FormData): Prom
 export async function previewCsvAction(_prev: BulkState, formData: FormData): Promise<BulkState> {
   await requireRole('admin');
   const csv = String(formData.get('csv') ?? '');
-  const mapping = readMapping(formData);
+  const mapping = readColumnMapping(formData, BULK_FIELDS);
   let rows: BulkRowInput[];
   try {
     rows = rowsFromCsv(csv, mapping);
@@ -96,7 +98,7 @@ export async function previewCsvAction(_prev: BulkState, formData: FormData): Pr
 export async function commitCsvAction(_prev: BulkState, formData: FormData): Promise<BulkState> {
   const user = await requireRole('admin');
   const csv = String(formData.get('csv') ?? '');
-  const mapping = readMapping(formData);
+  const mapping = readColumnMapping(formData, BULK_FIELDS);
   try {
     return await commit(rowsFromCsv(csv, mapping), user.id);
   } catch (error: unknown) {
@@ -159,16 +161,4 @@ async function readCsv(formData: FormData): Promise<string> {
   const file = formData.get('file');
   if (file instanceof File && file.size > 0) return file.text();
   return String(formData.get('csv') ?? '');
-}
-
-function readMapping(formData: FormData): ColumnMapping {
-  const mapping: ColumnMapping = {};
-  for (const [key, value] of formData.entries()) {
-    if (!key.startsWith('map.')) continue;
-    const index = Number(value);
-    if (Number.isInteger(index) && index >= 0) {
-      mapping[key.slice(4) as keyof ColumnMapping] = index;
-    }
-  }
-  return mapping;
 }

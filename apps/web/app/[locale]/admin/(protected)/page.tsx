@@ -17,18 +17,28 @@ export default async function AdminDashboardPage({
   // an ambassador's tiles count only their own municipalities.
   const user = await requireAdmin();
   const counts = await dashboardCounts({ id: user.id, role: user.role });
+  const isAdmin = user.role === 'admin';
 
   const stats = [
     { label: t('statActive'), value: counts.active },
     { label: t('statNeedsVerification'), value: counts.needsVerification },
     { label: t('statGone'), value: counts.gone },
     { label: t('statPendingPhotos'), value: counts.pendingPhotos },
-    { label: t('statMunicipalities'), value: counts.municipalities },
+    // An ambassador's own municipalities, not the country's (A-16).
+    {
+      label: isAdmin ? t('statMunicipalities') : t('statMyMunicipalities'),
+      value: counts.municipalities,
+    },
   ];
 
   return (
     <main className="space-y-6">
       <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
+      {!isAdmin && counts.municipalities === 0 && (
+        <p className="rounded-card border border-warning-border bg-warning-bg p-4 text-body-sm text-warning">
+          {t('noScope')}
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {stats.map((stat) => (
           <div

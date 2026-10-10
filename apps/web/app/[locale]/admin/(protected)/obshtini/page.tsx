@@ -28,7 +28,9 @@ export default async function AdminMunicipalImportPage({
   const t = await getTranslations('AdminMunicipalImport');
   const tField = await getTranslations('AdminMunicipalImport.field');
 
-  // Flat label bags: every string the client renders, resolved here.
+  // Flat label bags: every string the client renders. Raw ICU templates, not
+  // t(): «Свържи с: {name} ({m} м)» is filled on the client (useLabels), and
+  // t() throws on a placeholder it has no value for.
   const labelKeys = [
     'registryLabel',
     'registryPlaceholder',
@@ -62,6 +64,7 @@ export default async function AdminMunicipalImportPage({
     'willCommit',
     'willSkip',
     'confirmImport',
+    'backToMapping',
     'doneTitle',
     'doneInserted',
     'doneUpdated',
@@ -84,7 +87,7 @@ export default async function AdminMunicipalImportPage({
     'rowError_outside_bulgaria',
   ] as const;
 
-  const labels = Object.fromEntries(labelKeys.map((key) => [key, t(key)]));
+  const labels = Object.fromEntries(labelKeys.map((key) => [key, String(t.raw(key))]));
   const fieldLabels = Object.fromEntries(MUNICIPAL_FIELDS.map((field) => [field, tField(field)]));
 
   return (

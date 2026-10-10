@@ -85,7 +85,13 @@ export default async function AdminLayout({
             </form>
           </div>
         </div>
-        <AdminNav items={visibleItems.map(({ href, label }) => ({ href, label }))} />
+        {/* Sixteen links wrapped into five rows on a phone, pushing every
+            screen below the fold (A-17). Below `sm` they stay ONE row that
+            scrolls sideways, each a 44px target. AdminNav (components/shell)
+            lays its links out with flex-wrap, so the phone row is set here. */}
+        <div className="-mx-4 overflow-x-auto px-4 max-sm:[&_a]:inline-flex max-sm:[&_a]:min-h-11 max-sm:[&_a]:shrink-0 max-sm:[&_a]:items-center max-sm:[&_a]:whitespace-nowrap max-sm:[&>nav]:flex-nowrap">
+          <AdminNav items={visibleItems.map(({ href, label }) => ({ href, label }))} />
+        </div>
       </header>
       {/* The admin forms read the Admin* namespaces, which the root layout
         deliberately keeps out of every public page (i18n/client-messages.ts). */}

@@ -417,11 +417,12 @@ describe('isRefusal', () => {
 });
 
 describe('the facility editor is scoped too', () => {
-  // This screen can set `status` and rewrite every field, and it does NOT go
-  // through the logged moderation path — so an unscoped version would let any
-  // ambassador mark a facility on the other side of the country `gone`,
-  // frozen against future imports, with nothing in the decision log. The scope
-  // must be in the statements, not only in a check before them.
+  // This screen rewrites every field and moves pins, outside the logged
+  // moderation path (its status is no longer one of them — that is a logged
+  // decision since the UX audit's A-4) — so an unscoped version would let any
+  // ambassador rewrite a facility on the other side of the country, frozen
+  // against future imports. The scope must be in the statements, not only in
+  // a check before them.
   it('carries the scope in both the row lock and the update', async () => {
     const source = readFileSync(
       path.join(process.cwd(), 'app/[locale]/admin/(protected)/facilities/actions.ts'),

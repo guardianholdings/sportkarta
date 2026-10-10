@@ -22,7 +22,9 @@ const h = vi.hoisted(() => {
 });
 
 vi.mock('next/cache', () => ({ revalidatePath: h.revalidatePath }));
-vi.mock('next/navigation', () => ({
+// The actions redirect through next-intl, with the request's locale (A-14).
+vi.mock('next-intl/server', () => ({ getLocale: () => Promise.resolve('en') }));
+vi.mock('@/i18n/navigation', () => ({
   redirect: (target: unknown) => {
     throw new h.Redirected(target);
   },
@@ -95,6 +97,12 @@ describe('partner actions revalidate the cached public pages', () => {
       h.Redirected,
     );
     expectEverySurfaceRevalidated();
+  });
+
+  it('redirects to the new partner in the locale the admin is working in', async () => {
+    await expect(createPartnerAction({ error: null }, new FormData())).rejects.toMatchObject({
+      target: { href: '/admin/partnyori/acme', locale: 'en' },
+    });
   });
 
   it('revalidates nothing when the write was refused', async () => {

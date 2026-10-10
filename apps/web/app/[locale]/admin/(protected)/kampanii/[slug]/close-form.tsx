@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 
+import { buttonVariants } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+
 /**
  * Closing a campaign is the one irreversible action in this screen, so it asks
  * the admin to type a word — the same guard account deletion uses.
@@ -39,18 +42,18 @@ export function CloseCampaignForm({
       <p className="max-w-md text-caption text-ink-soft">{warning}</p>
       <label className="flex flex-wrap items-center gap-2">
         <span className="text-caption text-ink-soft">{confirmLabel}</span>
-        <input
+        <Input
           type="text"
           value={typed}
           onChange={(event) => setTyped(event.target.value)}
-          className="w-32 rounded-md border border-line-strong bg-surface px-2 py-1 text-body-sm"
+          autoComplete="off"
+          className="w-40"
         />
       </label>
-      <button
-        type="submit"
-        disabled={!armed}
-        className="rounded-pill bg-danger px-3 py-1.5 text-body-sm font-semibold text-on-brand shadow-xs disabled:opacity-40"
-      >
+      {/* buttonVariants, not a hand-rolled class: a bare `shadow-xs` sits in
+          the utilities layer and discarded the global focus ring, so the
+          keyboard focus on the one irreversible button was invisible (D-5). */}
+      <button type="submit" disabled={!armed} className={buttonVariants({ variant: 'danger' })}>
         {label}
       </button>
     </form>

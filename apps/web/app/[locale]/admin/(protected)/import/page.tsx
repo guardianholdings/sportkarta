@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { listImportJobs } from '@/lib/admin-data';
 import { requireRole } from '@/lib/auth-session';
+import { formatDateTime } from '@/lib/format';
 
 import { enqueueImport } from './actions';
 import { ConfirmButton } from '@/components/ui/confirm-button';
@@ -71,50 +72,58 @@ export default async function AdminImportPage({
         {jobs.length === 0 ? (
           <p className="text-body-sm text-text-muted">{t('runsEmpty')}</p>
         ) : (
-          <table className="w-full border-collapse text-body-sm">
-            <thead>
-              <tr className="border-b border-line-strong text-left text-caption text-text-muted">
-                <th className="t-overline py-2 pr-3">{t('colState')}</th>
-                <th className="t-overline py-2 pr-3">{t('colMode')}</th>
-                <th className="t-overline py-2 pr-3">{t('colCreated')}</th>
-                <th className="t-overline py-2 pr-3">{t('colCompleted')}</th>
-                <th className="t-overline py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {jobs.map((job) => (
-                <tr key={job.id} className="border-b border-line">
-                  <td className="py-2 pr-3">
-                    <span
-                      className={`inline-block rounded-pill px-2 py-0.5 text-caption font-medium ${STATE_CLASSES[job.state] ?? 'bg-paper-sunk text-ink-soft'}`}
-                    >
-                      {t.has(`state.${job.state}`) ? t(`state.${job.state}`) : job.state}
-                    </span>
-                  </td>
-                  <td className="py-2 pr-3">
-                    {job.dryRun ? t('modeDry') : <strong>{t('modeLive')}</strong>}
-                    {job.actor && (
-                      <span className="text-caption text-text-muted"> · {job.actor}</span>
-                    )}
-                  </td>
-                  <td className="py-2 pr-3 text-caption whitespace-nowrap">
-                    {job.createdOn.slice(0, 16)}
-                  </td>
-                  <td className="py-2 pr-3 text-caption whitespace-nowrap">
-                    {job.completedOn ? job.completedOn.slice(0, 16) : '—'}
-                  </td>
-                  <td className="py-2">
-                    <Link
-                      href={`/admin/import/${job.id}`}
-                      className="text-caption font-medium text-link hover:text-link-hover"
-                    >
-                      {t('report')}
-                    </Link>
-                  </td>
+          // Five columns do not fit a phone: the table scrolls inside its own
+          // box instead of pushing the whole page sideways (A-17).
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[36rem] border-collapse text-body-sm">
+              <thead>
+                <tr className="border-b border-line-strong text-left text-caption text-text-muted">
+                  <th className="t-overline py-2 pr-3">{t('colState')}</th>
+                  <th className="t-overline py-2 pr-3">{t('colMode')}</th>
+                  <th className="t-overline py-2 pr-3">{t('colCreated')}</th>
+                  <th className="t-overline py-2 pr-3">{t('colCompleted')}</th>
+                  <th className="t-overline py-2" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {jobs.map((job) => (
+                  <tr key={job.id} className="border-b border-line">
+                    <td className="py-2 pr-3">
+                      <span
+                        className={`inline-block rounded-pill px-2 py-0.5 text-caption font-medium ${STATE_CLASSES[job.state] ?? 'bg-paper-sunk text-ink-soft'}`}
+                      >
+                        {t.has(`state.${job.state}`) ? t(`state.${job.state}`) : job.state}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-3">
+                      {job.dryRun ? t('modeDry') : <strong>{t('modeLive')}</strong>}
+                      {/* The person, not the opaque account id the job stores. */}
+                      {job.actor && (
+                        <span className="text-caption text-text-muted">
+                          {' '}
+                          · {job.actorName ?? t('formerUser')}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-3 text-caption whitespace-nowrap">
+                      {formatDateTime(job.createdOn, locale)}
+                    </td>
+                    <td className="py-2 pr-3 text-caption whitespace-nowrap">
+                      {job.completedOn ? formatDateTime(job.completedOn, locale) : '—'}
+                    </td>
+                    <td className="py-2">
+                      <Link
+                        href={`/admin/import/${job.id}`}
+                        className="text-caption font-medium text-link hover:text-link-hover"
+                      >
+                        {t('report')}
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </main>

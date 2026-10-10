@@ -2,7 +2,9 @@ import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
+import { listHref } from '@/lib/admin-back';
 import { requireAdmin } from '@/lib/auth-session';
+import { formatDate } from '@/lib/format';
 import { MapEmbed } from '@/components/admin/map-embed';
 import { StatusBadge } from '@/components/admin/status-badge';
 import { Button } from '@/components/ui/button';
@@ -11,7 +13,7 @@ import { Select } from '@/components/ui/select';
 import {
   FACILITIES_PAGE_SIZE,
   listFacilities,
-  municipalityOptions,
+  municipalityOptionsFor,
   SOURCE_VALUES,
   STATUS_VALUES,
   type FacilityFilters,
@@ -62,6 +64,12 @@ function pageHref(
   return { pathname: '/admin/facilities', query };
 }
 
+/** This very list — filters and page — for the editor's back link (A-9). */
+function backHref(params: Record<string, string | string[] | undefined>, page: number): string {
+  const { pathname, query } = pageHref(params, page);
+  return listHref(pathname, query);
+}
+
 export default async function AdminFacilitiesPage({
   params,
   searchParams,
@@ -75,17 +83,22 @@ export default async function AdminFacilitiesPage({
   const filters = parseFilters(sp);
 
   // Scoped: the list links into the editor, so it must not advertise
-  // facilities this account cannot open.
+  // facilities this account cannot open — and its municipality filter offers
+  // an ambassador their own municipalities, not the country's (A-16).
   const user = await requireAdmin();
+  const actor = { id: user.id, role: user.role };
+  const isAdmin = user.role === 'admin';
   const [t, tStatus, tSource, tSport, { rows, total }, municipalities] = await Promise.all([
     getTranslations('AdminFacilities'),
     getTranslations('AdminStatus'),
     getTranslations('Source'),
     getTranslations('Sport'),
-    listFacilities({ id: user.id, role: user.role }, filters),
-    municipalityOptions(),
+    listFacilities(actor, filters),
+    municipalityOptionsFor(actor),
   ]);
+  const noScope = !isAdmin && municipalities.length === 0;
   const pages = Math.max(1, Math.ceil(total / FACILITIES_PAGE_SIZE));
+  const back = backHref(sp, filters.page);
 
   return (
     <main className="space-y-4">
@@ -107,7 +120,7 @@ export default async function AdminFacilitiesPage({
             defaultValue={filters.municipality === 'none' ? 'none' : (filters.municipality ?? '')}
           >
             <option value="">{t('allMunicipalities')}</option>
-            <option value="none">{t('noMunicipality')}</option>
+            {isAdmin && <option value="none">{t('noMunicipality')}</option>}
             {municipalities.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.nameBg}
@@ -140,7 +153,11 @@ export default async function AdminFacilitiesPage({
         </Button>
       </form>
 
-      {rows.length === 0 ? (
+      {noScope ? (
+        <p className="rounded-card border border-warning-border bg-warning-bg p-4 text-body-sm text-warning">
+          {t('noScope')}
+        </p>
+      ) : rows.length === 0 ? (
         <p className="text-body-sm text-text-muted">{t('empty')}</p>
       ) : (
         <div className="overflow-x-auto rounded-card border border-line bg-surface shadow-sm">
@@ -186,7 +203,7 @@ export default async function AdminFacilitiesPage({
                   </td>
                   <td className="px-3 py-2.5">{tSource(row.source)}</td>
                   <td className="px-3 py-2.5 font-mono text-caption whitespace-nowrap text-text-muted tabular-nums">
-                    {row.updatedAt.slice(0, 10)}
+                    {formatDate(row.updatedAt, locale, 'medium')}
                   </td>
                   <td className="px-3 py-2.5">
                     <details>
@@ -198,7 +215,7 @@ export default async function AdminFacilitiesPage({
                       </div>
                     </details>
                     <Link
-                      href={`/admin/facilities/${row.id}`}
+                      href={{ pathname: `/admin/facilities/${row.id}`, query: { back } }}
                       className="text-caption font-medium text-link hover:text-link-hover"
                     >
                       {t('edit')}

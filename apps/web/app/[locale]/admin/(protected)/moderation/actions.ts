@@ -116,6 +116,9 @@ export async function decideFacility(
   await explain(decision, result);
   revalidatePath('/admin/moderation');
   revalidatePath('/admin/verify');
+  // The facility editor decides through this action too (A-4); its list shows
+  // the status.
+  revalidatePath('/admin/facilities');
 }
 
 /**

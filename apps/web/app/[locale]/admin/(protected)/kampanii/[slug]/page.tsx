@@ -14,6 +14,7 @@ import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Link } from '@/i18n/navigation';
 import { requireRole } from '@/lib/auth-session';
 import { localizedText } from '@/lib/campaigns';
+import { inReadingOrder } from '@/lib/format';
 import { partnerText, sponsorCandidates } from '@/lib/partners';
 import { cityDisplayName, loadCityCatalog } from '@/lib/places';
 
@@ -66,8 +67,9 @@ export default async function EditCampaignPage({
   const standings = isClosed ? [] : await adminStandings(getDb(), campaign, { limit: 100 });
   const frozen = isClosed ? await frozenResults(getDb(), campaign.id, 100) : [];
 
-  const sportLabels = Object.fromEntries(
-    CANONICAL_SPORTS.map((sport) => [sport, sportName(sport)]),
+  // In the reader's alphabetical order, not the slugs'.
+  const sports = inReadingOrder(CANONICAL_SPORTS, locale, (sport) => sportName(sport)).map(
+    (sport) => ({ value: sport, label: sportName(sport) }),
   );
   const cities = catalog.all.map((city) => ({
     id: city.id,
@@ -203,11 +205,11 @@ export default async function EditCampaignPage({
         {isClosed && <p className="text-body-sm text-ink-soft">{t('closedNotEditable')}</p>}
         {!isClosed && (
           <CampaignForm
-            action={updateCampaignAction}
+            action={updateCampaignAction.bind(null, campaign.slug)}
             campaign={campaign}
             cities={cities}
             quarters={quarters}
-            sportLabels={sportLabels}
+            sports={sports}
             partners={sponsors.map((p) => ({
               id: p.id,
               name: partnerText(p.nameBg, p.nameEn, locale) ?? p.nameBg,
