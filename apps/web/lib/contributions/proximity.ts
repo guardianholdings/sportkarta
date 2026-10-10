@@ -62,14 +62,31 @@ export interface Coordinates {
 }
 
 /**
+ * One half of a client-supplied position, or null when it is not there.
+ *
+ * NOT `Number(value)`: `Number('')` and `Number(null)` are both 0, and the
+ * hidden position fields post '' whenever no fix was shared — so «location
+ * off» parsed as the point (0, 0) in the Gulf of Guinea, every such
+ * contribution was recorded as 1,000 km away (the clamp) instead of NULL, and
+ * the member was told «бяхте на 1000 км от обекта» instead of «без
+ * местоположение не носи точки» (UX audit 2026-10-10).
+ */
+function coordinatePart(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value !== 'string' || value.trim() === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/**
  * Parse a client-supplied position. Anything missing, unparseable or outside the
  * valid coordinate range becomes "no location" rather than an error: a broken
  * fix must degrade to unscored, never to a failed submission.
  */
 export function parseCoordinates(lat: unknown, lon: unknown): Coordinates | null {
-  const latitude = Number(lat);
-  const longitude = Number(lon);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  const latitude = coordinatePart(lat);
+  const longitude = coordinatePart(lon);
+  if (latitude === null || longitude === null) return null;
   if (latitude < -90 || latitude > 90) return null;
   if (longitude < -180 || longitude > 180) return null;
   return { lat: latitude, lon: longitude };
