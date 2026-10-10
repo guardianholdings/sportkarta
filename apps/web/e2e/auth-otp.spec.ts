@@ -253,7 +253,10 @@ test.describe('GDPR self-service deletion', () => {
       await page.goto('/profil');
       await page.getByLabel(/напишете|type/i).fill('ИЗТРИЙ');
       await page.getByRole('button', { name: /изтрий профила|delete my account/i }).click();
-      await page.waitForURL(/localhost:3000\/?$/);
+      // It lands on sign-in with a confirmation, not on a map that looks as
+      // if nothing happened (UX audit 2026-10-10).
+      await page.waitForURL(/\/vhod\?deleted=1$/);
+      await expect(page.getByText(bg.SignIn.deleted)).toBeVisible();
 
       // The profile and everything identifying the person are gone.
       expect(await query(`SELECT 1 FROM users WHERE id = $1`, [userId])).toHaveLength(0);

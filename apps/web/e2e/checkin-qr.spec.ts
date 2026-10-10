@@ -111,7 +111,8 @@ test.describe('QR check-in', () => {
   test('a forged token is refused without saying why', async ({ page }) => {
     const forged = `v1~${occurrenceId}~29746848~AAAAAAAAAAAAAAAAAAAAAA`;
     await page.goto(`/otmetka/${forged}`);
-    await expect(page.getByText(bg.Checkin.invalidHeading)).toBeVisible();
+    // By role: the tab title now says the same words (UX audit 2026-10-10).
+    await expect(page.getByRole('heading', { name: bg.Checkin.invalidHeading })).toBeVisible();
     // "Expired" and "forged" must read identically: the difference is exactly
     // the oracle the verifier is careful not to be.
     await expect(page.locator('body')).not.toContainText('signature');
@@ -125,7 +126,7 @@ test.describe('QR check-in', () => {
       at: new Date(Date.now() - 10 * 60_000),
     });
     await page.goto(`/otmetka/${stale}`);
-    await expect(page.getByText(bg.Checkin.invalidHeading)).toBeVisible();
+    await expect(page.getByRole('heading', { name: bg.Checkin.invalidHeading })).toBeVisible();
   });
 
   test('a valid token inside the geofence scores, and a repeat does not', async ({
