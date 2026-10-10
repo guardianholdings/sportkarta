@@ -38,6 +38,12 @@ export async function VisibilityPanel({
       <p className="text-body-sm text-ink-soft">
         {visibility.isPublic ? t('visibilityPublicExplainer') : t('visibilityPrivateExplainer')}
       </p>
+      {/* What publishing WILL do, said BEFORE the one-tap button. It used to
+          appear only afterwards, as the public explainer — consent asked for
+          after the fact (UX audit 2026-10-10, S-2). */}
+      {!visibility.isPublic && (
+        <p className="text-body-sm text-ink-soft">{t('visibilityPublishConsequences')}</p>
+      )}
 
       <VisibilityForm
         isPublic={!visibility.isPublic}

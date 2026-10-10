@@ -1209,6 +1209,7 @@
     "visibilityTitle": "Who can see my passport",
     "visibilityPrivateExplainer": "Your passport is private. Nobody else can see it.",
     "visibilityPublicExplainer": "Your passport is public at this address. It shows only badges, totals and streaks — never when or where you played. Your name and city will also appear on the leaderboards, in campaigns and in divisions.",
+    "visibilityPublishConsequences": "If you make it public, anyone with the link will see your badges, totals and streaks — never when or where you played. Your name and city will also appear on the leaderboards, in campaigns and in divisions.",
     "makePublic": "Make it public",
     "makePrivate": "Make it private",
     "publishNeedsName": "To publish your passport, first add a name in your profile — it is the name the leaderboards will show.",
