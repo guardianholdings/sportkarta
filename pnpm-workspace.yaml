@@ -18,3 +18,23 @@ overrides:
   # better-auth's optional peer `vitest` puts it in the production audit, and
   # the worker image copies the whole build stage. Drop this with vitest 4.
   'tinypool@<2.1.2': ^2.1.2
+  # Dependabot sweep, 10 Oct 2026. Each range stays inside its major, so a
+  # pin can only lift a copy to a fixed release of the same API.
+  # postcss < 8.5.23 — high: file read and path traversal through source-map
+  # auto-loading; moderate: an unescaped </style> in stringified CSS. Next 15.5
+  # pins 8.4.31 for its CSS pipeline. Build-time only (no visitor input reaches
+  # it), but it ships in the image; 8.5 is API-compatible with 8.4.
+  'postcss@>=8.0.0 <8.5.23': ^8.5.23
+  # nanoid 3 < 3.3.18 — high: a custom generator loops forever at size 0.
+  # Pulled in by postcss.
+  'nanoid@>=3.0.0 <3.3.18': ^3.3.18
+  # source-map-js < 1.2.2 — high: event-loop denial of service through
+  # indexed source maps. Pulled in by postcss.
+  'source-map-js@>=1.0.0 <1.2.2': ^1.2.2
+  # js-yaml 4 < 4.3.2 — high: quadratic CPU on merge keys and !!omap.
+  # Development only (ESLint's config loader).
+  'js-yaml@>=4.0.0 <4.3.2': ^4.3.2
+  # brace-expansion < 1.1.21 and 4–5 < 5.0.12 — moderate: quadratic
+  # expansion. Development only (minimatch, under ESLint and the test tools).
+  'brace-expansion@<1.1.21': ^1.1.21
+  'brace-expansion@>=4.0.0 <5.0.12': ^5.0.12
