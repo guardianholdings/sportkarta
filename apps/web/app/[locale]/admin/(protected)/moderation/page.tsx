@@ -1,5 +1,5 @@
 import { getDb } from '@sportkarta/db';
-import { getLocale, getTranslations, setRequestLocale } from 'next-intl/server';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { ReasonSelect } from '@/components/admin/reason-select';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
 import { Link } from '@/i18n/navigation';
 import { requireAdmin } from '@/lib/auth-session';
+import { formatDate, formatNumber } from '@/lib/format';
 import {
   actorMunicipalities,
   moderationSla,
@@ -124,7 +125,6 @@ export default async function AdminModerationPage({
     notices,
     sla,
     scope,
-    activeLocale,
   ] = await Promise.all([
     getTranslations('AdminModeration'),
     getTranslations('AdminFacilities'),
@@ -138,12 +138,11 @@ export default async function AdminModerationPage({
     isAdmin ? pendingNotices(getDb()) : Promise.resolve([] as QueueNotice[]),
     moderationSla(actor),
     actorMunicipalities(actor),
-    getLocale(),
   ]);
   const reasonLabel = (slug: string): string => (tReason.has(slug) ? tReason(slug) : slug);
 
-  const formatDate = (value: string): string =>
-    new Intl.DateTimeFormat(activeLocale, { dateStyle: 'medium' }).format(new Date(value));
+  // Sofia's calendar day, not the server's UTC one (lib/format, A-13).
+  const formatDay = (value: string): string => formatDate(value, locale, 'medium');
   // Who uploaded it, by display name — a raw account id tells a moderator
   // nothing, and a repeat uploader is what they most need to recognise. The
   // account screen is admin-only (requireRole('admin')), so only an admin gets
@@ -167,7 +166,14 @@ export default async function AdminModerationPage({
         ),
     });
   const formatHours = (hours: number | null): string =>
-    hours === null ? t('noData') : t('hours', { hours: hours.toFixed(1) });
+    hours === null
+      ? t('noData')
+      : t('hours', {
+          hours: formatNumber(hours, locale, {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          }),
+        });
   // The pre-screen vocabulary is closed, but a flag written before the UI knows
   // it should still show something readable rather than crash the page.
   const flagLabel = (reason: string): string =>
@@ -222,6 +228,25 @@ export default async function AdminModerationPage({
               })}
             </dd>
           </div>
+          {/* The import backlog, apart from the queue (A-7): thousands of OSM
+              points awaiting the verify deck are not members waiting on us. */}
+          <div>
+            <dt className="text-caption text-text-muted">{t('slaBacklog')}</dt>
+            <dd className="font-mono text-h4 font-bold text-ink tabular-nums">
+              {formatNumber(sla.importBacklog, locale)}
+            </dd>
+            <dd className="text-caption text-text-muted">{t('slaBacklogNote')}</dd>
+            {sla.importBacklog > 0 && (
+              <dd>
+                <Link
+                  href="/admin/verify"
+                  className="inline-flex min-h-11 items-center text-body-sm font-medium text-link hover:text-link-hover"
+                >
+                  {t('slaBacklogLink')}
+                </Link>
+              </dd>
+            )}
+          </div>
         </dl>
       </section>
 
@@ -252,7 +277,7 @@ export default async function AdminModerationPage({
                         {tNotice(`category.${notice.category}`)}
                       </span>
                       <span className="font-mono text-caption text-text-muted">
-                        {formatDate(notice.createdAt)}
+                        {formatDay(notice.createdAt)}
                       </span>
                     </div>
                     {/* Shown as text AND linked: the value is constrained to
@@ -334,7 +359,7 @@ export default async function AdminModerationPage({
                     </Link>
                     <div className="text-caption text-text-muted">
                       {[facility.quarter, facility.municipalityName].filter(Boolean).join(', ')} ·{' '}
-                      {formatDate(facility.createdAt)}
+                      {formatDay(facility.createdAt)}
                     </div>
                     <Flags flags={facility.flags} label={t('flagsLabel')} labelFor={flagLabel} />
                   </div>
@@ -398,7 +423,7 @@ export default async function AdminModerationPage({
                       {facilityName}
                     </Link>
                     <div className="text-caption text-text-muted">
-                      {uploader(photo)} · {formatDate(photo.createdAt)}
+                      {uploader(photo)} · {formatDay(photo.createdAt)}
                     </div>
                     <Flags flags={photo.flags} label={t('flagsLabel')} labelFor={flagLabel} />
                   </div>
@@ -489,7 +514,7 @@ export default async function AdminModerationPage({
                       {facilityName}
                     </Link>
                     <div className="text-caption text-text-muted">
-                      {uploader(photo)} · {formatDate(photo.createdAt)}
+                      {uploader(photo)} · {formatDay(photo.createdAt)}
                     </div>
                   </div>
                   <form action={takeDown} className="flex flex-wrap items-center gap-2">
@@ -553,7 +578,7 @@ export default async function AdminModerationPage({
                         {tIssue(`issue.${report.issue}`)}
                       </span>
                       <span className="font-mono text-caption text-text-muted">
-                        {formatDate(report.createdAt)}
+                        {formatDay(report.createdAt)}
                       </span>
                     </div>
                     {report.body && <p className="text-ink-soft">{report.body}</p>}

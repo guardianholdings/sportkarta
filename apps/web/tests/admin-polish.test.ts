@@ -5,7 +5,7 @@ import type { SQL } from '@sportkarta/db';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { dashboardCounts, isUuid, municipalityOptionsFor } from '@/lib/admin-data';
-import { queuePhotos } from '@/lib/moderation-data';
+import { moderationSla, queuePhotos } from '@/lib/moderation-data';
 
 /**
  * Three small admin defects from the pre-launch audit, each with the behaviour
@@ -100,6 +100,42 @@ describe('municipality filters offer what the actor can see (A-16)', () => {
   it('asks nothing for a plain member', async () => {
     expect(await municipalityOptionsFor({ id: 'user_1', role: 'user' })).toEqual([]);
     expect(db.statements).toHaveLength(0);
+  });
+});
+
+describe('the SLA panel measures the crowd queue (A-7)', () => {
+  it('counts the import backlog apart and keeps it out of the oldest item and the median', async () => {
+    db.answers.push(
+      [
+        {
+          pending_photos: 1,
+          pending_reports: 2,
+          pending_facilities: 3,
+          import_backlog: 6900,
+          oldest_pending_hours: 5,
+        },
+      ],
+      [{ decisions: 4, median_hours: 2 }],
+    );
+    const sla = await moderationSla({ id: 'user_admin', role: 'admin' });
+    expect(sla).toMatchObject({
+      pendingFacilities: 3,
+      importBacklog: 6900,
+      oldestPendingHours: 5,
+      medianHours: 2,
+    });
+
+    const [depth, timing] = db.statements;
+    const text = depth?.sql ?? '';
+    // Three facility predicates: the queue and the oldest item are crowd-only,
+    // the backlog is everything else.
+    expect(text.match(/f\.status = 'needs_verification'/g)).toHaveLength(3);
+    expect(text.match(/needs_verification' AND f\.source = 'crowd'/g)).toHaveLength(2);
+    expect(text).toMatch(/needs_verification' AND f\.source <> 'crowd'[\s\S]*?AS import_backlog/);
+    // A verify-deck decision about an imported facility stays out of the median.
+    expect(timing?.sql).toMatch(
+      /NOT EXISTS \(\s*SELECT 1 FROM facilities f\s*WHERE d\.target_type = 'facility' AND f\.id = d\.facility_id AND f\.source <> 'crowd'/,
+    );
   });
 });
 
