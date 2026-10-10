@@ -3,9 +3,8 @@
 import { getDb, sql, type SQL } from '@sportkarta/db';
 import { CANONICAL_SPORTS, CANONICAL_SURFACES, mergeFields, type JsonValue } from '@sportkarta/lib';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 
-import { ACCESS_VALUES, CONDITION_VALUES, isUuid, STATUS_VALUES } from '@/lib/admin-data';
+import { ACCESS_VALUES, CONDITION_VALUES, isUuid } from '@/lib/admin-data';
 import { requireAdmin } from '@/lib/auth-session';
 import { locationChanged, parseLocation } from '@/lib/facility-editor';
 import { scopeClause } from '@/lib/moderation';
@@ -22,18 +21,37 @@ function oneOf<T extends string>(value: unknown, allowed: readonly T[]): T {
   throw new Error('invalid enum value');
 }
 
+export interface FacilityEditState {
+  /** Why nothing was written: not a point in Bulgaria, or a pin moved out of scope. */
+  error: 'location' | 'scope' | null;
+  /** Changes applied by the save that just went through. */
+  saved?: number;
+}
+
 /**
  * Operator edit: every applied change is one facility_edits audit row with
  * actor (from the verified session, never from the form) and source='crowd' —
  * top merge-policy priority, so these fields freeze against OSM re-imports.
  *
- * Municipality-scoped since Stage 3.3. This screen can set `status` and rewrite
- * every field, and it does NOT go through the logged moderation path, so an
- * unscoped version would let any ambassador mark a facility on the other side
- * of the country `gone` — frozen against future imports, with nothing in the
- * decision log. The scope is in the UPDATE itself, not only in this check.
+ * NOT THE STATUS (A-4). Publishing a facility or marking it gone is a
+ * moderation decision: it is logged to moderation_decisions with a reason, and
+ * the author is sent the statement of reasons. This form used to set `status`
+ * with none of that, so it no longer reads the field at all; the editor offers
+ * the logged decision itself (moderation/actions.ts decideFacility) instead.
+ *
+ * Municipality-scoped since Stage 3.3: it still rewrites every other field and
+ * can move the pin, so an unscoped version would let any ambassador rewrite a
+ * facility on the other side of the country. The scope is in the UPDATE
+ * itself, not only in this check.
+ *
+ * A refusal RETURNS, rather than redirecting: a redirect re-rendered the form
+ * from the database and lost every other edit the operator had made (A-2).
  */
-export async function saveFacility(facilityId: string, formData: FormData): Promise<void> {
+export async function saveFacility(
+  facilityId: string,
+  _prev: FacilityEditState,
+  formData: FormData,
+): Promise<FacilityEditState> {
   const user = await requireAdmin();
   const actor = user.id;
   const scope = scopeClause({ id: user.id, role: user.role });
@@ -50,7 +68,7 @@ export async function saveFacility(facilityId: string, formData: FormData): Prom
   const lightingRaw = String(formData.get('lighting') ?? 'unknown');
   const conditionRaw = optionalText(formData.get('condition'));
   const location = parseLocation(formData.get('lon'), formData.get('lat'));
-  if (location === 'invalid') redirect(`/admin/facilities/${facilityId}?error=location`);
+  if (location === 'invalid') return { error: 'location' };
 
   const incoming: Record<string, JsonValue> = {
     name: optionalText(formData.get('name')),
@@ -60,7 +78,6 @@ export async function saveFacility(facilityId: string, formData: FormData): Prom
     lighting: lightingRaw === 'yes' ? true : lightingRaw === 'no' ? false : null,
     covered: formData.get('covered') === 'on',
     access: oneOf(formData.get('access'), ACCESS_VALUES),
-    status: oneOf(formData.get('status'), STATUS_VALUES),
     // The operator's answer to a disputed or remote condition report
     // (finding 53/62): set it, or clear it back to "nobody has reported".
     condition: conditionRaw === null ? null : oneOf(conditionRaw, CONDITION_VALUES),
@@ -78,7 +95,6 @@ export async function saveFacility(facilityId: string, formData: FormData): Prom
     lighting: (v) => sql`lighting = ${v}`,
     covered: (v) => sql`covered = ${v}`,
     access: (v) => sql`access = ${String(v)}::facility_access`,
-    status: (v) => sql`status = ${String(v)}::facility_status`,
     // The condition and its timestamp travel together (facilities_condition_pair).
     // An operator setting it is a fresh report as of now.
     condition: (v) =>
@@ -95,7 +111,7 @@ export async function saveFacility(facilityId: string, formData: FormData): Prom
     // found, so the edit never begins.
     const currentResult = await tx.execute(sql`
       SELECT f.name, f.quarter, f.sport_types, f.surface, f.lighting, f.covered,
-             f.access, f.status, f.condition::text AS condition, f.municipality_id,
+             f.access, f.condition::text AS condition, f.municipality_id,
              ST_X(f.geom) AS lon, ST_Y(f.geom) AS lat
       FROM facilities f WHERE f.id = ${facilityId} AND ${scope}
       FOR UPDATE
@@ -157,7 +173,6 @@ export async function saveFacility(facilityId: string, formData: FormData): Prom
       lighting: row.lighting ?? null,
       covered: row.covered ?? false,
       access: row.access ?? null,
-      status: row.status ?? null,
       condition: row.condition ?? null,
     };
 
@@ -187,7 +202,10 @@ export async function saveFacility(facilityId: string, formData: FormData): Prom
     return appliedCount;
   });
 
-  if (outcome === 'refused') redirect(`/admin/facilities/${facilityId}?error=scope`);
+  if (outcome === 'refused') return { error: 'scope' };
+  // The list is ordered by updated_at, and the editor's own history and
+  // municipality line come from the rows just written: both re-render, while
+  // the form keeps what is in it. The URL — and its ?back= — stays as it was.
   revalidatePath('/admin/facilities');
-  redirect(`/admin/facilities/${facilityId}?saved=${String(outcome)}`);
+  return { error: null, saved: outcome };
 }

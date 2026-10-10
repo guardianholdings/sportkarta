@@ -100,7 +100,9 @@ function toListRow(r: Record<string, unknown>): FacilityListRow {
     sportTypes: (r.sport_types as string[] | null) ?? [],
     status: r.status as FacilityStatus,
     source: r.source as FacilitySource,
-    updatedAt: String(r.updated_at),
+    // ISO, so the page formats it in Sofia time (lib/format) — String(Date)
+    // printed the process's UTC rendering, and the page sliced «Sat Oct 10».
+    updatedAt: r.updated_at instanceof Date ? r.updated_at.toISOString() : String(r.updated_at),
     lon: Number(r.lon),
     lat: Number(r.lat),
   };

@@ -7,6 +7,8 @@ import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Link } from '@/i18n/navigation';
+import { municipalityOptions } from '@/lib/admin-data';
+import { describeEditValue, isMarkerEdit, type EditValueWords } from '@/lib/admin-edit-values';
 import { requireRole } from '@/lib/auth-session';
 import { isOnSite } from '@/lib/contributions/proximity';
 
@@ -70,24 +72,26 @@ export default async function AdminCrowdEditsPage({
   });
   const numberFmt = new Intl.NumberFormat(activeLocale, { maximumFractionDigits: 1 });
 
+  // An operator's pin move records the municipalities it moved between, as ids.
+  const municipalityNames = rows.some((row) => row.field === 'municipality_id')
+    ? new Map((await municipalityOptions()).map((m) => [m.id, m.nameBg]))
+    : null;
+
   const label = (translate: typeof tAccess, value: string): string =>
     translate.has(value) ? translate(value) : value;
-  /** One side of an edit, in words rather than JSON. */
-  const show = (field: string, value: unknown): string => {
-    if (value === null || value === undefined) return t('valueNone');
-    if (typeof value === 'boolean') return value ? t('valueYes') : t('valueNo');
-    if (typeof value === 'string') {
-      if (field === 'access' || field === 'access_proposed') return label(tAccess, value);
-      if (field === 'status') return label(tStatus, value);
-      if (field === 'surface') return label(tSurface, value);
-      if (field === 'condition') return label(tCondition, value);
-      return value;
-    }
-    if (Array.isArray(value) && field === 'sport_types') {
-      return value.map((sport) => label(tSport, String(sport))).join(', ');
-    }
-    return JSON.stringify(value);
+  /** One side of an edit, in words rather than JSON (lib/admin-edit-values.ts). */
+  const words: EditValueWords = {
+    none: t('valueNone'),
+    yes: t('valueYes'),
+    no: t('valueNo'),
+    access: (value) => label(tAccess, value),
+    status: (value) => label(tStatus, value),
+    surface: (value) => label(tSurface, value),
+    condition: (value) => label(tCondition, value),
+    sport: (value) => label(tSport, value),
+    municipality: (value) => municipalityNames?.get(value),
   };
+  const show = (field: string, value: unknown): string => describeEditValue(field, value, words);
   const fieldLabel = (field: string): string =>
     t.has(`field.${field}`) ? t(`field.${field}`) : field;
   const distance = (metres: number | null): string =>
@@ -235,7 +239,7 @@ export default async function AdminCrowdEditsPage({
                   </div>
                   <div>
                     <span className="font-medium text-ink">{fieldLabel(row.field)}</span>
-                    {row.field !== 'created' && row.field !== 'verified' && (
+                    {!isMarkerEdit(row.field) && (
                       <>
                         : <span className="text-ink-soft">{show(row.field, row.oldValue)}</span> →{' '}
                         <span className="font-semibold text-ink">

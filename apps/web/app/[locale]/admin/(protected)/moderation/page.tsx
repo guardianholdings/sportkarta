@@ -1,11 +1,10 @@
 import { getDb } from '@sportkarta/db';
-import { reasonsFor, type ReasonContext } from '@sportkarta/lib/moderation';
 import { getLocale, getTranslations, setRequestLocale } from 'next-intl/server';
 
+import { ReasonSelect } from '@/components/admin/reason-select';
 import { Button } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { Link } from '@/i18n/navigation';
 import { requireAdmin } from '@/lib/auth-session';
 import {
@@ -60,36 +59,6 @@ function PhotoThumb({
           row-decides route; next/image is off (next.config.ts) */}
       <img src={photoUrl(photoId)} alt={alt} className="size-24 object-cover" />
     </a>
-  );
-}
-
-/**
- * The reason a refusal is logged with and explained by (0034). Required, with
- * no default: the empty first option means a moderator has to CHOOSE, because
- * a pre-selected reason is the one every statement of reasons would carry.
- */
-function ReasonSelect({
-  context,
-  label,
-  placeholder,
-  labelFor,
-}: {
-  context: ReasonContext;
-  label: string;
-  placeholder: string;
-  labelFor: (slug: string) => string;
-}) {
-  return (
-    <Select name="reason" required defaultValue="" size="sm" aria-label={label}>
-      <option value="" disabled>
-        {placeholder}
-      </option>
-      {reasonsFor(context).map((slug) => (
-        <option key={slug} value={slug}>
-          {labelFor(slug)}
-        </option>
-      ))}
-    </Select>
   );
 }
 

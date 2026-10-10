@@ -2,7 +2,9 @@ import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
+import { listHref } from '@/lib/admin-back';
 import { requireAdmin } from '@/lib/auth-session';
+import { formatDate } from '@/lib/format';
 import { MapEmbed } from '@/components/admin/map-embed';
 import { StatusBadge } from '@/components/admin/status-badge';
 import { Button } from '@/components/ui/button';
@@ -62,6 +64,12 @@ function pageHref(
   return { pathname: '/admin/facilities', query };
 }
 
+/** This very list — filters and page — for the editor's back link (A-9). */
+function backHref(params: Record<string, string | string[] | undefined>, page: number): string {
+  const { pathname, query } = pageHref(params, page);
+  return listHref(pathname, query);
+}
+
 export default async function AdminFacilitiesPage({
   params,
   searchParams,
@@ -86,6 +94,7 @@ export default async function AdminFacilitiesPage({
     municipalityOptions(),
   ]);
   const pages = Math.max(1, Math.ceil(total / FACILITIES_PAGE_SIZE));
+  const back = backHref(sp, filters.page);
 
   return (
     <main className="space-y-4">
@@ -186,7 +195,7 @@ export default async function AdminFacilitiesPage({
                   </td>
                   <td className="px-3 py-2.5">{tSource(row.source)}</td>
                   <td className="px-3 py-2.5 font-mono text-caption whitespace-nowrap text-text-muted tabular-nums">
-                    {row.updatedAt.slice(0, 10)}
+                    {formatDate(row.updatedAt, locale, 'medium')}
                   </td>
                   <td className="px-3 py-2.5">
                     <details>
@@ -198,7 +207,7 @@ export default async function AdminFacilitiesPage({
                       </div>
                     </details>
                     <Link
-                      href={`/admin/facilities/${row.id}`}
+                      href={{ pathname: `/admin/facilities/${row.id}`, query: { back } }}
                       className="text-caption font-medium text-link hover:text-link-hover"
                     >
                       {t('edit')}
