@@ -2,9 +2,10 @@
 
 import { campaignById, closeCampaign, getDb, quarterHasFacilities } from '@sportkarta/db';
 import { campaignPhase, CampaignRuleError, isClosable } from '@sportkarta/lib/campaigns';
+import { getLocale } from 'next-intl/server';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 
+import { redirect } from '@/i18n/navigation';
 import { requireRole } from '@/lib/auth-session';
 import {
   buildCampaignInput,
@@ -75,10 +76,17 @@ export async function createCampaignAction(
   }
 
   revalidatePath('/admin/kampanii');
-  redirect(`/admin/kampanii/${slug}`);
+  // The i18n redirect, so an admin working in /en stays in /en (A-14).
+  return redirect({ href: `/admin/kampanii/${slug}`, locale: await getLocale() });
 }
 
+/**
+ * `currentSlug` is the slug of the page the form is on, bound by that page:
+ * a renamed campaign's old address 404s, so a slug change has to take the
+ * operator to the new one (A-5) — as the partner editor already did.
+ */
 export async function updateCampaignAction(
+  currentSlug: string,
   _prev: CampaignFormState,
   formData: FormData,
 ): Promise<CampaignFormState> {
@@ -86,8 +94,10 @@ export async function updateCampaignAction(
   const id = String(formData.get('id') ?? '');
   if (!id) return { error: 'not_found', saved: false };
 
+  let nextSlug: string;
   try {
     const input = buildCampaignInput(formData);
+    nextSlug = input.slug;
     await assertQuarterExists(input);
     const updated = await updateCampaign(getDb(), id, input);
     // Zero rows means the campaign is closed: its frozen results were computed
@@ -102,6 +112,9 @@ export async function updateCampaignAction(
   }
 
   revalidatePath('/admin/kampanii');
+  if (nextSlug !== currentSlug) {
+    redirect({ href: `/admin/kampanii/${nextSlug}`, locale: await getLocale() });
+  }
   return { error: null, saved: true };
 }
 

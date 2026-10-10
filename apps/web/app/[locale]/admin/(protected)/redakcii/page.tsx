@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { Link } from '@/i18n/navigation';
+import { getPathname, Link } from '@/i18n/navigation';
 import { municipalityOptions } from '@/lib/admin-data';
 import { describeEditValue, isMarkerEdit, type EditValueWords } from '@/lib/admin-edit-values';
 import { requireRole } from '@/lib/auth-session';
@@ -134,7 +134,11 @@ export default async function AdminCrowdEditsPage({
         </p>
       ) : null}
 
-      <form className="flex flex-wrap items-end gap-2" action="/admin/redakcii">
+      {/* GET form: the locale prefix is spelled out, or /en lands on bg (A-14). */}
+      <form
+        className="flex flex-wrap items-end gap-2"
+        action={getPathname({ href: '/admin/redakcii', locale })}
+      >
         <label className="space-y-1.5">
           <span className="text-caption font-medium text-ink-soft">{t('accountLabel')}</span>
           <Input

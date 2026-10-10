@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { ACCOUNTS_PAGE_SIZE, listAccounts, type AccountFilters } from '@/lib/account-admin';
 import { requireRole } from '@/lib/auth-session';
 import { isRole, type Role } from '@/lib/roles';
-import { Link } from '@/i18n/navigation';
+import { getPathname, Link } from '@/i18n/navigation';
 
 export const metadata = { robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -118,7 +118,12 @@ export default async function AdminAccountsPage({
         </p>
       )}
 
-      <form className="flex flex-wrap items-end gap-2" action="/admin/akaunti">
+      {/* A plain GET form, so the locale prefix is spelled out: a bare
+          "/admin/akaunti" sent an /en admin's search to the Bulgarian site (A-14). */}
+      <form
+        className="flex flex-wrap items-end gap-2"
+        action={getPathname({ href: '/admin/akaunti', locale })}
+      >
         {/* Preserve the active filters across a new search. */}
         {filters.role && <input type="hidden" name="role" value={filters.role} />}
         {filters.visibility && <input type="hidden" name="vidimost" value={filters.visibility} />}

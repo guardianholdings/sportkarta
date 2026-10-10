@@ -203,7 +203,7 @@ export default async function EditCampaignPage({
         {isClosed && <p className="text-body-sm text-ink-soft">{t('closedNotEditable')}</p>}
         {!isClosed && (
           <CampaignForm
-            action={updateCampaignAction}
+            action={updateCampaignAction.bind(null, campaign.slug)}
             campaign={campaign}
             cities={cities}
             quarters={quarters}
