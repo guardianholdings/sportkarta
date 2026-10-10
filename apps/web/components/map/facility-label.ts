@@ -60,15 +60,21 @@ export function facilityTitle(f: LabelSource, s: LabelStrings): string {
 
 /**
  * The line under the heading: up to three sports, then — for a NAMED facility —
- * where it is. An unnamed one already carries its place in the title, and
- * printing it twice would cost the card its only spare line.
+ * where it is.
+ *
+ * An unnamed facility's title is already built from its primary sport and its
+ * place («Тенис — Лозенец, София»), so neither is repeated here: its line lists
+ * only the OTHER sports, or is empty. Repeating the primary sport printed
+ * «Тенис» over «тенис» on every unnamed single-sport row — most of the list —
+ * and spent the card's only spare line on nothing (UX audit 2026-10-10).
  */
 export function facilitySubtitle(f: LabelSource, s: LabelStrings): string {
+  const named = clean(f.name) !== null;
   const sports = f.sports
-    .slice(0, 3)
+    .slice(named ? 0 : 1, named ? 3 : 4)
     .map((sport) => s.sport(sport))
     .join(' · ');
-  const place = clean(f.name) ? clean(f.place) : null;
+  const place = named ? clean(f.place) : null;
   return [sports, place].filter(Boolean).join(' — ');
 }
 

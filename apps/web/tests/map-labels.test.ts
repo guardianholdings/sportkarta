@@ -77,9 +77,23 @@ describe('facilitySubtitle', () => {
     expect(facilitySubtitle(named, BG)).toBe('футбол · тенис · шахмат — Варна');
   });
 
-  it('does not repeat the place an unnamed facility already carries in its title', () => {
+  it('does not repeat what an unnamed facility’s title already says', () => {
+    // The title is «Футбол — Варна»: the line under it must not say «футбол»
+    // (or «Варна») again.
     const unnamed = { name: null, sports: ['football'], place: 'Варна' };
-    expect(facilitySubtitle(unnamed, BG)).toBe('футбол');
+    expect(facilityTitle(unnamed, BG)).toBe('Футбол — Варна');
+    expect(facilitySubtitle(unnamed, BG)).toBe('');
+    // Without a place (the /igrishta lists): «Тенис» over «тенис» was the bug.
+    expect(facilitySubtitle({ name: null, sports: ['tennis'] }, BG)).toBe('');
+  });
+
+  it('lists an unnamed facility’s OTHER sports, up to three', () => {
+    const f = {
+      name: null,
+      sports: ['football', 'basketball', 'volleyball', 'tennis', 'chess'],
+      place: 'Русе',
+    };
+    expect(facilitySubtitle(f, BG)).toBe('баскетбол · волейбол · тенис');
   });
 
   it('is empty when there is nothing to add', () => {
