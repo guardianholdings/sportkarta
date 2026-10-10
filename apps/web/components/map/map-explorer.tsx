@@ -16,7 +16,8 @@ import {
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import type { Dispatch, KeyboardEvent, RefObject, SetStateAction } from 'react';
 
 import { AdCreative } from '@/components/ads/ad-creative';
 import { BottomNav, NavRail } from '@/components/shell/app-nav';
@@ -270,7 +271,21 @@ export function MapExplorer({
   const [layerMenuOpen, setLayerMenuOpen] = useState(false);
   const [viewBounds, setViewBounds] = useState<MapBounds | null>(null);
 
-  const listRef = useRef<HTMLDivElement>(null);
+  /**
+   * One ref PER LIST. The results body is mounted twice — the desktop panel and
+   * the phone sheet, one of them display:none — and a single shared ref ended up
+   * on whichever mounted last, so on a laptop the marker hover-sync scrolled the
+   * hidden phone list and the visible one never moved.
+   */
+  const desktopListRef = useRef<HTMLDivElement>(null);
+  const mobileListRef = useRef<HTMLDivElement>(null);
+  const desktopPreviewRef = useRef<HTMLElement>(null);
+  const mobilePreviewRef = useRef<HTMLDivElement>(null);
+  /** The card (or pin) a preview was opened from — where focus returns on close. */
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  /** Set by a member's own select(), never by a deep link's first paint. */
+  const moveFocusRef = useRef(false);
+  const lastSelectedRef = useRef<string | null>(initialSelected);
   const filterKey = filtersToSearchParams(filters).toString();
   /**
    * Bumped to fetch the SAME filters again. «Опитай пак» used to re-apply the
@@ -356,6 +371,16 @@ export function MapExplorer({
 
   // Keep the map mounted: selection rides a search param, not a route change.
   function select(slug: string | null) {
+    const from = document.activeElement;
+    if (
+      slug &&
+      from instanceof HTMLElement &&
+      from !== document.body &&
+      !from.closest('[data-preview]')
+    ) {
+      returnFocusRef.current = from;
+    }
+    moveFocusRef.current = true;
     setSelectedSlug(slug);
     setPreviewFull(false);
     const params = filtersToSearchParams(filters);
@@ -447,12 +472,42 @@ export function MapExplorer({
     [selectedSlug, points],
   );
 
+  /**
+   * Focus follows the preview: into it when the member opens one, back to the
+   * card it came from when they close it. Activating a card with Enter used to
+   * drop focus on <body> — the card unmounted under the keyboard — so a
+   * keyboard or screen-reader user started again from the top of the page after
+   * every facility they looked at.
+   */
+  useEffect(() => {
+    const previous = lastSelectedRef.current;
+    lastSelectedRef.current = selectedSlug;
+    if (!moveFocusRef.current) return;
+    moveFocusRef.current = false;
+    if (selectedSlug) {
+      const preview = viewport.desktop ? desktopPreviewRef.current : mobilePreviewRef.current;
+      preview?.querySelector<HTMLElement>('[data-preview-heading]')?.focus({ preventScroll: true });
+      return;
+    }
+    const origin = returnFocusRef.current;
+    returnFocusRef.current = null;
+    const list = viewport.desktop ? desktopListRef.current : mobileListRef.current;
+    const card = previous ? list?.querySelector<HTMLElement>(`[data-slug="${previous}"]`) : null;
+    const target = origin?.isConnected && origin.getClientRects().length > 0 ? origin : card;
+    target?.focus({ preventScroll: true });
+  }, [selectedSlug, viewport.desktop]);
+
+  function onPreviewKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Escape') select(null);
+  }
+
   // Marker hover → highlight the card AND scroll it into view by computed
-  // scrollTop (the seed explicitly rejects scrollIntoView).
+  // scrollTop (the seed explicitly rejects scrollIntoView) — in the list that
+  // is actually on screen.
   function onHoverMarker(slug: string | null) {
     setHoveredSlug(slug);
     if (!slug) return;
-    const box = listRef.current;
+    const box = viewport.desktop ? desktopListRef.current : mobileListRef.current;
     const el = box?.querySelector<HTMLElement>(`[data-slug="${slug}"]`);
     if (box && el) {
       box.scrollTo({ top: el.offsetTop - box.offsetTop - 12, behavior: 'smooth' });
@@ -492,8 +547,10 @@ export function MapExplorer({
   // No number is better than a wrong one: while the full set is loading,
   // `points` is the 100-row seed (or the previous filter's set), and after a
   // failed load it is stale — the list says so, the count stays quiet.
+  // A polite live region: typing a search or toggling a chip changes the list
+  // without moving focus, and this is how a screen reader hears what it found.
   const countLine = (
-    <span className="font-mono text-caption text-ink-soft">
+    <span role="status" className="font-mono text-caption text-ink-soft">
       {loadError
         ? null
         : loading
@@ -502,52 +559,7 @@ export function MapExplorer({
     </span>
   );
 
-  function ResultCard({ point, km }: { point: MapPoint; km: number | null }) {
-    const v = primaryVisual(point.sports);
-    const isSel = point.slug === selectedSlug;
-    const subtitle = facilitySubtitle(point, labelStrings);
-    return (
-      <button
-        type="button"
-        data-slug={point.slug}
-        onMouseEnter={() => setHoveredSlug(point.slug)}
-        onMouseLeave={() => setHoveredSlug((h) => (h === point.slug ? null : h))}
-        onClick={() => select(point.slug)}
-        className={`flex w-full items-center gap-3 rounded-card border bg-surface p-2.5 text-left transition-[box-shadow,border-color,transform] duration-150 ease-standard focus-visible:shadow-[var(--ring)] ${
-          isSel
-            ? 'border-brand shadow-md -translate-y-px'
-            : hoveredSlug === point.slug
-              ? 'border-brand-border shadow-lg -translate-y-0.5'
-              : 'border-line shadow-sm hover:border-brand-border'
-        }`}
-      >
-        <span
-          className="grid size-12 shrink-0 place-items-center rounded-md text-on-brand"
-          style={{
-            background: `color-mix(in srgb, ${v.color} 16%, var(--surface))`,
-            color: v.color,
-          }}
-        >
-          <v.Icon size={22} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-body-sm font-bold text-ink">
-            {facilityTitle(point, labelStrings)}
-          </span>
-          {subtitle && (
-            <span className="block truncate text-caption text-text-muted">{subtitle}</span>
-          )}
-        </span>
-        {km !== null && (
-          <span className="shrink-0 font-mono text-caption text-ink-soft">
-            {t('distanceKm', { km: formatKm(km, locale) })}
-          </span>
-        )}
-      </button>
-    );
-  }
-
-  const resultsBody = (
+  const resultsBody = (listRef: RefObject<HTMLDivElement | null>) => (
     <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-4 pb-24 lg:pb-4">
       {loadError ? (
         <EmptyState
@@ -591,7 +603,16 @@ export function MapExplorer({
         <ul className="space-y-2.5 pt-1">
           {listItems.map(({ point, km }) => (
             <li key={point.slug}>
-              <ResultCard point={point} km={km} />
+              <ResultCard
+                point={point}
+                title={facilityTitle(point, labelStrings)}
+                subtitle={facilitySubtitle(point, labelStrings)}
+                distance={km === null ? null : t('distanceKm', { km: formatKm(km, locale) })}
+                selected={point.slug === selectedSlug}
+                hovered={point.slug === hoveredSlug}
+                onSelect={select}
+                onHover={setHoveredSlug}
+              />
             </li>
           ))}
         </ul>
@@ -841,13 +862,24 @@ export function MapExplorer({
                 onChange={(e) => setQuery(e.target.value)}
                 aria-label={t('searchPlaceholder')}
               />
+              {/* The label stays «Филтри» with the count beside it. It used to be
+                replaced BY the count, so the button's whole name was «2». */}
               <Button
                 variant="secondary"
                 iconLeft={<SlidersHorizontal size={18} />}
                 onClick={() => setFilterOpen(true)}
+                aria-haspopup="dialog"
+                aria-label={
+                  activeCount > 0 ? t('filtersActive', { count: activeCount }) : undefined
+                }
                 className="shrink-0"
               >
-                {activeCount > 0 ? String(activeCount) : t('filters')}
+                {t('filters')}
+                {activeCount > 0 && (
+                  <Badge tone="brand" variant="solid">
+                    {activeCount}
+                  </Badge>
+                )}
               </Button>
             </div>
             <div className="mt-3">{chipRow}</div>
@@ -856,7 +888,7 @@ export function MapExplorer({
               that sat here re-applied the same filters and changed nothing. */}
             <div className="mt-3">{countLine}</div>
           </div>
-          {resultsBody}
+          {resultsBody(desktopListRef)}
         </aside>
 
         {/* The visible map region (right of the list). The add-facility FAB
@@ -874,7 +906,12 @@ export function MapExplorer({
         </div>
 
         {selected && (
-          <aside className="pointer-events-auto absolute right-4 top-4 w-[380px] rounded-sheet border border-line bg-surface shadow-float">
+          <aside
+            ref={desktopPreviewRef}
+            data-preview
+            onKeyDown={onPreviewKeyDown}
+            className="pointer-events-auto absolute right-4 top-4 w-[380px] rounded-sheet border border-line bg-surface shadow-float"
+          >
             {detailPanel(false)}
           </aside>
         )}
@@ -882,13 +919,66 @@ export function MapExplorer({
 
       {/* ═══ MOBILE: bottom sheet + tab bar + FAB ═══ */}
       <div className="lg:hidden">
-        {selected ? (
+        {/*
+          The list stays MOUNTED under the preview — hidden (visibility, so it
+          keeps its layout and its scroll offset) and inert. It used to be
+          swapped OUT for the preview, so closing a preview rebuilt the list
+          from the top: whoever had scrolled to the 40th card started again,
+          after every facility they opened. The preview comes later in the
+          tree, so it paints above.
+        */}
+        <section
+          id="facility-list-mobile"
+          inert={selected !== null}
+          className={`absolute inset-x-0 bottom-14 z-30 flex flex-col rounded-t-xl border-t border-line-strong bg-surface shadow-float transition-[height] duration-200 ease-standard ${SNAP_H[snap]} ${selected ? 'invisible' : ''}`}
+        >
+          <button
+            type="button"
+            aria-label={t('resize')}
+            onClick={() => setSnap((s) => SNAP_NEXT[s])}
+            className="flex justify-center pt-2.5 pb-1.5"
+          >
+            <span className="h-1 w-10 rounded-full bg-line-strong" />
+          </button>
+          <div className="flex items-center justify-between px-4 pb-2">
+            {countLine}
+            <button
+              type="button"
+              onClick={() => setFilterOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-pill bg-paper-sunk px-3 py-1.5 text-caption font-medium text-ink-soft"
+            >
+              <SlidersHorizontal size={15} />
+              {t('filters')}
+              {activeCount > 0 && (
+                <Badge tone="brand" variant="solid" className="ml-0.5">
+                  {activeCount}
+                </Badge>
+              )}
+            </button>
+          </div>
+          <div className="px-4 pb-3">
+            <Input
+              iconLeft={<Search size={18} />}
+              placeholder={t('searchPlaceholder')}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label={t('searchPlaceholder')}
+            />
+          </div>
+          <div className="px-4 pb-3">{chipRow}</div>
+          {resultsBody(mobileListRef)}
+        </section>
+
+        {selected && (
           <div
             className={`absolute inset-x-0 bottom-14 z-30 flex flex-col rounded-t-xl border-t border-line-strong bg-surface shadow-float transition-[height] duration-200 ease-standard ${
               PREVIEW_H[previewFull ? 'full' : 'half']
             }`}
+            ref={mobilePreviewRef}
+            data-preview
             role="dialog"
             aria-label={selectedTitle}
+            onKeyDown={onPreviewKeyDown}
           >
             {/* The same handle as the list sheet: it grows the preview to full
                 height ON REQUEST, and back. */}
@@ -903,47 +993,6 @@ export function MapExplorer({
             </button>
             <div className="min-h-0 flex-1">{detailPanel(!previewFull)}</div>
           </div>
-        ) : (
-          <section
-            id="facility-list-mobile"
-            className={`absolute inset-x-0 bottom-14 z-30 flex flex-col rounded-t-xl border-t border-line-strong bg-surface shadow-float transition-[height] duration-200 ease-standard ${SNAP_H[snap]}`}
-          >
-            <button
-              type="button"
-              aria-label={t('resize')}
-              onClick={() => setSnap((s) => SNAP_NEXT[s])}
-              className="flex justify-center pt-2.5 pb-1.5"
-            >
-              <span className="h-1 w-10 rounded-full bg-line-strong" />
-            </button>
-            <div className="flex items-center justify-between px-4 pb-2">
-              {countLine}
-              <button
-                type="button"
-                onClick={() => setFilterOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-pill bg-paper-sunk px-3 py-1.5 text-caption font-medium text-ink-soft"
-              >
-                <SlidersHorizontal size={15} />
-                {t('filters')}
-                {activeCount > 0 && (
-                  <Badge tone="brand" variant="solid" className="ml-0.5">
-                    {activeCount}
-                  </Badge>
-                )}
-              </button>
-            </div>
-            <div className="px-4 pb-3">
-              <Input
-                iconLeft={<Search size={18} />}
-                placeholder={t('searchPlaceholder')}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                aria-label={t('searchPlaceholder')}
-              />
-            </div>
-            <div className="px-4 pb-3">{chipRow}</div>
-            {resultsBody}
-          </section>
         )}
 
         <BottomNav
@@ -980,6 +1029,73 @@ export function MapExplorer({
         </div>
       )}
     </div>
+  );
+}
+
+// ── Result card ───────────────────────────────────────────────────────────
+
+/**
+ * One row of the map list. A MODULE-LEVEL component on purpose: it was declared
+ * inside MapExplorer's render, which made it a new component type on every
+ * render — so every state change (a hover, a keystroke, a selection) unmounted
+ * and remounted all ~60 cards, and the card that had just been activated with
+ * Enter vanished from under the keyboard focus, which fell to <body>.
+ */
+function ResultCard({
+  point,
+  title,
+  subtitle,
+  distance,
+  selected,
+  hovered,
+  onSelect,
+  onHover,
+}: {
+  point: MapPoint;
+  title: string;
+  subtitle: string;
+  /** «на 0,4 км», once the member has located themselves. */
+  distance: string | null;
+  selected: boolean;
+  hovered: boolean;
+  onSelect: (slug: string) => void;
+  onHover: Dispatch<SetStateAction<string | null>>;
+}) {
+  const v = primaryVisual(point.sports);
+  return (
+    <button
+      type="button"
+      data-slug={point.slug}
+      onMouseEnter={() => onHover(point.slug)}
+      onMouseLeave={() => onHover((h) => (h === point.slug ? null : h))}
+      onClick={() => onSelect(point.slug)}
+      className={`flex w-full items-center gap-3 rounded-card border bg-surface p-2.5 text-left transition-[box-shadow,border-color,transform] duration-150 ease-standard focus-visible:shadow-[var(--ring)] ${
+        selected
+          ? 'border-brand shadow-md -translate-y-px'
+          : hovered
+            ? 'border-brand-border shadow-lg -translate-y-0.5'
+            : 'border-line shadow-sm hover:border-brand-border'
+      }`}
+    >
+      <span
+        className="grid size-12 shrink-0 place-items-center rounded-md text-on-brand"
+        style={{
+          background: `color-mix(in srgb, ${v.color} 16%, var(--surface))`,
+          color: v.color,
+        }}
+      >
+        <v.Icon size={22} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-body-sm font-bold text-ink">{title}</span>
+        {subtitle && (
+          <span className="block truncate text-caption text-text-muted">{subtitle}</span>
+        )}
+      </span>
+      {distance !== null && (
+        <span className="shrink-0 font-mono text-caption text-ink-soft">{distance}</span>
+      )}
+    </button>
   );
 }
 
@@ -1090,7 +1206,15 @@ function FacilityPreview({
         className={`flex min-h-0 flex-1 items-start gap-3 overflow-y-auto ${compact ? 'px-4 pt-1 pb-3' : 'p-4'}`}
       >
         <div className="min-w-0 flex-1">
-          <h2 className="text-h3 font-extrabold tracking-tight text-ink">{title}</h2>
+          {/* Where focus lands when the preview opens (the explorer's focus
+            effect): the facility's name is the first thing announced. */}
+          <h2
+            tabIndex={-1}
+            data-preview-heading
+            className="text-h3 font-extrabold tracking-tight text-ink"
+          >
+            {title}
+          </h2>
           {subtitle && <p className="mt-1 text-body-sm text-text-muted">{subtitle}</p>}
         </div>
         {compact && (
@@ -1127,6 +1251,14 @@ function FacilityPreview({
 
 // ── Filter sheet ──────────────────────────────────────────────────────────
 
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** The controls inside `root` that Tab can reach, in document order. */
+function focusables(root: HTMLElement | null): HTMLElement[] {
+  return root ? Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)) : [];
+}
+
 function FilterSheet({
   filters,
   nearMeOn,
@@ -1153,18 +1285,64 @@ function FilterSheet({
   const tSport = useTranslations('Sport');
   const tSurface = useTranslations('Surface');
   const tAccess = useTranslations('Access');
+  const titleId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * A MODAL dialog, and it behaves like one: focus moves in when it opens
+   * (to its close button, the first control), stays inside while it is open,
+   * Escape closes it, and focus goes back to the button that opened it. It was a
+   * plain div — a screen reader was never told a dialog had opened, Tab walked
+   * out into the map behind the scrim, and closing it left focus nowhere.
+   */
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    focusables(panelRef.current)[0]?.focus();
+    return () => {
+      if (opener?.isConnected) opener.focus();
+    };
+  }, []);
+
+  function onKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      onClose();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const items = focusables(panelRef.current);
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (!first || !last) return;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
 
   return (
-    <div className="absolute inset-0 z-50 flex items-end justify-center lg:items-center">
-      <button
-        type="button"
-        aria-label={t('close')}
-        onClick={onClose}
-        className="absolute inset-0 bg-overlay-scrim"
-      />
-      <div className="relative flex max-h-[86dvh] w-full flex-col rounded-t-xl bg-surface shadow-float lg:max-w-md lg:rounded-sheet">
+    <div
+      className="absolute inset-0 z-50 flex items-end justify-center lg:items-center"
+      onKeyDown={onKeyDown}
+    >
+      {/* Tap-outside-to-close, for pointers only: keyboard and screen-reader
+        users have Escape and the labelled close button inside the dialog, and
+        a second «Затвори» outside it would only be a way out of the trap. */}
+      <div aria-hidden onClick={onClose} className="absolute inset-0 bg-overlay-scrim" />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative flex max-h-[86dvh] w-full flex-col rounded-t-xl bg-surface shadow-float lg:max-w-md lg:rounded-sheet"
+      >
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
-          <h2 className="text-h3 font-extrabold tracking-tight text-ink">{t('filters')}</h2>
+          <h2 id={titleId} className="text-h3 font-extrabold tracking-tight text-ink">
+            {t('filters')}
+          </h2>
           <IconButton aria-label={t('close')} variant="surface" round onClick={onClose}>
             <X size={18} />
           </IconButton>

@@ -158,8 +158,11 @@ describe('phone pin preview', () => {
   const explorer = read('components/map/map-explorer.tsx');
 
   it('opens as a half sheet, not a full-height cover over the pin it describes', () => {
-    const start = explorer.indexOf('{selected ? (');
-    const sheet = explorer.slice(start, explorer.indexOf('role="dialog"', start));
+    // The phone preview is rendered BESIDE the list now (the list stays mounted
+    // under it), so it is found by its own ref rather than by a ternary.
+    const end = explorer.indexOf('ref={mobilePreviewRef}');
+    const start = explorer.lastIndexOf('{selected && (', end);
+    const sheet = explorer.slice(start, end);
     expect(sheet.length).toBeGreaterThan(0);
     // The old sheet hard-coded the full height; the open state is now chosen.
     expect(sheet).not.toMatch(/h-\[calc\(100dvh-3\.5rem\)\]/);
