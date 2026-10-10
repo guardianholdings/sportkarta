@@ -1,4 +1,4 @@
-FROM alpine:3.20
+FROM alpine:3.24
 RUN apk add --no-cache bash postgresql16-client restic tzdata
 COPY backup.sh /usr/local/bin/backup.sh
 RUN chmod +x /usr/local/bin/backup.sh \
