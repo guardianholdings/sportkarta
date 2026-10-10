@@ -13,7 +13,7 @@ import { Select } from '@/components/ui/select';
 import {
   FACILITIES_PAGE_SIZE,
   listFacilities,
-  municipalityOptions,
+  municipalityOptionsFor,
   SOURCE_VALUES,
   STATUS_VALUES,
   type FacilityFilters,
@@ -83,16 +83,20 @@ export default async function AdminFacilitiesPage({
   const filters = parseFilters(sp);
 
   // Scoped: the list links into the editor, so it must not advertise
-  // facilities this account cannot open.
+  // facilities this account cannot open — and its municipality filter offers
+  // an ambassador their own municipalities, not the country's (A-16).
   const user = await requireAdmin();
+  const actor = { id: user.id, role: user.role };
+  const isAdmin = user.role === 'admin';
   const [t, tStatus, tSource, tSport, { rows, total }, municipalities] = await Promise.all([
     getTranslations('AdminFacilities'),
     getTranslations('AdminStatus'),
     getTranslations('Source'),
     getTranslations('Sport'),
-    listFacilities({ id: user.id, role: user.role }, filters),
-    municipalityOptions(),
+    listFacilities(actor, filters),
+    municipalityOptionsFor(actor),
   ]);
+  const noScope = !isAdmin && municipalities.length === 0;
   const pages = Math.max(1, Math.ceil(total / FACILITIES_PAGE_SIZE));
   const back = backHref(sp, filters.page);
 
@@ -116,7 +120,7 @@ export default async function AdminFacilitiesPage({
             defaultValue={filters.municipality === 'none' ? 'none' : (filters.municipality ?? '')}
           >
             <option value="">{t('allMunicipalities')}</option>
-            <option value="none">{t('noMunicipality')}</option>
+            {isAdmin && <option value="none">{t('noMunicipality')}</option>}
             {municipalities.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.nameBg}
@@ -149,7 +153,11 @@ export default async function AdminFacilitiesPage({
         </Button>
       </form>
 
-      {rows.length === 0 ? (
+      {noScope ? (
+        <p className="rounded-card border border-warning-border bg-warning-bg p-4 text-body-sm text-warning">
+          {t('noScope')}
+        </p>
+      ) : rows.length === 0 ? (
         <p className="text-body-sm text-text-muted">{t('empty')}</p>
       ) : (
         <div className="overflow-x-auto rounded-card border border-line bg-surface shadow-sm">

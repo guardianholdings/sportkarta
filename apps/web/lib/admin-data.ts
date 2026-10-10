@@ -124,6 +124,31 @@ export async function municipalityOptions(): Promise<MunicipalityOption[]> {
   });
 }
 
+/**
+ * The municipalities an actor's filters may offer: all of them for an admin,
+ * their own for an ambassador (UX audit 2026-10-10, A-16). Every query behind
+ * those filters is scoped, so the ~265 others only ever filtered an
+ * ambassador's list down to nothing. Empty for an ambassador with no scope —
+ * the screens say so instead of showing an empty queue.
+ */
+export async function municipalityOptionsFor(
+  actor: ModerationActor,
+): Promise<MunicipalityOption[]> {
+  if (actor.role === 'admin') return municipalityOptions();
+  if (actor.role !== 'ambassador') return [];
+  const result = await getDb().execute(sql`
+    SELECT m.id, m.name_bg
+    FROM ambassador_municipalities am
+    JOIN municipalities m ON m.id = am.municipality_id
+    WHERE am.user_id = ${actor.id}
+    ORDER BY m.name_bg COLLATE "bg-BG-x-icu"
+  `);
+  return result.rows.map((r) => {
+    const row = r as { id: number; name_bg: string };
+    return { id: Number(row.id), nameBg: row.name_bg };
+  });
+}
+
 export interface DashboardCounts {
   active: number;
   needsVerification: number;
@@ -140,12 +165,19 @@ export interface DashboardCounts {
  * links to (lib/moderation-data.ts) carries scopeClause, and a number that
  * disagrees with the list behind it is a number nobody trusts. The facility and
  * photo counts now carry the same predicate; an admin's is `TRUE`, so their
- * national view is unchanged. `municipalities` stays the national total: it is
- * context, not a queue.
+ * national view is unchanged. `municipalities` is the country's total for an
+ * admin and an ambassador's OWN count for them (A-16): «265 общини» on the
+ * dashboard of someone who moderates two was the same mismatch again.
  */
 export async function dashboardCounts(actor: ModerationActor): Promise<DashboardCounts> {
   const db = getDb();
   const scope = scopeClause(actor);
+  const municipalities =
+    actor.role === 'admin'
+      ? sql`(SELECT count(*) FROM municipalities)`
+      : actor.role === 'ambassador'
+        ? sql`(SELECT count(*) FROM ambassador_municipalities am WHERE am.user_id = ${actor.id})`
+        : sql`0`;
   const result = await db.execute(sql`
     SELECT
       count(*) FILTER (WHERE f.status = 'active') AS active,
@@ -154,7 +186,7 @@ export async function dashboardCounts(actor: ModerationActor): Promise<Dashboard
       (SELECT count(*) FROM facility_photos p
          JOIN facilities f ON f.id = p.facility_id
         WHERE p.status = 'pending' AND ${scope}) AS pending_photos,
-      (SELECT count(*) FROM municipalities) AS municipalities
+      ${municipalities} AS municipalities
     FROM facilities f
     WHERE ${scope}
   `);

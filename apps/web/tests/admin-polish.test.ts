@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { SQL } from '@sportkarta/db';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { dashboardCounts, isUuid } from '@/lib/admin-data';
+import { dashboardCounts, isUuid, municipalityOptionsFor } from '@/lib/admin-data';
 import { queuePhotos } from '@/lib/moderation-data';
 
 /**
@@ -50,6 +50,7 @@ describe('dashboardCounts is scoped to the actor', () => {
     expect(counts).toMatchObject({ active: 5, needsVerification: 2, gone: 1, pendingPhotos: 3 });
     const [statement] = db.statements;
     expect(statement?.sql).not.toMatch(/ambassador_municipalities/);
+    expect(statement?.sql).toMatch(/\(SELECT count\(\*\) FROM municipalities\) AS municipalities/);
     expect(statement?.params).not.toContain('user_admin');
   });
 
@@ -59,7 +60,13 @@ describe('dashboardCounts is scoped to the actor', () => {
     // Twice: once for the facility tiles, once inside the pending-photo count —
     // the tile the audit caught announcing photos from the whole country.
     expect(statement?.sql.match(/FROM ambassador_municipalities WHERE user_id/g)).toHaveLength(2);
-    expect(statement?.params.filter((p) => p === 'user_amb')).toHaveLength(2);
+    // …and a third time for the municipalities tile, which counts their own
+    // rather than the country's (UX audit 2026-10-10, A-16).
+    expect(statement?.params.filter((p) => p === 'user_amb')).toHaveLength(3);
+    expect(statement?.sql).toMatch(
+      /\(SELECT count\(\*\) FROM ambassador_municipalities am WHERE am\.user_id = \$\d+\) AS municipalities/,
+    );
+    expect(statement?.sql).not.toMatch(/FROM municipalities\)/);
     expect(statement?.sql).toMatch(
       /FROM facility_photos p\s+JOIN facilities f ON f\.id = p\.facility_id\s+WHERE p\.status = 'pending' AND f\.municipality_id IN/,
     );
@@ -68,6 +75,31 @@ describe('dashboardCounts is scoped to the actor', () => {
   it('a plain member counts nothing, even if the gate were bypassed', async () => {
     await dashboardCounts({ id: 'user_1', role: 'user' });
     expect(db.statements[0]?.sql.match(/FALSE/g)).toHaveLength(2);
+  });
+});
+
+describe('municipality filters offer what the actor can see (A-16)', () => {
+  it('lists every municipality for an admin', async () => {
+    db.answers.push([{ id: 1, name_bg: 'Банско' }]);
+    expect(await municipalityOptionsFor({ id: 'user_admin', role: 'admin' })).toEqual([
+      { id: 1, nameBg: 'Банско' },
+    ]);
+    expect(db.statements[0]?.sql).not.toMatch(/ambassador_municipalities/);
+  });
+
+  it("lists only an ambassador's own, and nothing for a scopeless one", async () => {
+    db.answers.push([{ id: 68, name_bg: 'Столична' }], []);
+    expect(await municipalityOptionsFor({ id: 'user_amb', role: 'ambassador' })).toEqual([
+      { id: 68, nameBg: 'Столична' },
+    ]);
+    expect(await municipalityOptionsFor({ id: 'user_new', role: 'ambassador' })).toEqual([]);
+    expect(db.statements[0]?.sql).toMatch(/FROM ambassador_municipalities am/);
+    expect(db.statements[0]?.params).toContain('user_amb');
+  });
+
+  it('asks nothing for a plain member', async () => {
+    expect(await municipalityOptionsFor({ id: 'user_1', role: 'user' })).toEqual([]);
+    expect(db.statements).toHaveLength(0);
   });
 });
 

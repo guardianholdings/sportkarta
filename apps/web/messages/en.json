@@ -36,6 +36,8 @@
     "statGone": "Gone",
     "statPendingPhotos": "Photos to moderate",
     "statMunicipalities": "Municipalities",
+    "statMyMunicipalities": "Your municipalities",
+    "noScope": "You have no municipalities assigned: until an administrator adds one, there is nothing for you to moderate.",
     "verifyCta": "Verify the next batch"
   },
   "AdminFacilities": {
@@ -56,6 +58,7 @@
     "preview": "Map",
     "unnamed": "(unnamed)",
     "empty": "No facilities match these filters.",
+    "noScope": "You have no municipalities assigned, so no facilities are shown here. Contact an administrator.",
     "prev": "Prev",
     "next": "Next",
     "pageOf": "Page {page} of {pages} · {total} records"
@@ -165,6 +168,7 @@
   "AdminVerify": {
     "title": "Verify facilities",
     "empty": "Nothing awaiting verification for this filter. 🎉",
+    "noScope": "You have no municipalities assigned, so there is nothing to verify here. Contact an administrator.",
     "verify": "Active",
     "skip": "Skip",
     "gone": "Gone",
