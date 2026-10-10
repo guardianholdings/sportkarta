@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Dispatch, KeyboardEvent, RefObject, SetStateAction } from 'react';
 
 import { AdCreative } from '@/components/ads/ad-creative';
@@ -50,7 +50,7 @@ import {
   facilityTitle,
   type LabelStrings,
 } from './facility-label';
-import { matchRows, searchMatcher } from './list-rows';
+import { countOnMap, matchRows, searchMatcher } from './list-rows';
 import type { MapBounds, MapPoint, MapView, NearMe } from './map-canvas';
 
 const MapCanvas = dynamic(() => import('./map-canvas'), {
@@ -487,6 +487,12 @@ export function MapExplorer({
     [points, userLocation, nearMe, query, viewBounds, searchIndex, locale],
   );
   const listItems = useMemo(() => matched.slice(0, 60), [matched]);
+  /**
+   * Zoomed in, the list runs on past what the map shows — on-map rows first,
+   * then the rest of the country. The count and a divider say where that
+   * happens; under a bare national count, Varna's rows read as part of Sofia.
+   */
+  const onMapCount = useMemo(() => countOnMap(matched), [matched]);
 
   const selected = useMemo(
     () => (selectedSlug ? (points.find((p) => p.slug === selectedSlug) ?? null) : null),
@@ -576,7 +582,9 @@ export function MapExplorer({
         ? null
         : loading
           ? t('resultsLoading')
-          : t('resultsCount', { count: matched.length })}
+          : onMapCount < matched.length
+            ? t('resultsOnMap', { onMap: onMapCount, total: matched.length })
+            : t('resultsCount', { count: matched.length })}
     </span>
   );
 
@@ -622,19 +630,28 @@ export function MapExplorer({
         />
       ) : (
         <ul className="space-y-2.5 pt-1">
-          {listItems.map(({ point, km }) => (
-            <li key={point.slug}>
-              <ResultCard
-                point={point}
-                title={facilityTitle(point, labelStrings)}
-                subtitle={facilitySubtitle(point, labelStrings)}
-                distance={km === null ? null : t('distanceKm', { km: formatKm(km, locale) })}
-                selected={point.slug === selectedSlug}
-                hovered={point.slug === hoveredSlug}
-                onSelect={select}
-                onHover={setHoveredSlug}
-              />
-            </li>
+          {listItems.map(({ point, km, onMap }, i) => (
+            <Fragment key={point.slug}>
+              {!onMap && (i === 0 || listItems[i - 1]?.onMap) && (
+                <li className="flex items-center gap-3 pt-2 font-mono text-overline uppercase tracking-overline text-text-muted">
+                  <span aria-hidden className="h-px flex-1 bg-line" />
+                  {t('outsideMap')}
+                  <span aria-hidden className="h-px flex-1 bg-line" />
+                </li>
+              )}
+              <li>
+                <ResultCard
+                  point={point}
+                  title={facilityTitle(point, labelStrings)}
+                  subtitle={facilitySubtitle(point, labelStrings)}
+                  distance={km === null ? null : t('distanceKm', { km: formatKm(km, locale) })}
+                  selected={point.slug === selectedSlug}
+                  hovered={point.slug === hoveredSlug}
+                  onSelect={select}
+                  onHover={setHoveredSlug}
+                />
+              </li>
+            </Fragment>
           ))}
         </ul>
       )}

@@ -465,6 +465,8 @@
     "locateRetryHelp": "Try again in a moment.",
     "results": "Facilities",
     "resultsCount": "{count, plural, one {# facility} other {# facilities}}",
+    "resultsOnMap": "{onMap, number} on the map · {total, number} in total",
+    "outsideMap": "Off the map",
     "resultsLoading": "Loading facilities…",
     "empty": "No facilities match these filters.",
     "distanceKm": "{km} km away",

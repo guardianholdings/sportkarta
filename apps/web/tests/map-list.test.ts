@@ -5,7 +5,7 @@ import { createTranslator } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 
 import { facilitySearchText, type LabelStrings } from '../components/map/facility-label';
-import { matchRows, type ListQuery } from '../components/map/list-rows';
+import { countOnMap, matchRows, type ListQuery } from '../components/map/list-rows';
 import type { MapPoint } from '../components/map/map-canvas';
 import bg from '../messages/bg.json';
 import en from '../messages/en.json';
@@ -136,6 +136,16 @@ describe('matchRows (what the list shows and the count reports)', () => {
       'plovdiv',
     ]);
   });
+
+  it('marks where the map ends, so the list can say so (M-11)', () => {
+    const varnaView = { west: 27.5, east: 28.2, south: 43, north: 43.4 };
+    const rows = matchRows(POINTS.slice(0, 5), { ...BASE, viewBounds: varnaView });
+    expect(rows.map((r) => r.onMap)).toEqual([true, false, false, false, false]);
+    expect(countOnMap(rows)).toBe(1);
+    // Before the map has reported a frame, everything counts as on it.
+    expect(countOnMap(matchRows(POINTS.slice(0, 5), BASE))).toBe(5);
+    expect(countOnMap([])).toBe(0);
+  });
 });
 
 describe('the count line', () => {
@@ -147,6 +157,19 @@ describe('the count line', () => {
   it('reports the matched rows, never the size of the fetched set', () => {
     expect(explorer).toMatch(/t\('resultsCount', \{ count: matched\.length \}\)/);
     expect(explorer).not.toMatch(/count: points\.length/);
+  });
+
+  it('says how many are on the map when the list runs past it', () => {
+    expect(explorer).toMatch(
+      /onMapCount < matched\.length\s*\?\s*t\('resultsOnMap', \{ onMap: onMapCount, total: matched\.length \}\)/,
+    );
+    expect(explorer).toMatch(/\{t\('outsideMap'\)\}/);
+    const tBg = createTranslator({ locale: 'bg', messages: bg, namespace: 'Map' });
+    expect(tBg('resultsOnMap', { onMap: 12, total: 6912 })).toBe('12 на картата · 6912 общо');
+    expect(tBg('resultsOnMap', { onMap: 1615, total: 16912 })).toBe(
+      '1615 на картата · 16\u00a0912 общо',
+    );
+    expect(bg.Map.outsideMap).toBe('Извън картата');
   });
 
   it('starts in the loading state, so the 100-row seed is never announced as the total', () => {

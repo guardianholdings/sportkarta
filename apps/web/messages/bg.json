@@ -465,6 +465,8 @@
     "locateRetryHelp": "Опитайте отново след малко.",
     "results": "Съоръжения",
     "resultsCount": "{count, plural, one {# съоръжение} other {# съоръжения}}",
+    "resultsOnMap": "{onMap, number} на картата · {total, number} общо",
+    "outsideMap": "Извън картата",
     "resultsLoading": "Зареждане на съоръженията…",
     "empty": "Няма съоръжения по тези филтри.",
     "distanceKm": "на {km} км",

@@ -23,6 +23,12 @@ export interface ListRow {
   point: MapPoint;
   /** Distance from the member, once they have located themselves. */
   km: number | null;
+  /**
+   * Inside the visible map. The rows that are come first, so the list can mark
+   * where they end («Извън картата») and the count can say how many are on
+   * screen. True for every row before the map has reported a frame.
+   */
+  onMap: boolean;
 }
 
 export interface ListQuery {
@@ -65,6 +71,7 @@ export function matchRows(points: readonly MapPoint[], q: ListQuery): ListRow[] 
   let rows: ListRow[] = found.map((point) => ({
     point,
     km: from ? distanceKm(from, { lon: point.lon, lat: point.lat }) : null,
+    onMap: true,
   }));
   const radius = q.radiusKm;
   if (radius !== null) rows = rows.filter((r) => r.km !== null && r.km <= radius);
@@ -73,7 +80,16 @@ export function matchRows(points: readonly MapPoint[], q: ListQuery): ListRow[] 
   if (b) {
     const visible = (p: MapPoint) =>
       p.lon >= b.west && p.lon <= b.east && p.lat >= b.south && p.lat <= b.north;
-    rows = [...rows.filter((r) => visible(r.point)), ...rows.filter((r) => !visible(r.point))];
+    rows = [
+      ...rows.filter((r) => visible(r.point)),
+      ...rows.filter((r) => !visible(r.point)).map((r) => ({ ...r, onMap: false })),
+    ];
   }
   return rows;
+}
+
+/** How many rows lead the list from inside the visible map. */
+export function countOnMap(rows: readonly ListRow[]): number {
+  const firstOff = rows.findIndex((r) => !r.onMap);
+  return firstOff === -1 ? rows.length : firstOff;
 }
