@@ -157,12 +157,13 @@ export default async function FacilityPage({
     ? await isFacilityAuthor(getDb(), facility.id, currentUser.id)
     : false;
 
-  const name = headingOf(facility, {
+  const labels: LabelStrings = {
     locale,
     unnamed: t('unnamed'),
     sport: (sport) => tSport(sport),
     unnamedAt: (what, place) => t('unnamedAt', { what, place }),
-  });
+  };
+  const name = headingOf(facility, labels);
   const origin = siteUrl();
 
   // `sport` is not a SportsActivityLocation property (structured-data
@@ -250,7 +251,7 @@ export default async function FacilityPage({
               page: `/obekt/${slug}`,
               ref: slug,
               text: tShareSheet('textFacility', {
-                place: facilitySharePlace(facility, t('unnamed')),
+                place: facilitySharePlace(facility, labels),
               }),
             })}
             strings={await shareSheetStrings('facility')}

@@ -11,6 +11,8 @@ import {
   isShareCancel,
   type ShareNavigator,
 } from '../components/share/share-flow';
+import { facilityTitle, type LabelStrings } from '../components/map/facility-label';
+import { placeLabel } from '../lib/geo';
 import { facilitySharePlace } from '../lib/share/facility-place';
 import bg from '../messages/bg.json';
 import en from '../messages/en.json';
@@ -203,39 +205,71 @@ describe('the address printed on story images', () => {
 /**
  * L05, 2026-10-09: seven replies under an Instagram Reel read
  * „way-313548695 — свободна спортна площадка в POPS.“ The facility share text
- * fell back to the slug, and an unnamed place's slug is its map ID.
+ * fell back to the slug, and an unnamed place's slug is its map ID. The share
+ * now names the place as the page heading does („Футбол — София“), with a comma
+ * for the heading's dash, since textFacility puts its own dash after {place}.
  */
 describe('the facility share text', () => {
   const MAP_ID = /\b(?:way|node|relation)-\d+/;
   const unnamed = {
     name: null,
+    sportTypes: ['football'],
     municipalityName: 'София',
     quarter: null,
     slug: 'way-313548695',
   };
+
+  function labelsFor(locale: 'bg' | 'en'): LabelStrings {
+    const messages = locale === 'bg' ? bg : en;
+    const tFacility = createTranslator({ locale, messages, namespace: 'Facility' });
+    const tSport = createTranslator({ locale, messages, namespace: 'Sport' });
+    return {
+      locale,
+      unnamed: tFacility('unnamed'),
+      sport: (sport) => tSport(sport as 'football'),
+      unnamedAt: (what, place) => tFacility('unnamedAt', { what, place }),
+    };
+  }
 
   for (const [locale, messages] of [
     ['bg', bg],
     ['en', en],
   ] as const) {
     const t = createTranslator({ locale, messages });
+    const labels = labelsFor(locale);
     const shareText = (facility: Parameters<typeof facilitySharePlace>[0]) =>
-      t('ShareSheet.textFacility', { place: facilitySharePlace(facility, t('Facility.unnamed')) });
+      t('ShareSheet.textFacility', { place: facilitySharePlace(facility, labels) });
+    const heading = (facility: Parameters<typeof facilitySharePlace>[0]) =>
+      facilityTitle(
+        {
+          name: facility.name,
+          sports: facility.sportTypes,
+          place: placeLabel(facility.quarter, facility.municipalityName),
+        },
+        labels,
+      );
 
     it(`never names an unnamed place by its slug or map ID (${locale})`, () => {
       const text = shareText(unnamed);
       expect(text).not.toContain(unnamed.slug);
       expect(text).not.toMatch(MAP_ID);
-      // It names it the way the page does, plus where it is.
-      expect(text).toContain(t('Facility.unnamed'));
       expect(text).toContain('София');
     });
 
-    it(`falls back to the quarter, then to the bare label (${locale})`, () => {
-      expect(shareText({ ...unnamed, municipalityName: null, quarter: 'Лозенец' })).toContain(
-        `${t('Facility.unnamed')}, Лозенец`,
-      );
-      const bare = shareText({ ...unnamed, municipalityName: null, quarter: null });
+    it(`names an unnamed place as its page heading does, a comma for the dash (${locale})`, () => {
+      for (const facility of [
+        unnamed,
+        { ...unnamed, quarter: 'Лозенец' },
+        { ...unnamed, municipalityName: null, quarter: 'Лозенец' },
+        { ...unnamed, sportTypes: [] },
+      ]) {
+        expect(heading(facility)).toContain(' — ');
+        expect(facilitySharePlace(facility, labels)).toBe(heading(facility).replace(' — ', ', '));
+      }
+    });
+
+    it(`falls back to the bare label with neither sport nor place (${locale})`, () => {
+      const bare = shareText({ ...unnamed, sportTypes: [], municipalityName: null, quarter: null });
       expect(bare.startsWith(`${t('Facility.unnamed')} `)).toBe(true);
       expect(bare).not.toMatch(MAP_ID);
     });
@@ -247,9 +281,30 @@ describe('the facility share text', () => {
     });
 
     it(`treats a blank name as no name (${locale})`, () => {
-      expect(shareText({ ...unnamed, name: '  ' })).toContain(t('Facility.unnamed'));
+      expect(shareText({ ...unnamed, name: '  ' })).toBe(shareText(unnamed));
     });
   }
+
+  it('reads in full as the heading with a comma, in both languages', () => {
+    const tBg = createTranslator({ locale: 'bg', messages: bg, namespace: 'ShareSheet' });
+    const tEn = createTranslator({ locale: 'en', messages: en, namespace: 'ShareSheet' });
+    const BG = labelsFor('bg');
+    const EN = labelsFor('en');
+    expect(tBg('textFacility', { place: facilitySharePlace(unnamed, BG) })).toBe(
+      'Футбол, София — свободна спортна площадка в POPS.',
+    );
+    expect(
+      tEn('textFacility', {
+        place: facilitySharePlace({ ...unnamed, municipalityName: 'Sofia' }, EN),
+      }),
+    ).toBe('Football, Sofia — a free sports facility on POPS.');
+    expect(
+      tBg('textFacility', { place: facilitySharePlace({ ...unnamed, quarter: 'Лозенец' }, BG) }),
+    ).toBe('Футбол, Лозенец, София — свободна спортна площадка в POPS.');
+    expect(
+      tBg('textFacility', { place: facilitySharePlace({ ...unnamed, sportTypes: [] }, BG) }),
+    ).toBe('Спортно съоръжение, София — свободна спортна площадка в POPS.');
+  });
 
   it('is built through facilitySharePlace on the facility page, never from the slug', () => {
     const page = readFileSync(
