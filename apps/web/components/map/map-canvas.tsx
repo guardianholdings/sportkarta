@@ -13,7 +13,13 @@ import { DEFAULT_LAYER, type ExternalMapLayer } from '@/lib/map/layers';
 import { ensurePmtilesProtocol } from '@/lib/map/pmtiles';
 import { buildMapStyle, externalLayerIds, mapAssetUrls } from '@/lib/map/style';
 
-import { clampCenter, FIT_MARGIN_PX, insideVisibleFrame, widthFitZoom } from './camera';
+import {
+  clampCenter,
+  FIT_MARGIN_PX,
+  insideVisibleFrame,
+  openingCenter,
+  widthFitZoom,
+} from './camera';
 import { createCluster, createPin } from './markers';
 
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -250,6 +256,14 @@ export default function MapCanvas({
    * without yanking their view back to the country.
    */
   const autoFitRef = useRef(initialView === null);
+  /**
+   * True while the camera is still the URL's own view (a shared link, a
+   * reload) and nothing has moved it. Until then every re-frame pulls that
+   * view's visible frame back inside the box (`openingCenter`): the frame is
+   * only final once the explorer has measured its padding. Ended by the same
+   * moves that end the automatic fit.
+   */
+  const urlCameraRef = useRef(initialView !== null);
   /** MapLibre could not start (no WebGL): the list still works, so say so. */
   const [unavailable, setUnavailable] = useState(false);
 
@@ -354,6 +368,7 @@ export default function MapCanvas({
             ?.getClusterExpansionZoom(clusterId)
             .then((zoom) => {
               autoFitRef.current = false;
+              urlCameraRef.current = false;
               map.easeTo({ center: coords, zoom });
               // The bubble is pruned with its cluster a moment from now, and
               // focus would fall to <body> — the top of the page. Park it on the
@@ -459,7 +474,9 @@ export default function MapCanvas({
     // container resize and the fit itself all fire `movestart` too, and none of
     // them may end the automatic fit.
     map.on('movestart', (e) => {
-      if (e.originalEvent) autoFitRef.current = false;
+      if (!e.originalEvent) return;
+      autoFitRef.current = false;
+      urlCameraRef.current = false;
     });
 
     /**
@@ -512,6 +529,10 @@ export default function MapCanvas({
     const frameHalfHeight = () => {
       const { height, padding } = map.transform;
       return Math.max(0, (height - (padding.top ?? 0) - (padding.bottom ?? 0)) / 2);
+    };
+    const frameHalfWidth = () => {
+      const { width, padding } = map.transform;
+      return Math.max(0, (width - (padding.left ?? 0) - (padding.right ?? 0)) / 2);
     };
     const centreInBulgaria = (lngLat: maplibregl.LngLat, zoom: number) => {
       const clampedZoom = Math.min(Math.max(zoom, map.getMinZoom()), map.getMaxZoom());
@@ -573,6 +594,23 @@ export default function MapCanvas({
       const now = map.getCenter();
       const held = centreInBulgaria(now, map.getZoom()).center;
       if (held.lat !== now.lat || held.lng !== now.lng) map.jumpTo({ center: held });
+
+      // A camera from the URL opens at its own zoom with its visible frame
+      // inside the box, as the constructor's `maxBounds` did until 10 Oct, but
+      // without raising the zoom: the zoom floor stays where it is. Computed
+      // from the URL's view on every re-frame until something moves the
+      // camera, for the same reason as the fit below.
+      if (urlCameraRef.current && initialView) {
+        const open = openingCenter(initialView, BULGARIA_BOUNDS, {
+          zoom: map.getZoom(),
+          halfWidth: frameHalfWidth(),
+          halfHeight: frameHalfHeight(),
+        });
+        const at = map.getCenter();
+        if (open.lat !== at.lat || open.lng !== at.lng) {
+          map.jumpTo({ center: [open.lng, open.lat] });
+        }
+      }
 
       // Re-fit on every re-frame until the member takes over: the canvas and
       // the explorer's measured padding settle over the first renders (the
@@ -744,7 +782,10 @@ export default function MapCanvas({
       map.getPadding(),
       REVEAL_MARGIN_PX,
     );
-    if (!visible) map.easeTo({ center: [point.lon, point.lat] });
+    if (!visible) {
+      urlCameraRef.current = false;
+      map.easeTo({ center: [point.lon, point.lat] });
+    }
   }, [selectedSlug, points]);
 
   useEffect(() => {
@@ -778,6 +819,7 @@ export default function MapCanvas({
       userMarkerRef.current = new maplibregl.Marker({ element: el }).setLngLat(lngLat).addTo(map);
     }
     autoFitRef.current = false;
+    urlCameraRef.current = false;
     map.flyTo({ center: lngLat, zoom: Math.max(map.getZoom(), 13), speed: 1.4 });
   }, [userLocation, myLocationLabel]);
 

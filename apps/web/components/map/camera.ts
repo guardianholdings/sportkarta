@@ -115,6 +115,49 @@ export function clampCenter(
   return { lng, lat: Math.max(lat, southLimitLat(bounds[0][1], frame)) };
 }
 
+/** The visible frame on both axes, as the camera from the URL needs it. */
+export interface VisibleFrameSize extends VisibleFrame {
+  /** Half the visible width in CSS px: the canvas less the side padding, halved. */
+  halfWidth: number;
+}
+
+/**
+ * Where a camera from the URL (a shared link, a reload) opens: at its own
+ * zoom, with the centre moved just far enough that the VISIBLE frame stays
+ * inside the box.
+ *
+ * Gestures only pin the centre (`clampCenter`). A link whose centre sits on
+ * the box's edge (a view saved after panning to Vidin or the coast) therefore
+ * opened with up to half a frame past the basemap's tiles: 13–47 % empty
+ * background in four shots on 10 Oct. Until 10 Oct the constructor's
+ * `maxBounds` pulled the opening viewport in, but it also raised the zoom.
+ * This moves the centre only.
+ *
+ * Per axis: where the frame fits inside the box at this zoom, the centre moves
+ * until it does, and an axis already inside is returned exactly as it came.
+ * Where the frame is larger than the box, the frame is centred on it. The
+ * south limit applies last, as in `clampCenter`, so the result is a centre
+ * `clampCenter` keeps.
+ */
+export function openingCenter(
+  center: { lng: number; lat: number },
+  bounds: Bounds,
+  frame: VisibleFrameSize,
+): { lng: number; lat: number } {
+  const worldSize = 512 * 2 ** frame.zoom;
+  const fit = (value: number, lo: number, hi: number, half: number) =>
+    hi - lo <= 2 * half ? (lo + hi) / 2 : clamp(value, lo + half, hi - half);
+  const toX = (lng: number) => (lng + 180) / 360;
+  const x = toX(center.lng);
+  const fx = fit(x, toX(bounds[0][0]), toX(bounds[1][0]), frame.halfWidth / worldSize);
+  // Mercator y grows southwards, so the box runs from its north edge down.
+  const y = mercatorY(center.lat);
+  const fy = fit(y, mercatorY(bounds[1][1]), mercatorY(bounds[0][1]), frame.halfHeight / worldSize);
+  const lng = fx === x ? center.lng : fx * 360 - 180;
+  const lat = fy === y ? center.lat : latitudeAt(fy);
+  return { lng, lat: Math.max(lat, southLimitLat(bounds[0][1], frame)) };
+}
+
 /**
  * Whether a projected point sits inside the part of the canvas the member can
  * actually see — the canvas minus the frame padding (the sheet, the tab bar),
