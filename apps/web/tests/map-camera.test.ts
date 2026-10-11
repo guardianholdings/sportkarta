@@ -10,6 +10,7 @@ import {
   insideVisibleFrame,
   latitudeAt,
   mercatorY,
+  openingCenter,
   southLimitLat,
   widthFitZoom,
 } from '../components/map/camera';
@@ -279,6 +280,60 @@ describe('phone south limit', () => {
     expect(canvas).toMatch(/clampCenter\(lngLat, BULGARIA_BOUNDS, \{\s*zoom: clampedZoom,/);
     // MapLibre does not re-run the constraint on setPadding (a sheet snap).
     expect(canvas).toMatch(/const held = centreInBulgaria\(now, map\.getZoom\(\)\)\.center;/);
+  });
+});
+
+/**
+ * Live, 10 Oct, at 390×844: a link whose centre sat on the box's edge opened
+ * with 13–47 % empty background. #30 dropped the constructor's `maxBounds`,
+ * and only the centre was pinned. The URL's opening camera is pulled in again,
+ * at the URL's own zoom: the centre moves, the zoom floor does not come back.
+ */
+describe('a camera from the URL', () => {
+  const [[west, south], [east, north]] = BULGARIA_BOUNDS;
+  /** 390×844 with the half sheet and the tab bar, as in the live shots. */
+  const PHONE = { halfWidth: 195, halfHeight: (844 - (0.4 * 844 + 56)) / 2 };
+  const edges = (c: { lng: number; lat: number }, zoom: number) => {
+    const world = 512 * 2 ** zoom;
+    return {
+      west: c.lng - (PHONE.halfWidth / world) * 360,
+      east: c.lng + (PHONE.halfWidth / world) * 360,
+      north: latitudeAt(mercatorY(c.lat) - PHONE.halfHeight / world),
+      south: latitudeAt(mercatorY(c.lat) + PHONE.halfHeight / world),
+    };
+  };
+
+  // The four live cases. `expectLng` is the pre-#30 centre where the edge was west or east.
+  it.each([
+    { name: 'z6.5 north', zoom: 6.5, lat: 44.5, lng: 25.5, expectLng: undefined },
+    { name: 'z9 north', zoom: 9, lat: 44.5, lng: 26.0, expectLng: undefined },
+    { name: 'z9 west', zoom: 9, lat: 43.0, lng: 22.0, expectLng: 22.26779 },
+    { name: 'z11 east', zoom: 11, lat: 43.2, lng: 29.0, expectLng: 28.93305 },
+  ])('$name: the visible frame opens inside the box', ({ zoom, lat, lng, expectLng }) => {
+    const open = openingCenter({ lng, lat }, BULGARIA_BOUNDS, { zoom, ...PHONE });
+    const frame = edges(open, zoom);
+    expect(frame.west).toBeGreaterThanOrEqual(west - 1e-9);
+    expect(frame.east).toBeLessThanOrEqual(east + 1e-9);
+    expect(frame.north).toBeLessThanOrEqual(north + 1e-9);
+    expect(frame.south).toBeGreaterThanOrEqual(south - 1e-9);
+    if (expectLng !== undefined) expect(open.lng).toBeCloseTo(expectLng, 5);
+    // Only the axis past the edge moves.
+    if (lat === north) expect(open.lng).toBe(lng);
+    else expect(open.lat).toBe(lat);
+  });
+
+  it('keeps a view inside the box exactly, and moves the centre only', () => {
+    const sofia = { lng: 23.32, lat: 42.7 };
+    expect(openingCenter(sofia, BULGARIA_BOUNDS, { zoom: 12, ...PHONE })).toEqual(sofia);
+    // A frame taller than the box at the URL's zoom: centred, then the south limit wins.
+    const low = openingCenter({ lng: 25.5, lat: north }, BULGARIA_BOUNDS, { zoom: 5.5, ...PHONE });
+    expect(edges(low, 5.5).south).toBeCloseTo(south, 9);
+    // The canvas pulls in the URL's centre at the zoom it already has.
+    const canvas = read('components/map/map-canvas.tsx');
+    expect(canvas).toMatch(
+      /if \(urlCameraRef\.current && initialView\) \{\s*const open = openingCenter\(initialView, BULGARIA_BOUNDS, \{\s*zoom: map\.getZoom\(\),/,
+    );
+    expect(canvas).toMatch(/map\.jumpTo\(\{ center: \[open\.lng, open\.lat\] \}\);/);
   });
 });
 
