@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from '@playwright/test';
+import { expect, test, type Locator, type Page, type Route } from '@playwright/test';
 import { config } from 'dotenv';
 import pg from 'pg';
 
@@ -163,5 +163,129 @@ test.describe('add-facility errors (B)', () => {
       page.getByRole('alert').filter({ hasText: bg.AddFacility.error_outside_bulgaria }),
     ).toBeVisible();
     await expectAddFormKept(page, name);
+  });
+
+  // ── The verify and condition forms on /obekt/<slug> ──
+
+  /** A facility added by somebody else (no author), so the verify form shows. */
+  async function insertFacility(status: 'active' | 'needs_verification'): Promise<string> {
+    const slug = `e2e-addfix-${status === 'active' ? 'condition' : 'verify'}-${Date.now()}`;
+    const { lon, lat } = freshPoint();
+    await query(
+      `INSERT INTO facilities (geom, name, sport_types, access, status, source, slug)
+       VALUES (ST_SetSRID(ST_MakePoint($1::float8, $2::float8), 4326), 'E2E B формуляр',
+               '{basketball}', 'free', $3, 'crowd', $4)`,
+      [lon, lat, status, slug],
+    );
+    return slug;
+  }
+
+  const verifyForm = (page: Page) =>
+    page.locator('form').filter({ has: page.locator('input[name="fields"]') });
+  const conditionForm = (page: Page) =>
+    page.locator('form').filter({ has: page.locator('input[name="state"]') });
+  const staleIn = (form: Locator) =>
+    form.getByRole('alert').filter({ hasText: bg.FormRecovery.staleForm });
+
+  async function reloadFrom(page: Page, failure: Locator): Promise<void> {
+    await Promise.all([
+      page.waitForEvent('load'),
+      failure.getByRole('button', { name: bg.FormRecovery.reload }).click(),
+    ]);
+  }
+
+  test('the verify form keeps its checklist through the reload, with no photo line', async ({
+    page,
+  }, testInfo) => {
+    await signIn(page, memberEmail(testInfo), /\/profil/);
+    await page.goto(`/obekt/${await insertFacility('needs_verification')}`);
+    const form = verifyForm(page);
+    // Every answer differs from the record (free, no surface, lighting unknown,
+    // not covered, basketball only), so a value seen after the reload was kept.
+    await form.locator('select[name="access"]').selectOption('restricted');
+    const surface =
+      (await form.locator('select[name="surface"] option').nth(1).getAttribute('value')) ?? '';
+    expect(surface).not.toBe('');
+    await form.locator('select[name="surface"]').selectOption(surface);
+    await form.locator('input[name="lighting"][value="yes"]').check({ force: true });
+    await form.locator('input[name="covered"]').check({ force: true });
+    await form.locator('input[name="sportTypes"][value="football"]').check({ force: true });
+
+    const undo = await deployWhileOpen(page, '**/obekt/**');
+    await form.getByRole('button', { name: bg.Contribute.verifySubmit, exact: true }).click();
+    const failure = staleIn(form);
+    await expect(failure).toBeVisible();
+    // Line 10 is for a picked photo, and this form has no photo field.
+    await expect(failure.getByText(bg.FormRecovery.photoAgain)).toHaveCount(0);
+    await undo();
+    await reloadFrom(page, failure);
+
+    const kept = verifyForm(page);
+    await expect(kept.locator('select[name="access"]')).toHaveValue('restricted');
+    await expect(kept.locator('select[name="surface"]')).toHaveValue(surface);
+    await expect(kept.locator('input[name="lighting"][value="yes"]')).toBeChecked();
+    await expect(kept.locator('input[name="covered"]')).toBeChecked();
+    await expect(kept.locator('input[name="sportTypes"][value="football"]')).toBeChecked();
+    await expect(kept.locator('input[name="sportTypes"][value="basketball"]')).toBeChecked();
+    await expect(page.getByText(bg.FormRecovery.staleForm)).toHaveCount(0);
+  });
+
+  test('a kept «не» brings the verify form back with its checklist hidden', async ({
+    page,
+  }, testInfo) => {
+    await signIn(page, memberEmail(testInfo), /\/profil/);
+    await page.goto(`/obekt/${await insertFacility('needs_verification')}`);
+    const form = verifyForm(page);
+    await form.locator('input[name="exists"][value="no"]').check({ force: true });
+    await expect(form.locator('select[name="access"]')).toHaveCount(0);
+
+    const undo = await deployWhileOpen(page, '**/obekt/**');
+    await form.getByRole('button', { name: bg.Contribute.verifySubmit, exact: true }).click();
+    const failure = staleIn(form);
+    await expect(failure).toBeVisible();
+    await undo();
+    await reloadFrom(page, failure);
+
+    const kept = verifyForm(page);
+    await expect(kept.locator('input[name="exists"][value="no"]')).toBeChecked();
+    await expect(kept.getByText(bg.Contribute.existsNoHint)).toBeVisible();
+    await expect(kept.locator('select[name="access"]')).toHaveCount(0);
+  });
+
+  test('the condition form keeps state and tags; line 10 only once a photo is picked', async ({
+    page,
+  }, testInfo) => {
+    await signIn(page, memberEmail(testInfo), /\/profil/);
+    await page.goto(`/obekt/${await insertFacility('active')}`);
+    const form = conditionForm(page);
+    await form.locator('input[name="state"][value="poor"]').check({ force: true });
+    await form.locator('input[name="tags"][value="litter"]').check({ force: true });
+
+    const undo = await deployWhileOpen(page, '**/obekt/**');
+    const submit = form.getByRole('button', { name: bg.Contribute.conditionSubmit, exact: true });
+    await submit.click();
+    const failure = staleIn(form);
+    await expect(failure).toBeVisible();
+    await expect(failure.getByText(bg.FormRecovery.photoAgain)).toHaveCount(0);
+
+    // The same failure once a photo is picked: now line 10 is there.
+    await form.locator('input[name="photo"]').setInputFiles({
+      name: 'pitch.jpg',
+      mimeType: 'image/jpeg',
+      buffer: PIXEL_JPEG,
+    });
+    await submit.click();
+    await expect(failure.getByText(bg.FormRecovery.photoAgain)).toBeVisible();
+    await undo();
+    await reloadFrom(page, failure);
+
+    const kept = conditionForm(page);
+    await expect(kept.locator('input[name="state"][value="poor"]')).toBeChecked();
+    await expect(kept.locator('input[name="tags"][value="litter"]')).toBeChecked();
+    expect(
+      await kept
+        .locator('input[name="photo"]')
+        .evaluate((input: HTMLInputElement) => input.files?.length ?? 0),
+    ).toBe(0);
   });
 });
