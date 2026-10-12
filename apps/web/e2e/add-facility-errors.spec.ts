@@ -288,4 +288,140 @@ test.describe('add-facility errors (B)', () => {
         .evaluate((input: HTMLInputElement) => input.files?.length ?? 0),
     ).toBe(0);
   });
+
+  // ── Failures the server answers, or that cut its answer off ──
+
+  /** PIXEL_JPEG cut right after its scan header: it reads as a JPEG but cannot be decoded. */
+  function truncatedJpeg(): Buffer {
+    const sos = PIXEL_JPEG.indexOf(Buffer.from([0xff, 0xda]));
+    return PIXEL_JPEG.subarray(0, sos + 2 + PIXEL_JPEG.readUInt16BE(sos + 2));
+  }
+
+  /** A paid place somebody else added: hidden while public_show_paid is not 'true'. */
+  async function insertHiddenPaid(lon: string, lat: string): Promise<void> {
+    await query(
+      `INSERT INTO facilities (geom, name, sport_types, access, status, source, slug)
+       VALUES (ST_SetSRID(ST_MakePoint($1::float8, $2::float8), 4326), 'E2E B платено',
+               '{basketball}', 'paid', 'active', 'crowd', $3)`,
+      [lon, lat, `e2e-addfix-paid-${Date.now()}`],
+    );
+  }
+
+  test('a connection cut after the save, then a resend: line 6, line 4, one facility', async ({
+    page,
+  }, testInfo) => {
+    await signIn(page, memberEmail(testInfo), /\/profil/);
+    const { lon, lat } = freshPoint();
+    await page.goto(`/dobavi?lon=${lon}&lat=${lat}`);
+    const name = `E2E B прекъсване ${Date.now()}`;
+    await fillAddForm(page, name);
+
+    // The server saves the facility; its answer never reaches the browser.
+    const cutAfterSave = async (route: Route) => {
+      const request = route.request();
+      if (request.method() === 'POST' && request.headers()['next-action']) {
+        await route.fetch({ maxRedirects: 0 });
+        await route.abort('connectionreset');
+        return;
+      }
+      await route.continue();
+    };
+    await page.route('**/dobavi**', cutAfterSave);
+    await page.getByRole('button', { name: SUBMIT }).click();
+    // Generous: the abort waits for the server's whole answer (under `next dev`
+    // that includes compiling the facility page the action redirects to).
+    await expect(
+      page.getByRole('alert').filter({ hasText: bg.AddFacility.error_no_answer }),
+    ).toBeVisible({ timeout: 30_000 });
+    await page.unroute('**/dobavi**', cutAfterSave);
+    await expectAddFormKept(page, name);
+
+    // The resend finds the member's own facility instead of adding a second one.
+    await page.getByRole('button', { name: SUBMIT }).click();
+    const own = page.getByRole('alert').filter({ hasText: bg.AddFacility.error_duplicate_own });
+    await expect(own).toBeVisible();
+    await expect(own.getByRole('link', { name: bg.AddFacility.toFacility })).toHaveAttribute(
+      'href',
+      /\/obekt\/[^/?#]+$/,
+    );
+    expect(await query(`SELECT 1 FROM facilities WHERE name = $1`, [name])).toHaveLength(1);
+  });
+
+  test('a photo that cannot be decoded is refused as one, and the form stays filled in', async ({
+    page,
+  }, testInfo) => {
+    await signIn(page, memberEmail(testInfo), /\/profil/);
+    const { lon, lat } = freshPoint();
+    await page.goto(`/dobavi?lon=${lon}&lat=${lat}`);
+    const name = `E2E B снимка ${Date.now()}`;
+    await fillAddForm(page, name);
+    await page.locator('input[name="photo"]').setInputFiles({
+      name: 'pitch.jpg',
+      mimeType: 'image/jpeg',
+      buffer: truncatedJpeg(),
+    });
+    await page.getByRole('button', { name: SUBMIT }).click();
+
+    await expect(
+      page.getByRole('alert').filter({ hasText: bg.AddFacility.error_invalid_photo }),
+    ).toBeVisible();
+    await expectAddFormKept(page, name);
+    expect(await query(`SELECT 1 FROM facilities WHERE name = $1`, [name])).toHaveLength(0);
+  });
+
+  test('a pin on a hidden paid place says so, and „пишете ни“ goes to /kontakt', async ({
+    page,
+  }, testInfo) => {
+    await signIn(page, memberEmail(testInfo), /\/profil/);
+    const { lon, lat } = freshPoint();
+    await insertHiddenPaid(lon, lat);
+    await page.goto(`/dobavi?lon=${lon}&lat=${lat}`);
+    const name = `E2E B скрито ${Date.now()}`;
+    await fillAddForm(page, name);
+    await page.getByRole('button', { name: SUBMIT }).click();
+
+    const [before = '', linked = ''] = bg.AddFacility.error_duplicate_hidden.split(/<\/?contact>/);
+    const hidden = page.getByRole('alert').filter({ hasText: before.trim() });
+    await expect(hidden).toBeVisible();
+    await expect(hidden.getByRole('link', { name: linked, exact: true })).toHaveAttribute(
+      'href',
+      /\/kontakt$/,
+    );
+    await expectAddFormKept(page, name);
+  });
+
+  test('a paid place is saved and the member lands on /dobavi told why it is not on the map', async ({
+    page,
+  }, testInfo) => {
+    await signIn(page, memberEmail(testInfo), /\/profil/);
+    const { lon, lat } = freshPoint();
+    await page.goto(`/dobavi?lon=${lon}&lat=${lat}`);
+    const name = `E2E B платено ${Date.now()}`;
+    await fillAddForm(page, name);
+    await page.locator('select[name="access"]').selectOption('paid');
+    await page.getByRole('button', { name: SUBMIT }).click();
+
+    await page.waitForURL(/\/dobavi\?saved=hidden/);
+    await expect(
+      page.getByRole('status').filter({ hasText: bg.AddFacility.savedHiddenBody }),
+    ).toBeVisible();
+    const rows = await query<{ access: string }>(`SELECT access FROM facilities WHERE name = $1`, [
+      name,
+    ]);
+    expect(rows.map((row) => row.access)).toEqual(['paid']);
+  });
+
+  test('with „Платено“ picked the footer drops the map sentence and keeps the ODbL one', async ({
+    page,
+  }, testInfo) => {
+    await signIn(page, memberEmail(testInfo), /\/profil/);
+    const { lon, lat } = freshPoint();
+    await page.goto(`/dobavi?lon=${lon}&lat=${lat}`);
+    await expect(page.getByText(bg.AddFacility.moderationNoteMap)).toBeVisible();
+
+    await page.locator('select[name="access"]').selectOption('paid');
+    await expect(page.getByText(bg.AddFacility.paidHiddenHint)).toBeVisible();
+    await expect(page.getByText(bg.AddFacility.moderationNoteMap)).toHaveCount(0);
+    await expect(page.getByText(bg.AddFacility.moderationNoteData)).toBeVisible();
+  });
 });
