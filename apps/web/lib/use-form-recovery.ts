@@ -58,3 +58,46 @@ export function useFormRecovery(
     [form],
   );
 }
+
+/**
+ * Put kept values back into a form's own (uncontrolled) fields after the reload:
+ * text and selects get their value back, checkboxes and radios are checked
+ * exactly when their value was kept. Fields React drives (a radio with
+ * `checked={state}`, hidden inputs rendered from state) go back through their
+ * state instead, so leave them out of `names`. Files and hidden inputs are
+ * never touched, and a select keeps its default when the kept value is no
+ * longer one of its options.
+ */
+export function restoreFields(
+  form: HTMLFormElement,
+  entries: RecoveredEntries,
+  names: readonly string[],
+): void {
+  for (const element of Array.from(form.elements)) {
+    if (
+      !(element instanceof HTMLInputElement) &&
+      !(element instanceof HTMLSelectElement) &&
+      !(element instanceof HTMLTextAreaElement)
+    ) {
+      continue;
+    }
+    if (!names.includes(element.name)) continue;
+    const values = entries.filter(([name]) => name === element.name).map(([, value]) => value);
+    if (element instanceof HTMLInputElement) {
+      if (element.type === 'file' || element.type === 'hidden') continue;
+      if (element.type === 'checkbox' || element.type === 'radio') {
+        element.checked = values.includes(element.value);
+        continue;
+      }
+    }
+    const [first] = values;
+    if (first === undefined) continue;
+    if (
+      element instanceof HTMLSelectElement &&
+      !Array.from(element.options).some((option) => option.value === first)
+    ) {
+      continue;
+    }
+    element.value = first;
+  }
+}

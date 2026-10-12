@@ -31,9 +31,12 @@ export type PhotoStatus = 'idle' | 'processing' | 'tooLarge';
 export function usePhotoField(): {
   onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   status: PhotoStatus;
+  /** A photo is in the input: a forced reload would lose it (B2, FormRecovery.photoAgain). */
+  picked: boolean;
 } {
   const t = useTranslations('Contribute');
   const [status, setStatus] = useState<PhotoStatus>('idle');
+  const [picked, setPicked] = useState(false);
   // A member can pick again while the previous photo is still being shrunk;
   // only the newest pick may write to the input.
   const latestPick = useRef(0);
@@ -43,6 +46,7 @@ export function usePhotoField(): {
       const input = event.currentTarget;
       const file = input.files?.[0];
       const pick = ++latestPick.current;
+      setPicked(Boolean(file));
       input.setCustomValidity('');
       // The common case is decided synchronously, so a small photo never opens
       // a window in which the form refuses to submit.
@@ -65,6 +69,7 @@ export function usePhotoField(): {
           // way to empty a file input. On the add form `required` then asks for
           // another photo, with the reason shown right under it.
           input.value = '';
+          setPicked(false);
           setStatus('tooLarge');
           return;
         }
@@ -74,7 +79,7 @@ export function usePhotoField(): {
     [t],
   );
 
-  return { onChange, status };
+  return { onChange, status, picked };
 }
 
 /** Swap the picked file for the shrunk one. False where DataTransfer is missing. */

@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Radio } from '@/components/ui/radio';
 import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 import { useFormAction } from '@/lib/use-form-action';
+import { restoreFields, useFormRecovery } from '@/lib/use-form-recovery';
 
 import { reportConditionAction, type ContributionState } from './contribution-actions';
 import { ContributionThanks } from '@/components/facility/contribution-thanks';
@@ -22,6 +23,9 @@ import {
 import { PHOTO_ACCEPT } from '@/lib/photo-downscale';
 
 const INITIAL: ContributionState = { status: 'idle' };
+
+/** Kept across a forced reload (lib/form-recovery.ts); the photo can't be. */
+const CONDITION_FIELDS = ['state', 'tags'] as const;
 
 /**
  * Condition report: one required state, optional tags, optional photo. Kept
@@ -39,6 +43,11 @@ export function ConditionForm({ slug }: { slug: string }) {
   // to throw away the photo the member had just taken (lib/use-form-action.ts).
   const [state, formProps, pending, failure] = useFormAction(reportConditionAction, INITIAL, {
     resetWhen: (next) => next.status === 'ok',
+  });
+  // B2: a form left open across a deploy has to reload; the chosen state and
+  // tags come back after it, and line 10 says the photo has to be chosen again.
+  const saveAndReload = useFormRecovery('condition', CONDITION_FIELDS, (entries) => {
+    if (formProps.ref.current) restoreFields(formProps.ref.current, entries, CONDITION_FIELDS);
   });
 
   return (
@@ -84,7 +93,12 @@ export function ConditionForm({ slug }: { slug: string }) {
         <PhotoFieldStatus status={photo.status} />
       </label>
 
-      <FormFailure failure={failure} noAnswer={t('error_no_answer')} />
+      <FormFailure
+        failure={failure}
+        noAnswer={t('error_no_answer')}
+        onReload={() => saveAndReload(formProps.ref.current)}
+        photoPicked={photo.picked}
+      />
       {!failure && state.status === 'error' && (
         <p role="alert" className="text-body-sm text-danger">
           {t(`error_${state.error ?? 'unknown'}`)}
