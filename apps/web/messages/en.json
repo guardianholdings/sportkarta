@@ -945,6 +945,8 @@
     "error_outside_bulgaria": "That point is outside Bulgaria.",
     "error_duplicate_nearby": "There is already such a facility nearby.",
     "error_duplicate_hidden": "A facility for the same sport is already recorded here but is not shown publicly (for example, a paid one). If it is actually free, write to us.",
+    "error_duplicate_own": "You've already added this facility.",
+    "toFacility": "Go to the facility",
     "error_invalid_state": "Choose a condition.",
     "error_facility_not_found": "Facility not found.",
     "error_rate_limited": "Too many additions in a short time. Try again later.",
