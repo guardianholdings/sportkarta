@@ -947,6 +947,8 @@
     "error_duplicate_hidden": "A facility for the same sport is already recorded here but is not shown publicly (for example, a paid one). If it is actually free, write to us.",
     "error_duplicate_own": "You've already added this facility.",
     "toFacility": "Go to the facility",
+    "error_unexpected": "Something went wrong on our side and the facility wasn't saved. Try again in a moment — what you filled in stays.",
+    "errorReference": "Reference code: {code}",
     "error_invalid_state": "Choose a condition.",
     "error_facility_not_found": "Facility not found.",
     "error_rate_limited": "Too many additions in a short time. Try again later.",
