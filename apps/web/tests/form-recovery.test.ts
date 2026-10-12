@@ -24,7 +24,10 @@ function addFormData(): FormData {
   data.append('lat', '42.697');
   data.append('positionLat', '42.69701');
   data.append('positionLon', '23.32102');
-  data.append('photo', new File([new Uint8Array([0xff, 0xd8, 0xff])], 'court.jpg', { type: 'image/jpeg' }));
+  data.append(
+    'photo',
+    new File([new Uint8Array([0xff, 0xd8, 0xff])], 'court.jpg', { type: 'image/jpeg' }),
+  );
   data.append('sportTypes', 'basketball');
   data.append('sportTypes', 'football');
   data.append('access', 'free');
@@ -71,7 +74,9 @@ describe('form recovery across a forced reload', () => {
     const now = Date.UTC(2026, 9, 12, 16, 30);
     expect(decodeRecovery(null, now, ADD_FORM)).toBeNull();
     expect(decodeRecovery('{not json', now, ADD_FORM)).toBeNull();
-    expect(decodeRecovery(JSON.stringify({ v: 99, at: now, entries: [] }), now, ADD_FORM)).toBeNull();
+    expect(
+      decodeRecovery(JSON.stringify({ v: 99, at: now, entries: [] }), now, ADD_FORM),
+    ).toBeNull();
   });
 
   it('filters again on the way back in', () => {
