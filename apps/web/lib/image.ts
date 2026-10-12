@@ -100,16 +100,25 @@ export async function processReportPhoto(input: Uint8Array): Promise<ProcessedPh
     throw new InvalidPhotoError(`unsupported image format: ${String(format)}`);
   }
 
-  const data = await pipeline
-    .rotate() // apply EXIF orientation before it is stripped
-    .resize({
-      width: MAX_DIMENSION,
-      height: MAX_DIMENSION,
-      fit: 'inside',
-      withoutEnlargement: true,
-    })
-    .webp({ quality: 80 })
-    .toBuffer();
+  // metadata() reads only the header, so a cut-off JPEG or a PNG with broken
+  // image data gets this far; the full decode below is where `failOn` refuses
+  // it. That refusal is the member's „Файлът не изглежда като снимка.“
+  // (invalid_photo via photo-upload.ts), not the error page (B3).
+  let data: Buffer;
+  try {
+    data = await pipeline
+      .rotate() // apply EXIF orientation before it is stripped
+      .resize({
+        width: MAX_DIMENSION,
+        height: MAX_DIMENSION,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 80 })
+      .toBuffer();
+  } catch {
+    throw new InvalidPhotoError('not a valid image');
+  }
 
   return { data, contentType: 'image/webp', extension: 'webp' };
 }
