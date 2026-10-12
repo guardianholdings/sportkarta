@@ -14,6 +14,7 @@ import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 import { SPORT_VISUALS } from '@/lib/design/sport-visuals';
 import { inReadingOrder } from '@/lib/format';
 import { useFormAction } from '@/lib/use-form-action';
+import { restoreFields, useFormRecovery } from '@/lib/use-form-recovery';
 import { Link } from '@/i18n/navigation';
 
 import { addFacilityAction, type AddFacilityState } from './actions';
@@ -29,6 +30,14 @@ import { PHOTO_ACCEPT } from '@/lib/photo-downscale';
 
 const ACCESS_VALUES = ['free', 'paid', 'restricted', 'school'] as const;
 const INITIAL: AddFacilityState = { error: null };
+
+/**
+ * Kept across a forced reload (lib/form-recovery.ts): never the photo, and never
+ * the member's own GPS fix (positionLat/positionLon), which is shared again.
+ */
+const ADD_FIELDS = ['lon', 'lat', 'sportTypes', 'access', 'name', 'quarter'] as const;
+/** The form's own fields; the pin, the sports and access are React state. */
+const ADD_DOM_FIELDS = ['name', 'quarter'] as const;
 
 const LEGEND = 'font-mono text-overline uppercase tracking-overline text-text-muted';
 
@@ -67,6 +76,35 @@ export function AddFacilityForm({
   const [pinPlaced, setPinPlaced] = useState(initiallyPlaced);
   const [access, setAccess] = useState<string>('free');
   const [missing, setMissing] = useState<Missing | null>(null);
+  // B2: a form left open across a deploy has to reload; what the member chose
+  // and typed comes back after it. A kept pin re-keys the picker so the map is
+  // built at that spot, placed, as a deliberate choice: moving the old map from
+  // here would race its own mount (and StrictMode's re-run of it in dev).
+  const [keptPin, setKeptPin] = useState<{ lon: number; lat: number } | null>(null);
+  const saveAndReload = useFormRecovery('add', ADD_FIELDS, (entries) => {
+    const kept = (name: string) =>
+      entries.filter(([key]) => key === name).map(([, value]) => value);
+    const keptSports = kept('sportTypes').filter((value): value is CanonicalSport =>
+      (CANONICAL_SPORTS as readonly string[]).includes(value),
+    );
+    if (keptSports.length > 0) setSports(new Set(keptSports));
+    const [keptAccess] = kept('access');
+    if (keptAccess && (ACCESS_VALUES as readonly string[]).includes(keptAccess)) {
+      setAccess(keptAccess);
+    }
+    // Empty until the pin was placed: Number('') would be 0, so test the text.
+    const [lonText] = kept('lon');
+    const [latText] = kept('lat');
+    if (lonText && latText) {
+      const lon = Number(lonText);
+      const lat = Number(latText);
+      if (Number.isFinite(lon) && Number.isFinite(lat)) {
+        setKeptPin({ lon, lat });
+        setPinPlaced(true);
+      }
+    }
+    if (formProps.ref.current) restoreFields(formProps.ref.current, entries, ADD_DOM_FIELDS);
+  });
   const pinField = useRef<HTMLFieldSetElement>(null);
   const sportsField = useRef<HTMLFieldSetElement>(null);
 
@@ -117,10 +155,11 @@ export function AddFacilityForm({
         <legend className={`mb-1 ${LEGEND}`}>{t('locationLegend')}</legend>
         <div className="overflow-hidden rounded-card border border-line">
           <PinPicker
+            key={keptPin ? 'kept' : 'start'}
             ref={pin}
-            initialLon={initialLon}
-            initialLat={initialLat}
-            initiallyPlaced={initiallyPlaced}
+            initialLon={keptPin?.lon ?? initialLon}
+            initialLat={keptPin?.lat ?? initialLat}
+            initiallyPlaced={keptPin ? true : initiallyPlaced}
             onPlaced={() => {
               setPinPlaced(true);
               setMissing((current) => (current === 'pin' ? null : current));
@@ -210,7 +249,12 @@ export function AddFacilityForm({
         <Input name="quarter" maxLength={80} />
       </label>
 
-      <FormFailure failure={failure} noAnswer={t('error_no_answer')} />
+      <FormFailure
+        failure={failure}
+        noAnswer={t('error_no_answer')}
+        onReload={() => saveAndReload(formProps.ref.current)}
+        photoPicked={photo.picked}
+      />
       {!failure && state.error && (
         <p role="alert" className="text-body-sm text-danger">
           {t(`error_${state.error}`)}{' '}
