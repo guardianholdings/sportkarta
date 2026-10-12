@@ -205,7 +205,7 @@ export default async function FacilityPage({
                   : tContribute(addedThanks.key)}
             </p>
             <p className="mt-1 text-body-sm text-ink-soft">
-              {tAdd('moderationNote')} {tAdd('photoPendingNote')}
+              {tAdd('moderationNoteMap')} {tAdd('moderationNoteData')} {tAdd('photoPendingNote')}
             </p>
           </div>
         )}
