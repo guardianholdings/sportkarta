@@ -4,6 +4,7 @@ import { CANONICAL_CONDITION_TAGS, CONDITION_STATES } from '@sportkarta/lib/cond
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
+import { FormFailure } from '@/components/facility/form-failure';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Radio } from '@/components/ui/radio';
 import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
@@ -36,7 +37,7 @@ export function ConditionForm({ slug }: { slug: string }) {
   const tTag = useTranslations('ConditionTag');
   // Cleared after a SENT report, as before — never after an error, which used
   // to throw away the photo the member had just taken (lib/use-form-action.ts).
-  const [state, formProps, pending] = useFormAction(reportConditionAction, INITIAL, {
+  const [state, formProps, pending, failure] = useFormAction(reportConditionAction, INITIAL, {
     resetWhen: (next) => next.status === 'ok',
   });
 
@@ -83,7 +84,8 @@ export function ConditionForm({ slug }: { slug: string }) {
         <PhotoFieldStatus status={photo.status} />
       </label>
 
-      {state.status === 'error' && (
+      <FormFailure failure={failure} noAnswer={t('error_no_answer')} />
+      {!failure && state.status === 'error' && (
         <p role="alert" className="text-body-sm text-danger">
           {t(`error_${state.error ?? 'unknown'}`)}
         </p>

@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { FormFailure } from '@/components/facility/form-failure';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Radio } from '@/components/ui/radio';
 import { Select } from '@/components/ui/select';
@@ -50,7 +51,7 @@ export function VerifyForm(props: VerifyFormProps) {
   const tSurface = useTranslations('Surface');
   const locale = useLocale();
   // useFormAction: an error must not reset the checklist (lib/use-form-action.ts).
-  const [state, formProps, pending] = useFormAction(verifyFacilityAction, INITIAL);
+  const [state, formProps, pending, failure] = useFormAction(verifyFacilityAction, INITIAL);
   const [exists, setExists] = useState(true);
   const sports = useMemo(
     () => inReadingOrder(CANONICAL_SPORTS, locale, (sport) => tSport(sport)),
@@ -159,7 +160,8 @@ export function VerifyForm(props: VerifyFormProps) {
         </>
       )}
 
-      {state.status === 'error' && (
+      <FormFailure failure={failure} noAnswer={t('error_no_answer')} />
+      {!failure && state.status === 'error' && (
         <p role="alert" className="text-body-sm text-danger">
           {t(`error_${state.error ?? 'unknown'}`)}
         </p>
