@@ -120,6 +120,31 @@ describe('addFacility', () => {
     expect(db.text()).not.toMatch(/INSERT/i);
   });
 
+  it('tells the member a nearby duplicate is their own place, linked when public', async () => {
+    // A lost answer, then «Добави съоръжението» again: the place IS saved, and
+    // it is theirs; «Наблизо вече има такова съоръжение» read as somebody
+    // else's (B, lines 4-5).
+    const db = fakeDb([[{ slug: 'moeto-igrishte', visible: true, own: true }]]);
+    await expect(
+      addFacility(db, { userId: USER, input, photoStoragePath: 'facilities/x.webp' }),
+    ).rejects.toMatchObject({ code: 'duplicate_own', conflictSlug: 'moeto-igrishte' });
+    expect(db.text()).not.toMatch(/INSERT/i);
+    // "Theirs" is the author test the verify guard uses (verify-facility.ts).
+    expect(db.text()).toMatch(/field = 'created'/);
+  });
+
+  it('says it is their own place without a link when the public cannot see it', async () => {
+    const db = fakeDb([[{ slug: 'moyat-platen-basein', visible: false, own: true }]]);
+    const refusal = await addFacility(db, {
+      userId: USER,
+      input,
+      photoStoragePath: 'facilities/x.webp',
+    }).catch((error: unknown) => error);
+    expect(refusal).toMatchObject({ code: 'duplicate_own' });
+    expect((refusal as ContributionError).conflictSlug).toBeUndefined();
+    expect(db.text()).not.toMatch(/INSERT/i);
+  });
+
   it('lands as needs_verification/crowd with photo, audit row and award', async () => {
     const db = fakeDb([
       [], // duplicate check: nothing nearby

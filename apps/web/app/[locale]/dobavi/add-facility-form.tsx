@@ -39,6 +39,13 @@ const ADD_FIELDS = ['lon', 'lat', 'sportTypes', 'access', 'name', 'quarter'] as 
 /** The form's own fields; the pin, the sports and access are React state. */
 const ADD_DOM_FIELDS = ['name', 'quarter'] as const;
 
+/**
+ * B line 4 when the member's OWN duplicate is hidden from the public (paid):
+ * true = savedHiddenBody under it, so they know why the map won't show it;
+ * false = line 4 alone. Open with the CEO (17:48); one line either way.
+ */
+const OWN_HIDDEN_SHOWS_WHY = true;
+
 const LEGEND = 'font-mono text-overline uppercase tracking-overline text-text-muted';
 
 /** What the form can tell is missing before it ever reaches the server. */
@@ -263,8 +270,11 @@ export function AddFacilityForm({
               href={`/obekt/${state.conflictSlug}`}
               className="font-medium text-link hover:text-link-hover"
             >
-              {t('seeExisting')}
+              {state.error === 'duplicate_own' ? t('toFacility') : t('seeExisting')}
             </Link>
+          )}
+          {OWN_HIDDEN_SHOWS_WHY && state.error === 'duplicate_own' && !state.conflictSlug && (
+            <span className="mt-1 block text-ink-soft">{t('savedHiddenBody')}</span>
           )}
         </p>
       )}
