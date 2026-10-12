@@ -276,6 +276,11 @@ export function AddFacilityForm({
           {OWN_HIDDEN_SHOWS_WHY && state.error === 'duplicate_own' && !state.conflictSlug && (
             <span className="mt-1 block text-ink-soft">{t('savedHiddenBody')}</span>
           )}
+          {state.reference && (
+            <span className="mt-1 block text-ink-soft">
+              {t('errorReference', { code: state.reference })}
+            </span>
+          )}
         </p>
       )}
 

@@ -11,6 +11,7 @@ import { enqueuePassportEvaluate } from '@/lib/passport-evaluate';
 import { addFacility } from '@/lib/contributions/add-facility';
 import { ContributionError } from '@/lib/contributions/errors';
 import { discardContributionPhoto, storeContributionPhoto } from '@/lib/contributions/photo-upload';
+import { unexpectedFailure } from '@/lib/contributions/unexpected-failure';
 
 /**
  * Add a facility (Stage 3.2). Authenticated only — `requireUser` redirects an
@@ -23,6 +24,8 @@ export interface AddFacilityState {
   error: string | null;
   /** Slug of the facility a rejected duplicate collided with. */
   conflictSlug?: string;
+  /** B5: the code an unexpected failure was logged under, shown to the member. */
+  reference?: string;
 }
 
 export async function addFacilityAction(
@@ -72,18 +75,25 @@ export async function addFacilityAction(
     // a 404 (UX audit 2026-10-10).
     landing = addedLanding(result);
   } catch (error) {
-    // Nothing was committed, so the uploaded file must not dangle.
+    // Nothing was committed, so the uploaded file must not dangle: addFacility
+    // is one transaction, and everything else in the try is the upload or pure
+    // code (addedLanding). A failure AFTER the commit cannot land here.
     await discardContributionPhoto(storagePath);
     if (error instanceof ContributionError) {
       return error.conflictSlug
         ? { error: error.code, conflictSlug: error.conflictSlug }
         : { error: error.code };
     }
-    throw error;
+    // B5: redirect()/notFound() pass through; anything else is our failure.
+    // Line 11 keeps the form instead of the error page, and its code matches
+    // one server log line (lib/contributions/unexpected-failure.ts).
+    return { error: 'unexpected', ...unexpectedFailure('add-facility', error) };
   }
 
   // After the write COMMITS, before the redirect: adding a facility is the
-  // largest award and the most likely thing to complete a badge (A1).
+  // largest award and the most likely thing to complete a badge (A1). It never
+  // throws (it logs its own failure), so a saved facility always lands on
+  // success, never on an error that invites a resend.
   await enqueuePassportEvaluate(user.id);
 
   // Outside the try: redirect() signals by throwing, and catching it here would
