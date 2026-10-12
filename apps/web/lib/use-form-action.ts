@@ -1,5 +1,7 @@
-import { startTransition, useActionState, useCallback, useEffect, useRef } from 'react';
+import { startTransition, useActionState, useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent, RefObject } from 'react';
+
+import { classifyActionFailure, type ActionFailure } from './form-action-failure';
 
 /**
  * `useActionState` for a form that must KEEP what the member typed when the
@@ -38,13 +40,44 @@ export function useFormAction<State>(
   action: (state: Awaited<State>, payload: FormData) => State | Promise<State>,
   initialState: Awaited<State>,
   options: { resetWhen?: (state: Awaited<State>) => boolean } = {},
-): [state: Awaited<State>, formProps: FormActionProps, pending: boolean] {
-  const [state, dispatch, pending] = useActionState(action, initialState);
+): [
+  state: Awaited<State>,
+  formProps: FormActionProps,
+  pending: boolean,
+  failure: ActionFailure | null,
+] {
+  // B2. A call that gets no usable answer (a cut connection, the proxy's 502
+  // during a deploy, a form left open across a deploy) used to throw into the
+  // error page, even when the facility HAD been saved. The wrapper catches it
+  // and reports which case it was; Next's own redirect/notFound throws pass
+  // through (lib/form-action-failure.ts).
+  //
+  // The SERVER render keeps the raw server action: React emits the native form
+  // action (the pre-hydration POST described above) only for a server
+  // reference. React takes the latest action on every render, so the wrapper
+  // takes over once the page has hydrated.
+  const [failure, setFailure] = useState<ActionFailure | null>(null);
+  const guarded = useCallback(
+    async (prev: Awaited<State>, payload: FormData): Promise<State> => {
+      try {
+        return await action(prev, payload);
+      } catch (error) {
+        setFailure(classifyActionFailure(error));
+        return prev as State;
+      }
+    },
+    [action],
+  );
+  const [state, dispatch, pending] = useActionState(
+    typeof window === 'undefined' ? action : guarded,
+    initialState,
+  );
   const ref = useRef<HTMLFormElement>(null);
 
   const onSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
+      setFailure(null);
       const data = new FormData(event.currentTarget);
       // A named submit button («Изпрати нов код») is part of what the browser
       // would have posted; FormData(form) alone leaves it out.
@@ -71,5 +104,5 @@ export function useFormAction<State>(
     if (resetWhen?.(state)) ref.current?.reset();
   });
 
-  return [state, { ref, action: dispatch, onSubmit }, pending];
+  return [state, { ref, action: dispatch, onSubmit }, pending, failure];
 }

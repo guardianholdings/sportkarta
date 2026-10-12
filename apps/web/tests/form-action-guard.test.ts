@@ -48,9 +48,12 @@ describe('forms keep what the member typed when the server says no', () => {
       // Whatever the second binding is called (`formProps`, or `parseForm` on a
       // multi-step form), it must be spread onto a <form>: the spread carries
       // the `action` (pre-hydration submits) AND the `onSubmit` that skips the
-      // reset, and one without the other is the bug back.
+      // reset, and one without the other is the bug back. An optional fourth
+      // binding takes the failed-call report (B2, lib/form-action-failure.ts).
       const bindings = [
-        ...source.matchAll(/const \[\s*\w+,\s*(\w+),\s*\w+\s*\]\s*=\s*useFormAction\s*\(/g),
+        ...source.matchAll(
+          /const \[\s*\w+,\s*(\w+),\s*\w+(?:,\s*\w+)?\s*\]\s*=\s*useFormAction\s*\(/g,
+        ),
       ].map((match) => match[1]);
       expect(bindings.length, rel(file)).toBeGreaterThan(0);
       for (const name of bindings) {
