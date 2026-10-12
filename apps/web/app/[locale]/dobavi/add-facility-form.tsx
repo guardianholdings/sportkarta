@@ -18,6 +18,7 @@ import { Link } from '@/i18n/navigation';
 
 import { addFacilityAction, type AddFacilityState } from './actions';
 import { PhotoFieldStatus, usePhotoField } from '@/components/facility/photo-field';
+import { FormFailure } from '@/components/facility/form-failure';
 import {
   PositionFields,
   PositionNotice,
@@ -61,7 +62,7 @@ export function AddFacilityForm({
   const tAccess = useTranslations('Access');
   // useFormAction, not useActionState: a server-side error must not wipe the
   // photo, the name and the access choice (lib/use-form-action.ts).
-  const [state, formProps, pending] = useFormAction(addFacilityAction, INITIAL);
+  const [state, formProps, pending, failure] = useFormAction(addFacilityAction, INITIAL);
   const [sports, setSports] = useState<Set<CanonicalSport>>(new Set());
   const [pinPlaced, setPinPlaced] = useState(initiallyPlaced);
   const [access, setAccess] = useState<string>('free');
@@ -209,7 +210,8 @@ export function AddFacilityForm({
         <Input name="quarter" maxLength={80} />
       </label>
 
-      {state.error && (
+      <FormFailure failure={failure} noAnswer={t('error_no_answer')} />
+      {!failure && state.error && (
         <p role="alert" className="text-body-sm text-danger">
           {t(`error_${state.error}`)}{' '}
           {state.conflictSlug && (
