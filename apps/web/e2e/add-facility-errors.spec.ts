@@ -424,4 +424,96 @@ test.describe('add-facility errors (B)', () => {
     await expect(page.getByText(bg.AddFacility.moderationNoteMap)).toHaveCount(0);
     await expect(page.getByText(bg.AddFacility.moderationNoteData)).toBeVisible();
   });
+
+  // ── Before JavaScript, while the page loads, and the safety net ──
+
+  test('the condition form works before JavaScript: a report sent with JS off is saved', async ({
+    page,
+    browser,
+  }, testInfo) => {
+    await signIn(page, memberEmail(testInfo), /\/profil/);
+    const slug = await insertFacility('active');
+    // The same member and session with no JavaScript at all: the server-rendered
+    // form has to post to the server action by itself.
+    const noJs = await browser.newContext({
+      javaScriptEnabled: false,
+      storageState: await page.context().storageState(),
+    });
+    try {
+      const bare = await noJs.newPage();
+      await bare.goto(`/obekt/${slug}`);
+      const form = conditionForm(bare);
+      await form.locator('input[name="state"][value="poor"]').check({ force: true });
+      await Promise.all([
+        bare.waitForEvent('load'),
+        form.getByRole('button', { name: bg.Contribute.conditionSubmit, exact: true }).click(),
+      ]);
+      const reports = await query(
+        `SELECT 1 FROM facility_condition_reports r JOIN facilities f ON f.id = r.facility_id
+         WHERE f.slug = $1`,
+        [slug],
+      );
+      expect(reports).toHaveLength(1);
+    } finally {
+      await noJs.close();
+    }
+  });
+
+  test('neither form page logs a hydration warning', async ({ page }, testInfo) => {
+    const warnings: string[] = [];
+    // Dev React spells the warning out; a production build (CI's E2E job) logs
+    // only the minified error's link, so both forms count.
+    const hydration =
+      /hydrat|did not match|didn't match|react\.dev\/errors\/4(18|19|21|22|23|25)\b/i;
+    page.on('console', (message) => {
+      if (hydration.test(message.text())) warnings.push(message.text());
+    });
+    await signIn(page, memberEmail(testInfo), /\/profil/);
+    const { lon, lat } = freshPoint();
+    await page.goto(`/dobavi?lon=${lon}&lat=${lat}`);
+    // Hydrated: the access select now drives the hint.
+    await page.locator('select[name="access"]').selectOption('paid');
+    await expect(page.getByText(bg.AddFacility.paidHiddenHint)).toBeVisible();
+
+    await page.goto(`/obekt/${await insertFacility('needs_verification')}`);
+    // Hydrated: «не» now hides the checklist.
+    const form = verifyForm(page);
+    await form.locator('input[name="exists"][value="no"]').check({ force: true });
+    await expect(form.locator('select[name="access"]')).toHaveCount(0);
+
+    expect(warnings).toEqual([]);
+  });
+
+  const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  test('an unexpected server failure says so, with a reference code, and keeps the form', async ({
+    page,
+  }, testInfo) => {
+    // A failure the app has no name for: the test database refuses this one
+    // insert (a trigger keyed to the name), the way a bug or a lost database
+    // would surface. Dropped again in `finally`.
+    const marker = `E2E B5 ${Date.now()}`;
+    await query(`CREATE OR REPLACE FUNCTION e2e_b5_refuse() RETURNS trigger LANGUAGE plpgsql
+                 AS $$ BEGIN RAISE EXCEPTION 'e2e: refused on purpose'; END $$`);
+    await query(`DROP TRIGGER IF EXISTS e2e_b5_refuse ON facilities`);
+    await query(`CREATE TRIGGER e2e_b5_refuse BEFORE INSERT ON facilities FOR EACH ROW
+                 WHEN (NEW.name LIKE 'E2E B5 %') EXECUTE FUNCTION e2e_b5_refuse()`);
+    try {
+      await signIn(page, memberEmail(testInfo), /\/profil/);
+      const { lon, lat } = freshPoint();
+      await page.goto(`/dobavi?lon=${lon}&lat=${lat}`);
+      await fillAddForm(page, marker);
+      await page.getByRole('button', { name: SUBMIT }).click();
+
+      const line = page.getByRole('alert').filter({ hasText: bg.AddFacility.error_unexpected });
+      await expect(line).toBeVisible();
+      const [prefix = ''] = bg.AddFacility.errorReference.split('{code}');
+      await expect(line).toContainText(new RegExp(`${escapeRegExp(prefix)}[0-9A-HJKMNP-TV-Z]{8}`));
+      await expectAddFormKept(page, marker);
+      expect(await query(`SELECT 1 FROM facilities WHERE name = $1`, [marker])).toHaveLength(0);
+    } finally {
+      await query(`DROP TRIGGER IF EXISTS e2e_b5_refuse ON facilities`);
+      await query(`DROP FUNCTION IF EXISTS e2e_b5_refuse()`);
+    }
+  });
 });
