@@ -347,6 +347,38 @@ test.describe('add-facility errors (B)', () => {
     expect(await query(`SELECT 1 FROM facilities WHERE name = $1`, [name])).toHaveLength(1);
   });
 
+  test('a 502 page from the proxy during the swap: line 6, and the form stays filled in', async ({
+    page,
+  }, testInfo) => {
+    await signIn(page, memberEmail(testInfo), /\/profil/);
+    const { lon, lat } = freshPoint();
+    await page.goto(`/dobavi?lon=${lon}&lat=${lat}`);
+    const name = `E2E B 502 ${Date.now()}`;
+    await fillAddForm(page, name);
+
+    // While the web container is replaced the proxy answers with an HTML 502, not an action answer.
+    const badGateway = async (route: Route) => {
+      const request = route.request();
+      if (request.method() === 'POST' && request.headers()['next-action']) {
+        await route.fulfill({
+          status: 502,
+          headers: { 'content-type': 'text/html' },
+          body: '<html><body><h1>502 Bad Gateway</h1></body></html>',
+        });
+        return;
+      }
+      await route.continue();
+    };
+    await page.route('**/dobavi**', badGateway);
+    await page.getByRole('button', { name: SUBMIT }).click();
+    await expect(
+      page.getByRole('alert').filter({ hasText: bg.AddFacility.error_no_answer }),
+    ).toBeVisible();
+    await page.unroute('**/dobavi**', badGateway);
+    await expectAddFormKept(page, name);
+    expect(await query(`SELECT 1 FROM facilities WHERE name = $1`, [name])).toHaveLength(0);
+  });
+
   test('a photo that cannot be decoded is refused as one, and the form stays filled in', async ({
     page,
   }, testInfo) => {
