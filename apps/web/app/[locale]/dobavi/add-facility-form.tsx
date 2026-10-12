@@ -15,6 +15,8 @@ import { SPORT_VISUALS } from '@/lib/design/sport-visuals';
 import { inReadingOrder } from '@/lib/format';
 import { useFormAction } from '@/lib/use-form-action';
 import { restoreFields, useFormRecovery } from '@/lib/use-form-recovery';
+import { appearsOnMapNow } from '@/lib/contributions/map-note';
+import { legalLinks } from '@/components/legal/legal-links';
 import { Link } from '@/i18n/navigation';
 
 import { addFacilityAction, type AddFacilityState } from './actions';
@@ -240,7 +242,7 @@ export function AddFacilityForm({
         </Select>
         {/* Said BEFORE the add, not discovered after it: a paid venue is saved
             but stays off the public map while paid venues are hidden. */}
-        {access === 'paid' && paidHidden && (
+        {!appearsOnMapNow(access, paidHidden) && (
           <span className="text-caption text-text-muted">{t('paidHiddenHint')}</span>
         )}
       </label>
@@ -264,7 +266,9 @@ export function AddFacilityForm({
       />
       {!failure && state.error && (
         <p role="alert" className="text-body-sm text-danger">
-          {t(`error_${state.error}`)}{' '}
+          {/* t.rich: error_duplicate_hidden links „пишете ни“ to /kontakt (ruling
+              (a)); a tag name picks the destination from legalLinks only. */}
+          {t.rich(`error_${state.error}`, legalLinks)}{' '}
           {state.conflictSlug && (
             <Link
               href={`/obekt/${state.conflictSlug}`}
@@ -294,7 +298,13 @@ export function AddFacilityForm({
         >
           {pending ? t('submitting') : t('submit')}
         </Button>
-        <p className="text-caption text-text-muted">{t('moderationNote')}</p>
+        {/* Ruling (c): the map sentence follows the same rule as paidHiddenHint,
+            so the footer never promises the map for a place the hint says
+            will not be there. The ODbL sentence always stays. */}
+        <p className="text-caption text-text-muted">
+          {appearsOnMapNow(access, paidHidden) && <>{t('moderationNoteMap')} </>}
+          {t('moderationNoteData')}
+        </p>
       </div>
     </form>
   );
