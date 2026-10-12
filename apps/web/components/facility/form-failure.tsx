@@ -19,9 +19,15 @@ import type { ActionFailure } from '@/lib/form-action-failure';
 export function FormFailure({
   failure,
   noAnswer,
+  onReload,
+  photoPicked = false,
 }: {
   failure: ActionFailure | null;
   noAnswer: string;
+  /** Keeps what was typed, then reloads (lib/use-form-recovery.ts). */
+  onReload?: () => void;
+  /** A photo was picked: it can't survive the reload, so say so. */
+  photoPicked?: boolean;
 }) {
   const t = useTranslations('FormRecovery');
   if (failure === 'no_answer') {
@@ -35,7 +41,12 @@ export function FormFailure({
     return (
       <div role="alert" className="flex flex-col items-start gap-2">
         <p className="text-body-sm text-danger">{t('staleForm')}</p>
-        <Button type="button" variant="secondary" onClick={() => window.location.reload()}>
+        {photoPicked && <p className="text-body-sm text-danger">{t('photoAgain')}</p>}
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => (onReload ? onReload() : window.location.reload())}
+        >
           {t('reload')}
         </Button>
       </div>
