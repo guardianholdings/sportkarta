@@ -37,7 +37,7 @@ import { PostForm } from './post-form';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'POPS × TikTok — post a video',
+  title: 'POPS — post a video to TikTok',
   robots: { index: false, follow: false },
 };
 
@@ -114,7 +114,7 @@ export default async function TikTokDemoPage({ searchParams }: Props) {
         <PopsMark size={40} className="text-accent" />
         <div>
           <p className="font-mono text-caption font-semibold uppercase tracking-overline text-text-muted">
-            POPS × TikTok
+            POPS · pops.bg
           </p>
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">Post a video to TikTok</h1>
         </div>

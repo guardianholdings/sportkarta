@@ -18,6 +18,8 @@ import { E2E_ACCESS_TOKEN, E2E_CODE, TIKTOK_E2E_ENV, TikTokMock } from './tiktok
  */
 
 const VIDEO = readFileSync(join(__dirname, 'fixtures/tiktok-demo.webm'));
+/** What must never reach the browser: the app's client secret and the user's token. */
+const SECRETS = [TIKTOK_E2E_ENV.TIKTOK_CLIENT_SECRET, E2E_ACCESS_TOKEN];
 
 const mock = new TikTokMock();
 
@@ -105,6 +107,20 @@ test('connect with TikTok, post a video, follow its status, disconnect', async (
     if (/(^|\.)tiktok(apis)?\.com$/.test(new URL(request.url()).hostname))
       toTikTok.push(request.url());
   });
+  // Every page, script and fetch answer our server sends during the run, to
+  // check below that no secret is in any of them.
+  const bodies: Promise<{ kind: string; body: string }>[] = [];
+  page.on('response', (response) => {
+    const kind = response.request().resourceType();
+    if (!response.url().startsWith(`${baseURL}/`)) return;
+    if (!['document', 'script', 'fetch', 'xhr'].includes(kind)) return;
+    bodies.push(
+      response.text().then(
+        (body) => ({ kind, body }),
+        () => ({ kind, body: '' }),
+      ),
+    );
+  });
   await page.goto('/tiktok');
   await expect(page.getByTestId('tiktok-legal-links')).toBeVisible();
   await page.getByTestId('tiktok-connect').click();
@@ -137,7 +153,7 @@ test('connect with TikTok, post a video, follow its status, disconnect', async (
   expect(cookies.map((c) => c.name)).toEqual(['pops_tiktok_session']);
   expect(cookies[0]?.httpOnly).toBe(true);
   const html = await page.content();
-  for (const secret of [E2E_ACCESS_TOKEN, TIKTOK_E2E_ENV.TIKTOK_CLIENT_SECRET]) {
+  for (const secret of SECRETS) {
     expect(JSON.stringify(cookies)).not.toContain(secret);
     expect(html).not.toContain(secret);
   }
@@ -165,6 +181,7 @@ test('connect with TikTok, post a video, follow its status, disconnect', async (
   await chooseVideo(page);
   await expect(page.getByTestId('tiktok-preview')).toBeVisible();
   await expect(page.getByTestId('tiktok-duration')).toHaveText('Length: 2 s');
+  await expect(page.getByTestId('tiktok-post-form')).toContainText('up to 10 min long.');
   await expect(post).toBeDisabled();
   await expect(page.getByTestId('tiktok-blocker')).toBeVisible();
 
@@ -233,6 +250,13 @@ test('connect with TikTok, post a video, follow its status, disconnect', async (
   expect(left).toEqual([]);
   // And not one request of the run went to TikTok itself.
   expect(toTikTok).toEqual([]);
+  // No secret in any page, script or fetch answer of the run.
+  const sent = await Promise.all(bodies);
+  expect(sent.filter((r) => r.kind === 'script' && r.body).length).toBeGreaterThan(0);
+  expect(sent.filter((r) => r.kind === 'fetch' && r.body).length).toBeGreaterThan(0);
+  for (const { body } of sent) {
+    for (const secret of SECRETS) expect(body.includes(secret)).toBe(false);
+  }
 });
 
 test('TikTok’s private-account rule for an unaudited app is shown in plain words', async ({

@@ -94,7 +94,9 @@ type Phase =
 
 function formatSeconds(total: number): string {
   const s = Math.round(total);
-  return s >= 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s} s`;
+  if (s < 60) return `${s} s`;
+  const rest = s % 60;
+  return rest ? `${Math.floor(s / 60)} min ${rest} s` : `${s / 60} min`;
 }
 
 export function PostForm({ creator, maxBytes }: { creator: CreatorView; maxBytes: number }) {

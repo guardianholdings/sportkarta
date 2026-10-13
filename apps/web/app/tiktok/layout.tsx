@@ -15,7 +15,7 @@ import '../globals.css';
  */
 
 export const metadata: Metadata = {
-  title: 'POPS × TikTok — post a video',
+  title: 'POPS — post a video to TikTok',
   robots: { index: false, follow: false },
 };
 
