@@ -70,6 +70,11 @@ services:
       AUTH_FACEBOOK_ENABLED: ${AUTH_FACEBOOK_ENABLED:-false}
       FACEBOOK_CLIENT_ID: ${FACEBOOK_CLIENT_ID:-}
       FACEBOOK_CLIENT_SECRET: ${FACEBOOK_CLIENT_SECRET:-}
+      # The /tiktok demo page: the same rule, its own flag. Off = every
+      # /tiktok and /auth/tiktok URL answers 404.
+      TIKTOK_DEMO_ENABLED: ${TIKTOK_DEMO_ENABLED:-false}
+      TIKTOK_CLIENT_KEY: ${TIKTOK_CLIENT_KEY:-}
+      TIKTOK_CLIENT_SECRET: ${TIKTOK_CLIENT_SECRET:-}
       # SMTP relay for sign-in codes. Unset = no mail is sent at all (never a
       # fallback that would write one-time codes to logs or disk).
       SMTP_HOST: ${SMTP_HOST:-}
