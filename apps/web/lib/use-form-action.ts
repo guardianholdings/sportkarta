@@ -2,6 +2,7 @@ import { startTransition, useActionState, useCallback, useEffect, useRef, useSta
 import type { FormEvent, RefObject } from 'react';
 
 import { classifyActionFailure, type ActionFailure } from './form-action-failure';
+import { SCRIPTED_SUBMIT_FIELD } from './scripted-submit';
 
 /**
  * `useActionState` for a form that must KEEP what the member typed when the
@@ -88,6 +89,8 @@ export function useFormAction<State>(
       ) {
         data.append(submitter.name, submitter.value);
       }
+      // Sent by this script, not by the browser's own POST (lib/scripted-submit.ts).
+      data.set(SCRIPTED_SUBMIT_FIELD, '1');
       startTransition(() => dispatch(data));
     },
     [dispatch],

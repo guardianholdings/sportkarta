@@ -3,7 +3,7 @@
 import { CANONICAL_SPORTS, type CanonicalSport } from '@sportkarta/lib/sports';
 import { Camera } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
-import { useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import { PinPicker, type PinPickerHandle } from '@/components/map/pin-picker';
 import { Button } from '@/components/ui/button';
@@ -81,6 +81,13 @@ export function AddFacilityForm({
   // useFormAction, not useActionState: a server-side error must not wipe the
   // photo, the name and the access choice (lib/use-form-action.ts).
   const [state, formProps, pending, failure] = useFormAction(addFacilityAction, INITIAL);
+  // A saved place thanked on this same page comes back as a URL, loaded as a
+  // new page (actions.ts, lib/scripted-submit.ts). Until it goes, the button
+  // stays on «Изпращаме…» so the place cannot be sent twice.
+  const leaving = state.landing !== undefined;
+  useEffect(() => {
+    if (state.landing !== undefined) window.location.assign(state.landing);
+  }, [state.landing]);
   const [sports, setSports] = useState<Set<CanonicalSport>>(new Set());
   const [pinPlaced, setPinPlaced] = useState(initiallyPlaced);
   const [access, setAccess] = useState<string>('free');
@@ -293,10 +300,10 @@ export function AddFacilityForm({
           type="submit"
           size="lg"
           block
-          disabled={pending}
+          disabled={pending || leaving}
           data-umami-event={ANALYTICS_EVENTS.contributionAddSubmit}
         >
-          {pending ? t('submitting') : t('submit')}
+          {pending || leaving ? t('submitting') : t('submit')}
         </Button>
         {/* Ruling (c): the map sentence follows the same rule as paidHiddenHint,
             so the footer never promises the map for a place the hint says

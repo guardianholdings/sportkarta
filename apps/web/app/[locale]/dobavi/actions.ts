@@ -3,7 +3,7 @@
 import { getDb } from '@sportkarta/db';
 import { getLocale } from 'next-intl/server';
 
-import { redirect } from '@/i18n/navigation';
+import { redirect, getPathname } from '@/i18n/navigation';
 import { requireUser } from '@/lib/auth-session';
 import { addFacilityRateLimiter } from '@/lib/contribution-rate-limit';
 import { addedLanding } from '@/lib/contributions/added-banner';
@@ -12,6 +12,7 @@ import { addFacility } from '@/lib/contributions/add-facility';
 import { ContributionError } from '@/lib/contributions/errors';
 import { discardContributionPhoto, storeContributionPhoto } from '@/lib/contributions/photo-upload';
 import { unexpectedFailure } from '@/lib/contributions/unexpected-failure';
+import { SCRIPTED_SUBMIT_FIELD } from '@/lib/scripted-submit';
 
 /**
  * Add a facility (Stage 3.2). Authenticated only — `requireUser` redirects an
@@ -26,6 +27,13 @@ export interface AddFacilityState {
   conflictSlug?: string;
   /** B5: the code an unexpected failure was logged under, shown to the member. */
   reference?: string;
+  /**
+   * Set only after a SAVE whose thank-you is on this same page (a paid place
+   * while paid venues are hidden), on a submit the form's script sent: the
+   * form loads it as a new page. See lib/scripted-submit.ts for why it is not
+   * a `redirect()`.
+   */
+  landing?: string;
 }
 
 export async function addFacilityAction(
@@ -100,7 +108,16 @@ export async function addFacilityAction(
   // both swallow the navigation and delete a photo that now has a facility.
   // In the member's language: an unprefixed next/navigation path is the
   // Bulgarian page, which greeted English members' reward in Bulgarian.
-  return redirect({ href: landing, locale: await getLocale() });
+  const target = { href: landing, locale: await getLocale() };
+  // The thank-you on THIS page (/dobavi?saved=hidden…) goes back as a URL to a
+  // scripted submit, which loads it as a new page: a redirect() to the page the
+  // form is on could leave the client router stuck (lib/scripted-submit.ts).
+  // getPathname() is the URL redirect() itself would send. A native POST (no
+  // marker) still gets the 303.
+  if (formData.get(SCRIPTED_SUBMIT_FIELD) === '1' && landing.split('?')[0] === '/dobavi') {
+    return { error: null, landing: getPathname(target) };
+  }
+  return redirect(target);
 }
 
 function coordinate(value: FormDataEntryValue | null): number {
