@@ -47,12 +47,21 @@ const PIXEL_JPEG = Buffer.from(
   'base64',
 );
 
-/** A point inside Bulgaria, fresh per run, away from the seeded Sofia facilities. */
+/**
+ * A point inside Bulgaria, away from the seeded Sofia facilities. Points sit on
+ * a 0.002° grid (≥ 160 m apart; the duplicate check looks 30 m around), so no
+ * two calls in a run share one: the counter keeps one worker's points apart, and
+ * the base moves every second, so a retry's fresh worker can't land on the
+ * points of the attempt that failed. (A Date.now() point repeated every 5 s, and
+ * a later test could hit an earlier test's place as somebody else's duplicate.)
+ */
+const POINT_BASE = (Math.floor(Date.now() / 1000) % 400) * 50;
+let pointSeq = 0;
 function freshPoint(): { lon: string; lat: string } {
-  const stamp = Date.now();
+  const n = POINT_BASE + (pointSeq++ % 50);
   return {
-    lon: (25.2 + (stamp % 5000) / 100000).toFixed(5),
-    lat: (42.4 + (Math.floor(stamp / 5000) % 5000) / 100000).toFixed(5),
+    lon: (25.2 + (n % 100) * 0.002).toFixed(5),
+    lat: (42.4 + Math.floor(n / 100) * 0.002).toFixed(5),
   };
 }
 
@@ -83,13 +92,20 @@ const SPORT = /баскетбол|basketball/i;
 
 /** Fill every field the add form keeps, plus a photo (required on this form). */
 async function fillAddForm(page: Page, name: string): Promise<void> {
+  // Sports are toggle chips (role=button, aria-pressed), not native checkboxes.
+  // The chip goes first and doubles as the hydration wait: before React attaches,
+  // a click is lost, and so is a picked file (the photo field's `picked` state,
+  // which decides the FormRecovery.photoAgain line, would stay false).
+  const chip = page.getByRole('button', { name: SPORT });
+  await expect(async () => {
+    if ((await chip.getAttribute('aria-pressed')) !== 'true') await chip.click();
+    await expect(chip).toHaveAttribute('aria-pressed', 'true', { timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
   await page.locator('input[name="photo"]').setInputFiles({
     name: 'pitch.jpg',
     mimeType: 'image/jpeg',
     buffer: PIXEL_JPEG,
   });
-  // Sports are toggle chips (role=button, aria-pressed), not native checkboxes.
-  await page.getByRole('button', { name: SPORT }).click();
   await page.locator('select[name="access"]').selectOption('restricted');
   await page.getByLabel(bg.AddFacility.nameLabel).fill(name);
   await page.getByLabel(bg.AddFacility.quarterLabel).fill('Център');
@@ -106,6 +122,16 @@ test.describe('add-facility errors (B)', () => {
   // eslint-disable-next-line no-empty-pattern -- Playwright passes testInfo second
   test.beforeEach(async ({}, testInfo) => {
     await query(`DELETE FROM users WHERE email = $1`, [memberEmail(testInfo)]);
+  });
+
+  // Leave nothing for the specs that run later: the admin verify queue lists
+  // needs_verification places by name, and «E2E B…» sorts ahead of its fixture.
+  // 'gone' keeps the rows and their audit trail, and takes them off the queue,
+  // the map and the duplicate check. No other spec names a place «E2E B…».
+  test.afterEach(async () => {
+    await query(
+      `UPDATE facilities SET status = 'gone' WHERE name LIKE 'E2E B%' AND status <> 'gone'`,
+    );
   });
 
   test('a form left open across a deploy keeps the pin, sports, access and text through the reload', async ({
