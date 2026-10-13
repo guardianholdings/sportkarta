@@ -262,7 +262,14 @@ test.describe('add-facility errors (B)', () => {
     await signIn(page, memberEmail(testInfo), /\/profil/);
     await page.goto(`/obekt/${await insertFacility('needs_verification')}`);
     const form = verifyForm(page);
-    await form.locator('input[name="exists"][value="no"]').check({ force: true });
+    // The production build answers before React has hydrated the form, and a
+    // click that lands first is taken back. The hint is React's alone, so it
+    // showing up means the answer took.
+    const no = form.locator('input[name="exists"][value="no"]');
+    await expect(async () => {
+      await no.check({ force: true });
+      await expect(form.getByText(bg.Contribute.existsNoHint)).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 15_000 });
     await expect(form.locator('select[name="access"]')).toHaveCount(0);
 
     const undo = await deployWhileOpen(page, '**/obekt/**');

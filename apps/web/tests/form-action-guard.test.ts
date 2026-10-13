@@ -71,4 +71,27 @@ describe('forms keep what the member typed when the server says no', () => {
     expect(hook).toMatch(/startTransition\(\(\) => dispatch\(data\)\)/);
     expect(hook).toMatch(/\{ ref, action: dispatch, onSubmit \}/);
   });
+
+  // A redirect() back to the page the form is on could leave a production
+  // client router stuck (lib/scripted-submit.ts). /dobavi's same-page
+  // thank-you therefore goes back as a URL to a scripted submit and is loaded
+  // as a new page; a native POST, without the marker, keeps the redirect.
+  it('loads the /dobavi same-page thank-you as a new page, not through the router', () => {
+    const hook = readFileSync(path.join(WEB_ROOT, 'lib/use-form-action.ts'), 'utf8');
+    expect(hook).toMatch(/data\.set\(SCRIPTED_SUBMIT_FIELD, '1'\);\s*startTransition/);
+
+    const action = readFileSync(path.join(WEB_ROOT, 'app/[locale]/dobavi/actions.ts'), 'utf8');
+    expect(action).toMatch(
+      /formData\.get\(SCRIPTED_SUBMIT_FIELD\) === '1' && landing\.split\('\?'\)\[0\] === '\/dobavi'/,
+    );
+    expect(action).toMatch(/return \{ error: null, landing: getPathname\(target\) \};/);
+    expect(action).toMatch(/return redirect\(target\);/);
+
+    const form = readFileSync(
+      path.join(WEB_ROOT, 'app/[locale]/dobavi/add-facility-form.tsx'),
+      'utf8',
+    );
+    expect(form).toMatch(/window\.location\.assign\(state\.landing\)/);
+    expect(form).toMatch(/disabled=\{pending \|\| leaving\}/);
+  });
 });
