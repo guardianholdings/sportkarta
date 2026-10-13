@@ -21,7 +21,7 @@ import { LOGOUT_PATH, MAX_VIDEO_BYTES } from '@/lib/tiktok/shared';
 import { PostForm } from './post-form';
 
 /**
- * /tiktok — the demo TikTok's app reviewers watch (decision #41): connect a
+ * /tiktok — the demo TikTok's app reviewers watch: connect a
  * TikTok account, see whose account a post goes to, post one video through
  * the Content Posting API, follow its status.
  *

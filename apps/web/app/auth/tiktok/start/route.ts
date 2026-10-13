@@ -6,7 +6,7 @@ import { newState, notFoundResponse, redirectToPage, setStateCookie } from '@/li
 import { tiktokLimiters } from '@/lib/tiktok/session-store';
 
 /**
- * „Continue with TikTok“ (the /tiktok demo, decision #41): mint a single-use
+ * „Continue with TikTok“ (the /tiktok demo): mint a single-use
  * `state`, keep it in an httpOnly cookie for ten minutes, and send the browser
  * to TikTok's v2 authorization page. The callback checks the state before it
  * touches the code. No PKCE: TikTok's token docs require a code_verifier only

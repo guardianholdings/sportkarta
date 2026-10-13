@@ -1,5 +1,5 @@
 /**
- * The /tiktok demo (decision #41): an unlinked, flag-gated page that shows
+ * The /tiktok demo: an unlinked, flag-gated page that shows
  * TikTok's app reviewers Login Kit and the Content Posting API (Direct Post)
  * working end to end — sign in with TikTok, see whose account a post goes to,
  * fill in the post form TikTok's content-sharing guidelines require, upload one

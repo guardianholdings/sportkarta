@@ -5,7 +5,7 @@ import '../fonts.css';
 import '../globals.css';
 
 /**
- * The /tiktok demo's own document (decision #41). It sits outside [locale] —
+ * The /tiktok demo's own document. It sits outside [locale] —
  * the middleware matcher skips /tiktok and /auth/tiktok — so, like the root
  * not-found, it renders its own <html> above the pass-through root layout.
  * English: the audience is TikTok's app reviewers.
