@@ -443,7 +443,7 @@ test.describe('add-facility errors (B)', () => {
     expect(rows.map((row) => row.access)).toEqual(['paid']);
   });
 
-  test('with „Платено“ picked the footer drops the map sentence and keeps the ODbL one', async ({
+  test('with paid access picked the footer drops the map sentence and keeps the ODbL one', async ({
     page,
   }, testInfo) => {
     await signIn(page, memberEmail(testInfo), /\/profil/);
