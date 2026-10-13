@@ -36,6 +36,9 @@ export default function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Skip API routes, Next internals and any path with a file extension.
-  matcher: '/((?!api|_next|_vercel|.*\\..*).*)',
+  // Skip API routes, Next internals and any path with a file extension — and
+  // the /tiktok demo (app/tiktok, app/auth/tiktok): English-only, outside the
+  // locales, and its post route takes a video of up to 50 MB, more than the
+  // 10 MB of a request body Next buffers for a middleware.
+  matcher: '/((?!api|_next|_vercel|tiktok(?:/|$)|auth/tiktok(?:/|$)|.*\\..*).*)',
 };

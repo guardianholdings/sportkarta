@@ -98,6 +98,17 @@ const nextConfig: NextConfig = {
           { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
         ],
       },
+      // The /tiktok demo is unlisted (no link, not in the sitemap). The page
+      // says noindex in its metadata too; the header also covers the route
+      // handlers, which render no <head>.
+      {
+        source: '/tiktok/:path*',
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
+      },
+      {
+        source: '/auth/tiktok/:path*',
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
+      },
     ];
   },
   webpack: (config: { resolve: { extensionAlias?: Record<string, string[]> } }) => {
