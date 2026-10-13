@@ -31,9 +31,9 @@ import {
 /**
  * Post one video to the signed-in creator's TikTok (Direct Post, FILE_UPLOAD).
  *
- * Checks, in order: the flag, same origin, the session, the rate limit, one
- * upload at a time, the size (Content-Length, then counted while reading),
- * the creator's latest settings, the form (type, caption length, privacy among
+ * Checks, in order: the flag, same origin, the session, the rate limit, the
+ * declared size, one upload at a time, the size counted while reading, the
+ * creator's latest settings, the form (type, caption length, privacy among
  * TikTok's options, the commercial-content rules), the file's own bytes. Only
  * then does anything go to TikTok: video/init with the whole file as one chunk,
  * and one PUT of the bytes to the upload_url TikTok returned (https, on
@@ -83,11 +83,17 @@ export async function POST(request: NextRequest) {
     return response;
   }
 
-  const length = Number(request.headers.get('content-length'));
-  if (!Number.isSafeInteger(length) || length <= 0) {
-    return jsonResponse({ error: 'length_required' }, 411);
+  // Content-Length, when the request has one, turns an oversized upload away
+  // before a byte is read. Without it (a chunked body) the count while
+  // reading is the bound — it is the one that actually caps memory anyway.
+  const lengthHeader = request.headers.get('content-length');
+  if (lengthHeader !== null) {
+    const length = Number(lengthHeader);
+    if (!Number.isSafeInteger(length) || length < 0) {
+      return jsonResponse({ error: 'bad_request' }, 400);
+    }
+    if (length > MAX_REQUEST_BYTES) return jsonResponse({ error: 'too_large' }, 413);
   }
-  if (length > MAX_REQUEST_BYTES) return jsonResponse({ error: 'too_large' }, 413);
 
   if (!tryAcquireUploadSlot()) {
     const response = jsonResponse({ error: 'busy' }, 503);
