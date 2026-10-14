@@ -5,12 +5,14 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { FormFailure } from '@/components/facility/form-failure';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Radio } from '@/components/ui/radio';
 import { Select } from '@/components/ui/select';
 import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 import { inReadingOrder } from '@/lib/format';
 import { useFormAction } from '@/lib/use-form-action';
+import { restoreFields, useFormRecovery } from '@/lib/use-form-recovery';
 
 import { verifyFacilityAction, type ContributionState } from './contribution-actions';
 import { ContributionThanks } from '@/components/facility/contribution-thanks';
@@ -23,6 +25,11 @@ import {
 
 const ACCESS_VALUES = ['free', 'paid', 'restricted', 'school'] as const;
 const INITIAL: ContributionState = { status: 'idle' };
+
+/** Kept across a forced reload (lib/form-recovery.ts). */
+const VERIFY_FIELDS = ['exists', 'access', 'surface', 'lighting', 'covered', 'sportTypes'] as const;
+/** The same minus `exists`, which is React state and goes back through it. */
+const VERIFY_DOM_FIELDS = ['access', 'surface', 'lighting', 'covered', 'sportTypes'] as const;
 
 export interface VerifyFormProps {
   slug: string;
@@ -50,8 +57,15 @@ export function VerifyForm(props: VerifyFormProps) {
   const tSurface = useTranslations('Surface');
   const locale = useLocale();
   // useFormAction: an error must not reset the checklist (lib/use-form-action.ts).
-  const [state, formProps, pending] = useFormAction(verifyFacilityAction, INITIAL);
+  const [state, formProps, pending, failure] = useFormAction(verifyFacilityAction, INITIAL);
   const [exists, setExists] = useState(true);
+  // B2: a form left open across a deploy has to reload; the answers come back
+  // after it. With «не» kept, the detail fields stay hidden, as they were.
+  const saveAndReload = useFormRecovery('verify', VERIFY_FIELDS, (entries) => {
+    const kept = entries.find(([name]) => name === 'exists');
+    if (kept) setExists(kept[1] !== 'no');
+    if (formProps.ref.current) restoreFields(formProps.ref.current, entries, VERIFY_DOM_FIELDS);
+  });
   const sports = useMemo(
     () => inReadingOrder(CANONICAL_SPORTS, locale, (sport) => tSport(sport)),
     [locale, tSport],
@@ -159,7 +173,12 @@ export function VerifyForm(props: VerifyFormProps) {
         </>
       )}
 
-      {state.status === 'error' && (
+      <FormFailure
+        failure={failure}
+        noAnswer={t('error_no_answer')}
+        onReload={() => saveAndReload(formProps.ref.current)}
+      />
+      {!failure && state.status === 'error' && (
         <p role="alert" className="text-body-sm text-danger">
           {t(`error_${state.error ?? 'unknown'}`)}
         </p>

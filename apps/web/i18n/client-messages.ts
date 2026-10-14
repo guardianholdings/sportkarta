@@ -52,12 +52,15 @@ export const CLIENT_SCOPES = {
       'AdminVerify',
     ],
   },
-  addFacility: { dir: 'app/[locale]/dobavi', namespaces: ['AddFacility', 'Contribute'] },
+  addFacility: {
+    dir: 'app/[locale]/dobavi',
+    namespaces: ['AddFacility', 'Contribute', 'FormRecovery'],
+  },
   checkin: { dir: 'app/[locale]/otmetka', namespaces: ['Checkin', 'Contribute'] },
   designSystem: { dir: 'app/[locale]/design-system', namespaces: ['DesignSystem'] },
   facility: {
     dir: 'app/[locale]/obekt',
-    namespaces: ['Condition', 'ConditionTag', 'Contribute', 'Report'],
+    namespaces: ['Condition', 'ConditionTag', 'Contribute', 'FormRecovery', 'Report'],
   },
   passport: { dir: 'app/[locale]/pasport', namespaces: ['Share'] },
   profile: { dir: 'app/[locale]/profil', namespaces: ['Profile'] },
