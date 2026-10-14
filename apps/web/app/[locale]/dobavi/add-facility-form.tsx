@@ -86,7 +86,15 @@ export function AddFacilityForm({
   // stays on «Изпращаме…» so the place cannot be sent twice.
   const leaving = state.landing !== undefined;
   useEffect(() => {
-    if (state.landing !== undefined) window.location.assign(state.landing);
+    if (state.landing === undefined) return;
+    // Back from the thank-you can bring this page back from the browser's
+    // back/forward cache, button and all: load it fresh instead.
+    const fresh = (event: PageTransitionEvent) => {
+      if (event.persisted) window.location.reload();
+    };
+    window.addEventListener('pageshow', fresh);
+    window.location.assign(state.landing);
+    return () => window.removeEventListener('pageshow', fresh);
   }, [state.landing]);
   const [sports, setSports] = useState<Set<CanonicalSport>>(new Set());
   const [pinPlaced, setPinPlaced] = useState(initiallyPlaced);
