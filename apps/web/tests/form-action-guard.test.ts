@@ -93,5 +93,8 @@ describe('forms keep what the member typed when the server says no', () => {
     );
     expect(form).toMatch(/window\.location\.assign\(state\.landing\)/);
     expect(form).toMatch(/disabled=\{pending \|\| leaving\}/);
+    // Back from the thank-you must not bring the form back stuck on «Изпращаме…».
+    expect(form).toMatch(/addEventListener\('pageshow', fresh\)/);
+    expect(form).toMatch(/if \(event\.persisted\) window\.location\.reload\(\);/);
   });
 });
