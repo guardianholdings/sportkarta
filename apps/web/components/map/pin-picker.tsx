@@ -1,7 +1,7 @@
 'use client';
 
 import { BULGARIA_BOUNDS } from '@sportkarta/lib/geo';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 
