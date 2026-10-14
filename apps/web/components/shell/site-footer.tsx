@@ -162,6 +162,17 @@ export function SiteFooter({ clubs = false }: { clubs?: boolean }) {
                     </Link>
                   </li>
                 ))}
+                {column.key === 'org' ? (
+                  <li>
+                    {/* A plain anchor, not <Link>: the consent script
+                        (/consent.js) catches every click on a link ending in
+                        #cookie-settings and reopens its card, so there is no
+                        route to navigate to. */}
+                    <a href="#cookie-settings" className={LINK}>
+                      {t('cookieSettings')}
+                    </a>
+                  </li>
+                ) : null}
               </ul>
             </nav>
           ))}
