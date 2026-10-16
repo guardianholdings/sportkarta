@@ -139,11 +139,13 @@ umami.{$DOMAIN} {
 	# checks that token itself: signed with APP_SECRET, minted only for a share,
 	# and good for its one website, read-only. A request without it gets 401.
 	# The login, the admin UI and every other API path stay behind the lock.
-	# Revoking: Umami admin → unshare ends the link at once, with no change
+	# Revoking: unshare (umami-admin.sh) ends the link at once, with no change
 	# here. A token a browser already fetched keeps reading this website's
 	# overview until UMAMI_APP_SECRET is rotated (then Deploy): Umami 3.3.0
 	# signs share tokens with no expiry and does not check the share still
-	# exists.
+	# exists. Such a token also reads the current slug (the website record's
+	# shareId), so a new slug alone cuts no one off: unshare, rotate, Deploy,
+	# and only then share a new slug.
 	@share_page {
 		method GET HEAD
 		path /share/* /_next/static/* /images/* /intl/* /favicon.ico /favicon-16x16.png /favicon-32x32.png /apple-touch-icon.png /android-chrome-192x192.png /android-chrome-512x512.png /safari-pinned-tab.svg /site.webmanifest /datamaps.world.json /iso-3166-2.json /api/config

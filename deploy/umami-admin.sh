@@ -20,12 +20,15 @@
 #              (the workflow sends the UMAMI_SHARE_SLUG secret). The slug is
 #              never printed: this job's log is public, and the slug is the
 #              link. The same slug again changes nothing; a new slug replaces
-#              the old link, which stops working at once (but see unshare).
+#              the old link, which stops working at once. That cuts no one
+#              off: a page already open can read the new slug (see unshare).
 #   unshare    Deletes the site's shares: every share link stops working at
 #              once. Nothing else changes. A page that is already open keeps
-#              its share token, which Umami 3.3.0 never expires, so it can
-#              read the overview until UMAMI_APP_SECRET is rotated (then
-#              Deploy; that also signs everyone out of Umami).
+#              its share token, which Umami 3.3.0 never expires; with it, it
+#              reads the overview and the website record, which carries the
+#              current slug (shareId). To cut someone off: unshare, rotate
+#              UMAMI_APP_SECRET and Deploy (that also signs everyone out of
+#              Umami), and only then share a new slug.
 #
 # Usage: umami-admin.sh bootstrap | check [utm_source] [hours] | share | unshare
 # Writes only to Umami's own database (`umami`), never the app's.
