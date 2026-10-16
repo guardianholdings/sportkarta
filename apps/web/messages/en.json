@@ -2435,6 +2435,7 @@
     "textDivision": "{tier}: {rank, selectordinal, one {#st} two {#nd} few {#rd} other {#th}} place this week.",
     "textLegend": "{place}: the most regular person here has turned up on {days, plural, one {# day} other {# days}}.",
     "textFacility": "{place} — a free sports facility on POPS.",
+    "textFacilityNeutral": "{place} — a sports facility on POPS.",
     "textSession": "{title} — {day}. Come along.",
     "textCampaign": "{title} — join in."
   },

@@ -33,3 +33,16 @@ export function facilitySharePlace(facility: SharePlaceFacility, labels: LabelSt
     { ...labels, unnamedAt: (what, place) => `${what}, ${place}` },
   );
 }
+
+/**
+ * Which share text a facility gets. `textFacility` calls the place free
+ * („свободна“, "free"), which the record backs only for access `free`.
+ * Restricted places (OSM access=private, no or military), school grounds and a
+ * paid place shown under the admin switch get `textFacilityNeutral` instead,
+ * which claims nothing about access: the page they link to already shows the
+ * access label next to the share button. Same test as the page's JSON-LD
+ * (`isAccessibleForFree`).
+ */
+export function facilityShareTextKey(access: string): 'textFacility' | 'textFacilityNeutral' {
+  return access === 'free' ? 'textFacility' : 'textFacilityNeutral';
+}
