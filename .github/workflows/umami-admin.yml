@@ -12,7 +12,8 @@ name: Umami admin
 #               slug in the UMAMI_SHARE_SLUG secret. The slug is the link, so it
 #               goes over stdin and is never printed. A new secret value and a
 #               re-run replace the link.
-#   unshare   — every share link stops working at once.
+#   unshare   — every share link stops working at once. A page already open
+#               keeps reading until UMAMI_APP_SECRET is rotated (see the script).
 # Nothing here reads a plaintext password, and nothing prints a hash or token.
 on:
   workflow_dispatch:
