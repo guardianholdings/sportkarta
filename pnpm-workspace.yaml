@@ -18,3 +18,12 @@ overrides:
   # better-auth's optional peer `vitest` puts it in the production audit, and
   # the worker image copies the whole build stage. Drop this with vitest 4.
   'tinypool@<2.1.2': ^2.1.2
+# Upstream fixes that the Next release we run does not have yet. Drop each one
+# with the Next release that ships it.
+patchedDependencies:
+  # Unprefixed bg pages reach /bg/... through the middleware rewrite. 15.5 looks
+  # the page up in the prerender manifest by the requested path instead of the
+  # rewritten one, so those pages render on every request instead of from ISR,
+  # while the /en pages are cached. Upstream fix: vercel/next.js#83359 (canary;
+  # not in 15.5.28).
+  next@15.5.28: patches/next@15.5.28.patch
