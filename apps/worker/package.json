@@ -15,7 +15,7 @@
     "@sportkarta/lib": "workspace:*",
     "dotenv": "^16.4.0",
     "pg": "^8.13.0",
-    "pg-boss": "^10.1.0"
+    "pg-boss": "^12.37.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
