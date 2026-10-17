@@ -2,7 +2,7 @@
 # Multi-target build: web (Next standalone), worker (pg-boss), migrate (drizzle-kit).
 # CI builds each target and pushes to GHCR; nothing is built on the VPS.
 
-FROM node:24-alpine AS base
+FROM node:26-alpine AS base
 RUN npm install -g pnpm@11.15.1
 WORKDIR /app
 
@@ -21,7 +21,7 @@ COPY . .
 RUN pnpm --filter @sportkarta/web build && pnpm --filter "@sportkarta/worker..." build
 
 # ── web: slim Next.js standalone runtime ─────────────────────────────────────
-FROM node:24-alpine AS web
+FROM node:26-alpine AS web
 WORKDIR /app
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
 COPY --from=build /app/apps/web/.next/standalone ./
@@ -41,7 +41,7 @@ CMD ["node", "apps/web/server.js"]
 # stage: the worker's runtime deps are pure JS (pg, pg-boss, dotenv, drizzle,
 # esbuild-bundled import-osm), so the musl→glibc move is safe, and osmium is only
 # ever invoked as a runtime subprocess. Slim later if pull size hurts.
-FROM node:24-bookworm-slim AS worker
+FROM node:26-bookworm-slim AS worker
 WORKDIR /app
 ENV NODE_ENV=production
 # osmium-tool: OSM extract filtering for the import.osm job (scripts/import-osm).
