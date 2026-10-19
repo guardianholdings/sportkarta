@@ -533,7 +533,8 @@ export default function MapCanvas({
       return Math.max(0, (height - (padding.top ?? 0) - (padding.bottom ?? 0)) / 2);
     };
     const frameHalfWidth = () => {
-      const { width, padding } = map.transform;
+      const width = map.getCanvas().clientWidth;
+      const padding = map.getPadding();
       return Math.max(0, (width - (padding.left ?? 0) - (padding.right ?? 0)) / 2);
     };
     const centreInBulgaria = (lngLat: maplibregl.LngLat, zoom: number) => {
