@@ -1,0 +1,81 @@
+/**
+ * The contract between the web app (which ENQUEUES) and the worker (which
+ * mails and materializes) for the club module.
+ *
+ * IDS ONLY. A job row outlives what it names (pg-boss keeps finished jobs until
+ * archival), so a payload never carries an address, a name or a credential —
+ * the worker resolves everything at run time, and a row whose subject has been
+ * erased resolves to nothing.
+ *
+ * INVITE TOKENS ARE MINTED BY THE WORKER. The web app stores an invite with an
+ * unusable placeholder hash; the worker generates the real token at send time,
+ * stores its hash on the invite row and puts the token in the mail. So the
+ * only copy of an invite credential is the email itself — never a queue row,
+ * never a log. A retried job rotates the token, which only invalidates an
+ * earlier copy of the same mail.
+ */
+
+export const CLUB_NOTIFY_QUEUE = 'club.notify';
+export const CLUB_MATERIALIZE_QUEUE = 'club.materialize';
+export const CLUB_REMINDERS_QUEUE = 'club.reminders';
+export const CLUB_EXPIRY_QUEUE = 'club.expiry';
+export const CLUB_DIGEST_QUEUE = 'club.digest';
+export const CLUB_ACTIVITY_QUEUE = 'club.activity';
+
+export type ClubNotifyJob =
+  | { kind: 'application_received'; clubId: string }
+  | { kind: 'application_approved'; clubId: string }
+  | { kind: 'staff_invite'; inviteId: string }
+  | { kind: 'member_invite'; inviteId: string }
+  | { kind: 'booking_confirmed'; bookingId: string }
+  | { kind: 'booking_promoted'; bookingIds: string[] }
+  | { kind: 'booking_cancelled'; bookingId: string }
+  | { kind: 'class_cancelled'; occurrenceIds: string[] }
+  | { kind: 'claim_pending'; memberId: string }
+  | { kind: 'erasure_requested'; memberId: string };
+
+export type ClubNotifyKind = ClubNotifyJob['kind'];
+
+export interface ClubMaterializeJob {
+  /** One class right after it was created or edited; omit for the hourly sweep. */
+  classId?: string;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function uuid(value: unknown): value is string {
+  return typeof value === 'string' && UUID.test(value);
+}
+
+function uuids(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length > 0 && value.length <= 500 && value.every(uuid);
+}
+
+/**
+ * The worker's guard on what it pulls off the queue: a malformed payload is
+ * dropped (and logged by kind), never half-processed.
+ */
+export function parseClubNotifyJob(data: unknown): ClubNotifyJob | null {
+  if (!data || typeof data !== 'object') return null;
+  const job = data as Record<string, unknown>;
+  switch (job.kind) {
+    case 'application_received':
+    case 'application_approved':
+      return uuid(job.clubId) ? { kind: job.kind, clubId: job.clubId } : null;
+    case 'staff_invite':
+    case 'member_invite':
+      return uuid(job.inviteId) ? { kind: job.kind, inviteId: job.inviteId } : null;
+    case 'booking_confirmed':
+    case 'booking_cancelled':
+      return uuid(job.bookingId) ? { kind: job.kind, bookingId: job.bookingId } : null;
+    case 'booking_promoted':
+      return uuids(job.bookingIds) ? { kind: job.kind, bookingIds: job.bookingIds } : null;
+    case 'class_cancelled':
+      return uuids(job.occurrenceIds) ? { kind: job.kind, occurrenceIds: job.occurrenceIds } : null;
+    case 'claim_pending':
+    case 'erasure_requested':
+      return uuid(job.memberId) ? { kind: job.kind, memberId: job.memberId } : null;
+    default:
+      return null;
+  }
+}
