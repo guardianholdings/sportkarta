@@ -18,7 +18,7 @@ export function parseEuroCents(input: string): number | null {
     .replace(/€|eur$|^eur/gi, '')
     .trim();
   // Thousands separators: ordinary, no-break and narrow no-break spaces.
-  text = text.replace(/[\s  ]/g, '');
+  text = text.replace(/[\s\u00A0\u202F]/g, '');
   if (text === '') return null;
   // One decimal separator at most, of either kind, followed by 1–2 digits.
   const match = /^(\d{1,9})(?:[.,](\d{1,2}))?$/.exec(text);
