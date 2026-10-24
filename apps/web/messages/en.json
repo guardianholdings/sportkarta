@@ -514,7 +514,8 @@
       "cooperativeWindows": "Use Ctrl + scroll to zoom the map",
       "cooperativeMac": "Use ⌘ + scroll to zoom the map",
       "cooperativeMobile": "Use two fingers to move the map"
-    }
+    },
+    "clubChip": "A club at this facility"
   },
   "Facility": {
     "directions": "Directions",
