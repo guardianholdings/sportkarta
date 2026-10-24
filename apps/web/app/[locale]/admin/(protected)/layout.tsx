@@ -6,6 +6,7 @@ import { BrandMark } from '@/components/shell/app-nav';
 import { ClientIntlProvider } from '@/i18n/client-intl-provider';
 import { Link } from '@/i18n/navigation';
 import { requireAdmin } from '@/lib/auth-session';
+import { clubsEnabled } from '@/lib/clubs/access';
 import { hasAtLeast, type Role } from '@/lib/roles';
 
 import { signOutAction } from '../../vhod/actions';
@@ -52,6 +53,11 @@ export default async function AdminLayout({
     { href: '/admin/partnyori', label: t('partners'), minRole: 'admin' },
     { href: '/admin/ambasadori', label: t('ambassadors'), minRole: 'admin' },
     { href: '/admin/chastni', label: t('private'), minRole: 'admin' },
+    // «Клубове» (Stage 9) — only while the add-on is switched on, so the nav
+    // never links to a route that 404s.
+    ...(clubsEnabled()
+      ? ([{ href: '/admin/klubove', label: t('clubs'), minRole: 'admin' }] as const)
+      : []),
     { href: '/admin/otcheti', label: t('reports'), minRole: 'admin' },
     { href: '/admin/obshtini', label: t('municipalImport'), minRole: 'admin' },
     { href: '/admin/import', label: t('import'), minRole: 'admin' },
