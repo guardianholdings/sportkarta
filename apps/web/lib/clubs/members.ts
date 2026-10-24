@@ -626,3 +626,20 @@ export async function issueMemberCard(
     return key;
   });
 }
+
+/** Live records of this club for a picker (sale, charge), minors marked. */
+export async function memberChoices(
+  actor: ClubActor,
+): Promise<{ id: string; displayName: string; isMinor: boolean }[]> {
+  const result = await getDb().execute(sql`
+    SELECT m.id, m.display_name, m.is_minor FROM club_members m
+     WHERE ${clubScope(actor, 'members.view', 'm')} AND m.archived_at IS NULL
+     ORDER BY lower(m.display_name)
+     LIMIT 2000
+  `);
+  return result.rows.map((row) => ({
+    id: String(row.id),
+    displayName: String(row.display_name),
+    isMinor: row.is_minor === true,
+  }));
+}
