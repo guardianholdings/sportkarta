@@ -338,6 +338,10 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
     expect(roster?.people.map((p) => [p.displayName, p.kind, p.isMinor])).toEqual([
       ['Дете Журни', 'going', true],
     ]);
+    // Tomorrow's class cannot be ticked today: that would spend a visit early.
+    expect(
+      await clubCheckIn(db, { method: 'desk', actor: desk, memberId: childId, occurrenceId }),
+    ).toEqual({ status: 'too_early' });
     // A trainer who does not teach this class sees no roster at all.
     const trainerId = await user('trainer');
     await db.execute(

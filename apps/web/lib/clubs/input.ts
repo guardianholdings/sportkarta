@@ -605,7 +605,16 @@ function isoWeekdayOf(date: IsoDate): number {
  * grammar. DTSTART is moved forward to the first chosen weekday on or after
  * the first date, so the first occurrence is always one the trainer picked.
  */
-export function parseClass(form: Reader, today: IsoDate): InputResult<ClassInput> {
+/**
+ * `keepFirstDate` is an edited series' own first date: a series that began
+ * last month may be edited without being moved, while a NEW date still has to
+ * be today or later.
+ */
+export function parseClass(
+  form: Reader,
+  today: IsoDate,
+  keepFirstDate: IsoDate | null = null,
+): InputResult<ClassInput> {
   const errors: string[] = [];
   const title = required(text(form, 'title'), 120, errors, 'class_title');
   const description = bounded(
@@ -630,7 +639,7 @@ export function parseClass(form: Reader, today: IsoDate): InputResult<ClassInput
 
   let firstDate = text(form, 'firstDate');
   if (!isIsoDate(firstDate)) errors.push('first_date_invalid');
-  else if (firstDate < today) errors.push('first_date_past');
+  else if (firstDate < today && firstDate !== keepFirstDate) errors.push('first_date_past');
   const time = text(form, 'time');
   const timeMatch = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(time);
   if (!timeMatch) errors.push('time_invalid');

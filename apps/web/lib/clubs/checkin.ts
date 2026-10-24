@@ -67,7 +67,14 @@ export type CheckinRequest =
   | { method: 'qr_kiosk'; userId: string; clubId: string; locationId: string };
 
 export interface CheckinOutcome {
-  status: 'recorded' | 'already' | 'not_found' | 'not_linked' | 'not_allowed' | 'club_closed';
+  status:
+    | 'recorded'
+    | 'already'
+    | 'not_found'
+    | 'not_linked'
+    | 'not_allowed'
+    | 'club_closed'
+    | 'too_early';
   memberId?: string;
   memberName?: string;
   isMinor?: boolean;
@@ -165,7 +172,8 @@ export async function clubCheckIn(
     const requestedLocation = request.locationId ?? null;
     const occurrence = await tx.execute(sql`
       SELECT o.id, o.starts_at, o.ends_at, k.title, k.sport, k.location_id, k.covers_all_plans,
-             k.id AS class_id
+             k.id AS class_id,
+             o.starts_at <= now() + make_interval(mins => ${CHECKIN_EARLY_MINUTES}::int) AS open
         FROM club_class_occurrences o
         JOIN club_classes k ON k.id = o.class_id
        WHERE o.club_id = ${clubId}::uuid AND o.status = 'scheduled'
@@ -184,6 +192,9 @@ export async function clubCheckIn(
     `);
     const occ = occurrence.rows[0];
     if (explicitOccurrence && !occ) return { status: 'not_found' };
+    // Nobody is present at a class that has not begun: a tick days ahead would
+    // spend a visit early. Afterwards the desk may still catch up.
+    if (explicitOccurrence && occ && occ.open !== true) return { status: 'too_early' };
     let locationId = occ ? String(occ.location_id) : requestedLocation;
     if (!locationId) {
       const first = await tx.execute(sql`
