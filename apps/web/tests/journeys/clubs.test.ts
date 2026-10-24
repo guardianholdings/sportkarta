@@ -1,4 +1,11 @@
-import { getDb, getPool, materializeClubClasses, sql } from '@sportkarta/db';
+import {
+  calendarFeed,
+  ensureCalendarToken,
+  getDb,
+  getPool,
+  materializeClubClasses,
+  sql,
+} from '@sportkarta/db';
 import { addDaysIso, isoWeekKey, isoWeekMonday, sofiaToday } from '@sportkarta/lib/clubs';
 import { generateInviteToken, sha256Hex } from '@sportkarta/lib/clubs/secrets';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -461,6 +468,11 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
     const mine = await buildAccountExport(db, memberUser);
     expect(mine?.clubs.links).toMatchObject([{ clubSlug: slug, status: 'active' }]);
     expect(mine?.clubs.visits.length).toBeGreaterThanOrEqual(1);
+    // The private calendar feed carries the child's seat and the parent's own
+    // cancelled booking — the latter as a cancellation, so a client removes it.
+    const feed = await calendarFeed(db, await ensureCalendarToken(db, memberUser));
+    const here = feed?.clubBookings.filter((b) => b.occurrenceId === occurrenceId) ?? [];
+    expect(here.map((b) => b.cancelled).sort()).toEqual([false, true]);
     // Somebody without a record sees the club, and no record at all.
     const stranger = await user('stranger');
     const other = await portalView(stranger, slug, 'bg');

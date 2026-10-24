@@ -91,7 +91,7 @@ export {
   generateCalendarToken,
   rotateCalendarToken,
 } from './sessions/calendar.js';
-export type { CalendarFeed, CalendarOccurrence } from './sessions/calendar.js';
+export type { CalendarFeed, CalendarOccurrence, ClubCalendarBooking } from './sessions/calendar.js';
 export {
   adminStandings,
   campaignById,

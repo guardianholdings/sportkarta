@@ -115,6 +115,26 @@ export interface CalendarFeed {
   userId: string;
   displayName: string;
   occurrences: CalendarOccurrence[];
+  /** Stage 9: the member's club bookings (their own records and their children's). */
+  clubBookings: ClubCalendarBooking[];
+}
+
+export interface ClubCalendarBooking {
+  bookingId: string;
+  occurrenceId: string;
+  clubSlug: string;
+  startsAt: string;
+  endsAt: string;
+  title: string;
+  location: string;
+  /** The class was cancelled, or this booking was. */
+  cancelled: boolean;
+  /**
+   * The booking's arrival ticket. A re-booking draws a higher one, so
+   * `2 × seq (+1 when cancelled)` only ever grows — the iCal SEQUENCE a client
+   * needs to accept a cancellation and, later, the re-booking that undoes it.
+   */
+  seq: number;
 }
 
 /**
@@ -159,10 +179,42 @@ export async function calendarFeed(db: SqlRunner, token: string): Promise<Calend
      ORDER BY o.starts_at
   `);
 
+  // Club bookings reach the feed through an ACTIVE link of this account — its
+  // own record, or a child whose guardian is that record (the portal's rule).
+  const club = await db.execute(sql`
+    SELECT b.id AS booking_id, o.id AS occurrence_id, o.starts_at, o.ends_at, b.seq,
+           (o.status = 'cancelled' OR b.state <> 'active') AS cancelled,
+           k.title, l.name AS location, c.slug AS club_slug
+      FROM club_bookings b
+      JOIN club_members m ON m.club_id = b.club_id AND m.id = b.member_id
+      JOIN club_class_occurrences o ON o.club_id = b.club_id AND o.id = b.occurrence_id
+      JOIN club_classes k ON k.id = o.class_id
+      JOIN club_locations l ON l.id = k.location_id
+      JOIN clubs c ON c.id = b.club_id AND c.status <> 'archived'
+     WHERE o.starts_at >= now() - make_interval(days => ${FEED_PAST_DAYS})
+       AND (EXISTS (SELECT 1 FROM club_member_links ml
+                     WHERE ml.member_id = m.id AND ml.user_id = ${userId} AND ml.status = 'active')
+            OR EXISTS (SELECT 1 FROM club_member_links gl
+                        WHERE gl.member_id = m.guardian_member_id AND gl.user_id = ${userId}
+                          AND gl.status = 'active'))
+     ORDER BY o.starts_at
+  `);
+
   return {
     userId,
     displayName: String(ownerRow.display_name ?? ''),
     occurrences: result.rows.map(toOccurrence),
+    clubBookings: club.rows.map((row) => ({
+      bookingId: String(row.booking_id),
+      occurrenceId: String(row.occurrence_id),
+      clubSlug: String(row.club_slug),
+      startsAt: new Date(row.starts_at as string | number | Date).toISOString(),
+      endsAt: new Date(row.ends_at as string | number | Date).toISOString(),
+      title: String(row.title),
+      location: String(row.location),
+      cancelled: row.cancelled === true,
+      seq: Number(row.seq),
+    })),
   };
 }
 
