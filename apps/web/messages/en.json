@@ -2716,7 +2716,14 @@
         "ambassador_scope_added": "Municipality added: {municipality}",
         "ambassador_scope_removed": "Municipality removed: {municipality}",
         "setting_changed": "{on, select, yes {Paid venues switched on} other {Paid venues switched off}}",
-        "business_visibility_changed": "{visible, select, yes {Business shown} other {Business hidden}}: {business}"
+        "business_visibility_changed": "{visible, select, yes {Business shown} other {Business hidden}}: {business}",
+        "club_created": "Club created: {club}",
+        "club_updated": "Club details changed: {club}",
+        "club_status_changed": "{club}: {status, select, pending {awaiting approval} active {active} suspended {suspended} archived {archived} other {new status}}",
+        "club_plan_changed": "{club}: plan {tier, select, community {Community} standard {Start} pro {Pro} other {—}}, paid until {paidUntil}",
+        "club_staff_granted": "{club}: role granted — {role, select, owner {owner} manager {manager} trainer {trainer} desk {front desk} other {—}}",
+        "club_staff_revoked": "{club}: removed from the team",
+        "club_purged": "Club permanently deleted: {club}"
       }
     }
   },

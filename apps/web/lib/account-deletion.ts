@@ -60,6 +60,10 @@ export interface DeletionSummary {
   campaignResultsAnonymized: number;
   /** play_session_notifications rows removed with the account. */
   sessionNotificationsErased: number;
+  /** club_staff grants removed with the account («Клубове», 0040). */
+  clubStaffErased: number;
+  /** club_member_links removed with the account; the clubs' records stay. */
+  clubMemberLinksErased: number;
 }
 
 interface SqlRunner {
@@ -198,6 +202,32 @@ export async function deleteAccount(
       ),
     );
 
+    // «Клубове» (0040). A staff grant and a client-record link are this
+    // person's own rows and leave through the cascade, so they are counted. What
+    // does NOT leave is everything the clubs hold about them as their client —
+    // the record, bookings, check-ins, payment records: each club is the
+    // controller of those, and erasing a POPS account is not the club's client
+    // asking the club to forget them. A club left without an owner shows on
+    // /admin/klubove; nothing here can block the erasure.
+    const clubStaffErased = countFrom(
+      await tx.execute(sql`SELECT count(*)::int AS n FROM club_staff WHERE user_id = ${userId}`),
+    );
+    const clubMemberLinksErased = countFrom(
+      await tx.execute(
+        sql`SELECT count(*)::int AS n FROM club_member_links WHERE user_id = ${userId}`,
+      ),
+    );
+    if (clubStaffErased > 0) {
+      // The club's own accountability log learns that an owner left, so the
+      // owner who remains (or the operator) can see why a name vanished.
+      await tx.execute(sql`
+        INSERT INTO club_audit (club_id, actor_kind, action, detail)
+        SELECT s.club_id, 'system', 'owner_erased', '{}'::jsonb
+          FROM club_staff s
+         WHERE s.user_id = ${userId} AND s.role = 'owner'
+      `);
+    }
+
     // Pending one-time codes are keyed by email address, not by user id, so the
     // cascade does not reach them. Left behind they would be a short-lived
     // record of the address that asked to be forgotten.
@@ -219,13 +249,15 @@ export async function deleteAccount(
         condition_reports_anonymized, points_erased, moderation_decisions_preserved,
         sessions_cancelled, rsvps_erased, checkins_erased,
         digest_subscriptions_erased, results_anonymized, badges_erased,
-        campaign_results_anonymized, session_notifications_erased
+        campaign_results_anonymized, session_notifications_erased,
+        club_staff_erased, club_member_links_erased
       )
       VALUES (${userId}, ${auditRowsPreserved}, ${photosAnonymized},
               ${conditionReportsAnonymized}, ${pointsErased}, ${moderationDecisionsPreserved},
               ${sessionsCancelled}, ${rsvpsErased}, ${checkinsErased},
               ${digestSubscriptionsErased}, ${resultsAnonymized}, ${badgesErased},
-              ${campaignResultsAnonymized}, ${sessionNotificationsErased})
+              ${campaignResultsAnonymized}, ${sessionNotificationsErased},
+              ${clubStaffErased}, ${clubMemberLinksErased})
     `);
 
     // No FK on admin_actions.subject_id (0033), so this row outlives the
@@ -258,6 +290,8 @@ export async function deleteAccount(
         badgesErased,
         campaignResultsAnonymized,
         sessionNotificationsErased,
+        clubStaffErased,
+        clubMemberLinksErased,
       },
       orphanedSessionIds: Array.isArray(orphanedIds) ? orphanedIds.map(String) : [],
     };

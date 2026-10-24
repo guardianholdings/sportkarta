@@ -81,6 +81,7 @@ export const FACILITY_DEPENDENTS: readonly FacilityDependent[] = [
   { table: 'play_sessions', onDelete: 'r', appendOnly: false }, // 0008
   { table: 'facility_sponsorships', onDelete: 'r', appendOnly: false }, // 0023
   { table: 'training_logs', onDelete: 'n', appendOnly: false }, // 0027
+  { table: 'club_locations', onDelete: 'n', appendOnly: false }, // 0039
 ];
 
 export const EXPORT_KIND = 'pops/seed-fixture-export';

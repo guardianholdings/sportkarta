@@ -44,7 +44,34 @@ export type AdminActionRecord =
       detail: { municipalityId: number };
     }
   | { action: 'setting_changed'; detail: { key: AdminSettingKey; value: 'true' | 'false' } }
-  | { action: 'business_visibility_changed'; detail: { businessId: number; visible: boolean } };
+  | { action: 'business_visibility_changed'; detail: { businessId: number; visible: boolean } }
+  // «Клубове» (0038). A club is not an account, so the club-level actions are
+  // subjectless and carry the club id; the staff actions name the account
+  // whose grant changed. Ids, closed values and dates only — never a club or
+  // person name (a sole-trader club is named after a person).
+  | { action: 'club_created'; detail: { clubId: string } }
+  | { action: 'club_updated'; detail: { clubId: string } }
+  | {
+      action: 'club_status_changed';
+      detail: { clubId: string; status: 'pending' | 'active' | 'suspended' | 'archived' };
+    }
+  | {
+      action: 'club_plan_changed';
+      detail: {
+        clubId: string;
+        tier: 'community' | 'standard' | 'pro';
+        paidUntil: string | null;
+        trialEndsOn: string | null;
+        memberCap: number | null;
+      };
+    }
+  | {
+      action: 'club_staff_granted';
+      subjectId: string;
+      detail: { clubId: string; role: 'owner' | 'manager' | 'trainer' | 'desk' };
+    }
+  | { action: 'club_staff_revoked'; subjectId: string; detail: { clubId: string } }
+  | { action: 'club_purged'; detail: { clubId: string } };
 
 export type AdminAction = AdminActionRecord['action'];
 
@@ -56,6 +83,22 @@ export type AdminAction = AdminActionRecord['action'];
 export const SUBJECTLESS_ACTIONS = [
   'setting_changed',
   'business_visibility_changed',
+  'club_created',
+  'club_updated',
+  'club_status_changed',
+  'club_plan_changed',
+  'club_purged',
+] as const satisfies readonly AdminAction[];
+
+/** Everything the operator does to a club — the /admin/klubove history panel. */
+export const CLUB_ACTIONS = [
+  'club_created',
+  'club_updated',
+  'club_status_changed',
+  'club_plan_changed',
+  'club_staff_granted',
+  'club_staff_revoked',
+  'club_purged',
 ] as const satisfies readonly AdminAction[];
 
 export const AMBASSADOR_ACTIONS = [
@@ -98,6 +141,9 @@ export interface AdminActionEntry {
   municipalityNameEn: string | null;
   /** Resolved from `detail.businessId` for business visibility. */
   businessName: string | null;
+  /** Resolved from `detail.clubId` for the club actions, while the club exists. */
+  clubName: string | null;
+  clubSlug: string | null;
   detail: Record<string, unknown>;
   actedAt: string;
 }
@@ -117,11 +163,13 @@ function textOrNull(value: unknown): string | null {
  * turn a history panel into a 500.
  */
 export async function adminActionHistory(
-  filter: { subjectId?: string; actions?: readonly AdminAction[] },
+  filter: { subjectId?: string; actions?: readonly AdminAction[]; clubId?: string },
   limit = 50,
 ): Promise<AdminActionEntry[]> {
   const conditions: SQL[] = [sql`TRUE`];
   if (filter.subjectId) conditions.push(sql`a.subject_id = ${filter.subjectId}`);
+  // Text comparison on the jsonb value: a malformed detail can never fail a cast.
+  if (filter.clubId) conditions.push(sql`a.detail ->> 'clubId' = ${filter.clubId}`);
   if (filter.actions && filter.actions.length > 0) {
     // sql.param binds the list as ONE array parameter (CLAUDE.md).
     conditions.push(sql`a.action::text = ANY(${sql.param([...filter.actions])}::text[])`);
@@ -132,7 +180,8 @@ export async function adminActionHistory(
            actor.display_name AS actor_name, actor.email AS actor_email,
            subj.display_name AS subject_name, subj.email AS subject_email,
            m.name_bg AS municipality_name_bg, m.name_en AS municipality_name_en,
-           b.name AS business_name
+           b.name AS business_name,
+           c.name_bg AS club_name, c.slug AS club_slug
     FROM admin_actions a
     LEFT JOIN users actor ON actor.id = a.actor_id
     LEFT JOIN users subj ON subj.id = a.subject_id
@@ -142,6 +191,7 @@ export async function adminActionHistory(
     LEFT JOIN businesses b
       ON b.id = CASE WHEN jsonb_typeof(a.detail -> 'businessId') = 'number'
                      THEN (a.detail ->> 'businessId')::numeric END
+    LEFT JOIN clubs c ON c.id::text = a.detail ->> 'clubId'
     WHERE ${sql.join(conditions, sql` AND `)}
     ORDER BY a.acted_at DESC, a.id DESC
     LIMIT ${limit}
@@ -159,6 +209,8 @@ export async function adminActionHistory(
     municipalityNameBg: textOrNull(row.municipality_name_bg),
     municipalityNameEn: textOrNull(row.municipality_name_en),
     businessName: textOrNull(row.business_name),
+    clubName: textOrNull(row.club_name),
+    clubSlug: textOrNull(row.club_slug),
     detail:
       typeof row.detail === 'object' && row.detail !== null
         ? (row.detail as Record<string, unknown>)

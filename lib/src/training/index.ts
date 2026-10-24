@@ -48,6 +48,9 @@ export const TRAINING_SOURCES = [
   'polar',
   'suunto',
   'other',
+  // Written only by a club check-in (apps/web/lib/clubs/checkin.ts), never by
+  // the training form or an import — see `qr_verified` below.
+  'club',
 ] as const;
 
 export type TrainingSource = (typeof TRAINING_SOURCES)[number];
@@ -64,15 +67,18 @@ export type TrainingSource = (typeof TRAINING_SOURCES)[number];
  *                    be driven along a route, which is the Strava/Kim Flint
  *                    precedent docs/ENGAGEMENT.md §3 cites as a rejected shape.
  *
- * A third `qr_verified` tier — a training tied to a scanned session QR, the tier
- * `play_session_checkins_only_qr_scores` calls evidence — was drafted and
- * REMOVED before 0027 shipped. Nothing could produce it: there is no source for
- * the check-in path and `evidenceFor` never returned it, so it would have been a
- * permanent enum value (Postgres has no DROP VALUE) that silently returned an
- * empty board to any prize surface that asked for it. It returns when something
- * can actually grant it, together with the source that does.
+ * `qr_verified`    — a QR or card check-in at a club desk (source `club`), by a
+ *                    member who linked their POPS account to the club's record
+ *                    and consented to their attendance reaching their log.
+ *                    The strongest tier: the club's own screen or staff saw
+ *                    the person there.
+ *
+ * `qr_verified` was drafted and REMOVED before 0027 shipped, because nothing
+ * could produce it and an enum value is permanent (Postgres has no DROP VALUE).
+ * It came back in 0038/0043 together with the one source that grants it — the
+ * club check-in — exactly as 0027 said it would.
  */
-export const TRAINING_EVIDENCE = ['self_reported', 'connected_app'] as const;
+export const TRAINING_EVIDENCE = ['self_reported', 'connected_app', 'qr_verified'] as const;
 
 export type TrainingEvidence = (typeof TRAINING_EVIDENCE)[number];
 
@@ -80,13 +86,15 @@ export type TrainingEvidence = (typeof TRAINING_EVIDENCE)[number];
  * The evidence a source produces.
  *
  * A manual entry is self-reported and cannot be anything else; an import is
- * `connected_app` and cannot be anything else. Pinned by
- * `training_logs_evidence_matches_source` in migration 0027, so an importer
- * cannot promote its own rows by passing a nicer string — the application is
- * not the layer this rule rests on.
+ * `connected_app` and cannot be anything else; a club check-in is
+ * `qr_verified`. Pinned by `training_logs_evidence_matches_source` (0027,
+ * rewritten in 0043), so an importer cannot promote its own rows by passing a
+ * nicer string — the application is not the layer this rule rests on.
  */
 export function evidenceFor(source: TrainingSource): TrainingEvidence {
-  return source === 'manual' ? 'self_reported' : 'connected_app';
+  if (source === 'manual') return 'self_reported';
+  if (source === 'club') return 'qr_verified';
+  return 'connected_app';
 }
 
 /** One second. A log shorter than this is a mis-tap, not a training. */

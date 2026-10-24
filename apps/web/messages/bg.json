@@ -2716,7 +2716,14 @@
         "ambassador_scope_added": "Добавена община: {municipality}",
         "ambassador_scope_removed": "Премахната община: {municipality}",
         "setting_changed": "{on, select, yes {Платените обекти са включени} other {Платените обекти са изключени}}",
-        "business_visibility_changed": "{visible, select, yes {Показан бизнес} other {Скрит бизнес}}: {business}"
+        "business_visibility_changed": "{visible, select, yes {Показан бизнес} other {Скрит бизнес}}: {business}",
+        "club_created": "Създаден клуб: {club}",
+        "club_updated": "Променени данни на клуб: {club}",
+        "club_status_changed": "{club}: {status, select, pending {чака одобрение} active {активен} suspended {спрян} archived {архивиран} other {нов статус}}",
+        "club_plan_changed": "{club}: план {tier, select, community {Общност} standard {Старт} pro {Про} other {—}}, платено до {paidUntil}",
+        "club_staff_granted": "{club}: дадена роля {role, select, owner {собственик} manager {управител} trainer {треньор} desk {рецепция} other {—}}",
+        "club_staff_revoked": "{club}: отнета роля в екипа",
+        "club_purged": "Окончателно изтрит клуб: {club}"
       }
     }
   },

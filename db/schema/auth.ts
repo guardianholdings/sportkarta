@@ -346,6 +346,13 @@ export const accountDeletions = pgTable(
      * it would be a small, pointless archive of their week.
      */
     sessionNotificationsErased: integer('session_notifications_erased').notNull().default(0),
+    /**
+     * «Клубове» (0040). Staff grants and client-record links leave with the
+     * account; the clubs' own client records, bookings, check-ins and payment
+     * records do NOT — the club is their controller, so they stay with it.
+     */
+    clubStaffErased: integer('club_staff_erased').notNull().default(0),
+    clubMemberLinksErased: integer('club_member_links_erased').notNull().default(0),
   },
   (t) => [
     index('account_deletions_deleted_at_idx').on(t.deletedAt),
@@ -362,7 +369,8 @@ export const accountDeletions = pgTable(
           AND ${t.rsvpsErased} >= 0 AND ${t.checkinsErased} >= 0
           AND ${t.digestSubscriptionsErased} >= 0 AND ${t.resultsAnonymized} >= 0
           AND ${t.badgesErased} >= 0 AND ${t.campaignResultsAnonymized} >= 0
-          AND ${t.sessionNotificationsErased} >= 0`,
+          AND ${t.sessionNotificationsErased} >= 0
+          AND ${t.clubStaffErased} >= 0 AND ${t.clubMemberLinksErased} >= 0`,
     ),
   ],
 );
@@ -399,6 +407,16 @@ export const adminAction = pgEnum('admin_action', [
   'ambassador_scope_removed',
   'setting_changed',
   'business_visibility_changed',
+  // 0038 — the operator's changes to a «Клубове» tenant from /admin/klubove.
+  // Club-level actions are subjectless (a club is not an account); the two
+  // staff actions name the account whose grant changed.
+  'club_created',
+  'club_updated',
+  'club_status_changed',
+  'club_plan_changed',
+  'club_staff_granted',
+  'club_staff_revoked',
+  'club_purged',
 ]);
 
 export const adminActions = pgTable(
@@ -426,7 +444,9 @@ export const adminActions = pgTable(
     ),
     check(
       'admin_actions_subject_matches_action',
-      sql`(${t.subjectId} IS NULL) = (${t.action} IN ('setting_changed', 'business_visibility_changed'))`,
+      sql`(${t.subjectId} IS NULL) = (${t.action}::text IN (
+            'setting_changed', 'business_visibility_changed',
+            'club_created', 'club_updated', 'club_status_changed', 'club_plan_changed', 'club_purged'))`,
     ),
     check('admin_actions_detail_object', sql`jsonb_typeof(${t.detail}) = 'object'`),
     check('admin_actions_detail_small', sql`octet_length(${t.detail}::text) <= 512`),

@@ -254,7 +254,7 @@ export interface ParticipationOptions {
    * ranks turning up rather than awarding anything. A prize-bearing surface
    * should raise this.
    */
-  minEvidence?: 'self_reported' | 'connected_app';
+  minEvidence?: 'self_reported' | 'connected_app' | 'qr_verified';
 }
 
 /**
@@ -291,11 +291,25 @@ export async function sportParticipationBoard(
     options.days === undefined
       ? sql``
       : sql` AND t.sofia_day >= ${dayKeyBefore(now, options.days, timeZone)}::date`;
-  // Two tiers today, so the floor is a single comparison. Written as an
-  // explicit branch rather than an ordinal so that adding a third tier is a
-  // compile error here rather than a silently wrong `>=`.
-  const evidenceFilter =
-    options.minEvidence === 'connected_app' ? sql` AND t.evidence = 'connected_app'` : sql``;
+  // A FLOOR, spelled out per tier rather than as an ordinal `>=` over the enum
+  // (whose declaration order is an accident of when each value was added):
+  // connected_app admits the club-verified tier above it, qr_verified only
+  // itself. The exhaustive switch makes a fourth tier a compile error here.
+  const evidenceFilter = ((): SQL => {
+    const floor = options.minEvidence ?? 'self_reported';
+    switch (floor) {
+      case 'self_reported':
+        return sql``;
+      case 'connected_app':
+        return sql` AND t.evidence::text IN ('connected_app', 'qr_verified')`;
+      case 'qr_verified':
+        return sql` AND t.evidence::text = 'qr_verified'`;
+      default: {
+        const unreachable: never = floor;
+        return unreachable;
+      }
+    }
+  })();
 
   const result = await db.execute(sql`
     SELECT m.public_handle AS handle,

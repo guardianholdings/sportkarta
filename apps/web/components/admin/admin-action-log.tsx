@@ -61,6 +61,27 @@ export async function AdminActionLog({
           business: entry.businessName ?? t('unknown'),
           visible: detail.visible === true ? 'yes' : 'no',
         });
+      case 'club_created':
+      case 'club_updated':
+      case 'club_staff_revoked':
+      case 'club_purged':
+        return t(`action.${entry.action}`, { club: entry.clubName ?? t('unknown') });
+      case 'club_status_changed':
+        return t('action.club_status_changed', {
+          club: entry.clubName ?? t('unknown'),
+          status: typeof detail.status === 'string' ? detail.status : 'other',
+        });
+      case 'club_plan_changed':
+        return t('action.club_plan_changed', {
+          club: entry.clubName ?? t('unknown'),
+          tier: typeof detail.tier === 'string' ? detail.tier : 'other',
+          paidUntil: typeof detail.paidUntil === 'string' ? detail.paidUntil : '—',
+        });
+      case 'club_staff_granted':
+        return t('action.club_staff_granted', {
+          club: entry.clubName ?? t('unknown'),
+          role: typeof detail.role === 'string' ? detail.role : 'other',
+        });
       default:
         return t(`action.${entry.action}`);
     }
