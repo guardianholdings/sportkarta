@@ -269,3 +269,41 @@ export async function searchFacilities(
     cityBg: text(row.city_bg),
   }));
 }
+
+/** Named, non-gone facilities of one municipality, for the location picker. */
+export async function facilitiesInMunicipality(
+  municipalityId: number | null,
+  includeId: string | null = null,
+): Promise<FacilityChoice[]> {
+  if (municipalityId === null && includeId === null) return [];
+  const result = await getDb().execute(sql`
+    SELECT f.id, f.name, f.slug, m.name_bg AS city_bg
+      FROM facilities f
+      LEFT JOIN municipalities m ON m.id = f.municipality_id
+     WHERE f.name IS NOT NULL AND f.status <> 'gone'
+       AND (${municipalityId === null ? sql`FALSE` : sql`f.municipality_id = ${municipalityId}`}
+            OR f.id = ${includeId}::uuid)
+     ORDER BY f.name
+     LIMIT 400
+  `);
+  return result.rows.map((row) => ({
+    id: String(row.id),
+    name: String(row.name),
+    slug: text(row.slug),
+    cityBg: text(row.city_bg),
+  }));
+}
+
+/** Every municipality, for the city select (name in the page's language). */
+export async function municipalityChoices(): Promise<
+  { id: number; nameBg: string; nameEn: string }[]
+> {
+  const result = await getDb().execute(
+    sql`SELECT id, name_bg, name_en FROM municipalities ORDER BY name_bg`,
+  );
+  return result.rows.map((row) => ({
+    id: Number(row.id),
+    nameBg: String(row.name_bg),
+    nameEn: String(row.name_en),
+  }));
+}
