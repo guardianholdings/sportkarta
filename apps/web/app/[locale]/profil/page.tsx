@@ -137,7 +137,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
 
         <section className="space-y-4 rounded-card border border-danger-border bg-danger-bg/40 p-4">
           <h2 className="text-h4 font-bold text-danger">{t('deleteTitle')}</h2>
-          <DeleteAccountForm confirmationWord={t('deleteConfirmWord')} />
+          <DeleteAccountForm confirmationWord={t('deleteConfirmWord')} clubs={clubsEnabled()} />
         </section>
 
         <p className="text-caption text-text-muted">

@@ -895,7 +895,8 @@
     "exportText": "Download a copy of everything we hold about you — profile, points, badges, contributions, sign-ups, check-ins and trainings — as a JSON file.",
     "exportLink": "Download my data",
     "exportNote": "The file contains your email address but no access keys. GPS routes and health values are not included — only whether they exist.",
-    "clubsLink": "Clubs"
+    "clubsLink": "Clubs",
+    "deleteBulletClubs": "Your records at clubs stay with the clubs, which are the controllers of that data. The link to your account ends; to have a record itself erased, ask the club."
   },
   "Condition": {
     "excellent": "excellent",

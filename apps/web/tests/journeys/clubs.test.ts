@@ -4,6 +4,7 @@ import { generateInviteToken, sha256Hex } from '@sportkarta/lib/clubs/secrets';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { deleteAccount } from '@/lib/account-deletion';
+import { buildAccountExport } from '@/lib/account-export';
 import { approveClub, setClubStatus } from '@/lib/clubs/admin';
 import { applyForClub } from '@/lib/clubs/apply';
 import { bookAtDesk, bookTrial, cancelBooking } from '@/lib/clubs/bookings';
@@ -456,6 +457,10 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
     expect(await memberClubs(memberUser, 'bg')).toMatchObject([
       { clubSlug: slug, status: 'active' },
     ]);
+    // The member's own GDPR export carries the link and the visits it covers.
+    const mine = await buildAccountExport(db, memberUser);
+    expect(mine?.clubs.links).toMatchObject([{ clubSlug: slug, status: 'active' }]);
+    expect(mine?.clubs.visits.length).toBeGreaterThanOrEqual(1);
     // Somebody without a record sees the club, and no record at all.
     const stranger = await user('stranger');
     const other = await portalView(stranger, slug, 'bg');
