@@ -173,6 +173,27 @@ browser) in a MANUAL STEPS list at the end of the session.
   sponsorship never touches a `facilities` row, so it stays outside the merge
   policy and `facility_edits`. Creatives and logos stream from row-decides routes
   that repeat the visibility predicate. `PARTNER_STRIP_ENABLED` ships off
+- «Клубове» (Stage 9, `docs/ROADMAP.md` 9b, `docs/MONETISATION.md` S7) is a
+  paid add-on behind `CLUBS_ENABLED` (ships off; every club route 404s). The
+  club is the CONTROLLER of its member records, POPS the processor. Tenancy is
+  in the schema: every table carries `club_id` with composite FKs. Authority
+  is in the STATEMENT (`apps/web/lib/clubs/scope.ts` — `clubScope`,
+  `clubWriteScope`, `memberSelfScope`), and `apps/web/tests/club-scope.test.ts`
+  refuses a write in `lib/clubs` without a scope fragment or an allowlisted
+  reason; trainer rosters, portal class lists, the kiosk counter and staff
+  digests are pinned to counts/names-only by `club-projections.test.ts`.
+  Money is RECORDS ONLY (no card code; phase 2 = the club's own Stripe on a
+  hosted page by redirect). Writes need `clubWritableSql` (active and paid or
+  community, 14-day grace); every public surface embeds `clubRenderableSql`.
+  Check-ins never refuse (`covered=false` is recorded); only a QR/card visit of
+  a consenting linked member writes `training_logs(source='club',
+evidence='qr_verified')`, enforced by trigger + CHECK, never points.
+  Invitation tokens are MINTED BY THE WORKER at send time (the web stores a
+  placeholder digest). Club mail: linked members at their POPS address,
+  unlinked records only when the club opts in and never after a one-click
+  opt-out, minors never (the guardian or nobody). Migration 0038 holds the
+  enum ADD VALUEs alone and later CHECKs compare `::text`, because the
+  migrator runs every pending file in one transaction
 - i18n keys must be NESTED, never dotted: next-intl reads `.` as nesting and
   rejects the catalogue at request time, and the parity test cannot see it
   (`apps/web/tests/i18n.test.ts` has a separate guard)
