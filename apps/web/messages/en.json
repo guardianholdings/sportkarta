@@ -3935,7 +3935,7 @@
     "already_pending": "You already have an application under review.",
     "too_many": "You have reached the maximum number of clubs for one account.",
     "afterTitle": "What happens next",
-    "after": "We review applications within two working days. Meanwhile you can open the office and add locations and memberships; changes are saved once the club is approved."
+    "after": "We review applications within two working days. Until then the office is open for viewing only — you can look around the dashboard, timetable and settings. Editing opens once the club is approved, and the 30-day trial starts then."
   },
   "ClubHub": {
     "title": "Clubs",
@@ -4022,7 +4022,7 @@
       "reminder_24h": "A reminder that “{title}” starts within 24 hours ({name}).",
       "membership_expiring": "The membership “{plan}” ({name}) ends on {date}. Renew it at the front desk.",
       "membership_expired": "The membership “{plan}” ({name}) ended on {date}. Renew it at the front desk to continue.",
-      "application_received": "We received the application for {club}. We review applications within two working days. Meanwhile you can open the office and prepare locations, memberships and the timetable.",
+      "application_received": "We received the application for {club}. We review applications within two working days and will write when the club is active. Until then the office is open for viewing only.",
       "application_approved": "The application is approved and {club} is active on POPS. Start with a location, a membership and a first class.",
       "operator_new_application": "A new club application has arrived: {club}.",
       "claim_pending": "“{name}” asked to link their record to a POPS account. Confirm or refuse it on the member's record.",
