@@ -252,5 +252,5 @@ export async function clubExportCsv(actor: ClubActor, dataset: ClubExportDataset
     detail: { dataset, rows: rows.length },
   });
   // A BOM so Excel opens Cyrillic as UTF-8 rather than as mojibake.
-  return `﻿${toCsv([spec.header, ...rows])}`;
+  return `\uFEFF${toCsv([spec.header, ...rows])}`;
 }
