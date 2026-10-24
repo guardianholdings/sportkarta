@@ -14,6 +14,7 @@ import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
 import { cityDisplayName } from '@/lib/city-names';
 import { requireClubStaff } from '@/lib/clubs/club-session';
+import { CLUB_EXPORT_DATASETS } from '@/lib/clubs/export';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { listKioskDevices } from '@/lib/clubs/kiosk';
 import { clubSportOptions } from '@/lib/clubs/labels';
@@ -38,8 +39,6 @@ import {
 } from './actions';
 
 export const dynamic = 'force-dynamic';
-
-const EXPORTS = ['members', 'memberships', 'payments', 'checkins', 'classes', 'audit'] as const;
 
 export default async function ClubSettingsPage({
   params,
@@ -287,7 +286,7 @@ export default async function ClubSettingsPage({
         <h2 className="text-h4 font-bold text-ink">{t('dataTitle')}</h2>
         <p className="text-caption text-text-muted">{t('dataHint')}</p>
         <ul className="flex flex-wrap gap-2">
-          {EXPORTS.map((dataset) => (
+          {CLUB_EXPORT_DATASETS.map((dataset) => (
             <li key={dataset}>
               <a
                 href={`/api/clubs/${slug}/eksport/${dataset}.csv`}

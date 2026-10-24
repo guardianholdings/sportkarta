@@ -4058,5 +4058,32 @@
       "claims": "Requests to link: {count}",
       "erasures": "Erasure requests: {count}"
     }
+  },
+  "ClubReports": {
+    "title": "Reports",
+    "intro": "The figures come straight from the club's records. Each one has its definition under its title.",
+    "activeTitle": "Active members by month",
+    "activeDef": "An active member held a valid membership on any day of the month or checked in at least 3 times in it. The paid plan is invoiced on this figure.",
+    "revenueTitle": "Payments by month",
+    "revenueDef": "Payments received in the month, minus refunds.",
+    "atRiskTitle": "Members at risk",
+    "atRiskDef": "A valid membership and no visit for {days} days or more. A good reason for a call.",
+    "atRiskNone": "No members at risk.",
+    "atRiskNever": "no visits",
+    "atRiskLast": "last visit: {date}",
+    "atRiskEnds": "membership until {date}",
+    "fillTitle": "Class fill",
+    "fillDef": "The last 4 weeks: booked against places, and arrived against booked.",
+    "fillNone": "No classes took place in the last 4 weeks.",
+    "col": {
+      "class": "Class",
+      "occurrences": "Held",
+      "avgBooked": "Booked on average",
+      "fill": "Fill",
+      "attendance": "Arrived"
+    },
+    "noLimit": "no limit",
+    "csvTitle": "Data to download",
+    "csvHint": "The club's complete data as CSV, for accounting, analysis or moving to another system."
   }
 }

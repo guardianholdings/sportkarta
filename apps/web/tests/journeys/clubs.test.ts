@@ -8,6 +8,8 @@ import { approveClub, setClubStatus } from '@/lib/clubs/admin';
 import { applyForClub } from '@/lib/clubs/apply';
 import { bookAtDesk, cancelBooking } from '@/lib/clubs/bookings';
 import { clubCheckIn, todaysCheckins } from '@/lib/clubs/checkin';
+import { clubExportCsv } from '@/lib/clubs/export';
+import { activeByMonth, atRiskMembers, classFillRates, revenueByMonth } from '@/lib/clubs/reports';
 import {
   createKioskDevice,
   kioskFromCookie,
@@ -457,6 +459,30 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
     const token = (
       await db.execute(sql`SELECT unsubscribe_token FROM club_members WHERE id = ${childId}::uuid`)
     ).rows[0]?.unsubscribe_token;
+
+    // The club takes its data as CSV — never a token, and the download is logged.
+    const csv = await clubExportCsv(owner, 'members');
+    expect(csv.split('\r\n')[0]).toContain('name,email,phone');
+    expect(csv).toContain('Мария Журни');
+    expect(csv).not.toContain(String(token));
+    expect(csv).not.toContain(memberUser);
+    const exported = await db.execute(
+      sql`SELECT count(*)::int AS n FROM club_audit WHERE club_id = ${clubId}::uuid AND action = 'export_downloaded'`,
+    );
+    expect(exported.rows[0]?.n).toBeGreaterThanOrEqual(1);
+
+    // The reports run and agree with what happened: one month in a row of twelve
+    // has the active member, and the month's payments are counted.
+    const [active, revenue, , fill] = await Promise.all([
+      activeByMonth(owner),
+      revenueByMonth(owner),
+      atRiskMembers(owner),
+      classFillRates(owner),
+    ]);
+    expect(active).toHaveLength(12);
+    expect(active.at(-1)?.value).toBeGreaterThanOrEqual(1);
+    expect(revenue.at(-1)?.value).toBeGreaterThan(0);
+    expect(Array.isArray(fill)).toBe(true);
     expect(await unsubscribeTarget(String(token), 'bg')).toMatchObject({ optedOut: false });
     expect(await unsubscribe(String(token))).toBe(true);
     expect(await unsubscribe(String(token))).toBe(true);
