@@ -134,7 +134,7 @@ describe.skipIf(!hasDb)('club ledgers (requires running database)', () => {
     it('is voided once and then accepts refunds only', async () => {
       await pay(1000);
       await client.query(`UPDATE club_charges SET voided_at = now() WHERE id = $1`, [chargeId]);
-      expect((await status()).status).toBe('void');
+      expect(await status()).toEqual({ status: 'void', paid: 1000, due: 0 });
       const unvoid = await failure(
         client.query(`UPDATE club_charges SET voided_at = NULL WHERE id = $1`, [chargeId]),
       );

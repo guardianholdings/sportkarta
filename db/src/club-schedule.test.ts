@@ -173,4 +173,18 @@ describe.skipIf(!hasDb)('club schedule (requires running database)', () => {
     );
     expect(result.message).toMatch(/local clock/);
   });
+
+  it('draws a fresh ticket in SQL when a cancelled booking is re-activated', async () => {
+    const { occurrenceId } = await makeOccurrence(client, club, { capacity: 1 });
+    await book(occurrenceId, members[0] as string);
+    await book(occurrenceId, members[1] as string);
+    await cancel(occurrenceId, members[0] as string);
+    // The writer sends no seq at all: the trigger issues the new ticket.
+    await client.query(
+      `UPDATE club_bookings SET state = 'active', cancelled_at = NULL
+        WHERE occurrence_id = $1 AND member_id = $2`,
+      [occurrenceId, members[0]],
+    );
+    expect(await going(occurrenceId)).toEqual([members[1]]);
+  });
 });

@@ -286,6 +286,7 @@ jobs:
           UMAMI_WEBSITE_ID=${{ vars.UMAMI_WEBSITE_ID }}
           GLITCHTIP_DSN=${{ vars.GLITCHTIP_DSN }}
           PARTNER_STRIP_ENABLED=${{ vars.PARTNER_STRIP_ENABLED }}
+          CLUBS_ENABLED=${{ vars.CLUBS_ENABLED }}
           DONATION_IBAN=${{ vars.DONATION_IBAN }}
           DONATION_BENEFICIARY=${{ vars.DONATION_BENEFICIARY }}
           DONATION_BIC=${{ vars.DONATION_BIC }}

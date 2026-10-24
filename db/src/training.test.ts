@@ -241,26 +241,23 @@ describe.skipIf(!hasDb)('training logs (requires running database)', () => {
         [A],
       ),
     ).rejects.toThrow(/training_logs_evidence_matches_source/);
-    await expect(
-      client.query(
-        `INSERT INTO training_logs (user_id, sport, started_at, sofia_day, duration_s, source, evidence, external_id)
-         VALUES ($1, 'fitness', now(), current_date, 600, 'club', 'connected_app', 'x3')`,
-        [A],
-      ),
-    ).rejects.toThrow(/training_logs_evidence_matches_source/);
-    // The one admitted pair, and it still needs its external id (the check-in).
-    await expect(
-      client.query(
-        `INSERT INTO training_logs (user_id, sport, started_at, sofia_day, duration_s, source, evidence)
-         VALUES ($1, 'fitness', now(), current_date, 600, 'club', 'qr_verified')`,
-        [A],
-      ),
-    ).rejects.toThrow(/training_logs_external_id_matches_source/);
-    await client.query(
-      `INSERT INTO training_logs (user_id, sport, started_at, sofia_day, duration_s, source, evidence, external_id)
-       VALUES ($1, 'fitness', now(), current_date, 600, 'club', 'qr_verified', 'x4')`,
-      [A],
-    );
+    // A 'club' row must BE a consented QR/card check-in at a club (0043's
+    // training_logs_club_row_is_a_checkin, which runs before the CHECKs): a
+    // nicer source string buys nothing either. The positive path is proven
+    // with real check-ins in apps/web/tests/journeys/clubs.test.ts.
+    for (const [evidence, externalId] of [
+      ['connected_app', 'x3'],
+      ['qr_verified', null],
+      ['qr_verified', 'x4'],
+    ] as const) {
+      await expect(
+        client.query(
+          `INSERT INTO training_logs (user_id, sport, started_at, sofia_day, duration_s, source, evidence, external_id)
+           VALUES ($1, 'fitness', now(), current_date, 600, 'club', $2, $3)`,
+          [A, evidence, externalId],
+        ),
+      ).rejects.toThrow(/training_logs_club_row_is_a_checkin/);
+    }
 
     await expect(
       client.query(

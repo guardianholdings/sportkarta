@@ -217,9 +217,12 @@ FOR EACH ROW WHEN (NEW.status = 'cancelled' AND OLD.status IS DISTINCT FROM 'can
 EXECUTE FUNCTION club_class_cancel_future_occurrences();--> statement-breakpoint
 -- Nobody books a cancelled or started occurrence, and a member booking
 -- THEMSELVES (booked_by IS NULL) does so only inside the class's booking
--- window. The desk (booked_by set) may book early. Only transitions INTO
--- 'active' are checked, so cancelling a booking on a cancelled occurrence
--- stays possible.
+-- window. The desk (booked_by set) may book early. Checked on every transition
+-- INTO 'active' and whenever an active booking moves to another occurrence;
+-- cancelling a booking on a cancelled occurrence stays possible.
+-- RE-BOOKING DRAWS A FRESH TICKET HERE, in SQL: a cancelled booking turned
+-- active again gets nextval(club_booking_seq) whatever the writer sent, so it
+-- joins the back of the queue (0008's rule) without trusting the application.
 CREATE FUNCTION club_booking_requires_open_occurrence() RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = pg_catalog, public
@@ -232,8 +235,12 @@ BEGIN
   IF NEW.state <> 'active' THEN
     RETURN NEW;
   END IF;
-  IF TG_OP = 'UPDATE' AND OLD.state = 'active' THEN
+  IF TG_OP = 'UPDATE' AND OLD.state = 'active'
+     AND NEW.occurrence_id IS NOT DISTINCT FROM OLD.occurrence_id THEN
     RETURN NEW;
+  END IF;
+  IF TG_OP = 'UPDATE' AND OLD.state <> 'active' THEN
+    NEW.seq := nextval('public.club_booking_seq');
   END IF;
   SELECT o.status, o.starts_at, c.booking_opens_hours
     INTO occ_status, occ_starts, opens_hours

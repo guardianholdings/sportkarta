@@ -90,7 +90,7 @@ describe.skipIf(!hasDb)('club erasure (requires running database)', () => {
     );
     await client.query(
       `INSERT INTO club_membership_pauses (club_id, membership_id, starts_on, ends_on, created_by)
-       VALUES ($1, $2, current_date + 40, current_date + 45, $3)`,
+       VALUES ($1, $2, current_date + 10, current_date + 15, $3)`,
       [club.clubId, membershipId, club.ownerId],
     );
     await client.query(

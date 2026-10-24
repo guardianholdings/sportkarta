@@ -55,6 +55,7 @@
 --              "club_memberships", "club_plans";      -- DESTRUCTIVE: the books
 --   DROP FUNCTION club_payments_guard(); DROP FUNCTION club_charges_guard();
 --   DROP FUNCTION club_payments_within_charge();
+--   DROP FUNCTION club_membership_pause_within_membership();
 SET LOCAL lock_timeout = '3s';--> statement-breakpoint
 SET LOCAL statement_timeout = '30s';--> statement-breakpoint
 CREATE TABLE "club_plans" (
@@ -111,6 +112,9 @@ CREATE TABLE "club_memberships" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "club_memberships_club_id_unique" UNIQUE("club_id", "id"),
+	-- The target of club_checkins' consumption key (0043): a visit can only be
+	-- counted against an abonnement of the SAME client.
+	CONSTRAINT "club_memberships_member_unique" UNIQUE("club_id", "member_id", "id"),
 	CONSTRAINT "club_memberships_plan_name_sane" CHECK (btrim("club_memberships"."plan_name") <> '' AND char_length("club_memberships"."plan_name") <= 80),
 	CONSTRAINT "club_memberships_kind_known" CHECK ("club_memberships"."kind" IN ('unlimited', 'visits', 'trial')),
 	CONSTRAINT "club_memberships_audience_known" CHECK ("club_memberships"."audience" IN ('all', 'adults', 'minors')),
@@ -189,8 +193,11 @@ CREATE INDEX "club_memberships_member_idx" ON "club_memberships" USING btree ("c
 CREATE INDEX "club_memberships_plan_idx" ON "club_memberships" USING btree ("club_id","plan_id");--> statement-breakpoint
 -- The expiry job and the "Изтичащи" panel: live memberships by end date.
 CREATE INDEX "club_memberships_ends_idx" ON "club_memberships" USING btree ("club_id","ends_on") WHERE "club_memberships"."cancelled_at" IS NULL;--> statement-breakpoint
--- One trial per member, ever (a cancelled mistake does not count).
-CREATE UNIQUE INDEX "club_memberships_one_trial" ON "club_memberships" USING btree ("member_id") WHERE "club_memberships"."kind" = 'trial' AND "club_memberships"."cancelled_at" IS NULL;--> statement-breakpoint
+-- One trial per member, EVER. Only a sale cancelled as a 'mistake' is as if it
+-- never happened (the same rule club_member_status applies in 0043); a trial
+-- cancelled for any other reason still counts, or a desk could cancel a used
+-- trial and sell the same client another free one.
+CREATE UNIQUE INDEX "club_memberships_one_trial" ON "club_memberships" USING btree ("member_id") WHERE "club_memberships"."kind" = 'trial' AND "club_memberships"."cancel_reason" IS DISTINCT FROM 'mistake';--> statement-breakpoint
 CREATE INDEX "club_membership_pauses_membership_idx" ON "club_membership_pauses" USING btree ("club_id","membership_id");--> statement-breakpoint
 CREATE INDEX "club_charges_member_idx" ON "club_charges" USING btree ("club_id","member_id") WHERE "club_charges"."member_id" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX "club_charges_membership_idx" ON "club_charges" USING btree ("club_id","membership_id") WHERE "club_charges"."membership_id" IS NOT NULL;--> statement-breakpoint
@@ -201,6 +208,41 @@ CREATE INDEX "club_payments_member_idx" ON "club_payments" USING btree ("club_id
 -- Phase-2 webhook idempotency: one row per provider reference per club.
 CREATE UNIQUE INDEX "club_payments_provider_ref_unique" ON "club_payments" USING btree ("club_id","provider","provider_ref") WHERE "club_payments"."provider_ref" IS NOT NULL;--> statement-breakpoint
 ALTER TABLE "club_membership_pauses" ADD CONSTRAINT "club_membership_pauses_no_overlap" EXCLUDE USING gist ("membership_id" WITH =, daterange("starts_on", "ends_on", '[]') WITH &&);--> statement-breakpoint
+-- A pause must START inside the membership's validity (as already extended by
+-- its other pauses) and the membership must be live. Without this, a pause
+-- entered after expiry would extend effective_ends_on and turn an expired
+-- abonnement back into an active one — changing coverage, the member's status
+-- and the members_active invoice basis. Every pause extends validity by its
+-- full length, so where it ENDS is free. Raised as a named check violation.
+CREATE FUNCTION club_membership_pause_within_membership() RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog, public
+AS $$
+DECLARE
+  m_starts date;
+  m_ends date;
+  m_cancelled timestamptz;
+  other_days integer;
+BEGIN
+  SELECT m.starts_on, m.ends_on, m.cancelled_at INTO m_starts, m_ends, m_cancelled
+    FROM public.club_memberships m
+   WHERE m.club_id = NEW.club_id AND m.id = NEW.membership_id;
+  IF m_starts IS NULL THEN
+    RETURN NEW;  -- the foreign key reports it as 23503
+  END IF;
+  SELECT coalesce(sum(p.ends_on - p.starts_on + 1), 0)::integer INTO other_days
+    FROM public.club_membership_pauses p
+   WHERE p.club_id = NEW.club_id AND p.membership_id = NEW.membership_id AND p.id <> NEW.id;
+  IF m_cancelled IS NOT NULL
+     OR NEW.starts_on < m_starts
+     OR NEW.starts_on > m_ends + other_days THEN
+    RAISE EXCEPTION 'a pause must start inside a live membership''s validity'
+      USING ERRCODE = 'check_violation', CONSTRAINT = 'club_membership_pauses_within_membership';
+  END IF;
+  RETURN NEW;
+END;
+$$;--> statement-breakpoint
+CREATE TRIGGER "club_membership_pauses_within_membership" BEFORE INSERT OR UPDATE ON "club_membership_pauses" FOR EACH ROW EXECUTE FUNCTION club_membership_pause_within_membership();--> statement-breakpoint
 -- club_charges: never deleted (outside a purge of the club); the only updates
 -- are voiding — once, irreversibly — and the SET NULLs that a member's or a
 -- membership's erasure cascades. Everything else about a charge is a fact.
@@ -269,6 +311,12 @@ CREATE TRIGGER "club_payments_no_truncate" BEFORE TRUNCATE ON "club_payments" FO
 -- The running total of a charge's payments stays within [0, amount], and a
 -- voided charge accepts only refunds. The charge row is locked first, so two
 -- desks recording against one charge are serialised rather than both passing.
+-- FOR NO KEY UPDATE, not FOR UPDATE: it serialises payments against each
+-- other and against a void (an UPDATE) while staying compatible with the FK
+-- checks of concurrent inserts that merely reference the charge (a drop-in
+-- check-in). The sum below is correct under READ COMMITTED, the application's
+-- isolation level: after the lock is granted, the statement sees every payment
+-- committed by the transaction it waited for.
 CREATE FUNCTION club_payments_within_charge() RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = pg_catalog, public
@@ -281,7 +329,7 @@ BEGIN
   SELECT c.amount_cents, c.voided_at INTO charge_amount, charge_voided
     FROM public.club_charges c
    WHERE c.club_id = NEW.club_id AND c.id = NEW.charge_id
-   FOR UPDATE;
+   FOR NO KEY UPDATE;
   IF charge_amount IS NULL THEN
     -- Left to the foreign key, which reports it properly as 23503.
     RETURN NEW;
@@ -320,7 +368,11 @@ SELECT
   ch.voided_at,
   ch.created_at,
   coalesce(p.paid_cents, 0)::integer AS paid_cents,
-  (ch.amount_cents - coalesce(p.paid_cents, 0))::integer AS due_cents,
+  -- A void charge is owed by nobody; any money still on it is a refund the
+  -- club owes, which the office reads from paid_cents on a 'void' row.
+  CASE WHEN ch.voided_at IS NOT NULL THEN 0
+       ELSE (ch.amount_cents - coalesce(p.paid_cents, 0))::integer
+  END AS due_cents,
   CASE
     WHEN ch.voided_at IS NOT NULL THEN 'void'
     WHEN coalesce(p.paid_cents, 0) >= ch.amount_cents THEN 'paid'

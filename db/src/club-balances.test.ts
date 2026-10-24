@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   cleanupClubFixtures,
+  ensureUser,
   failure,
   makeClub,
   makeMember,
@@ -208,5 +209,119 @@ describe.skipIf(!hasDb)('club membership balances (requires running database)', 
     });
     expect(await balance(next.membershipId)).toMatchObject({ state: 'upcoming' });
     expect(await memberStatus()).toBe('active');
+  });
+
+  it('counts a trial cancelled for any reason but a mistake', async () => {
+    const trialPlan = await makePlan(client, club.clubId, {
+      kind: 'trial',
+      visits: 1,
+      priceCents: 0,
+    });
+    await sellMembership(client, club.clubId, memberId, trialPlan, { days: 7 });
+    await client.query(
+      `UPDATE club_memberships SET cancelled_at = now(), cancel_reason = 'member_request' WHERE member_id = $1`,
+      [memberId],
+    );
+    const again = await failure(sellMembership(client, club.clubId, memberId, trialPlan));
+    expect(again.constraint).toBe('club_memberships_one_trial');
+    await client.query(
+      `UPDATE club_memberships SET cancel_reason = 'mistake' WHERE member_id = $1`,
+      [memberId],
+    );
+    await sellMembership(client, club.clubId, memberId, trialPlan);
+  });
+
+  it('refuses a pause that starts outside the membership', async () => {
+    const planId = await makePlan(client, club.clubId);
+    const expired = await sellMembership(client, club.clubId, memberId, planId, {
+      startOffsetDays: -60,
+      days: 30,
+    });
+    const late = await failure(
+      client.query(
+        `INSERT INTO club_membership_pauses (club_id, membership_id, starts_on, ends_on)
+         VALUES ($1, $2, current_date, current_date + 5)`,
+        [club.clubId, expired.membershipId],
+      ),
+    );
+    expect(late.constraint).toBe('club_membership_pauses_within_membership');
+    const upcoming = await sellMembership(client, club.clubId, memberId, planId, {
+      startOffsetDays: 5,
+    });
+    const early = await failure(
+      client.query(
+        `INSERT INTO club_membership_pauses (club_id, membership_id, starts_on, ends_on)
+         VALUES ($1, $2, (now() AT TIME ZONE 'Europe/Sofia')::date, (now() AT TIME ZONE 'Europe/Sofia')::date + 1)`,
+        [club.clubId, upcoming.membershipId],
+      ),
+    );
+    expect(early.constraint).toBe('club_membership_pauses_within_membership');
+  });
+
+  it("refuses to count a visit against another client's card", async () => {
+    const other = await makeMember(client, club.clubId, 'Друг член');
+    const planId = await makePlan(client, club.clubId, { kind: 'visits', visits: 5 });
+    const { membershipId } = await sellMembership(client, club.clubId, other, planId);
+    const wrong = await failure(checkIn({ membershipId }));
+    expect(wrong.code).toBe('23503');
+  });
+
+  it('never lets a desk tick carry a training log', async () => {
+    const userId = await ensureUser(client, 'balances_desk_tl');
+    const log = await client.query<{ id: string }>(
+      `INSERT INTO training_logs (user_id, sport, started_at, sofia_day, duration_s)
+       VALUES ($1, 'fitness', now(), current_date, 600) RETURNING id`,
+      [userId],
+    );
+    const result = await failure(
+      client.query(
+        `INSERT INTO club_checkins (club_id, member_id, location_id, method, recorded_by, covered, sofia_day, training_log_id)
+         VALUES ($1, $2, $3, 'desk', $4, true, (now() AT TIME ZONE 'Europe/Sofia')::date, $5)`,
+        [club.clubId, memberId, club.locationId, club.ownerId, log.rows[0]?.id],
+      ),
+    );
+    expect(result.constraint).toBe('club_checkins_only_scans_reach_the_passport');
+  });
+
+  it('admits a club training log only for a consented, linked QR check-in', async () => {
+    const userId = await ensureUser(client, 'balances_passport');
+    await client.query(
+      `INSERT INTO club_member_links (member_id, club_id, user_id, status, method)
+       VALUES ($1, $2, $3, 'active', 'invite')`,
+      [memberId, club.clubId, userId],
+    );
+    const checkin = await client.query<{ id: string }>(
+      `INSERT INTO club_checkins (club_id, member_id, location_id, method, covered, sofia_day)
+       VALUES ($1, $2, $3, 'qr_kiosk', false, (now() AT TIME ZONE 'Europe/Sofia')::date) RETURNING id`,
+      [club.clubId, memberId, club.locationId],
+    );
+    const checkinId = checkin.rows[0]?.id;
+    const insert = () =>
+      client.query<{ id: string }>(
+        `INSERT INTO training_logs (user_id, sport, started_at, sofia_day, duration_s, source, evidence, external_id)
+         VALUES ($1, 'fitness', now(), current_date, 3600, 'club', 'qr_verified', $2) RETURNING id`,
+        [userId, checkinId],
+      );
+    const noConsent = await failure(insert());
+    expect(noConsent.constraint).toBe('training_logs_club_row_is_a_checkin');
+    await client.query(
+      `UPDATE club_member_links SET passport_consent_at = now() WHERE member_id = $1`,
+      [memberId],
+    );
+    const log = await insert();
+    await client.query(`UPDATE club_checkins SET training_log_id = $1 WHERE id = $2`, [
+      log.rows[0]?.id,
+      checkinId,
+    ]);
+    // Another account cannot claim the same check-in for itself.
+    const intruder = await ensureUser(client, 'balances_intruder');
+    const stolen = await failure(
+      client.query(
+        `INSERT INTO training_logs (user_id, sport, started_at, sofia_day, duration_s, source, evidence, external_id)
+         VALUES ($1, 'fitness', now(), current_date, 3600, 'club', 'qr_verified', $2)`,
+        [intruder, checkinId],
+      ),
+    );
+    expect(stolen.constraint).toBe('training_logs_club_row_is_a_checkin');
   });
 });

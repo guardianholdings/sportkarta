@@ -58,7 +58,10 @@ export const clubs = pgTable(
     visible: boolean('visible').notNull().default(false),
     descriptionBg: text('description_bg'),
     descriptionEn: text('description_en'),
-    sports: text('sports').array().notNull().default(sql`'{}'`),
+    sports: text('sports')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
     municipalityId: integer('municipality_id').references(() => municipalities.id, {
       onDelete: 'set null',
     }),
@@ -233,7 +236,10 @@ export const clubMembers = pgTable(
     /** No date of birth anywhere — a boolean the desk ticks. */
     isMinor: boolean('is_minor').notNull().default(false),
     guardianMemberId: uuid('guardian_member_id'),
-    tags: text('tags').array().notNull().default(sql`'{}'`),
+    tags: text('tags')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
     staffNote: text('staff_note'),
     /** staff | import | self */
     source: text('source').notNull().default('staff'),
@@ -346,10 +352,7 @@ export const clubPlans = pgTable(
   },
   (t) => [
     unique('club_plans_club_id_unique').on(t.clubId, t.id),
-    check(
-      'club_plans_one_validity',
-      sql`num_nonnulls(${t.validityDays}, ${t.validityMonths}) = 1`,
-    ),
+    check('club_plans_one_validity', sql`num_nonnulls(${t.validityDays}, ${t.validityMonths}) = 1`),
   ],
 );
 
@@ -379,6 +382,7 @@ export const clubMemberships = pgTable(
   },
   (t) => [
     unique('club_memberships_club_id_unique').on(t.clubId, t.id),
+    unique('club_memberships_member_unique').on(t.clubId, t.memberId, t.id),
     foreignKey({
       name: 'club_memberships_member_fk',
       columns: [t.clubId, t.memberId],
@@ -391,7 +395,7 @@ export const clubMemberships = pgTable(
     }),
     uniqueIndex('club_memberships_one_trial')
       .on(t.memberId)
-      .where(sql`${t.kind} = 'trial' AND ${t.cancelledAt} IS NULL`),
+      .where(sql`${t.kind} = 'trial' AND ${t.cancelReason} IS DISTINCT FROM 'mistake'`),
   ],
 );
 

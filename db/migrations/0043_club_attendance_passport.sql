@@ -58,7 +58,15 @@
 -- step (normally well under a second). The FK to training_logs takes SHARE ROW
 -- EXCLUSIVE on it until COMMIT.
 --
+-- TWO DATABASE GUARANTEES BACK THE BRIDGE, so it does not rest on application
+-- code: club_checkins_only_scans_reach_the_passport (a desk/api row cannot
+-- carry a training log) and the training_logs_club_row_is_a_checkin trigger (a
+-- source='club' row must name a QR/card check-in of a consenting, linked
+-- client of that very account).
+--
 -- rollback (ONE explicit transaction, after 0044 and the application):
+--   DROP TRIGGER "training_logs_club_row_is_a_checkin" ON "training_logs";
+--   DROP FUNCTION training_logs_club_row_is_a_checkin();
 --   DROP VIEW "club_member_status"; DROP VIEW "club_membership_balances";
 --   DROP TABLE "club_checkins";            -- DESTRUCTIVE: attendance history
 --   DELETE FROM "training_logs" WHERE "source"::text = 'club';
@@ -87,6 +95,10 @@ CREATE TABLE "club_checkins" (
 	CONSTRAINT "club_checkins_recorder_matches_method" CHECK (("club_checkins"."method" IN ('qr_kiosk', 'api')) = ("club_checkins"."recorded_by" IS NULL)),
 	CONSTRAINT "club_checkins_recorder_not_blank" CHECK ("club_checkins"."recorded_by" IS NULL OR btrim("club_checkins"."recorded_by") <> ''),
 	CONSTRAINT "club_checkins_day_sane" CHECK (isfinite("club_checkins"."sofia_day") AND "club_checkins"."sofia_day" BETWEEN DATE '2020-01-01' AND DATE '2100-01-01'),
+	-- Only a scan at the club may carry a training log (the 0014
+	-- only_qr_scores pattern): a desk tick never mints qr_verified. A NULL
+	-- passes, so the training_logs SET NULL cascade can never violate it.
+	CONSTRAINT "club_checkins_only_scans_reach_the_passport" CHECK ("club_checkins"."training_log_id" IS NULL OR "club_checkins"."method" IN ('qr_kiosk', 'qr_member', 'card')),
 	CONSTRAINT "club_checkins_checked_in_finite" CHECK (isfinite("club_checkins"."checked_in_at"))
 );
 --> statement-breakpoint
@@ -139,13 +151,13 @@ CROSS JOIN LATERAL (SELECT (now() AT TIME ZONE 'Europe/Sofia')::date AS today) d
 LEFT JOIN LATERAL (
   SELECT count(*) AS used
     FROM public.club_checkins ch
-   WHERE ch.consumed_membership_id = m.id
+   WHERE ch.consumed_membership_id = m.id AND ch.club_id = m.club_id
 ) u ON true
 LEFT JOIN LATERAL (
   SELECT sum(ps.ends_on - ps.starts_on + 1) AS paused_days,
          bool_or(d.today BETWEEN ps.starts_on AND ps.ends_on) AS paused_today
     FROM public.club_membership_pauses ps
-   WHERE ps.membership_id = m.id
+   WHERE ps.club_id = m.club_id AND ps.membership_id = m.id
 ) p ON true;--> statement-breakpoint
 CREATE VIEW "club_member_status" WITH (security_invoker = true) AS
 SELECT
@@ -167,13 +179,18 @@ LEFT JOIN LATERAL (
     bool_or(b.cancel_reason IS DISTINCT FROM 'mistake') AS has_any,
     max(b.effective_ends_on) FILTER (WHERE b.state <> 'cancelled') AS last_ends_on
   FROM public.club_membership_balances b
-  WHERE b.member_id = mem.id
+  -- club_id first: club_memberships_member_idx is (club_id, member_id), so one
+  -- club's member list never scans another club's sales.
+  WHERE b.club_id = mem.club_id AND b.member_id = mem.id
 ) s ON true;--> statement-breakpoint
 ALTER TABLE "club_checkins" ADD CONSTRAINT "club_checkins_club_id_clubs_id_fk" FOREIGN KEY ("club_id") REFERENCES "public"."clubs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "club_checkins" ADD CONSTRAINT "club_checkins_member_fk" FOREIGN KEY ("club_id","member_id") REFERENCES "public"."club_members"("club_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "club_checkins" ADD CONSTRAINT "club_checkins_occurrence_fk" FOREIGN KEY ("club_id","occurrence_id") REFERENCES "public"."club_class_occurrences"("club_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "club_checkins" ADD CONSTRAINT "club_checkins_location_fk" FOREIGN KEY ("club_id","location_id") REFERENCES "public"."club_locations"("club_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "club_checkins" ADD CONSTRAINT "club_checkins_membership_fk" FOREIGN KEY ("club_id","consumed_membership_id") REFERENCES "public"."club_memberships"("club_id","id") ON DELETE set null ("consumed_membership_id") ON UPDATE no action;--> statement-breakpoint
+-- The visit counts against an abonnement of THE SAME CLIENT: the key includes
+-- member_id, so a desk picking the wrong card in a household is refused
+-- (23503) rather than silently using up somebody else's visits.
+ALTER TABLE "club_checkins" ADD CONSTRAINT "club_checkins_membership_fk" FOREIGN KEY ("club_id","member_id","consumed_membership_id") REFERENCES "public"."club_memberships"("club_id","member_id","id") ON DELETE set null ("consumed_membership_id") ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "club_checkins" ADD CONSTRAINT "club_checkins_charge_fk" FOREIGN KEY ("club_id","charge_id") REFERENCES "public"."club_charges"("club_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 COMMENT ON TABLE "club_checkins" IS 'Attendance at a club: always recorded, never refused — covered says whether an abonnement or a drop-in charge paid for it. No distance, no coordinates. A qr_kiosk/qr_member/card row for a linked member who consented also writes their training_logs row (source club, evidence qr_verified) in the same transaction; never points_ledger.';--> statement-breakpoint
 COMMENT ON COLUMN "club_checkins"."consumed_membership_id" IS 'The abonnement this visit counted against. A visit card''s remaining visits are the COUNT of rows pointing at it (club_membership_balances) — there is no counter to race on.';--> statement-breakpoint
@@ -185,5 +202,39 @@ ALTER TABLE "training_logs" DROP CONSTRAINT "training_logs_evidence_matches_sour
 	      OR ("training_logs"."source"::text NOT IN ('manual', 'club') AND "training_logs"."evidence"::text = 'connected_app'));--> statement-breakpoint
 COMMENT ON COLUMN "training_logs"."evidence" IS 'How far the row can be trusted, pinned EXACTLY by training_logs_evidence_matches_source: a manual entry is self_reported, an import is connected_app, and a club check-in is qr_verified — and each can be nothing else. 0027 removed qr_verified "because nothing could grant it"; 0043 restored it with the one thing that does: a QR or card check-in at a club desk by a member who linked their POPS account and consented (club_member_links.passport_consent_at). A desk tick never grants it.';--> statement-breakpoint
 ALTER TABLE "club_checkins" ADD CONSTRAINT "club_checkins_training_log_id_training_logs_id_fk" FOREIGN KEY ("training_log_id") REFERENCES "public"."training_logs"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+-- THE TOP EVIDENCE TIER IS NOT A STRING ANYONE CAN WRITE. 0027's lesson was
+-- that pinning evidence to a source only moves the forgery to the source
+-- column. So a training_logs row with source 'club' must BE a scan at a club:
+-- its external_id names a club_checkins row recorded by QR or card, for a
+-- client record linked (active) to THIS account, whose holder consented to the
+-- passport bridge. Checked on INSERT and whenever those columns change; never
+-- on DELETE, so no erasure cascade can be refused by it.
+CREATE FUNCTION training_logs_club_row_is_a_checkin() RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog, public
+AS $$
+BEGIN
+  IF NEW.source::text <> 'club' THEN
+    RETURN NEW;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1
+      FROM public.club_checkins c
+      JOIN public.club_member_links l ON l.club_id = c.club_id AND l.member_id = c.member_id
+     WHERE c.id::text = NEW.external_id
+       AND c.method IN ('qr_kiosk', 'qr_member', 'card')
+       AND l.user_id = NEW.user_id
+       AND l.status = 'active'
+       AND l.passport_consent_at IS NOT NULL
+  ) THEN
+    RAISE EXCEPTION 'training_logs_club_row_is_a_checkin: a club training log must be a consented QR or card check-in'
+      USING ERRCODE = 'check_violation', CONSTRAINT = 'training_logs_club_row_is_a_checkin';
+  END IF;
+  RETURN NEW;
+END;
+$$;--> statement-breakpoint
+CREATE TRIGGER "training_logs_club_row_is_a_checkin"
+BEFORE INSERT OR UPDATE OF "source", "evidence", "external_id", "user_id" ON "training_logs"
+FOR EACH ROW EXECUTE FUNCTION training_logs_club_row_is_a_checkin();--> statement-breakpoint
 SET LOCAL lock_timeout = DEFAULT;--> statement-breakpoint
 SET LOCAL statement_timeout = DEFAULT;

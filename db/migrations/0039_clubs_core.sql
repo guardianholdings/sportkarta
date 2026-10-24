@@ -24,9 +24,19 @@
 --   4. LEDGERS ARE APPEND-ONLY BY TRIGGER and carry no free text.
 --   5. NO CHECK NAMES A COLUMN THAT A `users` CASCADE NULLS (the 0009/0014
 --      trap: a CHECK like that turns GDPR erasure into a constraint violation).
---      The only users references are club_staff.user_id (CASCADE — the grant
---      leaves with the account), club_member_links.user_id (0040, CASCADE) and
---      two `granted_by`/`created_by` columns that are SET NULL and in no CHECK.
+--      The users foreign keys are: club_staff.user_id, club_member_links.user_id
+--      (0040) and club_notifications.user_id (0044), all CASCADE — the row is
+--      the person's own; and club_staff.granted_by, club_staff_invites.created_by
+--      and club_member_invites.created_by (0040), SET NULL and in no CHECK.
+--      EVERY OTHER staff id is stored BY VALUE with no FK, deliberately:
+--      club_kiosk_devices.created_by, club_memberships.sold_by,
+--      club_membership_pauses.created_by, club_charges.created_by,
+--      club_payments.recorded_by, club_classes.created_by,
+--      club_bookings.booked_by and club_checkins.recorded_by. They are records
+--      of who did something, like admin_actions.actor_id; a SET NULL on
+--      club_checkins.recorded_by would violate
+--      club_checkins_recorder_matches_method, and on charges/payments it would
+--      hit the money guards. Do not "fix" them by adding foreign keys.
 --   6. NOTHING HERE IS ON THE OPEN-DATA ALLOWED_RELATIONS
 --      (lib/src/opendata/schema.ts), and DENIED_IDENTIFIERS gains the club
 --      vocabulary in the same change.
@@ -67,12 +77,28 @@
 -- comparison is `action::text` because the values were added by 0038 in this
 -- same transaction (see 0038's header).
 --
--- Locking: every table is new. The two statements that touch existing tables:
---   * the FKs to users, municipalities, facilities and businesses take SHARE ROW
---     EXCLUSIVE on the referenced table until COMMIT (writes wait, reads do
---     not); they are placed last, before the comments.
---   * the admin_actions constraint swap takes ACCESS EXCLUSIVE on a small,
---     append-only, admin-only table and re-validates it with one scan.
+-- Locking — READ THIS BEFORE MOVING ANY STATEMENT. The migrator applies
+-- 0038–0044 in ONE transaction, so every lock below is held until the whole
+-- batch commits, and the ORDER in which the batch first touches existing
+-- tables is what decides whether it can deadlock with the application:
+--   1. account_deletions and admin_actions are locked FIRST, explicitly, at the
+--      top of this file. GDPR erasure (apps/web/lib/account-deletion.ts) takes
+--      account_deletions, then admin_actions (admin-initiated), then users; the
+--      batch must take them in that same order or an erasure landing in the
+--      same milliseconds deadlocks with the deploy (the rule 0013–0015 state).
+--      0040 alters account_deletions; the admin_actions CHECK swap is below.
+--   2. users (the FKs from club_staff here and club_member_links in 0040) after
+--      them, then training_logs (0043) — the order of erasure's own cascade.
+--   3. municipalities, facilities and businesses (FKs, SHARE ROW EXCLUSIVE:
+--      writes wait, reads do not).
+-- RESIDUAL RISK, accepted and stated: admin_actions has no cycle-free position.
+-- Suspending an account or granting an ambassador writes users BEFORE
+-- admin_actions (apps/web/lib/account-controls.ts, ambassadors.ts), the reverse
+-- of erasure. A cycle therefore needs an operator /admin action during the
+-- deploy's migrate step, and Postgres then aborts one side (the deploy goes red
+-- and is re-run, or the admin action errors and is retried) — no data is lost.
+-- OPERATOR NOTE: do not suspend accounts or grant ambassadors while this
+-- deploy's migrate step runs.
 -- lock_timeout fails the deploy fast rather than queueing behind a reader.
 --
 -- rollback (compensating SQL, ONE explicit transaction, reverse order; revert
@@ -88,6 +114,9 @@
 --   DROP FUNCTION club_slug_list_valid(text[], integer);
 SET LOCAL lock_timeout = '3s';--> statement-breakpoint
 SET LOCAL statement_timeout = '30s';--> statement-breakpoint
+-- Lock order, step 1 (see the header): the erasure path's first two tables,
+-- before anything in this batch touches users.
+LOCK TABLE "account_deletions", "admin_actions" IN ACCESS EXCLUSIVE MODE;--> statement-breakpoint
 CREATE EXTENSION IF NOT EXISTS btree_gist;--> statement-breakpoint
 -- A list of slugs (sports a club offers): each one has the shape of
 -- play_sessions.sport, at most `max_items`, no NULLs and no repeats.
@@ -346,7 +375,7 @@ COMMENT ON COLUMN "clubs"."paid_until" IS 'Last day the operator''s invoice cove
 COMMENT ON COLUMN "clubs"."visible" IS 'The owner''s own switch for the public page. The page renders only when this AND status = active AND the entitlement predicate hold (CLUB_RENDERABLE in apps/web/lib/clubs/public.ts).';--> statement-breakpoint
 COMMENT ON COLUMN "clubs"."public_email" IS 'The club''s BUSINESS contact, published by the club itself. There is deliberately no contact-person or billing-contact column: natural persons stay in the offline CRM (the partners rule, 0019).';--> statement-breakpoint
 COMMENT ON TABLE "club_locations" IS 'Where a club trains. facility_id links a map facility (the club block on its page); address is free text for a hall that is not on the map. There are deliberately NO coordinates — an address is what a club publishes, and a pin picked in the browser is never stored.';--> statement-breakpoint
-COMMENT ON TABLE "club_kiosk_devices" IS 'A tablet at a club desk showing the rotating check-in QR. Paired once with a 6-digit code (hash stored, 10 minutes); the tablet then holds a random secret in an httpOnly cookie scoped to the kiosk path and only its SHA-256 lives here. Revocation is setting revoked_at; the next refresh stops working.';--> statement-breakpoint
+COMMENT ON TABLE "club_kiosk_devices" IS 'A tablet at a club desk showing the rotating check-in QR. Paired once at /klub/<slug>/kiosk with a 6-digit code (hash salted with the club, 10 minutes, unique among the club''s live codes); the tablet then holds "<device id>~<random secret>" in an httpOnly cookie scoped to the kiosk path. Each request looks the device up by primary key and compares the SHA-256 of the secret in constant time, so secret_hash needs no index. Revocation is setting revoked_at; the next refresh stops working.';--> statement-breakpoint
 COMMENT ON TABLE "club_staff" IS 'Who works at a club and in what role (owner, manager, trainer, desk). user_id CASCADE: a grant leaves with the account. There is no last-owner trigger — it would make erasure blockable; the application refuses demoting the last owner and /admin/klubove lists ownerless clubs.';--> statement-breakpoint
 COMMENT ON COLUMN "club_staff"."pay_rate_kind" IS 'Report data only: per-head counts are computed at read time from check-ins. POPS runs no payroll and stores no amounts owed to anyone.';--> statement-breakpoint
 COMMENT ON TABLE "club_audit" IS 'The CLUB''s accountability log (who sold, refunded, exported, erased), shown to the club owner. Append-only by trigger except during a purge of that very club (pops.purging_club). actor_id and subject_member_id are carried by value so erasure cannot remove the record. No free text: detail is a small object of ids and counts written by apps/web/lib/clubs/audit.ts.';--> statement-breakpoint

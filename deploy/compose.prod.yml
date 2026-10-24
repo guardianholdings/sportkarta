@@ -103,6 +103,8 @@ services:
       CHECKIN_TOKEN_SECRET: ${CHECKIN_TOKEN_SECRET:-}
       # Headline partner strip (Stage 8). Ships off.
       PARTNER_STRIP_ENABLED: ${PARTNER_STRIP_ENABLED:-}
+      # «Клубове» add-on (Stage 9). Ships off: every club route 404s.
+      CLUBS_ENABLED: ${CLUBS_ENABLED:-}
       # Bank details on /podkrepi (lib/donations.ts). All empty = the page
       # shows no transfer box rather than a half-filled one.
       DONATION_IBAN: ${DONATION_IBAN:-}

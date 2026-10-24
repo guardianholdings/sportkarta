@@ -55,20 +55,28 @@
 --
 -- account_deletions gains two counters, so POPS's own erasure tombstone can
 -- evidence what left with the account: club_staff rows (staff grants) and
--- club_member_links rows. Inserted before the users FKs, as every counter block
--- since 0006 (the 0013 deadlock ordering).
+-- club_member_links rows.
 --
 -- Locking: three new tables (nothing contends). account_deletions takes ACCESS
 -- EXCLUSIVE for two catalogue-only ADD COLUMNs (constant defaults, PG 11+) and a
--- CHECK re-validation over a small table; the FK to users takes SHARE ROW
--- EXCLUSIVE on users until COMMIT, placed last.
+-- CHECK re-validation over a small table. THE LOCK ITSELF WAS ALREADY TAKEN at
+-- the top of 0039, before the batch touched users: the 0013 deadlock ordering
+-- (account_deletions before users) has to hold across the whole one-transaction
+-- batch, not just inside this file — see 0039's header. The FK to users here
+-- re-acquires a lock the batch already holds.
 --
 -- rollback (ONE explicit transaction; revert the application first —
 -- apps/web/lib/account-deletion.ts inserts the two counters):
 --   ALTER TABLE "account_deletions" DROP CONSTRAINT "account_deletions_counts_non_negative";
 --   ALTER TABLE "account_deletions" DROP COLUMN "club_member_links_erased";  -- DESTRUCTIVE:
 --   ALTER TABLE "account_deletions" DROP COLUMN "club_staff_erased";         -- erasure receipts
---   ALTER TABLE "account_deletions" ADD CONSTRAINT "account_deletions_counts_non_negative" CHECK (<the 0013 list>);
+--   ALTER TABLE "account_deletions" ADD CONSTRAINT "account_deletions_counts_non_negative" CHECK ("account_deletions"."audit_rows_preserved" >= 0 AND "account_deletions"."photos_anonymized" >= 0
+--             AND "account_deletions"."condition_reports_anonymized" >= 0 AND "account_deletions"."points_erased" >= 0
+--             AND "account_deletions"."moderation_decisions_preserved" >= 0 AND "account_deletions"."sessions_cancelled" >= 0
+--             AND "account_deletions"."rsvps_erased" >= 0 AND "account_deletions"."checkins_erased" >= 0
+--             AND "account_deletions"."digest_subscriptions_erased" >= 0 AND "account_deletions"."results_anonymized" >= 0
+--             AND "account_deletions"."badges_erased" >= 0 AND "account_deletions"."campaign_results_anonymized" >= 0
+--             AND "account_deletions"."session_notifications_erased" >= 0);
 --   DROP TABLE "club_member_invites", "club_member_links", "club_members";  -- DESTRUCTIVE
 --   DROP FUNCTION club_tags_valid(text[]);
 SET LOCAL lock_timeout = '3s';--> statement-breakpoint
