@@ -227,3 +227,100 @@ export async function cancelBooking(
     return { cancelled: true, late, promoted };
   });
 }
+
+export type TrialResult =
+  BookingResult | { ok: false; error: 'already_trialed' | 'claim_first' | 'link_pending' };
+
+/**
+ * A trial class booked from the public class page. The signed-in person books
+ * for THEMSELVES only: their linked record if they have one here, otherwise a
+ * new record of their own (source 'self', link method 'self') — the lead the
+ * desk follows up. Never a duplicate: when the club already keeps an
+ * unclaimed record with this verified address, the person is sent to claim
+ * it instead. One trial per person per club.
+ */
+export async function bookTrial(
+  db: TransactionalDb,
+  userId: string,
+  clubId: string,
+  occurrenceId: string,
+): Promise<TrialResult> {
+  try {
+    return await db.transaction(async (tx) => {
+      // One person's trial in one club at a time: two tabs cannot both pass
+      // the "no trial yet" check below.
+      const person = await tx.execute(sql`
+        SELECT coalesce(nullif(btrim(u.display_name), ''), split_part(u.email, '@', 1)) AS name,
+               CASE WHEN u.email_verified THEN lower(u.email) END AS email
+          FROM users u WHERE u.id = ${userId} FOR NO KEY UPDATE
+      `);
+      const me = person.rows[0];
+      if (!me) return { ok: false, error: 'not_allowed' } as const;
+      const open = await tx.execute(sql`
+        SELECT 1 FROM club_class_occurrences o JOIN club_classes k ON k.id = o.class_id
+         WHERE o.id = ${occurrenceId}::uuid AND o.club_id = ${clubId}::uuid
+           AND k.public AND k.trial_allowed AND ${clubWritableGuard(clubId)}
+      `);
+      if (open.rows.length === 0) return { ok: false, error: 'not_allowed' } as const;
+
+      const link = await tx.execute(sql`
+        SELECT member_id, status FROM club_member_links
+         WHERE club_id = ${clubId}::uuid AND user_id = ${userId}
+      `);
+      let memberId: string;
+      const existing = link.rows[0];
+      if (existing) {
+        if (existing.status === 'pending') return { ok: false, error: 'link_pending' } as const;
+        if (existing.status !== 'active') return { ok: false, error: 'not_allowed' } as const;
+        memberId = String(existing.member_id);
+      } else {
+        const email = me.email === null || me.email === undefined ? null : String(me.email);
+        if (email) {
+          const unclaimed = await tx.execute(sql`
+            SELECT 1 FROM club_members m
+             WHERE m.club_id = ${clubId}::uuid AND m.email = ${email} AND m.archived_at IS NULL
+               AND NOT EXISTS (SELECT 1 FROM club_member_links l WHERE l.member_id = m.id)
+          `);
+          if (unclaimed.rows.length > 0) return { ok: false, error: 'claim_first' } as const;
+        }
+        const created = await tx.execute(sql`
+          INSERT INTO club_members (club_id, display_name, email, source)
+          VALUES (${clubId}::uuid, ${String(me.name).slice(0, 120)}, ${email}, 'self')
+          RETURNING id
+        `);
+        memberId = String(created.rows[0]?.id);
+        await tx.execute(sql`
+          INSERT INTO club_member_links (member_id, club_id, user_id, status, method)
+          VALUES (${memberId}::uuid, ${clubId}::uuid, ${userId}, 'active', 'self')
+        `);
+        await recordClubAudit(tx, {
+          clubId,
+          by: { kind: 'member', userId },
+          action: 'member_created',
+          subjectMemberId: memberId,
+          detail: { source: 'self' },
+        });
+      }
+
+      const tried = await tx.execute(sql`
+        SELECT 1 FROM club_bookings
+         WHERE club_id = ${clubId}::uuid AND member_id = ${memberId}::uuid AND is_trial
+      `);
+      if (tried.rows.length > 0) return { ok: false, error: 'already_trialed' } as const;
+      const bookingId = await upsertBooking(tx, clubId, occurrenceId, memberId, null, true);
+      if (!bookingId) return { ok: false, error: 'already' } as const;
+      await recordClubAudit(tx, {
+        clubId,
+        by: { kind: 'member', userId },
+        action: 'booking_created',
+        subjectMemberId: memberId,
+        detail: { occurrenceId, trial: true },
+      });
+      return { ok: true, bookingId, status: await statusOf(tx, bookingId) } as const;
+    });
+  } catch (error: unknown) {
+    const mapped = bookingErrorCode(error);
+    if (mapped) return mapped;
+    throw error;
+  }
+}

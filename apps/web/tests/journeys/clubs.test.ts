@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { deleteAccount } from '@/lib/account-deletion';
 import { approveClub, setClubStatus } from '@/lib/clubs/admin';
 import { applyForClub } from '@/lib/clubs/apply';
-import { bookAtDesk, cancelBooking } from '@/lib/clubs/bookings';
+import { bookAtDesk, bookTrial, cancelBooking } from '@/lib/clubs/bookings';
 import { clubCheckIn, todaysCheckins } from '@/lib/clubs/checkin';
 import { clubExportCsv } from '@/lib/clubs/export';
 import { activeByMonth, atRiskMembers, classFillRates, revenueByMonth } from '@/lib/clubs/reports';
@@ -38,9 +38,15 @@ import {
   sellMembership,
 } from '@/lib/clubs/sales';
 import { memberClubs, portalView } from '@/lib/clubs/portal';
+import { publicClub, publicClubDirectory, publicOccurrence } from '@/lib/clubs/public';
 import { occurrenceRoster, saveClass, weekOccurrences } from '@/lib/clubs/schedule';
 import type { ClubActor } from '@/lib/clubs/scope';
-import { clubLocations, saveLocation, updateClubSettings } from '@/lib/clubs/settings';
+import {
+  clubLocations,
+  saveLocation,
+  setClubVisible,
+  updateClubSettings,
+} from '@/lib/clubs/settings';
 import { acceptStaffInvite, inviteStaff } from '@/lib/clubs/staff';
 import { unsubscribe, unsubscribeTarget } from '@/lib/clubs/unsubscribe';
 
@@ -488,6 +494,32 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
     expect(await unsubscribe(String(token))).toBe(true);
     expect(await unsubscribeTarget(String(token), 'bg')).toMatchObject({ optedOut: true });
     expect(await unsubscribe('0'.repeat(32))).toBe(false);
+  });
+
+  it('shows only a published club in public, and books a stranger’s trial once', async () => {
+    expect((await publicClubDirectory('bg')).map((c) => c.slug)).not.toContain(slug);
+    expect(await publicClub(slug, 'bg')).toBeNull();
+    expect(await setClubVisible(db, owner, true)).toBe(true);
+    expect((await publicClubDirectory('bg')).map((c) => c.slug)).toContain(slug);
+    const page = await publicClub(slug, 'bg');
+    expect(page?.classes.map((c) => c.occurrenceId)).toContain(occurrenceId);
+    expect(page?.plans.length).toBeGreaterThanOrEqual(1);
+    expect(await publicOccurrence(slug, occurrenceId, 'bg')).toMatchObject({
+      title: 'Йога сутрин',
+      trialAllowed: true,
+      cancelled: false,
+    });
+
+    const visitor = await user('visitor');
+    const first = await bookTrial(db, visitor, clubId, occurrenceId);
+    expect(first.ok).toBe(true);
+    expect(await bookTrial(db, visitor, clubId, occurrenceId)).toEqual({
+      ok: false,
+      error: 'already_trialed',
+    });
+    const own = await portalView(visitor, slug, 'bg');
+    expect(own?.link?.status).toBe('active');
+    expect(own?.records).toHaveLength(1);
   });
 
   it('offers an email-matched record for claiming', async () => {
