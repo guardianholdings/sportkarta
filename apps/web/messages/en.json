@@ -3287,7 +3287,9 @@
       "already_linked": "The record is already linked to an account.",
       "already_pending": "You already have an application under review.",
       "too_many": "This account owns the maximum number of clubs.",
-      "rate_limited": "Too many attempts. Try again in a few minutes."
+      "rate_limited": "Too many attempts. Try again in a few minutes.",
+      "opted_out": "This member unsubscribed from the club's email, so no invitation is sent. They can link the record themselves from “Clubs” in their POPS profile.",
+      "recently_invited": "An invitation was already sent in the last 24 hours."
     }
   },
   "ClubSettings": {

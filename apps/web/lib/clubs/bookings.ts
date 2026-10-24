@@ -265,7 +265,7 @@ export async function bookTrial(
 
       const link = await tx.execute(sql`
         SELECT member_id, status FROM club_member_links
-         WHERE club_id = ${clubId}::uuid AND user_id = ${userId}
+         WHERE club_id = ${clubId}::uuid AND user_id = ${userId} AND status <> 'declined'
       `);
       let memberId: string;
       const existing = link.rows[0];

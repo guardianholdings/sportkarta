@@ -226,6 +226,8 @@ export async function acceptStaffInvite(
       INSERT INTO club_staff (club_id, user_id, role)
       VALUES (${clubId}::uuid, ${userId}, ${String(row.role)})
       ON CONFLICT (club_id, user_id) DO UPDATE SET role = EXCLUDED.role
+       -- An owner is never demoted by accepting an older invitation.
+       WHERE club_staff.role <> 'owner'
     `);
     await tx.execute(
       sql`UPDATE club_staff_invites SET accepted_at = now() WHERE id = ${String(row.id)}::uuid`,
@@ -243,6 +245,21 @@ export async function acceptStaffInvite(
   });
 }
 
+/**
+ * Lock every owner row of the club, in one order, BEFORE the last-owner
+ * check: two co-owners leaving or demoting each other at the same instant
+ * would otherwise each see the other still standing and both succeed. The
+ * second transaction waits here, then its check runs on a fresh snapshot.
+ */
+async function lockOwners(tx: SqlRunner, clubId: string): Promise<void> {
+  await tx.execute(sql`
+    SELECT user_id FROM club_staff
+     WHERE club_id = ${clubId}::uuid AND role = 'owner'
+     ORDER BY user_id
+     FOR UPDATE
+  `);
+}
+
 const OTHER_OWNER_REMAINS = (clubId: string, userId: string) => sql`EXISTS (
   SELECT 1 FROM club_staff o
    WHERE o.club_id = ${clubId}::uuid AND o.role = 'owner' AND o.user_id <> ${userId})`;
@@ -257,6 +274,7 @@ export async function changeStaffRole(
   role: ClubRole,
 ): Promise<StaffChangeResult> {
   return db.transaction(async (tx) => {
+    await lockOwners(tx, actor.clubId);
     const current = await tx.execute(sql`
       SELECT role FROM club_staff WHERE club_id = ${actor.clubId}::uuid AND user_id = ${userId}
        FOR UPDATE
@@ -292,6 +310,7 @@ export async function removeStaff(
   userId: string,
 ): Promise<StaffChangeResult> {
   return db.transaction(async (tx) => {
+    await lockOwners(tx, actor.clubId);
     const current = await tx.execute(sql`
       SELECT role FROM club_staff WHERE club_id = ${actor.clubId}::uuid AND user_id = ${userId}
        FOR UPDATE

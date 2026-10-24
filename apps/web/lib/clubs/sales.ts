@@ -184,6 +184,14 @@ export async function sellMembership(
 ): Promise<SaleResult> {
   try {
     return await db.transaction(async (tx) => {
+      // A capped (community) club serialises its sales on the club row, in a
+      // statement of its own, so the count below runs on a snapshot taken
+      // AFTER any concurrent sale committed — two desks cannot both sell the
+      // last place under the cap.
+      await tx.execute(sql`
+        SELECT 1 FROM clubs WHERE id = ${actor.clubId}::uuid AND member_cap IS NOT NULL
+           FOR NO KEY UPDATE
+      `);
       const found = await tx.execute(sql`
         SELECT p.name_bg, p.kind, p.audience, p.price_cents, p.validity_days, p.validity_months,
                p.visits_count, m.is_minor,

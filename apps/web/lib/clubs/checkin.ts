@@ -121,12 +121,14 @@ export async function clubCheckIn(
     let linkUserId: string | null = null;
     if (request.method === 'qr_kiosk') {
       const linked = await tx.execute(sql`
-        SELECT member_id FROM club_member_links
+        SELECT member_id, (passport_consent_at IS NOT NULL) AS consent FROM club_member_links
          WHERE club_id = ${clubId}::uuid AND user_id = ${request.userId} AND status = 'active'
       `);
       memberId = text(linked.rows[0]?.member_id);
       if (!memberId) return { status: 'not_linked' };
-      linkUserId = request.userId;
+      // The passport bridge is opt-in: without consent the visit is recorded
+      // and nothing reaches training_logs (whose 0043 trigger would refuse it).
+      linkUserId = linked.rows[0]?.consent === true ? request.userId : null;
     } else {
       const allowed = await tx.execute(sql`
         SELECT 1 AS ok WHERE ${clubActorMay(request.actor, 'attendance.record', { write: true })}

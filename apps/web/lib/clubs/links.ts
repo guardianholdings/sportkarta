@@ -31,7 +31,13 @@ function text(value: unknown): string | null {
 
 export type LinkInviteResult =
   | { ok: true; inviteId: string }
-  | { ok: false; error: 'no_email' | 'already_linked' | 'not_allowed' };
+  | {
+      ok: false;
+      error: 'no_email' | 'already_linked' | 'not_allowed' | 'opted_out' | 'recently_invited';
+    };
+
+/** One invitation per record per day: a desk cannot turn «Покани» into a mailer. */
+export const MEMBER_INVITE_COOLDOWN_HOURS = 24;
 
 /** The desk invites a record's address; the worker mails the token. */
 export async function inviteMemberToLink(
@@ -40,17 +46,26 @@ export async function inviteMemberToLink(
   memberId: string,
 ): Promise<LinkInviteResult> {
   return db.transaction(async (tx) => {
+    // Locked, so two quick presses cannot both pass the cooldown below.
     const member = await tx.execute(sql`
-      SELECT m.email, m.is_minor,
-             EXISTS (SELECT 1 FROM club_member_links l WHERE l.member_id = m.id AND l.status = 'active') AS linked
+      SELECT m.email, m.is_minor, (m.email_opt_out_at IS NOT NULL) AS opted_out,
+             EXISTS (SELECT 1 FROM club_member_links l WHERE l.member_id = m.id AND l.status = 'active') AS linked,
+             EXISTS (SELECT 1 FROM club_member_invites i
+                      WHERE i.club_id = m.club_id AND i.member_id = m.id
+                        AND i.created_at > now() - make_interval(hours => ${MEMBER_INVITE_COOLDOWN_HOURS}::int))
+               AS recent
         FROM club_members m
        WHERE m.id = ${memberId}::uuid AND ${clubWriteScope(actor, 'members.manage', 'm')}
+       FOR NO KEY UPDATE OF m
     `);
     const row = member.rows[0];
     if (!row) return { ok: false, error: 'not_allowed' } as const;
     if (row.linked === true) return { ok: false, error: 'already_linked' } as const;
     const email = text(row.email);
     if (!email || row.is_minor === true) return { ok: false, error: 'no_email' } as const;
+    // A one-click opt-out covers invitations too: the address asked for silence.
+    if (row.opted_out === true) return { ok: false, error: 'opted_out' } as const;
+    if (row.recent === true) return { ok: false, error: 'recently_invited' } as const;
     // A fresh invite replaces any still-open one for this record.
     await tx.execute(sql`
       UPDATE club_member_invites SET revoked_at = now()

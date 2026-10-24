@@ -8,6 +8,7 @@ import {
 } from '@sportkarta/db';
 import { addDaysIso, isoWeekKey, isoWeekMonday, sofiaToday } from '@sportkarta/lib/clubs';
 import { generateInviteToken, sha256Hex } from '@sportkarta/lib/clubs/secrets';
+import { parseCsv } from '@sportkarta/lib/csv';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { deleteAccount } from '@/lib/account-deletion';
@@ -16,7 +17,7 @@ import { approveClub, setClubStatus } from '@/lib/clubs/admin';
 import { applyForClub } from '@/lib/clubs/apply';
 import { bookAtDesk, bookTrial, cancelBooking } from '@/lib/clubs/bookings';
 import { clubCheckIn, todaysCheckins } from '@/lib/clubs/checkin';
-import { clubExportCsv } from '@/lib/clubs/export';
+import { CLUB_EXPORT_DATASETS, clubExportCsv } from '@/lib/clubs/export';
 import { activeByMonth, atRiskMembers, classFillRates, revenueByMonth } from '@/lib/clubs/reports';
 import {
   createKioskDevice,
@@ -489,6 +490,17 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
     expect(csv).toContain('Мария Журни');
     expect(csv).not.toContain(String(token));
     expect(csv).not.toContain(memberUser);
+    // Every dataset exports, and every cell sits under its own header — the
+    // email column holds the email, not a timestamp shifted into it.
+    const members = parseCsv(csv.replace(/^\uFEFF/, ''));
+    const col = (name: string) => members.headers.indexOf(name);
+    const maria = members.rows.find((row) => row[col('name')] === 'Мария Журни');
+    expect(maria?.[col('email')]).toBe(`${memberUser}@example.org`);
+    expect(maria?.[col('is_minor')]).toBe('false');
+    for (const dataset of CLUB_EXPORT_DATASETS) {
+      const parsed = parseCsv((await clubExportCsv(owner, dataset)).replace(/^\uFEFF/, ''));
+      expect(parsed.headers.length, dataset).toBeGreaterThan(2);
+    }
     const exported = await db.execute(
       sql`SELECT count(*)::int AS n FROM club_audit WHERE club_id = ${clubId}::uuid AND action = 'export_downloaded'`,
     );
@@ -534,6 +546,11 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
       ok: false,
       error: 'already_trialed',
     });
+    // A linked member WITHOUT passport consent (every trial lead) still checks
+    // in at the kiosk — recorded, nothing written to the passport.
+    expect(
+      await clubCheckIn(db, { method: 'qr_kiosk', userId: visitor, clubId, locationId }),
+    ).toMatchObject({ status: 'recorded', passport: false });
     const own = await portalView(visitor, slug, 'bg');
     expect(own?.link?.status).toBe('active');
     expect(own?.records).toHaveLength(1);
@@ -541,7 +558,7 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
 
   it('offers an email-matched record for claiming', async () => {
     const newcomer = await user('newcomer');
-    await createMember(db, desk, {
+    const record = await createMember(db, desk, {
       displayName: 'Нов Член',
       email: `${newcomer}@example.org`,
       phone: null,
@@ -552,6 +569,25 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
     });
     const claimable = await claimableRecords(newcomer);
     expect(claimable.map((r) => r.memberName)).toEqual(['Нов Член']);
+
+    // «Покани» is not a mailer: one invitation a day, none after an opt-out.
+    if (!record.ok) throw new Error('record');
+    expect((await inviteMemberToLink(db, desk, record.memberId)).ok).toBe(true);
+    expect(await inviteMemberToLink(db, desk, record.memberId)).toEqual({
+      ok: false,
+      error: 'recently_invited',
+    });
+    await db.execute(sql`
+      UPDATE club_member_invites
+         SET created_at = created_at - interval '2 days', expires_at = expires_at - interval '2 days'
+       WHERE member_id = ${record.memberId}::uuid`);
+    await db.execute(
+      sql`UPDATE club_members SET email_opt_out_at = now() WHERE id = ${record.memberId}::uuid`,
+    );
+    expect(await inviteMemberToLink(db, desk, record.memberId)).toEqual({
+      ok: false,
+      error: 'opted_out',
+    });
   });
 
   it('erases on both sides without losing the books, and stops when suspended', async () => {

@@ -40,6 +40,8 @@ const UNSCOPED_BY_DESIGN: Record<string, string> = {
   'links.ts:setLinkPreference': "the member's own link only (user_id in the WHERE)",
   'links.ts:requestErasure': "the member's own linked record only (user_id in the EXISTS)",
   'staff.ts:acceptStaffInvite': "invite token + the account's verified email",
+  'staff.ts:lockOwners':
+    'a row LOCK (FOR UPDATE), not a write — taken inside changeStaffRole/removeStaff, which are scoped',
   'unsubscribe.ts:unsubscribe':
     'the per-record opt-out token is the authority and grants nothing else',
 };
