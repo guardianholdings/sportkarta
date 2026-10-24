@@ -492,7 +492,6 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
     expect(csv.split('\r\n')[0]).toContain('name,email,phone');
     expect(csv).toContain('Мария Журни');
     expect(csv).not.toContain(String(token));
-    expect(csv).not.toContain(memberUser);
     // Every dataset exports, and every cell sits under its own header — the
     // email column holds the email, not a timestamp shifted into it.
     const members = parseCsv(csv.replace(/^\uFEFF/, ''));
@@ -500,6 +499,9 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
     const maria = members.rows.find((row) => row[col('name')] === 'Мария Журни');
     expect(maria?.[col('email')]).toBe(`${memberUser}@example.org`);
     expect(maria?.[col('is_minor')]).toBe('false');
+    // No POPS account id leaves in an export (the fixture's address merely
+    // contains it, so the check is per cell, not per substring).
+    expect(members.rows.flat()).not.toContain(memberUser);
     for (const dataset of CLUB_EXPORT_DATASETS) {
       const parsed = parseCsv((await clubExportCsv(owner, dataset)).replace(/^\uFEFF/, ''));
       expect(parsed.headers.length, dataset).toBeGreaterThan(2);
