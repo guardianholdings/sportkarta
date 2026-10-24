@@ -1,0 +1,671 @@
+import { readFileSync } from 'node:fs';
+
+import {
+  bookingsForMail,
+  cancelledOccurrenceBookings,
+  claimClubNotification,
+  clubForMail,
+  clubWeekFigures,
+  dueClubReminders,
+  expiryCandidates,
+  getDb,
+  inviteForMail,
+  memberForStaffMail,
+  memberRecipient,
+  operatorRecipients,
+  recordClubMonthlyActivity,
+  setInviteTokenHash,
+  staffRecipients,
+  trainerClassesOn,
+  type ClubBookingMail,
+  type ClubMailClub,
+  type ClubMemberRecipient,
+  type StaffRecipient,
+} from '@sportkarta/db';
+import {
+  CLUB_ROLES,
+  addDaysIso,
+  dedupeKey,
+  formatEuro,
+  isoWeekKey,
+  isoWeekMonday,
+  monthStart,
+  parseClubNotifyJob,
+  rolesWith,
+  sofiaToday,
+  type ClubNotifyJob,
+  type ClubRole,
+} from '@sportkarta/lib/clubs';
+import { generateInviteToken, sha256Hex } from '@sportkarta/lib/clubs/secrets';
+import {
+  CLUB_MAIL_KINDS,
+  deliverEach,
+  emptyDeliveryReport,
+  fillClubTemplate,
+  renderClubMail,
+  type ClubMailData,
+  type ClubMailKind,
+  type ClubMailStrings,
+  type DeliveryOutcome,
+  type DeliveryReport,
+  type Mailer,
+} from '@sportkarta/lib/email';
+
+/**
+ * Club mail (docs/ROADMAP.md Stage 9): invitations, booking notices,
+ * reminders, abonnement expiry, applications, the desk's to-dos and the
+ * staff digests. ALL SENDING HAPPENS HERE; the web app enqueues ids only.
+ *
+ * Every send is CLAIM-THEN-SEND in one transaction against
+ * club_notifications (UNIQUE (club_id, dedupe_key), keys from one builder),
+ * so a retry or an overlapping sweep mails nobody twice, and a failed send
+ * rolls its claim back to be tried again. The recipient rules — linked
+ * members at their POPS address, unlinked records only on the club's
+ * instruction and never after an opt-out, minors never, through the
+ * guardian — live in @sportkarta/db's `memberRecipient`.
+ *
+ * INVITATION TOKENS ARE MINTED HERE, at send time: the web app stores a
+ * placeholder digest, the job writes the digest of a fresh token in the same
+ * transaction as the send, and the token itself exists only in the message.
+ * A job row never holds a credential.
+ *
+ * NO PII IN LOGS: the caller logs counts; deliverEach logs error categories.
+ */
+
+type Messages = Record<string, unknown>;
+const MESSAGES_BY_LOCALE = new Map<string, Messages>();
+
+function messages(locale: string): Messages {
+  const cached = MESSAGES_BY_LOCALE.get(locale);
+  if (cached) return cached;
+  const url = new URL(`../../../apps/web/messages/${locale}.json`, import.meta.url);
+  const parsed = JSON.parse(readFileSync(url, 'utf8')) as Messages;
+  MESSAGES_BY_LOCALE.set(locale, parsed);
+  return parsed;
+}
+
+/** A nested message, or a throw: a missing key must not ship as a subject. */
+function pick(locale: string, path: string): string {
+  let node: unknown = messages(locale).ClubEmail;
+  for (const part of path.split('.')) {
+    node = node && typeof node === 'object' ? (node as Record<string, unknown>)[part] : undefined;
+  }
+  if (typeof node !== 'string' || node === '') {
+    throw new Error(`ClubEmail.${path} is missing from messages/${locale}.json`);
+  }
+  return node;
+}
+
+function perKind(locale: string, group: string): Record<ClubMailKind, string> {
+  return Object.fromEntries(
+    CLUB_MAIL_KINDS.map((kind) => [kind, pick(locale, `${group}.${kind}`)]),
+  ) as Record<ClubMailKind, string>;
+}
+
+export function clubMailStrings(locale: string): ClubMailStrings {
+  return {
+    locale,
+    subject: perKind(locale, 'subject'),
+    lead: perKind(locale, 'lead'),
+    action: perKind(locale, 'action'),
+    greeting: pick(locale, 'greeting'),
+    greetingNoName: pick(locale, 'greetingNoName'),
+    labelWhen: pick(locale, 'labelWhen'),
+    labelWhere: pick(locale, 'labelWhere'),
+    footer: pick(locale, 'footer'),
+    unsubscribe: pick(locale, 'unsubscribe'),
+  };
+}
+
+/** «12 октомври 2026 г.» / "12 October 2026" for a civil date. */
+function formatCivilDate(date: string, locale: string): string {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  return new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'bg', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(y, m - 1, d, 12)));
+}
+
+export interface ClubMailOptions {
+  mailer: Mailer;
+  /** Absolute site base, e.g. https://pops.bg. */
+  siteUrl: string;
+}
+
+function siteBase(options: ClubMailOptions, locale: string): string {
+  return `${options.siteUrl.replace(/\/+$/, '')}${locale === 'en' ? '/en' : ''}`;
+}
+
+const db = () => getDb();
+
+// ─── Member mail ────────────────────────────────────────────────────────────
+
+interface MemberMail {
+  kind: ClubMailKind;
+  clubId: string;
+  memberId: string;
+  key: string;
+  values?: Record<string, string | number>;
+  startsAtLocal?: string;
+  where?: string;
+}
+
+/**
+ * Resolve, claim, render, send — one transaction. The link a linked member
+ * gets is their portal; an unlinked one has no account to sign in with, so
+ * theirs is the club's public page.
+ */
+async function sendToMember(mail: MemberMail, options: ClubMailOptions): Promise<DeliveryOutcome> {
+  return db().transaction(async (tx) => {
+    const recipient = await memberRecipient(tx, mail.clubId, mail.memberId);
+    if (!recipient) return 'skipped';
+    const claimed = await claimClubNotification(tx, {
+      clubId: mail.clubId,
+      memberId: mail.memberId,
+      kind: mail.kind,
+      key: mail.key,
+    });
+    if (!claimed) return 'skipped';
+    await options.mailer.send(memberMessage(recipient, mail, options));
+    return 'sent';
+  });
+}
+
+function memberMessage(recipient: ClubMemberRecipient, mail: MemberMail, options: ClubMailOptions) {
+  const base = siteBase(options, recipient.locale);
+  const root = options.siteUrl.replace(/\/+$/, '');
+  const data: ClubMailData = {
+    kind: mail.kind,
+    clubName: recipient.clubName,
+    recipientName: recipient.recipientName,
+    values: { name: recipient.aboutName, ...(mail.values ?? {}) },
+    startsAtLocal: mail.startsAtLocal,
+    where: mail.where,
+    actionUrl: recipient.linked
+      ? `${base}/klub/${recipient.clubSlug}/az`
+      : `${base}/klub/${recipient.clubSlug}`,
+    replyTo: recipient.replyTo,
+    ...(recipient.unsubscribeToken
+      ? {
+          unsubscribePageUrl: `${base}/klubove/otpisvane/${recipient.unsubscribeToken}`,
+          unsubscribePostUrl: `${root}/api/clubs/otpisvane/${recipient.unsubscribeToken}`,
+        }
+      : {}),
+  };
+  return { ...renderClubMail(data, clubMailStrings(recipient.locale)), to: recipient.email };
+}
+
+function bookingMail(
+  kind: 'booking_confirmed' | 'booking_promoted' | 'booking_cancelled',
+  booking: ClubBookingMail,
+): MemberMail {
+  return {
+    kind,
+    clubId: booking.clubId,
+    memberId: booking.memberId,
+    key: dedupeKey({
+      kind,
+      occurrenceId: booking.occurrenceId,
+      memberId: booking.memberId,
+      seq: booking.seq,
+    }),
+    values: { title: booking.title },
+    startsAtLocal: booking.startsAtLocal,
+    where: booking.locationName,
+  };
+}
+
+/**
+ * Whether a booking notice is still TRUE when the job runs — a confirmation
+ * for a booking cancelled a minute later is worse than silence.
+ */
+function stillApplies(kind: ClubMailKind, booking: ClubBookingMail): boolean {
+  switch (kind) {
+    case 'booking_confirmed':
+    case 'booking_promoted':
+    case 'reminder_24h':
+      return booking.status === 'going' && !booking.occurrenceCancelled;
+    case 'booking_cancelled':
+      return booking.status === null;
+    default:
+      return true;
+  }
+}
+
+async function deliverBookings(
+  kind: 'booking_confirmed' | 'booking_promoted' | 'booking_cancelled',
+  bookingIds: string[],
+  options: ClubMailOptions,
+): Promise<DeliveryReport> {
+  const bookings = await bookingsForMail(db(), bookingIds);
+  return deliverEach(
+    bookings,
+    async (booking) =>
+      stillApplies(kind, booking) ? sendToMember(bookingMail(kind, booking), options) : 'skipped',
+    { job: 'club.notify' },
+  );
+}
+
+// ─── Staff and operator mail ────────────────────────────────────────────────
+
+interface StaffMail {
+  kind: ClubMailKind;
+  club: ClubMailClub;
+  recipient: StaffRecipient;
+  key: string;
+  /** The ledger's recipient column; null skips the ledger (see staff invites). */
+  ledgerUserId: string | null;
+  actionUrl: string;
+  values?: Record<string, string | number>;
+  details?: string[];
+  /** Mail in the club's language, or this one (operator mail is Bulgarian). */
+  locale?: 'bg' | 'en';
+}
+
+async function sendToStaff(mail: StaffMail, options: ClubMailOptions): Promise<DeliveryOutcome> {
+  return db().transaction(async (tx) => {
+    if (mail.ledgerUserId) {
+      const claimed = await claimClubNotification(tx, {
+        clubId: mail.club.clubId,
+        userId: mail.ledgerUserId,
+        kind: mail.kind,
+        key: mail.key,
+      });
+      if (!claimed) return 'skipped';
+    }
+    const locale = mail.locale ?? mail.club.locale;
+    const message = renderClubMail(
+      {
+        kind: mail.kind,
+        clubName: mail.club.clubName,
+        recipientName: mail.recipient.name,
+        values: mail.values,
+        details: mail.details,
+        actionUrl: mail.actionUrl,
+      },
+      clubMailStrings(locale),
+    );
+    await options.mailer.send({ ...message, to: mail.recipient.email });
+    return 'sent';
+  });
+}
+
+/**
+ * An invitation: lock it, mint a token, store its digest, mail the token —
+ * one transaction. A staff invitation is addressed to a person who may have
+ * no account yet, so its ledger row names the INVITER (the only account in
+ * the story); an invitation whose inviter has since left is sent unledgered.
+ */
+async function sendInvite(
+  kind: 'staff_invite' | 'member_invite',
+  inviteId: string,
+  options: ClubMailOptions,
+): Promise<DeliveryOutcome> {
+  const table = kind === 'staff_invite' ? 'club_staff_invites' : 'club_member_invites';
+  return db().transaction(async (tx) => {
+    const invite = await inviteForMail(tx, table, inviteId);
+    if (!invite) return 'skipped';
+    const club = await clubForMail(tx, invite.clubId);
+    if (!club) return 'skipped';
+    const key = dedupeKey({ kind, inviteId });
+    const ledger =
+      kind === 'member_invite'
+        ? { memberId: invite.memberId }
+        : invite.createdBy
+          ? { userId: invite.createdBy }
+          : null;
+    if (ledger) {
+      const claimed = await claimClubNotification(tx, {
+        clubId: club.clubId,
+        ...ledger,
+        kind,
+        key,
+      });
+      if (!claimed) return 'skipped';
+    }
+    const token = generateInviteToken();
+    await setInviteTokenHash(tx, table, invite.inviteId, sha256Hex(token));
+    const strings = clubMailStrings(club.locale);
+    const roleName =
+      invite.role && (CLUB_ROLES as readonly string[]).includes(invite.role)
+        ? pick(club.locale, `roleName.${invite.role}`)
+        : '';
+    const message = renderClubMail(
+      {
+        kind,
+        clubName: club.clubName,
+        recipientName: invite.memberName ?? '',
+        values: { role: roleName, name: invite.memberName ?? '' },
+        actionUrl: `${siteBase(options, club.locale)}/klubove/pokana/${token}`,
+        replyTo: club.replyTo,
+      },
+      strings,
+    );
+    await options.mailer.send({ ...message, to: invite.email });
+    return 'sent';
+  });
+}
+
+async function staffOf(clubId: string, roles: readonly ClubRole[]) {
+  return staffRecipients(db(), clubId, roles);
+}
+
+// ─── club.notify ────────────────────────────────────────────────────────────
+
+/**
+ * Handle one `club.notify` job. The payload is re-validated by
+ * parseClubNotifyJob before anything reaches a query.
+ */
+export async function runClubNotify(
+  data: unknown,
+  options: ClubMailOptions,
+): Promise<{ kind: ClubNotifyJob['kind'] | 'invalid'; report: DeliveryReport }> {
+  const job = parseClubNotifyJob(data);
+  if (!job) return { kind: 'invalid', report: emptyDeliveryReport() };
+  const run = { job: 'club.notify' };
+  const base = (club: ClubMailClub, locale: 'bg' | 'en' = club.locale) =>
+    `${siteBase(options, locale)}/klub/${club.clubSlug}`;
+
+  switch (job.kind) {
+    case 'staff_invite':
+    case 'member_invite':
+      return {
+        kind: job.kind,
+        report: await deliverEach([job.inviteId], (id) => sendInvite(job.kind, id, options), run),
+      };
+    case 'booking_confirmed':
+    case 'booking_cancelled':
+      return {
+        kind: job.kind,
+        report: await deliverBookings(job.kind, [job.bookingId], options),
+      };
+    case 'booking_promoted':
+      return {
+        kind: job.kind,
+        report: await deliverBookings('booking_promoted', job.bookingIds, options),
+      };
+    case 'class_cancelled': {
+      const bookings = await cancelledOccurrenceBookings(db(), job.occurrenceIds);
+      const report = await deliverEach(
+        bookings,
+        (booking) =>
+          sendToMember(
+            {
+              kind: 'class_cancelled',
+              clubId: booking.clubId,
+              memberId: booking.memberId,
+              key: dedupeKey({
+                kind: 'class_cancelled',
+                occurrenceId: booking.occurrenceId,
+                memberId: booking.memberId,
+              }),
+              values: { title: booking.title },
+              startsAtLocal: booking.startsAtLocal,
+              where: booking.locationName,
+            },
+            options,
+          ),
+        run,
+      );
+      return { kind: job.kind, report };
+    }
+    case 'application_received': {
+      const club = await clubForMail(db(), job.clubId);
+      if (!club) return { kind: job.kind, report: emptyDeliveryReport() };
+      const owners = await staffOf(club.clubId, ['owner']);
+      const operators = await operatorRecipients(db());
+      const mails: StaffMail[] = [
+        ...owners.map((recipient) => ({
+          kind: 'application_received' as const,
+          club,
+          recipient,
+          key: dedupeKey({
+            kind: 'application_received',
+            clubId: club.clubId,
+            userId: recipient.userId,
+          }),
+          ledgerUserId: recipient.userId,
+          actionUrl: `${base(club)}/tablo`,
+        })),
+        ...operators.map((recipient) => ({
+          kind: 'operator_new_application' as const,
+          club,
+          recipient,
+          key: dedupeKey({
+            kind: 'operator_new_application',
+            clubId: club.clubId,
+            userId: recipient.userId,
+          }),
+          ledgerUserId: recipient.userId,
+          actionUrl: `${options.siteUrl.replace(/\/+$/, '')}/admin/klubove/${club.clubSlug}`,
+          locale: 'bg' as const,
+        })),
+      ];
+      return {
+        kind: job.kind,
+        report: await deliverEach(mails, (mail) => sendToStaff(mail, options), run),
+      };
+    }
+    case 'application_approved': {
+      const club = await clubForMail(db(), job.clubId);
+      if (!club) return { kind: job.kind, report: emptyDeliveryReport() };
+      const owners = await staffOf(club.clubId, ['owner']);
+      return {
+        kind: job.kind,
+        report: await deliverEach(
+          owners,
+          (recipient) =>
+            sendToStaff(
+              {
+                kind: 'application_approved',
+                club,
+                recipient,
+                key: dedupeKey({
+                  kind: 'application_approved',
+                  clubId: club.clubId,
+                  userId: recipient.userId,
+                }),
+                ledgerUserId: recipient.userId,
+                actionUrl: `${base(club)}/tablo`,
+              },
+              options,
+            ),
+          run,
+        ),
+      };
+    }
+    case 'claim_pending':
+    case 'erasure_requested': {
+      const member = await memberForStaffMail(db(), job.memberId);
+      const club = member ? await clubForMail(db(), member.clubId) : null;
+      if (!member || !club) return { kind: job.kind, report: emptyDeliveryReport() };
+      const roles = rolesWith(job.kind === 'claim_pending' ? 'members.manage' : 'members.erase');
+      const staff = await staffOf(club.clubId, roles);
+      return {
+        kind: job.kind,
+        report: await deliverEach(
+          staff,
+          (recipient) =>
+            sendToStaff(
+              {
+                kind: job.kind,
+                club,
+                recipient,
+                key: dedupeKey({
+                  kind: job.kind,
+                  memberId: job.memberId,
+                  userId: recipient.userId,
+                }),
+                ledgerUserId: recipient.userId,
+                actionUrl: `${base(club)}/chlenove/${job.memberId}`,
+                values: { name: member.memberName },
+              },
+              options,
+            ),
+          run,
+        ),
+      };
+    }
+  }
+}
+
+// ─── Sweeps ─────────────────────────────────────────────────────────────────
+
+/** Every ten minutes: 24-hour reminders not yet sent. The sweep is its own retry. */
+export async function runClubReminders(options: ClubMailOptions): Promise<DeliveryReport> {
+  const due = await dueClubReminders(db());
+  return deliverEach(
+    due,
+    (booking) =>
+      stillApplies('reminder_24h', booking)
+        ? sendToMember(
+            {
+              kind: 'reminder_24h',
+              clubId: booking.clubId,
+              memberId: booking.memberId,
+              key: dedupeKey({
+                kind: 'reminder_24h',
+                occurrenceId: booking.occurrenceId,
+                memberId: booking.memberId,
+              }),
+              values: { title: booking.title },
+              startsAtLocal: booking.startsAtLocal,
+              where: booking.locationName,
+            },
+            options,
+          )
+        : Promise.resolve('skipped' as const),
+    { job: 'club.reminders' },
+  );
+}
+
+/** Daily: abonnements ending within a week, and those that just ended. */
+export async function runClubExpiry(
+  options: ClubMailOptions,
+  today = sofiaToday(),
+): Promise<Record<'membership_expiring' | 'membership_expired', DeliveryReport>> {
+  const out = {} as Record<'membership_expiring' | 'membership_expired', DeliveryReport>;
+  for (const kind of ['membership_expiring', 'membership_expired'] as const) {
+    const candidates = await expiryCandidates(db(), kind, today);
+    out[kind] = await deliverEach(
+      candidates,
+      async (candidate) => {
+        const club = await clubForMail(db(), candidate.clubId);
+        const locale = club?.locale ?? 'bg';
+        return sendToMember(
+          {
+            kind,
+            clubId: candidate.clubId,
+            memberId: candidate.memberId,
+            key: dedupeKey({ kind, membershipId: candidate.membershipId }),
+            values: { plan: candidate.planName, date: formatCivilDate(candidate.endsOn, locale) },
+          },
+          options,
+        );
+      },
+      { job: 'club.expiry' },
+    );
+    if (out[kind].transportDown) break;
+  }
+  return out;
+}
+
+/** Daily 06:30: each trainer's classes today, counts only. */
+export async function runClubRosterDigest(
+  options: ClubMailOptions,
+  today = sofiaToday(),
+): Promise<DeliveryReport> {
+  const rows = await trainerClassesOn(db(), today);
+  const groups = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const key = `${row.clubId}|${row.userId}`;
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+  return deliverEach(
+    [...groups.values()],
+    async (classes) => {
+      const first = classes[0];
+      if (!first) return 'skipped';
+      const club = await clubForMail(db(), first.clubId);
+      if (!club) return 'skipped';
+      const details = classes.map((c) =>
+        fillClubTemplate(pick(club.locale, c.capacity === null ? 'rosterLineOpen' : 'rosterLine'), {
+          time: c.time,
+          title: c.title,
+          going: c.going,
+          capacity: c.capacity ?? '',
+        }),
+      );
+      return sendToStaff(
+        {
+          kind: 'roster_daily',
+          club,
+          recipient: { userId: first.userId, email: first.email, name: first.name },
+          key: dedupeKey({ kind: 'roster_daily', userId: first.userId, day: today }),
+          ledgerUserId: first.userId,
+          actionUrl: `${siteBase(options, club.locale)}/klub/${club.clubSlug}/grafik`,
+          details,
+        },
+        options,
+      );
+    },
+    { job: 'club.digest' },
+  );
+}
+
+/** Monday 08:30: the owner's numbers for the week that just closed. */
+export async function runClubOwnerWeekly(
+  options: ClubMailOptions,
+  today = sofiaToday(),
+): Promise<DeliveryReport> {
+  const thisMonday = isoWeekMonday(isoWeekKey(today)) ?? today;
+  const lastMonday = addDaysIso(thisMonday, -7);
+  const week = isoWeekKey(lastMonday);
+  const figures = (await clubWeekFigures(db(), lastMonday)).filter(
+    (f) =>
+      f.checkins + f.newMembers + f.bookings + f.revenueCents + f.expiringNextWeek > 0 ||
+      f.overdueCharges + f.pendingClaims + f.erasureRequests > 0,
+  );
+  const mails: StaffMail[] = [];
+  for (const f of figures) {
+    const club = await clubForMail(db(), f.clubId);
+    if (!club) continue;
+    const line = (path: string, values: Record<string, string | number>) =>
+      fillClubTemplate(pick(club.locale, `week.${path}`), values);
+    const details = [
+      line('checkins', { count: f.checkins }),
+      line('newMembers', { count: f.newMembers }),
+      line('bookings', { count: f.bookings }),
+      line('revenue', { amount: formatEuro(f.revenueCents, club.locale) }),
+      line('expiring', { count: f.expiringNextWeek }),
+      line('overdue', { count: f.overdueCharges }),
+      ...(f.pendingClaims > 0 ? [line('claims', { count: f.pendingClaims })] : []),
+      ...(f.erasureRequests > 0 ? [line('erasures', { count: f.erasureRequests })] : []),
+    ];
+    for (const recipient of await staffOf(club.clubId, ['owner'])) {
+      mails.push({
+        kind: 'owner_weekly',
+        club,
+        recipient,
+        key: dedupeKey({ kind: 'owner_weekly', userId: recipient.userId, week }),
+        ledgerUserId: recipient.userId,
+        actionUrl: `${siteBase(options, club.locale)}/klub/${club.clubSlug}/tablo`,
+        values: { week },
+        details,
+      });
+    }
+  }
+  return deliverEach(mails, (mail) => sendToStaff(mail, options), { job: 'club.digest' });
+}
+
+/** Monthly: freeze the month that just closed (the invoicing basis). */
+export async function runClubActivity(today = sofiaToday()): Promise<{
+  month: string;
+  recorded: number;
+}> {
+  const month = monthStart(addDaysIso(monthStart(today), -1));
+  const recorded = await recordClubMonthlyActivity(db(), month);
+  return { month, recorded };
+}

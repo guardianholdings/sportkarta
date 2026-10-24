@@ -2,12 +2,31 @@ import {
   eraseExpiredNotifierContacts,
   getDb,
   getPool,
+  materializeClubClasses,
   materializeSessions,
   refreshStats,
 } from '@sportkarta/db';
+import {
+  CLUB_ACTIVITY_QUEUE,
+  CLUB_DIGEST_QUEUE,
+  CLUB_EXPIRY_QUEUE,
+  CLUB_MATERIALIZE_QUEUE,
+  CLUB_NOTIFY_QUEUE,
+  CLUB_REMINDERS_QUEUE,
+  CLUB_WEEKLY_QUEUE,
+  type ClubMaterializeJob,
+} from '@sportkarta/lib/clubs';
 import { assertDelivered, createMailer } from '@sportkarta/lib/email';
 import { runImport } from '@sportkarta/import-osm';
 
+import {
+  runClubActivity,
+  runClubExpiry,
+  runClubNotify,
+  runClubOwnerWeekly,
+  runClubReminders,
+  runClubRosterDigest,
+} from './club-mail-job.js';
 import { runDivisions } from './divisions-job.js';
 import { runWeeklyDigest } from './digest-job.js';
 import { runOpenDataDump } from './opendata-dump-job.js';
@@ -275,6 +294,17 @@ async function main(): Promise<void> {
   // Enqueued once per decision or notice, like session.notify: the retry is
   // the only second chance a statement of reasons gets.
   await ensureQueue(MODERATION_NOTIFY_QUEUE, MAIL_RETRY);
+  // «Клубове» (Stage 9). club.notify is enqueued once per event like
+  // session.notify, so MAIL_RETRY is its only second chance; the sweeps are
+  // their own retry; the daily and weekly jobs act on "today" / "the week that
+  // closed" and retry within it.
+  await ensureQueue(CLUB_MATERIALIZE_QUEUE);
+  await ensureQueue(CLUB_NOTIFY_QUEUE, MAIL_RETRY);
+  await ensureQueue(CLUB_REMINDERS_QUEUE);
+  await ensureQueue(CLUB_EXPIRY_QUEUE, WEEKLY_RETRY);
+  await ensureQueue(CLUB_DIGEST_QUEUE, WEEKLY_RETRY);
+  await ensureQueue(CLUB_WEEKLY_QUEUE, WEEKLY_RETRY);
+  await ensureQueue(CLUB_ACTIVITY_QUEUE, WEEKLY_RETRY);
 
   // Triggered from the admin UI (Stage 1+) via boss.send('import.osm', {dryRun}).
   // dryRun defaults TRUE — a live import must be requested explicitly, matching
@@ -590,6 +620,131 @@ async function main(): Promise<void> {
     }),
   );
   await boss.schedule(DIVISIONS_ROLLOVER_QUEUE, '40 4 * * 1', {}, { tz: 'Europe/Sofia' });
+
+  // ─── «Клубове» (Stage 9) ──────────────────────────────────────────────────
+  // Every club job is a no-op while no club exists, so nothing here is gated on
+  // CLUBS_ENABLED: the web app enqueues nothing with the flag off, and the
+  // sweeps find nothing to do.
+
+  // A club's rolling occurrence window — the session materializer's twin, at
+  // :11 so the two hourly scans do not start together. Also sent with a
+  // classId right after a class is saved.
+  await work(CLUB_MATERIALIZE_QUEUE, { batchSize: 1 }, async (jobs) => {
+    for (const job of jobs) {
+      const data = (job.data ?? {}) as ClubMaterializeJob;
+      const report = await materializeClubClasses(statsPool, { classId: data.classId });
+      if (report.classesProcessed > 0 || report.failures.length > 0) {
+        // Counts only; a class id is a club's object, logged only on failure.
+        console.log(
+          `[worker] ${CLUB_MATERIALIZE_QUEUE} job ${job.id}: ${String(report.classesProcessed)} class(es), ` +
+            `+${String(report.occurrencesCreated)} created, ${String(report.failures.length)} failed`,
+        );
+      }
+      for (const failure of report.failures) {
+        console.error(
+          `[worker] ${CLUB_MATERIALIZE_QUEUE} class ${failure.classId}: ${failure.code}`,
+        );
+      }
+    }
+  });
+  await boss.schedule(CLUB_MATERIALIZE_QUEUE, '11 * * * *');
+  await boss.send(CLUB_MATERIALIZE_QUEUE, {});
+
+  // Club mail, enqueued by the web app with ids only (apps/worker/src/club-mail-job.ts).
+  await work(
+    CLUB_NOTIFY_QUEUE,
+    { batchSize: FEED_BATCH_SIZE },
+    logged(CLUB_NOTIFY_QUEUE, async (jobs) => {
+      await eachJobIsolated(boss, CLUB_NOTIFY_QUEUE, jobs, async (job) => {
+        const { kind, report } = await runClubNotify(job.data, { mailer, siteUrl });
+        // `kind` is from the validated vocabulary (parseClubNotifyJob).
+        console.log(
+          `[worker] ${CLUB_NOTIFY_QUEUE} job ${job.id}: ${kind} ` +
+            `${String(report.sent)} sent, ${String(report.skipped)} skipped, ` +
+            `${String(report.failed)} failed, ${String(report.unattempted)} unattempted`,
+        );
+        await reportMailFailures(CLUB_NOTIFY_QUEUE, report);
+        assertDelivered(CLUB_NOTIFY_QUEUE, report);
+      });
+    }),
+  );
+
+  // 24-hour class reminders: a heartbeat over "due and not yet told", like
+  // session.reminders, and its own retry.
+  await work(
+    CLUB_REMINDERS_QUEUE,
+    { batchSize: 1 },
+    logged(CLUB_REMINDERS_QUEUE, async (jobs) => {
+      for (const job of jobs) {
+        const report = await runClubReminders({ mailer, siteUrl });
+        if (report.candidates === 0) continue;
+        console.log(
+          `[worker] ${CLUB_REMINDERS_QUEUE} job ${job.id}: ${String(report.sent)} sent, ` +
+            `${String(report.skipped)} skipped, ${String(report.failed)} failed`,
+        );
+        await reportMailFailures(CLUB_REMINDERS_QUEUE, report);
+      }
+    }),
+  );
+  await boss.schedule(CLUB_REMINDERS_QUEUE, '*/10 * * * *');
+
+  // Abonnements ending within a week, and those that just ended. 09:20 Sofia:
+  // a reasonable hour to read about money.
+  await work(
+    CLUB_EXPIRY_QUEUE,
+    logged(CLUB_EXPIRY_QUEUE, async () => {
+      const out = await runClubExpiry({ mailer, siteUrl });
+      for (const [kind, report] of Object.entries(out)) {
+        console.log(
+          `[worker] ${CLUB_EXPIRY_QUEUE} ${kind}: ${String(report.sent)} sent, ` +
+            `${String(report.skipped)} skipped, ${String(report.failed)} failed`,
+        );
+        await reportMailFailures(`${CLUB_EXPIRY_QUEUE}/${kind}`, report);
+        assertDelivered(CLUB_EXPIRY_QUEUE, report);
+      }
+    }),
+  );
+  await boss.schedule(CLUB_EXPIRY_QUEUE, '20 9 * * *', {}, { tz: 'Europe/Sofia' });
+
+  // Each trainer's classes today (counts only), before the day starts.
+  await work(
+    CLUB_DIGEST_QUEUE,
+    logged(CLUB_DIGEST_QUEUE, async () => {
+      const report = await runClubRosterDigest({ mailer, siteUrl });
+      console.log(
+        `[worker] ${CLUB_DIGEST_QUEUE}: ${String(report.sent)} sent, ` +
+          `${String(report.skipped)} skipped, ${String(report.failed)} failed`,
+      );
+      await reportMailFailures(CLUB_DIGEST_QUEUE, report);
+      assertDelivered(CLUB_DIGEST_QUEUE, report);
+    }),
+  );
+  await boss.schedule(CLUB_DIGEST_QUEUE, '30 6 * * *', {}, { tz: 'Europe/Sofia' });
+
+  // The owner's Monday numbers for the week that just closed.
+  await work(
+    CLUB_WEEKLY_QUEUE,
+    logged(CLUB_WEEKLY_QUEUE, async () => {
+      const report = await runClubOwnerWeekly({ mailer, siteUrl });
+      console.log(
+        `[worker] ${CLUB_WEEKLY_QUEUE}: ${String(report.sent)} sent, ` +
+          `${String(report.skipped)} skipped, ${String(report.failed)} failed`,
+      );
+      await reportMailFailures(CLUB_WEEKLY_QUEUE, report);
+      assertDelivered(CLUB_WEEKLY_QUEUE, report);
+    }),
+  );
+  await boss.schedule(CLUB_WEEKLY_QUEUE, '30 8 * * 1', {}, { tz: 'Europe/Sofia' });
+
+  // The invoicing basis: freeze last month's per-club counts on the 1st.
+  await work(
+    CLUB_ACTIVITY_QUEUE,
+    logged(CLUB_ACTIVITY_QUEUE, async () => {
+      const { month, recorded } = await runClubActivity();
+      console.log(`[worker] ${CLUB_ACTIVITY_QUEUE} ${month}: ${String(recorded)} club(s) recorded`);
+    }),
+  );
+  await boss.schedule(CLUB_ACTIVITY_QUEUE, '15 6 1 * *', {}, { tz: 'Europe/Sofia' });
 
   // The heartbeat goes LAST, after every other queue is registered. A worker
   // that throws halfway through booting — a bad image, a missing env var — and

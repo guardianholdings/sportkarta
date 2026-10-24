@@ -20,6 +20,12 @@ export const CLUB_MATERIALIZE_QUEUE = 'club.materialize';
 export const CLUB_REMINDERS_QUEUE = 'club.reminders';
 export const CLUB_EXPIRY_QUEUE = 'club.expiry';
 export const CLUB_DIGEST_QUEUE = 'club.digest';
+/**
+ * The owner's Monday summary. Its own queue, not a second schedule on
+ * club.digest: pg-boss keys a schedule by queue name, so a second
+ * `schedule()` call on one queue silently replaces the first.
+ */
+export const CLUB_WEEKLY_QUEUE = 'club.weekly';
 export const CLUB_ACTIVITY_QUEUE = 'club.activity';
 
 export type ClubNotifyJob =

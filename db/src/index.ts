@@ -22,6 +22,33 @@ export { HORIZON_WEEKS, materializeSessions } from './sessions/materialize.js';
 export { materializeClubClasses } from './clubs/materialize.js';
 export type { ClubMaterializeOptions, ClubMaterializeReport } from './clubs/materialize.js';
 export {
+  bookingsForMail,
+  cancelledOccurrenceBookings,
+  claimClubNotification,
+  clubForMail,
+  clubWeekFigures,
+  dueClubReminders,
+  expiryCandidates,
+  inviteForMail,
+  memberForStaffMail,
+  memberRecipient,
+  operatorRecipients,
+  recordClubMonthlyActivity,
+  setInviteTokenHash,
+  staffRecipients,
+  trainerClassesOn,
+} from './clubs/mail.js';
+export type {
+  ClubBookingMail,
+  ClubMailClub,
+  ClubMemberRecipient,
+  ClubWeekFigures,
+  ExpiryCandidate,
+  InviteForMail,
+  StaffRecipient,
+  TrainerClass,
+} from './clubs/mail.js';
+export {
   claimDigestSend,
   digestRecipients,
   formatWeekStart,

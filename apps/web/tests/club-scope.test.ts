@@ -1,0 +1,112 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { describe, expect, it } from 'vitest';
+
+/**
+ * Club authorization lives IN THE STATEMENT (CLAUDE.md, the ambassador
+ * pattern): every write in apps/web/lib/clubs embeds a scope fragment from
+ * scope.ts, so an out-of-scope request updates zero rows whatever a page
+ * forgot to check. This gate reads the module as text — like
+ * form-action-guard — and refuses a write that carries none, unless it is on
+ * the list below with the reason it needs no club scope.
+ */
+
+const DIR = join(__dirname, '..', 'lib', 'clubs');
+const SCOPE =
+  /clubWriteScope\(|clubActorMay\(|memberSelfScope\(|occurrenceStaffScope\(|clubScope\(|clubWritableGuard\(/;
+const WRITE = /\b(?:UPDATE|DELETE FROM|INSERT INTO)\b/;
+
+/** `file:function` → why no club-staff scope belongs in it. */
+const UNSCOPED_BY_DESIGN: Record<string, string> = {
+  'admin.ts:approveClub': 'NGO operator path: every /admin/klubove action calls requireRole(admin)',
+  'admin.ts:rejectApplication': 'NGO operator path (requireRole(admin))',
+  'admin.ts:setClubPlan': 'NGO operator path (requireRole(admin))',
+  'admin.ts:setClubStatus': 'NGO operator path (requireRole(admin))',
+  'admin.ts:purgeClub': 'NGO operator path (requireRole(admin)), archived clubs only',
+  'apply.ts:applyForClub': "the applicant's own new club; the owner row is the session account",
+  'audit.ts:recordClubAudit': "append-only log, written inside the caller's scoped transaction",
+  'bookings.ts:upsertBooking':
+    'helper: called only after bookAtDesk/bookSelf proved scope in the same transaction',
+  'club-session.ts:loadContext':
+    'the ngo_admin_viewed audit row, written only after users.role = admin was read',
+  'kiosk.ts:pairKiosk':
+    'the 6-digit pairing code (hashed with the club, 10 minutes) is the authority',
+  'kiosk.ts:kioskFromCookie': 'touches last_seen_at of the device whose secret was just proven',
+  'links.ts:acceptMemberInvite':
+    "the member's own act: invite token + the account's verified email",
+  'links.ts:claimRecord':
+    "the member's own act: the account's verified email must match the record",
+  'links.ts:setLinkPreference': "the member's own link only (user_id in the WHERE)",
+  'links.ts:requestErasure': "the member's own linked record only (user_id in the EXISTS)",
+  'staff.ts:acceptStaffInvite': "invite token + the account's verified email",
+  'unsubscribe.ts:unsubscribe':
+    'the per-record opt-out token is the authority and grants nothing else',
+};
+
+interface Segment {
+  file: string;
+  name: string;
+  body: string;
+}
+
+function segments(): Segment[] {
+  const out: Segment[] = [];
+  for (const file of readdirSync(DIR).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'))) {
+    const source = readFileSync(join(DIR, file), 'utf8');
+    for (const part of source.split(/\n(?=(?:export )?(?:const \w+ = |(?:async )?function \w+))/)) {
+      const name = /^(?:export )?(?:const (\w+) = |(?:async )?function (\w+))/.exec(part);
+      if (name) out.push({ file, name: (name[1] ?? name[2]) as string, body: part });
+    }
+  }
+  return out;
+}
+
+describe('every club write carries its scope in the statement', () => {
+  const writes = segments().filter((segment) => WRITE.test(segment.body));
+
+  it('finds the writes (the gate is not vacuous)', () => {
+    expect(writes.length).toBeGreaterThan(30);
+  });
+
+  it.each(writes.map((w) => [`${w.file}:${w.name}`, w] as const))('%s', (key, segment) => {
+    if (key in UNSCOPED_BY_DESIGN) return;
+    expect(
+      SCOPE.test(segment.body),
+      `${key} writes without a scope fragment from scope.ts — embed one, or add it to ` +
+        'UNSCOPED_BY_DESIGN with the reason it needs none',
+    ).toBe(true);
+  });
+
+  it('keeps the allowlist honest: every entry still exists and still writes', () => {
+    const present = new Set(writes.map((w) => `${w.file}:${w.name}`));
+    for (const key of Object.keys(UNSCOPED_BY_DESIGN)) {
+      expect(present.has(key), `${key} is allowlisted but no longer writes`).toBe(true);
+    }
+  });
+});
+
+describe('the operator club actions are admin-only', () => {
+  const actions = readFileSync(
+    join(__dirname, '..', 'app', '[locale]', 'admin', '(protected)', 'klubove', 'actions.ts'),
+    'utf8',
+  );
+  const exported = actions
+    .split(/\nexport async function /)
+    .slice(1)
+    .map((part) => [/^(\w+)/.exec(part)?.[1] ?? '?', part] as const);
+
+  it('has actions to check', () => {
+    expect(exported.length).toBeGreaterThan(2);
+  });
+
+  it('routes through a guard that calls requireRole(admin) — never requireAdmin()', () => {
+    const guard = /async function guard\([\s\S]*?\n\}/.exec(actions)?.[0] ?? '';
+    expect(guard).toMatch(/requireRole\('admin'\)/);
+    expect(actions).not.toMatch(/await requireAdmin\(/);
+  });
+
+  it.each(exported)('%s is admin-gated', (_name, body) => {
+    expect(body).toMatch(/await guard\(|requireRole\('admin'\)/);
+  });
+});
