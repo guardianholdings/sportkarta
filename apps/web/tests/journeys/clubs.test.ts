@@ -35,10 +35,12 @@ import {
   savePlan,
   sellMembership,
 } from '@/lib/clubs/sales';
+import { memberClubs, portalView } from '@/lib/clubs/portal';
 import { occurrenceRoster, saveClass, weekOccurrences } from '@/lib/clubs/schedule';
 import type { ClubActor } from '@/lib/clubs/scope';
 import { clubLocations, saveLocation, updateClubSettings } from '@/lib/clubs/settings';
 import { acceptStaffInvite, inviteStaff } from '@/lib/clubs/staff';
+import { unsubscribe, unsubscribeTarget } from '@/lib/clubs/unsubscribe';
 
 import { hasDb } from './db';
 
@@ -434,6 +436,32 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
     if (session) expect(await kioskTodayCount(session)).toBe(2);
     expect(await kioskLocation(locationId, 'bg')).toMatchObject({ clubId, clubSlug: slug });
     expect(await memberSummary(desk, childId)).toMatchObject({ isMinor: true });
+  });
+
+  it('shows a linked member their own records and nobody else, and opts out in one click', async () => {
+    const view = await portalView(memberUser, slug, 'bg');
+    expect(view?.link?.status).toBe('active');
+    expect(view?.records.map((r) => [r.displayName, r.self, r.isMinor])).toEqual([
+      ['Мария Журни', true, false],
+      ['Дете Журни', false, true],
+    ]);
+    expect(await memberClubs(memberUser, 'bg')).toMatchObject([
+      { clubSlug: slug, status: 'active' },
+    ]);
+    // Somebody without a record sees the club, and no record at all.
+    const stranger = await user('stranger');
+    const other = await portalView(stranger, slug, 'bg');
+    expect(other?.link).toBeNull();
+    expect(other?.records).toEqual([]);
+
+    const token = (
+      await db.execute(sql`SELECT unsubscribe_token FROM club_members WHERE id = ${childId}::uuid`)
+    ).rows[0]?.unsubscribe_token;
+    expect(await unsubscribeTarget(String(token), 'bg')).toMatchObject({ optedOut: false });
+    expect(await unsubscribe(String(token))).toBe(true);
+    expect(await unsubscribe(String(token))).toBe(true);
+    expect(await unsubscribeTarget(String(token), 'bg')).toMatchObject({ optedOut: true });
+    expect(await unsubscribe('0'.repeat(32))).toBe(false);
   });
 
   it('offers an email-matched record for claiming', async () => {

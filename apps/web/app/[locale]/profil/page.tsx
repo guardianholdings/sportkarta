@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { calendarToken, getDb } from '@sportkarta/db';
-import { Activity, BookOpenCheck, Download, ShieldCheck } from 'lucide-react';
+import { Activity, BookOpenCheck, Building2, Download, ShieldCheck } from 'lucide-react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { CalendarPanel } from '@/components/profile/calendar-panel';
@@ -9,6 +9,7 @@ import { PointsPanel } from '@/components/profile/points-panel';
 import { AppShell } from '@/components/shell/app-shell';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { requireUser } from '@/lib/auth-session';
+import { clubsEnabled } from '@/lib/clubs/access';
 import { digestCities, subscriptionsFor } from '@/lib/digest';
 import { loadCityCatalog } from '@/lib/places';
 import { pointsSummary } from '@/lib/points';
@@ -79,6 +80,13 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
               <Activity size={15} />
               {t('trainingLink')}
             </Link>
+            {/* The club hub (Stage 9) lives here for the same reason: no fifth tab. */}
+            {clubsEnabled() && (
+              <Link href="/klub" className={pillLink}>
+                <Building2 size={15} />
+                {t('clubsLink')}
+              </Link>
+            )}
             {canAccessAdminPanel(user.role) && (
               <Link href="/admin" className={pillLink}>
                 <ShieldCheck size={15} />
