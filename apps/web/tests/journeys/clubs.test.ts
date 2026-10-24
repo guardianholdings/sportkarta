@@ -111,7 +111,9 @@ async function cleanup(): Promise<void> {
 }
 
 describe.skipIf(!hasDb)('club journey (requires running database)', () => {
-  const db = getDb();
+  // Created in beforeAll, never at collection: vitest still runs a skipped
+  // suite's body to list its tests, and getDb() throws without DATABASE_URL.
+  let db: ReturnType<typeof getDb>;
   let clubId = '';
   let slug = '';
   let owner: ClubActor;
@@ -123,6 +125,7 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
   let occurrenceId = '';
 
   beforeAll(async () => {
+    db = getDb();
     await cleanup();
   });
 
