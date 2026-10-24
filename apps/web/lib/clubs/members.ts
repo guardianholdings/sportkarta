@@ -1,5 +1,6 @@
 import { getDb, sql, type SQL } from '@sportkarta/db';
 import type { ClubCheckinMethod, IsoDate } from '@sportkarta/lib/clubs';
+import { generateCardKey, sha256Hex } from '@sportkarta/lib/clubs/secrets';
 
 import { recordClubAudit } from './audit';
 import type { MemberInput } from './input';
@@ -578,5 +579,50 @@ export async function eraseMember(
        WHERE m.id = ${memberId}::uuid AND m.club_id = ${actor.clubId}::uuid
     `);
     return true;
+  });
+}
+
+/** Adult, live records of this club — the guardian select on the member form. */
+export async function guardianChoices(
+  actor: ClubActor,
+  excludeId: string | null = null,
+): Promise<{ id: string; displayName: string }[]> {
+  const result = await getDb().execute(sql`
+    SELECT m.id, m.display_name FROM club_members m
+     WHERE ${clubScope(actor, 'members.view', 'm')} AND NOT m.is_minor AND m.archived_at IS NULL
+       ${excludeId ? sql`AND m.id <> ${excludeId}::uuid` : sql``}
+     ORDER BY lower(m.display_name)
+     LIMIT 500
+  `);
+  return result.rows.map((row) => ({ id: String(row.id), displayName: String(row.display_name) }));
+}
+
+/**
+ * Issue (or replace) a printed member card. The key exists only in the return
+ * value — the caller shows it once — and only its SHA-256 is stored
+ * (club_members_card_hash_shape).
+ */
+export async function issueMemberCard(
+  db: TransactionalDb,
+  actor: ClubActor,
+  memberId: string,
+): Promise<string | null> {
+  const key = generateCardKey();
+  return db.transaction(async (tx) => {
+    const updated = await tx.execute(sql`
+      UPDATE club_members m SET card_token_hash = ${sha256Hex(key)}
+       WHERE m.id = ${memberId}::uuid AND m.archived_at IS NULL
+         AND ${clubWriteScope(actor, 'members.manage', 'm')}
+      RETURNING m.id
+    `);
+    if (updated.rows.length === 0) return null;
+    await recordClubAudit(tx, {
+      clubId: actor.clubId,
+      by: { kind: 'staff', actor },
+      action: 'member_updated',
+      subjectMemberId: memberId,
+      detail: { card: 'issued' },
+    });
+    return key;
   });
 }

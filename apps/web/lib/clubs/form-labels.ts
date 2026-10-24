@@ -1,5 +1,7 @@
 import { getMessages, getTranslations } from 'next-intl/server';
 
+import type { MemberFormLabels } from '@/components/clubs/member-form';
+
 /**
  * Pre-translated form feedback for the club module's CLIENT forms (the
  * campaign-form rule: labels arrive as props, so no club namespace has to be
@@ -21,5 +23,23 @@ export async function clubFormMessages(): Promise<ClubFormMessages> {
     genericError: t('genericError'),
     readOnly: t('readOnly'),
     errors: Object.fromEntries(Object.keys(catalogue).map((code) => [code, t(`error.${code}`)])),
+  };
+}
+
+/** The member form's labels, for the new and the edit page. */
+export async function memberFormLabels(submitKey: 'create' | 'save'): Promise<MemberFormLabels> {
+  const t = await getTranslations('ClubMembers.form');
+  return {
+    displayName: t('displayName'),
+    email: t('email'),
+    phone: t('phone'),
+    isMinor: t('isMinor'),
+    minorHint: t('minorHint'),
+    guardian: t('guardian'),
+    guardianNone: t('guardianNone'),
+    tags: t('tags'),
+    tagsHint: t('tagsHint'),
+    staffNote: t('staffNote'),
+    submit: t(submitKey),
   };
 }
