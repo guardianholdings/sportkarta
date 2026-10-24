@@ -7,15 +7,27 @@ import { deleteAccount } from '@/lib/account-deletion';
 import { approveClub, setClubStatus } from '@/lib/clubs/admin';
 import { applyForClub } from '@/lib/clubs/apply';
 import { bookAtDesk, cancelBooking } from '@/lib/clubs/bookings';
-import { clubCheckIn } from '@/lib/clubs/checkin';
-import { createKioskDevice, kioskFromCookie, pairKiosk } from '@/lib/clubs/kiosk';
+import { clubCheckIn, todaysCheckins } from '@/lib/clubs/checkin';
+import {
+  createKioskDevice,
+  kioskFromCookie,
+  kioskLocation,
+  kioskTodayCount,
+  pairKiosk,
+} from '@/lib/clubs/kiosk';
 import {
   acceptMemberInvite,
   claimableRecords,
   inviteMemberToLink,
   setLinkPreference,
 } from '@/lib/clubs/links';
-import { createMember, eraseMember, listMembers, memberCard } from '@/lib/clubs/members';
+import {
+  createMember,
+  eraseMember,
+  listMembers,
+  memberCard,
+  memberSummary,
+} from '@/lib/clubs/members';
 import {
   openCharges,
   paymentLedger,
@@ -409,6 +421,19 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
       locationId,
     });
     expect(childVisit).toMatchObject({ status: 'recorded', covered: false, passport: false });
+
+    // The desk's list and the tablet's counter see the same two arrivals; the
+    // tablet gets a number, never a name.
+    const today = await todaysCheckins(desk);
+    expect(today.map((row) => [row.displayName, row.method, row.covered]).sort()).toEqual(
+      [
+        ['Дете Журни', 'desk', false],
+        ['Мария Журни', 'qr_kiosk', true],
+      ].sort(),
+    );
+    if (session) expect(await kioskTodayCount(session)).toBe(2);
+    expect(await kioskLocation(locationId, 'bg')).toMatchObject({ clubId, clubSlug: slug });
+    expect(await memberSummary(desk, childId)).toMatchObject({ isMinor: true });
   });
 
   it('offers an email-matched record for claiming', async () => {

@@ -836,7 +836,13 @@
       "training": "Sign in to open your training log.",
       "contribute": "Sign in to confirm the details or report the condition of the facility.",
       "session": "Sign in to sign up for the training session.",
-      "checkin": "Sign in to check in. After signing in, scan the code again."
+      "checkin": "Sign in to check in. After signing in, scan the code again.",
+      "clubs": "Sign in to see your clubs.",
+      "clubApply": "Sign in to register a club. Your account becomes the owner's account.",
+      "clubInvite": "Sign in with the email address the invitation was sent to.",
+      "clubCheckin": "Sign in to mark your attendance at the club. Then scan the code on the tablet again.",
+      "clubPortal": "Sign in to see your membership and bookings at the club.",
+      "clubOffice": "Sign in to open the club's office."
     }
   },
   "AuthEmail": {
@@ -3744,5 +3750,78 @@
     },
     "show": "Show",
     "weekNav": "Weeks"
+  },
+  "ClubCheckin": {
+    "title": "Attendance",
+    "intro": "Mark who comes in today. Turn nobody away: if a membership has expired or is unpaid, the visit is recorded and you see a warning.",
+    "searchTitle": "Search by name",
+    "searchLabel": "Name, email or phone",
+    "search": "Search",
+    "searchHint": "Type at least 2 characters.",
+    "noResults": "No members found.",
+    "newMember": "New member",
+    "mark": "Mark",
+    "markedToday": "marked today",
+    "location": "Location",
+    "cardTitle": "Member card",
+    "cardLabel": "Card code",
+    "cardHint": "Scan the card's barcode with the reader or type the code.",
+    "cardSubmit": "Mark with card",
+    "qrTitle": "QR code on a phone",
+    "qrHint": "Scan the member's personal QR code with this device's camera. It opens a page where you confirm the visit.",
+    "todayTitle": "Today",
+    "todayCount": "{count, plural, one {# visit} other {# visits}}",
+    "todayEmpty": "No visits marked yet today.",
+    "noPlan": "no valid membership",
+    "openGym": "open visit",
+    "someone": "The member",
+    "outcome": {
+      "recorded": "{name}: attendance marked.",
+      "recorded_uncovered": "{name}: attendance marked, but there is no valid membership.",
+      "already": "{name} is already marked today.",
+      "not_found": "No such member in this club.",
+      "not_allowed": "You are not allowed to mark attendance.",
+      "not_linked": "The record is not linked to an account.",
+      "club_closed": "The club is read-only: the visit was not recorded.",
+      "too_early": "The class has not started yet.",
+      "card_invalid": "The card code was not recognised.",
+      "qr_disabled": "QR check-in is not switched on.",
+      "qr_expired": "The QR code has expired. Ask the member to open it again.",
+      "qr_invalid": "The QR code is not valid."
+    },
+    "scan": {
+      "title": "Member from a QR code",
+      "unknown": "The QR code is valid, but there is no such member in this club.",
+      "expired": "The QR code has expired. Ask the member to refresh the screen and scan again.",
+      "invalid": "This is not a POPS member QR code.",
+      "disabled": "QR check-in is not switched on on this server.",
+      "confirm": "Mark attendance",
+      "toCard": "Open the record",
+      "back": "Back to attendance"
+    }
+  },
+  "ClubKiosk": {
+    "title": "Kiosk",
+    "pairTitle": "Connect this tablet",
+    "pairIntro": "A manager creates a device in Settings → Kiosk and gives you a 6-digit code that is valid for 10 minutes. Type it here.",
+    "code": "Pairing code",
+    "pair": "Connect",
+    "badCode": "The code is wrong or has expired. Ask for a new one.",
+    "rateLimited": "Too many attempts. Try again in a few minutes.",
+    "unpaired": "This tablet has been disconnected. Connect it again with a new code.",
+    "scan": "Scan to mark your attendance",
+    "scanHint": "Point your phone's camera at the code. You need a POPS account linked to the club.",
+    "today": "{count, plural, one {# visit today} other {# visits today}}",
+    "closed": "The club is not active right now. Attendance cannot be marked.",
+    "disabled": "QR check-in is not switched on on this server.",
+    "rotates": "The code changes every minute. Keep the screen on.",
+    "redeem": {
+      "title": "Attendance at the club",
+      "invalid": "The code has expired or is not valid. Scan the code on the tablet again.",
+      "signIn": "Sign in to POPS to mark your attendance.",
+      "signInLink": "Sign in",
+      "confirm": "Mark my attendance",
+      "rateLimited": "Too many attempts. Try again in a few minutes."
+    }
   }
 }

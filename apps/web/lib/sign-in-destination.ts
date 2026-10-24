@@ -46,10 +46,11 @@ export const REQUEST_PATH_HEADER = 'x-sportkarta-path';
  * stay reachable signed out, which is why this alternation is anchored with
  * `$` instead of joining the group above: `(?:admin|profil|dobavi|pasport)`
  * would have matched the public URL too and made the feature dead on arrival
- * for exactly the people it is shared with.
+ * for exactly the people it is shared with. `/klub` (a member's club hub)
+ * follows the same rule: `/klub/<slug>` is a club's PUBLIC page.
  */
 const PROTECTED_PATH =
-  /^\/(?:(?:bg|en)\/)?(?:(?:admin|profil|dobavi|trenirovki)(?:\/|$)|pasport\/?$)/;
+  /^\/(?:(?:bg|en)\/)?(?:(?:admin|profil|dobavi|trenirovki)(?:\/|$)|(?:pasport|klub)\/?$)/;
 
 export function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PATH.test(pathname);
@@ -107,16 +108,38 @@ export function signInHref(next?: string | null): {
 }
 
 /** Why the visitor was sent to sign in — one line on /vhod says it. */
-export type SignInReason = 'add' | 'passport' | 'training' | 'contribute' | 'session' | 'checkin';
+export type SignInReason =
+  | 'add'
+  | 'passport'
+  | 'training'
+  | 'contribute'
+  | 'session'
+  | 'checkin'
+  | 'clubs'
+  | 'clubApply'
+  | 'clubInvite'
+  | 'clubCheckin'
+  | 'clubPortal'
+  | 'clubOffice';
 
-/** An exact path, or a prefix ending in «/» for the pages that carry an id. */
-const REASONS: readonly [path: string, reason: SignInReason][] = [
+/**
+ * An exact path, a prefix ending in «/» for the pages that carry an id, or a
+ * pattern for the club pages whose slug sits in the middle. First match wins,
+ * so the member portal is listed before the office it shares a prefix with.
+ */
+const REASONS: readonly [path: string | RegExp, reason: SignInReason][] = [
   ['/dobavi', 'add'],
   ['/pasport', 'passport'],
   ['/trenirovki', 'training'],
   ['/obekt/', 'contribute'],
   ['/sesiya/', 'session'],
   ['/otmetka/', 'checkin'],
+  ['/klub', 'clubs'],
+  ['/klubove/zayavka', 'clubApply'],
+  ['/klubove/pokana/', 'clubInvite'],
+  ['/klubove/otmetka/', 'clubCheckin'],
+  [/^\/klub\/[a-z0-9-]+\/(?:az|proba)\/?$/, 'clubPortal'],
+  [/^\/klub\/[a-z0-9-]+\/[a-z]/, 'clubOffice'],
 ];
 
 /**
@@ -131,7 +154,11 @@ export function signInReason(next: unknown): SignInReason | null {
   if (!destination) return null;
   const path = destination.split(/[?#]/)[0] ?? '';
   for (const [match, reason] of REASONS) {
-    if (match.endsWith('/') ? path.startsWith(match) : path === match) return reason;
+    if (typeof match !== 'string') {
+      if (match.test(path)) return reason;
+    } else if (match.endsWith('/') ? path.startsWith(match) : path === match) {
+      return reason;
+    }
   }
   return null;
 }

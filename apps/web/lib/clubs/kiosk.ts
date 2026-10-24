@@ -244,3 +244,56 @@ export async function revokeKiosk(
     return true;
   });
 }
+
+/**
+ * Where the kiosk cookie lives: the kiosk page itself, with the locale prefix
+ * next-intl puts on it (bg has none). The secret never travels to any other
+ * page of the site.
+ */
+export function kioskCookiePath(slug: string, locale: string): string {
+  return `${locale === 'bg' ? '' : `/${locale}`}/klub/${slug}/kiosk`;
+}
+
+/** How many arrivals this kiosk's location has had today — a number, no names. */
+export async function kioskTodayCount(session: KioskSession): Promise<number> {
+  const result = await getDb().execute(sql`
+    SELECT count(*)::int AS n FROM club_checkins
+     WHERE club_id = ${session.clubId}::uuid AND location_id = ${session.locationId}::uuid
+       AND sofia_day = (now() AT TIME ZONE 'Europe/Sofia')::date
+  `);
+  return Number(result.rows[0]?.n ?? 0);
+}
+
+export interface KioskLocation {
+  locationId: string;
+  locationName: string;
+  clubId: string;
+  clubSlug: string;
+  clubName: string;
+}
+
+/**
+ * The club and location a kiosk token names, for the page a member's phone
+ * opens. Only an active location of a club that is not archived resolves.
+ */
+export async function kioskLocation(
+  locationId: string,
+  locale: string,
+): Promise<KioskLocation | null> {
+  const result = await getDb().execute(sql`
+    SELECT l.id, l.name, c.id AS club_id, c.slug,
+           CASE WHEN ${locale} = 'en' THEN coalesce(c.name_en, c.name_bg) ELSE c.name_bg END AS club_name
+      FROM club_locations l
+      JOIN clubs c ON c.id = l.club_id
+     WHERE l.id = ${locationId}::uuid AND l.active AND c.status <> 'archived'
+  `);
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    locationId: String(row.id),
+    locationName: String(row.name),
+    clubId: String(row.club_id),
+    clubSlug: String(row.slug),
+    clubName: String(row.club_name),
+  };
+}

@@ -22,6 +22,19 @@ describe('signInReason — /vhod says why the visitor is there', () => {
     expect(signInReason('/otmetka/abc')).toBe('checkin');
   });
 
+  it('tells the club pages apart, the portal before the office it shares a prefix with', () => {
+    expect(signInReason('/klub')).toBe('clubs');
+    expect(signInReason('/klubove/zayavka')).toBe('clubApply');
+    expect(signInReason('/klubove/pokana/abc')).toBe('clubInvite');
+    expect(signInReason('/en/klubove/otmetka/v2~loc~x')).toBe('clubCheckin');
+    expect(signInReason('/klub/zala-sila/az')).toBe('clubPortal');
+    expect(signInReason('/klub/zala-sila/proba')).toBe('clubPortal');
+    expect(signInReason('/klub/zala-sila/tablo')).toBe('clubOffice');
+    // A club's public page needs no account, so it gives no reason.
+    expect(signInReason('/klub/zala-sila')).toBeNull();
+    expect(signInReason('/klubove')).toBeNull();
+  });
+
   it('says nothing for the profile, a public passport, or an unsafe next', () => {
     for (const next of [
       undefined,
@@ -123,13 +136,25 @@ describe('isProtectedPath', () => {
       '/en/trenirovki',
       '/pasport',
       '/en/pasport/',
+      '/klub',
+      '/en/klub/',
     ]) {
       expect(isProtectedPath(path), path).toBe(true);
     }
   });
 
   it('leaves public pages alone, including somebody else’s public passport', () => {
-    for (const path of ['/', '/vhod', '/en/vhod', '/obekt/ndk', '/pasport/ivan', '/klasirane']) {
+    for (const path of [
+      '/',
+      '/vhod',
+      '/en/vhod',
+      '/obekt/ndk',
+      '/pasport/ivan',
+      '/klasirane',
+      '/klub/zala-sila',
+      '/klubove',
+      '/klubove/otmetka/abc',
+    ]) {
       expect(isProtectedPath(path), path).toBe(false);
     }
   });

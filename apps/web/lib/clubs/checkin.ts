@@ -1,4 +1,4 @@
-import { sql, type SQL } from '@sportkarta/db';
+import { getDb, sql, type SQL } from '@sportkarta/db';
 import {
   PASSPORT_CHECKIN_METHODS,
   isClubSport,
@@ -9,7 +9,7 @@ import {
 import { sha256Hex } from '@sportkarta/lib/clubs/secrets';
 
 import { recordClubAudit } from './audit';
-import { clubActorMay, type ClubActor } from './scope';
+import { clubActorMay, clubScope, type ClubActor } from './scope';
 
 /**
  * ATTENDANCE AT A CLUB — one transaction, four doors (0043).
@@ -320,4 +320,56 @@ export async function clubCheckIn(
     });
     return { status: 'recorded', ...base, covered: Boolean(cover), membership, passport };
   });
+}
+
+export interface TodayCheckin {
+  id: string;
+  memberId: string;
+  displayName: string;
+  isMinor: boolean;
+  method: ClubCheckinMethod;
+  covered: boolean;
+  at: string;
+  classTitle: string | null;
+  locationName: string;
+  planName: string | null;
+  visitsRemaining: number | null;
+  endsOn: IsoDate | null;
+}
+
+/**
+ * Today's arrivals (Sofia day), newest first, for the desk screen. Front of
+ * house only: the coverage and abonnement columns are the desk's business.
+ */
+export async function todaysCheckins(actor: ClubActor, limit = 200): Promise<TodayCheckin[]> {
+  const result = await getDb().execute(sql`
+    SELECT ci.id, ci.member_id, m.display_name, m.is_minor, ci.method, ci.covered, ci.checked_in_at,
+           k.title AS class_title, l.name AS location_name,
+           mb.plan_name, mb.visits_remaining, to_char(mb.effective_ends_on, 'YYYY-MM-DD') AS ends_on
+      FROM club_checkins ci
+      JOIN club_members m ON m.club_id = ci.club_id AND m.id = ci.member_id
+      JOIN club_locations l ON l.club_id = ci.club_id AND l.id = ci.location_id
+      LEFT JOIN club_class_occurrences o ON o.club_id = ci.club_id AND o.id = ci.occurrence_id
+      LEFT JOIN club_classes k ON k.id = o.class_id
+      LEFT JOIN club_membership_balances mb
+             ON mb.club_id = ci.club_id AND mb.membership_id = ci.consumed_membership_id
+     WHERE ${clubScope(actor, 'attendance.record', 'ci')}
+       AND ci.sofia_day = (now() AT TIME ZONE 'Europe/Sofia')::date
+     ORDER BY ci.checked_in_at DESC
+     LIMIT ${limit}
+  `);
+  return result.rows.map((row) => ({
+    id: String(row.id),
+    memberId: String(row.member_id),
+    displayName: String(row.display_name),
+    isMinor: row.is_minor === true,
+    method: String(row.method) as ClubCheckinMethod,
+    covered: row.covered === true,
+    at: iso(row.checked_in_at),
+    classTitle: text(row.class_title),
+    locationName: String(row.location_name),
+    planName: text(row.plan_name),
+    visitsRemaining: row.visits_remaining === null ? null : Number(row.visits_remaining),
+    endsOn: text(row.ends_on),
+  }));
 }

@@ -273,6 +273,23 @@ export async function searchMembers(
   return result.rows.map((row) => toListRow(row, now));
 }
 
+/** One client's list row (status, validity, debt) — the scan screen's header. */
+export async function memberSummary(
+  actor: ClubActor,
+  memberId: string,
+): Promise<MemberListRow | null> {
+  const result = await getDb().execute(sql`
+    SELECT m.id, m.display_name, m.email, m.phone, m.is_minor, m.tags, m.created_at,
+           m.erasure_requested_at, ${DERIVED_COLUMNS}
+      FROM club_members m
+      ${DERIVED}
+     WHERE ${clubScope(actor, 'members.view', 'm')} AND m.id = ${memberId}::uuid
+       AND m.archived_at IS NULL
+  `);
+  const row = result.rows[0];
+  return row ? toListRow(row, Date.now()) : null;
+}
+
 export interface MemberMembership {
   id: string;
   planName: string;
