@@ -22,7 +22,7 @@ import { users } from './auth.js';
 import { businesses, facilities, municipalities, trainingLogs } from './index.js';
 
 /**
- * The «Клубове» add-on (migrations 0039–0047; docs/ROADMAP.md Stage 9).
+ * The «Клубове» add-on (migrations 0039–0048; docs/ROADMAP.md Stage 9).
  *
  * THE MIGRATIONS ARE THE SOURCE OF TRUTH. They were hand-written (the snapshot
  * chain stops at 0029), and they carry what drizzle cannot express or
@@ -535,6 +535,8 @@ export const clubClasses = pgTable(
     sport: text('sport').notNull(),
     /** Composite FK to club_staff (club_id, user_id): must be this club's staff. */
     instructorUserId: text('instructor_user_id'),
+    /** The room or court the class occupies; its occurrences claim it (0048). */
+    resourceId: uuid('resource_id'),
     /** Wall clock, timestamp WITHOUT time zone (0008's time model). */
     startsAtLocal: timestamp('starts_at_local', { withTimezone: false }).notNull(),
     timezone: text('timezone').notNull().default('Europe/Sofia'),
@@ -755,7 +757,9 @@ export const clubTimeBlocks = pgTable(
     clubId: uuid('club_id')
       .notNull()
       .references(() => clubs.id, { onDelete: 'cascade' }),
-    staffUserId: text('staff_user_id').notNull(),
+    /** Exactly one of staff_user_id / resource_id (0048: a court can be closed too). */
+    staffUserId: text('staff_user_id'),
+    resourceId: uuid('resource_id'),
     startsAt: timestamptz('starts_at').notNull(),
     endsAt: timestamptz('ends_at').notNull(),
     /** time_off | training | other — never a health reason */
@@ -928,6 +932,113 @@ export const clubPaymentEvents = pgTable(
   ],
 );
 
+/** A bookable court, room, pitch, lane or piece of equipment (0048). */
+export const clubResources = pgTable(
+  'club_resources',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    locationId: uuid('location_id').notNull(),
+    /** court | room | pitch | lane | equipment | other */
+    kind: text('kind').notNull(),
+    name: text('name').notNull(),
+    /** 1 = one booking at a time; more = a pool. */
+    quantity: integer('quantity').notNull().default(1),
+    sortOrder: integer('sort_order').notNull().default(0),
+    archivedAt: timestamptz('archived_at'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('club_resources_club_id_unique').on(t.clubId, t.id),
+    unique('club_resources_location_unique').on(t.clubId, t.locationId, t.id),
+    index('club_resources_location_idx').on(t.clubId, t.locationId, t.sortOrder),
+  ],
+);
+
+/** What members book (0048): a rental of a resource, or an appointment with a trainer. */
+export const clubServices = pgTable(
+  'club_services',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    locationId: uuid('location_id').notNull(),
+    /** rental | appointment */
+    kind: text('kind').notNull(),
+    nameBg: text('name_bg').notNull(),
+    nameEn: text('name_en'),
+    descriptionBg: text('description_bg'),
+    descriptionEn: text('description_en'),
+    durationMin: integer('duration_min').notNull(),
+    durationMax: integer('duration_max').notNull(),
+    stepMinutes: integer('step_minutes').notNull().default(30),
+    bufferMinutes: integer('buffer_minutes').notNull().default(0),
+    /** hour | booking */
+    priceUnit: text('price_unit').notNull().default('hour'),
+    priceCents: integer('price_cents').notNull(),
+    memberPriceCents: integer('member_price_cents'),
+    bookingWindowDays: integer('booking_window_days').notNull().default(14),
+    cancelDeadlineHours: integer('cancel_deadline_hours').notNull().default(24),
+    /** Upcoming bookings of this service one account may hold online. */
+    maxUpcomingPerMember: integer('max_upcoming_per_member').notNull().default(4),
+    /** desk | online_optional | online_required */
+    payment: text('payment').notNull().default('desk'),
+    audience: text('audience').notNull().default('all'),
+    visibility: text('visibility').notNull().default('public'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    archivedAt: timestamptz('archived_at'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('club_services_club_id_unique').on(t.clubId, t.id),
+    index('club_services_location_idx').on(t.clubId, t.locationId),
+  ],
+);
+
+/** A booked slot (0048); its busy time lives in club_calendar_claims, by trigger. */
+export const clubReservations = pgTable(
+  'club_reservations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    serviceId: uuid('service_id').notNull(),
+    /** SET NULL on erasure (column list in 0048 only). */
+    memberId: uuid('member_id'),
+    resourceId: uuid('resource_id'),
+    /** Staff id by value (0039 rule 5). */
+    staffUserId: text('staff_user_id'),
+    startsAt: timestamptz('starts_at').notNull(),
+    endsAt: timestamptz('ends_at').notNull(),
+    bufferMinutes: integer('buffer_minutes').notNull().default(0),
+    /** held | confirmed | cancelled | late_cancelled | expired */
+    state: text('state').notNull().default('confirmed'),
+    holdExpiresAt: timestamptz('hold_expires_at'),
+    priceCents: integer('price_cents').notNull(),
+    /** Snapshotted from the service at booking, like the price. */
+    cancelDeadlineHours: integer('cancel_deadline_hours').notNull(),
+    chargeId: uuid('charge_id'),
+    bookedBy: text('booked_by'),
+    cancelKind: text('cancel_kind'),
+    cancelledAt: timestamptz('cancelled_at'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('club_reservations_club_id_unique').on(t.clubId, t.id),
+    index('club_reservations_day_idx').on(t.clubId, t.startsAt),
+    // + the price rules, service links, staff hours, location hours and the
+    // EXCLUDE-backed club_calendar_claims, declared in 0048 only (drizzle
+    // cannot express the EXCLUDE constraints or the claim triggers).
+  ],
+);
+
 export type ClubRow = typeof clubs.$inferSelect;
 export type ClubLocationRow = typeof clubLocations.$inferSelect;
 export type ClubStaffRow = typeof clubStaff.$inferSelect;
@@ -943,3 +1054,6 @@ export type ClubBookingRow = typeof clubBookings.$inferSelect;
 export type ClubCheckinRow = typeof clubCheckins.$inferSelect;
 export type ClubPaymentAccountRow = typeof clubPaymentAccounts.$inferSelect;
 export type ClubCheckoutRow = typeof clubCheckouts.$inferSelect;
+export type ClubResourceRow = typeof clubResources.$inferSelect;
+export type ClubServiceRow = typeof clubServices.$inferSelect;
+export type ClubReservationRow = typeof clubReservations.$inferSelect;

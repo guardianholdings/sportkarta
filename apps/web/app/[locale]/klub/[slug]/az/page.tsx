@@ -15,6 +15,7 @@ import { requireUser } from '@/lib/auth-session';
 import { requireClubsEnabled } from '@/lib/clubs/club-session';
 import { clubSportLabeler } from '@/lib/clubs/labels';
 import { clubTakesPayments } from '@/lib/clubs/payments';
+import { memberReservations, publicServices } from '@/lib/clubs/reservations';
 import { portalView, type PortalMembership, type PortalRecord } from '@/lib/clubs/portal';
 import { ownContact } from '@/lib/clubs/self-service';
 import { formatDate, formatDateTime } from '@/lib/format';
@@ -34,6 +35,9 @@ const GOOD = new Set([
   'renewal_stopped',
   'paused',
   'contact_saved',
+  'reservation_booked',
+  'reservation_cancelled',
+  'reservation_cancelled_refund',
 ]);
 const GOOD_CHECKIN = new Set(['recorded', 'already']);
 
@@ -82,9 +86,11 @@ export default async function ClubPortalPage({
     clubSportLabeler(),
   ]);
   const { club, link, records, classes } = view;
-  const [contact, takesPayments] = await Promise.all([
+  const [contact, takesPayments, reservations, services] = await Promise.all([
     link?.status === 'active' ? ownContact(getDb(), user.id, club.id) : Promise.resolve(null),
     club.live ? clubTakesPayments(club.id) : Promise.resolve(false),
+    link?.status === 'active' ? memberReservations(user.id, club.id, locale) : Promise.resolve([]),
+    publicServices(club.id, locale),
   ]);
   const now = Date.now();
   const booked = new Map<string, Set<string>>();
@@ -115,7 +121,8 @@ export default async function ClubPortalPage({
       ? {
           text: t.has(`outcome.${query.rezultat}`) ? t(`outcome.${query.rezultat}`) : null,
           good: GOOD.has(query.rezultat) || query.rezultat.startsWith('notify_'),
-          warn: query.rezultat === 'cancelled_late',
+          warn:
+            query.rezultat === 'cancelled_late' || query.rezultat === 'reservation_cancelled_late',
         }
       : null;
 
@@ -389,6 +396,70 @@ export default async function ClubPortalPage({
             </div>
           </section>
         ))}
+
+        {(reservations.length > 0 || services.length > 0) && (
+          <section className={section} aria-labelledby="res-h">
+            <h2 id="res-h" className="text-h4 font-bold text-ink">
+              {t('reservationsTitle')}
+            </h2>
+            {reservations.length === 0 ? (
+              <p className="text-body-sm text-text-muted">{t('noReservations')}</p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {reservations.map((r) => {
+                  // A held booking is never late: it is released, its charge voided.
+                  const late = r.state === 'confirmed' && Date.parse(r.freeCancelUntil) < now;
+                  const started = Date.parse(r.startsAt) <= now;
+                  return (
+                    <li key={r.id} className="flex flex-wrap items-center gap-3 py-2">
+                      <span className="min-w-0 flex-1 text-body-sm">
+                        <span className="font-medium text-ink">{r.serviceName}</span>
+                        {records.length > 1 && (
+                          <span className="text-text-muted"> · {r.memberName}</span>
+                        )}
+                        <span className="block text-caption text-text-muted">
+                          {formatDateTime(r.startsAt, locale)}
+                          {r.resourceName ? ` · ${r.resourceName}` : ''}
+                          {r.trainerName ? ` · ${r.trainerName}` : ''}
+                          {r.priceCents > 0 ? ` · ${formatEuro(r.priceCents, locale)}` : ''}
+                        </span>
+                        <span className="block text-caption text-text-muted">
+                          {r.state === 'held'
+                            ? t('reservationHeld')
+                            : late
+                              ? t('lateCancel')
+                              : t('freeCancelUntil', {
+                                  time: formatDateTime(r.freeCancelUntil, locale),
+                                })}
+                        </span>
+                      </span>
+                      {club.live && !started && (
+                        <form action={portalOpAction}>
+                          {hidden(r.memberId)}
+                          <input type="hidden" name="op" value="cancel_reservation" />
+                          <input type="hidden" name="reservationId" value={r.id} />
+                          <ConfirmButton
+                            message={
+                              late ? t('cancelReservationLate') : t('cancelReservationConfirm')
+                            }
+                            className={pill}
+                          >
+                            {t('cancelReservation')}
+                          </ConfirmButton>
+                        </form>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {services.length > 0 && club.live && (
+              <Link href={`/klub/${slug}/rezervatsiya`} className={pill}>
+                {t('reserveCta')}
+              </Link>
+            )}
+          </section>
+        )}
 
         {takesPayments && (
           <section className={section} aria-labelledby="buy-h">

@@ -8,6 +8,7 @@ import { classFormLabels, clubFormMessages } from '@/lib/clubs/form-labels';
 import { clubSportOptions } from '@/lib/clubs/labels';
 import { listPlans } from '@/lib/clubs/sales';
 import { clubLocations, clubSettings } from '@/lib/clubs/settings';
+import { clubResources } from '@/lib/clubs/resources';
 import { clubInstructors } from '@/lib/clubs/staff';
 
 import { saveClassAction } from '../actions';
@@ -60,6 +61,11 @@ export default async function NewClassPage({
             sports={sports}
             locations={active.map((location) => ({ id: location.id, name: location.name }))}
             instructors={instructors}
+            rooms={(await clubResources(actor)).map((r) => ({
+              id: r.id,
+              name: r.name,
+              locationName: r.locationName,
+            }))}
             plans={plans.map((plan) => ({
               id: plan.id,
               name: locale === 'en' && plan.nameEn ? plan.nameEn : plan.nameBg,

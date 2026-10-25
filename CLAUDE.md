@@ -192,7 +192,13 @@ browser) in a MANUAL STEPS list at the end of the session.
   stand-in that cannot resolve in production. Fee rules and plan terms are
   SNAPSHOTTED onto bookings and memberships (`0047`) — never read live from
   the class or plan. A scope fragment's alias must be declared by its
-  statement (`club-scope.test.ts`). Writes need `clubWritableSql` (active and paid or
+  statement (`club-scope.test.ts`). Courts, rooms and appointments (wave C,
+  `0048`): every busy interval — class occurrences in a room, reservations
+  (with their buffer), closures, trainer leave — is a row in
+  `club_calendar_claims`, written ONLY by triggers (a guard refuses any other
+  writer) and refused on overlap by EXCLUDE constraints; a pool resource is
+  counted by units under `FOR NO KEY UPDATE`. Availability is recomputed on the
+  server before every booking, never taken from a form. Writes need `clubWritableSql` (active and paid or
   community, 14-day grace); every public surface embeds `clubRenderableSql`.
   Check-ins never refuse (`covered=false` is recorded); only a QR/card visit of
   a consenting linked member writes `training_logs(source='club',

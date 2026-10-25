@@ -17,6 +17,12 @@ import { HORIZON_WEEKS } from '../sessions/materialize.js';
  * Reconciling an edited rule never touches an occurrence that has started, and
  * never deletes one with a booking or a check-in: those are cancelled instead,
  * so the bookers are told and the attendance record survives.
+ *
+ * A class in a ROOM (0048) claims it per occurrence, so the order matters:
+ * the reconcile runs FIRST (a class moved from 18:00 to 18:30 must let go of
+ * its 18:00 claims before claiming 18:30), and each new occurrence is inserted
+ * under its own savepoint — one that collides with a booking or a closure is
+ * skipped and reported (`conflicts`), never allowed to stall the whole class.
  */
 
 const LOOKBACK_MS = 24 * 60 * 60 * 1000;
@@ -34,6 +40,8 @@ export interface ClubMaterializeReport {
   occurrencesCreated: number;
   occurrencesCancelled: number;
   occurrencesRemoved: number;
+  /** Occurrences not created because their room was taken (0048). */
+  conflicts: { classId: string; startsAt: string }[];
   failures: { classId: string; code: string }[];
 }
 
@@ -66,6 +74,7 @@ export async function materializeClubClasses(
     occurrencesCreated: 0,
     occurrencesCancelled: 0,
     occurrencesRemoved: 0,
+    conflicts: [],
     failures: [],
   };
 
@@ -142,26 +151,6 @@ async function materializeOne(
       throw error;
     }
 
-    if (occurrences.length > 0) {
-      const inserted = await client.query(
-        `INSERT INTO club_class_occurrences
-           (club_id, class_id, starts_at, ends_at, starts_at_local, dst_resolution)
-         SELECT $1::uuid, $2::uuid, o.starts_at, o.ends_at, o.starts_at_local, o.dst_resolution
-           FROM unnest($3::timestamptz[], $4::timestamptz[], $5::timestamp[], $6::text[])
-             AS o(starts_at, ends_at, starts_at_local, dst_resolution)
-         ON CONFLICT (class_id, starts_at) DO NOTHING`,
-        [
-          row.club_id,
-          classId,
-          occurrences.map((o) => o.startsAt.toISOString()),
-          occurrences.map((o) => o.endsAt.toISOString()),
-          occurrences.map((o) => formatWall(o.wall)),
-          occurrences.map((o) => o.resolution),
-        ],
-      );
-      report.occurrencesCreated += inserted.rowCount ?? 0;
-    }
-
     const keep = occurrences.map((o) => o.startsAt.toISOString());
     const bounds = [classId, from.toISOString(), horizon.toISOString(), keep];
     const cancelled = await client.query(
@@ -184,6 +173,34 @@ async function materializeOne(
     );
     report.occurrencesCancelled += cancelled.rowCount ?? 0;
     report.occurrencesRemoved += removed.rowCount ?? 0;
+
+    // After the reconcile (see the header): one savepoint per occurrence, so a
+    // room taken at one date skips that date and reports it.
+    for (const o of occurrences) {
+      await client.query('SAVEPOINT occurrence');
+      try {
+        const inserted = await client.query(
+          `INSERT INTO club_class_occurrences
+             (club_id, class_id, starts_at, ends_at, starts_at_local, dst_resolution)
+           VALUES ($1::uuid, $2::uuid, $3::timestamptz, $4::timestamptz, $5::timestamp, $6)
+           ON CONFLICT (class_id, starts_at) DO NOTHING`,
+          [
+            row.club_id,
+            classId,
+            o.startsAt.toISOString(),
+            o.endsAt.toISOString(),
+            formatWall(o.wall),
+            o.resolution,
+          ],
+        );
+        await client.query('RELEASE SAVEPOINT occurrence');
+        report.occurrencesCreated += inserted.rowCount ?? 0;
+      } catch (error: unknown) {
+        await client.query('ROLLBACK TO SAVEPOINT occurrence');
+        if (errorCode(error) !== '23P01') throw error;
+        report.conflicts.push({ classId, startsAt: o.startsAt.toISOString() });
+      }
+    }
 
     await client.query(`UPDATE club_classes SET materialized_through = $2 WHERE id = $1`, [
       classId,

@@ -9,6 +9,9 @@ import {
   addDaysIso,
   isClubSport,
   isIsoDate,
+  formatClock,
+  parseClock,
+  parseClosing,
   parseEuroCents,
   type ClubCancelReason,
   type ClubKind,
@@ -736,6 +739,8 @@ export interface ClassInput {
   sport: ClubSport;
   locationId: string;
   instructorUserId: string | null;
+  /** The room or court the class occupies (0048); null = none. */
+  resourceId: string | null;
   /** `YYYY-MM-DD HH:MM:00`, a Sofia wall clock. */
   startsAtLocal: string;
   rrule: string | null;
@@ -903,6 +908,7 @@ export function parseClass(
       sport,
       locationId: locationId.toLowerCase(),
       instructorUserId,
+      resourceId: isUuid(text(form, 'resourceId')) ? text(form, 'resourceId').toLowerCase() : null,
       startsAtLocal: `${firstDate} ${time}:00`,
       rrule,
       durationMinutes,
@@ -918,6 +924,299 @@ export function parseClass(
       lateCancelFeeCents,
       strikeLimit,
       strikeDays,
+    },
+  };
+}
+
+// ─── Resources, services, reservations (0048) ──────────────────────────────
+
+export const CLUB_RESOURCE_KINDS = [
+  'court',
+  'room',
+  'pitch',
+  'lane',
+  'equipment',
+  'other',
+] as const;
+export type ClubResourceKind = (typeof CLUB_RESOURCE_KINDS)[number];
+
+export interface ResourceInput {
+  locationId: string;
+  kind: ClubResourceKind;
+  name: string;
+  quantity: number;
+  sortOrder: number;
+}
+
+export function parseResource(form: Reader): InputResult<ResourceInput> {
+  const errors: string[] = [];
+  const locationId = text(form, 'locationId');
+  if (!isUuid(locationId)) errors.push('location_invalid');
+  const kind = oneOf(text(form, 'kind'), CLUB_RESOURCE_KINDS);
+  if (!kind) errors.push('kind_invalid');
+  const name = required(text(form, 'name'), 80, errors, 'name');
+  const quantity = intInRange(text(form, 'quantity') || '1', 1, 500);
+  if (quantity === null) errors.push('quantity_invalid');
+  const sortOrder = intInRange(text(form, 'sortOrder') || '0', 0, 999) ?? 0;
+  if (errors.length > 0 || !kind || quantity === null) return { ok: false, errors };
+  return { ok: true, value: { locationId, kind, name, quantity, sortOrder } };
+}
+
+export interface DayHours {
+  /** ISO weekday, 1 = Monday. */
+  weekday: number;
+  opens: string;
+  closes: string;
+}
+
+/**
+ * A week of opening hours: `h<weekday>_opens` / `h<weekday>_closes` (HH:MM).
+ * A day with both empty is closed; half a day, or closing before opening, is
+ * an error.
+ */
+export function parseWeekHours(form: Reader): InputResult<DayHours[]> {
+  const days: DayHours[] = [];
+  for (let weekday = 1; weekday <= 7; weekday += 1) {
+    const opens = text(form, `h${weekday}_opens`);
+    const closes = text(form, `h${weekday}_closes`);
+    if (opens === '' && closes === '') continue;
+    const from = parseClock(opens);
+    const to = parseClosing(closes);
+    if (from === null || to === null || to <= from) return { ok: false, errors: ['hours_invalid'] };
+    // Midnight closes the day: stored as 24:00 (a Postgres time allows it).
+    days.push({ weekday, opens: opens.slice(0, 5), closes: formatClock(to) });
+  }
+  return { ok: true, value: days };
+}
+
+export const CLUB_SERVICE_KINDS = ['rental', 'appointment'] as const;
+export type ClubServiceKind = (typeof CLUB_SERVICE_KINDS)[number];
+export const CLUB_SERVICE_PAYMENTS = ['desk', 'online_optional', 'online_required'] as const;
+export type ClubServicePayment = (typeof CLUB_SERVICE_PAYMENTS)[number];
+/** 0048's club_services_window_sane: inside the class materialisation horizon. */
+export const MAX_BOOKING_WINDOW_DAYS = 42;
+
+export interface ServiceInput {
+  locationId: string;
+  kind: ClubServiceKind;
+  nameBg: string;
+  nameEn: string | null;
+  descriptionBg: string | null;
+  descriptionEn: string | null;
+  durationMin: number;
+  durationMax: number;
+  stepMinutes: number;
+  bufferMinutes: number;
+  priceUnit: 'hour' | 'booking';
+  priceCents: number;
+  memberPriceCents: number | null;
+  bookingWindowDays: number;
+  cancelDeadlineHours: number;
+  /** Upcoming bookings of this service one account may hold online (1–50). */
+  maxUpcomingPerMember: number;
+  payment: ClubServicePayment;
+  audience: ClubPlanAudience;
+  visibility: 'public' | 'private';
+  resourceIds: string[];
+  staffUserIds: string[];
+}
+
+export function parseService(form: Reader): InputResult<ServiceInput> {
+  const errors: string[] = [];
+  const locationId = text(form, 'locationId');
+  if (!isUuid(locationId)) errors.push('location_invalid');
+  const kind = oneOf(text(form, 'kind'), CLUB_SERVICE_KINDS);
+  if (!kind) errors.push('kind_invalid');
+  const nameBg = required(text(form, 'nameBg'), 80, errors, 'name');
+  const nameEn = bounded(optionalText(form, 'nameEn'), 80, errors, 'name_too_long');
+  const descriptionBg = bounded(
+    optionalText(form, 'descriptionBg'),
+    500,
+    errors,
+    'description_too_long',
+  );
+  const descriptionEn = bounded(
+    optionalText(form, 'descriptionEn'),
+    500,
+    errors,
+    'description_too_long',
+  );
+  const durationMin = intInRange(text(form, 'durationMin'), 15, 720);
+  const durationMax = intInRange(text(form, 'durationMax') || text(form, 'durationMin'), 15, 720);
+  const stepMinutes = intInRange(text(form, 'stepMinutes') || '30', 5, 240);
+  if (
+    durationMin === null ||
+    durationMax === null ||
+    stepMinutes === null ||
+    durationMax < durationMin ||
+    (durationMax - durationMin) % stepMinutes !== 0
+  ) {
+    errors.push('duration_invalid');
+  }
+  const bufferMinutes = intInRange(text(form, 'bufferMinutes') || '0', 0, 120);
+  if (bufferMinutes === null) errors.push('buffer_invalid');
+  const priceUnit = text(form, 'priceUnit') === 'booking' ? 'booking' : 'hour';
+  const priceCents = parseEuroCents(text(form, 'price'));
+  if (priceCents === null || priceCents > 10_000_000) errors.push('price_invalid');
+  const memberRaw = text(form, 'memberPrice');
+  const memberPriceCents = memberRaw === '' ? null : parseEuroCents(memberRaw);
+  if (memberRaw !== '' && (memberPriceCents === null || memberPriceCents > 10_000_000)) {
+    errors.push('price_invalid');
+  }
+  const bookingWindowDays = intInRange(
+    text(form, 'windowDays') || '14',
+    1,
+    MAX_BOOKING_WINDOW_DAYS,
+  );
+  if (bookingWindowDays === null) errors.push('window_invalid');
+  const cancelDeadlineHours = intInRange(text(form, 'cancelHours') || '24', 0, 168);
+  if (cancelDeadlineHours === null) errors.push('cancel_hours_invalid');
+  const maxUpcomingPerMember = intInRange(text(form, 'maxUpcoming') || '4', 1, 50);
+  if (maxUpcomingPerMember === null) errors.push('max_upcoming_invalid');
+  const payment = oneOf(text(form, 'payment') || 'desk', CLUB_SERVICE_PAYMENTS);
+  if (!payment) errors.push('payment_invalid');
+  const audience = oneOf(text(form, 'audience') || 'all', CLUB_PLAN_AUDIENCES);
+  if (!audience) errors.push('audience_invalid');
+  const ids = (name: string) => [
+    ...new Set(form.getAll(name).filter((v): v is string => typeof v === 'string' && isUuid(v))),
+  ];
+  const resourceIds = ids('resourceIds');
+  const staffUserIds = [
+    ...new Set(
+      form
+        .getAll('staffUserIds')
+        .filter((v): v is string => typeof v === 'string' && v !== '' && v.length <= 200),
+    ),
+  ];
+  if (kind === 'rental' && resourceIds.length === 0) errors.push('needs_resource');
+  if (kind === 'appointment' && staffUserIds.length === 0) errors.push('needs_staff');
+  if (
+    errors.length > 0 ||
+    !kind ||
+    durationMin === null ||
+    durationMax === null ||
+    stepMinutes === null ||
+    bufferMinutes === null ||
+    priceCents === null ||
+    bookingWindowDays === null ||
+    cancelDeadlineHours === null ||
+    maxUpcomingPerMember === null ||
+    !payment ||
+    !audience
+  ) {
+    return { ok: false, errors };
+  }
+  return {
+    ok: true,
+    value: {
+      locationId,
+      kind,
+      nameBg,
+      nameEn,
+      descriptionBg,
+      descriptionEn,
+      durationMin,
+      durationMax,
+      stepMinutes,
+      bufferMinutes,
+      priceUnit,
+      priceCents,
+      memberPriceCents,
+      bookingWindowDays,
+      cancelDeadlineHours,
+      maxUpcomingPerMember,
+      payment,
+      audience,
+      visibility: checked(form, 'public') ? 'public' : 'private',
+      resourceIds,
+      staffUserIds,
+    },
+  };
+}
+
+export interface PriceRuleInput {
+  weekdays: number[];
+  from: string;
+  to: string;
+  priceCents: number;
+  memberPriceCents: number | null;
+  priority: number;
+}
+
+export function parsePriceRule(form: Reader): InputResult<PriceRuleInput> {
+  const errors: string[] = [];
+  const weekdays = [
+    ...new Set(
+      form
+        .getAll('weekdays')
+        .map((v) => (typeof v === 'string' ? Number(v) : NaN))
+        .filter((v) => Number.isInteger(v) && v >= 1 && v <= 7),
+    ),
+  ].sort();
+  if (weekdays.length === 0) errors.push('weekdays_required');
+  const from = text(form, 'from');
+  const to = text(form, 'to');
+  const fromMin = parseClock(from);
+  const toMin = parseClosing(to);
+  if (fromMin === null || toMin === null || toMin <= fromMin) errors.push('hours_invalid');
+  const priceCents = parseEuroCents(text(form, 'price'));
+  if (priceCents === null || priceCents > 10_000_000) errors.push('price_invalid');
+  const memberRaw = text(form, 'memberPrice');
+  const memberPriceCents = memberRaw === '' ? null : parseEuroCents(memberRaw);
+  if (memberRaw !== '' && (memberPriceCents === null || memberPriceCents > 10_000_000)) {
+    errors.push('price_invalid');
+  }
+  const priority = Number(text(form, 'priority') || '0');
+  if (!Number.isInteger(priority) || priority < -100 || priority > 100) {
+    errors.push('priority_invalid');
+  }
+  if (errors.length > 0 || priceCents === null) return { ok: false, errors };
+  return {
+    ok: true,
+    value: {
+      weekdays,
+      from: from.slice(0, 5),
+      to: formatClock(toMin ?? 0),
+      priceCents,
+      memberPriceCents,
+      priority,
+    },
+  };
+}
+
+export interface ReservationRequest {
+  serviceId: string;
+  date: IsoDate;
+  /** `HH:MM` on the club's wall clock. */
+  local: string;
+  durationMinutes: number;
+  /** The record it is for; null = the account's own (portal only). */
+  memberId: string | null;
+}
+
+export function parseReservationRequest(form: Reader): InputResult<ReservationRequest> {
+  const serviceId = text(form, 'serviceId');
+  const date = text(form, 'date');
+  const local = text(form, 'local');
+  const durationMinutes = intInRange(text(form, 'duration'), 15, 720);
+  const memberRaw = text(form, 'memberId');
+  if (
+    !isUuid(serviceId) ||
+    !isIsoDate(date) ||
+    parseClock(local) === null ||
+    durationMinutes === null ||
+    (memberRaw !== '' && !isUuid(memberRaw))
+  ) {
+    return { ok: false, errors: ['slot_invalid'] };
+  }
+  return {
+    ok: true,
+    value: {
+      serviceId,
+      date,
+      local: local.slice(0, 5),
+      durationMinutes,
+      memberId: memberRaw === '' ? null : memberRaw,
     },
   };
 }

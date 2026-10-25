@@ -3039,7 +3039,8 @@
       "drop_in": "drop-in visits",
       "product": "products",
       "fee": "fees",
-      "other": "other"
+      "other": "other",
+      "reservation": "bookings"
     },
     "feature": {
       "reports_advanced": "advanced reports",
@@ -3176,7 +3177,10 @@
       "payments": "Payments",
       "reports": "Reports",
       "team": "Team",
-      "settings": "Settings"
+      "settings": "Settings",
+      "calendar": "Bookings",
+      "services": "Services",
+      "resources": "Facilities"
     },
     "map": "Back to the map",
     "profile": "My profile",
@@ -3338,7 +3342,27 @@
       "answer_too_long": "The answer is too long.",
       "faq_en_pair": "In English fill in both the question and the answer — or neither.",
       "provider_error": "Stripe did not respond. Nothing has changed — please try again.",
-      "subscription_pause": "A membership paid automatically by card cannot be paused here — billing would continue. Stop its renewal, or pause it in Stripe."
+      "subscription_pause": "A membership paid automatically by card cannot be paused here — billing would continue. Stop its renewal, or pause it in Stripe.",
+      "location_invalid": "Choose a location.",
+      "quantity_invalid": "The number is from 1 to 500.",
+      "hours_invalid": "Check the hours: give both a start and an end for each day, with the end after the start.",
+      "buffer_invalid": "The break between bookings is up to 120 minutes.",
+      "window_invalid": "Booking opens 1 to 42 days ahead.",
+      "cancel_hours_invalid": "Free cancellation is up to 168 hours.",
+      "payment_invalid": "Choose how it is paid.",
+      "needs_resource": "Choose at least one facility for the rental.",
+      "needs_staff": "Choose at least one trainer for the session.",
+      "weekdays_required": "Choose at least one day.",
+      "priority_invalid": "The priority is from -100 to 100.",
+      "slot_invalid": "Choose a time from the list.",
+      "slot_taken": "That time was just taken. Please choose another.",
+      "time_off_overlaps": "This time off overlaps other time off or a booked session of the trainer.",
+      "block_invalid": "Check the date and times: the end must be after the start.",
+      "block_conflict": "There is a class or a booking in that period. Move it first.",
+      "claim_first": "The club already has a record with your e-mail. Link it under “My clubs”.",
+      "link_pending": "Your link with the club is awaiting approval.",
+      "room_taken": "The room is taken on some of the class's dates.",
+      "room_location": "That room is at another location. Choose a room at the class's location."
     }
   },
   "ClubSettings": {
@@ -3883,7 +3907,12 @@
         "refund_not_allowed": "This payment cannot be refunded from here.",
         "refund_provider_error": "Stripe did not accept the refund. Try again or refund it from the Stripe dashboard.",
         "refund_account_changed": "This payment went to a Stripe account that is no longer connected. Refund it from the Stripe dashboard."
-      }
+      },
+      "refundsDueTitle": "Bookings to refund",
+      "refundsDueHint": "Paid bookings cancelled in time. Refund the amount and record the refund: the row disappears once it is recorded.",
+      "refundOnlineHint": "Paid online: refund it from its row in the list below.",
+      "recordRefund": "Record the refund",
+      "refundMethod": "How the money went back"
     }
   },
   "ClubSchedule": {
@@ -3949,7 +3978,11 @@
       "noShowFee": "No-show fee (€)",
       "lateCancelFee": "Late-cancel fee (€)",
       "strikeLimit": "Strikes before self-booking stops",
-      "strikeDays": "Within (days)"
+      "strikeDays": "Within (days)",
+      "room": "Room or court (optional)",
+      "roomNone": "— none —",
+      "roomHint": "The class occupies the room: it cannot be booked at those times.",
+      "roomTaken": "The room is already taken on:"
     },
     "rosterPage": {
       "back": "Timetable",
@@ -4164,7 +4197,12 @@
       "payment_not_allowed": "This balance is already paid or is not yours.",
       "payment_too_small": "The amount is below the online minimum (€0.50). Please pay at the front desk.",
       "payment_provider_error": "The payment system did not respond. Please try again shortly.",
-      "payment_in_progress": "Your earlier payment for this balance is being processed. Please wait a moment and refresh."
+      "payment_in_progress": "Your earlier payment for this balance is being processed. Please wait a moment and refresh.",
+      "reservation_booked": "Your booking is made.",
+      "reservation_cancelled": "Your booking is cancelled.",
+      "reservation_cancelled_late": "Your booking is cancelled after the free cancellation period.",
+      "reservation_cancelled_refund": "Your booking is cancelled. The club will refund what you paid.",
+      "payment_hold_ending": "The time to pay for this booking is running out. Cancel it and book again."
     },
     "checkin": {
       "recorded": "Your attendance is marked.",
@@ -4206,7 +4244,14 @@
     "buyTitle": "Buy a membership online",
     "buyHint": "Pick a membership from the club's prices and pay by card. It starts as soon as the payment is confirmed.",
     "buyCta": "See prices",
-    "termsLink": "The club's terms"
+    "termsLink": "The club's terms",
+    "reservationsTitle": "Bookings",
+    "noReservations": "You have no upcoming bookings.",
+    "reservationHeld": "awaiting payment",
+    "cancelReservation": "Cancel",
+    "cancelReservationConfirm": "The booking will be cancelled. Continue?",
+    "cancelReservationLate": "The free cancellation period has passed — the amount stays due. Cancel the booking?",
+    "reserveCta": "Book"
   },
   "ClubApply": {
     "title": "Register a club on POPS",
@@ -4535,7 +4580,12 @@
     "widgetBook": "Book",
     "widgetMore": "Open the club's page",
     "widgetPoweredBy": "Booking through POPS",
-    "buyOnline": "Buy online"
+    "buyOnline": "Buy online",
+    "servicesTitle": "Bookings",
+    "perHour": "per hour",
+    "perBooking": "per booking",
+    "memberPrice": "members {amount}",
+    "reserve": "Book"
   },
   "ClubPurchase": {
     "title": "Buy online",
@@ -4577,5 +4627,197 @@
       "already_renewing": "Your membership renews automatically. To buy another, first stop the renewal under “My club”.",
       "member_cap": "The club has reached its member limit. Please contact the club."
     }
+  },
+  "ClubResources": {
+    "title": "Facilities",
+    "intro": "Courts, rooms, pitches, lanes and equipment that members rent or where classes take place. A facility can never be taken twice at the same time.",
+    "needLocation": "Add a location in Settings first.",
+    "listTitle": "Facilities",
+    "empty": "No facilities yet.",
+    "name": "Name",
+    "kind": "Type",
+    "location": "Location",
+    "quantity": "Quantity",
+    "quantityHint": "1 = one booking at a time (a court, a room). More = a shared stock, e.g. 6 rackets or 4 lanes.",
+    "kinds": {
+      "court": "court",
+      "room": "room",
+      "pitch": "pitch",
+      "lane": "lane",
+      "equipment": "equipment",
+      "other": "other"
+    },
+    "archived": "archived",
+    "save": "Save",
+    "add": "Add a facility",
+    "archive": "Archive",
+    "restore": "Restore",
+    "archiveConfirm": "The facility will no longer be offered for booking. Existing bookings stay. Continue?",
+    "restoreConfirm": "The facility will be offered again. Continue?",
+    "hoursTitle": "Opening hours",
+    "hoursHint": "Bookings are taken only within opening hours. A day without hours is closed. To stay open until midnight, enter 00:00 as the closing time.",
+    "opens": "opens",
+    "closes": "closes",
+    "saveHours": "Save opening hours",
+    "blocksTitle": "Closures",
+    "blocksHint": "Close a facility for repairs, a tournament or an event. A period that already has a class or a booking cannot be closed.",
+    "resource": "Facility",
+    "date": "Date",
+    "from": "From",
+    "to": "To",
+    "addBlock": "Close",
+    "removeBlock": "Reopen",
+    "error": {
+      "block_conflict": "There is a class or a booking in that period. Move it first.",
+      "quantity_conflict": "At some times more bookings are already made than the new number allows. Cancel or move some of them first.",
+      "room_in_use": "A class at this location uses this facility. Change the class's room first.",
+      "resource_busy": "This facility has upcoming bookings, classes or closures. Cancel or move them first."
+    }
+  },
+  "ClubServices": {
+    "title": "Services",
+    "intro": "What members book: court or room rentals by the hour, and one-to-one sessions with a trainer. Prices can depend on the day and time, and members can have their own price.",
+    "needLocation": "Add a location in Settings first.",
+    "listTitle": "Services",
+    "empty": "No services yet.",
+    "kind": "Type",
+    "kinds": {
+      "rental": "facility rental",
+      "appointment": "session with a trainer"
+    },
+    "location": "Location",
+    "nameBg": "Name",
+    "nameEn": "Name in English (optional)",
+    "description": "Description (optional)",
+    "length": "Length (minutes)",
+    "durationMin": "Shortest",
+    "durationMax": "Longest",
+    "step": "Step",
+    "buffer": "Break after",
+    "priceTitle": "Price",
+    "price": "Price (€)",
+    "priceUnit": "The price is",
+    "perHour": "per hour",
+    "perBooking": "per booking",
+    "memberPrice": "Members' price (€, optional)",
+    "memberShort": "members {amount}",
+    "window": "Booking up to (days ahead, at most {max})",
+    "cancelHours": "Free cancellation up to (hours before)",
+    "payment": "Payment",
+    "payments": {
+      "desk": "at the front desk",
+      "online_optional": "at the desk or online",
+      "online_required": "online when booking"
+    },
+    "audience": "For whom",
+    "public": "Members can book it themselves",
+    "resources": "Facilities",
+    "noResources": "Add facilities under “Facilities”.",
+    "trainers": "Trainers",
+    "archived": "archived",
+    "save": "Save",
+    "add": "Add a service",
+    "archive": "Archive",
+    "restore": "Restore",
+    "archiveConfirm": "The service will no longer be offered. Existing bookings stay. Continue?",
+    "restoreConfirm": "The service will be offered again. Continue?",
+    "rulesTitle": "Prices by day and time",
+    "rulesHint": "For example a higher price on weekday evenings. Where two rules overlap, the one with the higher priority applies.",
+    "from": "From",
+    "to": "To",
+    "addRule": "Add a price",
+    "removeRule": "Remove",
+    "hoursTitle": "Trainers' hours",
+    "hoursHint": "When each trainer takes one-to-one sessions. The classes they teach and their time off are taken into account automatically.",
+    "saveHours": "Save the hours",
+    "error": {
+      "online_unavailable": "The club does not take online payments yet. Connect Stripe in Settings → Payments, or choose payment at the desk.",
+      "max_upcoming_invalid": "Upcoming bookings must be between 1 and 50."
+    },
+    "maxUpcoming": "Most upcoming bookings per account (children included)",
+    "onlineNeedsAccount": "Online payment needs the club's Stripe account (Settings → Payments)."
+  },
+  "ClubCalendar": {
+    "title": "Bookings",
+    "intro": "The day by facility and trainer: classes, bookings and closures. The front desk books a client into a free slot from here.",
+    "needLocation": "Add a location in Settings first.",
+    "date": "Date",
+    "location": "Location",
+    "show": "Show",
+    "prev": "Previous day",
+    "next": "Next day",
+    "free": "Free all day.",
+    "noResources": "No facilities and no booked sessions at this location.",
+    "held": "awaiting payment",
+    "kind": {
+      "class": "class",
+      "reservation": "booking",
+      "block": "closed"
+    },
+    "blockReason": {
+      "training": "training",
+      "other": "closed",
+      "time_off": "time off"
+    },
+    "cancel": "Cancel",
+    "cancelConfirm": "The booking will be cancelled and any unpaid amount voided. Continue?",
+    "bookTitle": "New booking",
+    "service": "Service",
+    "pickService": "— choose —",
+    "duration": "Length",
+    "minutes": "{count} min",
+    "findSlots": "Show free slots",
+    "noSlots": "No free slots on this day.",
+    "slot": "Time",
+    "member": "Client",
+    "pickMember": "— choose —",
+    "memberPriceHint": "Members with a valid membership get the members' price.",
+    "book": "Book",
+    "outcome": {
+      "booked": "The booking is made.",
+      "cancelled": "The booking is cancelled.",
+      "cancelled_refund": "The booking is cancelled. It was paid: refund the amount (see Payments)."
+    }
+  },
+  "ClubBooking": {
+    "title": "Book",
+    "none": "The club does not offer online booking yet.",
+    "service": "Service",
+    "date": "Date",
+    "duration": "Length",
+    "minutes": "{count} min",
+    "show": "Show free slots",
+    "pricePerHour": "{amount} per hour",
+    "pricePerBooking": "{amount} per booking",
+    "memberPrice": "members {amount}",
+    "cancelUntil": "free cancellation up to {hours, plural, one {# hour} other {# hours}} before the start",
+    "closed": "The club is not taking bookings at the moment.",
+    "noSlots": "No free slots on this day. Try another day.",
+    "slot": "Time",
+    "forWhom": "For whom",
+    "forMe": "For me",
+    "payAtDesk": "You pay at the front desk.",
+    "payOnlineLater": "You can pay at the desk or online under “My club”.",
+    "payOnlineNow": "You pay online right away. The slot is held for you for 35 minutes.",
+    "book": "Book",
+    "error": {
+      "generic": "Something went wrong. Please try again.",
+      "slot_invalid": "Choose a time from the list.",
+      "slot_taken": "That time was just taken. Please choose another.",
+      "not_allowed": "This booking is not possible.",
+      "audience_mismatch": "This service is for a different age group.",
+      "claim_first": "The club already has a record with your e-mail. Link it under “My clubs” and try again.",
+      "link_pending": "Your link with the club is awaiting approval.",
+      "rate_limited": "Too many attempts. Please try again in a few minutes.",
+      "payment_unavailable": "Online payment is not working right now. The booking was not made.",
+      "payment_provider_error": "The payment system did not respond. The booking was not made.",
+      "payment_in_progress": "An earlier payment is still being processed.",
+      "payment_not_allowed": "The payment could not start. The booking was not made.",
+      "payment_too_small": "The amount is below the minimum for online payment. The booking was not made.",
+      "payment_hold_ending": "The time to pay has run out. Please pick a time again.",
+      "hold_pending": "You have an unpaid booking at this club. Pay for it or cancel it, then book again.",
+      "limit_reached": "You already have the most upcoming bookings allowed for this service."
+    },
+    "onlineUnavailable": "This service is paid online, and the club is not taking online payments right now. Please contact the club."
   }
 }

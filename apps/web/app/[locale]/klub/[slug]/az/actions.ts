@@ -9,6 +9,7 @@ import { redirect as redirectOut } from 'next/navigation';
 import { redirect } from '@/i18n/navigation';
 import { requireUser } from '@/lib/auth-session';
 import { bookSelf, cancelBooking } from '@/lib/clubs/bookings';
+import { cancelReservation } from '@/lib/clubs/reservations';
 import { requireClubsEnabled } from '@/lib/clubs/club-session';
 import { isUuid, parseContactPreferences } from '@/lib/clubs/input';
 import { requestErasure, setLinkPreference, unlinkRecord } from '@/lib/clubs/links';
@@ -140,6 +141,24 @@ export async function portalOpAction(formData: FormData): Promise<void> {
       );
       if (!started.ok) return back(`payment_${started.error}`);
       return redirectOut(started.url);
+    }
+    case 'cancel_reservation': {
+      const reservationId = str(formData, 'reservationId');
+      if (!isUuid(reservationId)) return back('not_found');
+      const result = await cancelReservation(
+        db,
+        { kind: 'member', userId: user.id, clubId },
+        reservationId,
+      );
+      return back(
+        !result.ok
+          ? 'not_found'
+          : result.late
+            ? 'reservation_cancelled_late'
+            : result.refundDue
+              ? 'reservation_cancelled_refund'
+              : 'reservation_cancelled',
+      );
     }
     case 'contact': {
       if (!isUuid(memberId)) return back('not_found');

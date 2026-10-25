@@ -303,7 +303,25 @@ and, where an outside service is involved, by an env switch as well.
   listed for the office; refunds from the payments screen (a full refund
   voids the charge). Behind `CLUB_PAYMENTS_ENABLED`; a local `fake` provider
   (`/dev/plashtane`) stands in for Stripe and can never run in production.
-- [ ] **C — rooms, courts, equipment and appointments**
+- [x] **C — rooms, courts, equipment and appointments** (`0048`) — bookable
+  resources (exclusive, or a pool of N), opening hours, closures; services
+  (rental by the hour, appointment with a trainer) with durations, buffer,
+  peak/off-peak and member prices, a booking window and cancel deadline;
+  trainers' appointment hours; classes that occupy a room. Every busy interval
+  is a row in `club_calendar_claims`, written only by triggers and guarded by
+  two EXCLUDE constraints — double booking is impossible by construction. The
+  slot engine and the price table are pure (`lib/src/clubs/slots.ts`,
+  `pricing.ts`), DST-tested. Office «Съоръжения», «Услуги», «Резервации» (day
+  calendar, desk booking); the member books in the portal (`/rezervatsiya`),
+  online-required services hold the slot for 35 minutes while Stripe takes the
+  money. Holds are released in one transaction (charge voided, payment page
+  closed); any payment confirms a hold; a paid booking cancelled in time is
+  listed as a refund owed until it is recorded. Not yet: two-way calendar sync
+  (the ICS busy import) — moved to F. Known gaps, deliberately later: a class
+  date the materializer skips because its room is booked reaches only the
+  worker log (the save-time check names the dates, but not for a pool room);
+  two members racing for the same court get `slot_taken` even when a second
+  court is free.
 - [ ] **B — shop, promotions, wallet, invoices** (waits on the accountant: Н‑18)
 - [ ] **F — push, SMS, broadcasts, automations, inbox, leads, feedback**
 - [ ] **D — events, camps, tournaments**

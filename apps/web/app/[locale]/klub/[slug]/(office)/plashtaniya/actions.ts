@@ -1,7 +1,12 @@
 'use server';
 
 import { getDb } from '@sportkarta/db';
-import { parseEuroCents, sofiaToday } from '@sportkarta/lib/clubs';
+import {
+  CLUB_PAYMENT_METHODS,
+  parseEuroCents,
+  sofiaToday,
+  type ClubPaymentMethod,
+} from '@sportkarta/lib/clubs';
 import { getLocale } from 'next-intl/server';
 import { revalidatePath } from 'next/cache';
 
@@ -10,6 +15,7 @@ import { redirect } from '@/i18n/navigation';
 import { requireClubStaff } from '@/lib/clubs/club-session';
 import { parseCharge, parsePayment } from '@/lib/clubs/input';
 import { refundOnlinePayment } from '@/lib/clubs/payments';
+import { refundsDue } from '@/lib/clubs/reservations';
 import { createCharge, recordPayment } from '@/lib/clubs/sales';
 
 export interface PaymentState {
@@ -72,6 +78,36 @@ export async function refundOnlineAction(formData: FormData): Promise<void> {
   if (Number.isSafeInteger(paymentId) && paymentId > 0 && (amountRaw === '' || amount !== null)) {
     const result = await refundOnlinePayment(getDb(), actor, paymentId, amount);
     outcome = result.ok ? 'refunded' : `refund_${result.error}`;
+  }
+  refresh(slug);
+  redirect({
+    href: { pathname: `/klub/${slug}/plashtaniya`, query: { rezultat: outcome } },
+    locale: await getLocale(),
+  });
+}
+
+/**
+ * Record the refund of a paid booking cancelled in time (0048). The amount is
+ * what the books say was paid on it — never a typed one — and the method is
+ * how the money went back. Money paid online goes back through the provider,
+ * from its row in the ledger, instead.
+ */
+export async function refundReservationAction(formData: FormData): Promise<void> {
+  const slug = slugOf(formData);
+  const { actor } = await requireClubStaff(slug, 'payments.record');
+  const reservationId = String(formData.get('reservationId') ?? '');
+  const method = String(formData.get('method') ?? '');
+  const due = (await refundsDue(actor)).find((row) => row.reservationId === reservationId);
+  let outcome = 'refund_invalid';
+  if (due && !due.online && (CLUB_PAYMENT_METHODS as readonly string[]).includes(method)) {
+    const result = await recordPayment(getDb(), actor, {
+      chargeId: due.chargeId,
+      kind: 'refund',
+      amountCents: -due.paidCents,
+      method: method as ClubPaymentMethod,
+      receivedOn: sofiaToday(),
+    });
+    outcome = result.ok ? 'refunded' : 'refund_not_allowed';
   }
   refresh(slug);
   redirect({

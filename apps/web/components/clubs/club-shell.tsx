@@ -28,11 +28,14 @@ const NAV: readonly { segment: string; key: string; permission: ClubPermission }
   { segment: 'tablo', key: 'dashboard', permission: 'office.view' },
   { segment: 'prisastviya', key: 'desk', permission: 'attendance.record' },
   { segment: 'grafik', key: 'schedule', permission: 'schedule.view' },
+  { segment: 'kalendar', key: 'calendar', permission: 'schedule.view' },
   { segment: 'chlenove', key: 'members', permission: 'members.view' },
   { segment: 'abonamenti', key: 'plans', permission: 'sales.manage' },
+  { segment: 'uslugi', key: 'services', permission: 'schedule.manage' },
   { segment: 'plashtaniya', key: 'payments', permission: 'payments.view' },
   { segment: 'otcheti', key: 'reports', permission: 'reports.view' },
   { segment: 'ekip', key: 'team', permission: 'staff.view' },
+  { segment: 'resursi', key: 'resources', permission: 'settings.manage' },
   { segment: 'nastroyki', key: 'settings', permission: 'settings.manage' },
 ];
 

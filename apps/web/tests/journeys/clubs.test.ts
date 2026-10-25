@@ -1,6 +1,8 @@
 import {
+  applyCheckoutPaid,
   calendarFeed,
   ensureCalendarToken,
+  expireReservationHolds,
   getDb,
   getPool,
   materializeClubClasses,
@@ -82,8 +84,23 @@ import {
   unappliedCheckouts,
 } from '@/lib/clubs/payments';
 import { memberClubs, portalView } from '@/lib/clubs/portal';
+import {
+  availability,
+  bookReservation,
+  cancelReservation,
+  dayCalendar,
+  memberReservations,
+  refundsDue,
+} from '@/lib/clubs/reservations';
+import {
+  addResourceBlock,
+  saveLocationHours,
+  saveResource,
+  setResourceArchived,
+} from '@/lib/clubs/resources';
+import { addPriceRule, saveService, saveStaffHours } from '@/lib/clubs/services';
 import { publicClub, publicClubDirectory, publicOccurrence } from '@/lib/clubs/public';
-import { occurrenceRoster, saveClass, weekOccurrences } from '@/lib/clubs/schedule';
+import { ClassRoomTaken, occurrenceRoster, saveClass, weekOccurrences } from '@/lib/clubs/schedule';
 import type { ClubActor } from '@/lib/clubs/scope';
 import {
   clubLocations,
@@ -402,6 +419,7 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
       sport: 'yoga',
       locationId,
       instructorUserId: null,
+      resourceId: null,
       startsAtLocal: `${tomorrow} 08:00:00`,
       rrule: `FREQ=WEEKLY;BYDAY=${weekday}`,
       durationMinutes: 60,
@@ -895,9 +913,11 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
         endsOn: addDaysIso(today, 4),
         reason: 'time_off',
       }) as const;
-    expect(await addTimeOff(db, desk, leave(desk.userId))).toBe(true);
-    expect(await addTimeOff(db, desk, leave(owner.userId))).toBe(false);
-    expect(await addTimeOff(db, manager, leave(owner.userId))).toBe(true);
+    expect(await addTimeOff(db, desk, leave(desk.userId))).toBe('ok');
+    expect(await addTimeOff(db, desk, leave(owner.userId))).toBe('not_allowed');
+    expect(await addTimeOff(db, manager, leave(owner.userId))).toBe('ok');
+    // Overlapping leave is refused as such (0048), never a server error.
+    expect(await addTimeOff(db, manager, leave(owner.userId))).toBe('overlaps');
     const blocks = await upcomingTimeOff(owner);
     const ownersBlock = blocks.find((b) => b.userId === owner.userId);
     const desksBlock = blocks.find((b) => b.userId === desk.userId);
@@ -1117,6 +1137,736 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
       // A one-off online purchase never renews by itself.
       expect(sold.rows).toEqual([{ renews: false, sold_by: null }]);
       await db.execute(sql`UPDATE clubs SET terms_url = NULL WHERE id = ${clubId}::uuid`);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('books a court at the desk and online, never twice, and lets a class not take it', async () => {
+    vi.stubEnv('CLUB_PAYMENTS_ENABLED', 'true');
+    vi.stubEnv('PAYMENT_PROVIDER', 'fake');
+    try {
+      const day = addDaysIso(sofiaToday(), 3);
+      const weekday = ((new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7) + 1;
+      const court = await saveResource(db, owner, null, {
+        locationId,
+        kind: 'court',
+        name: 'Корт Журни',
+        quantity: 1,
+        sortOrder: 0,
+      });
+      expect(court).not.toBeNull();
+      // A desk may not add facilities.
+      expect(
+        await saveResource(db, desk, null, {
+          locationId,
+          kind: 'court',
+          name: 'Х',
+          quantity: 1,
+          sortOrder: 0,
+        }),
+      ).toBeNull();
+      expect(
+        await saveLocationHours(db, owner, locationId, [
+          { weekday, opens: '08:00', closes: '22:00' },
+        ]),
+      ).toBe(true);
+      const service = await saveService(db, owner, null, {
+        locationId,
+        kind: 'rental',
+        nameBg: 'Наем на корт',
+        nameEn: null,
+        descriptionBg: null,
+        descriptionEn: null,
+        durationMin: 60,
+        durationMax: 120,
+        stepMinutes: 30,
+        bufferMinutes: 0,
+        priceUnit: 'hour',
+        priceCents: 2000,
+        memberPriceCents: 1500,
+        bookingWindowDays: 14,
+        cancelDeadlineHours: 24,
+        maxUpcomingPerMember: 4,
+        payment: 'desk',
+        audience: 'all',
+        visibility: 'public',
+        resourceIds: [court ?? ''],
+        staffUserIds: [],
+      });
+      const serviceId = service ?? '';
+      expect(
+        await addPriceRule(db, owner, serviceId, {
+          weekdays: [weekday],
+          from: '18:00',
+          to: '22:00',
+          priceCents: 3000,
+          memberPriceCents: null,
+          priority: 1,
+        }),
+      ).toBe(true);
+      const slots = await availability(db, clubId, serviceId, day, 60, {
+        member: false,
+        office: true,
+      });
+      expect(slots.find((s) => s.local === '10:00')?.priceCents).toBe(2000);
+      expect(slots.find((s) => s.local === '18:00')?.priceCents).toBe(3000);
+
+      // The desk books 10:00; the slot is then gone, for everyone.
+      const request = { serviceId, date: day, local: '10:00', durationMinutes: 60, memberId };
+      const booked = await bookReservation(db, { kind: 'staff', actor: desk }, request);
+      if (!booked.ok) throw new Error(booked.error);
+      expect(await bookReservation(db, { kind: 'staff', actor: desk }, request)).toEqual({
+        ok: false,
+        error: 'slot_taken',
+      });
+      const after = await availability(db, clubId, serviceId, day, 60, {
+        member: false,
+        office: true,
+      });
+      expect(after.some((s) => s.local === '10:00' || s.local === '09:30')).toBe(false);
+
+      // The member books for themselves at the member price, and sees it.
+      const own = await bookReservation(
+        db,
+        { kind: 'member', userId: memberUser, clubId },
+        { ...request, local: '12:00', memberId: null },
+      );
+      if (!own.ok) throw new Error(own.error);
+      const mine = await memberReservations(memberUser, clubId, 'bg');
+      expect(mine.find((r) => r.id === own.reservationId)?.priceCents).toBe(1500);
+      // Someone else cannot cancel it; the member can, in time — the charge goes.
+      const stranger = await user('booker');
+      expect(
+        await cancelReservation(
+          db,
+          { kind: 'member', userId: stranger, clubId },
+          own.reservationId,
+        ),
+      ).toEqual({ ok: false });
+      expect(
+        await cancelReservation(
+          db,
+          { kind: 'member', userId: memberUser, clubId },
+          own.reservationId,
+        ),
+      ).toEqual({ ok: true, late: false, refundDue: false });
+      const voided = await db.execute(
+        sql`SELECT voided_at IS NOT NULL AS gone FROM club_charges WHERE id = ${own.chargeId}::uuid`,
+      );
+      expect(voided.rows[0]?.gone).toBe(true);
+
+      // A class cannot be put in the court where a booking already stands.
+      await expect(
+        saveClass(db, owner, null, {
+          title: 'Тенис група',
+          description: null,
+          sport: 'tennis',
+          locationId,
+          instructorUserId: null,
+          resourceId: court,
+          startsAtLocal: `${day} 10:00:00`,
+          rrule: null,
+          durationMinutes: 60,
+          capacity: 4,
+          bookingOpensHours: 168,
+          cancelDeadlineHours: 2,
+          dropInPriceCents: null,
+          coversAllPlans: true,
+          planIds: [],
+          trialAllowed: false,
+          public: true,
+          noShowFeeCents: null,
+          lateCancelFeeCents: null,
+          strikeLimit: null,
+          strikeDays: null,
+        }),
+      ).rejects.toBeInstanceOf(ClassRoomTaken);
+
+      // Online payment required: the slot is HELD until the money arrives.
+      await db.execute(
+        sql`UPDATE club_services SET payment = 'online_required' WHERE id = ${serviceId}::uuid`,
+      );
+      const held = await bookReservation(
+        db,
+        { kind: 'member', userId: memberUser, clubId },
+        { ...request, local: '15:00', memberId },
+      );
+      if (!held.ok) throw new Error(held.error);
+      expect(held.state).toBe('held');
+      const checkout = await startChargeCheckout(
+        db,
+        memberUser,
+        { id: clubId, slug },
+        held.chargeId ?? '',
+        { base: 'http://localhost', locale: 'bg' },
+      );
+      if (!checkout.ok) throw new Error(checkout.error);
+      expect(await fakeSettle(checkout.checkoutId, 'paid')).toBe(true);
+      const confirmed = await db.execute(
+        sql`SELECT state FROM club_reservations WHERE id = ${held.reservationId}::uuid`,
+      );
+      expect(confirmed.rows[0]?.state).toBe('confirmed');
+
+      // Late: inside the cancel deadline the charge stays.
+      await db.execute(
+        sql`UPDATE club_services SET cancel_deadline_hours = 168, payment = 'desk' WHERE id = ${serviceId}::uuid`,
+      );
+      const late = await bookReservation(
+        db,
+        { kind: 'member', userId: memberUser, clubId },
+        { ...request, local: '16:00', memberId },
+      );
+      if (!late.ok) throw new Error(late.error);
+      expect(
+        await cancelReservation(
+          db,
+          { kind: 'member', userId: memberUser, clubId },
+          late.reservationId,
+        ),
+      ).toEqual({ ok: true, late: true, refundDue: false });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('keeps bookings in scope, caps them, and never sells a held slot twice', async () => {
+    vi.stubEnv('CLUB_PAYMENTS_ENABLED', 'true');
+    vi.stubEnv('PAYMENT_PROVIDER', 'fake');
+    try {
+      const day = addDaysIso(sofiaToday(), 5);
+      const weekday = ((new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7) + 1;
+      const back = { base: 'http://localhost', locale: 'bg' } as const;
+      const asMember = { kind: 'member', userId: memberUser, clubId } as const;
+      const atDesk = { kind: 'staff', actor: desk } as const;
+      const state = async (id: string) =>
+        (await db.execute(sql`SELECT state FROM club_reservations WHERE id = ${id}::uuid`)).rows[0]
+          ?.state;
+      const voided = async (chargeId: string | null) =>
+        (
+          await db.execute(
+            sql`SELECT voided_at IS NOT NULL AS v FROM club_charges WHERE id = ${chargeId ?? ''}::uuid`,
+          )
+        ).rows[0]?.v;
+      const lapse = (id: string) =>
+        db.execute(sql`
+          UPDATE club_reservations SET hold_expires_at = now() - interval '6 minutes'
+           WHERE id = ${id}::uuid`);
+
+      const court = (await saveResource(db, owner, null, {
+        locationId,
+        kind: 'court',
+        name: 'Скуош 1',
+        quantity: 1,
+        sortOrder: 1,
+      })) as string;
+      expect(
+        await saveLocationHours(db, owner, locationId, [
+          { weekday, opens: '08:00', closes: '24:00' },
+        ]),
+      ).toBe(true);
+      const base = {
+        locationId,
+        kind: 'rental' as const,
+        nameEn: null,
+        descriptionBg: null,
+        descriptionEn: null,
+        durationMin: 60,
+        durationMax: 60,
+        stepMinutes: 60,
+        bufferMinutes: 0,
+        priceUnit: 'hour' as const,
+        priceCents: 1000,
+        memberPriceCents: null,
+        bookingWindowDays: 14,
+        cancelDeadlineHours: 2,
+        maxUpcomingPerMember: 2,
+        audience: 'all' as const,
+        visibility: 'public' as const,
+        resourceIds: [court],
+        staffUserIds: [],
+      };
+      const online = (await saveService(db, owner, null, {
+        ...base,
+        nameBg: 'Скуош онлайн',
+        payment: 'online_required',
+      })) as string;
+      const onSite = (await saveService(db, owner, null, {
+        ...base,
+        nameBg: 'Скуош на място',
+        payment: 'desk',
+      })) as string;
+      const slot = (serviceId: string, local: string, member: string | null = memberId) => ({
+        serviceId,
+        date: day,
+        local,
+        durationMinutes: 60,
+        memberId: member,
+      });
+
+      // Midnight closes the day: the last hour, 23:00–24:00, is on sale.
+      const late = await availability(db, clubId, onSite, day, 60, { member: false, office: true });
+      expect(late.at(-1)?.local).toBe('23:00');
+
+      // ── Scope. A private service, someone else's record, another club's
+      // service, a trainer acting as the desk, a forged actor: all refused.
+      const stranger = await createMember(db, desk, {
+        displayName: 'Чужд Журни',
+        email: null,
+        phone: null,
+        isMinor: false,
+        guardianMemberId: null,
+        tags: [],
+        staffNote: null,
+      });
+      if (!stranger.ok) throw new Error('stranger');
+      expect(await bookReservation(db, asMember, slot(onSite, '09:00', stranger.memberId))).toEqual(
+        {
+          ok: false,
+          error: 'not_allowed',
+        },
+      );
+      await db.execute(
+        sql`UPDATE club_services SET visibility = 'private' WHERE id = ${onSite}::uuid`,
+      );
+      expect(await bookReservation(db, asMember, slot(onSite, '09:00'))).toEqual({
+        ok: false,
+        error: 'not_allowed',
+      });
+      await db.execute(
+        sql`UPDATE club_services SET visibility = 'public' WHERE id = ${onSite}::uuid`,
+      );
+      await db.execute(
+        sql`UPDATE club_services SET audience = 'adults' WHERE id = ${onSite}::uuid`,
+      );
+      expect(await bookReservation(db, asMember, slot(onSite, '09:00', childId))).toEqual({
+        ok: false,
+        error: 'audience_mismatch',
+      });
+      await db.execute(sql`UPDATE club_services SET audience = 'all' WHERE id = ${onSite}::uuid`);
+
+      const otherOwnerId = await user('owner_b');
+      const appliedB = await applyForClub(db, otherOwnerId, {
+        nameBg: `E2E JR B ${Math.random().toString(36).slice(2, 6)}`,
+        kind: 'gym',
+        tier: 'community',
+        municipalityId: null,
+        sports: [],
+        websiteUrl: null,
+        descriptionBg: null,
+      });
+      if (!appliedB.ok) throw new Error('club b');
+      await db.execute(
+        sql`UPDATE clubs SET slug = ${`e2e-jr-b-${appliedB.slug}`.slice(0, 60)} WHERE id = ${appliedB.clubId}::uuid`,
+      );
+      expect(await approveClub(db, await user('admin_b', 'admin'), appliedB.clubId)).toBe(true);
+      const ownerB: ClubActor = {
+        userId: otherOwnerId,
+        clubId: appliedB.clubId,
+        role: 'owner',
+        ngoAdmin: false,
+      };
+      const locationB = (await saveLocation(db, ownerB, null, {
+        name: 'Б',
+        facilityId: null,
+        address: null,
+      })) as string;
+      const courtB = (await saveResource(db, ownerB, null, {
+        locationId: locationB,
+        kind: 'court',
+        name: 'Б1',
+        quantity: 1,
+        sortOrder: 0,
+      })) as string;
+      const serviceB = (await saveService(db, ownerB, null, {
+        ...base,
+        locationId: locationB,
+        resourceIds: [courtB],
+        nameBg: 'Б',
+        payment: 'desk',
+      })) as string;
+      expect(serviceB).toBeTruthy();
+      expect(await bookReservation(db, asMember, slot(serviceB, '09:00'))).toEqual({
+        ok: false,
+        error: 'not_allowed',
+      });
+
+      const mine = await bookReservation(db, asMember, slot(onSite, '09:00'));
+      if (!mine.ok) throw new Error(mine.error);
+      const trainerId = await user('trainer_c');
+      await db.execute(
+        sql`INSERT INTO club_staff (club_id, user_id, role) VALUES (${clubId}::uuid, ${trainerId}, 'trainer')`,
+      );
+      const trainer: ClubActor = { userId: trainerId, clubId, role: 'trainer', ngoAdmin: false };
+      expect(
+        await bookReservation(db, { kind: 'staff', actor: trainer }, slot(onSite, '10:00')),
+      ).toEqual({ ok: false, error: 'not_allowed' });
+      expect(
+        await cancelReservation(db, { kind: 'staff', actor: trainer }, mine.reservationId),
+      ).toEqual({ ok: false });
+      expect(
+        await cancelReservation(db, { kind: 'staff', actor: ownerB }, mine.reservationId),
+      ).toEqual({ ok: false });
+      // The actor's claimed role and club are not trusted: B's owner posing
+      // as an owner of THIS club holds no row in its staff.
+      expect(
+        await cancelReservation(
+          db,
+          { kind: 'staff', actor: { ...ownerB, clubId } },
+          mine.reservationId,
+        ),
+      ).toEqual({ ok: false });
+      expect(await state(mine.reservationId)).toBe('confirmed');
+
+      // ── The cap: two upcoming bookings of a service per account online.
+      const second = await bookReservation(db, asMember, slot(onSite, '10:00'));
+      expect(second.ok).toBe(true);
+      expect(await bookReservation(db, asMember, slot(onSite, '11:00'))).toEqual({
+        ok: false,
+        error: 'limit_reached',
+      });
+      // The desk is not capped.
+      const deskEleven = await bookReservation(db, atDesk, slot(onSite, '11:00'));
+      if (!deskEleven.ok) throw new Error(deskEleven.error);
+      // Client names on the day calendar are for those who may see members:
+      // the desk, never a trainer — decided in the statement.
+      const laneItem = async (actor: ClubActor) =>
+        (await dayCalendar(actor, locationId, day)).resources
+          .flatMap((lane) => lane.items)
+          .find((item) => item.id === deskEleven.reservationId);
+      expect((await laneItem(desk))?.memberName).toBe('Мария Журни');
+      expect(await laneItem(trainer)).toMatchObject({ memberName: null });
+
+      // ── What was booked is a fact: its terms and its charge never move.
+      const terms = await db
+        .execute(
+          sql`UPDATE club_reservations SET price_cents = 1 WHERE id = ${mine.reservationId}::uuid`,
+        )
+        .then(
+          () => null,
+          (error: unknown) => error,
+        );
+      expect(String((terms as { cause?: unknown } | null)?.cause ?? terms)).toMatch(
+        /what was booked never changes/,
+      );
+
+      // ── The deadline that binds is the one the member booked under.
+      await db.execute(
+        sql`UPDATE club_services SET cancel_deadline_hours = 168 WHERE id = ${onSite}::uuid`,
+      );
+      expect(await cancelReservation(db, asMember, mine.reservationId)).toEqual({
+        ok: true,
+        late: false,
+        refundDue: false,
+      });
+      expect(await voided(mine.chargeId)).toBe(true);
+
+      // ── Part-paid, then cancelled in time: nothing more is owed (the charge
+      // is voided), and what was paid is a refund the club owes, and lists.
+      if (!second.ok) throw new Error('second');
+      expect(
+        await recordPayment(db, desk, {
+          chargeId: second.chargeId ?? '',
+          kind: 'payment',
+          method: 'cash',
+          amountCents: 500,
+          receivedOn: sofiaToday(),
+        }),
+      ).toEqual({ ok: true });
+      expect(await cancelReservation(db, asMember, second.reservationId)).toEqual({
+        ok: true,
+        late: false,
+        refundDue: true,
+      });
+      expect(await voided(second.chargeId)).toBe(true);
+      expect(
+        (await refundsDue(owner)).find((r) => r.reservationId === second.reservationId),
+      ).toMatchObject({ paidCents: 500, online: false });
+      // A trainer may not see the money side at all.
+      expect(await refundsDue(trainer)).toEqual([]);
+      expect(
+        await recordPayment(db, desk, {
+          chargeId: second.chargeId ?? '',
+          kind: 'refund',
+          method: 'cash',
+          amountCents: -500,
+          receivedOn: sofiaToday(),
+        }),
+      ).toEqual({ ok: true });
+      expect((await refundsDue(owner)).some((r) => r.reservationId === second.reservationId)).toBe(
+        false,
+      );
+
+      // ── Holds. One unpaid hold per account; the session dies with it.
+      const held = await bookReservation(db, asMember, slot(online, '13:00'));
+      if (!held.ok) throw new Error(held.error);
+      expect(held.state).toBe('held');
+      expect(await bookReservation(db, asMember, slot(online, '14:00'))).toEqual({
+        ok: false,
+        error: 'hold_pending',
+      });
+      const checkout = await startChargeCheckout(
+        db,
+        memberUser,
+        { id: clubId, slug },
+        held.chargeId ?? '',
+        back,
+      );
+      if (!checkout.ok) throw new Error(checkout.error);
+      // Lapsed past its grace: the sweep releases it, voids, closes — at once.
+      await lapse(held.reservationId);
+      expect(await expireReservationHolds(db)).toBeGreaterThanOrEqual(1);
+      expect(await state(held.reservationId)).toBe('expired');
+      expect(await voided(held.chargeId)).toBe(true);
+      const closed = await db.execute(
+        sql`SELECT status FROM club_checkouts WHERE id = ${checkout.checkoutId}::uuid`,
+      );
+      expect(closed.rows[0]?.status).toBe('expired');
+      // Money that still arrives is never applied to a released slot.
+      const latePay = await applyCheckoutPaid(db, {
+        checkoutId: checkout.checkoutId,
+        provider: 'fake',
+        paymentRef: `fake_pi_late_${checkout.checkoutId.slice(0, 8)}`,
+        amountCents: 1000,
+        subscriptionRef: null,
+      });
+      expect(latePay).toMatchObject({ applied: false, reason: 'session_closed' });
+      expect((await unappliedCheckouts(owner)).some((u) => u.id === checkout.checkoutId)).toBe(
+        true,
+      );
+
+      // A lapsed hold on a slot is released by the next booking of it, in
+      // the same transaction — charge voided, checkout closed.
+      const again = await bookReservation(db, asMember, slot(online, '15:00'));
+      if (!again.ok) throw new Error(again.error);
+      const againCheckout = await startChargeCheckout(
+        db,
+        memberUser,
+        { id: clubId, slug },
+        again.chargeId ?? '',
+        back,
+      );
+      if (!againCheckout.ok) throw new Error(againCheckout.error);
+      await lapse(again.reservationId);
+      const taker = await bookReservation(db, atDesk, slot(online, '15:00', stranger.memberId));
+      expect(taker.ok).toBe(true);
+      expect(await state(again.reservationId)).toBe('expired');
+      expect(await voided(again.chargeId)).toBe(true);
+      const againClosed = await db.execute(
+        sql`SELECT status FROM club_checkouts WHERE id = ${againCheckout.checkoutId}::uuid`,
+      );
+      expect(againClosed.rows[0]?.status).toBe('expired');
+
+      // A desk payment confirms a hold too, so the sweep never frees a paid slot.
+      const deskPaid = await bookReservation(db, asMember, slot(online, '16:00'));
+      if (!deskPaid.ok) throw new Error(deskPaid.error);
+      expect(
+        await recordPayment(db, desk, {
+          chargeId: deskPaid.chargeId ?? '',
+          kind: 'payment',
+          method: 'cash',
+          amountCents: 1000,
+          receivedOn: sofiaToday(),
+        }),
+      ).toEqual({ ok: true });
+      expect(await state(deskPaid.reservationId)).toBe('confirmed');
+
+      // Too little of a hold left for the provider's 30-minute floor: refused.
+      // Booked under a week-long deadline, so 17:00 is already inside it.
+      await db.execute(
+        sql`UPDATE club_services SET cancel_deadline_hours = 168 WHERE id = ${online}::uuid`,
+      );
+      const ending = await bookReservation(db, asMember, slot(online, '17:00'));
+      if (!ending.ok) throw new Error(ending.error);
+      await db.execute(
+        sql`UPDATE club_services SET cancel_deadline_hours = 2 WHERE id = ${online}::uuid`,
+      );
+      const first = await startChargeCheckout(
+        db,
+        memberUser,
+        { id: clubId, slug },
+        ending.chargeId ?? '',
+        back,
+      );
+      if (!first.ok) throw new Error(first.error);
+      await db.execute(sql`
+        UPDATE club_reservations SET hold_expires_at = now() + interval '10 minutes'
+         WHERE id = ${ending.reservationId}::uuid`);
+      // Back from the payment page with ten minutes left: the open session is
+      // handed back, never expired and replaced by one that cannot exist.
+      expect(
+        await startChargeCheckout(
+          db,
+          memberUser,
+          { id: clubId, slug },
+          ending.chargeId ?? '',
+          back,
+        ),
+      ).toMatchObject({ ok: true, checkoutId: first.checkoutId });
+      // Once that session is gone, nothing can be opened in the time left.
+      expect(await fakeSettle(first.checkoutId, 'cancelled')).toBe(true);
+      expect(
+        await startChargeCheckout(
+          db,
+          memberUser,
+          { id: clubId, slug },
+          ending.chargeId ?? '',
+          back,
+        ),
+      ).toEqual({ ok: false, error: 'hold_ending' });
+      // A held booking cancelled — even inside the deadline — is released, not
+      // late, and owes nothing.
+      expect(await cancelReservation(db, asMember, ending.reservationId)).toEqual({
+        ok: true,
+        late: false,
+        refundDue: false,
+      });
+      expect(await voided(ending.chargeId)).toBe(true);
+
+      // Cancelling a held booking closes its open payment page too.
+      const abandoned = await bookReservation(db, asMember, slot(online, '20:00'));
+      if (!abandoned.ok) throw new Error(abandoned.error);
+      const abandonedCheckout = await startChargeCheckout(
+        db,
+        memberUser,
+        { id: clubId, slug },
+        abandoned.chargeId ?? '',
+        back,
+      );
+      if (!abandonedCheckout.ok) throw new Error(abandonedCheckout.error);
+      expect(await cancelReservation(db, asMember, abandoned.reservationId)).toMatchObject({
+        ok: true,
+        late: false,
+      });
+      const abandonedStatus = await db.execute(
+        sql`SELECT status FROM club_checkouts WHERE id = ${abandonedCheckout.checkoutId}::uuid`,
+      );
+      expect(abandonedStatus.rows[0]?.status).toBe('expired');
+
+      // With no way to pay online, an online-only service books nothing.
+      vi.stubEnv('CLUB_PAYMENTS_ENABLED', 'false');
+      expect(await bookReservation(db, asMember, slot(online, '18:00'))).toEqual({
+        ok: false,
+        error: 'payment_unavailable',
+      });
+      vi.stubEnv('CLUB_PAYMENTS_ENABLED', 'true');
+
+      // ── An erased client's booking can still be cancelled at the desk.
+      const goner = await bookReservation(db, atDesk, slot(onSite, '19:00', stranger.memberId));
+      if (!goner.ok) throw new Error(goner.error);
+      expect(await eraseMember(db, owner, stranger.memberId)).toBe(true);
+      expect(await cancelReservation(db, atDesk, goner.reservationId)).toMatchObject({ ok: true });
+
+      // ── Appointments: the trainer's hours ∩ the location's, minus the
+      // classes they teach, and only while a required court is free.
+      expect(
+        await saveStaffHours(db, owner, trainerId, locationId, [
+          { weekday, opens: '09:00', closes: '12:00' },
+        ]),
+      ).toBe(true);
+      const pt = (await saveService(db, owner, null, {
+        ...base,
+        kind: 'appointment',
+        nameBg: 'Персонален час',
+        payment: 'desk',
+        resourceIds: [],
+        staffUserIds: [trainerId],
+        stepMinutes: 60,
+      })) as string;
+      const taught = await saveClass(db, owner, null, {
+        title: 'Група на треньора',
+        description: null,
+        sport: 'fitness',
+        locationId,
+        instructorUserId: trainerId,
+        resourceId: null,
+        startsAtLocal: `${day} 10:00:00`,
+        rrule: null,
+        durationMinutes: 60,
+        capacity: 4,
+        bookingOpensHours: 168,
+        cancelDeadlineHours: 2,
+        dropInPriceCents: null,
+        coversAllPlans: true,
+        planIds: [],
+        trialAllowed: false,
+        public: true,
+        ...NO_POLICY,
+      });
+      await materializeClubClasses(getPool(), { classId: taught ?? '' });
+      const ptSlots = await availability(db, clubId, pt, day, 60, { member: false, office: true });
+      expect(ptSlots.map((s) => s.local)).toEqual(['09:00', '11:00']);
+      expect(ptSlots.every((s) => s.staffUserId === trainerId)).toBe(true);
+      // Needing the squash court too: 11:00 is the desk's booking there.
+      await saveService(db, owner, pt, {
+        ...base,
+        kind: 'appointment',
+        nameBg: 'Персонален час',
+        payment: 'desk',
+        resourceIds: [court],
+        staffUserIds: [trainerId],
+        stepMinutes: 60,
+      });
+      const withCourt = await availability(db, clubId, pt, day, 60, {
+        member: false,
+        office: true,
+      });
+      expect(withCourt.map((s) => [s.local, s.resourceId])).toEqual([['09:00', court]]);
+
+      // ── Facility changes the calendar refuses, with a reason, never a 500.
+      const booked = (
+        await db.execute(sql`
+          SELECT starts_at, ends_at FROM club_reservations WHERE id = ${deskEleven.reservationId}::uuid`)
+      ).rows[0];
+      const iso = (v: unknown) => (v instanceof Date ? v : new Date(String(v))).toISOString();
+      expect(
+        await addResourceBlock(db, owner, {
+          resourceId: court,
+          startsAt: iso(booked?.starts_at),
+          endsAt: iso(booked?.ends_at),
+          reason: 'other',
+        }),
+      ).toBe('conflict');
+      expect(await setResourceArchived(db, owner, court, true)).toBe('busy');
+      const elsewhere = (await saveLocation(db, owner, null, {
+        name: 'Зала 2',
+        facilityId: null,
+        address: null,
+      })) as string;
+      await expect(
+        saveResource(db, owner, court, {
+          locationId: elsewhere,
+          kind: 'court',
+          name: 'Скуош 1',
+          quantity: 1,
+          sortOrder: 1,
+        }),
+      ).rejects.toMatchObject({ code: 'resource_busy' });
+      // A pool cannot shrink below what is booked at one moment.
+      const rackets = (await saveResource(db, owner, null, {
+        locationId,
+        kind: 'equipment',
+        name: 'Ракети',
+        quantity: 2,
+        sortOrder: 2,
+      })) as string;
+      const rent = (await saveService(db, owner, null, {
+        ...base,
+        nameBg: 'Ракета',
+        payment: 'desk',
+        resourceIds: [rackets],
+      })) as string;
+      expect((await bookReservation(db, atDesk, slot(rent, '10:00'))).ok).toBe(true);
+      expect((await bookReservation(db, atDesk, slot(rent, '10:00'))).ok).toBe(true);
+      await expect(
+        saveResource(db, owner, rackets, {
+          locationId,
+          kind: 'equipment',
+          name: 'Ракети',
+          quantity: 1,
+          sortOrder: 2,
+        }),
+      ).rejects.toMatchObject({ code: 'quantity_conflict' });
     } finally {
       vi.unstubAllEnvs();
     }

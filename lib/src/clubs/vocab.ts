@@ -65,6 +65,13 @@ export const CLUB_AUDIT_ACTIONS = [
   'checkout_started',
   'online_payment_received',
   'online_refund_issued',
+  'resource_saved',
+  'resource_archived',
+  'hours_saved',
+  'service_saved',
+  'service_archived',
+  'reservation_created',
+  'reservation_cancelled',
 ] as const;
 export type ClubAuditAction = (typeof CLUB_AUDIT_ACTIONS)[number];
 
@@ -91,7 +98,14 @@ export const CLUB_PAYMENT_METHODS = ['cash', 'card_desk', 'bank', 'other'] as co
 export type ClubPaymentMethod = (typeof CLUB_PAYMENT_METHODS)[number];
 
 /** club_charges_kind_known (0041). */
-export const CLUB_CHARGE_KINDS = ['membership', 'drop_in', 'product', 'fee', 'other'] as const;
+export const CLUB_CHARGE_KINDS = [
+  'membership',
+  'drop_in',
+  'product',
+  'fee',
+  'reservation',
+  'other',
+] as const;
 export type ClubChargeKind = (typeof CLUB_CHARGE_KINDS)[number];
 
 /** club_plans_kind_known (0041). */

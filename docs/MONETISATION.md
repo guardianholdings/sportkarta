@@ -325,7 +325,9 @@ connects its own Stripe account (Connect Standard), its clients pay on a
 Stripe-hosted page reached by redirect — the club is the merchant, the NGO
 never holds funds, and no payment script runs on pops.bg. A platform share per
 payment is possible (`STRIPE_APPLICATION_FEE_BP`, default 0) and is an
-operator decision.
+operator decision. Court, room and trainer bookings (wave C) sell through the
+same path: a service that requires online payment holds the slot for 35
+minutes while the member pays the club on Stripe.
 
 **Labelling and surfaces (the S3/S5 rules, applied):** a paid club's block on a
 facility page is labelled «Платено представяне», a community club's «Клуб на

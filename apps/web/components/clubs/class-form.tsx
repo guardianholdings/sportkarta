@@ -22,6 +22,8 @@ export interface ScheduleState {
   error: string | null;
   errors?: string[];
   saved?: boolean;
+  /** Dates the chosen room is already taken (0048). */
+  dates?: string[];
 }
 
 const INITIAL: ScheduleState = { error: null };
@@ -34,6 +36,10 @@ export interface ClassFormLabels {
   location: string;
   instructor: string;
   instructorNone: string;
+  room: string;
+  roomNone: string;
+  roomHint: string;
+  roomTaken: string;
   firstDate: string;
   time: string;
   duration: string;
@@ -73,6 +79,7 @@ export interface ClassValues {
   sport: string;
   locationId: string;
   instructorUserId: string | null;
+  resourceId: string | null;
   firstDate: string;
   time: string;
   durationMinutes: number;
@@ -102,6 +109,7 @@ export function ClassForm({
   sports,
   locations,
   instructors,
+  rooms = [],
   plans,
   today,
   defaults,
@@ -114,6 +122,8 @@ export function ClassForm({
   sports: { value: string; label: string }[];
   locations: { id: string; name: string }[];
   instructors: { userId: string; name: string }[];
+  /** Rooms and courts (0048); the class claims the one chosen on each of its dates. */
+  rooms?: { id: string; name: string; locationName: string }[];
   plans: { id: string; name: string }[];
   today: string;
   defaults: { bookingOpensDays: number; cancelDeadlineHours: number };
@@ -127,6 +137,11 @@ export function ClassForm({
       <input type="hidden" name="slug" value={slug} />
       {value && <input type="hidden" name="classId" value={value.id} />}
       <FormFeedback state={state} messages={messages} />
+      {state.dates && state.dates.length > 0 && (
+        <p className="rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink">
+          {labels.roomTaken} {state.dates.join(', ')}
+        </p>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1">
           <label className={label} htmlFor="c-title">
@@ -183,6 +198,22 @@ export function ClassForm({
             ))}
           </Select>
         </div>
+        {rooms.length > 0 && (
+          <div className="space-y-1">
+            <label className={label} htmlFor="c-room">
+              {labels.room}
+            </label>
+            <Select id="c-room" name="resourceId" defaultValue={value?.resourceId ?? ''}>
+              <option value="">{labels.roomNone}</option>
+              {rooms.map((room) => (
+                <option key={room.id} value={room.id}>
+                  {room.name} · {room.locationName}
+                </option>
+              ))}
+            </Select>
+            <p className="text-caption text-text-muted">{labels.roomHint}</p>
+          </div>
+        )}
       </div>
       <div className="grid gap-4 sm:grid-cols-4">
         <div className="space-y-1">

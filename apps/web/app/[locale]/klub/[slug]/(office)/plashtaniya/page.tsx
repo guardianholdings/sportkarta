@@ -16,13 +16,19 @@ import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { isUuid } from '@/lib/clubs/input';
 import { memberChoices } from '@/lib/clubs/members';
 import { unappliedCheckouts } from '@/lib/clubs/payments';
+import { refundsDue } from '@/lib/clubs/reservations';
 import { openCharges, paymentLedger } from '@/lib/clubs/sales';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 import { ConfirmButton } from '@/components/ui/confirm-button';
 
-import { createChargeAction, recordPaymentAction, refundOnlineAction } from './actions';
+import {
+  createChargeAction,
+  recordPaymentAction,
+  refundOnlineAction,
+  refundReservationAction,
+} from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,7 +58,7 @@ export default async function ClubPaymentsPage({
     : null;
   const memberFilter = isUuid(query.chlen) ? query.chlen : undefined;
   const canRecord = actorCan(actor, 'payments.record');
-  const [t, tClub, messages, ledger, open, members, unapplied] = await Promise.all([
+  const [t, tClub, messages, ledger, open, members, unapplied, owed] = await Promise.all([
     getTranslations('ClubSales.payments'),
     getTranslations('Club'),
     clubFormMessages(),
@@ -60,6 +66,7 @@ export default async function ClubPaymentsPage({
     openCharges(actor, { memberId: memberFilter }),
     canRecord ? memberChoices(actor) : Promise.resolve([]),
     unappliedCheckouts(actor),
+    refundsDue(actor),
   ]);
   const outcome = query.rezultat && t.has(`outcome.${query.rezultat}`) ? query.rezultat : null;
   const methods: Record<string, string> = {
@@ -127,6 +134,62 @@ export default async function ClubPaymentsPage({
                   >
                     {t('openInStripe')}
                   </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {owed.length > 0 && (
+        <section
+          className="space-y-2 rounded-card border border-warning-border bg-warning-bg p-4"
+          aria-labelledby="refunds-due-h"
+        >
+          <h2 id="refunds-due-h" className="text-h4 font-bold text-ink">
+            {t('refundsDueTitle')}
+          </h2>
+          <p className="max-w-prose text-body-sm text-ink">{t('refundsDueHint')}</p>
+          <ul className="divide-y divide-line">
+            {owed.map((row) => (
+              <li
+                key={row.reservationId}
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2"
+              >
+                <span className="font-mono tabular-nums text-ink">
+                  {formatEuro(row.paidCents, locale)}
+                </span>
+                <span className="text-body-sm text-ink">
+                  {row.memberId && row.memberName ? (
+                    <Link href={`/klub/${slug}/chlenove/${row.memberId}`} className="text-link">
+                      {row.memberName}
+                    </Link>
+                  ) : (
+                    '—'
+                  )}
+                </span>
+                <span className="text-caption text-text-muted">
+                  {row.serviceName} · {formatDateTime(row.startsAt, locale)}
+                </span>
+                {row.online ? (
+                  <span className="text-caption text-ink">{t('refundOnlineHint')}</span>
+                ) : (
+                  canRecord && (
+                    <form action={refundReservationAction} className="flex items-center gap-1">
+                      <input type="hidden" name="slug" value={slug} />
+                      <input type="hidden" name="reservationId" value={row.reservationId} />
+                      <Select name="method" size="sm" aria-label={t('refundMethod')}>
+                        {CLUB_PAYMENT_METHODS.map((m) => (
+                          <option key={m} value={m}>
+                            {methods[m]}
+                          </option>
+                        ))}
+                      </Select>
+                      <Button type="submit" variant="secondary" size="sm">
+                        {t('recordRefund')}
+                      </Button>
+                    </form>
+                  )
                 )}
               </li>
             ))}

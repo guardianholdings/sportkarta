@@ -125,9 +125,12 @@ export async function timeOffAction(formData: FormData): Promise<void> {
   const { actor } = await requireClubStaff(slug, 'staff.view');
   const parsed = parseTimeOff(formData);
   if (!parsed.ok) return back(slug, parsed.errors[0] ?? 'invalid');
-  const ok = await addTimeOff(getDb(), actor, parsed.value);
+  const result = await addTimeOff(getDb(), actor, parsed.value);
   revalidatePath(`/klub/${slug}/ekip`);
-  return back(slug, ok ? 'saved' : 'readOnly');
+  return back(
+    slug,
+    result === 'ok' ? 'saved' : result === 'overlaps' ? 'time_off_overlaps' : 'readOnly',
+  );
 }
 
 export async function removeTimeOffAction(formData: FormData): Promise<void> {

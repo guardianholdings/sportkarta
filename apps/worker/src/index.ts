@@ -649,7 +649,8 @@ async function main(): Promise<void> {
         // Counts only; a class id is a club's object, logged only on failure.
         console.log(
           `[worker] ${CLUB_MATERIALIZE_QUEUE} job ${job.id}: ${String(report.classesProcessed)} class(es), ` +
-            `+${String(report.occurrencesCreated)} created, ${String(report.failures.length)} failed`,
+            `+${String(report.occurrencesCreated)} created, ${String(report.failures.length)} failed, ` +
+            `${String(report.conflicts.length)} skipped (room taken)`,
         );
       }
       for (const failure of report.failures) {

@@ -3,6 +3,7 @@ import { grantableRoles, type ClubRole } from '@sportkarta/lib/clubs';
 import { generateInviteToken, sha256Hex } from '@sportkarta/lib/clubs/secrets';
 
 import { recordClubAudit } from './audit';
+import { violatedConstraint } from './errors';
 import { clubFeatureSql } from './features';
 import type { PayRateInput, StaffInviteInput, StaffProfileInput, TimeOffInput } from './input';
 import { clubActorMay, clubScope, clubWriteScope, type ClubActor } from './scope';
@@ -492,7 +493,22 @@ export async function addTimeOff(
   db: TransactionalDb,
   actor: ClubActor,
   input: TimeOffInput,
-): Promise<boolean> {
+): Promise<'ok' | 'not_allowed' | 'overlaps'> {
+  try {
+    return await addTimeOffOnce(db, actor, input);
+  } catch (error: unknown) {
+    // 0048: a trainer's leave is busy time on the calendar, so it cannot
+    // overlap their other leave or an appointment already booked.
+    if (violatedConstraint(error) === 'club_calendar_claims_staff_free') return 'overlaps';
+    throw error;
+  }
+}
+
+async function addTimeOffOnce(
+  db: TransactionalDb,
+  actor: ClubActor,
+  input: TimeOffInput,
+): Promise<'ok' | 'not_allowed'> {
   return db.transaction(async (tx) => {
     const allowed =
       input.userId === actor.userId
@@ -508,14 +524,14 @@ export async function addTimeOff(
        WHERE s.club_id = ${actor.clubId}::uuid AND s.user_id = ${input.userId} AND ${allowed}
       RETURNING id
     `);
-    if (created.rows.length === 0) return false;
+    if (created.rows.length === 0) return 'not_allowed' as const;
     await recordClubAudit(tx, {
       clubId: actor.clubId,
       by: { kind: 'staff', actor },
       action: 'time_off_saved',
       detail: { from: input.startsOn, to: input.endsOn, reason: input.reason },
     });
-    return true;
+    return 'ok' as const;
   });
 }
 

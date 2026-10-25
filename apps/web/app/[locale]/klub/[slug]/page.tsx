@@ -11,6 +11,7 @@ import { Link } from '@/i18n/navigation';
 import { clubsEnabled } from '@/lib/clubs/access';
 import { clubSportLabeler } from '@/lib/clubs/labels';
 import { MIN_ONLINE_CENTS, clubTakesPayments } from '@/lib/clubs/payments';
+import { publicServices } from '@/lib/clubs/reservations';
 import { publicClub } from '@/lib/clubs/public';
 import { formatDateTime } from '@/lib/format';
 import { buildAlternates } from '@/lib/seo';
@@ -51,11 +52,12 @@ export default async function PublicClubPage({ params }: { params: PageParams })
   if (!clubsEnabled()) notFound();
   const club = await publicClub(slug, locale);
   if (!club) notFound();
-  const [t, tClub, sportLabel, takesPayments] = await Promise.all([
+  const [t, tClub, sportLabel, takesPayments, services] = await Promise.all([
     getTranslations('ClubPublic'),
     getTranslations('Club'),
     clubSportLabeler(),
     clubTakesPayments(club.id),
+    publicServices(club.id, locale),
   ]);
   const section = 'space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm';
   const trialClasses = club.classes.filter((c) => c.trialAllowed);
@@ -202,6 +204,44 @@ export default async function PublicClubPage({ params }: { params: PageParams })
             </ul>
           )}
         </section>
+
+        {services.length > 0 && (
+          <section id="rezervatsii" className={section} aria-labelledby="services-h">
+            <h2 id="services-h" className="text-h4 font-bold text-ink">
+              {t('servicesTitle')}
+            </h2>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {services.map((service) => (
+                <li key={service.id} className="rounded-card border border-line p-3">
+                  <p className="flex items-baseline justify-between gap-2">
+                    <span className="font-semibold text-ink">{service.name}</span>
+                    <span className="font-mono tabular-nums text-ink">
+                      {formatEuro(service.priceCents, locale)}
+                    </span>
+                  </p>
+                  <p className="text-caption text-text-muted">
+                    {service.priceUnit === 'hour' ? t('perHour') : t('perBooking')}
+                    {service.memberPriceCents !== null
+                      ? ` · ${t('memberPrice', { amount: formatEuro(service.memberPriceCents, locale) })}`
+                      : ''}
+                  </p>
+                  {service.description && (
+                    <p className="mt-1 text-caption text-ink-soft">{service.description}</p>
+                  )}
+                  <Link
+                    href={{
+                      pathname: `/klub/${club.slug}/rezervatsiya`,
+                      query: { usluga: service.id },
+                    }}
+                    className={cn(buttonVariants({ size: 'sm', variant: 'secondary' }), 'mt-2')}
+                  >
+                    {t('reserve')}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {club.trainers.length > 0 && (
           <section className={section} aria-labelledby="trainers-h">

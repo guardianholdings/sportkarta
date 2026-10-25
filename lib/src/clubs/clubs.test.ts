@@ -57,6 +57,16 @@ import {
   sofiaToday,
   trainingSportFor,
   type ClubAccessInput,
+  availableSlots,
+  parseClock,
+  parseClosing,
+  intersectSlots,
+  priceFor,
+  saturatedIntervals,
+  serviceDurations,
+  type PriceQuery,
+  type PriceRule,
+  type SlotQuery,
 } from './index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -610,5 +620,159 @@ describe('the member import', () => {
       row({ name: 'Мария П.', email: 'maria@example.org' }, 3),
     ];
     expect(classifyImportRows(rows, []).map((c) => c.kind)).toEqual(['conflict', 'conflict']);
+  });
+});
+
+describe('the slot engine (0048)', () => {
+  const day = (overrides: Partial<SlotQuery> = {}): SlotQuery => ({
+    date: '2026-11-02',
+    timeZone: 'Europe/Sofia',
+    hours: { opens: '09:00', closes: '12:00' },
+    durationMinutes: 60,
+    stepMinutes: 30,
+    bufferMinutes: 0,
+    busy: [],
+    notBefore: 0,
+    ...overrides,
+  });
+  const at = (local: string) => new Date(`2026-11-02T${local}:00+02:00`).getTime();
+
+  it('steps through the opening hours and stops where a session would outrun closing', () => {
+    expect(availableSlots(day()).map((s) => s.local)).toEqual([
+      '09:00',
+      '09:30',
+      '10:00',
+      '10:30',
+      '11:00',
+    ]);
+  });
+
+  it('skips what overlaps busy time, half-open, and honours the buffer', () => {
+    const busy = [{ start: at('10:00'), end: at('11:00') }];
+    expect(availableSlots(day({ busy })).map((s) => s.local)).toEqual(['09:00', '11:00']);
+    // 15 minutes of turnover: 09:00–10:00 now runs into 10:00.
+    expect(availableSlots(day({ busy, bufferMinutes: 15 })).map((s) => s.local)).toEqual(['11:00']);
+  });
+
+  it('never offers the past, nor a closed day', () => {
+    expect(availableSlots(day({ notBefore: at('10:15') })).map((s) => s.local)).toEqual([
+      '10:30',
+      '11:00',
+    ]);
+    expect(availableSlots(day({ hours: null }))).toEqual([]);
+  });
+
+  it('never offers a start the spring-forward gap removes', () => {
+    const slots = availableSlots(
+      day({ date: '2026-03-29', hours: { opens: '01:00', closes: '06:00' } }),
+    );
+    expect(slots.some((s) => s.local.startsWith('03:'))).toBe(false);
+    // 02:30 + 60 real minutes ends at 04:30 on the moved clock.
+    const late = slots.find((s) => s.local === '02:30');
+    expect(late && late.endsAt.getTime() - late.startsAt.getTime()).toBe(60 * 60_000);
+  });
+
+  it('offers an ambiguous autumn start once, at its first occurrence', () => {
+    const slots = availableSlots(
+      day({ date: '2026-10-25', hours: { opens: '02:00', closes: '06:00' } }),
+    );
+    expect(slots.filter((s) => s.local === '03:30')).toHaveLength(1);
+  });
+
+  it('finds when a pool is fully taken, not merely busy', () => {
+    const h = (n: number) => n * 3_600_000;
+    const taken = saturatedIntervals(
+      [
+        { start: h(9), end: h(11) },
+        { start: h(11), end: h(13) },
+        { start: h(10), end: h(12) },
+      ],
+      2,
+    );
+    // Two rackets: both out only 10–12 (9–11 hands over to 11–13 at 11).
+    expect(taken).toEqual([{ start: h(10), end: h(12) }]);
+    expect(saturatedIntervals([{ start: h(9), end: h(10) }], 2)).toEqual([]);
+    // A closure takes every unit at once.
+    expect(saturatedIntervals([{ start: h(9), end: h(10), units: 2 }], 2)).toEqual([
+      { start: h(9), end: h(10) },
+    ]);
+  });
+
+  it('sells the last hour before midnight, written 24:00 or 00:00', () => {
+    expect(parseClosing('00:00')).toBe(24 * 60);
+    expect(parseClosing('24:00')).toBe(24 * 60);
+    expect(parseClosing('22:30')).toBe(22 * 60 + 30);
+    expect(parseClock('24:00')).toBeNull();
+    for (const closes of ['24:00', '00:00']) {
+      const slots = availableSlots(day({ hours: { opens: '22:00', closes }, stepMinutes: 60 }));
+      expect(slots.map((s) => s.local)).toEqual(['22:00', '23:00']);
+      expect(slots.at(-1)?.endsAt.toISOString()).toBe('2026-11-02T22:00:00.000Z');
+    }
+  });
+
+  it('intersects a trainer and a room by wall clock, and lists the durations sold', () => {
+    const room = availableSlots(day({ busy: [{ start: at('09:00'), end: at('10:00') }] }));
+    const trainer = availableSlots(day({ busy: [{ start: at('11:00'), end: at('12:00') }] }));
+    expect(intersectSlots([room, trainer]).map((s) => s.local)).toEqual(['10:00']);
+    expect(serviceDurations(60, 120, 30)).toEqual([60, 90, 120]);
+  });
+});
+
+describe('booking prices (0048)', () => {
+  const peak: PriceRule = {
+    weekdays: [1, 2, 3, 4, 5],
+    from: '18:00',
+    to: '22:00',
+    priceCents: 3000,
+    memberPriceCents: 2500,
+    priority: 1,
+  };
+  const query = (overrides: Partial<PriceQuery> = {}): PriceQuery => ({
+    unit: 'hour',
+    baseCents: 2000,
+    memberBaseCents: null,
+    rules: [peak],
+    weekday: 1,
+    startLocal: '17:30',
+    durationMinutes: 90,
+    member: false,
+    ...overrides,
+  });
+
+  it('prices each minute by the rule covering it', () => {
+    // 30 off-peak minutes at €20/h and 60 peak minutes at €30/h.
+    expect(priceFor(query())).toBe(4000);
+    expect(priceFor(query({ member: true }))).toBe(1000 + 2500);
+    expect(priceFor(query({ weekday: 6 }))).toBe(3000);
+  });
+
+  it('sums whole rates and rounds once, and a rule may run to midnight', () => {
+    // 7 minutes at €0.70/h: 70 × 7 / 60 = 8.1666… → 8 cents, not a float drift.
+    expect(
+      priceFor(query({ baseCents: 70, rules: [], startLocal: '10:00', durationMinutes: 7 })),
+    ).toBe(8);
+    const lateNight: PriceRule = { ...peak, from: '22:00', to: '24:00', priceCents: 1000 };
+    expect(priceFor(query({ rules: [lateNight], startLocal: '23:00', durationMinutes: 60 }))).toBe(
+      1000,
+    );
+  });
+
+  it('prices a booking by its start, and the highest priority wins', () => {
+    expect(priceFor(query({ unit: 'booking', startLocal: '18:30' }))).toBe(3000);
+    expect(priceFor(query({ unit: 'booking' }))).toBe(2000);
+    const happyHour: PriceRule = {
+      ...peak,
+      from: '18:00',
+      to: '19:00',
+      priceCents: 1500,
+      priority: 5,
+    };
+    expect(
+      priceFor(query({ unit: 'booking', startLocal: '18:15', rules: [peak, happyHour] })),
+    ).toBe(1500);
+  });
+
+  it('refuses an unreadable start', () => {
+    expect(priceFor(query({ startLocal: '25:00' }))).toBeNull();
   });
 });

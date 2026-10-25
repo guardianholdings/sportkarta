@@ -2,6 +2,7 @@ import {
   applyCheckoutPaid,
   applySubscriptionInvoice,
   expireCheckout,
+  expireReservationHolds,
   getDb,
   markPaymentAccountGone,
   markPaymentEvent,
@@ -171,7 +172,6 @@ export async function runClubPaymentEvent(
  * 90-day retention of processed ones (0046's header).
  */
 export async function sweepClubPaymentEvents(): Promise<number> {
-  await prunePaymentEvents(getDb());
   const ids = await pendingPaymentEventIds(getDb());
   let done = 0;
   for (const id of ids) {
@@ -187,5 +187,17 @@ export async function sweepClubPaymentEvents(): Promise<number> {
       );
     }
   }
+  // Slots held for a payment that never came (0048) — after the backlog, so a
+  // payment whose event was only waiting confirms its hold first; and on its
+  // own, so a failing prune never leaves slots held. The booking path also
+  // releases a lapsed hold on its own slot at once.
+  try {
+    await expireReservationHolds(getDb());
+  } catch (error: unknown) {
+    console.warn(
+      `[worker] club holds sweep failed (${error instanceof Error ? error.name : 'error'})`,
+    );
+  }
+  await prunePaymentEvents(getDb());
   return done;
 }

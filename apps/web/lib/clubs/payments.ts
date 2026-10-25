@@ -257,6 +257,27 @@ export async function closeOpenCheckouts(clubId: string, memberId: string | null
   }
 }
 
+/**
+ * Close the open checkout of one charge whose booking was just cancelled
+ * (0048): the provider's page must stop taking money for a slot that is no
+ * longer the member's. A session already paid stays open — its money then
+ * meets a void charge and lands as `unapplied`, never lost.
+ */
+export async function closeChargeCheckout(clubId: string, chargeId: string): Promise<void> {
+  const open = await getDb().execute(sql`
+    SELECT id, provider, session_ref, account_ref FROM club_checkouts
+     WHERE club_id = ${clubId}::uuid AND charge_id = ${chargeId}::uuid AND status = 'open'
+  `);
+  for (const row of open.rows) {
+    await closePrevious({
+      id: String(row.id),
+      provider: String(row.provider),
+      sessionRef: text(row.session_ref),
+      accountRef: String(row.account_ref),
+    });
+  }
+}
+
 // ─── Checkout ──────────────────────────────────────────────────────────────
 
 export type CheckoutStart =
@@ -271,6 +292,8 @@ export type CheckoutStart =
         | 'link_pending'
         | 'audience_mismatch'
         | 'provider_error'
+        /** A held slot (0048) has too little time left for the provider's shortest session. */
+        | 'hold_ending'
         /** An earlier attempt is paid at the provider and still being applied. */
         | 'in_progress'
         /** The member already has a renewing abonnement; stop it first. */
@@ -322,6 +345,8 @@ async function openSession(
     subscriptionMonths: number | null;
     email: string | null;
     back: Return;
+    /** A held slot's end: the session dies with it (Stripe's floor is 30 minutes). */
+    expiresAt?: Date;
   },
 ): Promise<string | null> {
   const success = `${input.back.base}/klub/${input.clubSlug}/az/plashtane/${input.checkoutId}`;
@@ -340,6 +365,17 @@ async function openSession(
     {
       mode: subscription ? 'subscription' : 'payment',
       client_reference_id: input.checkoutId,
+      // A held slot: the session dies with the hold, and takes cards only —
+      // a delayed method (a SEPA debit) would settle days after the slot
+      // was released.
+      ...(input.expiresAt
+        ? {
+            expires_at: Math.floor(
+              Math.max(input.expiresAt.getTime(), Date.now() + 31 * 60_000) / 1000,
+            ),
+            payment_method_types: ['card'],
+          }
+        : {}),
       success_url: success,
       cancel_url: `${input.back.base}/klub/${input.clubSlug}/az?rezultat=payment_cancelled`,
       locale: input.back.locale,
@@ -428,7 +464,38 @@ async function closePrevious(previous: {
   return 'closed';
 }
 
-/** A member pays one of their (or their child's) open charges online. */
+/**
+ * The URL of an open checkout's session, while it can still be paid — the
+ * fake stand-in by its id, Stripe by asking it. Null when it cannot be
+ * resumed (expired, completed, or the provider did not answer).
+ */
+async function resumableSessionUrl(
+  previous: { id: string; provider: string; sessionRef: string | null; accountRef: string },
+  back: Return,
+): Promise<string | null> {
+  if (previous.provider === 'fake') {
+    return `${back.locale === 'en' ? '/en' : ''}/dev/plashtane/${previous.id}`;
+  }
+  if (previous.provider !== 'stripe' || !previous.sessionRef || paymentProvider() !== 'stripe') {
+    return null;
+  }
+  try {
+    const session = await stripe().client.retrieveCheckoutSession(previous.sessionRef, {
+      account: previous.accountRef,
+    });
+    return session.status === 'open' ? session.url : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A member pays one of their (or their child's) open charges online. A
+ * charge that holds a slot (0048) gets a session that dies WITH the hold —
+ * read from the database's clock, never computed here — so the provider can
+ * never take money after the slot was released; with less than the
+ * provider's 30-minute floor left on the hold, it is refused instead.
+ */
 export async function startChargeCheckout(
   db: TransactionalDb,
   userId: string,
@@ -458,6 +525,30 @@ export async function startChargeCheckout(
        WHERE charge_id = ${chargeId}::uuid AND purpose = 'charge' AND status = 'open'
     `)
   ).rows[0];
+  // A held slot (0048) cannot get a fresh session once less than the
+  // provider's 30-minute floor is left — so its still-open session is handed
+  // back instead of replaced, and nothing is closed before that is known.
+  const hold = (
+    await getDb().execute(sql`
+      SELECT h.hold_expires_at > now() + interval '31 minutes' AS long_enough
+        FROM club_reservations h
+       WHERE h.club_id = ${club.id}::uuid AND h.charge_id = ${chargeId}::uuid
+         AND h.state = 'held'
+    `)
+  ).rows[0];
+  if (hold && previous) {
+    const url = await resumableSessionUrl(
+      {
+        id: String(previous.id),
+        provider: String(previous.provider),
+        sessionRef: text(previous.session_ref),
+        accountRef: String(previous.account_ref),
+      },
+      back,
+    );
+    if (url) return { ok: true, url, checkoutId: String(previous.id) };
+  }
+  if (hold && hold.long_enough !== true) return { ok: false, error: 'hold_ending' };
   if (previous) {
     const closed = await closePrevious({
       id: String(previous.id),
@@ -468,8 +559,14 @@ export async function startChargeCheckout(
     if (closed !== 'closed') return { ok: false, error: closed };
   }
   type Created =
-    | { error: 'not_allowed' | 'too_small' }
-    | { error?: undefined; checkoutId: string; amount: number; label: string };
+    | { error: 'not_allowed' | 'too_small' | 'hold_ending' }
+    | {
+        error?: undefined;
+        checkoutId: string;
+        amount: number;
+        label: string;
+        holdEndsAt: Date | null;
+      };
   let created: Created;
   try {
     created = await db.transaction(async (tx): Promise<Created> => {
@@ -477,6 +574,17 @@ export async function startChargeCheckout(
       if (!due) return { error: 'not_allowed' };
       const amount = Number(due.due_cents);
       if (amount < MIN_ONLINE_CENTS) return { error: 'too_small' };
+      const hold = (
+        await tx.execute(sql`
+          SELECT h.hold_expires_at, h.hold_expires_at > now() + interval '31 minutes' AS long_enough
+            FROM club_reservations h
+           WHERE h.club_id = ${club.id}::uuid AND h.charge_id = ${chargeId}::uuid
+             AND h.state = 'held'
+        `)
+      ).rows[0];
+      if (hold && hold.long_enough !== true) return { error: 'hold_ending' };
+      const ends = hold?.hold_expires_at;
+      const holdEndsAt = !hold ? null : ends instanceof Date ? ends : new Date(String(ends));
       const checkoutId = randomUUID();
       await tx.execute(sql`
         INSERT INTO club_checkouts (id, club_id, purpose, member_id, charge_id, amount_cents,
@@ -493,7 +601,7 @@ export async function startChargeCheckout(
         subjectMemberId: String(due.member_id),
         detail: { purpose: 'charge', amountCents: amount },
       });
-      return { checkoutId, amount, label: String(due.label) };
+      return { checkoutId, amount, label: String(due.label), holdEndsAt };
     });
   } catch (error: unknown) {
     // Two first clicks at once: the other one owns the open checkout.
@@ -514,6 +622,7 @@ export async function startChargeCheckout(
       subscriptionMonths: null,
       email: await verifiedEmail(getDb(), userId),
       back,
+      ...(created.holdEndsAt ? { expiresAt: created.holdEndsAt } : {}),
     });
     return url
       ? { ok: true, url, checkoutId: created.checkoutId }

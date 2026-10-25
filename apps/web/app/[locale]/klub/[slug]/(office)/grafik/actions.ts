@@ -11,13 +11,23 @@ import { clubCheckIn } from '@/lib/clubs/checkin';
 import { requireClubStaff } from '@/lib/clubs/club-session';
 import { isUuid, parseClass } from '@/lib/clubs/input';
 import { enqueueClubMaterialize, enqueueClubNotify } from '@/lib/clubs/notify';
-import { cancelClass, cancelOccurrence, classById, saveClass } from '@/lib/clubs/schedule';
+import {
+  ClassRoomElsewhere,
+  ClassRoomTaken,
+  cancelClass,
+  cancelOccurrence,
+  classById,
+  saveClass,
+} from '@/lib/clubs/schedule';
 import { revalidateClubSurfaces } from '@/lib/clubs/surfaces';
+import { formatDateTime } from '@/lib/format';
 
 export interface ScheduleState {
   error: string | null;
   errors?: string[];
   saved?: boolean;
+  /** The class's dates its room is already taken on (0048), Sofia `YYYY-MM-DD HH:MM`. */
+  dates?: string[];
 }
 
 function str(formData: FormData, name: string): string {
@@ -41,7 +51,24 @@ export async function saveClassAction(
   if (isUuid(classIdRaw) && !editing) return { error: 'readOnly' };
   const parsed = parseClass(formData, sofiaToday(), editing?.startsAtLocal.slice(0, 10) ?? null);
   if (!parsed.ok) return { error: 'invalid', errors: parsed.errors };
-  const classId = await saveClass(getDb(), actor, editing?.id ?? null, parsed.value);
+  let classId: string | null;
+  try {
+    classId = await saveClass(getDb(), actor, editing?.id ?? null, parsed.value);
+  } catch (error: unknown) {
+    // 0048: the room is taken on some of the class's dates — say which.
+    if (error instanceof ClassRoomTaken) {
+      const locale = await getLocale();
+      return {
+        error: 'room_taken',
+        errors: ['room_taken'],
+        dates: error.dates.map((at) => formatDateTime(at, locale)),
+      };
+    }
+    if (error instanceof ClassRoomElsewhere) {
+      return { error: 'room_location', errors: ['room_location'] };
+    }
+    throw error;
+  }
   if (!classId) return { error: 'readOnly' };
   // The week fills in now, not at the top of the hour.
   await enqueueClubMaterialize(classId);
