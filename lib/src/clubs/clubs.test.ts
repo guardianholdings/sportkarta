@@ -529,12 +529,20 @@ describe('the member import', () => {
   });
 
   it('matches only when one record is unambiguous, and prefers a conflict', () => {
+    const adult = (id: string, email: string | null, phone: string | null) => ({
+      id,
+      displayName: `Член ${id}`,
+      email,
+      phone,
+      isMinor: false,
+      guardianEmail: null,
+    });
     const existing = [
-      { id: 'a', email: 'maria@example.org', phone: '0888123456' },
-      { id: 'b', email: 'ivan@example.org', phone: null },
-      { id: 'c', email: 'twin@example.org', phone: null },
-      { id: 'd', email: 'twin@example.org', phone: null },
-      { id: 'e', email: null, phone: '0899000111' },
+      adult('a', 'maria@example.org', '0888123456'),
+      adult('b', 'ivan@example.org', null),
+      adult('c', 'twin@example.org', null),
+      adult('d', 'twin@example.org', null),
+      adult('e', null, '0899000111'),
     ];
     const rows = [
       row({ name: 'Мария', email: 'maria@example.org', phone: '+359888123456' }),
@@ -554,6 +562,46 @@ describe('the member import', () => {
       { kind: 'new' },
       { kind: 'new' },
     ]);
+  });
+
+  it('matches a child by name under the guardian, and holds a known name for a human', () => {
+    const existing = [
+      {
+        id: 'k1',
+        displayName: 'Иван Петров',
+        email: null,
+        phone: null,
+        isMinor: true,
+        guardianEmail: 'maria@example.org',
+      },
+      {
+        id: 'a1',
+        displayName: 'Георги Георгиев',
+        email: null,
+        phone: null,
+        isMinor: false,
+        guardianEmail: null,
+      },
+    ];
+    const rows = [
+      row({ name: 'иван  петров', minor: 'да', guardianEmail: 'maria@example.org' }),
+      row({ name: 'Иван Петров', minor: 'да', guardianEmail: 'other@example.org' }),
+      row({ name: 'Георги Георгиев' }),
+      row({ name: 'Нов Човек' }),
+    ];
+    expect(classifyImportRows(rows, existing)).toEqual([
+      { kind: 'match', memberId: 'k1' },
+      { kind: 'new' },
+      { kind: 'conflict', reason: 'name_exists' },
+      { kind: 'new' },
+    ]);
+  });
+
+  it('refuses leva instead of reading them as euros', () => {
+    const result = normalizeImportRow(2, { name: 'Мария', plan: 'Месечен', paid: '50 лв.' });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors).toContain('currency_bgn');
+    expect(row({ name: 'Мария', plan: 'Месечен', paid: '25,56 €' }).paidCents).toBe(2556);
   });
 
   it('holds both copies of a person repeated in one file', () => {

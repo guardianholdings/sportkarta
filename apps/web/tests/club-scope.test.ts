@@ -33,6 +33,12 @@ const UNSCOPED_BY_DESIGN: Record<string, string> = {
   'kiosk.ts:pairKiosk':
     'the 6-digit pairing code (hashed with the club, 10 minutes) is the authority',
   'kiosk.ts:kioskFromCookie': 'touches last_seen_at of the device whose secret was just proven',
+  'payments.ts:openSession':
+    "stores the provider's session id on the checkout row this module inserted a moment earlier, by its uuid",
+  'payments.ts:closePrevious':
+    'expires one checkout by uuid after its caller proved scope — startChargeCheckout read the charge under memberSelfScope; closeOpenCheckouts runs behind requireClubStaff (members.erase, settings.manage) or the NGO admin guard, pinned to the club id',
+  'payments.ts:fakeSettle':
+    'the development-only fake provider (resolvePaymentProvider never selects it in production)',
   'links.ts:acceptMemberInvite':
     "the member's own act: invite token + the account's verified email",
   'links.ts:claimRecord':
@@ -85,6 +91,96 @@ describe('every club write carries its scope in the statement', () => {
     for (const key of Object.keys(UNSCOPED_BY_DESIGN)) {
       expect(present.has(key), `${key} is allowlisted but no longer writes`).toBe(true);
     }
+  });
+});
+
+/**
+ * The ranges of every template literal in `src`, nested ones included, found
+ * by a small tokenizer (strings, comments, `${…}` nesting). Enough for the
+ * club modules, which hold no regex literal containing a backtick.
+ */
+function templateRanges(src: string): [number, number][] {
+  const ranges: [number, number][] = [];
+  type Frame = { kind: 'code'; depth: number } | { kind: 'template'; start: number };
+  const stack: Frame[] = [{ kind: 'code', depth: 0 }];
+  let i = 0;
+  while (i < src.length) {
+    const top = stack[stack.length - 1] as Frame;
+    const ch = src[i];
+    if (top.kind === 'template') {
+      if (ch === '\\') i += 2;
+      else if (ch === '`') {
+        ranges.push([top.start, i]);
+        stack.pop();
+        i += 1;
+      } else if (ch === '$' && src[i + 1] === '{') {
+        stack.push({ kind: 'code', depth: 0 });
+        i += 2;
+      } else i += 1;
+      continue;
+    }
+    if (ch === '/' && src[i + 1] === '/') {
+      const end = src.indexOf('\n', i);
+      i = end < 0 ? src.length : end;
+    } else if (ch === '/' && src[i + 1] === '*') {
+      const end = src.indexOf('*/', i + 2);
+      i = end < 0 ? src.length : end + 2;
+    } else if (ch === "'" || ch === '"') {
+      i += 1;
+      while (i < src.length && src[i] !== ch) i += src[i] === '\\' ? 2 : 1;
+      i += 1;
+    } else if (ch === '`') {
+      stack.push({ kind: 'template', start: i });
+      i += 1;
+    } else if (ch === '{') {
+      top.depth += 1;
+      i += 1;
+    } else if (ch === '}') {
+      if (top.depth === 0 && stack.length > 1) stack.pop();
+      else top.depth -= 1;
+      i += 1;
+    } else i += 1;
+  }
+  return ranges;
+}
+
+describe('every scope fragment names an alias its statement declares', () => {
+  // clubScope(actor, permission, 'pay') expands to `pay.club_id = …`. If the
+  // statement calls the table `p`, Postgres refuses the whole query at run
+  // time (42P01) — a refund that could never work passed every other test.
+  const CALL =
+    /(clubScope|clubWriteScope|occurrenceStaffScope)\(\s*[^,()]+,\s*(?:'[^']*'\s*,\s*)?'([a-z]+)'\s*\)/g;
+  const calls: { key: string; alias: string; templates: string[] }[] = [];
+  for (const file of readdirSync(DIR).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'))) {
+    const source = readFileSync(join(DIR, file), 'utf8');
+    const ranges = templateRanges(source);
+    for (const match of source.matchAll(CALL)) {
+      const at = match.index ?? 0;
+      const enclosing = ranges.filter(([start, end]) => start < at && at < end);
+      // A fragment collected outside a statement (a conditions array) is
+      // joined into one later; this check cannot follow it there.
+      if (enclosing.length === 0) continue;
+      calls.push({
+        key: `${file}:${source.slice(0, at).split('\n').length}`,
+        alias: match[2] as string,
+        templates: enclosing.map(([start, end]) => source.slice(start, end)),
+      });
+    }
+  }
+
+  it('finds scoped statements (the check is not vacuous)', () => {
+    expect(calls.length).toBeGreaterThan(50);
+  });
+
+  it.each(calls.map((c) => [c.key, c] as const))('%s', (_key, call) => {
+    const declared = new RegExp(
+      `\\b(?:FROM|JOIN|UPDATE|INTO)\\s+(?:public\\.)?"?[a-z_]+"?\\s+(?:AS\\s+)?${call.alias}\\b`,
+      'i',
+    );
+    expect(
+      call.templates.some((text) => declared.test(text)),
+      `the scope fragment uses alias '${call.alias}', which no enclosing statement declares`,
+    ).toBe(true);
   });
 });
 

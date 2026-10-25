@@ -60,27 +60,45 @@ export async function memberStopRenewal(
   clubId: string,
   membershipId: string,
   today: IsoDate,
+  /**
+   * Runs once the notice is computed and BEFORE it is written — the card
+   * subscription is stopped at the provider first. If it refuses, nothing is
+   * recorded and the member can simply try again (a notice written first
+   * could never be resubmitted while Stripe kept billing; the 0046 review).
+   */
+  beforeWrite?: (tailId: string, endsOn: IsoDate) => Promise<boolean>,
 ): Promise<SelfServiceResult<{ endsOn: IsoDate }>> {
   return db.transaction(async (tx) => {
-    const found = await tx.execute(sql`
-      SELECT ms.id, ms.member_id, p.notice_days, p.min_term_months,
+    // The terms are the membership's own (0047 snapshot), never the plan's
+    // today. The renewal job locks the tail the same way; after the lock the
+    // tail is re-checked, so a period the job appended meanwhile is the one
+    // that receives the notice.
+    const tailFor = () => sql`
+      SELECT ms.id, ms.member_id, ms.notice_days, ms.min_term_months,
              to_char(coalesce(ms.term_started_on, ms.starts_on), 'YYYY-MM-DD') AS term_started_on
         FROM club_memberships ms
-        JOIN club_plans p ON p.club_id = ms.club_id AND p.id = ms.plan_id
         JOIN club_members m ON m.club_id = ms.club_id AND m.id = ms.member_id
        WHERE ms.id = (${CHAIN_TAIL(membershipId)})
          AND ms.renews AND ms.renewal_ends_on IS NULL AND ms.cancelled_at IS NULL
-         AND p.self_cancel_allowed
+         AND ms.self_cancel_allowed
          AND ${memberSelfScope(userId, clubId, 'm')} AND ${clubWritableGuard(clubId)}
-         FOR NO KEY UPDATE OF ms
-    `);
-    const row = found.rows[0];
+         FOR NO KEY UPDATE OF ms`;
+    let row = (await tx.execute(tailFor())).rows[0];
+    if (row) {
+      const successor = await tx.execute(sql`
+        SELECT 1 FROM club_memberships nx WHERE nx.renewal_of = ${String(row.id)}::uuid
+      `);
+      if (successor.rows.length > 0) row = (await tx.execute(tailFor())).rows[0];
+    }
     if (!row) return { ok: false, error: 'not_allowed' } as const;
     const endsOn = contractEndsOn(today, {
       noticeDays: Number(row.notice_days),
       minTermMonths: row.min_term_months === null ? null : Number(row.min_term_months),
       termStartedOn: String(row.term_started_on),
     });
+    if (beforeWrite && !(await beforeWrite(String(row.id), endsOn))) {
+      return { ok: false, error: 'provider_error' } as const;
+    }
     await tx.execute(sql`
       UPDATE club_memberships ms SET renewal_ends_on = ${endsOn}::date
         FROM club_members m
@@ -111,14 +129,17 @@ export async function memberPause(
   try {
     return await db.transaction(async (tx) => {
       const created = await tx.execute(sql`
-        INSERT INTO club_membership_pauses (club_id, membership_id, starts_on, ends_on, created_by)
-        SELECT ms.club_id, ms.id, ${range.startsOn}::date, ${range.endsOn}::date, ${userId}
+        INSERT INTO club_membership_pauses (club_id, membership_id, starts_on, ends_on, by_member)
+        SELECT ms.club_id, ms.id, ${range.startsOn}::date, ${range.endsOn}::date, true
           FROM club_memberships ms
-          JOIN club_plans p ON p.club_id = ms.club_id AND p.id = ms.plan_id
           JOIN club_members m ON m.club_id = ms.club_id AND m.id = ms.member_id
-         WHERE ms.id = ${membershipId}::uuid AND ms.cancelled_at IS NULL AND p.self_pause_allowed
+         WHERE ms.id = ${membershipId}::uuid AND ms.cancelled_at IS NULL AND ms.self_pause_allowed
+           -- A card subscription keeps billing through a pause (see sales.ts).
+           AND ms.provider_subscription_ref IS NULL
+           -- The period now running or next, not one a renewal already followed.
+           AND NOT EXISTS (SELECT 1 FROM club_memberships nx WHERE nx.renewal_of = ms.id)
            AND NOT EXISTS (SELECT 1 FROM club_membership_pauses ps
-                            WHERE ps.membership_id = ms.id AND ps.created_by = ${userId})
+                            WHERE ps.membership_id = ms.id AND ps.by_member)
            AND ${memberSelfScope(userId, clubId, 'm')} AND ${clubWritableGuard(clubId)}
         RETURNING (SELECT member_id FROM club_memberships WHERE id = membership_id) AS member_id
       `);
@@ -137,6 +158,10 @@ export async function memberPause(
     const constraint = violatedConstraint(error);
     if (constraint === 'club_membership_pauses_no_overlap')
       return { ok: false, error: 'pause_overlap' };
+    // A second portal submit raced the first past the NOT EXISTS (0047's index).
+    if (constraint === 'club_membership_pauses_one_by_member') {
+      return { ok: false, error: 'not_allowed' };
+    }
     if (constraint === 'club_membership_pauses_within_membership') {
       return { ok: false, error: 'pause_outside' };
     }

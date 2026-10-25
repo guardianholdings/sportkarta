@@ -26,7 +26,13 @@ import {
 export const dynamic = 'force-dynamic';
 
 const OUTCOMES = new Set(['saved', 'approved', 'rejected', 'unchanged', 'not_changed', 'not_yet']);
-const ERRORS = new Set(['date_invalid', 'cap_invalid', 'tier_invalid', 'invalid']);
+const ERRORS = new Set([
+  'date_invalid',
+  'cap_invalid',
+  'tier_invalid',
+  'invalid',
+  'provider_error',
+]);
 
 export default async function AdminClubPage({
   params,

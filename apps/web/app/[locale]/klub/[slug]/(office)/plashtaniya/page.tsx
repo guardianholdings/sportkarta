@@ -15,10 +15,14 @@ import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { isUuid } from '@/lib/clubs/input';
 import { memberChoices } from '@/lib/clubs/members';
+import { unappliedCheckouts } from '@/lib/clubs/payments';
 import { openCharges, paymentLedger } from '@/lib/clubs/sales';
-import { formatDate } from '@/lib/format';
+import { formatDate, formatDateTime } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
-import { createChargeAction, recordPaymentAction } from './actions';
+import { ConfirmButton } from '@/components/ui/confirm-button';
+
+import { createChargeAction, recordPaymentAction, refundOnlineAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +31,13 @@ export default async function ClubPaymentsPage({
   searchParams,
 }: {
   params: Promise<{ locale: string; slug: string }>;
-  searchParams: Promise<{ mesec?: string; nachin?: string; zadalzhenie?: string; chlen?: string }>;
+  searchParams: Promise<{
+    mesec?: string;
+    nachin?: string;
+    zadalzhenie?: string;
+    chlen?: string;
+    rezultat?: string;
+  }>;
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
@@ -42,15 +52,21 @@ export default async function ClubPaymentsPage({
     : null;
   const memberFilter = isUuid(query.chlen) ? query.chlen : undefined;
   const canRecord = actorCan(actor, 'payments.record');
-  const [t, tClub, messages, ledger, open, members] = await Promise.all([
+  const [t, tClub, messages, ledger, open, members, unapplied] = await Promise.all([
     getTranslations('ClubSales.payments'),
     getTranslations('Club'),
     clubFormMessages(),
     paymentLedger(actor, month, method),
     openCharges(actor, { memberId: memberFilter }),
     canRecord ? memberChoices(actor) : Promise.resolve([]),
+    unappliedCheckouts(actor),
   ]);
-  const methods = Object.fromEntries(CLUB_PAYMENT_METHODS.map((m) => [m, tClub(`method.${m}`)]));
+  const outcome = query.rezultat && t.has(`outcome.${query.rezultat}`) ? query.rezultat : null;
+  const methods: Record<string, string> = {
+    ...Object.fromEntries(CLUB_PAYMENT_METHODS.map((m) => [m, tClub(`method.${m}`)])),
+    card_online: tClub('method.card_online'),
+  };
+  const canRefund = actorCan(actor, 'charges.void');
   const section = 'space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm';
 
   return (
@@ -59,6 +75,64 @@ export default async function ClubPaymentsPage({
         <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
         <p className="mt-1 max-w-prose text-body-sm text-ink-soft">{t('intro')}</p>
       </div>
+
+      <div role="status" aria-live="polite">
+        {outcome && (
+          <p
+            className={cn(
+              'rounded-card border p-3 text-body-sm text-ink',
+              outcome === 'refunded'
+                ? 'border-success-border bg-success-bg'
+                : 'border-warning-border bg-warning-bg',
+            )}
+          >
+            {t(`outcome.${outcome}`)}
+          </p>
+        )}
+      </div>
+
+      {unapplied.length > 0 && (
+        <section
+          className="space-y-2 rounded-card border border-warning-border bg-warning-bg p-4"
+          aria-labelledby="unapplied-h"
+        >
+          <h2 id="unapplied-h" className="text-h4 font-bold text-ink">
+            {t('unappliedTitle')}
+          </h2>
+          <p className="max-w-prose text-body-sm text-ink">{t('unappliedHint')}</p>
+          <ul className="divide-y divide-line">
+            {unapplied.map((row) => (
+              <li key={row.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                <span className="font-mono tabular-nums text-ink">
+                  {formatEuro(row.amountCents, locale)}
+                </span>
+                <span className="text-body-sm text-ink">
+                  {row.memberId && row.memberName ? (
+                    <Link href={`/klub/${slug}/chlenove/${row.memberId}`} className="text-link">
+                      {row.memberName}
+                    </Link>
+                  ) : (
+                    '—'
+                  )}
+                </span>
+                <span className="text-caption text-text-muted">
+                  {formatDateTime(row.completedAt, locale)}
+                </span>
+                {row.provider === 'stripe' && (
+                  <a
+                    href={`https://dashboard.stripe.com/payments/${encodeURIComponent(row.paymentRef)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-caption font-semibold text-link hover:text-link-hover"
+                  >
+                    {t('openInStripe')}
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {canRecord && (
         <div className="grid gap-5 lg:grid-cols-2">
@@ -209,15 +283,17 @@ export default async function ClubPaymentsPage({
             <table className="w-full min-w-[40rem] text-body-sm">
               <thead>
                 <tr className="border-b border-line text-left text-caption text-text-muted">
-                  {(['date', 'member', 'for', 'method', 'amount', 'by'] as const).map((col) => (
-                    <th
-                      key={col}
-                      scope="col"
-                      className={`py-1.5 pr-3 font-medium ${col === 'amount' ? 'text-right' : ''}`}
-                    >
-                      {t(`col.${col}`)}
-                    </th>
-                  ))}
+                  {(['date', 'member', 'for', 'method', 'amount', 'by', 'action'] as const).map(
+                    (col) => (
+                      <th
+                        key={col}
+                        scope="col"
+                        className={`py-1.5 pr-3 font-medium ${col === 'amount' ? 'text-right' : ''}`}
+                      >
+                        {t(`col.${col}`)}
+                      </th>
+                    ),
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -243,7 +319,31 @@ export default async function ClubPaymentsPage({
                     <td className="py-1.5 pr-3 text-right font-mono tabular-nums">
                       {formatEuro(row.amountCents, locale)}
                     </td>
-                    <td className="py-1.5 pr-3 text-text-muted">{row.recordedBy ?? '—'}</td>
+                    <td className="py-1.5 pr-3 text-text-muted">
+                      {row.recordedBy ?? (row.method === 'card_online' ? t('online') : '—')}
+                    </td>
+                    <td className="py-1.5 pr-3">
+                      {canRefund && row.method === 'card_online' && row.kind === 'payment' && (
+                        <form action={refundOnlineAction} className="flex items-center gap-1">
+                          <input type="hidden" name="slug" value={slug} />
+                          <input type="hidden" name="paymentId" value={row.id} />
+                          <Input
+                            name="amount"
+                            size="sm"
+                            inputMode="decimal"
+                            placeholder={t('refundAll')}
+                            aria-label={t('refundAmount')}
+                            className="w-24"
+                          />
+                          <ConfirmButton
+                            message={t('refundConfirm')}
+                            className="min-h-9 rounded-pill border border-line-strong px-3 text-caption font-semibold text-ink hover:bg-surface-2"
+                          >
+                            {t('refundOnline')}
+                          </ConfirmButton>
+                        </form>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

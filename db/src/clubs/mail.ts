@@ -547,7 +547,9 @@ export async function clubMonthFigures(db: SqlRunner, month: IsoDate): Promise<C
          SELECT mb.member_id FROM club_membership_balances mb
           WHERE mb.club_id = c.id AND mb.cancelled_at IS NULL
             AND mb.starts_on < span.next AND mb.effective_ends_on >= span.first) gone) AS churned,
-      (SELECT count(*)::int FROM club_membership_balances mb
+      -- Distinct MEMBERS: a member holding two live abonnements is one person
+      -- at risk, not two.
+      (SELECT count(DISTINCT mb.member_id)::int FROM club_membership_balances mb
         WHERE mb.club_id = c.id AND mb.state = 'active'
           AND mb.starts_on <= (now() AT TIME ZONE 'Europe/Sofia')::date - 21
           AND NOT EXISTS (SELECT 1 FROM club_checkins ci

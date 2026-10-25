@@ -4,6 +4,7 @@ import { getDb } from '@sportkarta/db';
 import { isIsoDate, sofiaToday } from '@sportkarta/lib/clubs';
 import { getLocale } from 'next-intl/server';
 import { revalidatePath } from 'next/cache';
+import { redirect as redirectOut } from 'next/navigation';
 
 import { redirect } from '@/i18n/navigation';
 import { requireUser } from '@/lib/auth-session';
@@ -14,6 +15,11 @@ import { requestErasure, setLinkPreference, unlinkRecord } from '@/lib/clubs/lin
 import { enqueueClubNotify } from '@/lib/clubs/notify';
 import { clubIdForSlug } from '@/lib/clubs/portal';
 import { clubMemberActionLimiter } from '@/lib/clubs/rate-limit';
+import {
+  checkoutReturn,
+  startChargeCheckout,
+  stopProviderSubscriptions,
+} from '@/lib/clubs/payments';
 import { memberPause, memberStopRenewal, setContactPreferences } from '@/lib/clubs/self-service';
 
 /**
@@ -89,7 +95,19 @@ export async function portalOpAction(formData: FormData): Promise<void> {
     case 'stop_renewal': {
       const membershipId = str(formData, 'membershipId');
       if (!isUuid(membershipId)) return back('not_found');
-      const result = await memberStopRenewal(db, user.id, clubId, membershipId, sofiaToday());
+      // The card subscription stops at the provider at the END OF THE NOTICE
+      // — billing ends where the contract does — and only then is the notice
+      // recorded. memberStopRenewal has already proved, under its lock, that
+      // the chain is this account's own before the callback runs.
+      const result = await memberStopRenewal(
+        db,
+        user.id,
+        clubId,
+        membershipId,
+        sofiaToday(),
+        (tailId, endsOn) =>
+          stopProviderSubscriptions(clubId, { membershipId: tailId }, { at: endsOn }),
+      );
       return back(result.ok ? 'renewal_stopped' : result.error);
     }
     case 'pause': {
@@ -106,6 +124,22 @@ export async function portalOpAction(formData: FormData): Promise<void> {
         sofiaToday(),
       );
       return back(result.ok ? 'paused' : result.error);
+    }
+    case 'pay': {
+      // One open charge of this account's record (or a child's), on the
+      // provider's hosted page; the money is recorded only when the provider
+      // confirms it (the webhook, then the worker).
+      const chargeId = str(formData, 'chargeId');
+      if (!isUuid(chargeId)) return back('not_found');
+      const started = await startChargeCheckout(
+        db,
+        user.id,
+        { id: clubId, slug },
+        chargeId,
+        checkoutReturn(locale),
+      );
+      if (!started.ok) return back(`payment_${started.error}`);
+      return redirectOut(started.url);
     }
     case 'contact': {
       if (!isUuid(memberId)) return back('not_found');

@@ -105,6 +105,18 @@ services:
       PARTNER_STRIP_ENABLED: ${PARTNER_STRIP_ENABLED:-}
       # «Клубове» add-on (Stage 9). Ships off: every club route 404s.
       CLUBS_ENABLED: ${CLUBS_ENABLED:-}
+      # Club online payments (0046): each club's OWN Stripe account through
+      # Connect Standard; members pay on Stripe's hosted page and POPS never
+      # holds funds. Off unless CLUB_PAYMENTS_ENABLED is "true" AND
+      # PAYMENT_PROVIDER=stripe with all three Stripe settings well-formed
+      # (lib/src/payments/provider.ts fails closed; the fake provider cannot
+      # resolve in production).
+      CLUB_PAYMENTS_ENABLED: ${CLUB_PAYMENTS_ENABLED:-}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_CONNECT_CLIENT_ID: ${STRIPE_CONNECT_CLIENT_ID:-}
+      STRIPE_APPLICATION_FEE_BP: ${STRIPE_APPLICATION_FEE_BP:-}
       # Bank details on /podkrepi (lib/donations.ts). All empty = the page
       # shows no transfer box rather than a half-filled one.
       DONATION_IBAN: ${DONATION_IBAN:-}
@@ -180,6 +192,14 @@ services:
       # Where a statement of reasons (moderation.notify, 0034) tells a member to
       # contest a decision. Empty = the mail offers the notice form instead.
       CONTACT_EMAIL: ${CONTACT_EMAIL:-}
+      # club.payment_event re-fetches every Stripe object as the club's
+      # connected account (apps/worker/src/club-payments-job.ts) — the web
+      # app only records the webhook. stripeSettings() needs all three keys;
+      # without them every event is left pending and nothing is applied.
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_CONNECT_CLIENT_ID: ${STRIPE_CONNECT_CLIENT_ID:-}
+      STRIPE_APPLICATION_FEE_BP: ${STRIPE_APPLICATION_FEE_BP:-}
     volumes:
       - uploads:/data/uploads
     depends_on:

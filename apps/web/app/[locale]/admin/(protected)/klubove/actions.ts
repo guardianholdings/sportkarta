@@ -17,6 +17,11 @@ import {
 } from '@/lib/clubs/admin';
 import { requireClubsEnabled } from '@/lib/clubs/club-session';
 import { enqueueClubNotify } from '@/lib/clubs/notify';
+import {
+  closeOpenCheckouts,
+  releaseClubAccount,
+  stopProviderSubscriptions,
+} from '@/lib/clubs/payments';
 import { revalidateClubSurfaces } from '@/lib/clubs/surfaces';
 import { discardContributionPhoto } from '@/lib/contributions/photo-upload';
 
@@ -106,6 +111,13 @@ export async function setClubStatusAction(formData: FormData): Promise<void> {
   if (target !== 'active' && target !== 'suspended' && target !== 'archived') {
     return backTo(slug, 'invalid');
   }
+  // An archived club bills nobody: its members' card subscriptions end now.
+  if (target === 'archived') {
+    await closeOpenCheckouts(clubId, null);
+    if (!(await stopProviderSubscriptions(clubId, { club: true }, 'now'))) {
+      return backTo(slug, 'provider_error');
+    }
+  }
   const changed = await setClubStatus(getDb(), adminId, clubId, target as ClubStatusTarget);
   refresh(slug);
   return backTo(slug, changed ? 'saved' : 'unchanged');
@@ -113,8 +125,17 @@ export async function setClubStatusAction(formData: FormData): Promise<void> {
 
 export async function purgeClubAction(formData: FormData): Promise<void> {
   const { adminId, clubId, slug } = await guard(formData);
+  // No member is billed for a club that no longer exists: subscriptions end
+  // now, before the rows that record them go.
+  await closeOpenCheckouts(clubId, null);
+  if (!(await stopProviderSubscriptions(clubId, { club: true }, 'now'))) {
+    return backTo(slug, 'provider_error');
+  }
   const result = await purgeClub(getDb(), adminId, clubId);
   if (!result.purged) return backTo(slug, 'not_yet');
+  // Only once the club is gone: let go of its Stripe connection (best effort),
+  // so a purged club leaves POPS no read_write access to its account.
+  await releaseClubAccount(clubId);
   // The logo file only after the rows are gone — best effort, like partners.
   await discardContributionPhoto(result.logoPath);
   revalidatePath('/admin/klubove');

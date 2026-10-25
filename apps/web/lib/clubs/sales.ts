@@ -203,7 +203,8 @@ export async function sellMembership(
       `);
       const found = await tx.execute(sql`
         SELECT p.name_bg, p.kind, p.audience, p.price_cents, p.validity_days, p.validity_months,
-               p.visits_count, p.auto_renew, m.is_minor,
+               p.visits_count, p.auto_renew, p.notice_days, p.min_term_months,
+               p.self_pause_allowed, p.self_cancel_allowed, m.is_minor,
                c.member_cap,
                (SELECT count(DISTINCT b.member_id)::int FROM club_membership_balances b
                  WHERE b.club_id = c.id AND b.member_id <> m.id
@@ -241,12 +242,15 @@ export async function sellMembership(
       const sold = await tx.execute(sql`
         INSERT INTO club_memberships (club_id, member_id, plan_id, plan_name, kind, audience,
                                       price_cents, visits_total, starts_on, ends_on, sold_by,
-                                      renews, term_started_on)
+                                      renews, term_started_on, notice_days, min_term_months,
+                                      self_pause_allowed, self_cancel_allowed)
         SELECT ${actor.clubId}::uuid, ${input.memberId}::uuid, ${input.planId}::uuid,
                ${String(plan.name_bg)}, ${String(plan.kind)}, ${String(plan.audience)}, ${priceCents},
                ${plan.visits_count === null ? null : Number(plan.visits_count)},
                ${input.startsOn}::date, ${endsOn}::date, ${actor.userId},
-               ${renews}, ${renews ? input.startsOn : null}::date
+               ${renews}, ${renews ? input.startsOn : null}::date, ${Number(plan.notice_days)},
+               ${plan.min_term_months === null ? null : Number(plan.min_term_months)},
+               ${plan.self_pause_allowed === true}, ${plan.self_cancel_allowed === true}
          WHERE ${clubActorMay(actor, 'sales.manage', { write: true })}
         RETURNING id
       `);
@@ -303,6 +307,14 @@ export async function pauseMembership(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     return await db.transaction(async (tx) => {
+      // A card subscription keeps billing through a pause, so it is not paused
+      // here; the member stops it and buys again, or the club pauses it in Stripe.
+      const online = await tx.execute(sql`
+        SELECT 1 FROM club_memberships ms
+         WHERE ms.id = ${input.membershipId}::uuid AND ms.provider_subscription_ref IS NOT NULL
+           AND ${clubWriteScope(actor, 'sales.manage', 'ms')}
+      `);
+      if (online.rows.length > 0) return { ok: false, error: 'subscription_pause' } as const;
       const created = await tx.execute(sql`
         INSERT INTO club_membership_pauses (club_id, membership_id, starts_on, ends_on, created_by)
         SELECT ms.club_id, ms.id, ${input.startsOn}::date, ${input.endsOn}::date, ${actor.userId}
@@ -406,8 +418,10 @@ export async function cancelMembership(
 /**
  * Switch a renewing chain on or off from the office (0045). Off is immediate —
  * it is the club's own decision — and stops the club.renewals job from adding
- * the next period; the period already sold runs to its end. On clears any
- * notice the member gave.
+ * the next period; the period already sold runs to its end. On is refused
+ * when the member gave notice (the club cannot undo a member's notice), and
+ * only for a membership still running or ahead — never an old one, which
+ * would back-charge every period since.
  */
 export async function setMembershipRenewal(
   db: TransactionalDb,
@@ -418,10 +432,17 @@ export async function setMembershipRenewal(
   return db.transaction(async (tx) => {
     const updated = await tx.execute(sql`
       UPDATE club_memberships ms
-         SET renews = ${renews}, renewal_ends_on = NULL,
+         SET renews = ${renews},
              term_started_on = coalesce(ms.term_started_on, ms.starts_on)
        WHERE ms.id = ${membershipId}::uuid AND ms.cancelled_at IS NULL AND ms.kind <> 'trial'
          AND ms.renews IS DISTINCT FROM ${renews}
+         -- A card subscription, once stopped, is not restarted from the desk:
+         -- the nightly job never bills it, so "on" would renew nothing.
+         AND (NOT ${renews} OR ms.provider_subscription_ref IS NULL)
+         AND (NOT ${renews} OR (ms.renewal_ends_on IS NULL
+              AND EXISTS (SELECT 1 FROM club_membership_balances lb
+                           WHERE lb.membership_id = ms.id
+                             AND lb.state IN ('active', 'paused', 'upcoming'))))
          AND NOT EXISTS (SELECT 1 FROM club_memberships nx WHERE nx.renewal_of = ms.id)
          AND ${clubWriteScope(actor, 'sales.manage', 'ms')}
       RETURNING ms.member_id
@@ -474,12 +495,21 @@ export async function voidCharge(
   db: TransactionalDb,
   actor: ClubActor,
   chargeId: string,
+  options: { onlyIfNothingPaid?: boolean } = {},
 ): Promise<boolean> {
   return db.transaction(async (tx) => {
+    // onlyIfNothingPaid: after a full refund, so no money is left on the
+    // charge — a void row with money on it means the club still owes a refund.
     const updated = await tx.execute(sql`
       UPDATE club_charges ch SET voided_at = now()
        WHERE ch.id = ${chargeId}::uuid AND ch.voided_at IS NULL
          AND ${clubWriteScope(actor, 'charges.void', 'ch')}
+         AND ${
+           options.onlyIfNothingPaid
+             ? sql`coalesce((SELECT sum(pp.amount_cents) FROM club_payments pp
+                              WHERE pp.charge_id = ch.id), 0) = 0`
+             : sql`true`
+         }
       RETURNING ch.member_id
     `);
     if (updated.rows.length === 0) return false;

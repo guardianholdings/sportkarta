@@ -6,7 +6,7 @@ import type { IsoDate } from './dates.js';
  * every list here equal to its constraint, so the two copies cannot drift.
  */
 
-/** club_audit_action_known (0039, widened in 0045). */
+/** club_audit_action_known (0039, widened in 0045 and 0046). */
 export const CLUB_AUDIT_ACTIONS = [
   'club_applied',
   'settings_changed',
@@ -60,6 +60,11 @@ export const CLUB_AUDIT_ACTIONS = [
   'faq_removed',
   'staff_profile_changed',
   'preferences_changed',
+  'payment_account_connected',
+  'payment_account_disconnected',
+  'checkout_started',
+  'online_payment_received',
+  'online_refund_issued',
 ] as const;
 export type ClubAuditAction = (typeof CLUB_AUDIT_ACTIONS)[number];
 
@@ -101,7 +106,7 @@ export type ClubPlanAudience = (typeof CLUB_PLAN_AUDIENCES)[number];
 export const CLUB_CANCEL_REASONS = ['member_request', 'non_payment', 'mistake', 'other'] as const;
 export type ClubCancelReason = (typeof CLUB_CANCEL_REASONS)[number];
 
-/** club_notifications_kind_known (0044, widened in 0045). */
+/** club_notifications_kind_known (0044, widened in 0045 and 0046). */
 export const CLUB_NOTIFICATION_KINDS = [
   'member_invite',
   'staff_invite',
@@ -122,6 +127,7 @@ export const CLUB_NOTIFICATION_KINDS = [
   'membership_renewed',
   'fee_charged',
   'owner_monthly',
+  'payment_received',
 ] as const;
 export type ClubNotificationKind = (typeof CLUB_NOTIFICATION_KINDS)[number];
 
@@ -149,6 +155,7 @@ export type DedupeInput =
       membershipId: string;
     }
   | { kind: 'fee_charged'; chargeId: string }
+  | { kind: 'payment_received'; checkoutId: string }
   | { kind: 'member_invite'; inviteId: string }
   | { kind: 'staff_invite'; inviteId: string }
   | {
@@ -177,6 +184,8 @@ export function dedupeKey(input: DedupeInput): string {
       return `${input.kind}:${input.membershipId}`;
     case 'fee_charged':
       return `${input.kind}:${input.chargeId}`;
+    case 'payment_received':
+      return `${input.kind}:${input.checkoutId}`;
     case 'member_invite':
     case 'staff_invite':
       return `${input.kind}:${input.inviteId}`;

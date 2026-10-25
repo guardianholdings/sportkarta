@@ -1,11 +1,15 @@
 'use server';
 
 import { getDb } from '@sportkarta/db';
-import { sofiaToday } from '@sportkarta/lib/clubs';
+import { parseEuroCents, sofiaToday } from '@sportkarta/lib/clubs';
+import { getLocale } from 'next-intl/server';
 import { revalidatePath } from 'next/cache';
+
+import { redirect } from '@/i18n/navigation';
 
 import { requireClubStaff } from '@/lib/clubs/club-session';
 import { parseCharge, parsePayment } from '@/lib/clubs/input';
+import { refundOnlinePayment } from '@/lib/clubs/payments';
 import { createCharge, recordPayment } from '@/lib/clubs/sales';
 
 export interface PaymentState {
@@ -52,4 +56,26 @@ export async function createChargeAction(
   if (!chargeId) return { error: 'readOnly' };
   refresh(slug);
   return { error: null, saved: true };
+}
+
+/**
+ * Refund an online payment through the provider (0046) — all of it, or the
+ * amount typed. charges.void (owner, manager); the SQL checks it again.
+ */
+export async function refundOnlineAction(formData: FormData): Promise<void> {
+  const slug = slugOf(formData);
+  const { actor } = await requireClubStaff(slug, 'charges.void');
+  const paymentId = Number(formData.get('paymentId'));
+  const amountRaw = String(formData.get('amount') ?? '').trim();
+  const amount = amountRaw === '' ? null : parseEuroCents(amountRaw);
+  let outcome = 'refund_invalid';
+  if (Number.isSafeInteger(paymentId) && paymentId > 0 && (amountRaw === '' || amount !== null)) {
+    const result = await refundOnlinePayment(getDb(), actor, paymentId, amount);
+    outcome = result.ok ? 'refunded' : `refund_${result.error}`;
+  }
+  refresh(slug);
+  redirect({
+    href: { pathname: `/klub/${slug}/plashtaniya`, query: { rezultat: outcome } },
+    locale: await getLocale(),
+  });
 }

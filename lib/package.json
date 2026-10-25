@@ -21,6 +21,7 @@
     "./moderation": "./src/moderation/index.ts",
     "./import-municipal": "./src/import-municipal/index.ts",
     "./opendata": "./src/opendata/index.ts",
+    "./payments": "./src/payments/index.ts",
     "./recurrence": "./src/recurrence/index.ts",
     "./reports": "./src/reports/index.ts",
     "./share": "./src/share/index.ts",

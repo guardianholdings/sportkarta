@@ -27,6 +27,11 @@ import {
  *   - a successor must be the SAME client's period (the 3-column FK);
  *   - a no-show or a late cancel raises exactly one fee, a trial never, and a
  *     waived (voided) fee is never raised again;
+ *   - the rules are the ones the booking was MADE under (0047): a fee switched
+ *     on later charges nothing, and only a member's own late cancellation of a
+ *     place they held is a fee — not a withdrawn waitlist spot, not the desk's;
+ *   - a period carries its contract terms into its successor, and an archived
+ *     member is not renewed;
  *   - a fee's booking_id may only be cleared (club_charges_guard), and erasing
  *     the client keeps the fee with member_id and booking_id cleared.
  *
@@ -106,6 +111,55 @@ describe.skipIf(!hasDb)('club policies (requires running database)', () => {
     // Idempotent: a second run (or a second worker) adds nothing.
     await renewClubMemberships(getDb(), today);
     expect(await successors(first)).toHaveLength(1);
+  });
+
+  it('carries the contract terms forward, and never renews an archived member', async () => {
+    const first = await endedRenewing();
+    await client.query(
+      `UPDATE club_memberships SET notice_days = 30, self_cancel_allowed = true WHERE id = $1`,
+      [first],
+    );
+    // The plan's terms changing later does not reach a running contract.
+    await client.query(`UPDATE club_plans SET notice_days = 90 WHERE id = $1`, [planId]);
+    await renewClubMemberships(getDb(), today);
+    const [next] = await successors(first);
+    const terms = await client.query(
+      `SELECT notice_days, self_cancel_allowed, term_started_on = (SELECT term_started_on
+                FROM club_memberships WHERE id = $2) AS same_term
+         FROM club_memberships WHERE id = $1`,
+      [next?.id, first],
+    );
+    expect(terms.rows).toEqual([{ notice_days: 30, self_cancel_allowed: true, same_term: true }]);
+
+    const gone = await makeMember(client, club.clubId, 'Архив');
+    const { membershipId } = await sellMembership(client, club.clubId, gone, planId, {
+      startOffsetDays: -30,
+      days: 30,
+    });
+    await client.query(`UPDATE club_memberships SET renews = true WHERE id = $1`, [membershipId]);
+    await client.query(`UPDATE club_members SET archived_at = now() WHERE id = $1`, [gone]);
+    await renewClubMemberships(getDb(), today);
+    expect(await successors(membershipId)).toHaveLength(0);
+  });
+
+  it('allows one member-set pause per membership, never attributed to staff', async () => {
+    const { membershipId } = await sellMembership(client, club.clubId, memberId, planId, {
+      startOffsetDays: 0,
+      days: 60,
+    });
+    const pause = (from: number, to: number, createdBy: string | null = null) =>
+      client.query(
+        `INSERT INTO club_membership_pauses (club_id, membership_id, starts_on, ends_on, by_member, created_by)
+         VALUES ($1, $2, (now() AT TIME ZONE 'Europe/Sofia')::date + $3::int,
+                 (now() AT TIME ZONE 'Europe/Sofia')::date + $4::int, true, $5)`,
+        [club.clubId, membershipId, from, to, createdBy],
+      );
+    await pause(1, 3);
+    const second = await failure(pause(10, 12));
+    expect(second.code).toBe('23505');
+    expect(second.constraint).toBe('club_membership_pauses_one_by_member');
+    const attributed = await failure(pause(20, 22, 'staff-user'));
+    expect(attributed.constraint).toBe('club_membership_pauses_member_unattributed');
   });
 
   it('charges the price the plan has NOW for the next period', async () => {
@@ -244,24 +298,118 @@ describe.skipIf(!hasDb)('club policies (requires running database)', () => {
       expect(await feesFor(bookingId)).toHaveLength(1);
     });
 
-    it('charges a late cancellation', async () => {
+    /** A booking on a class with a 5 € late-cancel fee, made BEFORE `afterBooking` runs. */
+    async function lateCancelled(cancel: {
+      kind: 'member' | 'staff';
+      wasGoing: boolean;
+      feeAfterBooking?: boolean;
+    }) {
       const { classId, occurrenceId } = await makeOccurrence(client, club, { daysAhead: 2 });
-      await client.query(`UPDATE club_classes SET late_cancel_fee_cents = 500 WHERE id = $1`, [
-        classId,
-      ]);
+      const setFee = () =>
+        client.query(`UPDATE club_classes SET late_cancel_fee_cents = 500 WHERE id = $1`, [
+          classId,
+        ]);
+      if (!cancel.feeAfterBooking) await setFee();
       const booking = await client.query<{ id: string }>(
         `INSERT INTO club_bookings (club_id, occurrence_id, member_id, booked_by)
          VALUES ($1, $2, $3, 'desk') RETURNING id`,
         [club.clubId, occurrenceId, memberId],
       );
+      if (cancel.feeAfterBooking) await setFee();
       const bookingId = booking.rows[0]?.id ?? '';
       await client.query(
-        `UPDATE club_bookings SET state = 'late_cancelled', cancelled_at = now() WHERE id = $1`,
-        [bookingId],
+        `UPDATE club_bookings SET state = 'late_cancelled', cancelled_at = now(),
+                cancel_kind = $2, was_going = $3
+          WHERE id = $1`,
+        [bookingId, cancel.kind, cancel.wasGoing],
       );
+      return bookingId;
+    }
+
+    it("charges a member's own late cancellation of a place", async () => {
+      const bookingId = await lateCancelled({ kind: 'member', wasGoing: true });
       await chargeClubBookingFees(getDb(), new Date(), () => LABELS);
       const fees = await feesFor(bookingId);
       expect(fees.map((f) => [f.amount_cents, f.label])).toEqual([[500, 'Късно отказване — Йога']]);
+    });
+
+    it('charges nothing for a withdrawn waitlist spot, the desk undoing a booking, or a fee set later', async () => {
+      const waitlisted = await lateCancelled({ kind: 'member', wasGoing: false });
+      const byDesk = await lateCancelled({ kind: 'staff', wasGoing: true });
+      const later = await lateCancelled({ kind: 'member', wasGoing: true, feeAfterBooking: true });
+      await chargeClubBookingFees(getDb(), new Date(), () => LABELS);
+      expect(await feesFor(waitlisted)).toHaveLength(0);
+      expect(await feesFor(byDesk)).toHaveLength(0);
+      expect(await feesFor(later)).toHaveLength(0);
+    });
+
+    it('re-snapshots the rules and clears the cancellation when a booking is made again', async () => {
+      const bookingId = await lateCancelled({
+        kind: 'member',
+        wasGoing: true,
+        feeAfterBooking: true,
+      });
+      await client.query(
+        `UPDATE club_bookings SET state = 'active', cancelled_at = NULL WHERE id = $1`,
+        [bookingId],
+      );
+      const row = await client.query(
+        `SELECT late_cancel_fee_cents, cancel_kind, was_going FROM club_bookings WHERE id = $1`,
+        [bookingId],
+      );
+      expect(row.rows).toEqual([
+        { late_cancel_fee_cents: 500, cancel_kind: null, was_going: null },
+      ]);
+    });
+
+    it('refuses a cancellation that names who cancelled but not whether it held a place', async () => {
+      const { occurrenceId } = await makeOccurrence(client, club, { daysAhead: 2 });
+      const booking = await client.query<{ id: string }>(
+        `INSERT INTO club_bookings (club_id, occurrence_id, member_id, booked_by)
+         VALUES ($1, $2, $3, 'desk') RETURNING id`,
+        [club.clubId, occurrenceId, memberId],
+      );
+      const half = await failure(
+        client.query(
+          `UPDATE club_bookings SET state = 'late_cancelled', cancelled_at = now(),
+                  cancel_kind = 'member' WHERE id = $1`,
+          [booking.rows[0]?.id],
+        ),
+      );
+      expect(half.constraint).toBe('club_bookings_cancel_facts_pair');
+    });
+
+    it('re-snapshots through the upsert the portal uses to book again', async () => {
+      const { classId, occurrenceId } = await makeOccurrence(client, club, { daysAhead: 2 });
+      const book = () =>
+        client.query<{ id: string }>(
+          `INSERT INTO club_bookings (club_id, occurrence_id, member_id, booked_by, is_trial)
+           VALUES ($1, $2, $3, 'member', false)
+           ON CONFLICT (occurrence_id, member_id) DO UPDATE
+              SET state = 'active', cancelled_at = NULL, booked_by = EXCLUDED.booked_by,
+                  is_trial = EXCLUDED.is_trial
+            WHERE club_bookings.state <> 'active'
+           RETURNING id`,
+          [club.clubId, occurrenceId, memberId],
+        );
+      const first = await book();
+      const bookingId = first.rows[0]?.id ?? '';
+      await client.query(
+        `UPDATE club_bookings SET state = 'cancelled', cancelled_at = now(),
+                cancel_kind = 'member', was_going = true WHERE id = $1`,
+        [bookingId],
+      );
+      await client.query(`UPDATE club_classes SET no_show_fee_cents = 700 WHERE id = $1`, [
+        classId,
+      ]);
+      await book();
+      const row = await client.query(
+        `SELECT state, no_show_fee_cents, cancel_kind, was_going FROM club_bookings WHERE id = $1`,
+        [bookingId],
+      );
+      expect(row.rows).toEqual([
+        { state: 'active', no_show_fee_cents: 700, cancel_kind: null, was_going: null },
+      ]);
     });
 
     it('lets booking_id only be cleared, and keeps the fee through the client erasure', async () => {

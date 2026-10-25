@@ -323,6 +323,20 @@
       "when": 1785159600000,
       "tag": "0045_club_policies_staff_site",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1785163200000,
+      "tag": "0046_club_online_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1785166800000,
+      "tag": "0047_club_policy_fixes",
+      "breakpoints": true
     }
   ]
 }

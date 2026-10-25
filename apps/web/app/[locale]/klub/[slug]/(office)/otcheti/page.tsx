@@ -48,7 +48,7 @@ export default async function ClubReportsPage({
   const { actor, club } = await requireClubStaff(slug, 'reports.view');
   const query = await searchParams;
   const payMonth =
-    query.mesec && /^\d{4}-(0[1-9]|1[0-2])$/.test(query.mesec)
+    query.mesec && /^(20\d{2}|2100)-(0[1-9]|1[0-2])$/.test(query.mesec)
       ? query.mesec
       : sofiaToday().slice(0, 7);
   const advanced = featureOn(club, 'reports_advanced');

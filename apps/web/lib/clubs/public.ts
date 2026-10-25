@@ -96,6 +96,10 @@ export interface PublicPlan {
   validityDays: number | null;
   validityMonths: number | null;
   visitsCount: number | null;
+  /** The contract terms a buyer reads before paying (0045). */
+  autoRenew: boolean;
+  noticeDays: number;
+  minTermMonths: number | null;
 }
 
 export interface PublicTrainer {
@@ -150,7 +154,8 @@ export async function publicClub(slug: string, locale: string): Promise<PublicCl
       SELECT p.id, CASE WHEN ${locale} = 'en' THEN coalesce(p.name_en, p.name_bg) ELSE p.name_bg END AS name,
              CASE WHEN ${locale} = 'en' THEN coalesce(p.description_en, p.description_bg)
                   ELSE p.description_bg END AS description,
-             p.kind, p.audience, p.price_cents, p.validity_days, p.validity_months, p.visits_count
+             p.kind, p.audience, p.price_cents, p.validity_days, p.validity_months, p.visits_count,
+             p.auto_renew, p.notice_days, p.min_term_months
         FROM club_plans p
        WHERE p.club_id = ${clubId}::uuid AND p.visibility = 'public' AND p.archived_at IS NULL
        ORDER BY p.sort_order, p.price_cents
@@ -211,6 +216,9 @@ export async function publicClub(slug: string, locale: string): Promise<PublicCl
       validityDays: p.validity_days === null ? null : Number(p.validity_days),
       validityMonths: p.validity_months === null ? null : Number(p.validity_months),
       visitsCount: p.visits_count === null ? null : Number(p.visits_count),
+      autoRenew: p.auto_renew === true,
+      noticeDays: Number(p.notice_days),
+      minTermMonths: p.min_term_months === null ? null : Number(p.min_term_months),
     })),
     classes,
   };
@@ -238,6 +246,8 @@ export async function publicOccurrence(
            coalesce(nullif(btrim(sto.display_name), ''), nullif(btrim(uo.display_name), ''), nullif(btrim(stk.display_name), ''), nullif(btrim(uk.display_name), '')) AS instructor_name,
            coalesce(o.capacity, k.capacity) AS capacity,
            o.starts_at - make_interval(hours => k.booking_opens_hours) AS opens_at,
+           k.cancel_deadline_hours, k.late_cancel_fee_cents, k.no_show_fee_cents,
+           k.strike_limit, k.strike_days,
            (SELECT count(*) FILTER (WHERE bp.booking_status = 'going')::int FROM club_booking_positions bp
              WHERE bp.club_id = o.club_id AND bp.occurrence_id = o.id) AS going,
            (SELECT count(*) FILTER (WHERE bp.booking_status = 'waitlisted')::int FROM club_booking_positions bp
@@ -275,6 +285,12 @@ export async function publicOccurrence(
     waitlisted: Number(row.waitlisted ?? 0),
     bookingOpensAt: iso(row.opens_at),
     trialAllowed: row.trial_allowed === true,
+    cancelDeadlineHours: Number(row.cancel_deadline_hours),
+    lateCancelFeeCents:
+      row.late_cancel_fee_cents === null ? null : Number(row.late_cancel_fee_cents),
+    noShowFeeCents: row.no_show_fee_cents === null ? null : Number(row.no_show_fee_cents),
+    strikeLimit: row.strike_limit === null ? null : Number(row.strike_limit),
+    strikeDays: row.strike_days === null ? null : Number(row.strike_days),
     clubId: String(row.club_id),
     clubSlug: String(row.slug),
     clubName: String(row.club_name),

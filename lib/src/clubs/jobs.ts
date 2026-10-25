@@ -31,6 +31,16 @@ export const CLUB_ACTIVITY_QUEUE = 'club.activity';
 export const CLUB_POLICIES_QUEUE = 'club.policies';
 /** Monthly: the owner's business-health mail for the month that closed. */
 export const CLUB_HEALTH_QUEUE = 'club.health';
+/**
+ * A verified Stripe webhook event to apply (0046): `{ eventId }` is the
+ * club_payment_events row id — the worker re-fetches the object from Stripe.
+ * Also swept every 10 minutes for events whose enqueue failed.
+ */
+export const CLUB_PAYMENT_EVENT_QUEUE = 'club.payment_event';
+
+export interface ClubPaymentEventJob {
+  eventId?: number;
+}
 
 export type ClubNotifyJob =
   | { kind: 'application_received'; clubId: string }

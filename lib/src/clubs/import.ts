@@ -135,8 +135,14 @@ export function normalizeImportRow(
   const paidRaw = clean(raw.paid);
   let paidCents: number | null = null;
   if (paidRaw !== '') {
-    paidCents = parseEuroCents(paidRaw.replace(/\s*(€|eur|лв\.?)$/i, ''));
-    if (paidCents === null) errors.push('price_invalid');
+    // Leva are refused, never read as euros: an export from before the euro
+    // (2026) says «50 лв.», which is €25.56, not €50. The club converts first.
+    if (/(лв\.?|bgn)\s*$/i.test(paidRaw)) {
+      errors.push('currency_bgn');
+    } else {
+      paidCents = parseEuroCents(paidRaw.replace(/\s*(€|eur)$/i, ''));
+      if (paidCents === null) errors.push('price_invalid');
+    }
   }
 
   if (errors.length > 0) return { ok: false, line, errors: [...new Set(errors)] };
@@ -161,14 +167,26 @@ export function normalizeImportRow(
 
 export interface ExistingMember {
   id: string;
+  displayName: string;
   email: string | null;
   phone: string | null;
+  isMinor: boolean;
+  /** A minor's guardian's e-mail, when the guardian record has one. */
+  guardianEmail: string | null;
 }
 
 export type ImportClass =
   | { kind: 'new' }
   | { kind: 'match'; memberId: string }
-  | { kind: 'conflict'; reason: 'several_records' | 'email_phone_disagree' | 'duplicate_in_file' };
+  | {
+      kind: 'conflict';
+      reason: 'several_records' | 'email_phone_disagree' | 'duplicate_in_file' | 'name_exists';
+    };
+
+/** Names compared without case and with spaces collapsed. */
+export function nameKey(name: string): string {
+  return name.replace(/\s+/g, ' ').trim().toLocaleLowerCase('bg');
+}
 
 /** New / match / conflict for each valid row, in order. */
 export function classifyImportRows(
@@ -178,6 +196,9 @@ export function classifyImportRows(
   const byEmail = new Map<string, string[]>();
   const byPhone = new Map<string, string[]>();
   for (const member of existing) {
+    // Only adults are found by e-mail or phone: a child's record may carry
+    // the household's contacts.
+    if (member.isMinor) continue;
     if (member.email) byEmail.set(member.email, [...(byEmail.get(member.email) ?? []), member.id]);
     if (member.phone) {
       const key = phoneKey(member.phone);
@@ -198,13 +219,35 @@ export function classifyImportRows(
     if (key) seen.set(key, (seen.get(key) ?? 0) + 1);
   }
 
+  const names = new Map<string, ExistingMember[]>();
+  for (const member of existing) {
+    const k = nameKey(member.displayName);
+    names.set(k, [...(names.get(k) ?? []), member]);
+  }
   return rows.map((row): ImportClass => {
     const key = identity(row);
     if (key && (seen.get(key) ?? 0) > 1) return { kind: 'conflict', reason: 'duplicate_in_file' };
-    // Minors are matched by name under the guardian's e-mail in the adapter;
-    // here a minor row is always new unless the e-mail alone is unambiguous
-    // AND the record is not an adult's — the adapter cannot tell, so: new.
-    if (row.isMinor) return { kind: 'new' };
+    const sameName = names.get(nameKey(row.displayName)) ?? [];
+    // A child is matched by NAME under the guardian's e-mail — a household
+    // shares an inbox, so the e-mail alone names nobody.
+    if (row.isMinor) {
+      if (row.guardianEmail) {
+        const kids = sameName.filter((m) => m.isMinor && m.guardianEmail === row.guardianEmail);
+        if (kids.length === 1) return { kind: 'match', memberId: (kids[0] as ExistingMember).id };
+        if (kids.length > 1) return { kind: 'conflict', reason: 'several_records' };
+        return { kind: 'new' };
+      }
+      return sameName.some((m) => m.isMinor)
+        ? { kind: 'conflict', reason: 'name_exists' }
+        : { kind: 'new' };
+    }
+    // A name alone never matches — but a known name is a human's call, so a
+    // re-imported file does not duplicate every e-mail-less client.
+    if (row.email === null && row.phone === null) {
+      return sameName.some((m) => !m.isMinor)
+        ? { kind: 'conflict', reason: 'name_exists' }
+        : { kind: 'new' };
+    }
     const emailHits = row.email ? (byEmail.get(row.email) ?? []) : [];
     const phoneHits = row.phone ? (byPhone.get(phoneKey(row.phone)) ?? []) : [];
     if (emailHits.length > 1) return { kind: 'conflict', reason: 'several_records' };

@@ -155,7 +155,9 @@ export async function classFillRates(actor: ClubActor): Promise<ClassFill[]> {
 //   peakHours        check-ins of the last 8 weeks by Sofia weekday × hour.
 //   retention        members whose FIRST abonnement began in a month (a
 //                    cohort), and the share of them still holding a valid one
-//                    1..5 months later.
+//                    1..5 months after their OWN first day — a member joining
+//                    on the 28th is not measured on the 1st. A member counts
+//                    towards month k only once k months have passed for them.
 //   churnByMonth     members with a valid abonnement in the previous month and
 //                    none in this one, as a share of the previous month's.
 //   revenueByPlan    payments of the last 90 days by what they paid for — the
@@ -199,34 +201,39 @@ export interface Cohort {
   /** `YYYY-MM` of the first abonnement. */
   month: string;
   size: number;
-  /** Share still valid after 1..5 months; null where that month is in the future. */
+  /** Share still valid after 1..5 months; null until a member has reached that month. */
   kept: (number | null)[];
 }
 
 export async function retentionCohorts(actor: ClubActor): Promise<Cohort[]> {
   const result = await getDb().execute(sql`
     WITH firsts AS (
-      SELECT mb.member_id, date_trunc('month', min(mb.starts_on))::date AS cohort
+      SELECT mb.member_id, min(mb.starts_on) AS first_on
         FROM club_membership_balances mb
        WHERE ${clubScope(actor, 'reports.view', 'mb')} AND mb.cancelled_at IS NULL
          AND mb.kind <> 'trial'
        GROUP BY mb.member_id
     ), cohorts AS (
-      SELECT cohort, array_agg(member_id) AS members FROM firsts
-       WHERE cohort >= date_trunc('month', (now() AT TIME ZONE 'Europe/Sofia')::date) - interval '6 months'
-       GROUP BY cohort
+      SELECT date_trunc('month', first_on)::date AS cohort, member_id, first_on FROM firsts
+       WHERE first_on >= date_trunc('month', (now() AT TIME ZONE 'Europe/Sofia')::date) - interval '6 months'
     )
-    SELECT to_char(c.cohort, 'YYYY-MM') AS month, cardinality(c.members) AS size,
-           array(SELECT CASE WHEN (c.cohort + make_interval(months => k))::date
-                                  > (now() AT TIME ZONE 'Europe/Sofia')::date THEN NULL
-                        ELSE (SELECT count(DISTINCT mb.member_id)::float FROM club_membership_balances mb
-                               WHERE mb.club_id = ${actor.clubId}::uuid
-                                 AND mb.member_id = ANY(c.members) AND mb.cancelled_at IS NULL
-                                 AND mb.starts_on <= (c.cohort + make_interval(months => k))::date
-                                 AND mb.effective_ends_on >= (c.cohort + make_interval(months => k))::date)
-                             / cardinality(c.members) END
+    SELECT to_char(c.cohort, 'YYYY-MM') AS month, count(*)::int AS size,
+           array(SELECT (SELECT CASE WHEN count(*) = 0 THEN NULL
+                                     ELSE (count(*) FILTER (WHERE EXISTS (
+                                             SELECT 1 FROM club_membership_balances mb
+                                              WHERE mb.club_id = ${actor.clubId}::uuid
+                                                AND mb.member_id = m.member_id
+                                                AND mb.cancelled_at IS NULL
+                                                AND mb.starts_on <= m.at
+                                                AND mb.effective_ends_on >= m.at)))::float
+                                          / count(*) END
+                           FROM (SELECT cc.member_id,
+                                        (cc.first_on + make_interval(months => k))::date AS at
+                                   FROM cohorts cc WHERE cc.cohort = c.cohort) m
+                          WHERE m.at <= (now() AT TIME ZONE 'Europe/Sofia')::date)
                    FROM generate_series(1, 5) AS k ORDER BY k) AS kept
       FROM cohorts c
+     GROUP BY c.cohort
      ORDER BY c.cohort
   `);
   return result.rows.map((row) => ({

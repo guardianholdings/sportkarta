@@ -843,7 +843,8 @@
       "clubInvite": "Sign in with the email address the invitation was sent to.",
       "clubCheckin": "Sign in to mark your attendance at the club. Then scan the code on the tablet again.",
       "clubPortal": "Sign in to see your membership and bookings at the club.",
-      "clubOffice": "Sign in to open the club's office."
+      "clubOffice": "Sign in to open the club's office.",
+      "clubPurchase": "Sign in to buy the membership online."
     }
   },
   "AuthEmail": {
@@ -3158,7 +3159,8 @@
       "date_invalid": "Invalid date.",
       "cap_invalid": "The limit must be a whole number.",
       "tier_invalid": "Invalid plan.",
-      "not_changed": "Nothing changed."
+      "not_changed": "Nothing changed.",
+      "provider_error": "Stripe did not respond while ending the club's subscriptions. Nothing has changed — please try again."
     },
     "tierFeatures": "The “{tier}” plan also includes:",
     "tierFeaturesNone": "the core features only."
@@ -3334,7 +3336,9 @@
       "question_too_long": "The question is too long.",
       "answer_required": "Enter an answer.",
       "answer_too_long": "The answer is too long.",
-      "faq_en_pair": "In English fill in both the question and the answer — or neither."
+      "faq_en_pair": "In English fill in both the question and the answer — or neither.",
+      "provider_error": "Stripe did not respond. Nothing has changed — please try again.",
+      "subscription_pause": "A membership paid automatically by card cannot be paused here — billing would continue. Stop its renewal, or pause it in Stripe."
     }
   },
   "ClubSettings": {
@@ -3431,7 +3435,34 @@
       "grafik": "Timetable for the week",
       "ceni": "Memberships and prices"
     },
-    "embedUpsell": "Embedding the timetable and prices in your own website is included from the “Start” plan up."
+    "embedUpsell": "Embedding the timetable and prices in your own website is included from the “Start” plan up.",
+    "payments": {
+      "title": "Online payments",
+      "off": "Online payments are not switched on in POPS yet. Until then, payments are recorded at the front desk.",
+      "intro": "Connect your own Stripe account and members can pay memberships and balances by card. They pay on Stripe's page and the money goes straight to your account — POPS never holds or sees funds or card details.",
+      "connect": "Connect Stripe",
+      "connectFake": "Connect a test account",
+      "live": "Live",
+      "pending": "Awaiting approval",
+      "connected": "Account {account} connected on {date}.",
+      "pendingHint": "Stripe is still reviewing the account. Payments start as soon as it is approved.",
+      "dashboardHint": "Disputes, payouts and Stripe's own invoices are in your Stripe dashboard.",
+      "disconnect": "Disconnect",
+      "disconnectConfirm": "Members will no longer be able to pay online. Payments already made stay in the reports. Continue?",
+      "termsUrl": "Terms of sale for online purchases (link)",
+      "termsHint": "Shown to members before they pay. Include the information on the right of withdrawal.",
+      "termsSave": "Save",
+      "outcome": {
+        "connected": "Your Stripe account is connected.",
+        "connect_cancelled": "Connecting was cancelled. Nothing has changed.",
+        "connect_failed": "Connecting did not work. Please try again.",
+        "disconnected": "Stripe is disconnected.",
+        "terms_saved": "The terms link is saved.",
+        "terms_invalid": "The link must start with https:// and be at most 300 characters.",
+        "read_only": "The club is read-only — nothing has changed.",
+        "subscriptions_live": "Some members have memberships paid automatically by card. Stop their renewal before disconnecting Stripe."
+      }
+    }
   },
   "ClubTeam": {
     "title": "Team",
@@ -3507,7 +3538,7 @@
       "mapHint": "Say which column holds what. Only the name is required.",
       "ignoreColumn": "— skip —",
       "preview": "Preview",
-      "previewHint": "New records are created; matching ones only get a missing e-mail or phone and the tags. Doubtful rows are skipped unless you tick “Create as new”.",
+      "previewHint": "New records are created; matching ones only get a missing e-mail or phone and the tags. Doubtful rows are skipped unless you tick “Create as new”. Imported memberships do not renew by themselves — switch renewal on from the member's card.",
       "line": "Line",
       "name": "Name",
       "status": "Result",
@@ -3562,7 +3593,12 @@
         "endsOn": "End",
         "visitsLeft": "Visits left",
         "paid": "Paid (€)"
-      }
+      },
+      "planWindow": "{plan}, {from} – {to}",
+      "conflict_name_exists": "The club already has a member with this name, and the row has no e-mail or phone to compare.",
+      "rowError_currency_bgn": "The amount is in leva. Convert it to euro (€1 = 1.95583 BGN) and import again.",
+      "rowError_plan_audience": "The membership is for a different age group — check the “child” column.",
+      "rowError_window_invalid": "The membership dates are impossible: the end is before the start or the period is over 800 days."
     },
     "filter": {
       "all": "All",
@@ -3810,7 +3846,8 @@
         "for": "For",
         "method": "Method",
         "amount": "Amount",
-        "by": "Recorded by"
+        "by": "Recorded by",
+        "action": "Action"
       },
       "record": "Record payment",
       "recordFor": "Payment on a charge",
@@ -3830,7 +3867,23 @@
       "chargeDue": "Due",
       "chargeMember": "Member",
       "chargeSubmit": "Add charge",
-      "csv": "CSV"
+      "csv": "CSV",
+      "online": "online",
+      "refundAll": "full amount",
+      "refundAmount": "Amount to refund (€)",
+      "refundConfirm": "The amount will be refunded to the member's card through Stripe. A full refund also voids the charge; after a partial one the rest is owed again. A membership is cancelled separately, from the member's card. Continue?",
+      "refundOnline": "Refund",
+      "unappliedTitle": "Payments to refund",
+      "unappliedHint": "These online payments arrived after the balance had already been paid at the front desk. Refund them from your Stripe dashboard.",
+      "openInStripe": "Open in Stripe",
+      "outcome": {
+        "refunded": "The amount has been refunded.",
+        "refund_invalid": "The amount could not be read.",
+        "refund_amount_invalid": "The amount is more than what is left to refund.",
+        "refund_not_allowed": "This payment cannot be refunded from here.",
+        "refund_provider_error": "Stripe did not accept the refund. Try again or refund it from the Stripe dashboard.",
+        "refund_account_changed": "This payment went to a Stripe account that is no longer connected. Refund it from the Stripe dashboard."
+      }
     }
   },
   "ClubSchedule": {
@@ -4104,7 +4157,14 @@
       "pause_outside": "A pause must start while a membership is valid.",
       "contact_saved": "Preferences saved.",
       "phone_invalid": "The phone number does not look right.",
-      "sms_needs_phone": "Enter a phone number for SMS."
+      "sms_needs_phone": "Enter a phone number for SMS.",
+      "provider_error": "The payment system did not respond. Try again or contact the club.",
+      "payment_cancelled": "The payment was not completed. Nothing was charged.",
+      "payment_unavailable": "The club is not taking online payments right now.",
+      "payment_not_allowed": "This balance is already paid or is not yours.",
+      "payment_too_small": "The amount is below the online minimum (€0.50). Please pay at the front desk.",
+      "payment_provider_error": "The payment system did not respond. Please try again shortly.",
+      "payment_in_progress": "Your earlier payment for this balance is being processed. Please wait a moment and refresh."
     },
     "checkin": {
       "recorded": "Your attendance is marked.",
@@ -4132,7 +4192,21 @@
     "contactMarketingEmail": "I want news and offers from {club} by e-mail",
     "contactMarketingSms": "I want news and offers from {club} by SMS",
     "contactHint": "Booking confirmations and reminders do not depend on these boxes. You can untick them at any time.",
-    "contactSave": "Save"
+    "contactSave": "Save",
+    "lateCancelFee": "cancelling now is late and costs {amount}",
+    "freeCancelUntilFee": "free cancellation until {time}, then {amount}",
+    "rules": {
+      "cancelHours": "free cancellation up to {hours, plural, one {# hour} other {# hours}} before the start",
+      "lateFee": "late cancellation: {amount}",
+      "noShowFee": "no-show: {amount}",
+      "strikes": "{limit, plural, one {# strike} other {# strikes}} within {days} days stop self-booking"
+    },
+    "dueOn": "due by {date}",
+    "payOnline": "Pay online",
+    "buyTitle": "Buy a membership online",
+    "buyHint": "Pick a membership from the club's prices and pay by card. It starts as soon as the payment is confirmed.",
+    "buyCta": "See prices",
+    "termsLink": "The club's terms"
   },
   "ClubApply": {
     "title": "Register a club on POPS",
@@ -4233,7 +4307,8 @@
       "owner_weekly": "The week at the club",
       "membership_renewed": "Your membership has renewed",
       "fee_charged": "Fee: {label}",
-      "owner_monthly": "{month} at the club"
+      "owner_monthly": "{month} at the club",
+      "payment_received": "Payment: {label}"
     },
     "lead": {
       "staff_invite": "{club} invites you to join its team as {role}. The invitation is valid for 14 days.",
@@ -4253,8 +4328,9 @@
       "roster_daily": "Your timetable today at {club}:",
       "owner_weekly": "The week {week} at {club}:",
       "membership_renewed": "The membership “{plan}” ({name}) has renewed for {from} – {to}. Amount: {amount}.",
-      "fee_charged": "The club charged a fee “{label}” ({name}): {amount}, due by {date}. The no-show and late-cancel terms are on the class page.",
-      "owner_monthly": "How {month} went at {club} — the figures come straight from the club's records:"
+      "fee_charged": "The club charged a fee “{label}” ({name}): {amount}, due by {date}. Each class's no-show and late-cancel terms are shown under “My club” before you book.",
+      "owner_monthly": "How {month} went at {club} — the figures come straight from the club's records:",
+      "payment_received": "We received your online payment for “{label}” ({name}): {amount}. The payment goes to the club through Stripe; card details never pass through POPS. This is not a fiscal document — ask the club for a receipt or invoice."
     },
     "action": {
       "staff_invite": "Accept the invitation",
@@ -4275,7 +4351,8 @@
       "owner_weekly": "Open the dashboard",
       "membership_renewed": "My club",
       "fee_charged": "My club",
-      "owner_monthly": "Open the reports"
+      "owner_monthly": "Open the reports",
+      "payment_received": "My club"
     },
     "rosterLine": "{time} {title}: {going} of {capacity} booked",
     "rosterLineOpen": "{time} {title}: {going} booked",
@@ -4444,7 +4521,8 @@
         "claim_first": "The club already keeps a record with your email. Link it from “My clubs” and book from there.",
         "link_pending": "Your request to link with the club is still waiting for confirmation.",
         "rate_limited": "Too many attempts. Try again in a few minutes."
-      }
+      },
+      "terms": "Cancelling and no-shows"
     },
     "block": {
       "paid": "Paid listing",
@@ -4456,6 +4534,48 @@
     "faqTitle": "Frequently asked questions",
     "widgetBook": "Book",
     "widgetMore": "Open the club's page",
-    "widgetPoweredBy": "Booking through POPS"
+    "widgetPoweredBy": "Booking through POPS",
+    "buyOnline": "Buy online"
+  },
+  "ClubPurchase": {
+    "title": "Buy online",
+    "covers": "What it includes",
+    "renewal": "Renewal",
+    "renewsMonthly": "{months, plural, one {Renews automatically every month} other {Renews automatically every # months}}, charged to the same card, until you stop it under “My club”.",
+    "oneOff": "One-off payment — it does not renew automatically.",
+    "notice": "Notice to stop: {days, plural, one {# day} other {# days}}.",
+    "minTerm": "Minimum term: {months, plural, one {# month} other {# months}}.",
+    "seller": "Seller",
+    "sellerIs": "{club}. The contract is with the club; POPS is not a party to it and does not receive the payment.",
+    "unavailable": "The club is not taking online payments right now. The membership can be bought at the front desk.",
+    "forWhom": "For whom",
+    "forMe": "For me",
+    "startsOn": "Start (optional)",
+    "startsOnHint": "Without a date it starts today, or right after your current membership.",
+    "termsAccept": "I have read and accept",
+    "termsLink": "the club's terms",
+    "stripeNote": "You will pay on Stripe's secure page. POPS never sees your card details.",
+    "pay": "Continue to payment — {amount}",
+    "returnTitle": "Payment",
+    "toPortal": "Back to “My club”",
+    "status": {
+      "open": "Confirming your payment of {amount}… This page refreshes by itself.",
+      "paid": "Your payment of {amount} has arrived. Thank you!",
+      "expired": "The payment of {amount} was not completed. Nothing was charged.",
+      "unapplied": "Your payment of {amount} arrived, but the balance had already been paid. The club will refund it."
+    },
+    "error": {
+      "unavailable": "The club is not taking online payments right now.",
+      "not_allowed": "This membership cannot be bought online.",
+      "too_small": "The amount is below the online minimum (€0.50).",
+      "claim_first": "The club already has a record with your e-mail. Link it under “My clubs” and try again.",
+      "link_pending": "Your link with the club is awaiting approval. You can buy once the club approves it.",
+      "audience_mismatch": "This membership is for a different age group.",
+      "provider_error": "The payment system did not respond. Please try again shortly.",
+      "rate_limited": "Too many attempts. Please try again in a few minutes.",
+      "terms_required": "Please confirm that you accept the club's terms.",
+      "already_renewing": "Your membership renews automatically. To buy another, first stop the renewal under “My club”.",
+      "member_cap": "The club has reached its member limit. Please contact the club."
+    }
   }
 }

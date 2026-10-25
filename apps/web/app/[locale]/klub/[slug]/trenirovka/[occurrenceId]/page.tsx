@@ -1,3 +1,4 @@
+import { formatEuro } from '@sportkarta/lib/clubs';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
@@ -57,8 +58,9 @@ export default async function PublicClassPage({
   if (!occurrence) notFound();
   const { rezultat } = await searchParams;
   const user = await getCurrentUser();
-  const [t, sportLabel, view] = await Promise.all([
+  const [t, tRules, sportLabel, view] = await Promise.all([
     getTranslations('ClubPublic'),
+    getTranslations('ClubPortal.rules'),
     clubSportLabeler(),
     user ? portalView(user.id, slug, locale) : Promise.resolve(null),
   ]);
@@ -201,6 +203,25 @@ export default async function PublicClassPage({
                 : occurrence.capacity === null
                   ? t('spotsOpen', { going: occurrence.going })
                   : t('spots', { going: occurrence.going, capacity: occurrence.capacity })}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-caption text-text-muted">{t('class.terms')}</dt>
+            <dd className="text-ink">
+              {[
+                tRules('cancelHours', { hours: occurrence.cancelDeadlineHours }),
+                occurrence.lateCancelFeeCents !== null &&
+                  tRules('lateFee', { amount: formatEuro(occurrence.lateCancelFeeCents, locale) }),
+                occurrence.noShowFeeCents !== null &&
+                  tRules('noShowFee', { amount: formatEuro(occurrence.noShowFeeCents, locale) }),
+                occurrence.strikeLimit !== null &&
+                  tRules('strikes', {
+                    limit: occurrence.strikeLimit,
+                    days: occurrence.strikeDays ?? 30,
+                  }),
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             </dd>
           </div>
         </dl>

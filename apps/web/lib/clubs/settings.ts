@@ -26,6 +26,7 @@ export interface ClubSettings extends ClubSettingsInput {
   slug: string;
   visible: boolean;
   logoPath: string | null;
+  termsUrl: string | null;
 }
 
 export async function clubSettings(clubId: string): Promise<ClubSettings | null> {
@@ -33,7 +34,7 @@ export async function clubSettings(clubId: string): Promise<ClubSettings | null>
     SELECT slug, name_bg, name_en, kind, description_bg, description_en, sports, municipality_id,
            website_url, public_email, public_phone, legal_name, eik, locale,
            booking_opens_hours, cancel_deadline_hours, mail_unlinked_members, visible, logo_path,
-           accent
+           accent, terms_url
       FROM clubs WHERE id = ${clubId}::uuid
   `);
   const row = result.rows[0];
@@ -59,7 +60,32 @@ export async function clubSettings(clubId: string): Promise<ClubSettings | null>
     accent: row.accent === 'coral' || row.accent === 'sky' ? row.accent : 'green',
     visible: row.visible === true,
     logoPath: text(row.logo_path),
+    termsUrl: text(row.terms_url),
   };
+}
+
+/** The club's terms of sale for online payments (0046). settings.manage. */
+export async function saveTermsUrl(
+  db: TransactionalDb,
+  actor: ClubActor,
+  termsUrl: string | null,
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const updated = await tx.execute(sql`
+      UPDATE clubs c SET terms_url = ${termsUrl}
+       WHERE c.id = ${actor.clubId}::uuid
+         AND ${clubActorMay(actor, 'settings.manage', { write: true })}
+      RETURNING c.id
+    `);
+    if (updated.rows.length === 0) return false;
+    await recordClubAudit(tx, {
+      clubId: actor.clubId,
+      by: { kind: 'staff', actor },
+      action: 'settings_changed',
+      detail: { part: 'terms' },
+    });
+    return true;
+  });
 }
 
 export async function updateClubSettings(

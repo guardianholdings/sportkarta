@@ -319,9 +319,13 @@ product stays free and unchanged; a club pays for its tools.
 hand in `/admin/klubove` (tier, `paid_until`); a new paid club starts with a
 30-day trial; the invoice basis is `club_monthly_activity.members_active`
 (a valid abonnement on any day of the month, or 3+ visits). No card billing
-code exists. Phase 2 (not built): each club's OWN Stripe account, its clients
-paying on a Stripe-hosted page reached by redirect — the club is the merchant,
-the NGO never holds funds, and no payment script runs on pops.bg.
+code exists for the add-on itself. Online payments for a club's OWN clients
+are built (v2 wave E, 2026-10-25, behind `CLUB_PAYMENTS_ENABLED`): each club
+connects its own Stripe account (Connect Standard), its clients pay on a
+Stripe-hosted page reached by redirect — the club is the merchant, the NGO
+never holds funds, and no payment script runs on pops.bg. A platform share per
+payment is possible (`STRIPE_APPLICATION_FEE_BP`, default 0) and is an
+operator decision.
 
 **Labelling and surfaces (the S3/S5 rules, applied):** a paid club's block on a
 facility page is labelled «Платено представяне», a community club's «Клуб на

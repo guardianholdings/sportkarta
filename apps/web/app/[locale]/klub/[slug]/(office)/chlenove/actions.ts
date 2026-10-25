@@ -18,6 +18,7 @@ import {
   updateMember,
 } from '@/lib/clubs/members';
 import { enqueueClubNotify } from '@/lib/clubs/notify';
+import { closeOpenCheckouts, stopProviderSubscriptions } from '@/lib/clubs/payments';
 import {
   cancelMembership,
   pauseMembership,
@@ -97,11 +98,25 @@ export async function memberOpAction(formData: FormData): Promise<void> {
     case 'archive':
     case 'restore': {
       const { actor } = await requireClubStaff(slug, 'members.manage');
-      if (!(await setMemberArchived(db, actor, memberId, op === 'archive'))) outcome = 'readOnly';
+      if (
+        op === 'archive' &&
+        !(await stopProviderSubscriptions(actor.clubId, { memberId }, 'period_end'))
+      ) {
+        outcome = 'provider_error';
+      } else if (!(await setMemberArchived(db, actor, memberId, op === 'archive'))) {
+        outcome = 'readOnly';
+      }
       break;
     }
     case 'erase': {
       const { actor } = await requireClubStaff(slug, 'members.erase');
+      // A record still billed at Stripe is not erased until the billing stops,
+      // and no checkout is left payable for a record about to vanish.
+      await closeOpenCheckouts(actor.clubId, memberId);
+      if (!(await stopProviderSubscriptions(actor.clubId, { memberId }, 'now'))) {
+        outcome = 'provider_error';
+        break;
+      }
       if (await eraseMember(db, actor, memberId)) {
         refresh(slug);
         return redirect({
@@ -151,6 +166,8 @@ export async function memberOpAction(formData: FormData): Promise<void> {
       const reason = str(formData, 'reason');
       if (!isUuid(membershipId) || !CANCEL_REASONS.has(reason)) {
         outcome = 'reason_invalid';
+      } else if (!(await stopProviderSubscriptions(actor.clubId, { membershipId }, 'period_end'))) {
+        outcome = 'provider_error';
       } else if (!(await cancelMembership(db, actor, membershipId, reason as ClubCancelReason))) {
         outcome = 'not_found';
       }
@@ -160,10 +177,14 @@ export async function memberOpAction(formData: FormData): Promise<void> {
     case 'start_renewal': {
       const { actor } = await requireClubStaff(slug, 'sales.manage');
       const membershipId = str(formData, 'membershipId');
-      if (
-        !isUuid(membershipId) ||
-        !(await setMembershipRenewal(db, actor, membershipId, op === 'start_renewal'))
+      if (!isUuid(membershipId)) {
+        outcome = 'not_found';
+      } else if (
+        op === 'stop_renewal' &&
+        !(await stopProviderSubscriptions(actor.clubId, { membershipId }, 'period_end'))
       ) {
+        outcome = 'provider_error';
+      } else if (!(await setMembershipRenewal(db, actor, membershipId, op === 'start_renewal'))) {
         outcome = 'not_found';
       }
       break;

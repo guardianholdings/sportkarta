@@ -62,6 +62,19 @@ const DECLARED_ELSEWHERE = new Map<string, string>([
  */
 const SMTP_FAMILY = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'];
 
+/**
+ * Keys read by `stripeSettings(env)` in lib/src/payments/provider.ts — the
+ * same whole-env handoff. club.payment_event applies every Stripe event in
+ * the WORKER (the web app only records the webhook), so a worker without
+ * these leaves every online payment pending forever, in production only.
+ */
+const STRIPE_FAMILY = [
+  'STRIPE_SECRET_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+  'STRIPE_CONNECT_CLIENT_ID',
+  'STRIPE_APPLICATION_FEE_BP',
+];
+
 function walk(dir: string): string[] {
   let out: string[] = [];
   for (const name of readdirSync(dir)) {
@@ -152,6 +165,16 @@ describe('deploy/compose.prod.yml — worker environment', () => {
         missing.map((k) => `  ${k}`).join('\n') +
         '\nWithout them resolveMailTransport returns "disabled" under NODE_ENV=production ' +
         'and every send REJECTS. This fails in production only; local dev uses the file outbox.',
+    ).toEqual([]);
+  });
+
+  it('declares the Stripe family, because the worker hands the whole env to stripeSettings', () => {
+    if (!/stripeSettings\(\s*process\.env\s*\)/.test(workerSource)) return;
+    const missing = STRIPE_FAMILY.filter((k) => !workerEnv.includes(k));
+    expect(
+      missing,
+      'apps/worker/src calls stripeSettings(process.env) but compose.prod.yml withholds:\n' +
+        missing.map((k) => `  ${k}`).join('\n'),
     ).toEqual([]);
   });
 

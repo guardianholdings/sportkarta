@@ -6,12 +6,25 @@ import { revalidatePath } from 'next/cache';
 
 import { redirect } from '@/i18n/navigation';
 import { requireClubStaff } from '@/lib/clubs/club-session';
-import { isUuid, parseClubSettings, parseFaq, parseLocation } from '@/lib/clubs/input';
+import {
+  isUuid,
+  parseClubSettings,
+  parseFaq,
+  parseLocation,
+  parseTermsUrl,
+} from '@/lib/clubs/input';
 import { createKioskDevice, newPairingCode, revokeKiosk } from '@/lib/clubs/kiosk';
+import {
+  connectAccount,
+  disconnectAccount,
+  paymentProvider,
+  paymentsReady,
+} from '@/lib/clubs/payments';
 import {
   removeFaq,
   saveFaq,
   saveLocation,
+  saveTermsUrl,
   setClubLogo,
   setClubVisible,
   setLocationActive,
@@ -178,4 +191,56 @@ export async function removeFaqAction(formData: FormData): Promise<void> {
   const faqId = formData.get('faqId');
   if (isUuid(faqId)) await removeFaq(getDb(), actor, faqId);
   refresh(slug);
+}
+
+// ─── Online payments (0046) ────────────────────────────────────────────────
+
+function paymentsBack(slug: string, outcome: string, locale: string): never {
+  // `outcome` is one of this file's own literals, never user input.
+  return redirect({ href: `/klub/${slug}/nastroyki?plashtaniya=${outcome}#plashtaniya`, locale });
+}
+
+/**
+ * The fake provider's «Свържете» (development and e2e only): what Stripe's
+ * OAuth return does for a real account. Never available with Stripe — the
+ * real connection only comes back from Stripe through /api/clubs/stripe/connect.
+ */
+export async function connectFakePaymentsAction(formData: FormData): Promise<void> {
+  const slug = slugOf(formData);
+  const { actor } = await requireClubStaff(slug, 'settings.manage');
+  const locale = await getLocale();
+  if (!paymentsReady() || paymentProvider() !== 'fake')
+    paymentsBack(slug, 'connect_failed', locale);
+  const saved = await connectAccount(getDb(), actor, {
+    provider: 'fake',
+    // 0046's club_payment_accounts_ref_shape: an account id is `acct_…`.
+    accountRef: `acct_fake_${actor.clubId.replace(/-/g, '').slice(0, 16)}`,
+    chargesEnabled: true,
+  });
+  refresh(slug);
+  paymentsBack(slug, saved ? 'connected' : 'connect_failed', locale);
+}
+
+export async function disconnectPaymentsAction(formData: FormData): Promise<void> {
+  const slug = slugOf(formData);
+  const { actor } = await requireClubStaff(slug, 'settings.manage');
+  const locale = await getLocale();
+  const result = await disconnectAccount(getDb(), actor);
+  refresh(slug);
+  paymentsBack(
+    slug,
+    result === 'ok' ? 'disconnected' : result === 'subscriptions_live' ? result : 'read_only',
+    locale,
+  );
+}
+
+export async function saveTermsUrlAction(formData: FormData): Promise<void> {
+  const slug = slugOf(formData);
+  const { actor } = await requireClubStaff(slug, 'settings.manage');
+  const locale = await getLocale();
+  const parsed = parseTermsUrl(formData);
+  if (!parsed.ok) paymentsBack(slug, 'terms_invalid', locale);
+  const saved = parsed.ok && (await saveTermsUrl(getDb(), actor, parsed.value));
+  refresh(slug);
+  paymentsBack(slug, saved ? 'terms_saved' : 'read_only', locale);
 }

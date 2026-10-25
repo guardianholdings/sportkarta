@@ -4,12 +4,15 @@ import {
   CLUB_IMPORT_FIELDS,
   MAX_CLUB_IMPORT_ROWS,
   classifyImportRows,
+  daysBetween,
   membershipEndsOn,
   normalizeImportRow,
   sofiaToday,
   type ClubImportField,
   type ClubImportRow,
+  type ExistingMember,
   type ImportClass,
+  type IsoDate,
   type NormalizedImportRow,
 } from '@sportkarta/lib/clubs';
 import { detectDelimiter, guessColumn, parseCsv } from '@sportkarta/lib/csv';
@@ -31,7 +34,13 @@ import { clubActorMay, clubScope, type ClubActor } from './scope';
  *     missing — an e-mail or phone it has none of, and the union of tags;
  *   - a membership per row that names a known plan: dates from the file (or
  *     the plan's validity from the start), a visit card's used visits as
- *     `visits_used_offset` (0041's seam for exactly this);
+ *     `visits_used_offset` (0041's seam for exactly this), the plan's terms
+ *     snapshotted as a desk sale does — but never renewing and sold by nobody
+ *     (an import is not a sale, so it earns no one a commission). A plan whose
+ *     audience the row contradicts, or a window the table would refuse, makes
+ *     the row an error in the preview; a membership of the same plan already
+ *     overlapping the window is not sold twice, so a file imported again
+ *     writes no second abonnement;
  *   - money only when the file has a «paid» column: the plan price as a charge
  *     and what was paid as an 'other' payment received on the start date. With
  *     no such column the abonnement arrives as settled history, so a migration
@@ -112,12 +121,17 @@ interface PlanRow {
   validityDays: number | null;
   validityMonths: number | null;
   visitsCount: number | null;
+  noticeDays: number;
+  minTermMonths: number | null;
+  selfPauseAllowed: boolean;
+  selfCancelAllowed: boolean;
 }
 
 async function clubPlans(db: SqlRunner, actor: ClubActor): Promise<PlanRow[]> {
   const result = await db.execute(sql`
     SELECT p.id, p.name_bg, p.name_en, p.kind, p.audience, p.price_cents, p.validity_days,
-           p.validity_months, p.visits_count
+           p.validity_months, p.visits_count, p.notice_days, p.min_term_months,
+           p.self_pause_allowed, p.self_cancel_allowed
       FROM club_plans p
      WHERE ${clubScope(actor, 'data.import', 'p')} AND p.archived_at IS NULL
   `);
@@ -133,6 +147,10 @@ async function clubPlans(db: SqlRunner, actor: ClubActor): Promise<PlanRow[]> {
     validityDays: row.validity_days === null ? null : Number(row.validity_days),
     validityMonths: row.validity_months === null ? null : Number(row.validity_months),
     visitsCount: row.visits_count === null ? null : Number(row.visits_count),
+    noticeDays: Number(row.notice_days),
+    minTermMonths: row.min_term_months === null ? null : Number(row.min_term_months),
+    selfPauseAllowed: row.self_pause_allowed === true,
+    selfCancelAllowed: row.self_cancel_allowed === true,
   }));
 }
 
@@ -142,16 +160,56 @@ function findPlan(plans: PlanRow[], name: string | null): PlanRow | null {
   return plans.find((plan) => plan.names.includes(needle)) ?? null;
 }
 
-async function existingMembers(db: SqlRunner, actor: ClubActor) {
+async function existingMembers(db: SqlRunner, actor: ClubActor): Promise<ExistingMember[]> {
   const result = await db.execute(sql`
-    SELECT m.id, m.email, m.phone FROM club_members m
-     WHERE ${clubScope(actor, 'data.import', 'm')} AND m.archived_at IS NULL AND NOT m.is_minor
+    SELECT m.id, m.display_name, m.email, m.phone, m.is_minor, g.email AS guardian_email
+      FROM club_members m
+      LEFT JOIN club_members g ON g.club_id = m.club_id AND g.id = m.guardian_member_id
+     WHERE ${clubScope(actor, 'data.import', 'm')} AND m.archived_at IS NULL
   `);
   return result.rows.map((row) => ({
     id: String(row.id),
+    displayName: String(row.display_name),
     email: row.email === null ? null : String(row.email),
     phone: row.phone === null ? null : String(row.phone),
+    isMinor: row.is_minor === true,
+    guardianEmail: row.guardian_email === null ? null : String(row.guardian_email),
   }));
+}
+
+/** 0041's club_memberships_window_sane, checked before the insert would be. */
+const MAX_WINDOW_DAYS = 800;
+
+type RowPlan =
+  | { kind: 'none' }
+  | { kind: 'unknown' }
+  | { kind: 'error'; error: 'plan_audience' | 'window_invalid' }
+  | { kind: 'ok'; plan: PlanRow; startsOn: IsoDate; endsOn: IsoDate };
+
+/**
+ * The membership a row would create: the plan it names, and the window from
+ * the file or from the plan's validity. The preview and the commit both use
+ * this, so a row the preview shows as an error is never written.
+ */
+function rowPlan(row: ClubImportRow, plans: PlanRow[], today: IsoDate): RowPlan {
+  if (row.plan === null) return { kind: 'none' };
+  const plan = findPlan(plans, row.plan);
+  if (!plan) return { kind: 'unknown' };
+  if ((plan.audience === 'adults' && row.isMinor) || (plan.audience === 'minors' && !row.isMinor)) {
+    return { kind: 'error', error: 'plan_audience' };
+  }
+  const startsOn = row.startsOn ?? today;
+  const endsOn =
+    row.endsOn ??
+    membershipEndsOn(
+      startsOn,
+      plan.validityDays !== null
+        ? { days: plan.validityDays }
+        : { months: plan.validityMonths ?? 1 },
+    );
+  const span = daysBetween(startsOn, endsOn);
+  if (span < 0 || span > MAX_WINDOW_DAYS) return { kind: 'error', error: 'window_invalid' };
+  return { kind: 'ok', plan, startsOn, endsOn };
 }
 
 export type ClubImportRowView =
@@ -168,6 +226,9 @@ export type ClubImportRowView =
       plan: string | null;
       /** A plan named in the file that the club does not sell. */
       planUnknown: boolean;
+      /** The abonnement's window as it will be written. */
+      startsOn: IsoDate | null;
+      endsOn: IsoDate | null;
       isMinor: boolean;
     };
 
@@ -182,7 +243,9 @@ export async function previewClubImport(
 ): Promise<ClubImportPreview> {
   const db = getDb();
   const [existing, plans] = await Promise.all([existingMembers(db, actor), clubPlans(db, actor)]);
-  const valid = normalized.filter((r): r is { ok: true; row: ClubImportRow } => r.ok);
+  const today = sofiaToday();
+  const checked = withPlanErrors(normalized, plans, today);
+  const valid = checked.filter((r): r is { ok: true; row: ClubImportRow } => r.ok);
   const classes = classifyImportRows(
     valid.map((r) => r.row),
     existing,
@@ -190,24 +253,40 @@ export async function previewClubImport(
   const byLine = new Map<number, ImportClass>();
   valid.forEach((r, i) => byLine.set(r.row.line, classes[i] as ImportClass));
   const counts = { new: 0, match: 0, conflict: 0, invalid: 0 };
-  const rows = normalized.map((r): ClubImportRowView => {
+  const rows = checked.map((r): ClubImportRowView => {
     if (!r.ok) {
       counts.invalid += 1;
       return { line: r.line, status: 'invalid', errors: r.errors };
     }
     const c = byLine.get(r.row.line) as ImportClass;
     counts[c.kind] += 1;
+    const target = rowPlan(r.row, plans, today);
     return {
       line: r.row.line,
       status: c.kind,
       name: r.row.displayName,
       reason: c.kind === 'conflict' ? c.reason : null,
       plan: r.row.plan,
-      planUnknown: r.row.plan !== null && findPlan(plans, r.row.plan) === null,
+      planUnknown: target.kind === 'unknown',
+      startsOn: target.kind === 'ok' ? target.startsOn : null,
+      endsOn: target.kind === 'ok' ? target.endsOn : null,
       isMinor: r.row.isMinor,
     };
   });
   return { rows, counts };
+}
+
+/** Rows whose abonnement would be refused become row errors, in both steps. */
+function withPlanErrors(
+  normalized: NormalizedImportRow[],
+  plans: PlanRow[],
+  today: IsoDate,
+): NormalizedImportRow[] {
+  return normalized.map((r) => {
+    if (!r.ok) return r;
+    const target = rowPlan(r.row, plans, today);
+    return target.kind === 'error' ? { ok: false, line: r.row.line, errors: [target.error] } : r;
+  });
 }
 
 export interface ClubImportResult {
@@ -245,7 +324,8 @@ export async function commitClubImport(
         existingMembers(tx, actor),
         clubPlans(tx, actor),
       ]);
-      const valid = normalized.flatMap((r) => (r.ok ? [r.row] : []));
+      const today = sofiaToday();
+      const valid = withPlanErrors(normalized, plans, today).flatMap((r) => (r.ok ? [r.row] : []));
       const classes = classifyImportRows(valid, existing);
       const out: ClubImportResult = {
         created: 0,
@@ -258,12 +338,14 @@ export async function commitClubImport(
       const order = valid
         .map((row, i) => ({ row, cls: classes[i] as ImportClass }))
         .sort((a, b) => Number(a.row.isMinor) - Number(b.row.isMinor));
-      const adultsByEmail = new Map<string, string>();
+      // A guardian is linked only when the e-mail names ONE adult; null marks
+      // an e-mail several adults share, and the child is then left unlinked.
+      const adultsByEmail = new Map<string, string | null>();
+      const noteAdult = (email: string, id: string) =>
+        adultsByEmail.set(email, adultsByEmail.has(email) ? null : id);
       for (const member of existing) {
-        if (member.email && !adultsByEmail.has(member.email))
-          adultsByEmail.set(member.email, member.id);
+        if (member.email && !member.isMinor) noteAdult(member.email, member.id);
       }
-      const today = sofiaToday();
 
       for (const { row, cls } of order) {
         let memberId: string | null = null;
@@ -280,7 +362,8 @@ export async function commitClubImport(
                                      FROM unnest(m.tags || ${sql.param(row.tags)}::text[])
                                           WITH ORDINALITY AS u(t, ord)
                                     ORDER BY lower(u.t), u.ord) d)
-             WHERE m.id = ${memberId}::uuid AND ${clubActorMay(actor, 'data.import', { write: true })}
+             WHERE m.id = ${memberId}::uuid AND m.club_id = ${actor.clubId}::uuid
+               AND ${clubActorMay(actor, 'data.import', { write: true })}
           `);
           out.updated += 1;
         } else if (cls.kind === 'new' || asNew.has(row.line)) {
@@ -296,9 +379,7 @@ export async function commitClubImport(
             RETURNING id
           `);
           memberId = created.rows[0] ? String(created.rows[0].id) : null;
-          if (memberId && !row.isMinor && row.email && !adultsByEmail.has(row.email)) {
-            adultsByEmail.set(row.email, memberId);
-          }
+          if (memberId && !row.isMinor && row.email) noteAdult(row.email, memberId);
           if (memberId) out.created += 1;
         } else {
           out.skipped += 1;
@@ -306,18 +387,11 @@ export async function commitClubImport(
         }
         if (!memberId) continue;
 
-        const plan = findPlan(plans, row.plan);
-        if (!plan) continue;
-        const startsOn = row.startsOn ?? today;
-        const endsOn =
-          row.endsOn ??
-          membershipEndsOn(
-            startsOn,
-            plan.validityDays !== null
-              ? { days: plan.validityDays }
-              : { months: plan.validityMonths ?? 1 },
-          );
-        const visitsTotal = plan.kind === 'unlimited' ? null : (plan.visitsCount ?? 1);
+        const target = rowPlan(row, plans, today);
+        if (target.kind !== 'ok') continue;
+        const { plan, startsOn, endsOn } = target;
+        // The plan's own count, as a desk sale writes it (a trial may have none).
+        const visitsTotal = plan.visitsCount;
         const offset =
           visitsTotal !== null && row.visitsLeft !== null
             ? Math.max(0, visitsTotal - Math.min(row.visitsLeft, visitsTotal))
@@ -325,11 +399,18 @@ export async function commitClubImport(
         const sold = await tx.execute(sql`
           INSERT INTO club_memberships (club_id, member_id, plan_id, plan_name, kind, audience,
                                         price_cents, visits_total, starts_on, ends_on,
-                                        visits_used_offset, sold_by)
+                                        visits_used_offset, sold_by, notice_days, min_term_months,
+                                        self_pause_allowed, self_cancel_allowed)
           SELECT ${actor.clubId}::uuid, ${memberId}::uuid, ${plan.id}::uuid, ${plan.nameBg},
                  ${plan.kind}, ${plan.audience}, ${plan.priceCents}, ${visitsTotal},
-                 ${startsOn}::date, ${endsOn}::date, ${offset}, ${actor.userId}
+                 ${startsOn}::date, ${endsOn}::date, ${offset}, NULL, ${plan.noticeDays},
+                 ${plan.minTermMonths}, ${plan.selfPauseAllowed}, ${plan.selfCancelAllowed}
            WHERE ${clubActorMay(actor, 'data.import', { write: true })}
+             AND NOT EXISTS (SELECT 1 FROM club_memberships x
+                              WHERE x.club_id = ${actor.clubId}::uuid
+                                AND x.member_id = ${memberId}::uuid
+                                AND x.plan_id = ${plan.id}::uuid AND x.cancelled_at IS NULL
+                                AND x.starts_on <= ${endsOn}::date AND x.ends_on >= ${startsOn}::date)
           ON CONFLICT DO NOTHING
           RETURNING id
         `);

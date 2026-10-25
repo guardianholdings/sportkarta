@@ -29,16 +29,27 @@ import {
   municipalityChoices,
 } from '@/lib/clubs/settings';
 import { formatDateTime } from '@/lib/format';
+import {
+  clubPaymentAccount,
+  connectStartUrl,
+  paymentProvider,
+  paymentsReady,
+} from '@/lib/clubs/payments';
 import { siteUrl } from '@/lib/seo';
+import { cn } from '@/lib/utils';
+import { escapeHtml } from '@/lib/widget';
 
 import {
+  connectFakePaymentsAction,
   createKioskAction,
+  disconnectPaymentsAction,
   newPairingCodeAction,
   removeFaqAction,
   saveFaqAction,
   revokeKioskAction,
   saveLocationAction,
   saveSettingsAction,
+  saveTermsUrlAction,
   setLocationActiveAction,
   setVisibleAction,
   uploadLogoAction,
@@ -46,18 +57,35 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+/** ?plashtaniya= values the connect route and the payment actions send back. */
+const PAYMENT_OUTCOMES = new Set([
+  'connected',
+  'connect_cancelled',
+  'connect_failed',
+  'disconnected',
+  'terms_saved',
+  'terms_invalid',
+  'read_only',
+  'subscriptions_live',
+]);
+const GOOD_OUTCOMES = new Set(['connected', 'disconnected', 'terms_saved']);
+
 export default async function ClubSettingsPage({
   params,
   searchParams,
 }: {
   params: Promise<{ locale: string; slug: string }>;
-  searchParams: Promise<{ logo?: string }>;
+  searchParams: Promise<{ logo?: string; plashtaniya?: string }>;
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
   const { actor, club } = await requireClubStaff(slug, 'settings.manage');
   const settings = await clubSettings(club.id);
   if (!settings) notFound();
+  const { plashtaniya } = await searchParams;
+  const paymentsOn = paymentsReady();
+  const paymentAccount = paymentsOn ? await clubPaymentAccount(club.id) : null;
+  const provider = paymentProvider();
   const [t, tClub, messages, locations, devices, cities, sportOptions, faq] = await Promise.all([
     getTranslations('ClubSettings'),
     getTranslations('Club'),
@@ -430,6 +458,99 @@ export default async function ClubSettingsPage({
         )}
       </section>
 
+      <section id="plashtaniya" className={section} aria-labelledby="pay-h">
+        <h2 id="pay-h" className="text-h4 font-bold text-ink">
+          {t('payments.title')}
+        </h2>
+        <div role="status" aria-live="polite">
+          {plashtaniya && PAYMENT_OUTCOMES.has(plashtaniya) && (
+            <p
+              className={cn(
+                'rounded-card border p-3 text-body-sm text-ink',
+                GOOD_OUTCOMES.has(plashtaniya)
+                  ? 'border-success-border bg-success-bg'
+                  : 'border-warning-border bg-warning-bg',
+              )}
+            >
+              {t(`payments.outcome.${plashtaniya}`)}
+            </p>
+          )}
+        </div>
+        {!paymentsOn ? (
+          <p className="text-body-sm text-ink-soft">{t('payments.off')}</p>
+        ) : paymentAccount ? (
+          <div className="space-y-2">
+            <p className="flex flex-wrap items-center gap-2 text-body-sm text-ink">
+              {paymentAccount.chargesEnabled ? (
+                <Badge tone="success">{t('payments.live')}</Badge>
+              ) : (
+                <Badge tone="warning">{t('payments.pending')}</Badge>
+              )}
+              <span>
+                {t('payments.connected', {
+                  account: paymentAccount.accountRef,
+                  date: formatDateTime(paymentAccount.connectedAt, locale),
+                })}
+              </span>
+            </p>
+            {!paymentAccount.chargesEnabled && (
+              <p className="text-caption text-text-muted">{t('payments.pendingHint')}</p>
+            )}
+            {paymentAccount.provider === 'stripe' && (
+              <p className="text-caption text-text-muted">{t('payments.dashboardHint')}</p>
+            )}
+            <form action={disconnectPaymentsAction}>
+              <input type="hidden" name="slug" value={slug} />
+              <ConfirmButton
+                message={t('payments.disconnectConfirm')}
+                className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+              >
+                {t('payments.disconnect')}
+              </ConfirmButton>
+            </form>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <p className="max-w-prose text-body-sm text-ink-soft">{t('payments.intro')}</p>
+            {provider === 'stripe' ? (
+              <a
+                href={connectStartUrl(actor) ?? '#'}
+                className={buttonVariants({ variant: 'primary', size: 'sm' })}
+              >
+                {t('payments.connect')}
+              </a>
+            ) : (
+              <form action={connectFakePaymentsAction}>
+                <input type="hidden" name="slug" value={slug} />
+                <Button type="submit" size="sm">
+                  {t('payments.connectFake')}
+                </Button>
+              </form>
+            )}
+          </div>
+        )}
+        {paymentsOn && (
+          <form action={saveTermsUrlAction} className="space-y-2 border-t border-line pt-3">
+            <input type="hidden" name="slug" value={slug} />
+            <label className="block text-body-sm font-semibold text-ink">
+              {t('payments.termsUrl')}
+              <Input
+                name="termsUrl"
+                inputMode="url"
+                maxLength={300}
+                placeholder="https://"
+                defaultValue={settings.termsUrl ?? ''}
+                className="mt-1"
+              />
+            </label>
+            <p className="text-caption text-text-muted">{t('payments.termsHint')}</p>
+            <Button type="submit" variant="secondary" size="sm">
+              {t('payments.termsSave')}
+            </Button>
+          </form>
+        )}
+      </section>
+
       <section className={section} aria-labelledby="share-h">
         <h2 id="share-h" className="text-h4 font-bold text-ink">
           {t('shareTitle')}
@@ -447,7 +568,7 @@ export default async function ClubSettingsPage({
               <div key={kind} className="space-y-1">
                 <p className="text-caption font-semibold text-ink">{t(`embed.${kind}`)}</p>
                 <pre className="overflow-x-auto rounded-card bg-paper-sunk p-2 text-caption">
-                  {`<iframe src="${siteUrl()}/api/widget/klub/${slug}/${kind}" title="${settings.nameBg}" width="100%" height="480" style="border:0" loading="lazy"></iframe>`}
+                  {`<iframe src="${siteUrl()}/api/widget/klub/${slug}/${kind}" title="${escapeHtml(settings.nameBg)}" width="100%" height="480" style="border:0" loading="lazy"></iframe>`}
                 </pre>
               </div>
             ))}

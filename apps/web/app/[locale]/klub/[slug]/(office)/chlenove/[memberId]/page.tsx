@@ -335,7 +335,7 @@ export default async function MemberCardPage({
                   )}
                   {live && actorCan(actor, 'sales.manage') && (
                     <div className="flex flex-wrap items-end gap-2">
-                      {ms.pausedToday ? (
+                      {ms.online ? null : ms.pausedToday ? (
                         <form action={memberOpAction}>
                           {op('resume', { membershipId: ms.id })}
                           <Button type="submit" variant="secondary" size="sm">
@@ -372,7 +372,7 @@ export default async function MemberCardPage({
                           </Button>
                         </form>
                       )}
-                      {ms.kind !== 'trial' && !ms.hasSuccessor && (
+                      {ms.kind !== 'trial' && !ms.hasSuccessor && !(ms.online && !ms.renews) && (
                         <form action={memberOpAction}>
                           {op(ms.renews ? 'stop_renewal' : 'start_renewal', {
                             membershipId: ms.id,

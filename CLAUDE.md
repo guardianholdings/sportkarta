@@ -182,8 +182,17 @@ browser) in a MANUAL STEPS list at the end of the session.
   refuses a write in `lib/clubs` without a scope fragment or an allowlisted
   reason; trainer rosters, portal class lists, the kiosk counter and staff
   digests are pinned to counts/names-only by `club-projections.test.ts`.
-  Money is RECORDS ONLY (no card code; phase 2 = the club's own Stripe on a
-  hosted page by redirect). Writes need `clubWritableSql` (active and paid or
+  Online payments (v2 wave E, `0046`, behind `CLUB_PAYMENTS_ENABLED`) go
+  through EACH CLUB'S OWN Stripe account (Connect Standard) on Stripe's
+  hosted page by redirect — no Stripe script or SDK, the NGO never holds
+  funds. The webhook verifies its own HMAC and records ids only; the WORKER
+  re-fetches every object as the connected account and applies a checkout
+  once (`UPDATE … WHERE status='open'`); money that no longer fits is
+  `unapplied`, never forced into the books. `PAYMENT_PROVIDER=fake` is a dev
+  stand-in that cannot resolve in production. Fee rules and plan terms are
+  SNAPSHOTTED onto bookings and memberships (`0047`) — never read live from
+  the class or plan. A scope fragment's alias must be declared by its
+  statement (`club-scope.test.ts`). Writes need `clubWritableSql` (active and paid or
   community, 14-day grace); every public surface embeds `clubRenderableSql`.
   Check-ins never refuse (`covered=false` is recorded); only a QR/card visit of
   a consenting linked member writes `training_logs(source='club',

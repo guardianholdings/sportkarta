@@ -120,6 +120,7 @@ export type SignInReason =
   | 'clubInvite'
   | 'clubCheckin'
   | 'clubPortal'
+  | 'clubPurchase'
   | 'clubOffice';
 
 /**
@@ -138,6 +139,7 @@ const REASONS: readonly [path: string | RegExp, reason: SignInReason][] = [
   ['/klubove/zayavka', 'clubApply'],
   ['/klubove/pokana/', 'clubInvite'],
   ['/klubove/otmetka/', 'clubCheckin'],
+  [/^\/klub\/[a-z0-9-]+\/kupi(?:\/|$)/, 'clubPurchase'],
   [/^\/klub\/[a-z0-9-]+\/(?:az|proba|trenirovka)(?:\/|$)/, 'clubPortal'],
   [/^\/klub\/[a-z0-9-]+\/[a-z]/, 'clubOffice'],
 ];

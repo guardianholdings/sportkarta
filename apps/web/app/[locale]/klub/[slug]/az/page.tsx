@@ -14,6 +14,7 @@ import { Link } from '@/i18n/navigation';
 import { requireUser } from '@/lib/auth-session';
 import { requireClubsEnabled } from '@/lib/clubs/club-session';
 import { clubSportLabeler } from '@/lib/clubs/labels';
+import { clubTakesPayments } from '@/lib/clubs/payments';
 import { portalView, type PortalMembership, type PortalRecord } from '@/lib/clubs/portal';
 import { ownContact } from '@/lib/clubs/self-service';
 import { formatDate, formatDateTime } from '@/lib/format';
@@ -56,8 +57,10 @@ function current(memberships: PortalMembership[]): PortalMembership | null {
 /**
  * A member's own club page: their abonnement in words, their bookings, this
  * week's classes to book (for themselves or a child), their QR, the passport
- * and mail switches, and the GDPR facts — the club is the controller. No money
- * moves here in v1: renewals happen at the desk.
+ * and mail switches, and the GDPR facts — the club is the controller. When
+ * the club has connected its Stripe account (0046), an open charge is payable
+ * here and a plan can be bought; the card is entered on Stripe's page, never
+ * on pops.bg.
  */
 export default async function ClubPortalPage({
   params,
@@ -79,7 +82,10 @@ export default async function ClubPortalPage({
     clubSportLabeler(),
   ]);
   const { club, link, records, classes } = view;
-  const contact = link?.status === 'active' ? await ownContact(getDb(), user.id, club.id) : null;
+  const [contact, takesPayments] = await Promise.all([
+    link?.status === 'active' ? ownContact(getDb(), user.id, club.id) : Promise.resolve(null),
+    club.live ? clubTakesPayments(club.id) : Promise.resolve(false),
+  ]);
   const now = Date.now();
   const booked = new Map<string, Set<string>>();
   for (const record of records) {
@@ -206,12 +212,45 @@ export default async function ClubPortalPage({
                   />
                 </p>
               )}
-              <p className="text-caption text-text-muted">{t('renewAtDesk')}</p>
+              {takesPayments && record.openCharges.length > 0 && (
+                <ul className="space-y-2 pt-1">
+                  {record.openCharges.map((charge) => (
+                    <li key={charge.chargeId} className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 flex-1 text-body-sm text-ink">
+                        {charge.label} · {formatEuro(charge.dueCents, locale)}
+                        <span className="block text-caption text-text-muted">
+                          {t('dueOn', { date: formatDate(charge.dueOn, locale) })}
+                        </span>
+                      </span>
+                      <form action={portalOpAction}>
+                        {hidden(record.memberId)}
+                        <input type="hidden" name="op" value="pay" />
+                        <input type="hidden" name="chargeId" value={charge.chargeId} />
+                        <button type="submit" className={pill}>
+                          {t('payOnline')}
+                        </button>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              )}
               {(() => {
-                const live = current(record.memberships);
-                if (!live) return null;
+                // The chain's TAIL carries the renewal controls: once the next
+                // period is in place, the one still running is not where a
+                // notice or a pause belongs.
+                const running = current(record.memberships);
+                const live = running?.hasSuccessor
+                  ? (record.memberships.find(
+                      (m) => !m.hasSuccessor && (m.state === 'upcoming' || m.state === 'active'),
+                    ) ?? running)
+                  : running;
+                if (!live)
+                  return <p className="text-caption text-text-muted">{t('renewAtDesk')}</p>;
                 return (
                   <div className="space-y-2 pt-1">
+                    {!live.renews && (
+                      <p className="text-caption text-text-muted">{t('renewAtDesk')}</p>
+                    )}
                     {live.renews && (
                       <p className="text-body-sm text-ink-soft">
                         {live.renewalEndsOn
@@ -232,7 +271,7 @@ export default async function ClubPortalPage({
                         </ConfirmButton>
                       </form>
                     )}
-                    {club.live && live.selfPauseAllowed && !live.selfPaused && (
+                    {club.live && live.selfPauseAllowed && !live.selfPaused && !live.online && (
                       <details className="rounded-card border border-line p-3">
                         <summary className="cursor-pointer text-body-sm font-semibold text-ink">
                           {t('pauseTitle')}
@@ -311,10 +350,21 @@ export default async function ClubPortalPage({
                             {!booking.cancelled && !booking.attended && (
                               <span className="text-caption text-text-muted">
                                 {late
-                                  ? t('lateCancel')
-                                  : t('freeCancelUntil', {
-                                      time: formatDateTime(booking.freeCancelUntil, locale),
-                                    })}
+                                  ? booking.lateCancelFeeCents !== null
+                                    ? t('lateCancelFee', {
+                                        amount: formatEuro(booking.lateCancelFeeCents, locale),
+                                      })
+                                    : t('lateCancel')
+                                  : booking.lateCancelFeeCents !== null
+                                    ? t('freeCancelUntilFee', {
+                                        time: formatDateTime(booking.freeCancelUntil, locale),
+                                        amount: formatEuro(booking.lateCancelFeeCents, locale),
+                                      })
+                                    : t('freeCancelUntil', {
+                                        time: formatDateTime(booking.freeCancelUntil, locale),
+                                      })}
+                                {booking.noShowFeeCents !== null &&
+                                  ` · ${t('rules.noShowFee', { amount: formatEuro(booking.noShowFeeCents, locale) })}`}
                               </span>
                             )}
                           </span>
@@ -339,6 +389,30 @@ export default async function ClubPortalPage({
             </div>
           </section>
         ))}
+
+        {takesPayments && (
+          <section className={section} aria-labelledby="buy-h">
+            <h2 id="buy-h" className="text-h4 font-bold text-ink">
+              {t('buyTitle')}
+            </h2>
+            <p className="text-body-sm text-ink-soft">{t('buyHint')}</p>
+            <Link href={`/klub/${slug}#ceni`} className={pill}>
+              {t('buyCta')}
+            </Link>
+            {club.termsUrl && (
+              <p className="text-caption text-text-muted">
+                <a
+                  href={club.termsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-link hover:text-link-hover"
+                >
+                  {t('termsLink')}
+                </a>
+              </p>
+            )}
+          </section>
+        )}
 
         {link?.status === 'active' && records.length > 0 && (
           <section className={section} aria-labelledby="week-h">
@@ -369,6 +443,26 @@ export default async function ClubPortalPage({
                             : cls.capacity === null
                               ? t('spotsOpen', { going: cls.going })
                               : t('spots', { going: cls.going, capacity: cls.capacity })}
+                        </span>
+                        <span className="block text-caption text-text-muted">
+                          {[
+                            t('rules.cancelHours', { hours: cls.cancelDeadlineHours }),
+                            cls.lateCancelFeeCents !== null &&
+                              t('rules.lateFee', {
+                                amount: formatEuro(cls.lateCancelFeeCents, locale),
+                              }),
+                            cls.noShowFeeCents !== null &&
+                              t('rules.noShowFee', {
+                                amount: formatEuro(cls.noShowFeeCents, locale),
+                              }),
+                            cls.strikeLimit !== null &&
+                              t('rules.strikes', {
+                                limit: cls.strikeLimit,
+                                days: cls.strikeDays ?? 30,
+                              }),
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </span>
                       </p>
                       {!club.live ? null : !open ? (

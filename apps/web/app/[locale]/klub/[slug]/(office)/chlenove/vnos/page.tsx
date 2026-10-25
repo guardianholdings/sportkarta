@@ -23,6 +23,7 @@ const LABEL_KEYS = [
   'status',
   'plan',
   'planUnknown',
+  'planWindow',
   'count_new',
   'count_match',
   'count_conflict',
@@ -34,6 +35,7 @@ const LABEL_KEYS = [
   'conflict_several_records',
   'conflict_email_phone_disagree',
   'conflict_duplicate_in_file',
+  'conflict_name_exists',
   'createAnyway',
   'commit',
   'backToMapping',
@@ -60,6 +62,9 @@ const LABEL_KEYS = [
   'rowError_plan_required',
   'rowError_visits_invalid',
   'rowError_price_invalid',
+  'rowError_currency_bgn',
+  'rowError_plan_audience',
+  'rowError_window_invalid',
 ] as const;
 
 /**

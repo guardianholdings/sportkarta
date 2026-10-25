@@ -42,6 +42,7 @@ export const CLUB_MAIL_KINDS = [
   'membership_renewed',
   'fee_charged',
   'owner_monthly',
+  'payment_received',
 ] as const;
 export type ClubMailKind = (typeof CLUB_MAIL_KINDS)[number];
 

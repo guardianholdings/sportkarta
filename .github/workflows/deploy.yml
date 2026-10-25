@@ -287,6 +287,14 @@ jobs:
           GLITCHTIP_DSN=${{ vars.GLITCHTIP_DSN }}
           PARTNER_STRIP_ENABLED=${{ vars.PARTNER_STRIP_ENABLED }}
           CLUBS_ENABLED=${{ vars.CLUBS_ENABLED }}
+          # Club online payments (Stage 9 v2, 0046): switch and provider are
+          # VARIABLES, the Stripe platform keys are SECRETS. Empty = off.
+          CLUB_PAYMENTS_ENABLED=${{ vars.CLUB_PAYMENTS_ENABLED }}
+          PAYMENT_PROVIDER=${{ vars.PAYMENT_PROVIDER }}
+          STRIPE_APPLICATION_FEE_BP=${{ vars.STRIPE_APPLICATION_FEE_BP }}
+          STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_CONNECT_CLIENT_ID=${{ secrets.STRIPE_CONNECT_CLIENT_ID }}
           DONATION_IBAN=${{ vars.DONATION_IBAN }}
           DONATION_BENEFICIARY=${{ vars.DONATION_BENEFICIARY }}
           DONATION_BIC=${{ vars.DONATION_BIC }}

@@ -22,10 +22,33 @@ export { HORIZON_WEEKS, materializeSessions } from './sessions/materialize.js';
 export { materializeClubClasses } from './clubs/materialize.js';
 export {
   chargeClubBookingFees,
+  clubStrikesSql,
   feeMailCandidates,
   renewClubMemberships,
   renewalMailCandidates,
 } from './clubs/policies.js';
+export {
+  applyCheckoutPaid,
+  applySubscriptionInvoice,
+  expireCheckout,
+  markPaymentAccountGone,
+  markPaymentEvent,
+  paymentEventById,
+  prunePaymentEvents,
+  subscriptionRefsFor,
+  pendingPaymentEventIds,
+  receiptCandidates,
+  recordPaymentEvent,
+  recordProviderRefund,
+  setPaymentAccountState,
+  stopSubscription,
+} from './clubs/payments.js';
+export type {
+  CheckoutOutcome,
+  PaidCheckout,
+  PaymentEvent,
+  ReceiptCandidate,
+} from './clubs/payments.js';
 export type {
   FeeLabels,
   FeeMailCandidate,

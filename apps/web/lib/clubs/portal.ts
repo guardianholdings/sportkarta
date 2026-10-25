@@ -65,6 +65,10 @@ export interface PortalMembership {
   selfCancelAllowed: boolean;
   /** A pause the member set themselves already exists (one per membership). */
   selfPaused: boolean;
+  /** A renewal already followed this period (the chain's tail is the successor). */
+  hasSuccessor: boolean;
+  /** Billed by a card subscription (0046): no self-pause — Stripe keeps billing. */
+  online: boolean;
 }
 
 export interface PortalBooking {
@@ -78,6 +82,10 @@ export interface PortalBooking {
   position: number;
   /** The instant after which a cancellation is late. */
   freeCancelUntil: string;
+  /** The class's rules AS BOOKED (0047): what a late cancellation or a no-show costs. */
+  lateCancelFeeCents: number | null;
+  noShowFeeCents: number | null;
+  countsStrikes: boolean;
   cancelled: boolean;
   /** Checked in for this class — no longer cancellable. */
   attended: boolean;
@@ -90,7 +98,16 @@ export interface PortalRecord {
   self: boolean;
   memberships: PortalMembership[];
   owedCents: number;
+  /** What is owed, charge by charge — each payable online when the club takes cards. */
+  openCharges: PortalCharge[];
   bookings: PortalBooking[];
+}
+
+export interface PortalCharge {
+  chargeId: string;
+  label: string;
+  dueCents: number;
+  dueOn: string;
 }
 
 export interface PortalClass {
@@ -106,6 +123,12 @@ export interface PortalClass {
   waitlisted: number;
   bookingOpensAt: string;
   trialAllowed: boolean;
+  /** The class's rules as a booking made now would snapshot them (0047). */
+  cancelDeadlineHours: number;
+  lateCancelFeeCents: number | null;
+  noShowFeeCents: number | null;
+  strikeLimit: number | null;
+  strikeDays: number | null;
 }
 
 export interface PortalView {
@@ -115,6 +138,8 @@ export interface PortalView {
     name: string;
     publicEmail: string | null;
     publicPhone: string | null;
+    /** The club's own terms of sale, linked before an online payment (0046). */
+    termsUrl: string | null;
     /** The club can take bookings and check-ins right now. */
     live: boolean;
   };
@@ -137,7 +162,7 @@ export async function portalView(
   const db = getDb();
   const clubRow = (
     await db.execute(sql`
-      SELECT c.id, c.slug, c.public_email, c.public_phone,
+      SELECT c.id, c.slug, c.public_email, c.public_phone, c.terms_url,
              CASE WHEN ${locale} = 'en' THEN coalesce(c.name_en, c.name_bg) ELSE c.name_bg END AS name,
              (c.status = 'active' AND (c.tier = 'community'
                OR greatest(c.paid_until, c.trial_ends_on) + 14 >= (now() AT TIME ZONE 'Europe/Sofia')::date))
@@ -154,6 +179,7 @@ export async function portalView(
     name: String(clubRow.name),
     publicEmail: text(clubRow.public_email),
     publicPhone: text(clubRow.public_phone),
+    termsUrl: text(clubRow.terms_url),
     live: clubRow.live === true,
   };
 
@@ -197,32 +223,36 @@ export async function portalView(
              to_char(mb.starts_on, 'YYYY-MM-DD') AS starts_on,
              to_char(mb.effective_ends_on, 'YYYY-MM-DD') AS ends_on, mb.visits_remaining,
              ms.renews, to_char(ms.renewal_ends_on, 'YYYY-MM-DD') AS renewal_ends_on,
-             p.notice_days, p.self_pause_allowed, p.self_cancel_allowed,
+             ms.notice_days, ms.self_pause_allowed, ms.self_cancel_allowed,
              EXISTS (SELECT 1 FROM club_membership_pauses ps
-                      WHERE ps.membership_id = ms.id AND ps.created_by = ${userId}) AS self_paused
+                      WHERE ps.membership_id = ms.id AND ps.by_member) AS self_paused,
+             EXISTS (SELECT 1 FROM club_memberships nx WHERE nx.renewal_of = ms.id) AS has_successor,
+             (ms.provider_subscription_ref IS NOT NULL) AS online
         FROM club_membership_balances mb
         JOIN club_memberships ms ON ms.id = mb.membership_id
-        JOIN club_plans p ON p.club_id = ms.club_id AND p.id = ms.plan_id
        WHERE mb.club_id = ${clubId}::uuid AND mb.member_id = ANY(${sql.param(ids)}::uuid[])
          AND mb.state <> 'cancelled'
          AND mb.effective_ends_on >= (now() AT TIME ZONE 'Europe/Sofia')::date - 60
        ORDER BY mb.effective_ends_on DESC
     `),
     db.execute(sql`
-      SELECT cb.member_id, sum(cb.due_cents)::int AS owed
+      SELECT cb.member_id, cb.charge_id, cb.label, cb.due_cents,
+             to_char(cb.due_on, 'YYYY-MM-DD') AS due_on
         FROM club_charge_balances cb
        WHERE cb.club_id = ${clubId}::uuid AND cb.member_id = ANY(${sql.param(ids)}::uuid[])
-         AND cb.status IN ('open', 'partial', 'overdue')
-       GROUP BY cb.member_id
+         AND cb.status IN ('open', 'partial', 'overdue') AND cb.due_cents > 0
+       ORDER BY cb.due_on, cb.charge_id
     `),
     db.execute(sql`
       SELECT bp.booking_id, bp.member_id, bp.occurrence_id, bp.booking_status, bp.position::int AS position,
              o.starts_at, o.ends_at, o.status, k.title, l.name AS location_name,
              o.starts_at - make_interval(hours => k.cancel_deadline_hours) AS free_cancel_until,
+             bk.late_cancel_fee_cents, bk.no_show_fee_cents, bk.counts_strikes,
              EXISTS (SELECT 1 FROM club_checkins ci
                       WHERE ci.club_id = bp.club_id AND ci.occurrence_id = bp.occurrence_id
                         AND ci.member_id = bp.member_id) AS attended
         FROM club_booking_positions bp
+        JOIN club_bookings bk ON bk.club_id = bp.club_id AND bk.id = bp.booking_id
         JOIN club_class_occurrences o ON o.club_id = bp.club_id AND o.id = bp.occurrence_id
         JOIN club_classes k ON k.id = o.class_id
         JOIN club_locations l ON l.id = k.location_id
@@ -256,8 +286,20 @@ export async function portalView(
           selfPauseAllowed: m.self_pause_allowed === true,
           selfCancelAllowed: m.self_cancel_allowed === true,
           selfPaused: m.self_paused === true,
+          hasSuccessor: m.has_successor === true,
+          online: m.online === true,
         })),
-      owedCents: Number(owed.rows.find((o) => String(o.member_id) === memberId)?.owed ?? 0),
+      owedCents: owed.rows
+        .filter((o) => String(o.member_id) === memberId)
+        .reduce((sum, o) => sum + Number(o.due_cents), 0),
+      openCharges: owed.rows
+        .filter((o) => String(o.member_id) === memberId)
+        .map((o) => ({
+          chargeId: String(o.charge_id),
+          label: String(o.label),
+          dueCents: Number(o.due_cents),
+          dueOn: String(o.due_on),
+        })),
       bookings: bookings.rows
         .filter((b) => String(b.member_id) === memberId)
         .map((b) => ({
@@ -270,6 +312,10 @@ export async function portalView(
           status: b.booking_status === 'waitlisted' ? 'waitlisted' : 'going',
           position: Number(b.position),
           freeCancelUntil: iso(b.free_cancel_until),
+          lateCancelFeeCents:
+            b.late_cancel_fee_cents === null ? null : Number(b.late_cancel_fee_cents),
+          noShowFeeCents: b.no_show_fee_cents === null ? null : Number(b.no_show_fee_cents),
+          countsStrikes: b.counts_strikes === true,
           cancelled: b.status === 'cancelled',
           attended: b.attended === true,
         })),
@@ -288,6 +334,8 @@ export async function portalClasses(clubId: string, days = 7): Promise<PortalCla
            coalesce(nullif(btrim(sto.display_name), ''), nullif(btrim(uo.display_name), ''), nullif(btrim(stk.display_name), ''), nullif(btrim(uk.display_name), '')) AS instructor_name,
            coalesce(o.capacity, k.capacity) AS capacity, k.trial_allowed,
            o.starts_at - make_interval(hours => k.booking_opens_hours) AS opens_at,
+           k.cancel_deadline_hours, k.late_cancel_fee_cents, k.no_show_fee_cents,
+           k.strike_limit, k.strike_days,
            (SELECT count(*) FILTER (WHERE bp.booking_status = 'going')::int FROM club_booking_positions bp
              WHERE bp.club_id = o.club_id AND bp.occurrence_id = o.id) AS going,
            (SELECT count(*) FILTER (WHERE bp.booking_status = 'waitlisted')::int FROM club_booking_positions bp
@@ -317,6 +365,12 @@ export async function portalClasses(clubId: string, days = 7): Promise<PortalCla
     waitlisted: Number(row.waitlisted ?? 0),
     bookingOpensAt: iso(row.opens_at),
     trialAllowed: row.trial_allowed === true,
+    cancelDeadlineHours: Number(row.cancel_deadline_hours),
+    lateCancelFeeCents:
+      row.late_cancel_fee_cents === null ? null : Number(row.late_cancel_fee_cents),
+    noShowFeeCents: row.no_show_fee_cents === null ? null : Number(row.no_show_fee_cents),
+    strikeLimit: row.strike_limit === null ? null : Number(row.strike_limit),
+    strikeDays: row.strike_days === null ? null : Number(row.strike_days),
   }));
 }
 

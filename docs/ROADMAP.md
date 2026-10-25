@@ -268,9 +268,47 @@ operator invoices by bank transfer and activates by hand (30-day trial).
   trial, tier / paid-until / member cap, suspend, purge of archived clubs, the
   monthly `members_active` figure that paid tiers are invoiced on.
 - [ ] **9.8 Not in v1** — OG share cards for club pages; Playwright specs
-  (CI runs with the flag off); CSV member import wizard; per-head trainer pay
-  report; v1.1 and v2 per the plan (leads pipeline, Stripe Connect, products,
-  messaging inbox, door access).
+  (CI runs with the flag off); v2 waves below.
+
+### 9c. «Клубове» v2 — parity with vedro.one, 1club.ai and anolla.com (2026-10-25)
+
+The operator asked that every feature the three competitors present is covered,
+with extras only POPS has. Plan of 2026-10-25 (waves A → E → C → B → F → D → G
+→ H, branch `feat/clubs-parity`). Operator decisions, not to be reopened:
+online payments through EACH CLUB'S OWN Stripe (Connect Standard, hosted
+Checkout by redirect, no Stripe script on pops.bg, the NGO never holds funds);
+email + push + an EU SMS gateway (cost passed to the club; no WhatsApp); paid
+clubs may add GA4 / Meta Pixel IDs to their own public pages only, behind a
+consent banner there (never GTM); an installable web app, no native apps.
+Features are gated per tier in ONE pure matrix (`lib/src/clubs/features.ts`)
+and, where an outside service is involved, by an env switch as well.
+
+- [x] **A — foundations** (`0045`, `0047`) — plan terms (auto-renew, minimum
+  term, notice, self-pause/-cancel) and the nightly `club.policies` renewals;
+  no-show and late-cancel fees and booking strikes (attendance never refused);
+  CSV member import from vedro/1club/spreadsheets (preview, then one-transaction
+  commit; idempotent; leva refused); trainer pay, time off, a teaching
+  calendar feed and public trainer profiles; advanced reports (peak hours,
+  per-member retention, churn, revenue by plan, top clients, trainer pay,
+  engagement score) and the owner's monthly health mail; the club page as the
+  club's website (accent, trainers, FAQ, `/k/<slug>`, embeddable widgets with
+  no script); portal self-service (stop renewal with notice, one pause, own
+  phone and consents). Rules and terms are SNAPSHOTTED onto bookings and
+  memberships (0047) — a rule a member never saw never binds them.
+- [x] **E — online payments** (`0046`) — Connect OAuth from Настройки →
+  Онлайн плащания; members pay open charges and buy public plans on Stripe's
+  hosted page (a renewing plan is a Stripe subscription); the webhook records
+  ids only and the worker re-fetches every object as the club's account; a
+  checkout applies once, and money that no longer fits is `unapplied` and
+  listed for the office; refunds from the payments screen (a full refund
+  voids the charge). Behind `CLUB_PAYMENTS_ENABLED`; a local `fake` provider
+  (`/dev/plashtane`) stands in for Stripe and can never run in production.
+- [ ] **C — rooms, courts, equipment and appointments**
+- [ ] **B — shop, promotions, wallet, invoices** (waits on the accountant: Н‑18)
+- [ ] **F — push, SMS, broadcasts, automations, inbox, leads, feedback**
+- [ ] **D — events, camps, tournaments**
+- [ ] **G — waivers and documents, ranks and belts**
+- [ ] **H — club API, webhooks, MCP, door access, pixels** (pixels wait on legal)
 
 ---
 

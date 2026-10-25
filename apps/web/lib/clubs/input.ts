@@ -186,6 +186,24 @@ export function parseApplication(form: Reader): InputResult<ApplicationInput> {
   };
 }
 
+/**
+ * The club's own terms of sale, linked before a member pays online (0046's
+ * clubs_terms_url_sane: https only, at most 300 characters). Empty clears it.
+ */
+export function parseTermsUrl(form: Reader): InputResult<string | null> {
+  const raw = optionalText(form, 'termsUrl');
+  if (raw === null) return { ok: true, value: null };
+  const value = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const url = new URL(value);
+    const href = url.toString();
+    if (url.protocol !== 'https:' || /\s/.test(value) || href.length > 300) throw new Error('bad');
+    return { ok: true, value: href };
+  } catch {
+    return { ok: false, errors: ['terms_url_invalid'] };
+  }
+}
+
 // ─── Club settings ─────────────────────────────────────────────────────────
 
 export interface ClubSettingsInput {
@@ -384,7 +402,9 @@ export function parseTimeOff(form: Reader): InputResult<TimeOffInput> {
   const endsOn = text(form, 'endsOn') || startsOn;
   if (!isIsoDate(startsOn) || !isIsoDate(endsOn)) errors.push('date_invalid');
   else if (endsOn < startsOn) errors.push('dates_reversed');
-  else if (endsOn > addDaysIso(startsOn, 365)) errors.push('range_too_long');
+  // A year at most, one day short of 0045's 366-day CHECK: Sofia midnights
+  // are an hour off a day's length across a DST change.
+  else if (endsOn > addDaysIso(startsOn, 364)) errors.push('range_too_long');
   const reason = oneOf(text(form, 'reason') || 'time_off', TIME_OFF_REASONS);
   if (!reason) errors.push('reason_invalid');
   if (errors.length > 0 || !reason) return { ok: false, errors };

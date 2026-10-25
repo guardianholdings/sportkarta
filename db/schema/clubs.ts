@@ -22,7 +22,7 @@ import { users } from './auth.js';
 import { businesses, facilities, municipalities, trainingLogs } from './index.js';
 
 /**
- * The «Клубове» add-on (migrations 0039–0045; docs/ROADMAP.md Stage 9).
+ * The «Клубове» add-on (migrations 0039–0047; docs/ROADMAP.md Stage 9).
  *
  * THE MIGRATIONS ARE THE SOURCE OF TRUTH. They were hand-written (the snapshot
  * chain stops at 0029), and they carry what drizzle cannot express or
@@ -79,6 +79,8 @@ export const clubs = pgTable(
     logoPath: text('logo_path'),
     /** green | coral | sky — one of the design system's scales (0045). */
     accent: text('accent').notNull().default('green'),
+    /** The club's own terms of sale, linked before an online payment (0046). */
+    termsUrl: text('terms_url'),
     memberCap: integer('member_cap'),
     trialEndsOn: date('trial_ends_on'),
     /** Set by hand when the operator's invoice is paid. */
@@ -396,11 +398,21 @@ export const clubMemberships = pgTable(
     renewalOf: uuid('renewal_of'),
     termStartedOn: date('term_started_on'),
     renewalEndsOn: date('renewal_ends_on'),
+    /** The Stripe subscription behind a renewing chain bought online (0046). */
+    providerSubscriptionRef: text('provider_subscription_ref'),
+    /** The plan's terms AS SOLD (0047) — never read live from the plan. */
+    noticeDays: integer('notice_days').notNull().default(0),
+    minTermMonths: integer('min_term_months'),
+    selfPauseAllowed: boolean('self_pause_allowed').notNull().default(false),
+    selfCancelAllowed: boolean('self_cancel_allowed').notNull().default(false),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
     updatedAt: timestamptz('updated_at').notNull().defaultNow(),
   },
   (t) => [
     unique('club_memberships_club_id_unique').on(t.clubId, t.id),
+    index('club_memberships_subscription_idx')
+      .on(t.providerSubscriptionRef)
+      .where(sql`${t.providerSubscriptionRef} IS NOT NULL`),
     uniqueIndex('club_memberships_one_successor')
       .on(t.renewalOf)
       .where(sql`${t.renewalOf} IS NOT NULL`),
@@ -430,9 +442,14 @@ export const clubMembershipPauses = pgTable(
     startsOn: date('starts_on').notNull(),
     endsOn: date('ends_on').notNull(),
     createdBy: text('created_by'),
+    /** Set in the portal by the member (0047): one per membership, no created_by. */
+    byMember: boolean('by_member').notNull().default(false),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
   },
   (t) => [
+    uniqueIndex('club_membership_pauses_one_by_member')
+      .on(t.membershipId)
+      .where(sql`${t.byMember}`),
     foreignKey({
       name: 'club_membership_pauses_membership_fk',
       columns: [t.clubId, t.membershipId],
@@ -628,6 +645,13 @@ export const clubBookings = pgTable(
     createdAt: timestamptz('created_at').notNull().defaultNow(),
     updatedAt: timestamptz('updated_at').notNull().defaultNow(),
     cancelledAt: timestamptz('cancelled_at'),
+    /** member | staff — who cancelled, and whether it held a place then (0047). */
+    cancelKind: text('cancel_kind'),
+    wasGoing: boolean('was_going'),
+    /** The class's rules AS BOOKED, copied by trigger (0047). */
+    noShowFeeCents: integer('no_show_fee_cents'),
+    lateCancelFeeCents: integer('late_cancel_fee_cents'),
+    countsStrikes: boolean('counts_strikes').notNull().default(false),
   },
   (t) => [
     unique('club_bookings_club_id_unique').on(t.clubId, t.id),
@@ -772,6 +796,138 @@ export const clubFaq = pgTable(
   ],
 );
 
+/** A club's own connected Stripe account (0046) — the account id only. */
+export const clubPaymentAccounts = pgTable(
+  'club_payment_accounts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    /** stripe | fake */
+    provider: text('provider').notNull(),
+    accountRef: text('account_ref').notNull(),
+    chargesEnabled: boolean('charges_enabled').notNull().default(false),
+    /** Staff id by value (0039 rule 5). */
+    connectedBy: text('connected_by'),
+    connectedAt: timestamptz('connected_at').notNull().defaultNow(),
+    disconnectedAt: timestamptz('disconnected_at'),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('club_payment_accounts_club_id_unique').on(t.clubId, t.id),
+    uniqueIndex('club_payment_accounts_one_live')
+      .on(t.clubId)
+      .where(sql`${t.disconnectedAt} IS NULL`),
+    uniqueIndex('club_payment_accounts_ref_live')
+      .on(t.accountRef)
+      .where(sql`${t.disconnectedAt} IS NULL`),
+    check('club_payment_accounts_provider_known', sql`${t.provider} IN ('stripe', 'fake')`),
+    // + the guard trigger (only charges_enabled and the disconnect move), in 0046 only.
+  ],
+);
+
+/** One online payment attempt (0046); applied once, by UPDATE … WHERE status = 'open'. */
+export const clubCheckouts = pgTable(
+  'club_checkouts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    /** charge | membership */
+    purpose: text('purpose').notNull(),
+    memberId: uuid('member_id'),
+    chargeId: uuid('charge_id'),
+    planId: uuid('plan_id'),
+    startsOn: date('starts_on'),
+    membershipId: uuid('membership_id'),
+    amountCents: integer('amount_cents').notNull(),
+    /** payment | subscription */
+    mode: text('mode').notNull().default('payment'),
+    provider: text('provider').notNull(),
+    accountRef: text('account_ref').notNull(),
+    sessionRef: text('session_ref'),
+    /** open | paid | expired | unapplied */
+    status: text('status').notNull().default('open'),
+    paymentRef: text('payment_ref'),
+    subscriptionRef: text('subscription_ref'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    completedAt: timestamptz('completed_at'),
+  },
+  (t) => [
+    unique('club_checkouts_club_id_unique').on(t.clubId, t.id),
+    check('club_checkouts_purpose_known', sql`${t.purpose} IN ('charge', 'membership')`),
+    check(
+      'club_checkouts_status_known',
+      sql`${t.status} IN ('open', 'paid', 'expired', 'unapplied')`,
+    ),
+    // The member FK sets member_id NULL and the membership FK sets
+    // membership_id NULL on delete (column lists drizzle cannot express);
+    // declared in 0046 only, with the guard trigger.
+    foreignKey({
+      name: 'club_checkouts_charge_fk',
+      columns: [t.clubId, t.chargeId],
+      foreignColumns: [clubCharges.clubId, clubCharges.id],
+    }),
+    foreignKey({
+      name: 'club_checkouts_plan_fk',
+      columns: [t.clubId, t.planId],
+      foreignColumns: [clubPlans.clubId, clubPlans.id],
+    }),
+    uniqueIndex('club_checkouts_session_unique')
+      .on(t.sessionRef)
+      .where(sql`${t.sessionRef} IS NOT NULL`),
+    uniqueIndex('club_checkouts_one_open_per_charge')
+      .on(t.chargeId)
+      .where(sql`${t.purpose} = 'charge' AND ${t.status} = 'open'`),
+    index('club_checkouts_member_idx')
+      .on(t.clubId, t.memberId)
+      .where(sql`${t.memberId} IS NOT NULL`),
+    index('club_checkouts_charge_idx')
+      .on(t.clubId, t.chargeId)
+      .where(sql`${t.chargeId} IS NOT NULL`),
+    index('club_checkouts_plan_idx')
+      .on(t.clubId, t.planId)
+      .where(sql`${t.planId} IS NOT NULL`),
+    index('club_checkouts_membership_idx')
+      .on(t.clubId, t.memberId, t.membershipId)
+      .where(sql`${t.membershipId} IS NOT NULL`),
+    index('club_checkouts_subscription_idx')
+      .on(t.subscriptionRef)
+      .where(sql`${t.subscriptionRef} IS NOT NULL`),
+    index('club_checkouts_unapplied_idx')
+      .on(t.clubId, t.completedAt)
+      .where(sql`${t.status} = 'unapplied'`),
+  ],
+);
+
+/** The Stripe webhook ledger (0046): ids only, never the payload; pruned after 90 days. */
+export const clubPaymentEvents = pgTable(
+  'club_payment_events',
+  {
+    id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+    provider: text('provider').notNull(),
+    eventId: text('event_id').notNull(),
+    type: text('type').notNull(),
+    accountRef: text('account_ref'),
+    objectRef: text('object_ref'),
+    receivedAt: timestamptz('received_at').notNull().defaultNow(),
+    processedAt: timestamptz('processed_at'),
+    /** applied | ignored | failed */
+    outcome: text('outcome'),
+  },
+  (t) => [
+    unique('club_payment_events_event_unique').on(t.eventId),
+    index('club_payment_events_pending_idx')
+      .on(t.receivedAt)
+      .where(sql`${t.processedAt} IS NULL`),
+    index('club_payment_events_processed_idx')
+      .on(t.processedAt)
+      .where(sql`${t.processedAt} IS NOT NULL`),
+  ],
+);
+
 export type ClubRow = typeof clubs.$inferSelect;
 export type ClubLocationRow = typeof clubLocations.$inferSelect;
 export type ClubStaffRow = typeof clubStaff.$inferSelect;
@@ -785,3 +941,5 @@ export type ClubClassRow = typeof clubClasses.$inferSelect;
 export type ClubClassOccurrenceRow = typeof clubClassOccurrences.$inferSelect;
 export type ClubBookingRow = typeof clubBookings.$inferSelect;
 export type ClubCheckinRow = typeof clubCheckins.$inferSelect;
+export type ClubPaymentAccountRow = typeof clubPaymentAccounts.$inferSelect;
+export type ClubCheckoutRow = typeof clubCheckouts.$inferSelect;

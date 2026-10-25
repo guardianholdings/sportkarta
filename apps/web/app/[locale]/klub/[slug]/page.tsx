@@ -10,9 +10,11 @@ import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
 import { clubsEnabled } from '@/lib/clubs/access';
 import { clubSportLabeler } from '@/lib/clubs/labels';
+import { MIN_ONLINE_CENTS, clubTakesPayments } from '@/lib/clubs/payments';
 import { publicClub } from '@/lib/clubs/public';
 import { formatDateTime } from '@/lib/format';
 import { buildAlternates } from '@/lib/seo';
+import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,10 +51,11 @@ export default async function PublicClubPage({ params }: { params: PageParams })
   if (!clubsEnabled()) notFound();
   const club = await publicClub(slug, locale);
   if (!club) notFound();
-  const [t, tClub, sportLabel] = await Promise.all([
+  const [t, tClub, sportLabel, takesPayments] = await Promise.all([
     getTranslations('ClubPublic'),
     getTranslations('Club'),
     clubSportLabeler(),
+    clubTakesPayments(club.id),
   ]);
   const section = 'space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm';
   const trialClasses = club.classes.filter((c) => c.trialAllowed);
@@ -158,7 +161,7 @@ export default async function PublicClubPage({ params }: { params: PageParams })
           )}
         </section>
 
-        <section className={section} aria-labelledby="plans-h">
+        <section id="ceni" className={section} aria-labelledby="plans-h">
           <h2 id="plans-h" className="text-h4 font-bold text-ink">
             {t('plansTitle')}
           </h2>
@@ -184,6 +187,16 @@ export default async function PublicClubPage({ params }: { params: PageParams })
                   {plan.description && (
                     <p className="mt-1 text-caption text-ink-soft">{plan.description}</p>
                   )}
+                  {takesPayments &&
+                    plan.kind !== 'trial' &&
+                    plan.priceCents >= MIN_ONLINE_CENTS && (
+                      <Link
+                        href={`/klub/${club.slug}/kupi/${plan.id}`}
+                        className={cn(buttonVariants({ size: 'sm' }), 'mt-2')}
+                      >
+                        {t('buyOnline')}
+                      </Link>
+                    )}
                 </li>
               ))}
             </ul>

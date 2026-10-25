@@ -306,6 +306,8 @@ export interface MemberMembership {
   renews: boolean;
   renewalEndsOn: string | null;
   hasSuccessor: boolean;
+  /** Billed by a card subscription (0046): Stripe, not the desk, renews and pauses it. */
+  online: boolean;
 }
 
 export interface MemberCharge {
@@ -378,6 +380,7 @@ export async function memberCard(actor: ClubActor, memberId: string): Promise<Me
              to_char(mb.effective_ends_on, 'YYYY-MM-DD') AS effective_ends_on,
              mb.visits_total, mb.visits_remaining, mb.state, mb.price_cents, mb.paused_today,
              ms.renews, to_char(ms.renewal_ends_on, 'YYYY-MM-DD') AS renewal_ends_on,
+             (ms.provider_subscription_ref IS NOT NULL) AS online,
              EXISTS (SELECT 1 FROM club_memberships nx WHERE nx.renewal_of = ms.id) AS has_successor
         FROM club_membership_balances mb
         JOIN club_memberships ms ON ms.id = mb.membership_id
@@ -442,6 +445,7 @@ export async function memberCard(actor: ClubActor, memberId: string): Promise<Me
       renews: m.renews === true,
       renewalEndsOn: text(m.renewal_ends_on),
       hasSuccessor: m.has_successor === true,
+      online: m.online === true,
     })),
     charges: charges.rows.map((c) => ({
       id: String(c.charge_id),
@@ -565,6 +569,15 @@ export async function setMemberArchived(
       RETURNING m.id
     `);
     if (updated.rows.length === 0) return false;
+    if (archived) {
+      // A client who left stops renewing: the periods already sold run out,
+      // and nothing new is charged (the wave A review).
+      await tx.execute(sql`
+        UPDATE club_memberships ms SET renews = false
+         WHERE ms.member_id = ${memberId}::uuid AND ms.renews
+           AND ${clubWriteScope(actor, 'members.manage', 'ms')}
+      `);
+    }
     await recordClubAudit(tx, {
       clubId: actor.clubId,
       by: { kind: 'staff', actor },

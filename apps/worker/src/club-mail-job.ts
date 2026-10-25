@@ -6,6 +6,7 @@ import {
   chargeClubBookingFees,
   clubMonthFigures,
   feeMailCandidates,
+  receiptCandidates,
   renewClubMemberships,
   renewalMailCandidates,
   claimClubNotification,
@@ -676,6 +677,7 @@ export async function runClubPolicies(
 ): Promise<{
   renewed: number;
   ended: number;
+  failed: number;
   fees: number;
   renewalMail: DeliveryReport;
   feeMail: DeliveryReport;
@@ -803,6 +805,32 @@ export async function runClubHealth(
     }
   }
   return deliverEach(mails, (mail) => sendToStaff(mail, options), { job: 'club.health' });
+}
+
+/**
+ * A member's receipt for an online payment (0046): which plan or charge, and
+ * the amount. Not a fiscal document — the club's fiscal duties stay the
+ * club's (0041's header) — and the card was handled by Stripe, never here.
+ */
+export async function runClubReceipts(options: ClubMailOptions): Promise<DeliveryReport> {
+  return deliverEach(
+    await receiptCandidates(db()),
+    async (candidate) => {
+      const club = await clubForMail(db(), candidate.clubId);
+      const locale = club?.locale ?? 'bg';
+      return sendToMember(
+        {
+          kind: 'payment_received',
+          clubId: candidate.clubId,
+          memberId: candidate.memberId,
+          key: dedupeKey({ kind: 'payment_received', checkoutId: candidate.checkoutId }),
+          values: { label: candidate.label, amount: formatEuro(candidate.amountCents, locale) },
+        },
+        options,
+      );
+    },
+    { job: 'club.payment_event' },
+  );
 }
 
 /** Monthly: freeze the month that just closed (the invoicing basis). */

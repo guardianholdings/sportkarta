@@ -13,10 +13,12 @@ import {
   CLUB_HEALTH_QUEUE,
   CLUB_MATERIALIZE_QUEUE,
   CLUB_NOTIFY_QUEUE,
+  CLUB_PAYMENT_EVENT_QUEUE,
   CLUB_POLICIES_QUEUE,
   CLUB_REMINDERS_QUEUE,
   CLUB_WEEKLY_QUEUE,
   type ClubMaterializeJob,
+  type ClubPaymentEventJob,
 } from '@sportkarta/lib/clubs';
 import { assertDelivered, createMailer } from '@sportkarta/lib/email';
 import { runImport } from '@sportkarta/import-osm';
@@ -28,9 +30,11 @@ import {
   runClubNotify,
   runClubOwnerWeekly,
   runClubPolicies,
+  runClubReceipts,
   runClubReminders,
   runClubRosterDigest,
 } from './club-mail-job.js';
+import { runClubPaymentEvent, sweepClubPaymentEvents } from './club-payments-job.js';
 import { runDivisions } from './divisions-job.js';
 import { runWeeklyDigest } from './digest-job.js';
 import { runOpenDataDump } from './opendata-dump-job.js';
@@ -311,6 +315,8 @@ async function main(): Promise<void> {
   await ensureQueue(CLUB_ACTIVITY_QUEUE, WEEKLY_RETRY);
   await ensureQueue(CLUB_POLICIES_QUEUE, WEEKLY_RETRY);
   await ensureQueue(CLUB_HEALTH_QUEUE, WEEKLY_RETRY);
+  // A Stripe event: retried with backoff by pg-boss, and swept every 10 minutes.
+  await ensureQueue(CLUB_PAYMENT_EVENT_QUEUE, MAIL_RETRY);
 
   // Triggered from the admin UI (Stage 1+) via boss.send('import.osm', {dryRun}).
   // dryRun defaults TRUE — a live import must be requested explicitly, matching
@@ -761,7 +767,7 @@ async function main(): Promise<void> {
       const out = await runClubPolicies({ mailer, siteUrl });
       console.log(
         `[worker] ${CLUB_POLICIES_QUEUE}: ${String(out.renewed)} renewed, ` +
-          `${String(out.ended)} ended, ${String(out.fees)} fee(s); mail ` +
+          `${String(out.ended)} ended, ${String(out.failed)} failed, ${String(out.fees)} fee(s); mail ` +
           `${String(out.renewalMail.sent + out.feeMail.sent)} sent`,
       );
       await reportMailFailures(`${CLUB_POLICIES_QUEUE}/renewal`, out.renewalMail);
@@ -787,6 +793,33 @@ async function main(): Promise<void> {
     }),
   );
   await boss.schedule(CLUB_HEALTH_QUEUE, '10 7 1 * *', {}, { tz: 'Europe/Sofia' });
+
+  // Online payments (0046): apply a verified Stripe event by re-fetching its
+  // object, then send any receipts now owed. A job without an event id is the
+  // sweep (lost enqueues, and receipts whose send failed).
+  await work(
+    CLUB_PAYMENT_EVENT_QUEUE,
+    { batchSize: 1 },
+    logged(CLUB_PAYMENT_EVENT_QUEUE, async (jobs) => {
+      for (const job of jobs) {
+        const data = (job.data ?? {}) as ClubPaymentEventJob;
+        if (typeof data.eventId === 'number') {
+          const result = await runClubPaymentEvent(data.eventId);
+          if (result) {
+            // The event type and outcome only — never an account or an amount.
+            console.log(`[worker] ${CLUB_PAYMENT_EVENT_QUEUE} ${result.type}: ${result.outcome}`);
+          }
+        } else {
+          const swept = await sweepClubPaymentEvents();
+          if (swept > 0)
+            console.log(`[worker] ${CLUB_PAYMENT_EVENT_QUEUE} sweep: ${String(swept)}`);
+        }
+        const receipts = await runClubReceipts({ mailer, siteUrl });
+        await reportMailFailures(`${CLUB_PAYMENT_EVENT_QUEUE}/receipt`, receipts);
+      }
+    }),
+  );
+  await boss.schedule(CLUB_PAYMENT_EVENT_QUEUE, '*/10 * * * *');
 
   // The heartbeat goes LAST, after every other queue is registered. A worker
   // that throws halfway through booting — a bad image, a missing env var — and

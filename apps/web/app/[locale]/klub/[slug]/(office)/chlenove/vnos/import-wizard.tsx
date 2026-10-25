@@ -25,6 +25,11 @@ const SECONDARY =
   'min-h-11 rounded-pill border border-line-strong bg-surface px-4 py-1.5 text-body-sm font-semibold text-ink hover:bg-surface-2 focus-visible:shadow-[var(--ring)]';
 const FIELD = 'rounded-input border border-line-strong bg-surface px-2 py-1.5 text-body-sm';
 
+/** 2026-10-01 → 01.10.2026, the way the club's own export writes a date. */
+function dotted(iso: string): string {
+  return iso.split('-').reverse().join('.');
+}
+
 export function ClubImportWizard(props: {
   slug: string;
   labels: Labels;
@@ -222,7 +227,13 @@ function Wizard({
                       {row.status !== 'invalid' && row.plan
                         ? row.planUnknown
                           ? t('planUnknown', { plan: row.plan })
-                          : row.plan
+                          : row.startsOn && row.endsOn
+                            ? t('planWindow', {
+                                plan: row.plan,
+                                from: dotted(row.startsOn),
+                                to: dotted(row.endsOn),
+                              })
+                            : row.plan
                         : '—'}
                     </td>
                   </tr>

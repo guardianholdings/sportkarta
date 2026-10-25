@@ -409,7 +409,11 @@ export async function updateOwnProfile(
   });
 }
 
-/** Pay terms for one member of staff: report data only, no payroll (0039). */
+/**
+ * Pay terms for one member of staff: report data only, no payroll (0039).
+ * Touching an owner's terms, or one's OWN, is an owner's act
+ * (staff.manage_owners) — a manager cannot set their own share.
+ */
 export async function setPayRate(
   db: TransactionalDb,
   actor: ClubActor,
@@ -422,7 +426,14 @@ export async function setPayRate(
     const updated = await tx.execute(sql`
       UPDATE club_staff s
          SET pay_rate_kind = ${input.kind}, pay_rate_cents = ${cents}, pay_share_bp = ${shareBp}
-       WHERE s.user_id = ${userId} AND ${clubWriteScope(actor, 'staff.manage', 's')}
+       WHERE s.user_id = ${userId}
+         AND ${
+           userId === actor.userId
+             ? clubWriteScope(actor, 'staff.manage_owners', 's')
+             : sql`(CASE WHEN s.role = 'owner'
+                         THEN ${clubWriteScope(actor, 'staff.manage_owners', 's')}
+                         ELSE ${clubWriteScope(actor, 'staff.manage', 's')} END)`
+         }
          AND ${clubFeatureSql(actor.clubId, 'staff_pay')}
       RETURNING s.user_id
     `);
