@@ -11,6 +11,7 @@ import { clubsEnabled } from '@/lib/clubs/access';
 import { isUuid } from '@/lib/clubs/input';
 import { clubTakesPayments } from '@/lib/clubs/payments';
 import { portalView } from '@/lib/clubs/portal';
+import { buyerOfferPrices, clubTakesOffers, type OfferPrice } from '@/lib/clubs/promotions';
 import { publicClub } from '@/lib/clubs/public';
 import { signInHref } from '@/lib/sign-in-destination';
 
@@ -47,13 +48,17 @@ export default async function BuyPlanPage({
   if (!club || !plan) notFound();
   const user = await getCurrentUser();
   if (!user) return redirect({ href: signInHref(`/klub/${slug}/kupi/${planId}`), locale });
-  const [t, tPublic, tClub, takesPayments, view] = await Promise.all([
+  const [t, tPublic, tClub, takesPayments, view, offersOn] = await Promise.all([
     getTranslations('ClubPurchase'),
     getTranslations('ClubPublic'),
     getTranslations('Club'),
     clubTakesPayments(club.id),
     portalView(user.id, slug, locale),
+    clubTakesOffers(club.id),
   ]);
+  // Offers (0049) apply to a one-off purchase only: a subscription renews at
+  // the price it was opened with, so a discount there would repeat.
+  const subscription = plan.autoRenew && plan.validityMonths !== null;
   const { rezultat } = await searchParams;
   const termsUrl = view?.club.termsUrl ?? null;
   // Who it can be for: the account's own record and its children, where the
@@ -64,6 +69,42 @@ export default async function BuyPlanPage({
   const choices = records.filter((r) => fits(r.isMinor));
   const selfMissing = !records.some((r) => r.self) && fits(false);
   const today = sofiaToday();
+  // The price each record would be charged (null: none applies), by the
+  // purchase's own rules; '' is «for me» with no record yet — a new client.
+  const prices =
+    subscription || !offersOn
+      ? null
+      : await buyerOfferPrices(
+          club.id,
+          { kind: 'plan', id: plan.id, unitPriceCents: plan.priceCents, quantity: 1 },
+          choices.map((r) => r.memberId),
+          today,
+        );
+  const priceFor = (memberId: string): OfferPrice | null =>
+    prices === null
+      ? null
+      : memberId === ''
+        ? prices.newClient
+        : (prices.byMember[memberId] ?? null);
+  const options = [...(selfMissing ? [''] : []), ...choices.map((r) => r.memberId)];
+  const offer = priceFor(options[0] ?? '');
+  // With more than one record to choose from, each shows its own price.
+  const pricePerOption = options.length > 1 && options.some((id) => priceFor(id) !== null);
+  const optionPrice = (memberId: string) => {
+    const own = priceFor(memberId);
+    return (
+      <span className="ml-auto font-mono tabular-nums">
+        {own ? (
+          <>
+            <s className="text-text-muted">{formatEuro(plan.priceCents, locale)}</s>{' '}
+            {formatEuro(own.priceCents, locale)}
+          </>
+        ) : (
+          formatEuro(plan.priceCents, locale)
+        )}
+      </span>
+    );
+  };
   const validity = plan.validityMonths
     ? tPublic('validityMonths', { count: plan.validityMonths })
     : tPublic('validityDays', { count: plan.validityDays ?? 1 });
@@ -83,8 +124,16 @@ export default async function BuyPlanPage({
           </p>
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">{plan.name}</h1>
           <p className="font-mono text-h4 tabular-nums text-ink">
-            {formatEuro(plan.priceCents, locale)}
+            {offer ? (
+              <>
+                <s className="text-text-muted">{formatEuro(plan.priceCents, locale)}</s>{' '}
+                {formatEuro(offer.priceCents, locale)}
+              </>
+            ) : (
+              formatEuro(plan.priceCents, locale)
+            )}
           </p>
+          {offer && <p className="text-caption text-ink-soft">{offer.promotion.name}</p>}
         </header>
 
         <div role="status" aria-live="polite">
@@ -152,6 +201,7 @@ export default async function BuyPlanPage({
                     className="size-4 accent-[var(--brand)]"
                   />
                   {t('forMe')}
+                  {pricePerOption && optionPrice('')}
                 </label>
               )}
               {choices.map((record, index) => (
@@ -167,6 +217,7 @@ export default async function BuyPlanPage({
                     className="size-4 accent-[var(--brand)]"
                   />
                   {record.self ? t('forMe') : record.displayName}
+                  {pricePerOption && optionPrice(record.memberId)}
                 </label>
               ))}
             </fieldset>
@@ -207,9 +258,25 @@ export default async function BuyPlanPage({
                 </label>
               </>
             )}
+            {offersOn && !subscription && (
+              <label className="block text-body-sm font-semibold text-ink">
+                {t('code')}
+                <input
+                  name="code"
+                  maxLength={24}
+                  autoCapitalize="characters"
+                  className="mt-1 block min-h-11 w-full rounded-input border border-line-strong bg-surface px-3 font-mono text-body-sm uppercase text-ink focus-visible:border-brand"
+                />
+                <span className="mt-1 block text-caption font-normal text-text-muted">
+                  {t('codeHint')}
+                </span>
+              </label>
+            )}
             <p className="text-caption text-text-muted">{t('stripeNote')}</p>
             <Button type="submit" block>
-              {t('pay', { amount: formatEuro(plan.priceCents, locale) })}
+              {offersOn && !subscription
+                ? t('payWithOffers')
+                : t('pay', { amount: formatEuro(plan.priceCents, locale) })}
             </Button>
           </form>
         )}

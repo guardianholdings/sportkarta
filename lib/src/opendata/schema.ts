@@ -206,6 +206,7 @@ export const DENIED_IDENTIFIERS = [
   'recorded',
   'recorder',
   'reporter',
+  'reversed',
   'rsvp',
   'secret',
   'session',

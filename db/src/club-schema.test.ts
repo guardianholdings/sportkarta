@@ -245,6 +245,7 @@ describe.skipIf(!hasDb)('club schema (requires running database)', () => {
         'club_charge_balances',
         'club_member_status',
         'club_membership_balances',
+        'club_product_stock',
       ]);
       for (const view of views.rows) {
         expect(view.options ?? [], view.relname).toContain('security_invoker=true');

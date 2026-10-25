@@ -198,7 +198,19 @@ browser) in a MANUAL STEPS list at the end of the session.
   `club_calendar_claims`, written ONLY by triggers (a guard refuses any other
   writer) and refused on overlap by EXCLUDE constraints; a pool resource is
   counted by units under `FOR NO KEY UPDATE`. Availability is recomputed on the
-  server before every booking, never taken from a form. Writes need `clubWritableSql` (active and paid or
+  server before every booking, never taken from a form. Shop and offers (wave
+  B1, `0049`): a till sale is ONE transaction — gapless number, snapshot lines,
+  stock out, one `product` charge, payment or account, the offer's use — and
+  is reversed, never edited (and its charge is never voided on its own). Keys
+  inside a club are NO ACTION, which a purge survives only because every
+  table has its OWN `club_id → clubs` CASCADE — a child reached solely
+  through another table is checked before it is gone and refuses the purge
+  (why `club_sale_lines` carries one). Offers are decided by the pure engine
+  inside the purchase's transaction (`resolveOffer`, which locks a capped
+  offer); a use is DERIVED (a reversed sale or a mistaken membership frees
+  it) and an OPEN online checkout carrying an offer counts as one (a
+  reservation, with a 31-minute session), so a voucher cannot be spent twice.
+  Tills and desks show the post-offer total via `previewOffer`. Writes need `clubWritableSql` (active and paid or
   community, 14-day grace); every public surface embeds `clubRenderableSql`.
   Check-ins never refuse (`covered=false` is recorded); only a QR/card visit of
   a consenting linked member writes `training_logs(source='club',

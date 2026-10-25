@@ -11,6 +11,7 @@ import {
   pgSequence,
   pgTable,
   primaryKey,
+  smallint,
   text,
   timestamp,
   unique,
@@ -856,6 +857,9 @@ export const clubCheckouts = pgTable(
     status: text('status').notNull().default('open'),
     paymentRef: text('payment_ref'),
     subscriptionRef: text('subscription_ref'),
+    /** The offer an online purchase was opened with (0049); fixed with the rest. */
+    promotionId: uuid('promotion_id'),
+    discountCents: integer('discount_cents'),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
     completedAt: timestamptz('completed_at'),
   },
@@ -1038,6 +1042,162 @@ export const clubReservations = pgTable(
     // cannot express the EXCLUDE constraints or the claim triggers).
   ],
 );
+
+/** What a club sells over the counter (0049). Archived, never deleted, once sold or counted. */
+export const clubProducts = pgTable(
+  'club_products',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    sku: text('sku'),
+    /** drink | food | supplement | apparel | equipment | other */
+    category: text('category').notNull().default('other'),
+    priceCents: integer('price_cents').notNull(),
+    /** 0 | 900 | 2000 (basis points) — what an invoice line carries. */
+    vatRateBp: integer('vat_rate_bp').notNull().default(2000),
+    trackStock: boolean('track_stock').notNull().default(true),
+    lowStockAt: integer('low_stock_at'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    archivedAt: timestamptz('archived_at'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique('club_products_club_id_unique').on(t.clubId, t.id)],
+);
+
+/** The stock ledger (0049), append-only by trigger; on hand = club_product_stock. */
+export const clubStockMovements = pgTable(
+  'club_stock_movements',
+  {
+    id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    productId: uuid('product_id').notNull(),
+    /** receive | sale | return | adjust | waste — the sign follows the kind. */
+    kind: text('kind').notNull(),
+    quantity: integer('quantity').notNull(),
+    saleId: uuid('sale_id'),
+    unitCostCents: integer('unit_cost_cents'),
+    /** Staff id by value (0039 rule 5). */
+    recordedBy: text('recorded_by'),
+    recordedAt: timestamptz('recorded_at').notNull().defaultNow(),
+  },
+  (t) => [index('club_stock_movements_product_idx').on(t.clubId, t.productId)],
+);
+
+/** Gapless per-club counters (0049): `sale`, later `invoice`. */
+export const clubNumberSequences = pgTable(
+  'club_number_sequences',
+  {
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    lastValue: bigint('last_value', { mode: 'number' }).notNull(),
+  },
+  (t) => [primaryKey({ name: 'club_number_sequences_pkey', columns: [t.clubId, t.kind] })],
+);
+
+/** One till sale (0049); a fact, only reversed (once). Not a fiscal receipt. */
+export const clubSales = pgTable(
+  'club_sales',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    number: bigint('number', { mode: 'number' }).notNull(),
+    /** SET NULL on erasure (column list in 0049 only). */
+    memberId: uuid('member_id'),
+    locationId: uuid('location_id'),
+    chargeId: uuid('charge_id'),
+    subtotalCents: integer('subtotal_cents').notNull(),
+    discountCents: integer('discount_cents').notNull().default(0),
+    totalCents: integer('total_cents').notNull(),
+    /** Staff ids by value (0039 rule 5). */
+    soldBy: text('sold_by').notNull(),
+    soldAt: timestamptz('sold_at').notNull().defaultNow(),
+    reversedAt: timestamptz('reversed_at'),
+    reversedBy: text('reversed_by'),
+  },
+  (t) => [
+    unique('club_sales_club_id_unique').on(t.clubId, t.id),
+    unique('club_sales_number_unique').on(t.clubId, t.number),
+    unique('club_sales_charge_unique').on(t.chargeId),
+  ],
+);
+
+/** A till sale's lines as snapshots (0049); never changed. */
+export const clubSaleLines = pgTable(
+  'club_sale_lines',
+  {
+    /** Its own key to clubs, so a purge empties it in the first round (0049). */
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    saleId: uuid('sale_id').notNull(),
+    lineNo: smallint('line_no').notNull(),
+    productId: uuid('product_id').notNull(),
+    name: text('name').notNull(),
+    unitPriceCents: integer('unit_price_cents').notNull(),
+    quantity: integer('quantity').notNull(),
+    discountCents: integer('discount_cents').notNull().default(0),
+    totalCents: integer('total_cents').notNull(),
+    vatRateBp: integer('vat_rate_bp').notNull(),
+  },
+  (t) => [primaryKey({ name: 'club_sale_lines_pkey', columns: [t.saleId, t.lineNo] })],
+);
+
+/** A club offer (0049): a code, or automatic (no code). */
+export const clubPromotions = pgTable(
+  'club_promotions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    code: text('code'),
+    /** percent (basis points) | amount (cents off) | fixed_price (cents) */
+    kind: text('kind').notNull(),
+    value: integer('value').notNull(),
+    /** all | plans | products */
+    target: text('target').notNull().default('all'),
+    targetIds: uuid('target_ids').array(),
+    startsOn: date('starts_on').notNull(),
+    endsOn: date('ends_on'),
+    maxUses: integer('max_uses'),
+    perMemberMax: integer('per_member_max'),
+    newMembersOnly: boolean('new_members_only').notNull().default(false),
+    minVisits90d: integer('min_visits_90d'),
+    archivedAt: timestamptz('archived_at'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique('club_promotions_club_id_unique').on(t.clubId, t.id)],
+);
+
+/** Each use of an offer (0049), append-only by trigger; uses are derived. */
+export const clubPromotionRedemptions = pgTable('club_promotion_redemptions', {
+  id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+  clubId: uuid('club_id')
+    .notNull()
+    .references(() => clubs.id, { onDelete: 'cascade' }),
+  promotionId: uuid('promotion_id').notNull(),
+  /** membership | sale */
+  subject: text('subject').notNull(),
+  memberId: uuid('member_id'),
+  membershipId: uuid('membership_id'),
+  saleId: uuid('sale_id'),
+  discountCents: integer('discount_cents').notNull(),
+  redeemedAt: timestamptz('redeemed_at').notNull().defaultNow(),
+  // + the composite foreign keys, the SET NULL column lists and the guards,
+  // declared in 0049 only.
+});
 
 export type ClubRow = typeof clubs.$inferSelect;
 export type ClubLocationRow = typeof clubLocations.$inferSelect;

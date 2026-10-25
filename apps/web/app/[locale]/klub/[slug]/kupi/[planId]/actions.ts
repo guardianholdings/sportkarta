@@ -1,7 +1,7 @@
 'use server';
 
 import { getDb } from '@sportkarta/db';
-import { isIsoDate } from '@sportkarta/lib/clubs';
+import { isIsoDate, normalizePromoCode } from '@sportkarta/lib/clubs';
 import { getLocale } from 'next-intl/server';
 import { redirect as redirectOut } from 'next/navigation';
 
@@ -38,6 +38,9 @@ export async function buyPlanAction(formData: FormData): Promise<void> {
   if (!clubMemberActionLimiter.check(`buy:${user.id}`).allowed) return back('rate_limited');
   const forMember = str(formData, 'memberId');
   const startsOn = str(formData, 'startsOn');
+  const codeRaw = str(formData, 'code').trim();
+  const code = codeRaw === '' ? null : normalizePromoCode(codeRaw);
+  if (codeRaw !== '' && code === null) return back('code_invalid');
   const started = await startPlanCheckout(
     getDb(),
     user.id,
@@ -49,6 +52,7 @@ export async function buyPlanAction(formData: FormData): Promise<void> {
       // Whether the club HAS terms is decided in the statement, never by a
       // hidden field the browser could drop.
       termsAccepted: str(formData, 'terms') === '1',
+      code,
     },
     checkoutReturn(locale),
   );

@@ -26,6 +26,7 @@ import {
   setMembershipRenewal,
   voidCharge,
 } from '@/lib/clubs/sales';
+import { isTillSaleCharge } from '@/lib/clubs/shop';
 
 /**
  * The member screens' actions. Each re-gates with requireClubStaff for the
@@ -192,7 +193,12 @@ export async function memberOpAction(formData: FormData): Promise<void> {
     case 'void': {
       const { actor } = await requireClubStaff(slug, 'charges.void');
       const chargeId = str(formData, 'chargeId');
-      if (!isUuid(chargeId) || !(await voidCharge(db, actor, chargeId))) outcome = 'not_found';
+      if (!isUuid(chargeId)) {
+        outcome = 'not_found';
+      } else if (!(await voidCharge(db, actor, chargeId))) {
+        // A till sale's charge is undone by reversing the sale (0049).
+        outcome = (await isTillSaleCharge(actor, chargeId)) ? 'till_sale_charge' : 'not_found';
+      }
       break;
     }
     case 'checkin': {

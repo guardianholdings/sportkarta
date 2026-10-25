@@ -9,10 +9,15 @@ import {
   addDaysIso,
   isClubSport,
   isIsoDate,
+  PROMOTION_KINDS,
+  PROMOTION_TARGETS,
   formatClock,
+  normalizePromoCode,
   parseClock,
   parseClosing,
   parseEuroCents,
+  type PromotionKind,
+  type PromotionTarget,
   type ClubCancelReason,
   type ClubKind,
   type ClubPaymentMethod,
@@ -600,9 +605,15 @@ export interface SaleInput {
   memberId: string;
   planId: string;
   startsOn: IsoDate;
-  /** Paid at the desk now; null = an open charge, due on `dueOn`. */
-  payment: PaymentPart | null;
+  /**
+   * Paid at the desk now; null = an open charge, due on `dueOn`. A null
+   * amount is "all of it" — the price after any offer, which the desk need
+   * not work out by hand.
+   */
+  payment: (Omit<PaymentPart, 'amountCents'> & { amountCents: number | null }) | null;
   dueOn: IsoDate;
+  /** A typed offer code (0049), normalised; absent or null when none was typed. */
+  code?: string | null;
 }
 
 function isoDateField(form: Reader, name: string, errors: string[], code: string): IsoDate | null {
@@ -621,18 +632,24 @@ export function parseSale(form: Reader, today: IsoDate): InputResult<SaleInput> 
   const planId = text(form, 'planId');
   if (!isUuid(planId)) errors.push('plan_required');
   const startsOn = isoDateField(form, 'startsOn', errors, 'starts_on_invalid');
-  let payment: PaymentPart | null = null;
+  let payment: SaleInput['payment'] = null;
   if (text(form, 'payNow') !== 'later') {
     const method = oneOf(text(form, 'method'), CLUB_PAYMENT_METHODS);
     if (!method) errors.push('method_invalid');
-    const amountCents = parseEuroCents(text(form, 'amount'));
-    if (amountCents === null || amountCents === 0) errors.push('amount_invalid');
+    const amountRaw = text(form, 'amount');
+    const amountCents = amountRaw === '' ? null : parseEuroCents(amountRaw);
+    if (amountRaw !== '' && (amountCents === null || amountCents === 0)) {
+      errors.push('amount_invalid');
+    }
     const receivedOn = text(form, 'receivedOn') || today;
     if (!isIsoDate(receivedOn) || receivedOn > today) errors.push('received_on_invalid');
-    if (method && amountCents && isIsoDate(receivedOn)) {
+    if (method && amountCents !== 0 && isIsoDate(receivedOn)) {
       payment = { method, amountCents, receivedOn };
     }
   }
+  const codeRaw = text(form, 'code');
+  const code = codeRaw === '' ? null : normalizePromoCode(codeRaw);
+  if (codeRaw !== '' && code === null) errors.push('code_invalid');
   const dueRaw = text(form, 'dueOn');
   const dueOn = dueRaw === '' ? addDaysIso(startsOn ?? today, 7) : dueRaw;
   if (!isIsoDate(dueOn)) errors.push('due_on_invalid');
@@ -645,6 +662,7 @@ export function parseSale(form: Reader, today: IsoDate): InputResult<SaleInput> 
       startsOn,
       payment,
       dueOn,
+      code,
     },
   };
 }
@@ -1217,6 +1235,238 @@ export function parseReservationRequest(form: Reader): InputResult<ReservationRe
       local: local.slice(0, 5),
       durationMinutes,
       memberId: memberRaw === '' ? null : memberRaw,
+    },
+  };
+}
+
+// ─── Shop and offers (0049, wave B1) ───────────────────────────────────────
+
+export const CLUB_PRODUCT_CATEGORIES = [
+  'drink',
+  'food',
+  'supplement',
+  'apparel',
+  'equipment',
+  'other',
+] as const;
+export type ClubProductCategory = (typeof CLUB_PRODUCT_CATEGORIES)[number];
+/** The VAT rates a product carries, in basis points (0049's club_products_vat_known). */
+export const CLUB_VAT_RATES = [2000, 900, 0] as const;
+
+export interface ProductInput {
+  name: string;
+  sku: string | null;
+  category: ClubProductCategory;
+  priceCents: number;
+  vatRateBp: number;
+  trackStock: boolean;
+  lowStockAt: number | null;
+  sortOrder: number;
+}
+
+export function parseProduct(form: Reader): InputResult<ProductInput> {
+  const errors: string[] = [];
+  const name = required(text(form, 'name'), 80, errors, 'name');
+  const skuRaw = text(form, 'sku');
+  const sku = skuRaw === '' ? null : skuRaw;
+  if (sku !== null && !/^[A-Za-z0-9._-]{1,40}$/.test(sku)) errors.push('sku_invalid');
+  const category = oneOf(text(form, 'category') || 'other', CLUB_PRODUCT_CATEGORIES);
+  if (!category) errors.push('category_invalid');
+  const priceCents = parseEuroCents(text(form, 'price'));
+  if (priceCents === null || priceCents > 10_000_000) errors.push('price_invalid');
+  const vat = Number(text(form, 'vatRate') || '2000');
+  const vatRateBp = (CLUB_VAT_RATES as readonly number[]).includes(vat) ? vat : null;
+  if (vatRateBp === null) errors.push('vat_invalid');
+  const lowRaw = text(form, 'lowStockAt');
+  const lowStockAt = lowRaw === '' ? null : intInRange(lowRaw, 0, 100_000);
+  if (lowRaw !== '' && lowStockAt === null) errors.push('low_stock_invalid');
+  const sortOrder = intInRange(text(form, 'sortOrder') || '0', -1000, 1000) ?? 0;
+  if (errors.length > 0 || !category || priceCents === null || vatRateBp === null) {
+    return { ok: false, errors };
+  }
+  return {
+    ok: true,
+    value: {
+      name,
+      sku,
+      category,
+      priceCents,
+      vatRateBp,
+      trackStock: checked(form, 'trackStock'),
+      lowStockAt,
+      sortOrder,
+    },
+  };
+}
+
+/** A stock act from the products screen: a delivery, a write-off, or a count. */
+export interface StockInput {
+  productId: string;
+  kind: 'receive' | 'waste' | 'count';
+  /** receive / waste: how many; count: how many are actually on the shelf. */
+  quantity: number;
+  unitCostCents: number | null;
+}
+
+export function parseStock(form: Reader): InputResult<StockInput> {
+  const errors: string[] = [];
+  const productId = text(form, 'productId');
+  if (!isUuid(productId)) errors.push('product_invalid');
+  const kind = oneOf(text(form, 'kind'), ['receive', 'waste', 'count'] as const);
+  if (!kind) errors.push('stock_kind_invalid');
+  const quantity = intInRange(text(form, 'quantity'), kind === 'count' ? 0 : 1, 100_000);
+  if (quantity === null) errors.push('stock_quantity_invalid');
+  const costRaw = text(form, 'unitCost');
+  const unitCostCents = costRaw === '' || kind !== 'receive' ? null : parseEuroCents(costRaw);
+  if (kind === 'receive' && costRaw !== '' && unitCostCents === null) errors.push('price_invalid');
+  if (errors.length > 0 || !kind || quantity === null) return { ok: false, errors };
+  return { ok: true, value: { productId: productId.toLowerCase(), kind, quantity, unitCostCents } };
+}
+
+/** What the till sends: lines (`<productId>:<quantity>`), a client, how it is paid. */
+export interface TillSaleInput {
+  lines: { productId: string; quantity: number }[];
+  memberId: string | null;
+  /** null = left on the client's account (a client is then required). */
+  method: 'cash' | 'card_desk' | 'other' | null;
+  code: string | null;
+  locationId: string | null;
+}
+
+export const TILL_METHODS = ['cash', 'card_desk', 'other'] as const;
+
+/**
+ * The cart as `productId:quantity` strings — one product's lines summed.
+ * Null when any line is malformed, there is none, or a limit is passed.
+ */
+export function parseTillLines(raw: readonly unknown[]): TillSaleInput['lines'] | null {
+  const quantities = new Map<string, number>();
+  for (const entry of raw) {
+    if (typeof entry !== 'string') return null;
+    const [id, qty] = entry.split(':');
+    const quantity = Number(qty);
+    if (!isUuid(id) || !Number.isInteger(quantity) || quantity < 1 || quantity > 1000) return null;
+    const key = id.toLowerCase();
+    quantities.set(key, (quantities.get(key) ?? 0) + quantity);
+  }
+  const lines = [...quantities].map(([productId, quantity]) => ({ productId, quantity }));
+  if (lines.length === 0 || lines.length > 200 || lines.some((l) => l.quantity > 1000)) {
+    return null;
+  }
+  return lines;
+}
+
+export function parseTillSale(form: Reader): InputResult<TillSaleInput> {
+  const errors: string[] = [];
+  const raw = form.getAll('line');
+  const lines = parseTillLines(raw) ?? [];
+  if (raw.length === 0) errors.push('cart_empty');
+  else if (lines.length === 0) errors.push('line_invalid');
+  const memberRaw = text(form, 'memberId');
+  const memberId = memberRaw === '' ? null : memberRaw;
+  if (memberId !== null && !isUuid(memberId)) errors.push('member_required');
+  const methodRaw = text(form, 'method');
+  const method = methodRaw === 'account' ? null : oneOf(methodRaw || 'cash', TILL_METHODS);
+  if (methodRaw !== 'account' && !method) errors.push('method_invalid');
+  if (methodRaw === 'account' && memberId === null) errors.push('account_needs_member');
+  const codeRaw = text(form, 'code');
+  const code = codeRaw === '' ? null : normalizePromoCode(codeRaw);
+  if (codeRaw !== '' && code === null) errors.push('code_invalid');
+  const locationRaw = text(form, 'locationId');
+  const locationId = isUuid(locationRaw) ? locationRaw.toLowerCase() : null;
+  if (errors.length > 0) return { ok: false, errors: [...new Set(errors)] };
+  return {
+    ok: true,
+    value: { lines, memberId: memberId?.toLowerCase() ?? null, method, code, locationId },
+  };
+}
+
+export interface PromotionInput {
+  name: string;
+  code: string | null;
+  kind: PromotionKind;
+  value: number;
+  target: PromotionTarget;
+  targetIds: string[] | null;
+  startsOn: IsoDate;
+  endsOn: IsoDate | null;
+  maxUses: number | null;
+  perMemberMax: number | null;
+  newMembersOnly: boolean;
+  minVisits90d: number | null;
+}
+
+function optionalInt(
+  form: Reader,
+  name: string,
+  min: number,
+  max: number,
+  errors: string[],
+  code: string,
+): number | null {
+  const raw = text(form, name);
+  if (raw === '') return null;
+  const value = intInRange(raw, min, max);
+  if (value === null) errors.push(code);
+  return value;
+}
+
+export function parsePromotion(form: Reader, today: IsoDate): InputResult<PromotionInput> {
+  const errors: string[] = [];
+  const name = required(text(form, 'name'), 80, errors, 'name');
+  const codeRaw = text(form, 'code');
+  const code = codeRaw === '' ? null : normalizePromoCode(codeRaw);
+  if (codeRaw !== '' && code === null) errors.push('code_invalid');
+  const kind = oneOf(text(form, 'kind'), PROMOTION_KINDS);
+  if (!kind) errors.push('promotion_kind_invalid');
+  // Percent typed as a percentage (12,5), stored in basis points; amounts in euros.
+  const valueRaw = text(form, 'value').replace(',', '.');
+  let value: number | null = null;
+  if (kind === 'percent') {
+    const percent = Number(valueRaw);
+    value = /^\d{1,3}(\.\d{1,2})?$/.test(valueRaw) ? Math.round(percent * 100) : null;
+    if (value === null || value < 1 || value > 10_000) value = null;
+  } else if (kind) {
+    value = parseEuroCents(text(form, 'value'));
+    if (value !== null && (value > 10_000_000 || (kind === 'amount' && value === 0))) value = null;
+  }
+  if (kind && value === null) errors.push('promotion_value_invalid');
+  const target = oneOf(text(form, 'target') || 'all', PROMOTION_TARGETS);
+  if (!target) errors.push('promotion_target_invalid');
+  const ids = [
+    ...new Set(
+      form.getAll('targetIds').filter((v): v is string => typeof v === 'string' && isUuid(v)),
+    ),
+  ].map((id) => id.toLowerCase());
+  const startsRaw = text(form, 'startsOn') || today;
+  const startsOn = isIsoDate(startsRaw) ? startsRaw : null;
+  if (!startsOn) errors.push('starts_on_invalid');
+  const endsRaw = text(form, 'endsOn');
+  const endsOn = endsRaw === '' ? null : isIsoDate(endsRaw) ? endsRaw : null;
+  if (endsRaw !== '' && (endsOn === null || (startsOn !== null && endsOn < startsOn))) {
+    errors.push('ends_on_invalid');
+  }
+  const maxUses = optionalInt(form, 'maxUses', 1, 1_000_000, errors, 'max_uses_invalid');
+  const perMemberMax = optionalInt(form, 'perMemberMax', 1, 1000, errors, 'per_member_invalid');
+  const minVisits90d = optionalInt(form, 'minVisits', 1, 365, errors, 'min_visits_invalid');
+  if (errors.length > 0 || !kind || value === null || !target || !startsOn) {
+    return { ok: false, errors };
+  }
+  return {
+    ok: true,
+    value: {
+      name,
+      code,
+      kind,
+      value,
+      target,
+      targetIds: ids.length > 0 ? ids.slice(0, 200) : null,
+      startsOn,
+      endsOn,
+      maxUses,
+      perMemberMax,
+      newMembersOnly: checked(form, 'newMembersOnly'),
+      minVisits90d,
     },
   };
 }

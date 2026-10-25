@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -334,14 +334,35 @@ export interface SaleFormLabels {
   /** "{plan} for {member}: {price}" */
   summary: string;
   submit: string;
+  /** Offers (0049): the code field, the blank-amount hint, and the note. */
+  code: string;
+  amountAll: string;
+  offersNote: string;
+  /** "{price} instead of {list} ({offer})" — the summary's price under an offer. */
+  offerPrice: string;
 }
+
+export type SalePreviewState =
+  | {
+      ok: true;
+      listCents: number;
+      discountCents: number;
+      priceCents: number;
+      offerName: string | null;
+    }
+  | { ok: false; error: string };
 
 /**
  * One form, three parts: who, what, and how it is paid. The summary line
  * above the button IS the confirmation — what will be recorded, in words.
+ * With offers, its price is asked of the server (`preview`, the decision the
+ * sale itself makes) as the client, plan or code changes, so the desk quotes
+ * and takes the amount the books will hold.
  */
 export function SaleForm({
   action,
+  preview,
+  locale,
   slug,
   labels,
   messages,
@@ -350,9 +371,19 @@ export function SaleForm({
   today,
   defaultMemberId,
   defaultPlanId,
+  offers = false,
 }: {
   action: Action;
+  preview?: (input: {
+    slug: string;
+    memberId: string;
+    planId: string;
+    code: string;
+  }) => Promise<SalePreviewState>;
+  locale: string;
   slug: string;
+  /** The club's tier has offers: a code field, and a blank amount means "all of it". */
+  offers?: boolean;
   labels: SaleFormLabels;
   messages: ClubFormMessages;
   members: { id: string; label: string }[];
@@ -365,18 +396,56 @@ export function SaleForm({
   const [memberId, setMemberId] = useState(defaultMemberId ?? '');
   const [planId, setPlanId] = useState(defaultPlanId ?? plans[0]?.id ?? '');
   const [payNow, setPayNow] = useState(true);
+  const [code, setCode] = useState('');
+  const [priced, setPriced] = useState<{ key: string; result: SalePreviewState } | null>(null);
   const plan = plans.find((p) => p.id === planId);
   const member = members.find((m) => m.id === memberId);
-  const summary = useMemo(
+  const euro = useMemo(
     () =>
-      plan && member
-        ? labels.summary
-            .replace('{plan}', plan.label)
-            .replace('{member}', member.label)
-            .replace('{price}', plan.priceText)
-        : null,
-    [plan, member, labels.summary],
+      new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'bg-BG', {
+        style: 'currency',
+        currency: 'EUR',
+      }),
+    [locale],
   );
+  const priceKey = `${memberId}|${planId}|${code.trim()}`;
+  useEffect(() => {
+    if (!offers || !preview || memberId === '' || planId === '') return;
+    let live = true;
+    const timer = setTimeout(() => {
+      preview({ slug, memberId, planId, code })
+        .then((result) => {
+          if (live) setPriced({ key: priceKey, result });
+        })
+        .catch(() => {
+          // No answer: the list price shows, and the sale decides.
+        });
+    }, 250);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [offers, preview, slug, memberId, planId, code, priceKey]);
+  // Only an answer for exactly this client, plan and code counts.
+  const current = priced?.key === priceKey ? priced.result : null;
+  const codeProblem =
+    current && !current.ok && code.trim() !== ''
+      ? (messages.errors[current.error] ?? messages.genericError)
+      : null;
+  const priceText =
+    plan && current?.ok && current.discountCents > 0
+      ? labels.offerPrice
+          .replace('{price}', euro.format(current.priceCents / 100))
+          .replace('{list}', plan.priceText)
+          .replace('{offer}', current.offerName ?? '')
+      : plan?.priceText;
+  const summary =
+    plan && member && priceText
+      ? labels.summary
+          .replace('{plan}', plan.label)
+          .replace('{member}', member.label)
+          .replace('{price}', priceText)
+      : null;
   return (
     <form {...formProps} className="space-y-4">
       <input type="hidden" name="slug" value={slug} />
@@ -490,7 +559,8 @@ export function SaleForm({
                 name="amount"
                 inputMode="decimal"
                 key={planId}
-                defaultValue={plan?.price ?? ''}
+                defaultValue={offers ? '' : (plan?.price ?? '')}
+                placeholder={offers ? labels.amountAll : undefined}
               />
             </div>
             <div className="space-y-1">
@@ -515,6 +585,30 @@ export function SaleForm({
           </div>
         )}
       </fieldset>
+      {offers && (
+        <div className="space-y-1">
+          <label className={label} htmlFor="sale-code">
+            {labels.code}
+          </label>
+          <Input
+            id="sale-code"
+            name="code"
+            maxLength={24}
+            autoCapitalize="characters"
+            value={code}
+            onChange={(event) => setCode(event.currentTarget.value)}
+            aria-invalid={codeProblem ? true : undefined}
+            aria-describedby={codeProblem ? 'sale-code-problem' : undefined}
+            className="max-w-xs font-mono uppercase"
+          />
+          {codeProblem && (
+            <p id="sale-code-problem" className="text-caption text-danger">
+              {codeProblem}
+            </p>
+          )}
+          <p className="text-caption text-text-muted">{labels.offersNote}</p>
+        </div>
+      )}
       {summary && (
         <p
           className="rounded-card bg-paper-sunk p-3 text-body font-semibold text-ink"

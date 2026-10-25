@@ -1,4 +1,4 @@
-import { formatEuro } from '@sportkarta/lib/clubs';
+import { advertisedPrice, formatEuro, sofiaToday } from '@sportkarta/lib/clubs';
 import { ExternalLink, MapPin } from 'lucide-react';
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
@@ -11,9 +11,10 @@ import { Link } from '@/i18n/navigation';
 import { clubsEnabled } from '@/lib/clubs/access';
 import { clubSportLabeler } from '@/lib/clubs/labels';
 import { MIN_ONLINE_CENTS, clubTakesPayments } from '@/lib/clubs/payments';
+import { publicOffers } from '@/lib/clubs/promotions';
 import { publicServices } from '@/lib/clubs/reservations';
 import { publicClub } from '@/lib/clubs/public';
-import { formatDateTime } from '@/lib/format';
+import { formatDate, formatDateTime } from '@/lib/format';
 import { buildAlternates } from '@/lib/seo';
 import { cn } from '@/lib/utils';
 
@@ -52,13 +53,25 @@ export default async function PublicClubPage({ params }: { params: PageParams })
   if (!clubsEnabled()) notFound();
   const club = await publicClub(slug, locale);
   if (!club) notFound();
-  const [t, tClub, sportLabel, takesPayments, services] = await Promise.all([
+  const [t, tClub, sportLabel, takesPayments, services, offers] = await Promise.all([
     getTranslations('ClubPublic'),
     getTranslations('Club'),
     clubSportLabeler(),
     clubTakesPayments(club.id),
     publicServices(club.id, locale),
+    publicOffers(club.id, sofiaToday()),
   ]);
+  const today = sofiaToday();
+  // An automatic offer open to a new visitor, struck through (0049). Not on a
+  // subscription, which renews at the price it was opened with.
+  const deal = (plan: (typeof club.plans)[number]) =>
+    plan.kind === 'trial' || (plan.autoRenew && plan.validityMonths !== null)
+      ? null
+      : advertisedPrice(
+          offers,
+          { kind: 'plan', id: plan.id, unitPriceCents: plan.priceCents, quantity: 1 },
+          today,
+        );
   const section = 'space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm';
   const trialClasses = club.classes.filter((c) => c.trialAllowed);
   const paid = club.tier !== 'community';
@@ -176,9 +189,25 @@ export default async function PublicClubPage({ params }: { params: PageParams })
                   <p className="flex items-baseline justify-between gap-2">
                     <span className="font-semibold text-ink">{plan.name}</span>
                     <span className="font-mono tabular-nums text-ink">
-                      {formatEuro(plan.priceCents, locale)}
+                      {deal(plan) ? (
+                        <>
+                          <s className="text-text-muted">{formatEuro(plan.priceCents, locale)}</s>{' '}
+                          {formatEuro(deal(plan)?.priceCents ?? plan.priceCents, locale)}
+                        </>
+                      ) : (
+                        formatEuro(plan.priceCents, locale)
+                      )}
                     </span>
                   </p>
+                  {deal(plan) && (
+                    <p className="text-caption font-semibold text-ink-soft">
+                      {deal(plan)?.promotion.name}
+                      {deal(plan)?.promotion.newMembersOnly ? ` · ${t('offerNewOnly')}` : ''}
+                      {deal(plan)?.promotion.endsOn
+                        ? ` · ${t('offerUntil', { date: formatDate(deal(plan)?.promotion.endsOn ?? today, locale) })}`
+                        : ''}
+                    </p>
+                  )}
                   <p className="text-caption text-text-muted">
                     {plan.validityMonths
                       ? t('validityMonths', { count: plan.validityMonths })

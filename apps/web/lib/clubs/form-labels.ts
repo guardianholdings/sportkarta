@@ -110,6 +110,10 @@ export async function saleFormLabels(): Promise<SaleFormLabels> {
     dueOn: t('dueOn'),
     summary: t('summary', { plan: '{plan}', member: '{member}', price: '{price}' }),
     submit: t('submit'),
+    code: t('code'),
+    amountAll: t('amountAll'),
+    offersNote: t('offersNote'),
+    offerPrice: t('offerPrice', { price: '{price}', list: '{list}', offer: '{offer}' }),
   };
 }
 

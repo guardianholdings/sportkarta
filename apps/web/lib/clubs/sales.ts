@@ -6,11 +6,13 @@ import {
   type ClubPlanAudience,
   type ClubPlanKind,
   type IsoDate,
+  sofiaToday,
 } from '@sportkarta/lib/clubs';
 
 import { recordClubAudit } from './audit';
 import { violatedConstraint } from './errors';
 import type { ChargeInput, PaymentInput, PauseInput, PlanInput, SaleInput } from './input';
+import { previewOffer, recordRedemption, resolveOffer } from './promotions';
 import { clubActorMay, clubScope, clubWriteScope, type ClubActor } from './scope';
 
 /**
@@ -235,7 +237,26 @@ export async function sellMembership(
           ? { days: Number(plan.validity_days) }
           : { months: Number(plan.validity_months) },
       );
-      const priceCents = Number(plan.price_cents);
+      // The offer, if any (0049): decided here, in this transaction, on the
+      // plan's list price — the desk never computes a discount by hand.
+      const listCents = Number(plan.price_cents);
+      const offer = await resolveOffer(
+        tx,
+        actor.clubId,
+        [{ kind: 'plan', id: input.planId, unitPriceCents: listCents, quantity: 1 }],
+        input.memberId,
+        input.code ?? null,
+        sofiaToday(),
+      );
+      if (!offer.ok) return { ok: false, error: offer.error } as const;
+      const discountCents = offer.applied?.totalDiscountCents ?? 0;
+      const priceCents = listCents - discountCents;
+      // An offer can make a priced plan free: nothing is then owed, and an
+      // amount the desk typed (the list price, quoted from memory) must be
+      // refused — never dropped, or the drawer is over and the books are not.
+      if (priceCents === 0 && input.payment?.amountCents) {
+        return { ok: false, error: 'amount_exceeds_due' } as const;
+      }
       // A plan with auto-renewal starts a chain whose term counts from today's
       // first day (0045); the club.renewals job appends the next periods.
       const renews = plan.auto_renew === true;
@@ -277,17 +298,33 @@ export async function sellMembership(
             INSERT INTO club_payments (club_id, charge_id, member_id, kind, amount_cents, method,
                                        received_on, recorded_by)
             VALUES (${actor.clubId}::uuid, ${chargeId}::uuid, ${input.memberId}::uuid, 'payment',
-                    ${input.payment.amountCents}, ${input.payment.method},
+                    ${input.payment.amountCents ?? priceCents}, ${input.payment.method},
                     ${input.payment.receivedOn}::date, ${actor.userId})
           `);
         }
+      }
+      if (offer.applied && discountCents > 0) {
+        await recordRedemption(tx, {
+          clubId: actor.clubId,
+          promotionId: offer.applied.promotion.id,
+          memberId: input.memberId,
+          subject: { membershipId },
+          discountCents,
+        });
       }
       await recordClubAudit(tx, {
         clubId: actor.clubId,
         by: { kind: 'staff', actor },
         action: 'membership_sold',
         subjectMemberId: input.memberId,
-        detail: { planId: input.planId, priceCents, paidCents: input.payment?.amountCents ?? 0 },
+        detail: {
+          planId: input.planId,
+          priceCents,
+          // What was written: no charge (a free plan) means no payment.
+          paidCents:
+            chargeId !== null && input.payment ? (input.payment.amountCents ?? priceCents) : 0,
+          promotionId: offer.applied?.promotion.id ?? null,
+        },
       });
       return { ok: true, membershipId, chargeId } as const;
     });
@@ -296,6 +333,55 @@ export async function sellMembership(
     if (code) return { ok: false, error: code };
     throw error;
   }
+}
+
+export type SalePreview =
+  | {
+      ok: true;
+      listCents: number;
+      discountCents: number;
+      priceCents: number;
+      offerName: string | null;
+    }
+  | { ok: false; error: string };
+
+/**
+ * What a desk sale of this plan to this client WILL cost, offer included —
+ * sellMembership's decision (previewOffer), shown before the desk takes the
+ * money. Writes nothing.
+ */
+export async function previewMembershipSale(
+  db: TransactionalDb,
+  actor: ClubActor,
+  input: { memberId: string; planId: string; code: string | null },
+): Promise<SalePreview> {
+  const found = (
+    await db.execute(sql`
+      SELECT p.price_cents FROM club_plans p
+        JOIN club_members m ON m.club_id = p.club_id AND m.id = ${input.memberId}::uuid
+       WHERE ${clubScope(actor, 'sales.manage', 'p')} AND p.id = ${input.planId}::uuid
+         AND p.archived_at IS NULL AND m.archived_at IS NULL
+    `)
+  ).rows[0];
+  if (!found) return { ok: false, error: 'plan_unavailable' };
+  const listCents = Number(found.price_cents);
+  const offer = await previewOffer(
+    db,
+    actor.clubId,
+    [{ kind: 'plan', id: input.planId, unitPriceCents: listCents, quantity: 1 }],
+    input.memberId,
+    input.code,
+    sofiaToday(),
+  );
+  if (!offer.ok) return { ok: false, error: offer.error };
+  const discountCents = offer.applied?.totalDiscountCents ?? 0;
+  return {
+    ok: true,
+    listCents,
+    discountCents,
+    priceCents: listCents - discountCents,
+    offerName: discountCents > 0 ? (offer.applied?.promotion.name ?? null) : null,
+  };
 }
 
 // ─── Pauses, cancellation ──────────────────────────────────────────────────
@@ -491,6 +577,11 @@ export async function createCharge(
   });
 }
 
+/**
+ * Void a charge. Never a till sale's (0049): that is undone by reversing the
+ * sale, which also returns the goods and stops the offer's use counting —
+ * voiding only its charge would leave the stock and best sellers wrong.
+ */
 export async function voidCharge(
   db: TransactionalDb,
   actor: ClubActor,
@@ -504,6 +595,8 @@ export async function voidCharge(
       UPDATE club_charges ch SET voided_at = now()
        WHERE ch.id = ${chargeId}::uuid AND ch.voided_at IS NULL
          AND ${clubWriteScope(actor, 'charges.void', 'ch')}
+         AND NOT EXISTS (SELECT 1 FROM club_sales sa
+                          WHERE sa.club_id = ch.club_id AND sa.charge_id = ch.id)
          AND ${
            options.onlyIfNothingPaid
              ? sql`coalesce((SELECT sum(pp.amount_cents) FROM club_payments pp

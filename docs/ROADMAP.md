@@ -323,6 +323,22 @@ and, where an outside service is involved, by an env switch as well.
   two members racing for the same court get `slot_taken` even when a second
   court is free.
 - [ ] **B — shop, promotions, wallet, invoices** (waits on the accountant: Н‑18)
+  - [x] **B1 — shop and offers** (`0049`): products with an append-only stock
+    ledger (deliveries, write-offs, shelf counts; on hand derived, may go
+    below zero); the till («Каса») with gapless per-club sale numbers, snapshot
+    lines, one `product` charge per sale, payment or the client's account, a
+    printable receipt marked «Не е фискален бон», and reversal once («сторно»:
+    goods back, money back the way it came, charge voided); best sellers.
+    Offers («Отстъпки»): a code or automatic (struck-through prices on the club
+    page and the purchase page), percent / amount / fixed price, for plans,
+    products or named ones, validity, caps overall and per client, new clients
+    only, a loyalty threshold; one offer per purchase, the best for the buyer
+    (pure engine `lib/src/clubs/promotions.ts`); single-use generated gift
+    vouchers. Applied at the till, on a desk plan sale (a blank amount pays all
+    of it after the offer) and on a one-off online purchase (recorded when the
+    money lands); never on a Stripe subscription. Shop behind `shop` +
+    `CLUB_SHOP_ENABLED`; offers behind `promotions`.
+  - [ ] **B2 — wallet and invoices**
 - [ ] **F — push, SMS, broadcasts, automations, inbox, leads, feedback**
 - [ ] **D — events, camps, tournaments**
 - [ ] **G — waivers and documents, ranks and belts**

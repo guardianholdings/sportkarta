@@ -57,7 +57,12 @@ import {
   sofiaToday,
   trainingSportFor,
   type ClubAccessInput,
+  advertisedPrice,
   availableSlots,
+  bestPromotion,
+  normalizePromoCode,
+  promotionDiscounts,
+  type Promotion,
   parseClock,
   parseClosing,
   intersectSlots,
@@ -774,5 +779,104 @@ describe('booking prices (0048)', () => {
 
   it('refuses an unreadable start', () => {
     expect(priceFor(query({ startLocal: '25:00' }))).toBeNull();
+  });
+});
+
+describe('club offers (0049)', () => {
+  const offer = (overrides: Partial<Promotion> = {}): Promotion => ({
+    id: 'p1',
+    name: 'Оферта',
+    code: null,
+    kind: 'percent',
+    value: 1000,
+    target: 'all',
+    targetIds: null,
+    startsOn: '2026-11-01',
+    endsOn: '2026-11-30',
+    maxUses: null,
+    perMemberMax: null,
+    newMembersOnly: false,
+    minVisits90d: null,
+    uses: 0,
+    ...overrides,
+  });
+  const plan = { kind: 'plan' as const, id: 'plan-1', unitPriceCents: 5000, quantity: 1 };
+  const water = { kind: 'product' as const, id: 'water', unitPriceCents: 150, quantity: 3 };
+  const bar = { kind: 'product' as const, id: 'bar', unitPriceCents: 299, quantity: 1 };
+  const buyer = { isNew: false, visits90d: 12, usesByPromotion: {} };
+
+  it('normalises a typed code, and refuses what cannot be one', () => {
+    expect(normalizePromoCode('  summer-26 ')).toBe('SUMMER-26');
+    expect(normalizePromoCode('ab')).toBeNull();
+    expect(normalizePromoCode('лято')).toBeNull();
+  });
+
+  it('takes percent and fixed price per line, and an amount once, to the cent', () => {
+    expect(promotionDiscounts(offer(), [plan, water])).toEqual([500, 45]);
+    expect(
+      promotionDiscounts(offer({ kind: 'fixed_price', value: 100, target: 'products' }), [
+        plan,
+        water,
+      ]),
+    ).toEqual([0, 150]);
+    // €2 off 450 + 299: shared in proportion, adding up exactly.
+    const shared = promotionDiscounts(offer({ kind: 'amount', value: 200, target: 'products' }), [
+      water,
+      bar,
+    ]);
+    expect(shared.reduce((a, b) => a + b, 0)).toBe(200);
+    expect(shared).toEqual([120, 80]);
+    // Never below zero: €100 off a €7.49 basket takes it to nothing.
+    expect(
+      promotionDiscounts(offer({ kind: 'amount', value: 10_000, target: 'products' }), [
+        water,
+        bar,
+      ]),
+    ).toEqual([450, 299]);
+  });
+
+  it('applies only within its window, its targets and its caps', () => {
+    const today = '2026-11-10';
+    const pick = (p: Promotion, who = buyer as typeof buyer | null, code: string | null = null) =>
+      bestPromotion([p], [plan], who, today, code).applied?.totalDiscountCents ?? 0;
+    expect(pick(offer())).toBe(500);
+    expect(pick(offer({ endsOn: '2026-11-09' }))).toBe(0);
+    expect(pick(offer({ target: 'products' }))).toBe(0);
+    expect(pick(offer({ targetIds: ['plan-2'] }))).toBe(0);
+    expect(pick(offer({ maxUses: 3, uses: 3 }))).toBe(0);
+    expect(pick(offer({ perMemberMax: 1 }), { ...buyer, usesByPromotion: { p1: 1 } })).toBe(0);
+    // Conditions about the buyer never open to a walk-in.
+    expect(pick(offer({ perMemberMax: 1 }), null)).toBe(0);
+    expect(pick(offer({ newMembersOnly: true }))).toBe(0);
+    expect(pick(offer({ newMembersOnly: true }), { ...buyer, isNew: true })).toBe(500);
+    expect(pick(offer({ minVisits90d: 20 }))).toBe(0);
+    expect(pick(offer({ minVisits90d: 10 }))).toBe(500);
+  });
+
+  it('gives one offer — the best — and says when a typed code gave nothing', () => {
+    const today = '2026-11-10';
+    const auto = offer({ id: 'auto', value: 1000 });
+    const coded = offer({ id: 'code', code: 'VIP', value: 2000 });
+    expect(bestPromotion([auto, coded], [plan], buyer, today, 'VIP').applied?.promotion.id).toBe(
+      'code',
+    );
+    expect(bestPromotion([auto, coded], [plan], buyer, today, null).applied?.promotion.id).toBe(
+      'auto',
+    );
+    expect(bestPromotion([auto, coded], [plan], buyer, today, 'NOPE')).toMatchObject({
+      codeRejected: true,
+    });
+    // A tie goes to the code the buyer typed.
+    const same = offer({ id: 'same', code: 'SAME', value: 1000 });
+    expect(bestPromotion([auto, same], [plan], buyer, today, 'SAME').applied?.promotion.id).toBe(
+      'same',
+    );
+  });
+
+  it('advertises only automatic offers open to a new visitor', () => {
+    const today = '2026-11-10';
+    expect(advertisedPrice([offer({ newMembersOnly: true })], plan, today)?.priceCents).toBe(4500);
+    expect(advertisedPrice([offer({ minVisits90d: 5 })], plan, today)).toBeNull();
+    expect(advertisedPrice([offer({ code: 'X12' })], plan, today)).toBeNull();
   });
 });

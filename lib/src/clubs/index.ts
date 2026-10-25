@@ -18,6 +18,7 @@ export * from './money.js';
 export * from './permissions.js';
 export * from './policies.js';
 export * from './pricing.js';
+export * from './promotions.js';
 export * from './slots.js';
 export * from './slug.js';
 export * from './vocab.js';

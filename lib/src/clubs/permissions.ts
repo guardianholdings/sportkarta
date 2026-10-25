@@ -40,6 +40,8 @@ export const CLUB_PERMISSIONS = [
   'payments.view',
   'payments.record',
   'charges.void',
+  'shop.sell',
+  'shop.manage',
   'schedule.view',
   'schedule.manage',
   'roster.view',
@@ -75,6 +77,10 @@ const MATRIX: Readonly<Record<ClubPermission, readonly ClubRole[]>> = {
   'payments.view': FRONT_OF_HOUSE,
   'payments.record': FRONT_OF_HOUSE,
   'charges.void': MANAGEMENT,
+  // The till is the desk's; what is on the shelf, its price and its stock
+  // count are management's (wave B1).
+  'shop.sell': FRONT_OF_HOUSE,
+  'shop.manage': MANAGEMENT,
   'schedule.view': ALL,
   'schedule.manage': MANAGEMENT,
   'roster.view': FRONT_OF_HOUSE,

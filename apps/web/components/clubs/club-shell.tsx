@@ -1,4 +1,9 @@
-import { daysUntilReadOnly, sofiaToday, type ClubPermission } from '@sportkarta/lib/clubs';
+import {
+  daysUntilReadOnly,
+  sofiaToday,
+  type ClubFeature,
+  type ClubPermission,
+} from '@sportkarta/lib/clubs';
 import { Map as MapIcon, User } from 'lucide-react';
 import { getLocale, getTranslations } from 'next-intl/server';
 
@@ -7,6 +12,7 @@ import { BrandMark } from '@/components/shell/app-nav';
 import { Badge } from '@/components/ui/badge';
 import { Link } from '@/i18n/navigation';
 import { actorCan, clubName, type ClubContext } from '@/lib/clubs/club-session';
+import { featureOn } from '@/lib/clubs/features';
 import { formatDate } from '@/lib/format';
 
 import { ClubStateBadge } from './club-state-badge';
@@ -24,7 +30,13 @@ import { ClubStateBadge } from './club-state-badge';
  * its own scope.
  */
 
-const NAV: readonly { segment: string; key: string; permission: ClubPermission }[] = [
+const NAV: readonly {
+  segment: string;
+  key: string;
+  permission: ClubPermission;
+  /** Shown only when the club's tier (and any operator switch) includes it. */
+  feature?: ClubFeature;
+}[] = [
   { segment: 'tablo', key: 'dashboard', permission: 'office.view' },
   { segment: 'prisastviya', key: 'desk', permission: 'attendance.record' },
   { segment: 'grafik', key: 'schedule', permission: 'schedule.view' },
@@ -33,6 +45,9 @@ const NAV: readonly { segment: string; key: string; permission: ClubPermission }
   { segment: 'abonamenti', key: 'plans', permission: 'sales.manage' },
   { segment: 'uslugi', key: 'services', permission: 'schedule.manage' },
   { segment: 'plashtaniya', key: 'payments', permission: 'payments.view' },
+  { segment: 'prodazhbi', key: 'sales', permission: 'shop.sell', feature: 'shop' },
+  { segment: 'produkti', key: 'products', permission: 'shop.manage', feature: 'shop' },
+  { segment: 'promocii', key: 'promotions', permission: 'plans.manage', feature: 'promotions' },
   { segment: 'otcheti', key: 'reports', permission: 'reports.view' },
   { segment: 'ekip', key: 'team', permission: 'staff.view' },
   { segment: 'resursi', key: 'resources', permission: 'settings.manage' },
@@ -56,7 +71,11 @@ export async function ClubShell({
   ]);
   const { club, actor } = context;
   const base = `/klub/${club.slug}`;
-  const items = NAV.filter((item) => actorCan(actor, item.permission)).map((item) => ({
+  const items = NAV.filter(
+    (item) =>
+      actorCan(actor, item.permission) &&
+      (item.feature === undefined || featureOn(club, item.feature)),
+  ).map((item) => ({
     href: `${base}/${item.segment}`,
     label: t(`nav.${item.key}`),
   }));

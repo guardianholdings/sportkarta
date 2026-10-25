@@ -26,6 +26,7 @@ import { siteUrl } from '../seo';
 import { clubWritableGuard } from './access';
 import { recordClubAudit } from './audit';
 import { ensureSelfRecord } from './bookings';
+import { resolveOffer } from './promotions';
 import { voidCharge } from './sales';
 import { violatedConstraint } from './errors';
 import { clubSwitchOn } from './features';
@@ -69,6 +70,14 @@ function text(value: unknown): string | null {
 
 /** Stripe's minimum charge in EUR. */
 export const MIN_ONLINE_CENTS = 50;
+
+/**
+ * A checkout carrying an offer reserves one of its uses while it is open
+ * (0049), so its session is short: Stripe's floor of 30 minutes, plus one so
+ * the request never lands under it. An abandoned one frees the use when its
+ * expiry event arrives.
+ */
+const RESERVED_SESSION_MINUTES = 31;
 
 export function paymentProvider(): PaymentProviderKind {
   return resolvePaymentProvider(process.env);
@@ -299,7 +308,12 @@ export type CheckoutStart =
         /** The member already has a renewing abonnement; stop it first. */
         | 'already_renewing'
         | 'member_cap'
-        | 'terms_required';
+        | 'terms_required'
+        /** A typed offer code gave nothing, or the offer's last use went meanwhile (0049). */
+        | 'code_invalid'
+        | 'offer_used_up'
+        /** An offer takes the price under the online minimum: buy at the desk. */
+        | 'offer_below_minimum';
     };
 
 export interface Return {
@@ -347,6 +361,8 @@ async function openSession(
     back: Return;
     /** A held slot's end: the session dies with it (Stripe's floor is 30 minutes). */
     expiresAt?: Date;
+    /** It carries an offer (0049), whose use it reserves while open: keep it short. */
+    reservesOffer?: boolean;
   },
 ): Promise<string | null> {
   const success = `${input.back.base}/klub/${input.clubSlug}/az/plashtane/${input.checkoutId}`;
@@ -375,7 +391,9 @@ async function openSession(
             ),
             payment_method_types: ['card'],
           }
-        : {}),
+        : input.reservesOffer
+          ? { expires_at: Math.floor((Date.now() + RESERVED_SESSION_MINUTES * 60_000) / 1000) }
+          : {}),
       success_url: success,
       cancel_url: `${input.back.base}/klub/${input.clubSlug}/az?rezultat=payment_cancelled`,
       locale: input.back.locale,
@@ -649,13 +667,46 @@ export async function startPlanCheckout(
     startsOn: IsoDate | null;
     /** The buyer ticked the club's terms (required only when the club has some). */
     termsAccepted: boolean;
+    /** A typed offer code (0049), normalised. */
+    code?: string | null;
   },
   back: Return,
 ): Promise<CheckoutStart> {
   const account = await liveAccount(club.id);
   if (!account) return { ok: false, error: 'unavailable' };
+  // An earlier purchase of this record still open WITH AN OFFER holds one of
+  // its uses (0049): close it first — once the provider confirms it can no
+  // longer be paid — so going back from Stripe and trying again does not find
+  // the voucher used up by the attempt it replaces.
+  const reserved = await getDb().execute(sql`
+    SELECT ck.id, ck.provider, ck.session_ref, ck.account_ref
+      FROM club_checkouts ck
+      JOIN club_members m ON m.club_id = ck.club_id AND m.id = ck.member_id
+     WHERE ck.club_id = ${club.id}::uuid AND ck.purpose = 'membership' AND ck.status = 'open'
+       AND ck.promotion_id IS NOT NULL
+       AND ${
+         input.memberId !== null
+           ? sql`m.id = ${input.memberId}::uuid`
+           : sql`EXISTS (SELECT 1 FROM club_member_links sl
+                          WHERE sl.member_id = m.id AND sl.user_id = ${userId}
+                            AND sl.status = 'active')`
+       }
+       AND ${memberSelfScope(userId, club.id, 'm')}
+  `);
+  for (const row of reserved.rows) {
+    const closed = await closePrevious({
+      id: String(row.id),
+      provider: String(row.provider),
+      sessionRef: text(row.session_ref),
+      accountRef: String(row.account_ref),
+    });
+    if (closed !== 'closed') return { ok: false, error: closed };
+  }
   type Refusal =
     | 'not_allowed'
+    | 'code_invalid'
+    | 'offer_used_up'
+    | 'offer_below_minimum'
     | 'too_small'
     | 'claim_first'
     | 'link_pending'
@@ -668,6 +719,7 @@ export async function startPlanCheckout(
     amount: number;
     label: string;
     months: number | null;
+    offer: boolean;
   }
   // Every refusal ROLLS BACK: a self record created for the purchase must not
   // reach the club when nothing was bought.
@@ -730,26 +782,60 @@ export async function startPlanCheckout(
       ) {
         throw new Refused('member_cap');
       }
-      const amount = Number(found.price_cents);
-      if (amount < MIN_ONLINE_CENTS) throw new Refused('too_small');
       const today = sofiaToday();
+      const months =
+        found.auto_renew === true && found.validity_months !== null
+          ? Number(found.validity_months)
+          : null;
+      // An offer (0049) applies to a one-off purchase. A subscription renews
+      // at Stripe for the price it was opened with, so a discount there would
+      // repeat every period: no offer is applied to one.
+      let promotionId: string | null = null;
+      let discount = 0;
+      if (months === null) {
+        const offer = await resolveOffer(
+          tx,
+          club.id,
+          [
+            {
+              kind: 'plan',
+              id: input.planId,
+              unitPriceCents: Number(found.price_cents),
+              quantity: 1,
+            },
+          ],
+          memberId,
+          input.code ?? null,
+          today,
+        );
+        if (!offer.ok) throw new Refused(offer.error);
+        if (offer.applied) {
+          promotionId = offer.applied.promotion.id;
+          discount = offer.applied.totalDiscountCents;
+        }
+      } else if (input.code) {
+        throw new Refused('code_invalid');
+      }
+      const amount = Number(found.price_cents) - discount;
+      // An offer that takes the price under the provider's minimum: the
+      // buyer is told to buy at the desk, not that the price is too small.
+      if (amount < MIN_ONLINE_CENTS) {
+        throw new Refused(discount > 0 ? 'offer_below_minimum' : 'too_small');
+      }
       // Default start: today, or the day after the abonnement they already hold.
       const earliest = text(found.next_free) ?? today;
       const wanted = input.startsOn && isIsoDate(input.startsOn) ? input.startsOn : earliest;
       const startsOn =
         wanted < today ? today : wanted > addDaysIso(today, 60) ? addDaysIso(today, 60) : wanted;
-      const months =
-        found.auto_renew === true && found.validity_months !== null
-          ? Number(found.validity_months)
-          : null;
       const checkoutId = randomUUID();
       await tx.execute(sql`
       INSERT INTO club_checkouts (id, club_id, purpose, member_id, plan_id, starts_on,
-                                  amount_cents, mode, provider, account_ref)
+                                  amount_cents, mode, provider, account_ref, promotion_id,
+                                  discount_cents)
       VALUES (${checkoutId}::uuid, ${club.id}::uuid, 'membership', ${memberId}::uuid,
               ${input.planId}::uuid, ${startsOn}::date, ${amount},
               ${months === null ? 'payment' : 'subscription'}, ${account.provider},
-              ${account.accountRef})
+              ${account.accountRef}, ${promotionId}::uuid, ${discount > 0 ? discount : null})
     `);
       await recordClubAudit(tx, {
         clubId: club.id,
@@ -758,14 +844,21 @@ export async function startPlanCheckout(
         subjectMemberId: memberId,
         detail: { purpose: 'membership', amountCents: amount },
       });
-      return { checkoutId, amount, label: String(found.name_bg), months };
+      return {
+        checkoutId,
+        amount,
+        label: String(found.name_bg),
+        months,
+        offer: promotionId !== null,
+      };
     });
   } catch (error: unknown) {
     if (error instanceof Refused) return { ok: false, error: error.code };
     throw error;
   }
+  let url: string | null = null;
   try {
-    const url = await openSession(getDb(), {
+    url = await openSession(getDb(), {
       checkoutId: created.checkoutId,
       clubId: club.id,
       clubSlug: club.slug,
@@ -775,13 +868,19 @@ export async function startPlanCheckout(
       subscriptionMonths: created.months,
       email: await verifiedEmail(getDb(), userId),
       back,
+      reservesOffer: created.offer,
     });
-    return url
-      ? { ok: true, url, checkoutId: created.checkoutId }
-      : { ok: false, error: 'provider_error' };
   } catch {
-    return { ok: false, error: 'provider_error' };
+    url = null;
   }
+  if (url) return { ok: true, url, checkoutId: created.checkoutId };
+  // No session reached the buyer, so nothing can be paid on it: a checkout
+  // left open would hold its offer's use for nothing.
+  await getDb().execute(sql`
+    UPDATE club_checkouts SET status = 'expired', completed_at = now()
+     WHERE id = ${created.checkoutId}::uuid AND status = 'open' AND session_ref IS NULL
+  `);
+  return { ok: false, error: 'provider_error' };
 }
 
 export interface MemberCheckout {

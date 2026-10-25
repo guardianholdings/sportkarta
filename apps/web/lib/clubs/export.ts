@@ -25,6 +25,8 @@ export const CLUB_EXPORT_DATASETS = [
   'bookings',
   'classes',
   'plans',
+  'reservations',
+  'sales',
   'audit',
 ] as const;
 export type ClubExportDataset = (typeof CLUB_EXPORT_DATASETS)[number];
@@ -169,6 +171,49 @@ const DATASETS: Record<ClubExportDataset, Dataset> = {
         JOIN club_members m ON m.club_id = b.club_id AND m.id = b.member_id
        WHERE ${scope}
        ORDER BY o.starts_at, b.seq`,
+  },
+  // Courts, rooms and trainer appointments (0048).
+  reservations: {
+    permission: 'data.export',
+    alias: 'rv',
+    header: ['service', 'starts', 'ends', 'member', 'resource', 'state', 'price_eur', 'booked_at'],
+    query: (scope) => sql`
+      SELECT ARRAY[sv.name_bg, ${STAMP(sql`rv.starts_at`)}, ${STAMP(sql`rv.ends_at`)},
+             coalesce(m.display_name, ''), coalesce(rs.name, ''), rv.state,
+             ${EUR(sql`rv.price_cents`)}, ${STAMP(sql`rv.created_at`)}]::text[] AS r
+        FROM club_reservations rv
+        JOIN club_services sv ON sv.club_id = rv.club_id AND sv.id = rv.service_id
+        LEFT JOIN club_members m ON m.club_id = rv.club_id AND m.id = rv.member_id
+        LEFT JOIN club_resources rs ON rs.club_id = rv.club_id AND rs.id = rv.resource_id
+       WHERE ${scope}
+       ORDER BY rv.starts_at, rv.id`,
+  },
+  // Till sales, line by line (0049) — not a fiscal record.
+  sales: {
+    permission: 'data.export',
+    alias: 'sa',
+    header: [
+      'number',
+      'sold_at',
+      'member',
+      'product',
+      'quantity',
+      'unit_eur',
+      'discount_eur',
+      'line_eur',
+      'vat_bp',
+      'reversed',
+    ],
+    query: (scope) => sql`
+      SELECT ARRAY[sa.number::text, ${STAMP(sql`sa.sold_at`)}, coalesce(m.display_name, ''),
+             sl.name, sl.quantity::text, ${EUR(sql`sl.unit_price_cents`)},
+             ${EUR(sql`sl.discount_cents`)}, ${EUR(sql`sl.total_cents`)}, sl.vat_rate_bp::text,
+             (sa.reversed_at IS NOT NULL)::text]::text[] AS r
+        FROM club_sales sa
+        JOIN club_sale_lines sl ON sl.club_id = sa.club_id AND sl.sale_id = sa.id
+        LEFT JOIN club_members m ON m.club_id = sa.club_id AND m.id = sa.member_id
+       WHERE ${scope}
+       ORDER BY sa.number, sl.line_no`,
   },
   classes: {
     permission: 'data.export',

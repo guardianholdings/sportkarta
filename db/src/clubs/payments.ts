@@ -91,7 +91,7 @@ export async function applyCheckoutPaid(
          AND ${paid.accountRef ? sql`account_ref = ${paid.accountRef}` : sql`true`}`;
     const found = await tx.execute(sql`
       SELECT id, club_id, purpose, member_id, charge_id, plan_id, amount_cents, mode,
-             to_char(starts_on, 'YYYY-MM-DD') AS starts_on
+             to_char(starts_on, 'YYYY-MM-DD') AS starts_on, promotion_id, discount_cents
         FROM club_checkouts
        WHERE status = 'open' AND ${target}
          FOR UPDATE
@@ -186,6 +186,19 @@ export async function applyCheckoutPaid(
         RETURNING id
       `);
       membershipId = String(sold.rows[0]?.id);
+      // The offer it was opened with (0049) is used now, when the money is in.
+      // No re-check here: while the checkout was open its use was RESERVED
+      // (apps/web/lib/clubs/promotions.ts counts open offer checkouts as
+      // uses), so nobody else could take it, and the buyer has paid the
+      // discounted price either way.
+      if (row.promotion_id !== null && row.promotion_id !== undefined) {
+        await tx.execute(sql`
+          INSERT INTO club_promotion_redemptions (club_id, promotion_id, subject, member_id,
+                                                  membership_id, discount_cents)
+          VALUES (${clubId}::uuid, ${String(row.promotion_id)}::uuid, 'membership',
+                  ${memberId}::uuid, ${membershipId}::uuid, ${Number(row.discount_cents)})
+        `);
+      }
       const charge = await tx.execute(sql`
         INSERT INTO club_charges (club_id, member_id, membership_id, kind, label, amount_cents,
                                   issued_on, due_on)

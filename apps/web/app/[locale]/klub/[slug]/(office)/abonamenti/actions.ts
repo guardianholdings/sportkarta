@@ -5,10 +5,16 @@ import { sofiaToday } from '@sportkarta/lib/clubs';
 import { getLocale } from 'next-intl/server';
 import { revalidatePath } from 'next/cache';
 
+import type { SalePreviewState } from '@/components/clubs/sales-forms';
 import { redirect } from '@/i18n/navigation';
 import { requireClubStaff } from '@/lib/clubs/club-session';
 import { isUuid, parsePlan, parseSale } from '@/lib/clubs/input';
-import { savePlan, sellMembership, setPlanArchived } from '@/lib/clubs/sales';
+import {
+  previewMembershipSale,
+  savePlan,
+  sellMembership,
+  setPlanArchived,
+} from '@/lib/clubs/sales';
 import { revalidateClubSurfaces } from '@/lib/clubs/surfaces';
 
 export interface SalesState {
@@ -45,6 +51,26 @@ export async function setPlanArchivedAction(formData: FormData): Promise<void> {
   await setPlanArchived(getDb(), actor, planId, formData.get('archived') === 'true');
   revalidatePath(`/klub/${slug}/abonamenti`);
   revalidateClubSurfaces(slug);
+}
+
+/**
+ * What the desk sale will cost, offer included, before it is recorded.
+ * Reads only; called as the client, the plan or the code changes.
+ */
+export async function previewSaleAction(input: {
+  slug: string;
+  memberId: string;
+  planId: string;
+  code: string;
+}): Promise<SalePreviewState> {
+  const { actor } = await requireClubStaff(input.slug, 'sales.manage');
+  if (!isUuid(input.memberId) || !isUuid(input.planId)) return { ok: false, error: 'invalid' };
+  const code = input.code.trim();
+  return previewMembershipSale(getDb(), actor, {
+    memberId: input.memberId,
+    planId: input.planId,
+    code: code === '' ? null : code,
+  });
 }
 
 export async function sellAction(_prev: SalesState, formData: FormData): Promise<SalesState> {

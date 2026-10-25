@@ -70,9 +70,11 @@ import {
 import {
   openCharges,
   paymentLedger,
+  previewMembershipSale,
   recordPayment,
   savePlan,
   sellMembership,
+  voidCharge,
 } from '@/lib/clubs/sales';
 import {
   checkoutForMember,
@@ -99,6 +101,17 @@ import {
   setResourceArchived,
 } from '@/lib/clubs/resources';
 import { addPriceRule, saveService, saveStaffHours } from '@/lib/clubs/services';
+import { savePromotion, setPromotionArchived } from '@/lib/clubs/promotions';
+import {
+  clubProducts,
+  previewTillSale,
+  recordStock,
+  recordTillSale,
+  reverseSale,
+  saleById,
+  saveProduct,
+  setProductArchived,
+} from '@/lib/clubs/shop';
 import { publicClub, publicClubDirectory, publicOccurrence } from '@/lib/clubs/public';
 import { ClassRoomTaken, occurrenceRoster, saveClass, weekOccurrences } from '@/lib/clubs/schedule';
 import type { ClubActor } from '@/lib/clubs/scope';
@@ -1867,6 +1880,585 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
           sortOrder: 2,
         }),
       ).rejects.toMatchObject({ code: 'quantity_conflict' });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('sells over the counter with stock and offers, reverses a sale, and discounts a plan', async () => {
+    vi.stubEnv('CLUB_PAYMENTS_ENABLED', 'true');
+    vi.stubEnv('PAYMENT_PROVIDER', 'fake');
+    try {
+      const label = (n: number) => `Продажба №${n}`;
+      const product = (name: string, priceCents: number, sku: string | null = null) => ({
+        name,
+        sku,
+        category: 'drink' as const,
+        priceCents,
+        vatRateBp: 2000,
+        trackStock: true,
+        lowStockAt: 3,
+        sortOrder: 0,
+      });
+      const water = await saveProduct(db, owner, null, product('Вода', 150, 'W-500'));
+      if (!water.ok) throw new Error(water.error);
+      // The desk sells; it does not set prices or count the shelf.
+      expect(await saveProduct(db, desk, null, product('Х', 1))).toEqual({
+        ok: false,
+        error: 'not_allowed',
+      });
+      expect(await saveProduct(db, owner, null, product('Друга вода', 150, 'W-500'))).toEqual({
+        ok: false,
+        error: 'sku_taken',
+      });
+      const bar = await saveProduct(db, owner, null, product('Протеиново барче', 299));
+      if (!bar.ok) throw new Error(bar.error);
+      expect(
+        await recordStock(db, owner, {
+          productId: water.productId,
+          kind: 'receive',
+          quantity: 10,
+          unitCostCents: 60,
+        }),
+      ).toBe('ok');
+      expect(
+        await recordStock(db, desk, {
+          productId: water.productId,
+          kind: 'receive',
+          quantity: 10,
+          unitCostCents: null,
+        }),
+      ).toBe('not_allowed');
+      // The shelf holds 8: the ledger gets the difference.
+      expect(
+        await recordStock(db, owner, {
+          productId: water.productId,
+          kind: 'count',
+          quantity: 8,
+          unitCostCents: null,
+        }),
+      ).toBe('ok');
+      const onHand = async (id: string) =>
+        (await clubProducts(owner)).find((p) => p.id === id)?.onHand;
+      expect(await onHand(water.productId)).toBe(8);
+
+      // A walk-in buys two waters for cash: numbered, paid, off the shelf.
+      const first = await recordTillSale(
+        db,
+        desk,
+        {
+          lines: [{ productId: water.productId, quantity: 2 }],
+          memberId: null,
+          method: 'cash',
+          code: null,
+          locationId,
+        },
+        label,
+      );
+      if (!first.ok) throw new Error(first.error);
+      expect(first.totalCents).toBe(300);
+      expect(await onHand(water.productId)).toBe(6);
+      const receipt = await saleById(desk, first.saleId);
+      expect(receipt).toMatchObject({ status: 'paid', reversed: false, totalCents: 300 });
+      expect(receipt?.payments).toEqual([{ method: 'cash', amountCents: 300, refundedCents: 0 }]);
+      // A trainer has no till.
+      const trainerId = await user('trainer_b1');
+      await db.execute(
+        sql`INSERT INTO club_staff (club_id, user_id, role) VALUES (${clubId}::uuid, ${trainerId}, 'trainer')`,
+      );
+      const trainer: ClubActor = { userId: trainerId, clubId, role: 'trainer', ngoAdmin: false };
+      expect(
+        await recordTillSale(
+          db,
+          trainer,
+          {
+            lines: [{ productId: water.productId, quantity: 1 }],
+            memberId: null,
+            method: 'cash',
+            code: null,
+            locationId: null,
+          },
+          label,
+        ),
+      ).toEqual({ ok: false, error: 'not_allowed' });
+
+      // Offers: an automatic 10 % on products, and a one-use €2 code.
+      const today = sofiaToday();
+      const offer = (input: Partial<Parameters<typeof savePromotion>[3]>) =>
+        savePromotion(db, owner, null, {
+          name: 'Оферта',
+          code: null,
+          kind: 'percent',
+          value: 1000,
+          target: 'products',
+          targetIds: null,
+          startsOn: today,
+          endsOn: null,
+          maxUses: null,
+          perMemberMax: null,
+          newMembersOnly: false,
+          minVisits90d: null,
+          ...input,
+        });
+      const tenOff = await offer({ name: 'Десет процента' });
+      const voucher = await offer({
+        name: 'Ваучер',
+        code: 'BAR-0002',
+        kind: 'amount',
+        value: 200,
+        target: 'all',
+        maxUses: 1,
+      });
+      if (!tenOff.ok || !voucher.ok) throw new Error('offers');
+      // The desk may not create offers.
+      expect(
+        await savePromotion(db, desk, null, {
+          name: 'Х',
+          code: null,
+          kind: 'percent',
+          value: 100,
+          target: 'all',
+          targetIds: null,
+          startsOn: today,
+          endsOn: null,
+          maxUses: null,
+          perMemberMax: null,
+          newMembersOnly: false,
+          minVisits90d: null,
+        }),
+      ).toEqual({ ok: false, error: 'not_allowed' });
+      const sell = (
+        memberIdFor: string | null,
+        code: string | null,
+        method: 'cash' | null = 'cash',
+      ) =>
+        recordTillSale(
+          db,
+          desk,
+          {
+            lines: [
+              { productId: water.productId, quantity: 2 },
+              { productId: bar.productId, quantity: 1 },
+            ],
+            memberId: memberIdFor,
+            method,
+            code,
+            locationId: null,
+          },
+          label,
+        );
+      // 300 + 299 = 599: 10 % automatically (60), or the €2 code if typed (better).
+      const auto = await sell(null, null);
+      expect(auto).toMatchObject({ ok: true, discountCents: 60, totalCents: 539 });
+      const coded = await sell(null, 'bar-0002');
+      expect(coded).toMatchObject({ ok: true, discountCents: 200, totalCents: 399 });
+      // Used once, it gives nothing more: the till says so rather than charging full.
+      expect(await sell(null, 'BAR-0002')).toEqual({ ok: false, error: 'code_invalid' });
+      // Reversing the sale returns the goods and the money, and frees the use.
+      if (!coded.ok) throw new Error('coded');
+      const before = await onHand(bar.productId);
+      expect(await reverseSale(db, desk, coded.saleId)).toBe('not_found');
+      expect(await reverseSale(db, owner, coded.saleId)).toBe('ok');
+      expect(await reverseSale(db, owner, coded.saleId)).toBe('not_found');
+      expect(await onHand(bar.productId)).toBe((before ?? 0) + 1);
+      const undone = await saleById(owner, coded.saleId);
+      expect(undone).toMatchObject({ reversed: true, status: 'void' });
+      expect(undone?.payments).toEqual([{ method: 'cash', amountCents: 399, refundedCents: 399 }]);
+      expect((await sell(null, 'BAR-0002')).ok).toBe(true);
+
+      // On the client's account: the charge stays open for them.
+      const onAccount = await sell(memberId, null, null);
+      if (!onAccount.ok) throw new Error(onAccount.error);
+      expect((await saleById(desk, onAccount.saleId))?.status).toBe('open');
+      expect(
+        (await openCharges(desk, { memberId })).some((c) => c.label === label(onAccount.number)),
+      ).toBe(true);
+
+      // A plan at the desk: an automatic offer on plans, and a blank amount
+      // pays all of it after the offer.
+      const plan = await savePlan(db, owner, null, {
+        nameBg: 'Оферта план',
+        nameEn: null,
+        descriptionBg: null,
+        descriptionEn: null,
+        kind: 'unlimited',
+        audience: 'all',
+        priceCents: 4000,
+        validityDays: 30,
+        validityMonths: null,
+        visitsCount: null,
+        visibility: 'public',
+        ...NO_TERMS,
+      });
+      const planOff = await offer({ name: 'Есен', target: 'plans', kind: 'amount', value: 1000 });
+      if (!plan || !planOff.ok) throw new Error('plan offer');
+      const sold = await sellMembership(db, desk, {
+        memberId: childId,
+        planId: plan,
+        startsOn: today,
+        dueOn: today,
+        payment: { method: 'cash', amountCents: null, receivedOn: today },
+      });
+      if (!sold.ok) throw new Error(sold.error);
+      const price = await db.execute(sql`
+        SELECT ms.price_cents, cb.status,
+               (SELECT rd.discount_cents FROM club_promotion_redemptions rd
+                 WHERE rd.membership_id = ms.id) AS discount
+          FROM club_memberships ms JOIN club_charge_balances cb ON cb.charge_id = ${sold.chargeId}::uuid
+         WHERE ms.id = ${sold.membershipId}::uuid`);
+      expect(price.rows[0]).toEqual({ price_cents: 3000, status: 'paid', discount: 1000 });
+
+      // Online, the offer travels with the checkout and is used when the money lands.
+      const bought = await startPlanCheckout(
+        db,
+        memberUser,
+        { id: clubId, slug },
+        { planId: plan, memberId: childId, startsOn: null, termsAccepted: true, code: null },
+        { base: 'http://localhost', locale: 'bg' },
+      );
+      if (!bought.ok) throw new Error(bought.error);
+      const opened = await db.execute(
+        sql`SELECT amount_cents, discount_cents FROM club_checkouts WHERE id = ${bought.checkoutId}::uuid`,
+      );
+      expect(opened.rows[0]).toEqual({ amount_cents: 3000, discount_cents: 1000 });
+      expect(await fakeSettle(bought.checkoutId, 'paid')).toBe(true);
+      const used = await db.execute(sql`
+        SELECT count(*)::int AS n FROM club_promotion_redemptions
+         WHERE promotion_id = ${planOff.promotionId}::uuid AND member_id = ${childId}::uuid`);
+      // The desk sale and the online one.
+      expect(used.rows[0]?.n).toBe(2);
+
+      // A tier without offers neither saves nor applies them: a code typed at
+      // the desk is refused, not silently ignored.
+      await db.execute(sql`UPDATE clubs SET tier = 'community' WHERE id = ${clubId}::uuid`);
+      expect((await offer({ name: 'Х' })).ok).toBe(false);
+      expect(
+        await sellMembership(db, desk, {
+          memberId: childId,
+          planId: plan,
+          startsOn: today,
+          dueOn: today,
+          payment: null,
+          code: 'BAR-0002',
+        }),
+      ).toEqual({ ok: false, error: 'code_invalid' });
+      await db.execute(sql`UPDATE clubs SET tier = 'standard' WHERE id = ${clubId}::uuid`);
+
+      for (const id of [tenOff.promotionId, voucher.promotionId, planOff.promotionId]) {
+        expect(await setPromotionArchived(db, owner, id)).toBe(true);
+      }
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('keeps offers to their rules at the till, the desk and online, and a reversal to its money', async () => {
+    vi.stubEnv('CLUB_PAYMENTS_ENABLED', 'true');
+    vi.stubEnv('PAYMENT_PROVIDER', 'fake');
+    try {
+      const today = sofiaToday();
+      const back = { base: 'http://localhost', locale: 'bg' as const };
+      const label = (n: number) => `Продажба №${n}`;
+      const juice = await saveProduct(db, owner, null, {
+        name: 'Сок',
+        sku: null,
+        category: 'drink',
+        priceCents: 400,
+        vatRateBp: 2000,
+        trackStock: true,
+        lowStockAt: null,
+        sortOrder: 0,
+      });
+      if (!juice.ok) throw new Error(juice.error);
+      const offer = async (input: Partial<Parameters<typeof savePromotion>[3]>) => {
+        const saved = await savePromotion(db, owner, null, {
+          name: 'Оферта',
+          code: null,
+          kind: 'percent',
+          value: 1000,
+          target: 'products',
+          targetIds: null,
+          startsOn: today,
+          endsOn: null,
+          maxUses: null,
+          perMemberMax: null,
+          newMembersOnly: false,
+          minVisits90d: null,
+          ...input,
+        });
+        if (!saved.ok) throw new Error(saved.error);
+        return saved.promotionId;
+      };
+      const till = (
+        buyer: string | null,
+        code: string | null,
+        method: 'cash' | null = 'cash',
+        extra: { productId?: string; locationId?: string | null } = {},
+      ) =>
+        recordTillSale(
+          db,
+          desk,
+          {
+            lines: [{ productId: extra.productId ?? juice.productId, quantity: 1 }],
+            memberId: buyer,
+            method,
+            code,
+            locationId: extra.locationId ?? null,
+          },
+          label,
+        );
+
+      // ── Another club's product, client or location never reaches this till.
+      const otherClub = String(
+        (await db.execute(sql`SELECT id FROM clubs WHERE slug LIKE 'e2e-jr-b-%' LIMIT 1`)).rows[0]
+          ?.id,
+      );
+      const foreignProduct = String(
+        (
+          await db.execute(sql`
+            INSERT INTO club_products (club_id, name, price_cents)
+            VALUES (${otherClub}::uuid, 'Чужд', 100) RETURNING id`)
+        ).rows[0]?.id,
+      );
+      const foreignMember = String(
+        (
+          await db.execute(sql`
+            INSERT INTO club_members (club_id, display_name, source)
+            VALUES (${otherClub}::uuid, 'Чужд', 'staff') RETURNING id`)
+        ).rows[0]?.id,
+      );
+      const foreignLocation = String(
+        (await db.execute(sql`SELECT id FROM club_locations WHERE club_id = ${otherClub}::uuid`))
+          .rows[0]?.id,
+      );
+      expect(await till(null, null, 'cash', { productId: foreignProduct })).toEqual({
+        ok: false,
+        error: 'product_unavailable',
+      });
+      expect(await till(foreignMember, null)).toEqual({ ok: false, error: 'member_unavailable' });
+      expect(await till(null, null, 'cash', { locationId: foreignLocation })).toEqual({
+        ok: false,
+        error: 'not_allowed',
+      });
+
+      // ── Who an offer is for. Loyal clients 50 %, new clients 40 %, once
+      // per client 30 %: a walk-in gets none of them.
+      const loyal = await offer({ name: 'Лоялни', value: 5000, minVisits90d: 1 });
+      const fresh = await offer({ name: 'Нови', value: 4000, newMembersOnly: true });
+      const once = await offer({ name: 'Веднъж', value: 3000, perMemberMax: 1 });
+      expect(await till(null, null)).toMatchObject({ ok: true, discountCents: 0 });
+      const newcomer = await createMember(db, desk, {
+        displayName: 'Нов Журни',
+        email: null,
+        phone: null,
+        isMinor: false,
+        guardianMemberId: null,
+        tags: [],
+        staffNote: null,
+      });
+      if (!newcomer.ok) throw new Error('newcomer');
+      const cart = {
+        lines: [{ productId: juice.productId, quantity: 1 }],
+        memberId: newcomer.memberId,
+        code: null,
+      };
+      // New, never in: the new-client offer. The till's preview says so first.
+      expect(await previewTillSale(db, desk, cart)).toEqual({
+        ok: true,
+        subtotalCents: 400,
+        discountCents: 160,
+        totalCents: 240,
+        offerName: 'Нови',
+      });
+      expect(await till(newcomer.memberId, null)).toMatchObject({ ok: true, discountCents: 160 });
+      // A visit makes them loyal: the better offer wins.
+      await clubCheckIn(db, { method: 'desk', actor: desk, memberId: newcomer.memberId });
+      expect(await previewTillSale(db, desk, cart)).toMatchObject({ discountCents: 200 });
+      expect(await till(newcomer.memberId, null)).toMatchObject({ ok: true, discountCents: 200 });
+      // Without those two: once per client, then nothing.
+      expect(await setPromotionArchived(db, owner, loyal)).toBe(true);
+      expect(await setPromotionArchived(db, owner, fresh)).toBe(true);
+      expect(await till(newcomer.memberId, null)).toMatchObject({ ok: true, discountCents: 120 });
+      expect(await till(newcomer.memberId, null)).toMatchObject({ ok: true, discountCents: 0 });
+      expect(await setPromotionArchived(db, owner, once)).toBe(true);
+
+      // ── A one-off plan; a voucher taken online is RESERVED while its
+      // checkout is open — the desk and the till cannot spend it meanwhile.
+      const plan = await savePlan(db, owner, null, {
+        nameBg: 'Ваучер план',
+        nameEn: null,
+        descriptionBg: null,
+        descriptionEn: null,
+        kind: 'unlimited',
+        audience: 'all',
+        priceCents: 5000,
+        validityDays: 30,
+        validityMonths: null,
+        visitsCount: null,
+        visibility: 'public',
+        ...NO_TERMS,
+      });
+      if (!plan) throw new Error('plan');
+      const gift = await offer({
+        name: 'Подарък',
+        code: 'GIFT-RSV1',
+        kind: 'amount',
+        value: 1000,
+        target: 'all',
+        maxUses: 1,
+      });
+      const buy = () =>
+        startPlanCheckout(
+          db,
+          memberUser,
+          { id: clubId, slug },
+          {
+            planId: plan,
+            memberId: childId,
+            startsOn: null,
+            termsAccepted: true,
+            code: 'GIFT-RSV1',
+          },
+          back,
+        );
+      const first = await buy();
+      if (!first.ok) throw new Error(first.error);
+      expect(
+        await sellMembership(db, desk, {
+          memberId: newcomer.memberId,
+          planId: plan,
+          startsOn: today,
+          dueOn: today,
+          payment: null,
+          code: 'GIFT-RSV1',
+        }),
+      ).toEqual({ ok: false, error: 'code_invalid' });
+      expect(await till(null, 'GIFT-RSV1')).toEqual({ ok: false, error: 'code_invalid' });
+      // Back from the provider and again: the earlier attempt is closed and
+      // its reservation passes to the new one.
+      const second = await buy();
+      if (!second.ok) throw new Error(second.error);
+      expect((await checkoutForMember(memberUser, clubId, first.checkoutId))?.status).toBe(
+        'expired',
+      );
+      // Abandoned: the voucher is free again (here, a free juice).
+      expect(await fakeSettle(second.checkoutId, 'cancelled')).toBe(true);
+      expect(await till(null, 'GIFT-RSV1')).toMatchObject({ ok: true, totalCents: 0 });
+
+      // ── A subscription takes no code (Stripe would repeat the discount).
+      const monthly = await savePlan(db, owner, null, {
+        nameBg: 'Месечен абонамент',
+        nameEn: null,
+        descriptionBg: null,
+        descriptionEn: null,
+        kind: 'unlimited',
+        audience: 'all',
+        priceCents: 4000,
+        validityDays: null,
+        validityMonths: 1,
+        visitsCount: null,
+        visibility: 'public',
+        ...NO_TERMS,
+        autoRenew: true,
+      });
+      if (!monthly) throw new Error('monthly');
+      expect(
+        await startPlanCheckout(
+          db,
+          memberUser,
+          { id: clubId, slug },
+          { planId: monthly, memberId: childId, startsOn: null, termsAccepted: true, code: 'X-1' },
+          back,
+        ),
+      ).toEqual({ ok: false, error: 'code_invalid' });
+
+      // ── An offer that makes a plan free: a typed amount is refused, not
+      // dropped; a blank one records no charge and no payment.
+      const freeMonth = await offer({
+        name: 'Първи месец',
+        kind: 'percent',
+        value: 10000,
+        target: 'plans',
+        targetIds: [plan],
+      });
+      expect(
+        await previewMembershipSale(db, desk, {
+          memberId: newcomer.memberId,
+          planId: plan,
+          code: null,
+        }),
+      ).toEqual({
+        ok: true,
+        listCents: 5000,
+        discountCents: 5000,
+        priceCents: 0,
+        offerName: 'Първи месец',
+      });
+      const freeSale = {
+        memberId: newcomer.memberId,
+        planId: plan,
+        startsOn: today,
+        dueOn: today,
+      };
+      expect(
+        await sellMembership(db, desk, {
+          ...freeSale,
+          payment: { method: 'cash', amountCents: 5000, receivedOn: today },
+        }),
+      ).toEqual({ ok: false, error: 'amount_exceeds_due' });
+      const free = await sellMembership(db, desk, {
+        ...freeSale,
+        payment: { method: 'cash', amountCents: null, receivedOn: today },
+      });
+      expect(free).toMatchObject({ ok: true, chargeId: null });
+      expect(await setPromotionArchived(db, owner, freeMonth)).toBe(true);
+
+      // ── A tab paid online: reversed only after the online refund; its
+      // charge is never voided on its own.
+      const tab = await till(memberId, null, null);
+      if (!tab.ok) throw new Error(tab.error);
+      const tabCharge = String(
+        (await db.execute(sql`SELECT charge_id FROM club_sales WHERE id = ${tab.saleId}::uuid`))
+          .rows[0]?.charge_id,
+      );
+      const paying = await startChargeCheckout(
+        db,
+        memberUser,
+        { id: clubId, slug },
+        tabCharge,
+        back,
+      );
+      if (!paying.ok) throw new Error(paying.error);
+      expect(await fakeSettle(paying.checkoutId, 'paid')).toBe(true);
+      expect(await reverseSale(db, owner, tab.saleId)).toBe('paid_online');
+      expect(await voidCharge(db, owner, tabCharge)).toBe(false);
+      const online = await db.execute(sql`
+        SELECT id FROM club_payments
+         WHERE charge_id = ${tabCharge}::uuid AND method = 'card_online' AND kind = 'payment'`);
+      expect(await refundOnlinePayment(db, owner, Number(online.rows[0]?.id), null)).toEqual({
+        ok: true,
+      });
+      const shelf = async () =>
+        (await clubProducts(owner)).find((p) => p.id === juice.productId)?.onHand ?? 0;
+      const before = await shelf();
+      expect(await reverseSale(db, owner, tab.saleId)).toBe('ok');
+      expect(await shelf()).toBe(before + 1);
+      expect(await saleById(owner, tab.saleId)).toMatchObject({ reversed: true, status: 'void' });
+
+      // ── A count far off the ledger is refused, not a 500.
+      expect(
+        await recordStock(db, owner, {
+          productId: juice.productId,
+          kind: 'count',
+          quantity: 150_000,
+          unitCostCents: null,
+        }),
+      ).toBe('too_large');
+      // The desk sells; it neither archives products nor ends offers.
+      expect(await setProductArchived(db, desk, juice.productId, true)).toBe('not_found');
+      expect(await setPromotionArchived(db, desk, gift)).toBe(false);
+      expect(await setPromotionArchived(db, owner, gift)).toBe(true);
+      expect(await setProductArchived(db, owner, juice.productId, true)).toBe('ok');
     } finally {
       vi.unstubAllEnvs();
     }

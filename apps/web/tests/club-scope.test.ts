@@ -36,9 +36,13 @@ const UNSCOPED_BY_DESIGN: Record<string, string> = {
   'payments.ts:openSession':
     "stores the provider's session id on the checkout row this module inserted a moment earlier, by its uuid",
   'payments.ts:closePrevious':
-    "expires one checkout by uuid after its caller proved scope — startChargeCheckout read the charge under memberSelfScope; closeOpenCheckouts runs behind requireClubStaff (members.erase, settings.manage) or the NGO admin guard, pinned to the club id; closeChargeCheckout runs only after cancelReservation committed a scoped cancellation of that charge's booking",
+    "expires one checkout by uuid after its caller proved scope — startChargeCheckout read the charge under memberSelfScope; startPlanCheckout found the buyer's open offer checkout under memberSelfScope; closeOpenCheckouts runs behind requireClubStaff (members.erase, settings.manage) or the NGO admin guard, pinned to the club id; closeChargeCheckout runs only after cancelReservation or reverseSale committed a scoped cancellation of that charge's booking or sale",
   'payments.ts:fakeSettle':
     'the development-only fake provider (resolvePaymentProvider never selects it in production)',
+  'promotions.ts:resolveOffer':
+    "a row LOCK (FOR NO KEY UPDATE) on a capped offer, not a write — taken inside the purchase's own scoped transaction",
+  'promotions.ts:recordRedemption':
+    "helper: called only inside a purchase's transaction (recordTillSale, sellMembership) that proved the actor's scope and the feature first",
   'links.ts:acceptMemberInvite':
     "the member's own act: invite token + the account's verified email",
   'links.ts:claimRecord':
