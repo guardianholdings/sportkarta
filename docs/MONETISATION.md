@@ -36,6 +36,7 @@ items are in MANUAL STEPS.
 | S4  | Donations page («Подкрепи ни»)                    | Nothing — asks for support; explains donor tax relief                                                                                                                                                               | Дарение                                                     | Low but zero marginal cost                                                                             | XS (part of M1)                            | M1      |
 | S5  | Display advertising in key spots                  | Direct-sold, flat-rate, labelled slots (first-party served, untracked): facility pages, city pages, weekly pages, map panel                                                                                         | Реклама (invoiced)                                          | Medium — one direct-sold slot beats Bulgarian network RPMs by orders of magnitude; scales with traffic | S (1 session)                              | M4      |
 | S6  | Grants                                            | —                                                                                                                                                                                                                   | Грант                                                       | Erasmus+ Sport small partnerships are lump-sum €30k/€60k; ММС + corporate grants                       | None (reports engine is the evidence base) | ongoing |
+| S7  | «Клубове» — club-management add-on                | Software for private gyms, studios and clubs (members, plans, payments as records, timetable, bookings, QR attendance, reports) + a labelled public page and facility-page block; free community tier               | Invoiced service (стопанска дейност — confirm the устав)    | Medium, recurring; scales per club                                                                     | L (Stage 9, shipped behind CLUBS_ENABLED)  | Stage 9 |
 
 **Explicitly rejected** (see §5): behaviourally-targeted/personalised ads
 and tracking pixels (never, under any setting), betting/gambling
@@ -303,6 +304,41 @@ and similar corporate programmes. The quarterly report generator and
 grant application cites is SQL-traceable.
 
 ---
+
+### S7 — «Клубове» (paid club-management add-on, 2026-10-24)
+
+**What is sold:** software, to BUSINESSES — never a feature to members. Private
+gyms, studios and clubs run members, abonnements, payments (as records),
+timetable, bookings, QR attendance and reports in their own office on POPS, and
+get a public club page and a block on the facility pages where they train.
+Clubs and trainers at public facilities use it free (community tier). This is
+consistent with §5's rejection of "premium member features": the member
+product stays free and unchanged; a club pays for its tools.
+
+**How it is paid:** the operator invoices by bank transfer and activates by
+hand in `/admin/klubove` (tier, `paid_until`); a new paid club starts with a
+30-day trial; the invoice basis is `club_monthly_activity.members_active`
+(a valid abonnement on any day of the month, or 3+ visits). No card billing
+code exists. Phase 2 (not built): each club's OWN Stripe account, its clients
+paying on a Stripe-hosted page reached by redirect — the club is the merchant,
+the NGO never holds funds, and no payment script runs on pops.bg.
+
+**Labelling and surfaces (the S3/S5 rules, applied):** a paid club's block on a
+facility page is labelled «Платено представяне», a community club's «Клуб на
+този обект»; a paid club's own website link is `rel="sponsored noopener"`; the
+map CANVAS gets no mark — only a chip in the preview panel beside it; the
+`/klubove` directory is in name order, so a paid tier buys tools, never rank.
+Hiding, suspending or a lapsed payment withdraws a club from every public
+surface at once (`clubRenderableSql`).
+
+**Data protection:** the club is the CONTROLLER of its member records, POPS
+the processor; a DPA template is an operator manual step. No date of birth, no
+coordinates, no tracking; every club table is off the open-data
+`ALLOWED_RELATIONS`; the club's own audit log records exports and any NGO
+admin who opened its office.
+
+**Anchors (operator decision pending):** Общност €0 (≤50 active members, 1
+location); Старт ~€49/mo; Про ~€119/mo — against 1club.ai's €79/€179.
 
 ## 3. Implementation phases
 

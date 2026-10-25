@@ -83,7 +83,14 @@ export function ProfileForm({
   );
 }
 
-export function DeleteAccountForm({ confirmationWord }: { confirmationWord: string }) {
+export function DeleteAccountForm({
+  confirmationWord,
+  clubs = false,
+}: {
+  confirmationWord: string;
+  /** Stage 9: say what happens to club records, while the add-on is on. */
+  clubs?: boolean;
+}) {
   const t = useTranslations('Profile');
   const locale = useLocale();
   const [state, formProps, pending] = useFormAction(deleteAccountAction, INITIAL);
@@ -95,6 +102,7 @@ export function DeleteAccountForm({ confirmationWord }: { confirmationWord: stri
         <li>{t('deleteBulletProfile')}</li>
         <li>{t('deleteBulletContributions')}</li>
         <li>{t('deleteBulletAudit')}</li>
+        {clubs && <li>{t('deleteBulletClubs')}</li>}
       </ul>
       {/* Locale only — the expected word is resolved server-side, never trusted
           from the form. */}

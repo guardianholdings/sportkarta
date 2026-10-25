@@ -1,11 +1,16 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { renderSql, type SQL } from '@sportkarta/db';
 import { adminAction } from '@sportkarta/db/schema';
 import { describe, expect, it } from 'vitest';
 
-import { recordAdminAction, SUBJECTLESS_ACTIONS, AMBASSADOR_ACTIONS } from '@/lib/admin-actions';
+import {
+  AMBASSADOR_ACTIONS,
+  CLUB_ACTIONS,
+  recordAdminAction,
+  SUBJECTLESS_ACTIONS,
+} from '@/lib/admin-actions';
 
 /**
  * The admin_actions log (0033): who CHANGED what.
@@ -16,10 +21,48 @@ import { recordAdminAction, SUBJECTLESS_ACTIONS, AMBASSADOR_ACTIONS } from '@/li
  */
 
 const REPO_ROOT = path.join(process.cwd(), '..', '..');
+const MIGRATIONS_DIR = path.join(REPO_ROOT, 'db', 'migrations');
+const MIGRATION_FILES = readdirSync(MIGRATIONS_DIR)
+  .filter((name) => name.endsWith('.sql'))
+  .sort();
 const MIGRATION = readFileSync(
-  path.join(REPO_ROOT, 'db', 'migrations', '0033_account_suspension_admin_log.sql'),
+  path.join(MIGRATIONS_DIR, '0033_account_suspension_admin_log.sql'),
   'utf8',
 );
+
+/**
+ * The CURRENT vocabulary as the migrations build it: 0033's CREATE TYPE plus
+ * every later `ADD VALUE`, in file order (0038 added the club actions).
+ */
+function migratedEnumValues(): string[] {
+  const created = /CREATE TYPE "public"\."admin_action" AS ENUM\(([^)]*)\)/.exec(MIGRATION);
+  const values = (created?.[1] ?? '').split(',').map((value) => value.trim().replace(/'/g, ''));
+  for (const file of MIGRATION_FILES) {
+    const source = readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
+    for (const match of source.matchAll(
+      /ALTER TYPE "public"\."admin_action" ADD VALUE IF NOT EXISTS '([a-z_]+)'/g,
+    )) {
+      if (match[1] && !values.includes(match[1])) values.push(match[1]);
+    }
+  }
+  return values;
+}
+
+/** The subjectless list from the NEWEST migration that (re)defines the CHECK. */
+function migratedSubjectlessActions(): string[] {
+  let latest = '';
+  for (const file of MIGRATION_FILES) {
+    const source = readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8').replace(/^--.*$/gm, '');
+    const match = /"admin_actions_subject_matches_action" CHECK \([\s\S]*?IN \(([^)]*)\)/.exec(
+      source,
+    );
+    if (match?.[1]) latest = match[1];
+  }
+  return latest
+    .split(',')
+    .map((value) => value.trim().replace(/'/g, ''))
+    .filter(Boolean);
+}
 
 function capture() {
   const statements: { sql: string; params: unknown[] }[] = [];
@@ -61,22 +104,16 @@ describe('recordAdminAction', () => {
 });
 
 describe('the three copies of the action vocabulary agree', () => {
-  it('declares the same enum in the migration and the Drizzle schema', () => {
-    const match = /CREATE TYPE "public"\."admin_action" AS ENUM\(([^)]*)\)/.exec(MIGRATION);
-    const declared = (match?.[1] ?? '').split(',').map((value) => value.trim().replace(/'/g, ''));
-    expect(declared).toEqual([...adminAction.enumValues]);
+  it('declares the same enum in the migrations and the Drizzle schema', () => {
+    expect(migratedEnumValues()).toEqual([...adminAction.enumValues]);
   });
 
-  it('names the same subjectless actions in the CHECK and in the writer', () => {
-    const match = /"admin_actions_subject_matches_action" CHECK \(.*?IN \(([^)]*)\)/.exec(
-      MIGRATION,
-    );
-    const inCheck = (match?.[1] ?? '').split(',').map((value) => value.trim().replace(/'/g, ''));
-    expect(inCheck.sort()).toEqual([...SUBJECTLESS_ACTIONS].sort());
+  it('names the same subjectless actions in the newest CHECK and in the writer', () => {
+    expect(migratedSubjectlessActions().sort()).toEqual([...SUBJECTLESS_ACTIONS].sort());
   });
 
   it('only filters by actions that exist', () => {
-    for (const action of [...SUBJECTLESS_ACTIONS, ...AMBASSADOR_ACTIONS]) {
+    for (const action of [...SUBJECTLESS_ACTIONS, ...AMBASSADOR_ACTIONS, ...CLUB_ACTIONS]) {
       expect(adminAction.enumValues).toContain(action);
     }
   });

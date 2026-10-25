@@ -1,6 +1,7 @@
 import { getDb, publicFacilityVisible, sql, type SQL } from '@sportkarta/db';
 import { cityDisplayName } from '@sportkarta/lib/cities';
 
+import { clubRenderableSql, clubsEnabled } from '@/lib/clubs/access';
 import { CONTRIBUTION_RADIUS_M } from '@/lib/contributions/proximity';
 import type { PublicFilters } from '@/lib/filters';
 import { placeLabel } from '@/lib/geo';
@@ -90,8 +91,19 @@ export interface FacilityFeatureCollection {
   features: {
     type: 'Feature';
     geometry: { type: 'Point'; coordinates: [number, number] };
-    /** `place` is OMITTED rather than null when unknown — ~6k features ride this feed. */
-    properties: { slug: string; name: string | null; sports: string[]; place?: string };
+    /**
+     * `place` is OMITTED rather than null when unknown — ~6k features ride this
+     * feed. `club` likewise appears only when true: a published club holds
+     * classes here (Stage 9), shown in the preview panel BESIDE the map — the
+     * canvas itself stays free of commercial marks.
+     */
+    properties: {
+      slug: string;
+      name: string | null;
+      sports: string[];
+      place?: string;
+      club?: true;
+    };
   }[];
 }
 
@@ -101,9 +113,13 @@ export async function facilitiesGeoJSON(
   locale = 'bg',
 ): Promise<FacilityFeatureCollection> {
   const db = getDb();
+  const hasClub = clubsEnabled()
+    ? sql`EXISTS (SELECT 1 FROM club_locations cl JOIN clubs c ON c.id = cl.club_id
+                   WHERE cl.facility_id = f.id AND cl.active AND ${clubRenderableSql('c')})`
+    : sql`false`;
   const result = await db.execute(sql`
     SELECT f.slug, f.name, f.sport_types, ${PLACE_COLUMNS},
-           ST_X(f.geom) AS lon, ST_Y(f.geom) AS lat
+           ST_X(f.geom) AS lon, ST_Y(f.geom) AS lat, ${hasClub} AS has_club
     FROM facilities f
     ${PLACE_JOIN}
     WHERE ${publicConditions(f)}
@@ -126,6 +142,7 @@ export async function facilitiesGeoJSON(
           name: (row.name as string | null) ?? null,
           sports: (row.sport_types as string[] | null) ?? [],
           ...(place ? { place } : {}),
+          ...(row.has_club === true ? { club: true as const } : {}),
         },
       };
     }),

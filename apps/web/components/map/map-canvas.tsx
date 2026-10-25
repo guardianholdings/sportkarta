@@ -32,6 +32,8 @@ export interface MapPoint {
   lat: number;
   /** "Лозенец, София" — what an unnamed facility is labelled by. */
   place?: string | null;
+  /** A published club holds classes here — the preview panel says so, the canvas does not. */
+  club?: boolean;
 }
 
 export interface MapView {

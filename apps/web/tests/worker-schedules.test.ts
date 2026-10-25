@@ -87,6 +87,10 @@ describe('worker schedules avoid the DST hour', () => {
     const sofia = schedules().filter((schedule) => schedule.tz === SOFIA);
     expect(sofia.map((schedule) => schedule.queue).sort()).toEqual(
       [
+        'CLUB_ACTIVITY_QUEUE',
+        'CLUB_DIGEST_QUEUE',
+        'CLUB_EXPIRY_QUEUE',
+        'CLUB_WEEKLY_QUEUE',
         'DIGEST_WEEKLY_QUEUE',
         'DIVISIONS_ROLLOVER_QUEUE',
         'OPENDATA_DUMP_QUEUE',
@@ -136,11 +140,16 @@ describe('the member-fed queues fetch in batches', () => {
     expect(size).toBeGreaterThan(1);
   });
 
-  it.each(['PASSPORT_EVALUATE_QUEUE', 'SESSION_NOTIFY_QUEUE'])('applies it to %s', (queue) => {
-    expect(WORKER).toMatch(
-      new RegExp(`(?:boss\\.)?work\\(\\s*${queue},\\s*\\{\\s*batchSize:\\s*FEED_BATCH_SIZE\\s*\\}`),
-    );
-  });
+  it.each(['PASSPORT_EVALUATE_QUEUE', 'SESSION_NOTIFY_QUEUE', 'CLUB_NOTIFY_QUEUE'])(
+    'applies it to %s',
+    (queue) => {
+      expect(WORKER).toMatch(
+        new RegExp(
+          `(?:boss\\.)?work\\(\\s*${queue},\\s*\\{\\s*batchSize:\\s*FEED_BATCH_SIZE\\s*\\}`,
+        ),
+      );
+    },
+  );
 
   /**
    * pg-boss fails a whole batch when its handler throws, so a batch without
@@ -148,7 +157,7 @@ describe('the member-fed queues fetch in batches', () => {
    * unattempted, retry after retry. One-job fetches never had that failure mode,
    * and batching must not introduce it.
    */
-  it.each(['PASSPORT_EVALUATE_QUEUE', 'SESSION_NOTIFY_QUEUE'])(
+  it.each(['PASSPORT_EVALUATE_QUEUE', 'SESSION_NOTIFY_QUEUE', 'CLUB_NOTIFY_QUEUE'])(
     'fails a throwing %s job alone, not the batch it was fetched in',
     (queue) => {
       expect(WORKER).toMatch(new RegExp(`eachJobIsolated\\(boss,\\s*${queue},\\s*jobs,`));

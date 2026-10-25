@@ -45,6 +45,11 @@ export const EXPORT_WITHHELD = [
   'digest_unsubscribe_tokens',
   'training_route_geometry',
   'training_heart_rate_and_calories',
+  // Stage 9: a club's own note about its client and the printed card's key
+  // digest are the CLUB's records (it is the controller); a member asks the
+  // club for them, and the card digest is a credential besides.
+  'club_staff_notes',
+  'club_card_keys',
 ] as const;
 
 type Row = Record<string, unknown>;
@@ -217,6 +222,49 @@ export interface AccountExport {
       revokedAt: string | null;
     }[];
     calendarFeed: { issuedAt: string; rotatedAt: string | null } | null;
+  };
+  /**
+   * «Клубове» (Stage 9). The club is the controller of a member record; what
+   * is here is what POPS holds for this ACCOUNT: the clubs it works at, the
+   * records linked to it, and — for active links — those records' abonnements,
+   * bookings and visits.
+   */
+  clubs: {
+    staffOf: { clubSlug: string; clubName: string; role: string; since: string }[];
+    links: {
+      clubSlug: string;
+      clubName: string;
+      recordName: string;
+      status: string;
+      method: string;
+      since: string;
+      passportConsentAt: string | null;
+      clubMail: boolean;
+    }[];
+    abonnements: {
+      clubSlug: string;
+      plan: string;
+      kind: string;
+      startsOn: string;
+      endsOn: string;
+      state: string;
+    }[];
+    bookings: {
+      clubSlug: string;
+      classTitle: string;
+      startsAtLocal: string;
+      state: string;
+      trial: boolean;
+      createdAt: string;
+    }[];
+    visits: {
+      clubSlug: string;
+      day: string;
+      location: string;
+      method: string;
+      covered: boolean;
+      checkedInAt: string;
+    }[];
   };
   /** When an admin opened this account, and which part — the 0028 log, minus who. */
   adminAccess: { scope: string; at: string }[];
@@ -418,6 +466,55 @@ export async function buildAccountExport(
     `),
   ]);
 
+  // Club records reach the export only through an ACTIVE link of this account
+  // (and a guardian's children through theirs, which the portal shows too).
+  const linkedRecords = sql`(SELECT l.member_id FROM club_member_links l
+                              WHERE l.user_id = ${userId} AND l.status = 'active')`;
+  const [clubStaffRows, clubLinkRows, clubAbonnementRows, clubBookingRows, clubVisitRows] =
+    await Promise.all([
+      db.execute(sql`
+        SELECT c.slug, c.name_bg, s.role, s.created_at
+          FROM club_staff s JOIN clubs c ON c.id = s.club_id
+         WHERE s.user_id = ${userId}
+         ORDER BY s.created_at
+      `),
+      db.execute(sql`
+        SELECT c.slug, c.name_bg, m.display_name, l.status, l.method, l.created_at,
+               l.passport_consent_at, l.notify_email
+          FROM club_member_links l
+          JOIN club_members m ON m.club_id = l.club_id AND m.id = l.member_id
+          JOIN clubs c ON c.id = l.club_id
+         WHERE l.user_id = ${userId}
+         ORDER BY l.created_at
+      `),
+      db.execute(sql`
+        SELECT c.slug, mb.plan_name, mb.kind, to_char(mb.starts_on, 'YYYY-MM-DD') AS starts_on,
+               to_char(mb.effective_ends_on, 'YYYY-MM-DD') AS ends_on, mb.state
+          FROM club_membership_balances mb JOIN clubs c ON c.id = mb.club_id
+         WHERE mb.member_id IN ${linkedRecords}
+         ORDER BY mb.starts_on
+      `),
+      db.execute(sql`
+        SELECT c.slug, k.title, to_char(o.starts_at_local, 'YYYY-MM-DD"T"HH24:MI:SS') AS starts_local,
+               b.state, b.is_trial, b.created_at
+          FROM club_bookings b
+          JOIN club_class_occurrences o ON o.club_id = b.club_id AND o.id = b.occurrence_id
+          JOIN club_classes k ON k.id = o.class_id
+          JOIN clubs c ON c.id = b.club_id
+         WHERE b.member_id IN ${linkedRecords}
+         ORDER BY o.starts_at
+      `),
+      db.execute(sql`
+        SELECT c.slug, to_char(ci.sofia_day, 'YYYY-MM-DD') AS day, lo.name AS location, ci.method,
+               ci.covered, ci.checked_in_at
+          FROM club_checkins ci
+          JOIN club_locations lo ON lo.club_id = ci.club_id AND lo.id = ci.location_id
+          JOIN clubs c ON c.id = ci.club_id
+         WHERE ci.member_id IN ${linkedRecords}
+         ORDER BY ci.checked_in_at
+      `),
+    ]);
+
   const badges = evaluateBadges(LAUNCH_BADGES, events, { now });
   const streaks = passportStreaks(events, { now, frozen });
   const calendar: Row | undefined = calendarRows.rows[0];
@@ -610,6 +707,48 @@ export async function buildAccountExport(
       calendarFeed: calendar
         ? { issuedAt: iso(calendar.created_at), rotatedAt: isoOrNull(calendar.rotated_at) }
         : null,
+    },
+    clubs: {
+      staffOf: clubStaffRows.rows.map((row) => ({
+        clubSlug: String(row.slug),
+        clubName: String(row.name_bg),
+        role: String(row.role),
+        since: iso(row.created_at),
+      })),
+      links: clubLinkRows.rows.map((row) => ({
+        clubSlug: String(row.slug),
+        clubName: String(row.name_bg),
+        recordName: String(row.display_name),
+        status: String(row.status),
+        method: String(row.method),
+        since: iso(row.created_at),
+        passportConsentAt: isoOrNull(row.passport_consent_at),
+        clubMail: row.notify_email === true,
+      })),
+      abonnements: clubAbonnementRows.rows.map((row) => ({
+        clubSlug: String(row.slug),
+        plan: String(row.plan_name),
+        kind: String(row.kind),
+        startsOn: String(row.starts_on),
+        endsOn: String(row.ends_on),
+        state: String(row.state),
+      })),
+      bookings: clubBookingRows.rows.map((row) => ({
+        clubSlug: String(row.slug),
+        classTitle: String(row.title),
+        startsAtLocal: String(row.starts_local),
+        state: String(row.state),
+        trial: row.is_trial === true,
+        createdAt: iso(row.created_at),
+      })),
+      visits: clubVisitRows.rows.map((row) => ({
+        clubSlug: String(row.slug),
+        day: String(row.day),
+        location: String(row.location),
+        method: String(row.method),
+        covered: row.covered === true,
+        checkedInAt: iso(row.checked_in_at),
+      })),
     },
     adminAccess: accessRows.rows.map((row) => ({
       scope: String(row.scope),

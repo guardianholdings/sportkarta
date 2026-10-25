@@ -214,6 +214,64 @@ facility data, moderation or scoring. Migrations `0019`–`0023`.
 - [ ] **8.5 M3b — map-pin sponsor badge** — DELIBERATELY NOT BUILT. The plan gates it behind a signed sponsor's explicit demand: it is the one place the map stops being purely public infrastructure, it is the bulk of the work (a 9-touch-point chain through the GeoJSON, markers, explorer and `places.ts`), and it is the deliverable sponsors care about least. M3b also owes the missing map-attribution e2e assertion.
 - [ ] **8.6 Ops, not code** — the §Ongoing list in the plan: rate card, the two contract templates, invoice sequence, the combined-stream VAT register, media kit, renewal deliverable reports, annual funder disclosure. Honest estimate ~8–15 h/month once 2–3 deals exist, against a budget that also builds the product. This is risk #1 in §10, made heavier.
 
+## 9b. Stage 9 — «Клубове» (club-management add-on, 2026-10-24)
+
+A paid add-on for private gyms, studios and sports clubs (free community tier
+for clubs at public facilities), sold by invoice and switched on by the
+operator. Plan: the approved plan of 2026-10-24; commercial record:
+`docs/MONETISATION.md` S7. **Behind `CLUBS_ENABLED`, which ships off**: every
+club route 404s, the worker's club jobs find nothing, the map feed carries no
+club flag. Migrations `0038`–`0044`.
+
+Operator decisions (2026-10-24, not to be reopened): money is RECORDS ONLY in
+v1 (phase 2 = each club's own Stripe on a hosted page, by redirect — no payment
+script on pops.bg, the NGO never holds funds); any club may join; linking a
+member record to a POPS account is optional and always the member's act; the
+operator invoices by bank transfer and activates by hand (30-day trial).
+
+- [x] **9.1 Tenancy and schema** (`0038`–`0044`) — every table carries
+  `club_id` with composite FKs, so a booking cannot point at another club's
+  class even if application scope were bypassed. Ledgers (payments, audit,
+  notifications, monthly activity) are append-only by trigger, purgeable only
+  inside the archived club's own purge transaction. Derived state (balances,
+  queue positions, member status) lives in `security_invoker` views, never in
+  columns. No date of birth anywhere; a child hangs under a guardian record.
+- [x] **9.2 Office** (`/klub/<slug>/…`) — dashboard, members (guardian/child,
+  segments, card, claims), plans and the one-form sale, payments with derived
+  owed/partial/overdue, the timetable (rrule engine reused, waitlist by
+  arithmetic), rosters, the front desk, the member-QR scan, settings
+  (locations on map facilities, kiosk devices), team invitations, reports with
+  printed definitions, CSV export of every dataset. Authorization is IN THE
+  STATEMENT (`apps/web/lib/clubs/scope.ts`), pinned by `club-scope.test.ts`.
+- [x] **9.3 Attendance** — desk tick, printed card, personal QR (`v2~mem`,
+  scanned by the desk) and the paired kiosk tablet showing a rotating location
+  QR (`v2~loc`, redeemed by the member's own signed-in phone). Never a
+  refusal: an unpaid visit is recorded and the desk is told. A QR or card
+  visit of a consenting linked member writes `training_logs(source='club',
+  evidence='qr_verified')` — enforced by trigger and CHECK — and never points.
+- [x] **9.4 Member side** — `/klub` hub (behind a pill on `/profil`, no fifth
+  tab), claim by verified email or accept an invitation, the portal
+  (abonnement in words, bookings, booking for a child, personal QR, passport
+  consent, club mail switch, erasure request), club bookings in the private
+  calendar feed, club data in the GDPR account export.
+- [x] **9.5 Mail** — worker only, ids in jobs, claim-then-send against
+  `club_notifications`; invitation tokens minted at send time. Linked members
+  at their POPS address; unlinked records only on the club's instruction, with
+  RFC 8058 one-click opt-out; minors never (the guardian, or nobody). Trainer
+  daily roster and owner weekly summary carry counts, never names.
+- [x] **9.6 Public** — `/klubove` directory, `/klub/<slug>`, class pages with a
+  one-per-person trial booking, a labelled block on facility pages («Платено
+  представяне» / «Клуб на този обект»), a chip in the map's preview panel
+  (never on the canvas), `clubs.xml` sitemap. One predicate,
+  `clubRenderableSql`, decides every public surface.
+- [x] **9.7 Operator** — `/admin/klubove`: applications, activation with a
+  trial, tier / paid-until / member cap, suspend, purge of archived clubs, the
+  monthly `members_active` figure that paid tiers are invoiced on.
+- [ ] **9.8 Not in v1** — OG share cards for club pages; Playwright specs
+  (CI runs with the flag off); CSV member import wizard; per-head trainer pay
+  report; v1.1 and v2 per the plan (leads pipeline, Stripe Connect, products,
+  messaging inbox, door access).
+
 ---
 
 ## 10. Cadence & top risks

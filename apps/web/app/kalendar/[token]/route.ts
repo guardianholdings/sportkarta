@@ -68,6 +68,21 @@ export async function GET(
     // the member's calendar for ever.
     sequence: occurrence.cancelled ? 1 : 0,
   }));
+  // Club bookings (Stage 9). Their own UID space, so a club class can never
+  // collide with a play session; the SEQUENCE grows with every cancel and
+  // re-book (see ClubCalendarBooking.seq).
+  for (const booking of feed.clubBookings) {
+    events.push({
+      uid: `club-booking-${booking.bookingId}@${host}`,
+      startsAt: new Date(booking.startsAt),
+      endsAt: new Date(booking.endsAt),
+      summary: booking.title,
+      location: booking.location,
+      url: `${base}/klub/${booking.clubSlug}/trenirovka/${booking.occurrenceId}`,
+      cancelled: booking.cancelled,
+      sequence: 2 * booking.seq + (booking.cancelled ? 1 : 0),
+    });
+  }
 
   return new Response(
     renderCalendar({

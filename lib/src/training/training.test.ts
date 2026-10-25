@@ -38,10 +38,10 @@ describe('the vocabulary', () => {
     expect(TRAINING_SOURCES).toContain('strava');
     expect(TRAINING_SOURCES).toContain('garmin');
     expect(TRAINING_SOURCES).toContain('apple_health');
-    // TWO tiers. A `qr_verified` label was drafted and removed before 0027
-    // shipped because nothing could grant it, and an enum value cannot be
-    // dropped once it exists.
-    expect(TRAINING_EVIDENCE).toEqual(['self_reported', 'connected_app']);
+    // THREE tiers. `qr_verified` was removed before 0027 because nothing could
+    // grant it; 0038/0043 restored it with the club check-in that does.
+    expect(TRAINING_EVIDENCE).toEqual(['self_reported', 'connected_app', 'qr_verified']);
+    expect(TRAINING_SOURCES).toContain('club');
   });
 
   /**
@@ -52,7 +52,8 @@ describe('the vocabulary', () => {
    */
   it('maps each source to exactly one tier', () => {
     expect(evidenceFor('manual')).toBe('self_reported');
-    for (const source of TRAINING_SOURCES.filter((s) => s !== 'manual')) {
+    expect(evidenceFor('club')).toBe('qr_verified');
+    for (const source of TRAINING_SOURCES.filter((s) => s !== 'manual' && s !== 'club')) {
       expect(evidenceFor(source), source).toBe('connected_app');
     }
   });

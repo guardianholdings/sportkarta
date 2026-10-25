@@ -19,6 +19,35 @@ export type {
 } from './crowd-edits.js';
 export { refreshStats, STATS_MATVIEWS } from './stats.js';
 export { HORIZON_WEEKS, materializeSessions } from './sessions/materialize.js';
+export { materializeClubClasses } from './clubs/materialize.js';
+export type { ClubMaterializeOptions, ClubMaterializeReport } from './clubs/materialize.js';
+export {
+  bookingsForMail,
+  cancelledOccurrenceBookings,
+  claimClubNotification,
+  clubForMail,
+  clubWeekFigures,
+  dueClubReminders,
+  expiryCandidates,
+  inviteForMail,
+  memberForStaffMail,
+  memberRecipient,
+  operatorRecipients,
+  recordClubMonthlyActivity,
+  setInviteTokenHash,
+  staffRecipients,
+  trainerClassesOn,
+} from './clubs/mail.js';
+export type {
+  ClubBookingMail,
+  ClubMailClub,
+  ClubMemberRecipient,
+  ClubWeekFigures,
+  ExpiryCandidate,
+  InviteForMail,
+  StaffRecipient,
+  TrainerClass,
+} from './clubs/mail.js';
 export {
   claimDigestSend,
   digestRecipients,
@@ -62,7 +91,7 @@ export {
   generateCalendarToken,
   rotateCalendarToken,
 } from './sessions/calendar.js';
-export type { CalendarFeed, CalendarOccurrence } from './sessions/calendar.js';
+export type { CalendarFeed, CalendarOccurrence, ClubCalendarBooking } from './sessions/calendar.js';
 export {
   adminStandings,
   campaignById,

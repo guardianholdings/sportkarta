@@ -145,6 +145,93 @@ export function verifyCheckinToken(
 }
 
 /**
+ * CLUB TOKENS (v2, «Клубове» — docs/ROADMAP.md Stage 9).
+ *
+ *   v2~<kind>~<uuid>~<window>~<sig>
+ *
+ * Same secret (CHECKIN_TOKEN_SECRET), same 60-second windows, same grace, same
+ * signature-before-window order as v1 — and v1 is untouched: a v1 token is
+ * `unsupported_version` here and a v2 token is `unsupported_version` there.
+ * The KIND is inside the signed string, so a token minted for one purpose can
+ * never be replayed as the other:
+ *
+ *   loc  a club LOCATION, shown on the paired kiosk tablet at the desk. It
+ *        names a place, never a person; who checked in is the session cookie of
+ *        the phone that opens /klubove/otmetka/<token>.
+ *   mem  a club's CLIENT RECORD (club_members.id — never users.id), shown in
+ *        the member's portal and scanned by the desk at /klub/<slug>/skan/<token>.
+ *        It rotates like the kiosk QR, so a screenshot decays within minutes.
+ */
+const CLUB_VERSION = 'v2';
+
+export const CLUB_TOKEN_KINDS = ['loc', 'mem'] as const;
+export type ClubTokenKind = (typeof CLUB_TOKEN_KINDS)[number];
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function clubPayloadFor(kind: ClubTokenKind, id: string, window: number): string {
+  return [CLUB_VERSION, kind, id, String(window)].join(SEP);
+}
+
+export interface ClubTokenInput {
+  kind: ClubTokenKind;
+  /** club_locations.id for `loc`, club_members.id for `mem`. */
+  id: string;
+  secret: string;
+  at?: Date;
+}
+
+export function issueClubToken({ kind, id, secret, at = new Date() }: ClubTokenInput): string {
+  if (!secret) throw new Error('a check-in secret is required');
+  if (!UUID.test(id)) throw new Error('a club token names a uuid');
+  const payload = clubPayloadFor(kind, id, windowIndexFor(at));
+  return `${payload}${SEP}${sign(secret, payload)}`;
+}
+
+export type ClubTokenResult =
+  | { ok: true; kind: ClubTokenKind; id: string; window: number }
+  | { ok: false; reason: CheckinTokenFailure | 'wrong_kind' };
+
+/**
+ * Verify a club token AND that it is of the expected kind. Signature first,
+ * then the kind, then the window — so neither "expired" nor "wrong kind" can
+ * be learned about a token whose signature is not ours.
+ */
+export function verifyClubToken(
+  token: string,
+  secret: string,
+  expected: ClubTokenKind,
+  at: Date = new Date(),
+): ClubTokenResult {
+  if (!secret) return { ok: false, reason: 'bad_signature' };
+  const parts = token.split(SEP);
+  if (parts.length !== 5) {
+    return { ok: false, reason: parts[0] === VERSION ? 'unsupported_version' : 'malformed' };
+  }
+  const [version, kind, id, windowText, tag] = parts as [string, string, string, string, string];
+  if (version !== CLUB_VERSION) return { ok: false, reason: 'unsupported_version' };
+  if (!(CLUB_TOKEN_KINDS as readonly string[]).includes(kind)) {
+    return { ok: false, reason: 'malformed' };
+  }
+  if (!UUID.test(id) || !/^\d{1,15}$/.test(windowText)) return { ok: false, reason: 'malformed' };
+  const window = Number(windowText);
+
+  const expectedTag = sign(secret, clubPayloadFor(kind as ClubTokenKind, id, window));
+  const given = Buffer.from(tag, 'base64url');
+  const wanted = Buffer.from(expectedTag, 'base64url');
+  if (given.length !== wanted.length || !timingSafeEqual(given, wanted)) {
+    return { ok: false, reason: 'bad_signature' };
+  }
+  if (kind !== expected) return { ok: false, reason: 'wrong_kind' };
+
+  const current = windowIndexFor(at);
+  if (window > current || window < current - GRACE_WINDOWS) {
+    return { ok: false, reason: 'expired' };
+  }
+  return { ok: true, kind: kind as ClubTokenKind, id, window };
+}
+
+/**
  * Milliseconds until the current window ends — what the organiser's screen uses
  * to decide when to refresh. Always at least a second, so a refresh scheduled
  * right on a boundary does not spin.

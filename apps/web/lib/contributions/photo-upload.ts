@@ -22,7 +22,7 @@ export async function storeContributionPhoto(
   // deliberately unaccepted, it can script). An advertiser-supplied file is the
   // least trusted image on the platform, so it is the last one that should get
   // its own shortcut past the re-encode.
-  prefix: 'facilities' | 'conditions' | 'partners' | 'ads',
+  prefix: 'facilities' | 'conditions' | 'partners' | 'ads' | 'clubs',
 ): Promise<string> {
   if (!(file instanceof File) || file.size === 0) throw new ContributionError('photo_required');
   if (file.size > MAX_PHOTO_BYTES) throw new ContributionError('photo_too_large');

@@ -267,6 +267,55 @@
       "when": 1785130800000,
       "tag": "0037_contribution_location_off",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1785134400000,
+      "tag": "0038_club_enum_values",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1785138000000,
+      "tag": "0039_clubs_core",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1785141600000,
+      "tag": "0040_club_members",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1785145200000,
+      "tag": "0041_club_plans_money",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1785148800000,
+      "tag": "0042_club_schedule",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1785152400000,
+      "tag": "0043_club_attendance_passport",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1785156000000,
+      "tag": "0044_club_notifications_activity",
+      "breakpoints": true
     }
   ]
 }

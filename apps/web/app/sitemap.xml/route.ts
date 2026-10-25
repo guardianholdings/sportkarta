@@ -1,3 +1,4 @@
+import { clubsEnabled } from '@/lib/clubs/access';
 import { renderSitemapIndex, XML_HEADERS } from '@/lib/sitemap-xml';
 
 // Sitemap INDEX referencing the segmented child sitemaps. Dotted path bypasses
@@ -14,5 +15,7 @@ export const dynamic = 'force-dynamic';
 const SEGMENTS = ['facilities.xml', 'places.xml', 'static.xml'];
 
 export function GET() {
-  return new Response(renderSitemapIndex(SEGMENTS), { headers: XML_HEADERS });
+  // The clubs segment exists only while the add-on is on (CLUBS_ENABLED).
+  const segments = clubsEnabled() ? [...SEGMENTS, 'clubs.xml'] : SEGMENTS;
+  return new Response(renderSitemapIndex(segments), { headers: XML_HEADERS });
 }

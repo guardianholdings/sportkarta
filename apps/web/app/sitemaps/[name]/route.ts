@@ -4,6 +4,8 @@ import {
   sitemapFacilities,
   sitemapMunicipalities,
 } from '@/lib/places';
+import { clubsEnabled } from '@/lib/clubs/access';
+import { publicClubDirectory } from '@/lib/clubs/public';
 import { STATIC_SITEMAP_PATHS } from '@/lib/sitemap-static';
 import { renderUrlset, XML_HEADERS, type UrlEntry } from '@/lib/sitemap-xml';
 
@@ -11,6 +13,7 @@ import { renderUrlset, XML_HEADERS, type UrlEntry } from '@/lib/sitemap-xml';
 //   /sitemaps/facilities.xml — every public facility page
 //   /sitemaps/places.xml     — city + city×sport pages (≥3 guard)
 //   /sitemaps/static.xml      — the indexable static pages (lib/sitemap-static.ts)
+//   /sitemaps/clubs.xml       — /klubove and the renderable club pages (Stage 9, flag-gated)
 // Cached + revalidated hourly so crawlers don't trigger a full-table scan per
 // request (facilities.xml ≈ 6.6k rows, 2.75 MB).
 //
@@ -36,6 +39,13 @@ async function entriesFor(name: string): Promise<UrlEntry[] | null> {
         sitemapMunicipalities(),
       ]);
       return [...cities, ...sports, ...municipalities];
+    }
+    case 'clubs.xml': {
+      // Stage 9: the directory and every RENDERABLE club page — the same
+      // predicate that 404s a hidden club, so a sitemap never lists one.
+      if (!clubsEnabled()) return null;
+      const clubs = await publicClubDirectory('bg');
+      return [{ path: '/klubove' }, ...clubs.map((club) => ({ path: `/klub/${club.slug}` }))];
     }
     case 'static.xml': {
       const now = new Date().toISOString();

@@ -213,14 +213,51 @@ describe.skipIf(!hasDb)('training logs (requires running database)', () => {
    * The tier is pinned EXACTLY, not merely bounded. An earlier draft allowed
    * `evidence IN ('connected_app','qr_verified')` for any non-manual source,
    * which let any importer assert the top tier by passing a nicer string — while
-   * the comment beside it claimed the opposite. There are two tiers now and an
-   * import can only ever be the lower one.
+   * the comment beside it claimed the opposite. There are three tiers since
+   * 0043, and each source maps to EXACTLY one: an import can only ever be
+   * connected_app, and only a club check-in is qr_verified.
    */
-  it('has exactly two evidence tiers, and an import cannot exceed connected_app', async () => {
+  it('has exactly three evidence tiers, and an import cannot exceed connected_app', async () => {
     const labels = await client.query(
       `SELECT unnest(enum_range(NULL::training_evidence))::text AS v ORDER BY 1`,
     );
-    expect(labels.rows.map((r) => String(r.v)).sort()).toEqual(['connected_app', 'self_reported']);
+    expect(labels.rows.map((r) => String(r.v)).sort()).toEqual([
+      'connected_app',
+      'qr_verified',
+      'self_reported',
+    ]);
+
+    await expect(
+      client.query(
+        `INSERT INTO training_logs (user_id, sport, started_at, sofia_day, duration_s, source, evidence, external_id)
+         VALUES ($1, 'running', now(), current_date, 600, 'strava', 'qr_verified', 'x2')`,
+        [A],
+      ),
+    ).rejects.toThrow(/training_logs_evidence_matches_source/);
+    await expect(
+      client.query(
+        `INSERT INTO training_logs (user_id, sport, started_at, sofia_day, duration_s, source, evidence)
+         VALUES ($1, 'running', now(), current_date, 600, 'manual', 'qr_verified')`,
+        [A],
+      ),
+    ).rejects.toThrow(/training_logs_evidence_matches_source/);
+    // A 'club' row must BE a consented QR/card check-in at a club (0043's
+    // training_logs_club_row_is_a_checkin, which runs before the CHECKs): a
+    // nicer source string buys nothing either. The positive path is proven
+    // with real check-ins in apps/web/tests/journeys/clubs.test.ts.
+    for (const [evidence, externalId] of [
+      ['connected_app', 'x3'],
+      ['qr_verified', null],
+      ['qr_verified', 'x4'],
+    ] as const) {
+      await expect(
+        client.query(
+          `INSERT INTO training_logs (user_id, sport, started_at, sofia_day, duration_s, source, evidence, external_id)
+           VALUES ($1, 'fitness', now(), current_date, 600, 'club', $2, $3)`,
+          [A, evidence, externalId],
+        ),
+      ).rejects.toThrow(/training_logs_club_row_is_a_checkin/);
+    }
 
     await expect(
       client.query(

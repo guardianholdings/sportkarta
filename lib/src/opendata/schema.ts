@@ -153,8 +153,11 @@ export interface ExportDataset {
  * `actor` and `uploaded_by` on the contribution tables, `organizer_id`,
  * `recorded_by` and `participant_user_id` on the play tables, `granted_by` on
  * the ambassador grants, `handle` on the public passport, `token` on the
- * calendar feeds, and the better-auth users/sessions/accounts family. When a
- * new table adds a person-shaped column, its name belongs here.
+ * calendar feeds, and the better-auth users/sessions/accounts family. The
+ * «Клубове» add-on (0039–0044) added `guardian_member_id`, `instructor_user_id`,
+ * `booked_by`, `sold_by`, `card_token_hash`, staff, invites, bookings, payments
+ * and memberships — every one a club client or employee. When a new table adds
+ * a person-shaped column, its name belongs here.
  *
  * `verification` is deliberately ABSENT: `needs_verification` is a count of
  * facilities awaiting review and has nothing to do with the auth
@@ -171,22 +174,34 @@ export const DENIED_IDENTIFIERS = [
   'agent',
   'birth',
   'birthdate',
+  'booked',
+  'booking',
+  'bookings',
+  'card',
   'checkin',
   'checkins',
   'dob',
   'email',
   'granted',
+  'guardian',
   'handle',
+  'instructor',
+  'invite',
+  'invites',
   'ip',
   'mail',
   'member',
   'members',
+  'membership',
+  'memberships',
   'minor',
   'organiser',
   'organizer',
   'owner',
   'participant',
   'password',
+  'payment',
+  'payments',
   'phone',
   'recorded',
   'recorder',
@@ -195,10 +210,13 @@ export const DENIED_IDENTIFIERS = [
   'secret',
   'session',
   'sessions',
+  'sold',
+  'staff',
   'subscriber',
   'subscription',
   'tel',
   'token',
+  'trainer',
   'uploaded',
   'uploader',
   'user',

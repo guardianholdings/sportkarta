@@ -2431,6 +2431,8 @@ export const trainingSource = pgEnum('training_source', [
   'polar',
   'suunto',
   'other',
+  // 0038: written only by a club check-in (apps/web/lib/clubs/checkin.ts).
+  'club',
 ]);
 
 /**
@@ -2438,14 +2440,16 @@ export const trainingSource = pgEnum('training_source', [
  * structural for check-ins, carried here so a future competition can require a
  * tier rather than trusting whoever wrote the query.
  *
- * TWO TIERS, NOT THREE. A `qr_verified` label was drafted and removed before
- * 0027 shipped: nothing could produce it — there is no source for the check-in
- * path and `evidenceFor` never returns it — so it would have been a permanent
- * enum value (Postgres has no DROP VALUE) that silently returned an empty board
- * to any prize surface asking for it. It comes back when something can actually
- * grant it, together with the source that does.
+ * THREE TIERS. `qr_verified` was drafted and removed before 0027 shipped
+ * because nothing could produce it, and an enum value is permanent. 0038/0043
+ * restored it together with the one source that grants it: a QR or card
+ * check-in at a club desk, by a member who linked their account and consented.
  */
-export const trainingEvidence = pgEnum('training_evidence', ['self_reported', 'connected_app']);
+export const trainingEvidence = pgEnum('training_evidence', [
+  'self_reported',
+  'connected_app',
+  'qr_verified',
+]);
 
 /**
  * Personal training logs — somebody doing sport, whether or not anyone
@@ -2612,8 +2616,9 @@ export const trainingLogs = pgTable(
      */
     check(
       'training_logs_evidence_matches_source',
-      sql`(${t.source} = 'manual' AND ${t.evidence} = 'self_reported')
-          OR (${t.source} <> 'manual' AND ${t.evidence} = 'connected_app')`,
+      sql`(${t.source}::text = 'manual' AND ${t.evidence}::text = 'self_reported')
+          OR (${t.source}::text = 'club' AND ${t.evidence}::text = 'qr_verified')
+          OR (${t.source}::text NOT IN ('manual', 'club') AND ${t.evidence}::text = 'connected_app')`,
     ),
     /** The dedupe key and the source must agree, or a re-sync cannot be idempotent. */
     check(
@@ -2819,3 +2824,7 @@ export const accountAccessLog = pgTable(
 export type AccountAccessLogRow = typeof accountAccessLog.$inferSelect;
 export type NewAccountAccessLogRow = typeof accountAccessLog.$inferInsert;
 export type AccountAccessScopeValue = (typeof accountAccessScope.enumValues)[number];
+
+// The «Клубове» add-on (0039–0044), in its own file for size; re-exported so
+// `@sportkarta/db/schema` stays the one import.
+export * from './clubs.js';

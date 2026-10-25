@@ -356,6 +356,7 @@ export function MapExplorer({
             lon: f.geometry.coordinates[0],
             lat: f.geometry.coordinates[1],
             place: f.properties.place ?? null,
+            ...(f.properties.club ? { club: true } : {}),
           })),
         );
         setLoading(false);
@@ -717,6 +718,7 @@ export function MapExplorer({
           directionsWith: (app: string) => t('directionsWith', { app }),
           viewDetails: t('viewDetails'),
           close: t('close'),
+          club: t('clubChip'),
         }}
       />
     );
@@ -1271,6 +1273,7 @@ function FacilityPreview({
     directionsWith: (app: string) => string;
     viewDetails: string;
     close: string;
+    club: string;
   };
 }) {
   const v = primaryVisual(point.sports);
@@ -1306,6 +1309,13 @@ function FacilityPreview({
             {title}
           </h2>
           {subtitle && <p className="mt-1 text-body-sm text-text-muted">{subtitle}</p>}
+          {point.club && (
+            <p className="mt-2">
+              <span className="inline-flex items-center rounded-pill border border-line-strong px-2.5 py-0.5 text-caption font-semibold text-ink-soft">
+                {labels.club}
+              </span>
+            </p>
+          )}
         </div>
         {compact && (
           <IconButton aria-label={labels.close} variant="surface" round onClick={onClose}>
