@@ -44,7 +44,7 @@ export interface ClubClass extends ClassInput {
 export async function listClasses(actor: ClubActor): Promise<ClubClass[]> {
   const result = await getDb().execute(sql`
     SELECT k.*, to_char(k.starts_at_local, 'YYYY-MM-DD HH24:MI:SS') AS starts_local_text,
-           l.name AS location_name, coalesce(st.display_name, u.display_name) AS instructor_name,
+           l.name AS location_name, coalesce(nullif(btrim(st.display_name), ''), nullif(btrim(u.display_name), ''), split_part(u.email, '@', 1)) AS instructor_name,
            coalesce((SELECT array_agg(cp.plan_id::text) FROM club_class_plans cp
                       WHERE cp.class_id = k.id), '{}') AS plan_ids
       FROM club_classes k
@@ -85,7 +85,7 @@ function toClass(row: Record<string, unknown>): ClubClass {
 export async function classById(actor: ClubActor, classId: string): Promise<ClubClass | null> {
   const result = await getDb().execute(sql`
     SELECT k.*, to_char(k.starts_at_local, 'YYYY-MM-DD HH24:MI:SS') AS starts_local_text,
-           l.name AS location_name, coalesce(st.display_name, u.display_name) AS instructor_name,
+           l.name AS location_name, coalesce(nullif(btrim(st.display_name), ''), nullif(btrim(u.display_name), ''), split_part(u.email, '@', 1)) AS instructor_name,
            coalesce((SELECT array_agg(cp.plan_id::text) FROM club_class_plans cp
                       WHERE cp.class_id = k.id), '{}') AS plan_ids
       FROM club_classes k
@@ -247,7 +247,7 @@ export async function weekOccurrences(
     SELECT o.id, o.class_id, k.title, k.sport, o.starts_at, o.ends_at,
            to_char(o.starts_at_local, 'YYYY-MM-DD HH24:MI') AS local_start,
            k.location_id, l.name AS location_name,
-           coalesce(sto.display_name, uo.display_name, stk.display_name, uk.display_name) AS instructor_name,
+           coalesce(nullif(btrim(sto.display_name), ''), nullif(btrim(uo.display_name), ''), nullif(btrim(stk.display_name), ''), nullif(btrim(uk.display_name), ''), split_part(coalesce(uo.email, uk.email), '@', 1)) AS instructor_name,
            coalesce(o.capacity, k.capacity) AS capacity, o.status,
            coalesce(o.instructor_user_id, k.instructor_user_id) = ${actor.userId} AS mine,
            (SELECT count(*) FILTER (WHERE bp.booking_status = 'going')::int FROM club_booking_positions bp
@@ -335,7 +335,7 @@ export async function occurrenceRoster(
     SELECT o.id, o.class_id, k.title, k.sport, o.starts_at, o.ends_at,
            to_char(o.starts_at_local, 'YYYY-MM-DD HH24:MI') AS local_start, k.location_id,
            l.name AS location_name, coalesce(o.capacity, k.capacity) AS capacity, o.status,
-           coalesce(sto.display_name, uo.display_name, stk.display_name, uk.display_name) AS instructor_name
+           coalesce(nullif(btrim(sto.display_name), ''), nullif(btrim(uo.display_name), ''), nullif(btrim(stk.display_name), ''), nullif(btrim(uk.display_name), ''), split_part(coalesce(uo.email, uk.email), '@', 1)) AS instructor_name
       FROM club_class_occurrences o
       JOIN club_classes k ON k.id = o.class_id
       JOIN club_locations l ON l.id = k.location_id

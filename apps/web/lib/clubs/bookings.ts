@@ -185,6 +185,11 @@ export async function cancelBooking(
              ? clubActorMay(by.actor, 'bookings.manage', { write: false })
              : memberSelfScope(by.userId, clubId, 'm')
          }
+         -- A booking the person has already attended is a fact, not a plan:
+         -- it cannot be cancelled after the check-in.
+         AND NOT EXISTS (SELECT 1 FROM club_checkins ci
+                          WHERE ci.club_id = b.club_id AND ci.occurrence_id = b.occurrence_id
+                            AND ci.member_id = b.member_id)
        FOR UPDATE OF b
     `);
     const row = target.rows[0];

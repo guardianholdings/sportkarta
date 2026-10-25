@@ -499,7 +499,7 @@ export async function paymentLedger(
   const rows = await getDb().execute(sql`
     SELECT pay.id, to_char(pay.received_on, 'YYYY-MM-DD') AS received_on, pay.member_id,
            m.display_name AS member_name, ch.label, pay.kind, pay.method, pay.amount_cents,
-           coalesce(st.display_name, u.display_name) AS recorded_by
+           coalesce(nullif(btrim(st.display_name), ''), nullif(btrim(u.display_name), ''), split_part(u.email, '@', 1)) AS recorded_by
       FROM club_payments pay
       JOIN club_charges ch ON ch.id = pay.charge_id
       LEFT JOIN club_members m ON m.club_id = pay.club_id AND m.id = pay.member_id

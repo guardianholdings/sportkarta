@@ -89,7 +89,7 @@ export async function clubAuditHistory(
     : sql``;
   const result = await getDb().execute(sql`
     SELECT a.id, a.action, a.actor_kind, a.subject_member_id, a.detail, a.acted_at,
-           coalesce(st.display_name, u.display_name) AS actor_name,
+           coalesce(nullif(btrim(st.display_name), ''), nullif(btrim(u.display_name), ''), split_part(u.email, '@', 1)) AS actor_name,
            m.display_name AS subject_name
       FROM club_audit a
       LEFT JOIN users u ON u.id = a.actor_id

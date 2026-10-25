@@ -132,7 +132,7 @@ const DATASETS: Record<ClubExportDataset, Dataset> = {
     header: ['received_on', 'member', 'for', 'kind', 'method', 'amount_eur', 'recorded_by'],
     query: (scope) => sql`
       SELECT ARRAY[${DAY(sql`p.received_on`)}, coalesce(m.display_name, ''), ch.label, p.kind, p.method,
-             ${EUR(sql`p.amount_cents`)}, coalesce(st.display_name, u.display_name, '')]::text[] AS r
+             ${EUR(sql`p.amount_cents`)}, coalesce(nullif(btrim(st.display_name), ''), nullif(btrim(u.display_name), ''), split_part(u.email, '@', 1), '')]::text[] AS r
         FROM club_payments p
         JOIN club_charges ch ON ch.club_id = p.club_id AND ch.id = p.charge_id
         LEFT JOIN club_members m ON m.club_id = p.club_id AND m.id = p.member_id
@@ -222,7 +222,7 @@ const DATASETS: Record<ClubExportDataset, Dataset> = {
     query: (scope) => sql`
       SELECT ARRAY[${STAMP(sql`a.acted_at`)},
              CASE WHEN a.actor_kind = 'ngo_admin' THEN 'POPS'
-                  ELSE coalesce(st.display_name, u.display_name, '') END,
+                  ELSE coalesce(nullif(btrim(st.display_name), ''), nullif(btrim(u.display_name), ''), split_part(u.email, '@', 1), '') END,
              a.actor_kind, a.action, coalesce(m.display_name, '')]::text[] AS r
         FROM club_audit a
         LEFT JOIN club_staff st ON st.club_id = a.club_id AND st.user_id = a.actor_id

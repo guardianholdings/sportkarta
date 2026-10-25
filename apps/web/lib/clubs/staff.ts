@@ -90,7 +90,7 @@ export async function clubInstructors(
   actor: ClubActor,
 ): Promise<{ userId: string; name: string }[]> {
   const result = await getDb().execute(sql`
-    SELECT s.user_id, coalesce(s.display_name, u.display_name, '') AS name
+    SELECT s.user_id, coalesce(nullif(btrim(s.display_name), ''), nullif(btrim(u.display_name), ''), split_part(u.email, '@', 1)) AS name
       FROM club_staff s JOIN users u ON u.id = s.user_id
      WHERE ${clubScope(actor, 'schedule.view', 's')}
      ORDER BY name

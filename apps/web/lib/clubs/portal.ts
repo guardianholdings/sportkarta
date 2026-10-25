@@ -71,6 +71,8 @@ export interface PortalBooking {
   /** The instant after which a cancellation is late. */
   freeCancelUntil: string;
   cancelled: boolean;
+  /** Checked in for this class — no longer cancellable. */
+  attended: boolean;
 }
 
 export interface PortalRecord {
@@ -202,7 +204,10 @@ export async function portalView(
     db.execute(sql`
       SELECT bp.booking_id, bp.member_id, bp.occurrence_id, bp.booking_status, bp.position::int AS position,
              o.starts_at, o.ends_at, o.status, k.title, l.name AS location_name,
-             o.starts_at - make_interval(hours => k.cancel_deadline_hours) AS free_cancel_until
+             o.starts_at - make_interval(hours => k.cancel_deadline_hours) AS free_cancel_until,
+             EXISTS (SELECT 1 FROM club_checkins ci
+                      WHERE ci.club_id = bp.club_id AND ci.occurrence_id = bp.occurrence_id
+                        AND ci.member_id = bp.member_id) AS attended
         FROM club_booking_positions bp
         JOIN club_class_occurrences o ON o.club_id = bp.club_id AND o.id = bp.occurrence_id
         JOIN club_classes k ON k.id = o.class_id
@@ -246,6 +251,7 @@ export async function portalView(
           position: Number(b.position),
           freeCancelUntil: iso(b.free_cancel_until),
           cancelled: b.status === 'cancelled',
+          attended: b.attended === true,
         })),
     };
   });
@@ -259,7 +265,7 @@ export async function portalView(
 export async function portalClasses(clubId: string, days = 7): Promise<PortalClass[]> {
   const result = await getDb().execute(sql`
     SELECT o.id, k.title, k.sport, o.starts_at, o.ends_at, l.name AS location_name,
-           coalesce(sto.display_name, uo.display_name, stk.display_name, uk.display_name) AS instructor_name,
+           coalesce(nullif(btrim(sto.display_name), ''), nullif(btrim(uo.display_name), ''), nullif(btrim(stk.display_name), ''), nullif(btrim(uk.display_name), '')) AS instructor_name,
            coalesce(o.capacity, k.capacity) AS capacity, k.trial_allowed,
            o.starts_at - make_interval(hours => k.booking_opens_hours) AS opens_at,
            (SELECT count(*) FILTER (WHERE bp.booking_status = 'going')::int FROM club_booking_positions bp

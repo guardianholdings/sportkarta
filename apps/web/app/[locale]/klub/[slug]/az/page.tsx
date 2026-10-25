@@ -223,6 +223,8 @@ export default async function ClubPortalPage({
                           <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
                             {booking.cancelled ? (
                               <Badge tone="danger">{t('occurrenceCancelled')}</Badge>
+                            ) : booking.attended ? (
+                              <Badge tone="success">{t('attended')}</Badge>
                             ) : booking.status === 'going' ? (
                               <Badge tone="success">{t('going')}</Badge>
                             ) : (
@@ -230,7 +232,7 @@ export default async function ClubPortalPage({
                                 {t('waitlisted', { position: booking.position })}
                               </Badge>
                             )}
-                            {!booking.cancelled && (
+                            {!booking.cancelled && !booking.attended && (
                               <span className="text-caption text-text-muted">
                                 {late
                                   ? t('lateCancel')
@@ -241,16 +243,18 @@ export default async function ClubPortalPage({
                             )}
                           </span>
                         </span>
-                        {!booking.cancelled && Date.parse(booking.startsAt) > now && (
-                          <form action={portalOpAction}>
-                            {hidden()}
-                            <input type="hidden" name="op" value="cancel" />
-                            <input type="hidden" name="bookingId" value={booking.bookingId} />
-                            <button type="submit" className={pill}>
-                              {t('cancel')}
-                            </button>
-                          </form>
-                        )}
+                        {!booking.cancelled &&
+                          !booking.attended &&
+                          Date.parse(booking.startsAt) > now && (
+                            <form action={portalOpAction}>
+                              {hidden()}
+                              <input type="hidden" name="op" value="cancel" />
+                              <input type="hidden" name="bookingId" value={booking.bookingId} />
+                              <button type="submit" className={pill}>
+                                {t('cancel')}
+                              </button>
+                            </form>
+                          )}
                       </li>
                     );
                   })}

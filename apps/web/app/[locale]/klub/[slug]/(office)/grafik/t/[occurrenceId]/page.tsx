@@ -115,8 +115,9 @@ export default async function ClubRosterPage({
   const present = roster.people.filter((p) => p.checkedIn).length;
   const onRoster = new Set(roster.people.map((p) => p.memberId));
   const bookable = members.filter((m) => !onRoster.has(m.id));
+  // `numeric`, matching formatDateTime's start («5:30–6:30», not «5:30–06:30»).
   const endTime = new Intl.DateTimeFormat(intlLocale(locale), {
-    hour: '2-digit',
+    hour: 'numeric',
     minute: '2-digit',
     timeZone: 'Europe/Sofia',
   }).format(new Date(roster.endsAt));

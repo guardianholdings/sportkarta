@@ -196,7 +196,7 @@ export async function publicOccurrence(
   const result = await getDb().execute(sql`
     SELECT o.id, o.class_id, k.title, k.description, k.sport, o.starts_at, o.ends_at, o.status,
            l.name AS location_name, k.trial_allowed,
-           coalesce(sto.display_name, uo.display_name, stk.display_name, uk.display_name) AS instructor_name,
+           coalesce(nullif(btrim(sto.display_name), ''), nullif(btrim(uo.display_name), ''), nullif(btrim(stk.display_name), ''), nullif(btrim(uk.display_name), '')) AS instructor_name,
            coalesce(o.capacity, k.capacity) AS capacity,
            o.starts_at - make_interval(hours => k.booking_opens_hours) AS opens_at,
            (SELECT count(*) FILTER (WHERE bp.booking_status = 'going')::int FROM club_booking_positions bp

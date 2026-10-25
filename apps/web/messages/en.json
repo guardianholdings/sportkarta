@@ -3155,7 +3155,7 @@
     "ngoAdmin": "Association (admin)",
     "banner": {
       "pending": "Your application is under review. The office is view-only until it is approved.",
-      "trial": "Trial until {date}.",
+      "trial": "Trial until {date}",
       "past_due": "The paid period has ended. In {days, plural, one {# day} other {# days}} the office becomes read-only.",
       "lapsed": "The paid period has ended. The office is read-only and the public page is hidden. Contact us to renew.",
       "suspended": "The club is suspended. The office is read-only.",
@@ -3325,7 +3325,7 @@
     "publish": "Publish",
     "unpublish": "Hide the page",
     "logoTitle": "Logo",
-    "logoHint": "PNG or JPG up to 5 MB. Shown on the club page and the tablet.",
+    "logoHint": "PNG or JPG up to 5 MB. Shown on the club page.",
     "logoUpload": "Upload",
     "locationsTitle": "Locations",
     "locationsHint": "Where you train. Link a location to a place on the map and the club appears on that place's page.",
@@ -3914,7 +3914,8 @@
       "not_found": "Attendance was not marked.",
       "not_allowed": "Attendance was not marked.",
       "too_early": "The class has not started yet."
-    }
+    },
+    "attended": "attended"
   },
   "ClubApply": {
     "title": "Register a club on POPS",

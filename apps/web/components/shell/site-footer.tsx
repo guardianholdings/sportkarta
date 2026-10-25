@@ -17,12 +17,16 @@ const LINK = 'inline-flex min-h-11 items-center font-medium text-ink-soft hover:
 /**
  * Global footer — the persistent home for the transparency surfaces the audit
  * found BURIED (no in-app entry): statistics, open data, privacy. Hidden on the
- * full-screen map (`/`), which carries its own bottom tab bar.
+ * full-screen map (`/`), which carries its own bottom tab bar, and on a club's
+ * kiosk tablet.
  */
 export function SiteFooter() {
   const t = useTranslations('Footer');
   const pathname = usePathname();
   if (pathname === '/') return null;
+  // A club's kiosk tablet (Stage 9) is a shared screen at the desk: it offers
+  // no way off the page, so a member cannot wander the site on it.
+  if (/^\/klub\/[^/]+\/kiosk\/?$/.test(pathname)) return null;
 
   return (
     <footer className="border-t border-line bg-surface">

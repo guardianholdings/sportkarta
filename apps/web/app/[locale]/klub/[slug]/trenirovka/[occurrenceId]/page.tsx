@@ -72,8 +72,9 @@ export default async function PublicClassPage({
       .filter((r) => r.bookings.some((b) => b.occurrenceId === occurrence.occurrenceId))
       .map((r) => r.memberId),
   );
+  // `numeric`, matching formatDateTime's start («5:30–6:30», not «5:30–06:30»).
   const endTime = new Intl.DateTimeFormat(intlLocale(locale), {
-    hour: '2-digit',
+    hour: 'numeric',
     minute: '2-digit',
     timeZone: 'Europe/Sofia',
   }).format(new Date(occurrence.endsAt));
