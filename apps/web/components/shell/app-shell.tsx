@@ -4,7 +4,7 @@ import { type ActiveHref, BottomNav, NavRail } from './app-nav';
 
 /**
  * Page chrome for every non-map surface: the desktop nav rail on the left and
- * the mobile bottom tab bar, both linking back to the map (`/`). The map page
+ * the mobile bottom tab bar, both linking to the map (`/karta`). The map page
  * composes NavRail/BottomNav itself (its layout floats over the canvas);
  * everything else wraps its <main> in this shell so no screen is a dead end.
  *

@@ -78,7 +78,7 @@ export default async function UnsubscribePage({
               ? t('unsubscribedCity', { city })
               : t('unsubscribed')}
         </h1>
-        <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
+        <Link href="/karta" className="text-body-sm font-medium text-link hover:text-link-hover">
           {t('backToMap')}
         </Link>
       </main>
@@ -95,7 +95,7 @@ export default async function UnsubscribePage({
         <h1 className="text-h2 font-extrabold tracking-tight text-ink">
           {t('unsubscribeInvalid')}
         </h1>
-        <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
+        <Link href="/karta" className="text-body-sm font-medium text-link hover:text-link-hover">
           {t('backToMap')}
         </Link>
       </main>
@@ -118,7 +118,7 @@ export default async function UnsubscribePage({
             version silently discarded the global focus ring (see button.tsx). */}
         <Button type="submit">{t('optOut')}</Button>
       </form>
-      <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
+      <Link href="/karta" className="text-body-sm font-medium text-link hover:text-link-hover">
         {t('backToMap')}
       </Link>
     </main>

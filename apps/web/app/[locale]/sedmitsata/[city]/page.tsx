@@ -107,7 +107,7 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
   return (
     <AppShell active="/sesii">
       <main className="mx-auto max-w-3xl space-y-6 p-4">
-        <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
+        <Link href="/karta" className="text-body-sm font-medium text-link hover:text-link-hover">
           {t('backToMap')}
         </Link>
 
@@ -127,7 +127,10 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
             <p className="text-body-sm text-text-muted">{t('emptyHint')}</p>
             {/* To the map, as the label says: the city's listing page is a 404
                 for the ~35 municipalities with fewer than three facilities. */}
-            <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
+            <Link
+              href="/karta"
+              className="text-body-sm font-medium text-link hover:text-link-hover"
+            >
               {t('backToMap')}
             </Link>
           </section>

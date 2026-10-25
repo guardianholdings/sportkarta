@@ -65,7 +65,7 @@ describe('static.xml', () => {
   /** The page file a locale-agnostic path is served by. */
   function pageFor(p: string): string {
     return p === '/'
-      ? path.join(LOCALE, '(map)', 'page.tsx')
+      ? path.join(LOCALE, '(home)', 'page.tsx')
       : path.join(LOCALE, ...p.slice(1).split('/'), 'page.tsx');
   }
 

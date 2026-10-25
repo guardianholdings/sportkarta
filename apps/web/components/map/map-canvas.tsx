@@ -294,6 +294,8 @@ export default function MapCanvas({
   onBoundsChangeRef.current = onBoundsChange;
   const paddingRef = useRef(padding);
   paddingRef.current = padding;
+  const nearMeRef = useRef(nearMe);
+  nearMeRef.current = nearMe;
   const unrestrictedRef = useRef(unrestricted);
   unrestrictedRef.current = unrestricted;
 
@@ -654,7 +656,14 @@ export default function MapCanvas({
         paint: { 'circle-opacity': 0, 'circle-radius': 16 },
       });
 
-      map.addSource(NEARME_ID, { type: 'geojson', data: EMPTY });
+      // Seeded from the latest radius, not EMPTY: a position can land before
+      // the map loads (the front page's «Близо до мен» locates on arrival),
+      // and the [nearMe] effect below skips an unloaded map.
+      const near = nearMeRef.current;
+      map.addSource(NEARME_ID, {
+        type: 'geojson',
+        data: near ? circlePolygon(near.center, near.radiusKm) : EMPTY,
+      });
       map.addLayer({
         id: 'nearme-fill',
         type: 'fill',
@@ -679,11 +688,13 @@ export default function MapCanvas({
       syncMarkers();
     });
 
-    map.on('moveend', () => {
+    map.on('moveend', (event: maplibregl.MapLibreEvent & { fromLocate?: boolean }) => {
       // The automatic country fit is NOT written to the URL: it is a function of
       // this screen's size, and pinning it there would make a reload — or a
       // shared link opened on a different device — replay one screen's zoom.
-      if (!autoFitRef.current) {
+      // Nor is the fly to the visitor's own position: centred on them at five
+      // decimals, it would put where they stand into a link they might share.
+      if (!autoFitRef.current && !event.fromLocate) {
         const c = map.getCenter();
         onMoveEndRef.current({ lng: c.lng, lat: c.lat, zoom: map.getZoom() });
       }
@@ -822,7 +833,11 @@ export default function MapCanvas({
     }
     autoFitRef.current = false;
     urlCameraRef.current = false;
-    map.flyTo({ center: lngLat, zoom: Math.max(map.getZoom(), 13), speed: 1.4 });
+    // `fromLocate` rides on the move's events, so moveend can keep it out of the URL.
+    map.flyTo(
+      { center: lngLat, zoom: Math.max(map.getZoom(), 13), speed: 1.4 },
+      { fromLocate: true },
+    );
   }, [userLocation, myLocationLabel]);
 
   return (

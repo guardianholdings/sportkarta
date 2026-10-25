@@ -81,7 +81,7 @@ export default async function SessionsIndexPage({
               </p>
             </div>
             <Link
-              href="/"
+              href="/karta"
               className="inline-flex h-9 items-center rounded-pill border border-line-strong bg-surface px-4 text-body-sm font-semibold text-ink-soft hover:bg-surface-2"
             >
               {t('indexViewMap')}

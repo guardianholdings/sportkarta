@@ -25,6 +25,7 @@ const CITY = 'sofia';
 
 const PUBLIC_ROUTES = [
   '/',
+  '/karta',
   `/igrishta/${CITY}`,
   '/klasirane',
   '/kampanii',

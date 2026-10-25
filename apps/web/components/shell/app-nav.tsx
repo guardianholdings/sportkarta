@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
  */
 
 export const NAV = [
-  { key: 'navMap', href: '/', icon: MapIcon },
+  { key: 'navMap', href: '/karta', icon: MapIcon },
   { key: 'navSessions', href: '/sesii', icon: CalendarDays },
   { key: 'navLeaderboards', href: '/klasirane', icon: Trophy },
   { key: 'navProfile', href: '/profil', icon: User },

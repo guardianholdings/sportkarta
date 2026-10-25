@@ -103,7 +103,7 @@ export default async function PartnersPage({ params }: { params: PageParams }) {
     <AppShell>
       <main className="mx-auto max-w-3xl space-y-10 p-4">
         <header className="space-y-2">
-          <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
+          <Link href="/karta" className="text-body-sm font-medium text-link hover:text-link-hover">
             {t('back')}
           </Link>
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>

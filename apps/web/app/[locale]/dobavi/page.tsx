@@ -79,7 +79,7 @@ export default async function AddFacilityPage({
     <AppShell>
       <main className="mx-auto max-w-2xl px-4 py-5">
         <Link
-          href="/"
+          href="/karta"
           className="mb-4 inline-flex min-h-11 items-center text-body-sm font-medium text-ink-soft hover:text-brand"
         >
           {tFacility('backToMap')}

@@ -5,8 +5,11 @@
  * what makes installed clients drop the old teal icons.
  * v3: cached tile ranges now keep the archive's ETag (see handleTile); the
  * bump drops the v2 ranges, which had none and so could never be told apart
- * from a rebuilt basemap. */
-const VERSION = 'v3';
+ * from a rebuilt basemap.
+ * v4: the map moved to /karta and "/" became the front page; the precached
+ * offline page's «Опитайте отново» now returns to the map, and only a new
+ * cache name makes installed clients fetch it again. */
+const VERSION = 'v4';
 const APP_CACHE = `sk-app-${VERSION}`;
 const STATIC_CACHE = `sk-static-${VERSION}`;
 const TILE_CACHE = `sk-tiles-${VERSION}`;

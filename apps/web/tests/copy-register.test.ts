@@ -67,6 +67,13 @@ describe('formal address', () => {
     expect(value(key)).not.toMatch(INFORMAL);
   });
 
+  it('addresses the reader as Вие across the whole front page', () => {
+    const offenders = strings((bg as unknown as Tree).Home as Tree, 'Home').filter(([, text]) =>
+      INFORMAL.test(text),
+    );
+    expect(offenders).toEqual([]);
+  });
+
   it('keeps «ти» where a member is talking to a friend', () => {
     for (const key of [
       'Og.session.cta',
@@ -98,6 +105,7 @@ describe('terminology', () => {
       'Participation',
       'Division',
       'Campaign',
+      'Home',
     ].flatMap((ns) =>
       strings((bg as unknown as Tree)[ns] as Tree, ns).filter(([, text]) => /сеси[яи]/u.test(text)),
     );

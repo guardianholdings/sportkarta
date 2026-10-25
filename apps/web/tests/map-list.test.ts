@@ -250,7 +250,7 @@ describe('filters and selection live in the address bar, not in a server render'
     'utf8',
   );
   const page = readFileSync(
-    path.join(__dirname, '..', 'app', '[locale]', '(map)', 'page.tsx'),
+    path.join(__dirname, '..', 'app', '[locale]', 'karta', 'page.tsx'),
     'utf8',
   );
 
@@ -271,5 +271,33 @@ describe('filters and selection live in the address bar, not in a server render'
 
   it('the page hands over only the seed, so stale props cannot override the URL', () => {
     expect(page).not.toMatch(/initialSelected=|initialView=|filters=\{filters\}/);
+  });
+});
+
+/**
+ * Where a visitor stands is theirs: «Около мен» (and the front page's «Близо до
+ * мен», which lands here as `?blizo=1`) fly the camera onto them, and a camera
+ * written to the address bar at five decimals would put that spot into every
+ * link they copy. The fly is tagged and moveend leaves it out; the hand-off
+ * itself carries a flag, never a coordinate, and is dropped once read.
+ */
+describe("the visitor's own position never reaches the address bar", () => {
+  const canvas = readFileSync(
+    path.join(__dirname, '..', 'components', 'map', 'map-canvas.tsx'),
+    'utf8',
+  );
+  const explorer = readFileSync(
+    path.join(__dirname, '..', 'components', 'map', 'map-explorer.tsx'),
+    'utf8',
+  );
+
+  it('tags the geolocate fly and keeps it out of the URL', () => {
+    expect(canvas).toMatch(/center: lngLat[^}]*\},\s*\{ fromLocate: true \}/);
+    expect(canvas).toMatch(/if \(!autoFitRef\.current && !event\.fromLocate\)/);
+  });
+
+  it('reads the front page hand-offs once and drops them', () => {
+    expect(explorer).toMatch(/useState\(\(\) => searchParams\.get\('q'\) \?\? ''\)/);
+    expect(explorer).toMatch(/now\.delete\('blizo'\);\s*now\.delete\('q'\);/);
   });
 });

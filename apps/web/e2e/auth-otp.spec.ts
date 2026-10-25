@@ -105,7 +105,8 @@ test.describe('email OTP sign-in', () => {
   test('signing out ends the session', async ({ page }, testInfo) => {
     await signIn(page, memberEmail(testInfo), /\/profil/);
     await page.getByRole('button', { name: /изход|sign out/i }).click();
-    await page.waitForURL(/localhost:3000\/?$/);
+    // Signing out lands on the front page ("/"), whichever port the suite runs on.
+    await page.waitForURL((url) => url.pathname === '/');
 
     await page.goto('/profil');
     await expect(page).toHaveURL(/\/vhod/);

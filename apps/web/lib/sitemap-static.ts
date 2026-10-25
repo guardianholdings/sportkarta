@@ -12,6 +12,7 @@
  */
 export const STATIC_SITEMAP_PATHS = [
   '/',
+  '/karta',
   '/sesii',
   '/sedmitsata',
   '/statistika',

@@ -43,7 +43,7 @@ export default async function LocaleNotFound() {
         </div>
         <div className="flex flex-wrap gap-3">
           <Link
-            href="/"
+            href="/karta"
             className="inline-flex min-h-11 items-center rounded-pill bg-brand px-5 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover"
           >
             {t('toMap')}
