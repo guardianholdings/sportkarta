@@ -16,7 +16,7 @@ import { Link } from '@/i18n/navigation';
 import { requireClubStaff } from '@/lib/clubs/club-session';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { isUuid } from '@/lib/clubs/input';
-import { invoiceById } from '@/lib/clubs/invoices';
+import { invoiceById, invoicesOwingCredit } from '@/lib/clubs/invoices';
 
 import { creditNoteAction } from '../actions';
 
@@ -26,8 +26,9 @@ export const dynamic = 'force-dynamic';
  * One invoice or credit note (0050), as the document reads — in Bulgarian
  * whatever the office's language (INVOICE_DOCUMENT), amounts in EUR — and
  * printable («Save as PDF» in the browser; no server PDF). The office's own
- * controls around it are translated and hidden in print. An invoice not yet
- * credited can be cancelled by a credit note.
+ * controls around it are translated and hidden in print. What is left of an
+ * invoice — all of it, or the rest after a pay-out's partial credit note —
+ * can be cancelled by a credit note.
  */
 export default async function InvoicePage({
   params,
@@ -42,7 +43,16 @@ export default async function InvoicePage({
   if (!isUuid(invoiceId)) notFound();
   const invoice = await invoiceById(actor, invoiceId);
   if (!invoice) notFound();
-  const [t, messages] = await Promise.all([getTranslations('ClubInvoices'), clubFormMessages()]);
+  const [t, messages, owing] = await Promise.all([
+    getTranslations('ClubInvoices'),
+    clubFormMessages(),
+    invoice.kind === 'invoice' ? invoicesOwingCredit(actor, invoice.id) : Promise.resolve([]),
+  ]);
+  const left = invoice.totalCents - invoice.creditedCents;
+  // Money given back that no credit note covers: a one-line invoice is
+  // corrected by exactly that much; any other, as a whole.
+  const uncovered = Math.min(owing[0]?.uncoveredCents ?? 0, left);
+  const partAmount = uncovered > 0 && invoice.lines.length === 1 ? uncovered : null;
   const { rezultat } = await searchParams;
   const doc = INVOICE_DOCUMENT;
   // The document's amounts read the same in any office language.
@@ -291,21 +301,26 @@ export default async function InvoicePage({
           </Link>
         ))}
       </div>
-      {!credit && invoice.creditedCents === 0 && (
+      {!credit && invoice.creditedCents < invoice.totalCents && (
         <form
           action={creditNoteAction}
           className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm print:hidden"
         >
           <input type="hidden" name="slug" value={slug} />
           <input type="hidden" name="invoiceId" value={invoice.id} />
+          {partAmount !== null && <input type="hidden" name="amount" value={partAmount} />}
           <h2 className="text-h4 font-bold text-ink">{t('creditTitle')}</h2>
-          <p className="text-caption text-text-muted">{t('creditHint')}</p>
+          <p className="text-caption text-text-muted">
+            {partAmount !== null
+              ? t('creditHintReturned', { amount: formatEuro(partAmount, locale) })
+              : t('creditHint', { amount: formatEuro(left, locale) })}
+          </p>
           <label className="block text-body-sm font-semibold text-ink">
             {t('creditReason')}
             <Input name="reason" required maxLength={200} className="mt-1" />
           </label>
           <ConfirmButton
-            message={t('creditConfirm')}
+            message={t('creditConfirm', { amount: formatEuro(partAmount ?? left, locale) })}
             className="inline-flex min-h-11 items-center rounded-pill border border-danger-border px-4 text-body-sm font-semibold text-danger hover:bg-danger-bg"
           >
             {t('creditIssue')}

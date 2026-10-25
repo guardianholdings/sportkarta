@@ -3403,11 +3403,11 @@
       "credit_left": "The client has prepaid credit. Pay it back before erasing the record.",
       "invoice_details_missing": "Fill in the club's invoice details.",
       "invoice_exists": "This charge already has an invoice.",
-      "already_credited": "The invoice has already been credited.",
-      "buyer_incomplete": "A company needs an EIK or VAT number and an address.",
+      "already_credited": "Nothing left to correct: the invoice has already been credited.",
+      "buyer_incomplete": "The buyer needs an address, and a company also an EIK or VAT number.",
       "buyer_name_invalid": "Enter the buyer's name.",
       "buyer_id_required": "Enter the company's EIK or VAT number.",
-      "buyer_address_required": "Enter the company's address.",
+      "buyer_address_required": "Enter the buyer's address.",
       "vat_number_invalid": "Invalid VAT number.",
       "iban_invalid": "Invalid IBAN — check the digits.",
       "vat_rate_invalid": "Choose a VAT rate.",
@@ -3417,7 +3417,11 @@
       "wallet_refund_exceeds": "Only what was paid with credit goes back to credit. Choose the method it was paid with.",
       "zero_vat_basis_missing": "A line has a 0 % rate. Fill in the basis under Invoice details.",
       "basis_too_long": "The basis is too long.",
-      "person_no_id": "No EIK or VAT number is entered for a person. Choose “a company” or remove the number."
+      "person_no_id": "No EIK or VAT number is entered for a person. Choose “a company” or remove the number.",
+      "invoice_paid_by_credit": "The charge was paid with prepaid credit, and credit is invoiced when it is loaded. Issue an invoice for the top-up from the client's card.",
+      "wallet_invoiced": "The charge has an invoice. Prepaid credit is invoiced when it is loaded, so it does not pay an invoiced charge. Pay another way.",
+      "wallet_payout_invoiced": "Part of the credit was loaded with an invoice. Paying it back issues a credit note and is done by an owner or manager.",
+      "refund_paid_by_credit": "Part of what was paid is prepaid credit — it goes back to the credit, not as money."
     }
   },
   "ClubSettings": {
@@ -3825,7 +3829,8 @@
         "paid_out": "paid back to the client",
         "spent": "paid with credit",
         "returned": "returned to credit"
-      }
+      },
+      "creditInvoiced": "Paid with credit — the top-up is what gets invoiced"
     },
     "audit": {
       "title": "Actions",
@@ -4039,7 +4044,8 @@
       "refundsDueHint": "Paid bookings cancelled in time. Refund the amount and record the refund: the row disappears once it is recorded.",
       "refundOnlineHint": "Paid online: refund it from its row in the list below.",
       "recordRefund": "Record the refund",
-      "refundMethod": "How the money went back"
+      "refundMethod": "How the money went back",
+      "refundToCredit": "{amount} goes back to the client's credit"
     }
   },
   "ClubSchedule": {
@@ -5122,7 +5128,7 @@
     "title": "Invoices",
     "switchedOff": "Invoices are not switched on for clubs yet. They will be after an accountant's check.",
     "upsell": "Invoices are part of the “{tier}” plan.",
-    "intro": "The club's invoices and credit notes, by number. An invoice is issued from a charge — on the client's card or a sale's receipt.",
+    "intro": "The club's invoices and credit notes, by number. An invoice is issued from a charge — on the client's card or a sale's receipt. Prepaid credit is invoiced when it is loaded.",
     "detailsHint": "What invoices say about the club:",
     "detailsLink": "Invoice details",
     "none": "No invoices yet.",
@@ -5131,6 +5137,7 @@
       "credit_note": "credit note"
     },
     "credited": "credited",
+    "partlyCredited": "{amount} credited",
     "newTitle": "New invoice",
     "detailsMissing": "Fill in the club's invoice details before issuing the first one.",
     "draft": "What the invoice will say",
@@ -5145,7 +5152,7 @@
     },
     "buyerName": "Name",
     "buyerAddress": "Address",
-    "buyerAddressHint": "Required for a company; for a person only if the client asks.",
+    "buyerAddressHint": "Required — for a person and for a company.",
     "buyerEik": "EIK (a company)",
     "buyerVatNumber": "VAT number (a company)",
     "companyHint": "A Bulgarian company by its EIK, a foreign one by its VAT number. No identification number is ever entered for a person.",
@@ -5158,10 +5165,18 @@
     "print": "Print",
     "creditNoteLink": "Credit note {number}",
     "creditTitle": "Cancel with a credit note",
-    "creditHint": "A credit note for the whole invoice is issued, with the same lines and parties.",
+    "creditHint": "A credit note is issued for {amount} — all that is left of the invoice, with the same parties.",
+    "creditHintReturned": "{amount} was returned on this invoice without a credit note. A credit note is issued for that amount, with the same parties.",
     "creditReason": "Reason",
-    "creditConfirm": "A credit note for the whole invoice will be issued. Continue?",
+    "creditConfirm": "A credit note will be issued for {amount}. Continue?",
     "creditIssue": "Issue credit note",
-    "older": "Older invoices →"
+    "older": "Older invoices →",
+    "paidByCredit": "The charge was paid with prepaid credit. Credit is invoiced when it is loaded — issue an invoice for the top-up from the client's card.",
+    "toClientCard": "To the client's card",
+    "owing": {
+      "title": "Money returned without a credit note",
+      "hint": "Money was returned on these invoices after they were issued — for example a refund from the Stripe dashboard. Open the invoice and issue a credit note.",
+      "item": "Invoice {number} · {buyer} · returned {amount}"
+    }
   }
 }

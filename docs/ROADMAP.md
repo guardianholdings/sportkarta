@@ -352,9 +352,39 @@ and, where an outside service is involved, by an env switch as well.
     from gross to the cent (pure `lib/src/clubs/invoices.ts`); one gapless
     10-digit series, never dated before the previous number; lines written
     with their document and adding up to it at commit; never changed — a
-    credit note cancels the whole; never for a top-up (credit is invoiced
-    when spent). The document reads in Bulgarian in any UI locale and prints
-    from the browser. Invoices behind `invoices` + `CLUB_SHOP_ENABLED`.
+    credit note cancels what is left of it, or (a one-line invoice) exactly
+    the money given back: a pay-out of credit, a refund made in Stripe.
+    Prepaid credit is invoiced when it is
+    LOADED: a top-up is invoiced for what stays on it, a charge credit was
+    spent on is not invoiced again, credit never pays a charge with a live
+    invoice (both triggers). Spent credit never leaves as money (a refund in
+    money is capped by the money paid on the charge; a cancelled booking
+    gives its credit back to the credit). Invoiced credit is paid back by an
+    owner or manager, and the pay-out writes a partial credit note for
+    exactly what leaves; «Фактури» lists invoices whose money went back
+    afterwards (a refund in the Stripe dashboard) without a credit note.
+    Every buyer has an address. The document reads in
+    Bulgarian in any UI locale and prints from the browser. Invoices behind
+    `invoices` + `CLUB_SHOP_ENABLED`.
+    - Accountant's answers (operator, 2026-10-25): «чл. 113, ал. 9 от ЗДДС»
+      is the right wording for a club without VAT registration; credit is
+      invoiced when loaded, not when spent; a private-person buyer needs an
+      address.
+    - [ ] **Open, decide later:** invoices for advance and instalment
+      payments — including how a charge paid PARTLY with credit is invoiced
+      for the rest (refused for now, `invoice_paid_by_credit`).
+    - [ ] **Open, decide later:** the basis a VAT-registered club prints for a
+      0 % line (today the club types its own; the invoice is refused until it
+      does).
+    - [ ] **For the accountant:** the VAT rate on a top-up's invoice — today
+      the club's default rate. If credit may buy goods at 9 % or 0 %, it is a
+      multi-purpose voucher (ЗДДС чл. 128а–128в), normally taxed when spent.
+    - [ ] **For the accountant:** credit notes taken in parts (each pay-out
+      of invoiced credit) split VAT per document, so together they can
+      differ from the invoice's split by a cent (100,00 € → 83,33 + 16,67;
+      two notes of 50,00 € → 2 × 41,67 + 2 × 8,33). Accept, or have the
+      closing note take the exact remainder (needs a one-cent tolerance on
+      credit-note lines).
 - [ ] **F — push, SMS, broadcasts, automations, inbox, leads, feedback**
 - [ ] **D — events, camps, tournaments**
 - [ ] **G — waivers and documents, ranks and belts**

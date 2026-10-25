@@ -508,13 +508,29 @@ export async function reverseSale(
          AND ${clubActorMay(actor, 'charges.void', { write: true })}
     `);
     if (chargeId !== null) {
-      // The money still on the charge goes back, method by method, never
-      // more in total than is there: a method already refunded past what it
-      // took (a negative net) lowers what the others give back.
+      // What is still on the charge goes back the way it came, never more in
+      // total than is there: the credit spent on it first, back to the
+      // credit; then the money, method by method, never more than the money
+      // paid (spent credit never leaves as money — 0050's
+      // club_payments_wallet_cash_back). A method already refunded past what
+      // it took (a negative net) lowers what the others give back.
       let left = money.reduce((sum, m) => sum + m.net, 0);
-      for (const { method, net } of [...money].sort((a, b) => b.net - a.net)) {
+      const credit = money.find((m) => m.method === 'wallet')?.net ?? 0;
+      const cash = money.filter((m) => m.method !== 'wallet').reduce((sum, m) => sum + m.net, 0);
+      const backs: { method: string; back: number }[] = [];
+      if (credit > 0 && left > 0) {
+        backs.push({ method: 'wallet', back: Math.min(credit, left) });
+        left -= Math.min(credit, left);
+      }
+      left = Math.min(left, Math.max(0, cash));
+      for (const { method, net } of money
+        .filter((m) => m.method !== 'wallet')
+        .sort((a, b) => b.net - a.net)) {
         if (left <= 0 || net <= 0) break;
-        const back = Math.min(net, left);
+        backs.push({ method, back: Math.min(net, left) });
+        left -= Math.min(net, left);
+      }
+      for (const { method, back } of backs) {
         await tx.execute(sql`
           INSERT INTO club_payments (club_id, charge_id, member_id, kind, amount_cents, method,
                                      received_on, recorded_by)
@@ -524,7 +540,6 @@ export async function reverseSale(
            WHERE ch.club_id = ${actor.clubId}::uuid AND ch.id = ${chargeId}::uuid
              AND ${clubWriteScope(actor, 'charges.void', 'ch')}
         `);
-        left -= back;
       }
       await tx.execute(sql`
         UPDATE club_charges ch SET voided_at = now()

@@ -635,7 +635,9 @@ export interface RefundDue {
   serviceName: string;
   startsAt: string;
   paidCents: number;
-  /** Paid online: refunded through the provider, from its row in the ledger. */
+  /** Of it, paid with prepaid credit — which goes back to the credit (0050). */
+  creditCents: number;
+  /** Card money still on it: refunded through the provider, from its row in the ledger. */
   online: boolean;
 }
 
@@ -647,11 +649,14 @@ export interface RefundDue {
 export async function refundsDue(actor: ClubActor): Promise<RefundDue[]> {
   const result = await getDb().execute(sql`
     SELECT rv.id, rv.charge_id, rv.member_id, m.display_name, sv.name_bg AS service,
-           rv.starts_at, net.paid_cents, net.online
+           rv.starts_at, net.paid_cents, net.credit_cents, net.online
       FROM club_reservations rv
       JOIN club_services sv ON sv.club_id = rv.club_id AND sv.id = rv.service_id
       JOIN LATERAL (SELECT sum(pp.amount_cents)::int AS paid_cents,
-                           bool_or(pp.method = 'card_online') AS online
+                           coalesce(sum(pp.amount_cents) FILTER (WHERE pp.method = 'wallet'), 0)::int
+                             AS credit_cents,
+                           coalesce(sum(pp.amount_cents)
+                                      FILTER (WHERE pp.method = 'card_online'), 0) > 0 AS online
                       FROM club_payments pp
                      WHERE pp.club_id = rv.club_id AND pp.charge_id = rv.charge_id) net ON true
       LEFT JOIN club_members m ON m.club_id = rv.club_id AND m.id = rv.member_id
@@ -668,6 +673,7 @@ export async function refundsDue(actor: ClubActor): Promise<RefundDue[]> {
     serviceName: String(row.service),
     startsAt: iso(row.starts_at),
     paidCents: Number(row.paid_cents),
+    creditCents: Number(row.credit_cents ?? 0),
     online: row.online === true,
   }));
 }

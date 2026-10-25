@@ -176,6 +176,11 @@ export default async function ClubPaymentsPage({
                 <span className="text-caption text-text-muted">
                   {row.serviceName} · {formatDateTime(row.startsAt, locale)}
                 </span>
+                {row.creditCents > 0 && (
+                  <span className="text-caption text-text-muted">
+                    {t('refundToCredit', { amount: formatEuro(row.creditCents, locale) })}
+                  </span>
+                )}
                 {row.online ? (
                   <span className="text-caption text-ink">{t('refundOnlineHint')}</span>
                 ) : (
@@ -183,13 +188,20 @@ export default async function ClubPaymentsPage({
                     <form action={refundReservationAction} className="flex items-center gap-1">
                       <input type="hidden" name="slug" value={slug} />
                       <input type="hidden" name="reservationId" value={row.reservationId} />
-                      <Select name="method" size="sm" aria-label={t('refundMethod')}>
-                        {desk.map((m) => (
-                          <option key={m} value={m}>
-                            {methods[m]}
-                          </option>
-                        ))}
-                      </Select>
+                      {row.creditCents >= row.paidCents ? (
+                        // All of it was credit: it goes back to the credit.
+                        <input type="hidden" name="method" value="cash" />
+                      ) : (
+                        <Select name="method" size="sm" aria-label={t('refundMethod')}>
+                          {desk
+                            .filter((m) => m !== 'wallet')
+                            .map((m) => (
+                              <option key={m} value={m}>
+                                {methods[m]}
+                              </option>
+                            ))}
+                        </Select>
+                      )}
                       <Button type="submit" variant="secondary" size="sm">
                         {t('recordRefund')}
                       </Button>

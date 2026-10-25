@@ -1108,10 +1108,12 @@ export async function refundOnlinePayment(
              pay.amount_cents + coalesce((SELECT sum(r.amount_cents) FROM club_payments r
                                            WHERE r.charge_id = pay.charge_id AND r.kind = 'refund'
                                              AND r.method = 'card_online'), 0) AS refundable,
-             -- What is still on the charge: a desk refund (credit paid back in
-             -- cash, 0050) may already have taken part of it.
+             -- The MONEY still on the charge: a desk refund may already have
+             -- taken part of it, and credit spent here never leaves as money
+             -- (0050) — the provider's refund is recorded as a fact, so the
+             -- rule is kept here, before the money moves.
              (SELECT coalesce(sum(n.amount_cents), 0) FROM club_payments n
-               WHERE n.charge_id = pay.charge_id) AS charge_net,
+               WHERE n.charge_id = pay.charge_id AND n.method <> 'wallet') AS charge_net,
              ${liveInvoiceFor(sql`pay.club_id`, sql`pay.charge_id`)} AS invoiced,
              paid_on.account_ref,
              EXISTS (SELECT 1 FROM club_payment_accounts a

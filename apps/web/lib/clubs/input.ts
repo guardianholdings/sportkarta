@@ -1519,21 +1519,23 @@ export interface InvoiceBuyerInput {
   name: string;
   eik: string | null;
   vatNumber: string | null;
-  address: string | null;
+  address: string;
 }
 
 /**
- * Who an invoice is made out to: a person (a name; an address if they give
- * one — never an identification number), or a company (name, address, and
- * its EIK or — a foreign company — its VAT number).
+ * Who an invoice is made out to: a person (a name and an address — never an
+ * identification number), or a company (name, address, and its EIK or — a
+ * foreign company — its VAT number). Every buyer has an address (the
+ * accountant, 2026-10-25).
  */
 export function parseInvoiceBuyer(form: Reader): InputResult<InvoiceBuyerInput> {
   const errors: string[] = [];
   const kind: InvoiceBuyerKind = text(form, 'buyerKind') === 'company' ? 'company' : 'person';
   const name = text(form, 'buyerName');
   if (name === '' || name.length > 200) errors.push('buyer_name_invalid');
-  const address = optionalText(form, 'buyerAddress');
-  if (address !== null && address.length > 300) errors.push('address_too_long');
+  const address = text(form, 'buyerAddress');
+  if (address === '') errors.push('buyer_address_required');
+  else if (address.length > 300) errors.push('address_too_long');
   let eik: string | null = null;
   let vatNumber: string | null = null;
   if (kind === 'company') {
@@ -1545,7 +1547,6 @@ export function parseInvoiceBuyer(form: Reader): InputResult<InvoiceBuyerInput> 
     vatNumber = vatRaw === null ? null : compactCode(vatRaw);
     if (vatNumber !== null && !isVatNumber(vatNumber)) errors.push('vat_number_invalid');
     if (eikRaw === '' && vatNumber === null) errors.push('buyer_id_required');
-    if (address === null) errors.push('buyer_address_required');
   } else if (text(form, 'buyerEik') !== '' || text(form, 'buyerVatNumber') !== '') {
     // A person never gets an identification number — say so rather than drop it.
     errors.push('person_no_id');

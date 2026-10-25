@@ -4,6 +4,7 @@ import {
   invoiceLines,
   invoiceTotals,
   sofiaToday,
+  splitVat,
   type InvoiceBuyerKind,
   type InvoiceLine,
   type InvoiceLineInput,
@@ -24,6 +25,9 @@ import { clubActorMay, clubScope, type ClubActor } from './scope';
  * client or a company, with the club's details as they are that day; the
  * VAT split is lib's pure arithmetic, so the draft the office checks is the
  * document it gets. Never edited: a mistake is cancelled by a credit note.
+ * Prepaid credit is invoiced when it is LOADED (the accountant, 2026-10-25):
+ * a top-up is invoiced for what is loaded on it, and a charge credit was
+ * spent on is not invoiced again.
  * Owner and manager (invoices.issue), on a tier with invoices — which also
  * waits for CLUB_SHOP_ENABLED, the accountant's switch.
  */
@@ -64,6 +68,17 @@ export function liveInvoiceFor(clubId: SQL, chargeId: SQL): SQL {
                         AND li.total_cents > coalesce((SELECT sum(lc.total_cents) FROM club_invoices lc
                                                         WHERE lc.club_id = li.club_id
                                                           AND lc.corrects_id = li.id), 0))`;
+}
+
+/** SQL: the id of the charge's live invoice, or NULL (see liveInvoiceFor). */
+export function liveInvoiceIdFor(clubId: SQL, chargeId: SQL): SQL {
+  return sql`(SELECT li.id FROM club_invoices li
+               WHERE li.club_id = ${clubId} AND li.charge_id = ${chargeId}
+                 AND li.kind = 'invoice'
+                 AND li.total_cents > coalesce((SELECT sum(lc.total_cents) FROM club_invoices lc
+                                                 WHERE lc.club_id = li.club_id
+                                                   AND lc.corrects_id = li.id), 0)
+               LIMIT 1)`;
 }
 
 /** What the document prints about the club. */
@@ -132,6 +147,11 @@ export interface InvoiceDraft {
   taxEventOn: IsoDate;
   /** The charge's live invoice, when it already has one. */
   existingInvoiceId: string | null;
+  /**
+   * Credit was spent on the charge: it was invoiced when loaded, so this
+   * charge is not invoiced again (club_invoices_wallet_spent).
+   */
+  paidByCredit: boolean;
 }
 
 /**
@@ -146,8 +166,14 @@ async function draftFor(
 ): Promise<InvoiceDraft | null> {
   const charge = (
     await db.execute(sql`
-      SELECT ch.id, ch.label, ch.amount_cents, ch.member_id, m.display_name,
+      SELECT ch.id, ch.kind, ch.label, ch.amount_cents, ch.member_id, m.display_name,
              to_char(ch.issued_on, 'YYYY-MM-DD') AS issued_on,
+             -- What is loaded on a top-up (money paid back comes off), and
+             -- what credit paid on any other charge.
+             (SELECT coalesce(sum(p.amount_cents), 0) FROM club_payments p
+               WHERE p.charge_id = ch.id) AS net_paid,
+             (SELECT coalesce(sum(p.amount_cents), 0) FROM club_payments p
+               WHERE p.charge_id = ch.id AND p.method = 'wallet') AS credit_spent,
              (SELECT sa.id FROM club_sales sa
                WHERE sa.club_id = ch.club_id AND sa.charge_id = ch.id) AS sale_id,
              (SELECT to_char(min(p.received_on), 'YYYY-MM-DD') FROM club_payments p
@@ -160,8 +186,6 @@ async function draftFor(
         FROM club_charges ch
         LEFT JOIN club_members m ON m.club_id = ch.club_id AND m.id = ch.member_id
        WHERE ch.id = ${chargeId}::uuid AND ch.voided_at IS NULL
-         -- Prepaid credit is invoiced when it is SPENT, where the VAT falls.
-         AND ch.kind <> 'wallet'
          AND ${clubScope(actor, 'invoices.issue', 'ch')}
     `)
   ).rows[0];
@@ -187,7 +211,11 @@ async function draftFor(
         {
           description: String(charge.label),
           quantity: 1,
-          unitPriceCents: Number(charge.amount_cents),
+          // A top-up is never owed: its invoice is for the money on it.
+          unitPriceCents: Math.max(
+            0,
+            Number(charge.kind === 'wallet' ? charge.net_paid : charge.amount_cents),
+          ),
           discountCents: 0,
           vatRateBp: null,
         },
@@ -219,6 +247,7 @@ async function draftFor(
     paymentMethod: documentMethod(nets),
     taxEventOn: event > today ? today : event,
     existingInvoiceId: text(charge.invoice_id),
+    paidByCredit: Number(charge.credit_spent) > 0,
   };
 }
 
@@ -236,12 +265,13 @@ export interface InvoiceBuyer {
   name: string;
   eik: string | null;
   vatNumber: string | null;
-  address: string | null;
+  address: string;
 }
 
 export type IssueResult = { ok: true; invoiceId: string } | { ok: false; error: string };
 
-class Refused extends Error {
+/** A refusal found mid-transaction: thrown so the whole document rolls back. */
+export class InvoiceRefused extends Error {
   constructor(readonly code: string) {
     super(code);
   }
@@ -265,7 +295,7 @@ async function drawNumber(tx: SqlRunner, actor: ClubActor, write = true): Promis
       `)
     ).rows[0]?.last_value,
   );
-  if (!Number.isSafeInteger(number) || number < 1) throw new Refused('not_allowed');
+  if (!Number.isSafeInteger(number) || number < 1) throw new InvoiceRefused('not_allowed');
   return number;
 }
 
@@ -290,12 +320,15 @@ async function insertLines(
   }
 }
 
-function invoiceErrorCode(error: unknown): string | null {
+/** A database refusal of a document, as the code a form shows; null = rethrow. */
+export function invoiceErrorCode(error: unknown): string | null {
   const constraint = violatedConstraint(error);
   if (constraint === 'club_invoices_one_per_charge') return 'invoice_exists';
   if (constraint === 'club_invoices_credit_within_invoice') return 'already_credited';
   if (constraint === 'club_invoices_buyer_identified') return 'buyer_incomplete';
   if (constraint === 'club_invoices_charge_invoiceable') return 'not_allowed';
+  if (constraint === 'club_invoices_wallet_spent') return 'invoice_paid_by_credit';
+  if (constraint === 'club_invoices_zero_basis_required') return 'zero_vat_basis_missing';
   if (constraint === 'club_invoices_chronology') return 'invoice_chronology';
   return null;
 }
@@ -303,7 +336,8 @@ function invoiceErrorCode(error: unknown): string | null {
 /**
  * Issue a charge's invoice to `buyer`. Refusals: not_allowed (no such charge
  * here, void, or the tier lacks invoices), invoice_details_missing (the
- * club's legal name, EIK or address), invoice_exists, buyer_incomplete.
+ * club's legal name, EIK or address), invoice_exists, invoice_paid_by_credit
+ * (credit was invoiced when loaded), buyer_incomplete.
  */
 export async function issueInvoice(
   db: TransactionalDb,
@@ -317,7 +351,7 @@ export async function issueInvoice(
         SELECT 1 WHERE ${clubActorMay(actor, 'invoices.issue', { write: true })}
                    AND ${clubFeatureSql(actor.clubId, 'invoices')}
       `);
-      if (allowed.rows.length === 0) throw new Refused('not_allowed');
+      if (allowed.rows.length === 0) throw new InvoiceRefused('not_allowed');
       // The charge before the counter (0050's order: charge → invoice
       // counter → invoice), as every money path takes the charge first.
       await tx.execute(sql`
@@ -326,14 +360,15 @@ export async function issueInvoice(
            FOR NO KEY UPDATE
       `);
       const draft = await draftFor(tx, actor, input.chargeId, today);
-      if (!draft) throw new Refused('not_allowed');
-      if (draft.existingInvoiceId) throw new Refused('invoice_exists');
-      if (!draft.supplier) throw new Refused('invoice_details_missing');
-      if (draft.totals.totalCents <= 0) throw new Refused('not_allowed');
+      if (!draft) throw new InvoiceRefused('not_allowed');
+      if (draft.existingInvoiceId) throw new InvoiceRefused('invoice_exists');
+      if (draft.paidByCredit) throw new InvoiceRefused('invoice_paid_by_credit');
+      if (!draft.supplier) throw new InvoiceRefused('invoice_details_missing');
+      if (draft.totals.totalCents <= 0) throw new InvoiceRefused('not_allowed');
       // A VAT-registered club states the legal basis of a 0 % line.
       const zeroLine = draft.lines.some((line) => line.vatRateBp === 0);
       if (zeroLine && draft.supplier.vatNumber && !draft.supplier.zeroVatBasis) {
-        throw new Refused('zero_vat_basis_missing');
+        throw new InvoiceRefused('zero_vat_basis_missing');
       }
       const number = await drawNumber(tx, actor);
       const { supplier, totals } = draft;
@@ -358,7 +393,7 @@ export async function issueInvoice(
           `)
         ).rows[0]?.id,
       );
-      if (!invoiceId) throw new Refused('not_allowed');
+      if (!invoiceId) throw new InvoiceRefused('not_allowed');
       await insertLines(tx, actor, invoiceId, draft.lines);
       await recordClubAudit(tx, {
         clubId: actor.clubId,
@@ -370,7 +405,7 @@ export async function issueInvoice(
       return { ok: true, invoiceId } as const;
     });
   } catch (error: unknown) {
-    if (error instanceof Refused) return { ok: false, error: error.code };
+    if (error instanceof InvoiceRefused) return { ok: false, error: error.code };
     const code = invoiceErrorCode(error);
     if (code) return { ok: false, error: code };
     throw error;
@@ -378,10 +413,134 @@ export async function issueInvoice(
 }
 
 /**
- * Cancel an invoice by a credit note for the whole of it: the same lines,
- * parties and method, a new number from the same series, and the reason.
- * A partly credited invoice is refused here (the database allows a partial
- * correction; the office's one action is the whole). Allowed on any tier and
+ * Write a credit note for `amountCents` of an invoice — or, with null, for
+ * all that is left of it — inside the caller's transaction. The whole of an
+ * uncorrected invoice repeats its lines; a part (a pay-out of invoiced
+ * credit, or the rest after one) is one line at the invoice's rate, which
+ * only a one-line invoice has. Each document splits its own amount (VAT is
+ * reckoned per document), so notes taken in parts may differ from the
+ * invoice's split by a cent in all — a question left with the accountant.
+ * The invoice's charge, then the invoice row, then the counter are locked,
+ * so two corrections cannot both take the same remainder. Throws
+ * InvoiceRefused: not_allowed, already_credited (nothing left, more than is
+ * left, or a part of a several-line invoice).
+ */
+export async function creditInvoice(
+  tx: SqlRunner,
+  actor: ClubActor,
+  invoiceId: string,
+  amountCents: number | null,
+  reason: string,
+  today: IsoDate,
+): Promise<string> {
+  // The invoice's charge first — 0050's one order: charge → client →
+  // invoice → counter — so a credit note waits behind a pay-out in flight
+  // (which holds the top-ups and then takes their invoices) and never
+  // crosses it.
+  await tx.execute(sql`
+    SELECT ch.id FROM club_charges ch
+      JOIN club_invoices i ON i.club_id = ch.club_id AND i.charge_id = ch.id
+     WHERE i.id = ${invoiceId}::uuid AND ${clubScope(actor, 'invoices.issue', 'i')}
+       FOR NO KEY UPDATE OF ch
+  `);
+  const original = (
+    await tx.execute(sql`
+      SELECT i.id, i.member_id, i.total_cents FROM club_invoices i
+       WHERE i.id = ${invoiceId}::uuid AND i.kind = 'invoice'
+         AND ${clubScope(actor, 'invoices.issue', 'i')}
+         FOR NO KEY UPDATE
+    `)
+  ).rows[0];
+  if (!original) throw new InvoiceRefused('not_allowed');
+  // After the lock: a fresh statement sees every credit note committed before.
+  const credited = Number(
+    (
+      await tx.execute(sql`
+        SELECT coalesce(sum(c.total_cents), 0) AS credited FROM club_invoices c
+         WHERE c.club_id = ${actor.clubId}::uuid AND c.corrects_id = ${invoiceId}::uuid
+      `)
+    ).rows[0]?.credited ?? 0,
+  );
+  const total = Number(original.total_cents);
+  const left = total - credited;
+  const amount = amountCents ?? left;
+  if (left <= 0 || amount <= 0 || amount > left) throw new InvoiceRefused('already_credited');
+  const lines = (
+    await tx.execute(sql`
+      SELECT il.description, il.quantity, il.unit_price_cents, il.discount_cents,
+             il.vat_rate_bp, il.base_cents, il.vat_cents, il.total_cents
+        FROM club_invoice_lines il
+       WHERE il.invoice_id = ${invoiceId}::uuid AND ${clubScope(actor, 'invoices.issue', 'il')}
+       ORDER BY il.line_no
+    `)
+  ).rows.map((row): InvoiceLine => ({
+    description: String(row.description),
+    quantity: Number(row.quantity),
+    unitPriceCents: Number(row.unit_price_cents),
+    discountCents: Number(row.discount_cents),
+    vatRateBp: rate(row.vat_rate_bp),
+    baseCents: Number(row.base_cents),
+    vatCents: Number(row.vat_cents),
+    totalCents: Number(row.total_cents),
+  }));
+  let creditLines: InvoiceLine[];
+  if (amount === total) {
+    creditLines = lines;
+  } else {
+    const only = lines.length === 1 ? lines[0] : undefined;
+    if (!only) throw new InvoiceRefused('already_credited');
+    creditLines = [
+      {
+        description: only.description,
+        quantity: 1,
+        unitPriceCents: amount,
+        discountCents: 0,
+        vatRateBp: only.vatRateBp,
+        ...splitVat(amount, only.vatRateBp),
+        totalCents: amount,
+      },
+    ];
+  }
+  const totals = invoiceTotals(creditLines);
+  const number = await drawNumber(tx, actor, false);
+  const creditId = text(
+    (
+      await tx.execute(sql`
+        INSERT INTO club_invoices (club_id, kind, number, issued_on, tax_event_on, corrects_id,
+                                   reason, charge_id, member_id, supplier_name, supplier_eik,
+                                   supplier_vat_number, supplier_address, supplier_iban,
+                                   buyer_kind, buyer_name, buyer_eik, buyer_vat_number,
+                                   buyer_address, payment_method, zero_vat_basis, base_cents,
+                                   vat_cents, total_cents, issued_by)
+        SELECT i.club_id, 'credit_note', ${number}, ${today}::date, ${today}::date, i.id,
+               ${reason.slice(0, 200)}, i.charge_id, i.member_id, i.supplier_name,
+               i.supplier_eik, i.supplier_vat_number, i.supplier_address, i.supplier_iban,
+               i.buyer_kind, i.buyer_name, i.buyer_eik, i.buyer_vat_number, i.buyer_address,
+               i.payment_method, i.zero_vat_basis, ${totals.baseCents}, ${totals.vatCents},
+               ${totals.totalCents}, ${actor.userId}
+          FROM club_invoices i
+         WHERE i.id = ${invoiceId}::uuid AND ${clubScope(actor, 'invoices.issue', 'i')}
+        RETURNING id
+      `)
+    ).rows[0]?.id,
+  );
+  if (!creditId) throw new InvoiceRefused('not_allowed');
+  await insertLines(tx, actor, creditId, creditLines, false);
+  await recordClubAudit(tx, {
+    clubId: actor.clubId,
+    by: { kind: 'staff', actor },
+    action: 'credit_note_issued',
+    subjectMemberId: text(original.member_id),
+    detail: { invoiceId: creditId, corrects: invoiceId, number, totalCents: totals.totalCents },
+  });
+  return creditId;
+}
+
+/**
+ * Correct an invoice by a credit note: for all that is left of it (the whole
+ * repeats its lines; the rest after a partial correction is one line), or —
+ * `amountCents`, a one-line invoice only — for money given back that no
+ * credit note covers yet (invoicesOwingCredit). Allowed on any tier and
  * while the club is read-only: correcting an issued document is an
  * obligation that outlives the plan.
  */
@@ -390,79 +549,112 @@ export async function issueCreditNote(
   actor: ClubActor,
   invoiceId: string,
   reason: string,
-  today: IsoDate = sofiaToday(),
+  options: { amountCents?: number | null; today?: IsoDate } = {},
 ): Promise<IssueResult> {
   try {
     return await db.transaction(async (tx) => {
-      const original = (
+      const amountCents = options.amountCents ?? null;
+      if (amountCents !== null) {
+        // A part is only ever the money given back that nothing covers yet,
+        // read again here under the charge's lock (the order creditInvoice
+        // takes again): a repeated form — a double click, a second tab —
+        // finds nothing left to correct instead of correcting it twice.
         await tx.execute(sql`
-          SELECT i.id, i.member_id,
-                 (SELECT coalesce(sum(c.total_cents), 0) FROM club_invoices c
-                   WHERE c.club_id = i.club_id AND c.corrects_id = i.id) AS credited
-            FROM club_invoices i
-           WHERE i.id = ${invoiceId}::uuid AND i.kind = 'invoice'
-             AND ${clubScope(actor, 'invoices.issue', 'i')}
-        `)
-      ).rows[0];
-      if (!original) throw new Refused('not_allowed');
-      if (Number(original.credited) > 0) throw new Refused('already_credited');
-      const lines = (
-        await tx.execute(sql`
-          SELECT il.description, il.quantity, il.unit_price_cents, il.discount_cents,
-                 il.vat_rate_bp, il.base_cents, il.vat_cents, il.total_cents
-            FROM club_invoice_lines il
-           WHERE il.invoice_id = ${invoiceId}::uuid AND ${clubScope(actor, 'invoices.issue', 'il')}
-           ORDER BY il.line_no
-        `)
-      ).rows.map((row): InvoiceLine => ({
-        description: String(row.description),
-        quantity: Number(row.quantity),
-        unitPriceCents: Number(row.unit_price_cents),
-        discountCents: Number(row.discount_cents),
-        vatRateBp: rate(row.vat_rate_bp),
-        baseCents: Number(row.base_cents),
-        vatCents: Number(row.vat_cents),
-        totalCents: Number(row.total_cents),
-      }));
-      const number = await drawNumber(tx, actor, false);
-      const creditId = text(
-        (
-          await tx.execute(sql`
-            INSERT INTO club_invoices (club_id, kind, number, issued_on, tax_event_on, corrects_id,
-                                       reason, charge_id, member_id, supplier_name, supplier_eik,
-                                       supplier_vat_number, supplier_address, supplier_iban,
-                                       buyer_kind, buyer_name, buyer_eik, buyer_vat_number,
-                                       buyer_address, payment_method, zero_vat_basis, base_cents,
-                                       vat_cents, total_cents, issued_by)
-            SELECT i.club_id, 'credit_note', ${number}, ${today}::date, ${today}::date, i.id,
-                   ${reason.slice(0, 200)}, i.charge_id, i.member_id, i.supplier_name,
-                   i.supplier_eik, i.supplier_vat_number, i.supplier_address, i.supplier_iban,
-                   i.buyer_kind, i.buyer_name, i.buyer_eik, i.buyer_vat_number, i.buyer_address,
-                   i.payment_method, i.zero_vat_basis, i.base_cents, i.vat_cents, i.total_cents,
-                   ${actor.userId}
-              FROM club_invoices i
-             WHERE i.id = ${invoiceId}::uuid AND ${clubScope(actor, 'invoices.issue', 'i')}
-            RETURNING id
-          `)
-        ).rows[0]?.id,
+          SELECT ch.id FROM club_charges ch
+            JOIN club_invoices i ON i.club_id = ch.club_id AND i.charge_id = ch.id
+           WHERE i.id = ${invoiceId}::uuid AND ${clubScope(actor, 'invoices.issue', 'i')}
+             FOR NO KEY UPDATE OF ch
+        `);
+        const owing = (await owingRows(tx, actor, invoiceId))[0];
+        if (!owing || amountCents !== Math.min(owing.uncoveredCents, owing.leftCents)) {
+          throw new InvoiceRefused('already_credited');
+        }
+      }
+      const creditId = await creditInvoice(
+        tx,
+        actor,
+        invoiceId,
+        amountCents,
+        reason,
+        options.today ?? sofiaToday(),
       );
-      if (!creditId) throw new Refused('not_allowed');
-      await insertLines(tx, actor, creditId, lines, false);
-      await recordClubAudit(tx, {
-        clubId: actor.clubId,
-        by: { kind: 'staff', actor },
-        action: 'credit_note_issued',
-        subjectMemberId: text(original.member_id),
-        detail: { invoiceId: creditId, corrects: invoiceId, number },
-      });
       return { ok: true, invoiceId: creditId } as const;
     });
   } catch (error: unknown) {
-    if (error instanceof Refused) return { ok: false, error: error.code };
+    if (error instanceof InvoiceRefused) return { ok: false, error: error.code };
     const code = invoiceErrorCode(error);
     if (code) return { ok: false, error: code };
     throw error;
   }
+}
+
+/** A live invoice whose charge gave money back that no credit note covers. */
+export interface InvoiceOwingCredit {
+  id: string;
+  number: number;
+  buyerName: string;
+  /** Money given back after the invoice, beyond what credit notes took back. */
+  uncoveredCents: number;
+  /** What is left of the invoice to correct. */
+  leftCents: number;
+}
+
+/**
+ * Live invoices whose charge gave money back that its credit notes do not
+ * cover: a refund the provider reported (made in the club's own Stripe
+ * dashboard), or one that raced the invoice. The database records such a
+ * refund as a fact; the office owes the credit note.
+ *   * a top-up's invoice declares the money on it, so what is uncovered is
+ *     what is left of the invoice beyond the money still loaded — no clock
+ *     involved; a pay-out writes its own credit note and never shows here;
+ *   * any other charge may be invoiced before it is paid, so what counts is
+ *     the money that moved AFTER the invoice (refunds net of payments).
+ * `invoiceId` narrows it to one document. invoices.issue.
+ */
+export async function invoicesOwingCredit(
+  actor: ClubActor,
+  invoiceId: string | null = null,
+): Promise<InvoiceOwingCredit[]> {
+  return owingRows(getDb(), actor, invoiceId);
+}
+
+/** invoicesOwingCredit on the caller's runner (a transaction re-checks it). */
+async function owingRows(
+  db: SqlRunner,
+  actor: ClubActor,
+  invoiceId: string | null,
+): Promise<InvoiceOwingCredit[]> {
+  const result = await db.execute(sql`
+    SELECT * FROM (
+      SELECT i.id, i.number, i.buyer_name, i.total_cents - coalesce(cn.cents, 0) AS left_cents,
+             CASE WHEN ch.kind = 'wallet'
+                  THEN i.total_cents - coalesce(cn.cents, 0) - greatest(money.all_cents, 0)
+                  ELSE -money.after_cents - coalesce(cn.cents, 0) END AS uncovered
+        FROM club_invoices i
+        JOIN club_charges ch ON ch.club_id = i.club_id AND ch.id = i.charge_id
+        JOIN LATERAL (SELECT coalesce(sum(p.amount_cents), 0)::int AS all_cents,
+                             coalesce(sum(p.amount_cents)
+                                        FILTER (WHERE p.recorded_at > i.created_at), 0)::int
+                               AS after_cents
+                        FROM club_payments p
+                       WHERE p.club_id = i.club_id AND p.charge_id = i.charge_id) money ON true
+        LEFT JOIN LATERAL (SELECT sum(c.total_cents)::int AS cents FROM club_invoices c
+                            WHERE c.club_id = i.club_id AND c.corrects_id = i.id) cn ON true
+       WHERE i.kind = 'invoice' AND ${clubScope(actor, 'invoices.issue', 'i')}
+         AND ${invoiceId === null ? sql`true` : sql`i.id = ${invoiceId}::uuid`}
+         AND i.total_cents > coalesce(cn.cents, 0)
+    ) owing
+     WHERE owing.uncovered > 0
+     ORDER BY owing.number DESC
+     LIMIT 50
+  `);
+  return result.rows.map((row) => ({
+    id: String(row.id),
+    number: Number(row.number),
+    buyerName: String(row.buyer_name),
+    uncoveredCents: Number(row.uncovered),
+    leftCents: Number(row.left_cents),
+  }));
 }
 
 export interface InvoiceSummary {
@@ -592,7 +784,7 @@ export async function invoiceById(
       name: String(row.buyer_name),
       eik: text(row.buyer_eik),
       vatNumber: text(row.buyer_vat_number),
-      address: text(row.buyer_address),
+      address: String(row.buyer_address),
     },
     paymentMethod: String(row.payment_method) as InvoicePaymentMethod,
     zeroVatBasis: text(row.zero_vat_basis),

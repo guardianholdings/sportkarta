@@ -21,8 +21,12 @@ import {
  *     client;
  *   - an invoice takes the number just drawn, its lines are written with it
  *     and add up to it at commit, it is never changed, one live invoice per
- *     charge (never a top-up), and a credit note corrects it as issued, by no
- *     more than is left; a number drawn without its document is refused.
+ *     charge, and a credit note corrects it as issued, by no more than is
+ *     left; a number drawn without its document is refused; every buyer has
+ *     an address;
+ *   - credit is invoiced when it is LOADED: a top-up is invoiced, a charge
+ *     credit was spent on is not, and credit never pays a charge with a live
+ *     invoice.
  *
  * Integration test against the dev/CI database; skips without DATABASE_URL.
  */
@@ -167,7 +171,15 @@ describe.skipIf(!hasDb)('club wallet and invoices (requires running database)', 
   /** An invoice for `chargeId`, written as the application writes one. */
   async function invoice(
     chargeId: string,
-    options: { lines?: number[]; total?: number; commit?: boolean; issuedOn?: string } = {},
+    options: {
+      lines?: number[];
+      total?: number;
+      commit?: boolean;
+      issuedOn?: string;
+      address?: string | null;
+      /** A VAT-registered supplier, its lines at 0 % (no basis given). */
+      zeroRated?: boolean;
+    } = {},
   ): Promise<string> {
     const lines = options.lines ?? [1200];
     const total = options.total ?? lines.reduce((sum, l) => sum + l, 0);
@@ -188,10 +200,11 @@ describe.skipIf(!hasDb)('club wallet and invoices (requires running database)', 
           `INSERT INTO club_invoices (club_id, kind, number, issued_on, tax_event_on, charge_id,
                                       member_id, supplier_name, supplier_eik, supplier_vat_number,
                                       supplier_address, supplier_iban, buyer_kind, buyer_name,
-                                      payment_method, base_cents, vat_cents, total_cents, issued_by)
+                                      buyer_address, payment_method, base_cents, vat_cents,
+                                      total_cents, issued_by)
            VALUES ($1, 'invoice', $2, coalesce($3::date, current_date),
                    coalesce($3::date, current_date), $4, $5, $6, $7, $8, $9, $10, 'person',
-                   'Мария', 'cash', $11, 0, $11, $12)
+                   'Мария', $13, 'cash', $11, 0, $11, $12)
            RETURNING id`,
           [
             club.clubId,
@@ -199,18 +212,24 @@ describe.skipIf(!hasDb)('club wallet and invoices (requires running database)', 
             options.issuedOn ?? null,
             chargeId,
             memberId,
-            ...supplier,
+            supplier[0],
+            supplier[1],
+            options.zeroRated ? 'BG123456789' : supplier[2],
+            supplier[3],
+            supplier[4],
             total,
             club.ownerId,
+            options.address === undefined ? 'София, ул. Клиент 2' : options.address,
           ],
         )
       ).rows[0]?.id ?? '';
     for (const [index, amount] of lines.entries()) {
       await client.query(
         `INSERT INTO club_invoice_lines (club_id, invoice_id, line_no, description, quantity,
-                                         unit_price_cents, base_cents, vat_cents, total_cents)
-         VALUES ($1, $2, $3, 'Абонамент', 1, $4, $4, 0, $4)`,
-        [club.clubId, id, index + 1, amount],
+                                         unit_price_cents, vat_rate_bp, base_cents, vat_cents,
+                                         total_cents)
+         VALUES ($1, $2, $3, 'Абонамент', 1, $4, $5, $4, 0, $4)`,
+        [club.clubId, id, index + 1, amount, options.zeroRated ? 0 : null],
       );
     }
     if (options.commit === false) return id;
@@ -251,10 +270,19 @@ describe.skipIf(!hasDb)('club wallet and invoices (requires running database)', 
     const other = await charge('membership', 1200);
     await invoice(other, { lines: [1000], total: 1200, commit: false });
     expect((await failure(client.query('COMMIT'))).constraint).toBe('club_invoices_lines_add_up');
-    // A top-up is never invoiced: credit is invoiced when it is spent.
-    const topUp = await charge('wallet', 1200);
-    expect((await failure(invoice(topUp))).constraint).toBe('club_invoices_charge_invoiceable');
+    // Every buyer has an address, a person too.
+    const third = await charge('membership', 1200);
+    expect((await failure(invoice(third, { address: null }))).code).toBe('23502');
     await client.query('ROLLBACK');
+    expect((await failure(invoice(third, { address: '  ' }))).constraint).toBe(
+      'club_invoices_buyer_sane',
+    );
+    await client.query('ROLLBACK');
+    // A VAT-registered supplier's 0 % line states its basis (checked at commit).
+    await invoice(third, { zeroRated: true, commit: false });
+    expect((await failure(client.query('COMMIT'))).constraint).toBe(
+      'club_invoices_zero_basis_required',
+    );
     // A number drawn without its document is refused at commit.
     expect(
       (
@@ -277,7 +305,11 @@ describe.skipIf(!hasDb)('club wallet and invoices (requires running database)', 
   it('corrects an invoice by a credit note, as issued, by no more than is left', async () => {
     const membership = await charge('membership', 1200);
     const original = await invoice(membership);
-    const credit = async (total: number, buyer = 'Мария'): Promise<string> => {
+    const credit = async (
+      total: number,
+      buyer = 'Мария',
+      forMember = memberId,
+    ): Promise<string> => {
       await client.query('BEGIN');
       const number = Number(
         (
@@ -294,17 +326,19 @@ describe.skipIf(!hasDb)('club wallet and invoices (requires running database)', 
             `INSERT INTO club_invoices (club_id, kind, number, issued_on, tax_event_on,
                                         corrects_id, reason, charge_id, member_id, supplier_name,
                                         supplier_eik, supplier_vat_number, supplier_address,
-                                        supplier_iban, buyer_kind, buyer_name, payment_method,
-                                        base_cents, vat_cents, total_cents, issued_by)
+                                        supplier_iban, buyer_kind, buyer_name, buyer_address,
+                                        payment_method, base_cents, vat_cents, total_cents,
+                                        issued_by)
              VALUES ($1, 'credit_note', $2, current_date, current_date, $3, 'Анулиране', $4, $5,
-                     $6, $7, $8, $9, $10, 'person', $11, 'cash', $12, 0, $12, $13)
+                     $6, $7, $8, $9, $10, 'person', $11, 'София, ул. Клиент 2', 'cash', $12, 0,
+                     $12, $13)
              RETURNING id`,
             [
               club.clubId,
               number,
               original,
               membership,
-              memberId,
+              forMember,
               ...supplier,
               buyer,
               total,
@@ -321,8 +355,13 @@ describe.skipIf(!hasDb)('club wallet and invoices (requires running database)', 
       await client.query('COMMIT');
       return id;
     };
-    // The parties as issued.
+    // The parties as issued, filed under the invoice's own client.
     expect((await failure(credit(1200, 'Друг'))).constraint).toBe(
+      'club_invoices_credit_within_invoice',
+    );
+    await client.query('ROLLBACK');
+    const someoneElse = await makeMember(client, club.clubId, 'Друга');
+    expect((await failure(credit(1200, 'Мария', someoneElse))).constraint).toBe(
       'club_invoices_credit_within_invoice',
     );
     await client.query('ROLLBACK');
@@ -332,6 +371,33 @@ describe.skipIf(!hasDb)('club wallet and invoices (requires running database)', 
     await client.query('ROLLBACK');
     // Wholly credited, the charge may have a new invoice.
     await invoice(membership);
+  });
+
+  it('invoices credit when it is loaded, and never again where it is spent', async () => {
+    // The top-up is invoiced like any charge.
+    const topUp = await charge('wallet', 5000);
+    await pay(topUp, 5000, 'cash');
+    await invoice(topUp, { lines: [5000] });
+    // A charge credit was spent on is not invoiced again…
+    const bar = await charge('product', 1200);
+    await pay(bar, 1200, 'wallet');
+    expect((await failure(invoice(bar))).constraint).toBe('club_invoices_wallet_spent');
+    await client.query('ROLLBACK');
+    // Spent credit never leaves as money: it goes back as credit…
+    expect((await failure(pay(bar, -1200, 'cash'))).constraint).toBe(
+      'club_payments_wallet_cash_back',
+    );
+    // …and then the charge may be paid otherwise, and invoiced.
+    await pay(bar, -1200, 'wallet');
+    await pay(bar, 1200, 'cash');
+    await invoice(bar);
+    // Credit never pays a charge with a live invoice; other money still does.
+    const membership = await charge('membership', 1200);
+    await invoice(membership);
+    expect((await failure(pay(membership, 1200, 'wallet'))).constraint).toBe(
+      'club_payments_wallet_invoiced',
+    );
+    await pay(membership, 1200, 'cash');
   });
 
   it('keeps an invoice when its client is erased', async () => {

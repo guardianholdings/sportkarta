@@ -9,7 +9,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { requireClubStaff } from '@/lib/clubs/club-session';
 import { featureOn } from '@/lib/clubs/features';
-import { clubInvoices } from '@/lib/clubs/invoices';
+import { clubInvoices, invoicesOwingCredit } from '@/lib/clubs/invoices';
 import { formatDate } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -32,29 +32,33 @@ export default async function ClubInvoicesPage({
   const { actor, club } = await requireClubStaff(slug, 'invoices.issue');
   const [t, tClub] = await Promise.all([getTranslations('ClubInvoices'), getTranslations('Club')]);
 
-  if (!featureOn(club, 'invoices')) {
-    return (
-      <main className="space-y-4">
-        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
-        <p className="max-w-prose text-body-sm text-ink-soft">
-          {clubHasFeature(club.tier, 'invoices')
-            ? t('switchedOff')
-            : t('upsell', { tier: tClub(`tier.${lowestTierWith('invoices')}`) })}
-        </p>
-      </main>
-    );
-  }
-
   // A page at a time, newest number first; `pred` is where the page starts below.
   const { pred } = await searchParams;
   const before = /^[1-9][0-9]{0,9}$/.test(pred ?? '') ? Number(pred) : undefined;
-  const invoices = await clubInvoices(actor, { before, limit: PAGE });
+  const [invoices, owing] = await Promise.all([
+    clubInvoices(actor, { before, limit: PAGE }),
+    invoicesOwingCredit(actor),
+  ]);
+  // Without invoices on the plan (or the switch), no new ones are issued —
+  // but documents already issued stay readable and correctable.
+  const off = !featureOn(club, 'invoices');
+  const offNote = clubHasFeature(club.tier, 'invoices')
+    ? t('switchedOff')
+    : t('upsell', { tier: tClub(`tier.${lowestTierWith('invoices')}`) });
+  if (off && invoices.length === 0 && before === undefined) {
+    return (
+      <main className="space-y-4">
+        <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
+        <p className="max-w-prose text-body-sm text-ink-soft">{offNote}</p>
+      </main>
+    );
+  }
   const last = invoices.at(-1);
   return (
     <main className="space-y-5">
       <div>
         <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
-        <p className="mt-1 max-w-prose text-body-sm text-ink-soft">{t('intro')}</p>
+        <p className="mt-1 max-w-prose text-body-sm text-ink-soft">{off ? offNote : t('intro')}</p>
         <p className="mt-1 max-w-prose text-caption text-text-muted">
           {t('detailsHint')}{' '}
           <Link
@@ -65,6 +69,33 @@ export default async function ClubInvoicesPage({
           </Link>
         </p>
       </div>
+      {owing.length > 0 && (
+        <section
+          aria-labelledby="owing-h"
+          className="space-y-2 rounded-card border border-warning-border bg-warning-bg p-4"
+        >
+          <h2 id="owing-h" className="text-h4 font-bold text-ink">
+            {t('owing.title')}
+          </h2>
+          <p className="max-w-prose text-body-sm text-ink">{t('owing.hint')}</p>
+          <ul className="space-y-1">
+            {owing.map((row) => (
+              <li key={row.id}>
+                <Link
+                  href={`/klub/${slug}/fakturi/${row.id}`}
+                  className="text-body-sm font-semibold text-link hover:text-link-hover"
+                >
+                  {t('owing.item', {
+                    number: formatInvoiceNumber(row.number),
+                    buyer: row.buyerName,
+                    amount: formatEuro(row.uncoveredCents, locale),
+                  })}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <section className="rounded-card border border-line bg-surface p-4 shadow-sm">
         {invoices.length === 0 ? (
           <p className="text-body-sm text-text-muted">{t('none')}</p>
@@ -91,7 +122,13 @@ export default async function ClubInvoicesPage({
                     {formatEuro(invoice.totalCents, locale)}
                   </span>
                   {invoice.kind === 'invoice' && invoice.creditedCents > 0 && (
-                    <span className="text-caption font-semibold text-danger">{t('credited')}</span>
+                    <span className="text-caption font-semibold text-danger">
+                      {invoice.creditedCents >= invoice.totalCents
+                        ? t('credited')
+                        : t('partlyCredited', {
+                            amount: formatEuro(invoice.creditedCents, locale),
+                          })}
+                    </span>
                   )}
                 </Link>
               </li>

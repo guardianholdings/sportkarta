@@ -59,7 +59,22 @@ export default async function NewInvoicePage({
           {problem}
         </p>
       )}
-      {!draft.supplier ? (
+      {draft.paidByCredit ? (
+        <p className="rounded-card border border-line bg-surface-2 p-3 text-body-sm text-ink">
+          {t('paidByCredit')}
+          {draft.memberId && (
+            <>
+              {' '}
+              <Link
+                href={`/klub/${slug}/chlenove/${draft.memberId}`}
+                className="font-semibold text-link hover:text-link-hover"
+              >
+                {t('toClientCard')}
+              </Link>
+            </>
+          )}
+        </p>
+      ) : !draft.supplier ? (
         <p className="rounded-card border border-warning-border bg-warning-bg p-3 text-body-sm text-ink">
           {t('detailsMissing')}{' '}
           <Link
@@ -153,7 +168,7 @@ export default async function NewInvoicePage({
             </label>
             <label className={label}>
               {t('buyerAddress')}
-              <Input name="buyerAddress" maxLength={300} className="mt-1" />
+              <Input name="buyerAddress" required maxLength={300} className="mt-1" />
               <span className="mt-1 block text-caption font-normal text-text-muted">
                 {t('buyerAddressHint')}
               </span>

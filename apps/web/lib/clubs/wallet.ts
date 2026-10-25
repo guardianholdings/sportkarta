@@ -2,6 +2,8 @@ import { getDb, sql, type SQL } from '@sportkarta/db';
 import {
   CLUB_TIERS,
   clubHasFeature,
+  INVOICE_DOCUMENT,
+  sofiaToday,
   type ClubPaymentMethod,
   type ClubTier,
   type IsoDate,
@@ -9,6 +11,7 @@ import {
 
 import { recordClubAudit } from './audit';
 import { clubFeatureSql } from './features';
+import { creditInvoice, InvoiceRefused, invoiceErrorCode, liveInvoiceIdFor } from './invoices';
 import { saleErrorCode } from './sales';
 import { clubActorMay, clubScope, clubWriteScope, memberSelfScope, type ClubActor } from './scope';
 
@@ -214,20 +217,30 @@ export async function topUpWallet(
   }
 }
 
-/** More was asked back than the loaded top-ups hold: nothing is written. */
+/**
+ * Nothing is written: more was asked back than the client's credit
+ * (wallet_insufficient), or than is loaded WITHOUT an invoice while this
+ * person may not correct invoices (wallet_payout_invoiced).
+ */
 class WalletShort extends Error {
-  constructor() {
-    super('wallet_insufficient');
+  constructor(readonly code: 'wallet_insufficient' | 'wallet_payout_invoiced') {
+    super(code);
   }
 }
 
 /**
  * Pay credit back to the client: refunds on their top-ups, never more than
- * is on them (the trigger refuses a balance below zero anyway). Money loaded
- * at the desk goes back first, newest first; money loaded online last — it is
- * better refunded online, to the card it came from. The client's top-ups are
- * locked first, in id order (0050's order: charge, then client), so two
- * pay-outs or a pay-out and a spend are serialised.
+ * their balance (the trigger refuses a balance below zero anyway). Credit
+ * loaded without an invoice goes back first; money loaded at the desk before
+ * money loaded online, which is better refunded online, to the card it came
+ * from; newest top-up first. Credit loaded WITH an invoice (credit is
+ * invoiced when loaded, 2026-10-25) goes back last, and only for someone who
+ * may correct invoices (invoices.issue): the same transaction writes a
+ * credit note for exactly what leaves each invoiced top-up, so the invoice
+ * keeps declaring only the credit that was used. The client's top-ups are
+ * locked first, in id order (0050's order: charge, then client, then the
+ * invoice and its counter), so two pay-outs or a pay-out and a spend are
+ * serialised.
  *
  * The client's money: allowed on any tier and while the club is read-only
  * (payments.record, read scope) — as an erasure is, which waits for it.
@@ -263,11 +276,24 @@ export async function payOutWallet(
       ).rows[0];
       if (!member) return { ok: false, error: 'not_allowed' } as const;
       if (member.done === true) return { ok: true } as const;
-      // After the locks: a fresh statement sees every payment committed before.
+      // After the locks: fresh statements see every payment committed before.
+      const state = (
+        await tx.execute(sql`
+          SELECT (SELECT coalesce(sum(w.balance_cents), 0) FROM club_wallet_balances w
+                   WHERE w.club_id = ${actor.clubId}::uuid
+                     AND w.member_id = ${input.memberId}::uuid) AS balance,
+                 ${clubActorMay(actor, 'invoices.issue', { write: false })} AS may_credit
+        `)
+      ).rows[0];
+      if (Number(state?.balance ?? 0) < input.amountCents) {
+        throw new WalletShort('wallet_insufficient');
+      }
+      const mayCredit = state?.may_credit === true;
       const topUps = await tx.execute(sql`
         SELECT ch.id, sum(p.amount_cents)::int AS net,
                coalesce(sum(p.amount_cents) FILTER (WHERE p.method = 'card_online'), 0)::int
-                 AS online
+                 AS online,
+               ${liveInvoiceIdFor(sql`ch.club_id`, sql`ch.id`)} AS invoice_id
           FROM club_charges ch
           JOIN club_payments p ON p.charge_id = ch.id
          WHERE ch.member_id = ${input.memberId}::uuid AND ch.kind = 'wallet'
@@ -279,13 +305,23 @@ export async function payOutWallet(
       const parts = topUps.rows.map((row) => {
         const net = Number(row.net);
         const online = Math.min(net, Math.max(0, Number(row.online)));
-        return { id: String(row.id), desk: net - online, online };
+        return { id: String(row.id), desk: net - online, online, invoiceId: text(row.invoice_id) };
       });
+      const passes = [
+        { invoiced: false, pass: 'desk' },
+        { invoiced: false, pass: 'online' },
+        ...(mayCredit
+          ? ([
+              { invoiced: true, pass: 'desk' },
+              { invoiced: true, pass: 'online' },
+            ] as const)
+          : []),
+      ] as const;
       const take = new Map<string, number>();
       let left = input.amountCents;
-      for (const pass of ['desk', 'online'] as const) {
+      for (const { invoiced, pass } of passes) {
         for (const part of parts) {
-          if (left === 0) break;
+          if (left === 0 || (part.invoiceId !== null) !== invoiced) continue;
           const back = Math.min(left, part[pass]);
           if (back > 0) {
             take.set(part.id, (take.get(part.id) ?? 0) + back);
@@ -293,7 +329,9 @@ export async function payOutWallet(
           }
         }
       }
-      if (left > 0) throw new WalletShort();
+      if (left > 0) {
+        throw new WalletShort(mayCredit ? 'wallet_insufficient' : 'wallet_payout_invoiced');
+      }
       for (const [chargeId, back] of take) {
         // Each refund passes club_payments_wallet, which refuses a balance
         // below zero.
@@ -305,6 +343,28 @@ export async function payOutWallet(
             FROM club_charges ch
            WHERE ch.id = ${chargeId}::uuid AND ${clubScope(actor, 'payments.record', 'ch')}
         `);
+        // What leaves an invoiced top-up comes off its invoice — read again
+        // now that the refund holds the top-up's lock: one loaded while the
+        // pay-out waited for the client was never locked above, and could
+        // have been invoiced since.
+        const invoiceId = text(
+          (
+            await tx.execute(sql`
+              SELECT ${liveInvoiceIdFor(sql`${actor.clubId}::uuid`, sql`${chargeId}::uuid`)} AS id
+            `)
+          ).rows[0]?.id,
+        );
+        if (invoiceId !== null && !mayCredit) throw new WalletShort('wallet_payout_invoiced');
+        if (invoiceId !== null) {
+          await creditInvoice(
+            tx,
+            actor,
+            invoiceId,
+            back,
+            INVOICE_DOCUMENT.creditPaidOut,
+            sofiaToday(),
+          );
+        }
       }
       await recordClubAudit(tx, {
         clubId: actor.clubId,
@@ -321,8 +381,10 @@ export async function payOutWallet(
       return { ok: true } as const;
     });
   } catch (error: unknown) {
-    if (error instanceof WalletShort) return { ok: false, error: 'wallet_insufficient' };
-    const code = saleErrorCode(error);
+    if (error instanceof WalletShort || error instanceof InvoiceRefused) {
+      return { ok: false, error: error.code };
+    }
+    const code = saleErrorCode(error) ?? invoiceErrorCode(error);
     if (code) return { ok: false, error: code };
     throw error;
   }

@@ -36,6 +36,10 @@ export default async function ClubSalePage({
   const [t, tClub] = await Promise.all([getTranslations('ClubShop'), getTranslations('Club')]);
   const { rezultat } = await searchParams;
   const canReverse = actorCan(actor, 'charges.void') && !sale.reversed;
+  // Credit was invoiced when it was loaded (0050), so a sale it paid is not.
+  const paidByCredit = sale.payments.some(
+    (p) => p.method === 'wallet' && p.amountCents > p.refundedCents,
+  );
   const methodName = (method: string) =>
     tClub.has(`method.${method}`) ? tClub(`method.${method}`) : method;
 
@@ -134,7 +138,7 @@ export default async function ClubSalePage({
         >
           {t('newSale')}
         </Link>
-        {invoicesOn && sale.chargeId && (sale.invoiceId || !sale.reversed) && (
+        {invoicesOn && sale.chargeId && (sale.invoiceId || (!sale.reversed && !paidByCredit)) && (
           <Link
             href={
               sale.invoiceId

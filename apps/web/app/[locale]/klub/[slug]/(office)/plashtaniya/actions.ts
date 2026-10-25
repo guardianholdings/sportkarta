@@ -16,7 +16,12 @@ import { requireClubStaff } from '@/lib/clubs/club-session';
 import { parseCharge, parsePayment } from '@/lib/clubs/input';
 import { refundOnlinePayment } from '@/lib/clubs/payments';
 import { refundsDue } from '@/lib/clubs/reservations';
-import { createCharge, recordPayment } from '@/lib/clubs/sales';
+import { createCharge, recordPayment, refundPaid } from '@/lib/clubs/sales';
+
+/** How money goes back at the desk: never as credit — that part goes back by itself. */
+const MONEY_METHODS = CLUB_PAYMENT_METHODS.filter(
+  (m): m is Exclude<ClubPaymentMethod, 'wallet'> => m !== 'wallet',
+);
 
 export interface PaymentState {
   error: string | null;
@@ -99,15 +104,18 @@ export async function refundReservationAction(formData: FormData): Promise<void>
   const method = String(formData.get('method') ?? '');
   const due = (await refundsDue(actor)).find((row) => row.reservationId === reservationId);
   let outcome = 'refund_invalid';
-  if (due && !due.online && (CLUB_PAYMENT_METHODS as readonly string[]).includes(method)) {
-    const result = await recordPayment(getDb(), actor, {
+  if (due && !due.online && (MONEY_METHODS as readonly string[]).includes(method)) {
+    // Credit spent on the booking goes back to the credit; the money by `method`.
+    const result = await refundPaid(getDb(), actor, {
       chargeId: due.chargeId,
-      kind: 'refund',
-      amountCents: -due.paidCents,
-      method: method as ClubPaymentMethod,
+      method: method as (typeof MONEY_METHODS)[number],
       receivedOn: sofiaToday(),
     });
-    outcome = result.ok ? 'refunded' : 'refund_not_allowed';
+    outcome = result.ok
+      ? 'refunded'
+      : result.error === 'invoice_live'
+        ? 'refund_invoice_live'
+        : 'refund_not_allowed';
   }
   refresh(slug);
   redirect({

@@ -64,7 +64,12 @@ export async function creditNoteAction(formData: FormData): Promise<void> {
     });
   if (!isUuid(invoiceId)) return back('not_found');
   if (reason === null) return back('reason_required');
-  const result = await issueCreditNote(getDb(), actor, invoiceId, reason);
+  // A part: the money given back that no credit note covers (the page's
+  // figure; creditInvoice refuses more than is left).
+  const amountRaw = str(formData, 'amount');
+  const amountCents = /^[1-9][0-9]{0,8}$/.test(amountRaw) ? Number(amountRaw) : null;
+  if (amountRaw !== '' && amountCents === null) return back('invalid');
+  const result = await issueCreditNote(getDb(), actor, invoiceId, reason, { amountCents });
   if (!result.ok) return back(result.error);
   revalidatePath(`/klub/${slug}/fakturi`);
   return redirect({

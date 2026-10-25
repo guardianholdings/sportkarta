@@ -216,7 +216,14 @@ browser) in a MANUAL STEPS list at the end of the session.
   payments), and `club_payments_wallet` is the only arbiter — every row the
   club writes keeps it ≥ 0, while a refund the provider reports is a fact and
   may take it below (what the client owes). Revenue sums exclude
-  `method = 'wallet'`. An invoice's number, chronology, lines-add-up and
+  `method = 'wallet'`. Credit is INVOICED WHEN LOADED (the operator's
+  accountant, 2026-10-25): a top-up is invoiced for what stays on it,
+  `club_invoices_wallet_spent` refuses an invoice for a charge credit was
+  spent on, and `club_payments_wallet_invoiced` refuses credit on a charge
+  with a live invoice — so no euro is declared twice; spent credit never
+  leaves as money (`club_payments_wallet_cash_back`), and a pay-out of
+  invoiced credit writes a partial credit note for what leaves
+  (`creditInvoice`). An invoice's number, chronology, lines-add-up and
   one-live-per-charge are triggers (deferred where they must see the whole
   transaction), and `club_number_sequences_used` refuses a number drawn
   without its document. The invoice document's words live in

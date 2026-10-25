@@ -11,7 +11,11 @@
 --   * SPENDING credit is a payment with method 'wallet' against any other
 --     charge of the same client; a 'wallet' refund gives spent credit back on
 --     that charge, never more than was spent on it (a reversed till sale, a
---     refunded booking) — so cash paid for a charge cannot turn into credit;
+--     refunded booking) — so cash paid for a charge cannot turn into credit —
+--     and a refund the club writes in money never exceeds the money paid on
+--     the charge, so credit spent cannot turn into cash
+--     (club_payments_wallet_cash_back; a refund the provider reports is a
+--     fact, so for online refunds the application checks before it asks);
 --   * the BALANCE is club_wallet_balances: what was loaded (net payments on
 --     the client's wallet charges) minus what was spent (net 'wallet'
 --     payments on the client's charges). club_payments_wallet refuses any
@@ -54,9 +58,14 @@
 --                          corrected invoice's charge and parties unchanged
 --                          and never exceeds what is left of it. An invoice is
 --                          issued for one live charge of its own client, at
---                          most one live invoice per charge, and never for a
---                          wallet top-up: prepaid credit is invoiced when it
---                          is SPENT (where the VAT falls), not when loaded.
+--                          most one live invoice per charge.
+--   PREPAID CREDIT IS INVOICED WHEN IT IS LOADED (the operator's accountant,
+--   2026-10-25): a top-up is invoiced like any charge, and what credit pays
+--   for is not invoiced again — an invoice is refused for a charge credit was
+--   spent on (club_invoices_wallet_spent), and credit is refused for a
+--   charge with a live invoice (club_payments_wallet_invoiced), whichever
+--   comes first. How a charge paid partly in credit is invoiced for the rest
+--   waits for the accountant's answer on advance invoices.
 --   A number is drawn only for a document: a counter row that commits without
 --   the sale or invoice that took its number is refused at commit
 --   (club_number_sequences_used — a gap in an invoice series is a legal
@@ -68,8 +77,8 @@
 -- but keeps the buyer's name and address printed on it — the club's legal
 -- obligation, not consent. No contact-person column (CLAUDE.md: a company's
 -- contact is a natural person and lives in the club's own records), and never
--- a personal identification number: a person buyer is a name and, if they
--- give one, an address.
+-- a personal identification number: a person buyer is a name and an address
+-- (every invoice names its buyer's address — the accountant, 2026-10-25).
 --
 --   Vocabulary: charge kind 'wallet'; payment method 'wallet'; checkout
 --   purpose 'wallet'; counter kind 'invoice'; audit actions wallet_topped_up,
@@ -93,9 +102,12 @@
 -- locks the client first — a collision that already existed through the
 -- payment's key check); Postgres aborts one side after ~1 s, pg-boss retries
 -- a job and the office re-submits. Deploy at a quiet hour, never during a
--- club purge; a red deploy is simply re-run. The application keeps its own
--- orders: one charge per payment transaction, and an invoice locks its
--- charge before it draws a number (charge → invoice counter → invoice).
+-- club purge; a red deploy is simply re-run. The application keeps ONE order:
+-- charge → client → invoice → invoice counter. One charge per payment
+-- transaction; an invoice locks its charge before it draws a number; a
+-- credit note locks the corrected invoice's charge, then the invoice, then
+-- the counter; a pay-out of credit locks the client's top-ups (by id) and
+-- the client before the invoices it corrects.
 --
 -- rollback (after reverting the application), in ONE explicit transaction, at
 -- a quiet hour. Most of this file STAYS, on purpose: issued invoices are
@@ -110,6 +122,9 @@
 --     'wallet' checkout is settled; DESTRUCTIVE: each online top-up's label
 --   DROP FUNCTION club_checkouts_wallet_insert();
 --   optionally DROP TABLE "club_invoice_settings";      -- DESTRUCTIVE: settings
+--   club_invoices is NEVER dropped while club_payments_wallet exists: the
+--   trigger reads it, and Postgres records no dependency from a plpgsql body
+--   (every top-up and every credit payment would then fail with 42P01).
 SET LOCAL lock_timeout = '3s';--> statement-breakpoint
 SET LOCAL statement_timeout = '30s';--> statement-breakpoint
 LOCK TABLE "clubs", "club_members" IN SHARE ROW EXCLUSIVE MODE;--> statement-breakpoint
@@ -169,9 +184,12 @@ FROM public.club_charges ch
 JOIN public.club_payments p ON p.charge_id = ch.id
 WHERE ch.member_id IS NOT NULL AND (ch.kind = 'wallet' OR p.method = 'wallet')
 GROUP BY ch.club_id, ch.member_id;--> statement-breakpoint
--- Credit is the charge's own client's, never paid with credit, given back on a
--- charge no more than was spent on it, and — for every row the club writes —
--- never taken below zero. Named to fire BEFORE club_payments_within_charge
+-- Credit is the charge's own client's, never paid with credit, never spent on
+-- a charge with a live invoice (it was invoiced when loaded — the charge's
+-- invoice would declare it twice; the invoice is locked out the same way, by
+-- the charge's lock, in club_invoices_guard), given back on a charge no more
+-- than was spent on it and never as money, and — for every row the club
+-- writes — never taken below zero. Named to fire BEFORE club_payments_within_charge
 -- (triggers fire in name order); it locks the charge first, as every money
 -- path does, then the client, so two desks spending one client's credit are
 -- serialised and the sums below see every payment committed before the locks
@@ -186,6 +204,7 @@ DECLARE
   charge_member uuid;
   balance bigint;
   spent_here bigint;
+  money_here bigint;
   delta bigint;
 BEGIN
   SELECT c.kind, c.member_id INTO charge_kind, charge_member
@@ -196,11 +215,38 @@ BEGIN
     RETURN NEW; -- left to the foreign key (23503)
   END IF;
   IF NEW.method <> 'wallet' AND charge_kind <> 'wallet' THEN
+    -- Credit spent never leaves as money: a refund the club writes in money
+    -- gives back no more than money paid here, and the rest goes back as
+    -- credit — out of the club only through a pay-out, which corrects an
+    -- invoiced top-up (the mirror of club_payments_wallet_refund).
+    -- (Where no credit was spent, 0041's club_payments_within_charge decides.)
+    IF NEW.kind = 'refund' AND NEW.provider = 'manual' THEN
+      SELECT coalesce(sum(p.amount_cents) FILTER (WHERE p.method <> 'wallet'), 0),
+             coalesce(sum(p.amount_cents) FILTER (WHERE p.method = 'wallet'), 0)
+        INTO money_here, spent_here
+        FROM public.club_payments p
+       WHERE p.charge_id = NEW.charge_id;
+      -- More back than everything on the charge is 0041's refusal, not this.
+      IF spent_here > 0 AND money_here + NEW.amount_cents < 0
+         AND money_here + spent_here + NEW.amount_cents >= 0 THEN
+        RAISE EXCEPTION 'club_payments: money goes back only as far as money was paid here'
+          USING ERRCODE = 'check_violation', CONSTRAINT = 'club_payments_wallet_cash_back';
+      END IF;
+    END IF;
     RETURN NEW;
   END IF;
   IF charge_kind = 'wallet' AND NEW.method = 'wallet' THEN
     RAISE EXCEPTION 'club_payments: credit is not paid with credit'
       USING ERRCODE = 'check_violation', CONSTRAINT = 'club_payments_wallet_not_circular';
+  END IF;
+  IF NEW.method = 'wallet' AND NEW.kind = 'payment'
+     AND EXISTS (SELECT 1 FROM public.club_invoices i
+                  WHERE i.club_id = NEW.club_id AND i.charge_id = NEW.charge_id
+                    AND i.kind = 'invoice'
+                    AND i.total_cents > coalesce((SELECT sum(c.total_cents) FROM public.club_invoices c
+                                                   WHERE c.club_id = i.club_id AND c.corrects_id = i.id), 0)) THEN
+    RAISE EXCEPTION 'club_payments: credit was invoiced when loaded, so it never pays an invoiced charge'
+      USING ERRCODE = 'check_violation', CONSTRAINT = 'club_payments_wallet_invoiced';
   END IF;
   IF NEW.method = 'wallet' AND NEW.kind = 'refund' THEN
     SELECT coalesce(sum(p.amount_cents), 0) INTO spent_here
@@ -398,7 +444,7 @@ CREATE TABLE "club_invoices" (
 	"buyer_name" text NOT NULL,
 	"buyer_eik" text,
 	"buyer_vat_number" text,
-	"buyer_address" text,
+	"buyer_address" text NOT NULL,
 	"payment_method" text NOT NULL,
 	"zero_vat_basis" text,
 	"base_cents" integer NOT NULL,
@@ -423,14 +469,13 @@ CREATE TABLE "club_invoices" (
       AND ("club_invoices"."supplier_iban" IS NULL OR "club_invoices"."supplier_iban" ~ '^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$')),
 	CONSTRAINT "club_invoices_buyer_kind_known" CHECK ("club_invoices"."buyer_kind" IN ('person', 'company')),
 	CONSTRAINT "club_invoices_buyer_sane" CHECK (btrim("club_invoices"."buyer_name") <> '' AND char_length("club_invoices"."buyer_name") <= 200
-      AND ("club_invoices"."buyer_address" IS NULL OR (btrim("club_invoices"."buyer_address") <> '' AND char_length("club_invoices"."buyer_address") <= 300))
+      AND btrim("club_invoices"."buyer_address") <> '' AND char_length("club_invoices"."buyer_address") <= 300
       AND ("club_invoices"."buyer_eik" IS NULL OR "club_invoices"."buyer_eik" ~ '^([0-9]{9}|[0-9]{13})$')
       AND ("club_invoices"."buyer_vat_number" IS NULL OR "club_invoices"."buyer_vat_number" ~ '^[A-Z]{2}[A-Z0-9]{2,13}$')),
-	-- A company is identified by its EIK or (a foreign one) its VAT number,
-	-- and an address; a person by a name only (never an identification number).
+	-- A company is identified by its EIK or (a foreign one) its VAT number; a
+	-- person by name and address only (never an identification number).
 	CONSTRAINT "club_invoices_buyer_identified" CHECK (("club_invoices"."buyer_kind" = 'company'
-          AND ("club_invoices"."buyer_eik" IS NOT NULL OR "club_invoices"."buyer_vat_number" IS NOT NULL)
-          AND "club_invoices"."buyer_address" IS NOT NULL)
+          AND ("club_invoices"."buyer_eik" IS NOT NULL OR "club_invoices"."buyer_vat_number" IS NOT NULL))
       OR ("club_invoices"."buyer_kind" = 'person'
           AND "club_invoices"."buyer_eik" IS NULL AND "club_invoices"."buyer_vat_number" IS NULL)),
 	-- The legal basis a VAT-registered club prints for its 0 % lines (the
@@ -463,9 +508,10 @@ CREATE INDEX "club_invoices_corrects_idx" ON "club_invoices" USING btree ("club_
 --   * a credit note corrects an INVOICE of the same club, by no more than is
 --     left of it, with the invoice's charge and parties unchanged — locking
 --     the invoice first, so two credit notes cannot both pass;
---   * an invoice is for a live charge of its own client, never a wallet
---     top-up, and the charge has no other live invoice — locking the charge
---     first, the lock every money path takes.
+--   * an invoice is for a live charge of its own client that credit was not
+--     spent on (credit was invoiced when loaded), and the charge has no other
+--     live invoice — locking the charge first, the lock every money path
+--     takes, so the sums see every payment committed before it.
 CREATE FUNCTION club_invoices_guard() RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = pg_catalog, public
@@ -474,7 +520,6 @@ DECLARE
   probe public.club_invoices%ROWTYPE;
   corrected public.club_invoices%ROWTYPE;
   left_cents bigint;
-  charge_kind text;
   charge_member uuid;
   charge_voided timestamptz;
 BEGIN
@@ -502,30 +547,37 @@ BEGIN
         FROM public.club_invoices c
        WHERE c.club_id = NEW.club_id AND c.corrects_id = corrected.id;
       IF corrected.kind <> 'invoice' OR NEW.total_cents > left_cents
-         OR (NEW.charge_id, NEW.supplier_name, NEW.supplier_eik, NEW.supplier_vat_number,
-             NEW.supplier_address, NEW.supplier_iban, NEW.buyer_kind, NEW.buyer_name,
-             NEW.buyer_eik, NEW.buyer_vat_number, NEW.buyer_address, NEW.zero_vat_basis)
+         OR (NEW.charge_id, NEW.member_id, NEW.supplier_name, NEW.supplier_eik,
+             NEW.supplier_vat_number, NEW.supplier_address, NEW.supplier_iban, NEW.buyer_kind,
+             NEW.buyer_name, NEW.buyer_eik, NEW.buyer_vat_number, NEW.buyer_address,
+             NEW.zero_vat_basis)
             IS DISTINCT FROM
-            (corrected.charge_id, corrected.supplier_name, corrected.supplier_eik,
-             corrected.supplier_vat_number, corrected.supplier_address, corrected.supplier_iban,
-             corrected.buyer_kind, corrected.buyer_name, corrected.buyer_eik,
-             corrected.buyer_vat_number, corrected.buyer_address, corrected.zero_vat_basis) THEN
+            (corrected.charge_id, corrected.member_id, corrected.supplier_name,
+             corrected.supplier_eik, corrected.supplier_vat_number, corrected.supplier_address,
+             corrected.supplier_iban, corrected.buyer_kind, corrected.buyer_name,
+             corrected.buyer_eik, corrected.buyer_vat_number, corrected.buyer_address,
+             corrected.zero_vat_basis) THEN
         RAISE EXCEPTION 'club_invoices: a credit note corrects its invoice, as issued, by no more than is left of it'
           USING ERRCODE = 'check_violation', CONSTRAINT = 'club_invoices_credit_within_invoice';
       END IF;
       RETURN NEW;
     END IF;
-    SELECT ch.kind, ch.member_id, ch.voided_at INTO charge_kind, charge_member, charge_voided
+    SELECT ch.member_id, ch.voided_at INTO charge_member, charge_voided
       FROM public.club_charges ch
      WHERE ch.club_id = NEW.club_id AND ch.id = NEW.charge_id
      FOR NO KEY UPDATE;
     IF NOT FOUND THEN
       RETURN NEW; -- left to the foreign key (23503)
     END IF;
-    IF charge_voided IS NOT NULL OR charge_kind = 'wallet'
-       OR NEW.member_id IS DISTINCT FROM charge_member THEN
-      RAISE EXCEPTION 'club_invoices: an invoice is for a live charge of its own client, never a top-up'
+    IF charge_voided IS NOT NULL OR NEW.member_id IS DISTINCT FROM charge_member THEN
+      RAISE EXCEPTION 'club_invoices: an invoice is for a live charge of its own client'
         USING ERRCODE = 'check_violation', CONSTRAINT = 'club_invoices_charge_invoiceable';
+    END IF;
+    IF (SELECT coalesce(sum(p.amount_cents), 0) FROM public.club_payments p
+         WHERE p.club_id = NEW.club_id AND p.charge_id = NEW.charge_id
+           AND p.method = 'wallet') > 0 THEN
+      RAISE EXCEPTION 'club_invoices: credit is invoiced when it is loaded, never again where it is spent'
+        USING ERRCODE = 'check_violation', CONSTRAINT = 'club_invoices_wallet_spent';
     END IF;
     IF EXISTS (SELECT 1 FROM public.club_invoices i
                 WHERE i.club_id = NEW.club_id AND i.charge_id = NEW.charge_id
@@ -621,9 +673,10 @@ END;
 $$;--> statement-breakpoint
 CREATE TRIGGER "club_invoice_lines_guard" BEFORE INSERT OR UPDATE OR DELETE ON "club_invoice_lines" FOR EACH ROW EXECUTE FUNCTION club_invoice_lines_guard();--> statement-breakpoint
 CREATE TRIGGER "club_invoice_lines_no_truncate" BEFORE TRUNCATE ON "club_invoice_lines" FOR EACH STATEMENT EXECUTE FUNCTION club_ledger_no_truncate();--> statement-breakpoint
--- At COMMIT: a document has at least one line, and its lines add up to its
--- totals. Deferred, so the invoice and its lines are written in either order
--- within the transaction; fired by a row of either table.
+-- At COMMIT: a document has at least one line, its lines add up to its
+-- totals, and a VAT-registered supplier's 0 % line has its printed basis.
+-- Deferred, so the invoice and its lines are written in either order within
+-- the transaction; fired by a row of either table.
 CREATE FUNCTION club_invoices_add_up() RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = pg_catalog, public
@@ -655,6 +708,16 @@ BEGIN
      OR lines_vat <> head.vat_cents THEN
     RAISE EXCEPTION 'club_invoices: a document''s lines add up to its totals'
       USING ERRCODE = 'check_violation', CONSTRAINT = 'club_invoices_lines_add_up';
+  END IF;
+  -- A VAT-registered supplier states the legal basis of a 0 % line (ЗДДС
+  -- чл. 114): what the basis SAYS is the club's (the accountant's open
+  -- question, 2026-10-25), that one is printed is not.
+  IF head.supplier_vat_number IS NOT NULL AND head.zero_vat_basis IS NULL
+     AND EXISTS (SELECT 1 FROM public.club_invoice_lines l
+                  WHERE l.club_id = head.club_id AND l.invoice_id = head.id
+                    AND l.vat_rate_bp = 0) THEN
+    RAISE EXCEPTION 'club_invoices: a VAT-registered supplier states the basis of a 0 %% line'
+      USING ERRCODE = 'check_violation', CONSTRAINT = 'club_invoices_zero_basis_required';
   END IF;
   RETURN NULL;
 END;

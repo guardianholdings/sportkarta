@@ -448,9 +448,17 @@ export default async function MemberCardPage({
                         kind={chargeKind(charge.status)}
                         label={tClub(`chargeStatus.${charge.status}`)}
                       />
+                      {invoicesOn && !charge.invoiceId && charge.paidByCredit && (
+                        <span className="text-caption text-text-muted">
+                          {t('card.creditInvoiced')}
+                        </span>
+                      )}
                       {invoicesOn &&
-                        charge.kind !== 'wallet' &&
-                        (charge.invoiceId || charge.status !== 'void') && (
+                        (charge.invoiceId ||
+                          (charge.status !== 'void' &&
+                            !charge.paidByCredit &&
+                            // A top-up is invoiced for the money on it (0050).
+                            (charge.kind !== 'wallet' || charge.paidCents > 0))) && (
                           <Link
                             href={
                               charge.invoiceId

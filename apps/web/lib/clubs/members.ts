@@ -321,6 +321,8 @@ export interface MemberCharge {
   status: string;
   /** Its live invoice (0050), if any. */
   invoiceId: string | null;
+  /** Credit was spent on it — invoiced when loaded, so not invoiced here. */
+  paidByCredit: boolean;
 }
 
 export interface MemberPayment {
@@ -396,7 +398,9 @@ export async function memberCard(actor: ClubActor, memberId: string): Promise<Me
                WHERE i.club_id = cb.club_id AND i.charge_id = cb.charge_id AND i.kind = 'invoice'
                  AND i.total_cents > coalesce((SELECT sum(c.total_cents) FROM club_invoices c
                                                 WHERE c.club_id = i.club_id AND c.corrects_id = i.id), 0)
-               LIMIT 1) AS invoice_id
+               LIMIT 1) AS invoice_id,
+             (SELECT coalesce(sum(p.amount_cents), 0) FROM club_payments p
+               WHERE p.charge_id = cb.charge_id AND p.method = 'wallet') > 0 AS paid_by_credit
         FROM club_charge_balances cb
        WHERE cb.club_id = ${clubId}::uuid AND cb.member_id = ${memberId}::uuid
        ORDER BY cb.issued_on DESC, cb.created_at DESC LIMIT 50`),
@@ -465,6 +469,7 @@ export async function memberCard(actor: ClubActor, memberId: string): Promise<Me
       dueOn: String(c.due_on),
       status: String(c.status),
       invoiceId: c.invoice_id === null || c.invoice_id === undefined ? null : String(c.invoice_id),
+      paidByCredit: c.paid_by_credit === true,
     })),
     payments: payments.rows.map((p) => ({
       id: Number(p.id),

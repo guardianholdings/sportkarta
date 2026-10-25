@@ -4,6 +4,7 @@ import {
   membershipEndsOn,
   type ClubCancelReason,
   type ClubPlanAudience,
+  type ClubPaymentMethod,
   type ClubPlanKind,
   type IsoDate,
   sofiaToday,
@@ -60,6 +61,8 @@ export function saleErrorCode(error: unknown): string | null {
   if (constraint === 'club_payments_wallet_not_circular') return 'wallet_not_for_credit';
   if (constraint === 'club_charges_wallet_void') return 'wallet_void';
   if (constraint === 'club_payments_wallet_refund') return 'wallet_refund_exceeds';
+  if (constraint === 'club_payments_wallet_invoiced') return 'wallet_invoiced';
+  if (constraint === 'club_payments_wallet_cash_back') return 'refund_paid_by_credit';
   return null;
 }
 
@@ -672,6 +675,9 @@ export async function recordPayment(
                ${input.receivedOn}::date, ${actor.userId}
           FROM club_charges ch
          WHERE ch.id = ${input.chargeId}::uuid AND ${clubWriteScope(actor, 'payments.record', 'ch')}
+           -- A top-up is loaded and paid back only by its own paths (wallet.ts),
+           -- which keep its invoice true (0050).
+           AND ch.kind <> 'wallet'
            AND ${walletMethodAllowed(actor.clubId, input.method)}
            -- Money back on an invoiced charge waits for the credit note (0050).
            AND (${input.kind} = 'payment' OR NOT ${liveInvoiceFor(sql`ch.club_id`, sql`ch.id`)})
@@ -701,6 +707,90 @@ export async function recordPayment(
         action: input.kind === 'refund' ? 'refund_recorded' : 'payment_recorded',
         subjectMemberId: text(inserted.rows[0]?.member_id),
         detail: { chargeId: input.chargeId, amountCents: input.amountCents, method: input.method },
+      });
+      return { ok: true } as const;
+    });
+  } catch (error: unknown) {
+    const code = saleErrorCode(error);
+    if (code) return { ok: false, error: code };
+    throw error;
+  }
+}
+
+/**
+ * Give back everything paid on a charge (a booking cancelled in time): the
+ * credit spent on it back to the client's credit, the money by `method` —
+ * credit spent never leaves as money (0050, club_payments_wallet_cash_back;
+ * it leaves only through a pay-out, which keeps an invoiced top-up true).
+ * One transaction, the charge locked first; an invoiced charge waits for its
+ * credit note (invoice_live), and card money still on it goes back online
+ * (paid_online).
+ */
+export async function refundPaid(
+  db: TransactionalDb,
+  actor: ClubActor,
+  input: {
+    chargeId: string;
+    method: Exclude<ClubPaymentMethod, 'wallet'>;
+    receivedOn: IsoDate;
+  },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    return await db.transaction(async (tx) => {
+      const charge = (
+        await tx.execute(sql`
+          SELECT ch.member_id FROM club_charges ch
+           WHERE ch.id = ${input.chargeId}::uuid AND ch.kind <> 'wallet'
+             AND ${clubWriteScope(actor, 'payments.record', 'ch')}
+             FOR NO KEY UPDATE
+        `)
+      ).rows[0];
+      if (!charge) return { ok: false, error: 'not_allowed' } as const;
+      // After the lock: a fresh statement sees every payment committed before.
+      const net = (
+        await tx.execute(sql`
+          SELECT coalesce(sum(p.amount_cents) FILTER (WHERE p.method = 'wallet'), 0)::int AS credit,
+                 coalesce(sum(p.amount_cents) FILTER (WHERE p.method <> 'wallet'), 0)::int AS money,
+                 coalesce(sum(p.amount_cents) FILTER (WHERE p.method = 'card_online'), 0)::int
+                   AS online,
+                 ${liveInvoiceFor(sql`${actor.clubId}::uuid`, sql`${input.chargeId}::uuid`)}
+                   AS invoiced
+            FROM club_payments p
+           WHERE p.club_id = ${actor.clubId}::uuid AND p.charge_id = ${input.chargeId}::uuid
+        `)
+      ).rows[0];
+      if (net?.invoiced === true) return { ok: false, error: 'invoice_live' } as const;
+      // Card money goes back through the provider, from its row in the ledger:
+      // a desk refund of it would leave Stripe's own refund nowhere to land.
+      if (Number(net?.online ?? 0) !== 0) return { ok: false, error: 'paid_online' } as const;
+      const back = [
+        { method: 'wallet', cents: Number(net?.credit ?? 0) },
+        { method: input.method, cents: Number(net?.money ?? 0) },
+      ].filter((part) => part.cents > 0);
+      if (back.length === 0) return { ok: false, error: 'not_allowed' } as const;
+      for (const part of back) {
+        await tx.execute(sql`
+          INSERT INTO club_payments (club_id, charge_id, member_id, kind, amount_cents, method,
+                                     received_on, recorded_by)
+          SELECT ch.club_id, ch.id, ch.member_id, 'refund', ${-part.cents}, ${part.method},
+                 ${input.receivedOn}::date, ${actor.userId}
+            FROM club_charges ch
+           WHERE ch.id = ${input.chargeId}::uuid
+             AND ${clubWriteScope(actor, 'payments.record', 'ch')}
+        `);
+      }
+      await recordClubAudit(tx, {
+        clubId: actor.clubId,
+        by: { kind: 'staff', actor },
+        action: 'refund_recorded',
+        subjectMemberId: text(charge.member_id),
+        detail: {
+          chargeId: input.chargeId,
+          amountCents: -back.reduce((sum, part) => sum + part.cents, 0),
+          // How the MONEY went back — none when it was all credit.
+          method: Number(net?.money ?? 0) > 0 ? input.method : null,
+          creditCents: Number(net?.credit ?? 0),
+        },
       });
       return { ok: true } as const;
     });

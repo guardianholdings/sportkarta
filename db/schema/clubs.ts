@@ -1265,7 +1265,7 @@ export const clubInvoices = pgTable(
     buyerName: text('buyer_name').notNull(),
     buyerEik: text('buyer_eik'),
     buyerVatNumber: text('buyer_vat_number'),
-    buyerAddress: text('buyer_address'),
+    buyerAddress: text('buyer_address').notNull(),
     paymentMethod: text('payment_method').notNull(),
     /** The printed basis of the document's 0 % lines (snapshot). */
     zeroVatBasis: text('zero_vat_basis'),

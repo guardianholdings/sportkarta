@@ -18,6 +18,8 @@ export const INVOICE_DOCUMENT = {
   corrects: 'Към фактура',
   of: 'от',
   reason: 'Основание',
+  /** The reason on the credit note a pay-out of invoiced credit writes. */
+  creditPaidOut: 'Върнат предплатен кредит',
   supplier: 'Доставчик',
   buyer: 'Получател',
   eik: 'ЕИК',

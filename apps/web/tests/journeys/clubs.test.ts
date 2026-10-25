@@ -72,6 +72,7 @@ import {
   paymentLedger,
   previewMembershipSale,
   recordPayment,
+  refundPaid,
   savePlan,
   sellMembership,
   voidCharge,
@@ -86,7 +87,14 @@ import {
   startWalletCheckout,
   unappliedCheckouts,
 } from '@/lib/clubs/payments';
-import { clubInvoices, invoiceById, issueCreditNote, issueInvoice } from '@/lib/clubs/invoices';
+import { parseInvoiceBuyer } from '@/lib/clubs/input';
+import {
+  clubInvoices,
+  invoiceById,
+  invoicesOwingCredit,
+  issueCreditNote,
+  issueInvoice,
+} from '@/lib/clubs/invoices';
 import { memberWallet, payOutWallet, topUpWallet } from '@/lib/clubs/wallet';
 import { memberClubs, portalView } from '@/lib/clubs/portal';
 import {
@@ -974,7 +982,7 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
       const charge = await db.execute(sql`
         INSERT INTO club_charges (club_id, member_id, kind, label, amount_cents, issued_on, due_on)
         VALUES (${clubId}::uuid, ${memberId}::uuid, 'other', 'Онлайн такса', 3000,
-                current_date, current_date)
+                ${sofiaToday()}::date, ${sofiaToday()}::date)
         RETURNING id`);
       const chargeId = String(charge.rows[0]?.id);
       // No connected account yet: nothing to pay through.
@@ -2669,19 +2677,32 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
         ok: false,
         error: 'invoice_exists',
       });
-      // A top-up is not invoiced (credit is, when spent).
-      const topUpCharge = String(
-        (
-          await db.execute(sql`
-            SELECT id FROM club_charges
-             WHERE club_id = ${clubId}::uuid AND member_id = ${client}::uuid AND kind = 'wallet'
-             LIMIT 1`)
-        ).rows[0]?.id,
-      );
-      expect(await issueInvoice(db, owner, { chargeId: topUpCharge, buyer })).toEqual({
-        ok: false,
-        error: 'not_allowed',
+      // Credit is invoiced when it is LOADED: the top-up, for what stays on
+      // it (5000 loaded, 2000 paid back)…
+      const chargeOf = async (kind: string) =>
+        String(
+          (
+            await db.execute(sql`
+              SELECT id FROM club_charges
+               WHERE club_id = ${clubId}::uuid AND member_id = ${client}::uuid AND kind = ${kind}
+               LIMIT 1`)
+          ).rows[0]?.id,
+        );
+      const topUpInvoice = await issueInvoice(db, owner, {
+        chargeId: await chargeOf('wallet'),
+        buyer,
       });
+      if (!topUpInvoice.ok) throw new Error(topUpInvoice.error);
+      expect(await invoiceById(owner, topUpInvoice.invoiceId)).toMatchObject({
+        totalCents: 3000,
+        baseCents: 2500,
+        paymentMethod: 'cash',
+        lines: [expect.objectContaining({ description: label, vatRateBp: 2000 })],
+      });
+      // …and what credit paid for is not invoiced again.
+      expect(
+        await issueInvoice(db, owner, { chargeId: await chargeOf('membership'), buyer }),
+      ).toEqual({ ok: false, error: 'invoice_paid_by_credit' });
       // Corrected by a credit note for the whole; then the charge may be invoiced again.
       const credited = await issueCreditNote(db, owner, issued.invoiceId, 'Грешен получател');
       if (!credited.ok) throw new Error(credited.error);
@@ -2695,9 +2716,10 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
       });
       if (!again.ok) throw new Error(again.error);
       const numbers = (await clubInvoices(owner)).map((i) => [i.number, i.kind]);
-      expect(numbers.slice(0, 3)).toEqual([
-        [3, 'invoice'],
-        [2, 'credit_note'],
+      expect(numbers.slice(0, 4)).toEqual([
+        [4, 'invoice'],
+        [3, 'credit_note'],
+        [2, 'invoice'],
         [1, 'invoice'],
       ]);
     } finally {
@@ -2907,8 +2929,21 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
         name: 'Ана',
         eik: null,
         vatNumber: null,
-        address: null,
+        address: 'София, ул. Клиентска 3',
       };
+      // Every buyer has an address, a person too (the accountant, 2026-10-25).
+      const buyerForm = (fields: Record<string, string>) => {
+        const form = new FormData();
+        for (const [name, value] of Object.entries(fields)) form.set(name, value);
+        return parseInvoiceBuyer(form);
+      };
+      expect(buyerForm({ buyerKind: 'person', buyerName: 'Ана' })).toEqual({
+        ok: false,
+        errors: ['buyer_address_required'],
+      });
+      expect(
+        buyerForm({ buyerKind: 'person', buyerName: 'Ана', buyerAddress: person.address }),
+      ).toEqual({ ok: true, value: person });
       expect(await issueInvoice(db, owner, { chargeId: zeroCharge, buyer: person })).toEqual({
         ok: false,
         error: 'zero_vat_basis_missing',
@@ -2944,6 +2979,211 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
         error: 'not_allowed',
       });
 
+      // ── Credit is invoiced when it is LOADED: invoiced credit is paid back
+      // by an owner or manager, with a credit note for exactly what leaves;
+      // spent credit goes back only as credit; and credit never pays a charge
+      // that has an invoice of its own.
+      const anaInvoice = await issueInvoice(db, owner, { chargeId: anaTopUp, buyer: person });
+      if (!anaInvoice.ok) throw new Error(anaInvoice.error);
+      expect(await invoiceById(owner, anaInvoice.invoiceId)).toMatchObject({
+        totalCents: 1000,
+        paymentMethod: 'cash',
+        buyer: { kind: 'person', address: 'София, ул. Клиентска 3' },
+      });
+      expect(await payOut(ana, 500)).toEqual({ ok: false, error: 'wallet_payout_invoiced' });
+      expect(await payOut(ana, 5000)).toEqual({ ok: false, error: 'wallet_insufficient' });
+      const ownerPayOut = (cents: number) =>
+        payOutWallet(db, owner, {
+          memberId: ana,
+          amountCents: cents,
+          method: 'cash',
+          receivedOn: today,
+        });
+      expect(await ownerPayOut(300)).toEqual({ ok: true });
+      expect(await invoiceById(owner, anaInvoice.invoiceId)).toMatchObject({
+        creditedCents: 300,
+        correctedBy: [expect.objectContaining({ number: expect.any(Number) })],
+      });
+      expect(await invoicesOwingCredit(owner)).toEqual([]);
+      expect(await credit(ana)).toBe(700);
+      const drink = String(
+        (
+          await db.execute(sql`
+            INSERT INTO club_charges (club_id, member_id, kind, label, amount_cents, issued_on, due_on)
+            VALUES (${clubId}::uuid, ${ana}::uuid, 'product', 'Напитка', 200, ${sofiaToday()}::date, ${sofiaToday()}::date)
+            RETURNING id`)
+        ).rows[0]?.id,
+      );
+      const pay = (cents: number, method: 'cash' | 'wallet') =>
+        recordPayment(db, owner, {
+          chargeId: drink,
+          kind: cents < 0 ? 'refund' : 'payment',
+          amountCents: cents,
+          method,
+          receivedOn: today,
+        });
+      expect(await pay(200, 'wallet')).toEqual({ ok: true });
+      expect(await pay(-200, 'cash')).toEqual({ ok: false, error: 'refund_paid_by_credit' });
+      expect(
+        await refundPaid(db, owner, { chargeId: drink, method: 'cash', receivedOn: today }),
+      ).toEqual({ ok: true });
+      expect(await credit(ana)).toBe(700);
+      // The balance, not what is loaded, bounds a pay-out: 700 loaded, 500 left.
+      expect(await pay(200, 'wallet')).toEqual({ ok: true });
+      expect(await payOut(ana, 600)).toEqual({ ok: false, error: 'wallet_insufficient' });
+      // A sale paid partly with credit, partly refunded, reverses the way it
+      // came: the credit back to the credit, never more money than was paid.
+      const mixed = await recordTillSale(
+        db,
+        desk,
+        {
+          lines: [{ productId: water.productId, quantity: 2 }],
+          memberId: ana,
+          method: null,
+          code: null,
+          locationId: null,
+        },
+        (n) => `Продажба №${n}`,
+      );
+      if (!mixed.ok) throw new Error(mixed.error);
+      const mixedCharge = String(
+        (await db.execute(sql`SELECT charge_id FROM club_sales WHERE id = ${mixed.saleId}::uuid`))
+          .rows[0]?.charge_id,
+      );
+      const payMixed = (cents: number, method: 'cash' | 'card_desk' | 'wallet') =>
+        recordPayment(db, owner, {
+          chargeId: mixedCharge,
+          kind: cents < 0 ? 'refund' : 'payment',
+          amountCents: cents,
+          method,
+          receivedOn: today,
+        });
+      expect(await payMixed(200, 'wallet')).toEqual({ ok: true });
+      expect(await payMixed(200, 'card_desk')).toEqual({ ok: true });
+      expect(await payMixed(-100, 'cash')).toEqual({ ok: true });
+      expect(await credit(ana)).toBe(300);
+      expect(await reverseSale(db, owner, mixed.saleId)).toBe('ok');
+      expect(await credit(ana)).toBe(500);
+      // A top-up is loaded only by its own paths.
+      expect(
+        await recordPayment(db, owner, {
+          chargeId: anaTopUp,
+          kind: 'payment',
+          amountCents: 100,
+          method: 'cash',
+          receivedOn: today,
+        }),
+      ).toEqual({ ok: false, error: 'not_allowed' });
+      const anaFee = String(
+        (
+          await db.execute(sql`
+            INSERT INTO club_charges (club_id, member_id, kind, label, amount_cents, issued_on, due_on)
+            VALUES (${clubId}::uuid, ${ana}::uuid, 'fee', 'Такса', 300, ${sofiaToday()}::date, ${sofiaToday()}::date)
+            RETURNING id`)
+        ).rows[0]?.id,
+      );
+      const feeInvoice = await issueInvoice(db, owner, { chargeId: anaFee, buyer: person });
+      expect(feeInvoice.ok).toBe(true);
+      expect(
+        await recordPayment(db, owner, {
+          chargeId: anaFee,
+          kind: 'payment',
+          amountCents: 300,
+          method: 'wallet',
+          receivedOn: today,
+        }),
+      ).toEqual({ ok: false, error: 'wallet_invoiced' });
+      expect(await credit(ana)).toBe(500);
+      // Money the provider gives back after an invoice is a fact; the office
+      // is told the credit note is owed.
+      const factSale = await sell(ana, 'cash');
+      if (!factSale.ok) throw new Error(factSale.error);
+      const factCharge = String(
+        (
+          await db.execute(
+            sql`SELECT charge_id FROM club_sales WHERE id = ${factSale.saleId}::uuid`,
+          )
+        ).rows[0]?.charge_id,
+      );
+      const factInvoice = await issueInvoice(db, owner, { chargeId: factCharge, buyer: person });
+      if (!factInvoice.ok) throw new Error(factInvoice.error);
+      await db.execute(sql`
+        INSERT INTO club_payments (club_id, charge_id, member_id, kind, amount_cents, method,
+                                   provider, provider_ref, received_on)
+        VALUES (${clubId}::uuid, ${factCharge}::uuid, ${ana}::uuid, 'refund', -150, 'card_online',
+                'fake', 'fake_re_owing_1', current_date)`);
+      expect(await invoicesOwingCredit(owner)).toEqual([
+        expect.objectContaining({ id: factInvoice.invoiceId, uncoveredCents: 150 }),
+      ]);
+      // A one-line invoice is corrected by exactly the money given back.
+      expect(
+        await issueCreditNote(db, owner, factInvoice.invoiceId, 'Възстановено', {
+          amountCents: 150,
+        }),
+      ).toMatchObject({ ok: true });
+      expect(await invoiceById(owner, factInvoice.invoiceId)).toMatchObject({
+        creditedCents: 150,
+      });
+      expect(await invoicesOwingCredit(owner)).toEqual([]);
+      // One pay-out across two invoiced top-ups corrects both invoices.
+      const boyko = await newClient('Бойко Кредит');
+      expect(await top(boyko, 1000)).toEqual({ ok: true });
+      expect(await top(boyko, 1000)).toEqual({ ok: true });
+      const boykoTopUps = (
+        await db.execute(sql`
+          SELECT id FROM club_charges WHERE member_id = ${boyko}::uuid AND kind = 'wallet'
+           ORDER BY created_at`)
+      ).rows.map((row) => String(row.id));
+      const boykoInvoices: string[] = [];
+      for (const chargeId of boykoTopUps) {
+        const issued = await issueInvoice(db, owner, { chargeId, buyer: person });
+        if (!issued.ok) throw new Error(issued.error);
+        boykoInvoices.push(issued.invoiceId);
+      }
+      expect(
+        await payOutWallet(db, owner, {
+          memberId: boyko,
+          amountCents: 1500,
+          method: 'cash',
+          receivedOn: today,
+        }),
+      ).toEqual({ ok: true });
+      const boykoCredited = await Promise.all(
+        boykoInvoices.map(async (id) => (await invoiceById(owner, id))?.creditedCents),
+      );
+      expect([...boykoCredited].sort((a, b) => (a ?? 0) - (b ?? 0))).toEqual([500, 1000]);
+      expect(await credit(boyko)).toBe(500);
+      expect(await invoicesOwingCredit(owner)).toEqual([]);
+      // A refund made in Stripe on the half-paid-out top-up: its invoice is
+      // corrected by exactly that, once — a repeated form finds nothing left —
+      // and the rest of the credit is still paid out with its own note.
+      const halfIndex = boykoCredited.indexOf(500);
+      const halfInvoice = boykoInvoices[halfIndex] ?? '';
+      const halfTopUp = boykoTopUps[halfIndex] ?? '';
+      await db.execute(sql`
+        INSERT INTO club_payments (club_id, charge_id, member_id, kind, amount_cents, method,
+                                   provider, provider_ref, received_on)
+        VALUES (${clubId}::uuid, ${halfTopUp}::uuid, ${boyko}::uuid, 'refund', -200, 'card_online',
+                'fake', 'fake_re_owing_2', current_date)`);
+      expect(await invoicesOwingCredit(owner)).toEqual([
+        expect.objectContaining({ id: halfInvoice, uncoveredCents: 200 }),
+      ]);
+      const stripeNote = () =>
+        issueCreditNote(db, owner, halfInvoice, 'Възстановено в Stripe', { amountCents: 200 });
+      expect(await stripeNote()).toMatchObject({ ok: true });
+      expect(await stripeNote()).toEqual({ ok: false, error: 'already_credited' });
+      expect(await credit(boyko)).toBe(300);
+      expect(
+        await payOutWallet(db, owner, {
+          memberId: boyko,
+          amountCents: 300,
+          method: 'cash',
+          receivedOn: today,
+        }),
+      ).toEqual({ ok: true });
+      expect(await invoiceById(owner, halfInvoice)).toMatchObject({ creditedCents: 1000 });
+      expect(await invoicesOwingCredit(owner)).toEqual([]);
+
       // ── A downgraded club: no new credit, but the client's money still goes
       // back, the record can then be erased, and an invoice can be corrected.
       await db.execute(sql`UPDATE clubs SET tier = 'community' WHERE id = ${clubId}::uuid`);
@@ -2951,12 +3191,24 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
         expect(await top(ana, 500)).toEqual({ ok: false, error: 'feature_unavailable' });
         const otherSale = await sell(ana, 'wallet');
         expect(otherSale.ok).toBe(false);
-        expect(await credit(ana)).toBe(1000);
+        expect(await credit(ana)).toBe(500);
         expect(await issueCreditNote(db, owner, zeroInvoice.invoiceId, 'Отказ')).toMatchObject({
           ok: true,
         });
-        expect(await payOut(ana, 1000)).toEqual({ ok: true });
+        // The invoiced credit still goes back, its credit note with it; the
+        // 200 that was used stays declared.
+        expect(await ownerPayOut(500)).toEqual({ ok: true });
         expect(await credit(ana)).toBe(0);
+        expect(await invoiceById(owner, anaInvoice.invoiceId)).toMatchObject({
+          creditedCents: 800,
+        });
+        // What is left of a corrected invoice is cancelled as one line.
+        expect(
+          await issueCreditNote(db, owner, anaInvoice.invoiceId, 'Анулиране на остатъка'),
+        ).toMatchObject({ ok: true });
+        expect(await invoiceById(owner, anaInvoice.invoiceId)).toMatchObject({
+          creditedCents: 1000,
+        });
       } finally {
         await db.execute(sql`UPDATE clubs SET tier = 'standard' WHERE id = ${clubId}::uuid`);
       }
