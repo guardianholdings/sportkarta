@@ -61,7 +61,7 @@ const ALLOWLIST = new Map<string, string>([
   ],
   [
     'lib/src/clubs/import.ts',
-    'Parsing lexicon: reads Bulgarian cell values in a club\'s member CSV ' +
+    "Parsing lexicon: reads Bulgarian cell values in a club's member CSV " +
       '("да", "дете", "лв.") as yes/no and amounts. Input data, never rendered.',
   ],
   [

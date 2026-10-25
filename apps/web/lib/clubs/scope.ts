@@ -53,6 +53,7 @@ export type ScopeAlias =
   | 'a'
   | 'n'
   | 'cp'
+  | 'q'
   | 'x';
 
 function staffHolds(actor: ClubActor, roles: readonly ClubRole[]): SQL {

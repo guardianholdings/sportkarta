@@ -18,7 +18,26 @@ import { applyForClub } from '@/lib/clubs/apply';
 import { bookAtDesk, bookTrial, cancelBooking } from '@/lib/clubs/bookings';
 import { clubCheckIn, todaysCheckins } from '@/lib/clubs/checkin';
 import { CLUB_EXPORT_DATASETS, clubExportCsv } from '@/lib/clubs/export';
-import { activeByMonth, atRiskMembers, classFillRates, revenueByMonth } from '@/lib/clubs/reports';
+import {
+  memberPause,
+  memberStopRenewal,
+  ownContact,
+  setContactPreferences,
+} from '@/lib/clubs/self-service';
+import {
+  activeByMonth,
+  atRiskMembers,
+  churnByMonth,
+  classFillRates,
+  engagementBands,
+  monthToDate,
+  peakHours,
+  retentionCohorts,
+  revenueByMonth,
+  revenueByPlan,
+  staffPay,
+  topClients,
+} from '@/lib/clubs/reports';
 import {
   createKioskDevice,
   kioskFromCookie,
@@ -206,6 +225,7 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
         bookingOpensHours: 168,
         cancelDeadlineHours: 2,
         mailUnlinkedMembers: false,
+        accent: 'coral',
       }),
     ).toBe(true);
     locationId =
@@ -541,11 +561,126 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
     expect(active.at(-1)?.value).toBeGreaterThanOrEqual(1);
     expect(revenue.at(-1)?.value).toBeGreaterThan(0);
     expect(Array.isArray(fill)).toBe(true);
+
+    // The advanced reports (0045) run against the same data: the month's
+    // payment shows up by plan, month to date and among the top payers; the
+    // check-in lands in the peak-hours grid; every member is in one band.
+    const [peaks, cohorts, churn, byPlan, mtd, top, pay, bands] = await Promise.all([
+      peakHours(owner),
+      retentionCohorts(owner),
+      churnByMonth(owner),
+      revenueByPlan(owner),
+      monthToDate(owner),
+      topClients(owner),
+      staffPay(owner, sofiaToday().slice(0, 7)),
+      engagementBands(owner),
+    ]);
+    expect(peaks.reduce((sum, cell) => sum + cell.count, 0)).toBeGreaterThanOrEqual(1);
+    expect(peaks.every((c) => c.weekday >= 1 && c.weekday <= 7 && c.hour >= 0 && c.hour < 24)).toBe(
+      true,
+    );
+    expect(cohorts.every((c) => c.kept.length === 5)).toBe(true);
+    expect(churn).toHaveLength(11);
+    expect(byPlan.reduce((sum, line) => sum + line.cents, 0)).toBeGreaterThan(0);
+    expect(mtd.revenue[0]).toBeGreaterThan(0);
+    expect(top.bySpend.length).toBeGreaterThanOrEqual(1);
+    expect(Array.isArray(pay)).toBe(true);
+    expect(bands.high + bands.medium + bands.low).toBeGreaterThanOrEqual(1);
     expect(await unsubscribeTarget(String(token), 'bg')).toMatchObject({ optedOut: false });
     expect(await unsubscribe(String(token))).toBe(true);
     expect(await unsubscribe(String(token))).toBe(true);
     expect(await unsubscribeTarget(String(token), 'bg')).toMatchObject({ optedOut: true });
     expect(await unsubscribe('0'.repeat(32))).toBe(false);
+  });
+
+  it('lets a member stop a renewal with notice, pause once, and set their own contact', async () => {
+    const planId = await savePlan(db, owner, null, {
+      nameBg: 'Месечен договор',
+      nameEn: null,
+      descriptionBg: null,
+      descriptionEn: null,
+      kind: 'unlimited',
+      audience: 'all',
+      priceCents: 4000,
+      validityDays: null,
+      validityMonths: 1,
+      visitsCount: null,
+      visibility: 'public',
+      autoRenew: true,
+      minTermMonths: null,
+      noticeDays: 30,
+      selfPauseAllowed: true,
+      selfCancelAllowed: true,
+    });
+    const today = sofiaToday();
+    const sale = await sellMembership(db, desk, {
+      memberId,
+      planId: planId ?? '',
+      startsOn: today,
+      payment: null,
+      dueOn: today,
+    });
+    expect(sale).toMatchObject({ ok: true });
+    const membershipId = sale.ok ? sale.membershipId : '';
+    const sold = await db.execute(
+      sql`SELECT renews, term_started_on::text AS term FROM club_memberships WHERE id = ${membershipId}::uuid`,
+    );
+    expect(sold.rows[0]).toEqual({ renews: true, term: today });
+
+    // Stopping keeps the period sold and fixes the contract's last day.
+    expect(await memberStopRenewal(db, memberUser, clubId, membershipId, today)).toEqual({
+      ok: true,
+      endsOn: addDaysIso(today, 30),
+    });
+    // A second notice changes nothing.
+    expect(await memberStopRenewal(db, memberUser, clubId, membershipId, today)).toMatchObject({
+      ok: false,
+    });
+    // A stranger cannot give notice on somebody else's membership.
+    expect(
+      await memberStopRenewal(db, `${PREFIX}nobody`, clubId, membershipId, today),
+    ).toMatchObject({ ok: false });
+
+    // One pause of their own; a second is the desk's to grant.
+    const tomorrow = addDaysIso(today, 1);
+    expect(
+      await memberPause(
+        db,
+        memberUser,
+        clubId,
+        membershipId,
+        { startsOn: tomorrow, days: 5 },
+        today,
+      ),
+    ).toEqual({ ok: true });
+    expect(
+      await memberPause(
+        db,
+        memberUser,
+        clubId,
+        membershipId,
+        { startsOn: addDaysIso(today, 20), days: 2 },
+        today,
+      ),
+    ).toMatchObject({ ok: false });
+
+    expect(
+      await setContactPreferences(db, memberUser, clubId, memberId, {
+        phone: '0888 123 456',
+        marketingEmail: true,
+        marketingSms: false,
+      }),
+    ).toBe(true);
+    expect(await ownContact(db, memberUser, clubId)).toMatchObject({
+      memberId,
+      phone: '0888 123 456',
+      marketingEmail: true,
+      marketingSms: false,
+    });
+    const consented = await db.execute(
+      sql`SELECT marketing_email_at IS NOT NULL AS email FROM club_members WHERE id = ${memberId}::uuid`,
+    );
+    expect(consented.rows[0]?.email).toBe(true);
   });
 
   it('shows only a published club in public, and books a stranger’s trial once', async () => {

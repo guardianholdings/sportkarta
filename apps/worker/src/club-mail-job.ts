@@ -4,6 +4,7 @@ import {
   bookingsForMail,
   cancelledOccurrenceBookings,
   chargeClubBookingFees,
+  clubMonthFigures,
   feeMailCandidates,
   renewClubMemberships,
   renewalMailCandidates,
@@ -733,6 +734,75 @@ export async function runClubPolicies(
         { job: 'club.policies' },
       );
   return { ...renewals, fees, renewalMail, feeMail };
+}
+
+/**
+ * The 1st of the month: each owner's business-health mail for the month that
+ * closed (0045) — counts and shares only, never another member's name, and
+ * the plain-language hint the figures support. Clubs with nothing happening
+ * get no mail.
+ */
+export async function runClubHealth(
+  options: ClubMailOptions,
+  today = sofiaToday(),
+): Promise<DeliveryReport> {
+  const month = monthStart(addDaysIso(monthStart(today), -1));
+  const figures = (await clubMonthFigures(db(), month)).filter(
+    (f) => f.members[0] + f.members[1] + f.checkins[0] + f.revenueCents[0] > 0,
+  );
+  const mails: StaffMail[] = [];
+  for (const f of figures) {
+    const club = await clubForMail(db(), f.clubId);
+    if (!club) continue;
+    const line = (path: string, values: Record<string, string | number>) =>
+      fillClubTemplate(pick(club.locale, `month.${path}`), values);
+    const change = ([now, then]: [number, number]) =>
+      then === 0
+        ? '—'
+        : `${now >= then ? '+' : '−'}${String(Math.round((Math.abs(now - then) / then) * 100))}%`;
+    const details = [
+      line('members', { now: f.members[0], change: change(f.members) }),
+      line('revenue', {
+        amount: formatEuro(f.revenueCents[0], club.locale),
+        change: change(f.revenueCents),
+      }),
+      line('checkins', { now: f.checkins[0], change: change(f.checkins) }),
+      line('newMembers', { count: f.newMembers }),
+      line('churned', { count: f.churned }),
+      line('atRisk', { count: f.atRisk }),
+      ...(f.topClass
+        ? [line('topClass', { title: f.topClass.title, fill: Math.round(f.topClass.fill * 100) })]
+        : []),
+      '',
+      f.atRisk > 0
+        ? line('hintAtRisk', { count: f.atRisk })
+        : f.churned > f.newMembers
+          ? line('hintChurn', {})
+          : line('hintSteady', {}),
+    ];
+    const monthLabel = new Intl.DateTimeFormat(club.locale === 'en' ? 'en-GB' : 'bg', {
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date(`${month}T12:00:00Z`));
+    for (const recipient of await staffOf(club.clubId, ['owner'])) {
+      mails.push({
+        kind: 'owner_monthly',
+        club,
+        recipient,
+        key: dedupeKey({
+          kind: 'owner_monthly',
+          userId: recipient.userId,
+          month: month.slice(0, 7),
+        }),
+        ledgerUserId: recipient.userId,
+        actionUrl: `${siteBase(options, club.locale)}/klub/${club.clubSlug}/otcheti`,
+        values: { month: monthLabel },
+        details,
+      });
+    }
+  }
+  return deliverEach(mails, (mail) => sendToStaff(mail, options), { job: 'club.health' });
 }
 
 /** Monthly: freeze the month that just closed (the invoicing basis). */

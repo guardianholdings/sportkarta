@@ -6,9 +6,11 @@ import { revalidatePath } from 'next/cache';
 
 import { redirect } from '@/i18n/navigation';
 import { requireClubStaff } from '@/lib/clubs/club-session';
-import { isUuid, parseClubSettings, parseLocation } from '@/lib/clubs/input';
+import { isUuid, parseClubSettings, parseFaq, parseLocation } from '@/lib/clubs/input';
 import { createKioskDevice, newPairingCode, revokeKiosk } from '@/lib/clubs/kiosk';
 import {
+  removeFaq,
+  saveFaq,
   saveLocation,
   setClubLogo,
   setClubVisible,
@@ -158,4 +160,22 @@ export async function revokeKioskAction(formData: FormData): Promise<void> {
   if (!isUuid(deviceId)) return;
   await revokeKiosk(getDb(), actor, deviceId);
   revalidatePath(`/klub/${slug}/nastroyki`);
+}
+
+/** Add or edit one FAQ entry of the public page. */
+export async function saveFaqAction(formData: FormData): Promise<void> {
+  const slug = slugOf(formData);
+  const { actor } = await requireClubStaff(slug, 'settings.manage');
+  const parsed = parseFaq(formData);
+  const faqId = formData.get('faqId');
+  if (parsed.ok) await saveFaq(getDb(), actor, isUuid(faqId) ? faqId : null, parsed.value);
+  refresh(slug);
+}
+
+export async function removeFaqAction(formData: FormData): Promise<void> {
+  const slug = slugOf(formData);
+  const { actor } = await requireClubStaff(slug, 'settings.manage');
+  const faqId = formData.get('faqId');
+  if (isUuid(faqId)) await removeFaq(getDb(), actor, faqId);
+  refresh(slug);
 }

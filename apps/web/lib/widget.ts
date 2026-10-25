@@ -130,6 +130,14 @@ function conditionBar(
   return `<div class="bar" role="img" aria-label="${escapeHtml(label)}">${bars}</div>`;
 }
 
+/**
+ * The embed palette — the ONE place an embed may carry literal colours (this
+ * file is exempt from the no-hex gate for the reason in its header). The club
+ * widgets (lib/clubs/widget.ts) reuse it rather than carrying their own.
+ */
+export const WIDGET_PALETTE_CSS = `:root{color-scheme:light dark;--fg:#101418;--muted:#646A73;--line:#E3DFD4;--bg:#FEFDFB;--accent:#FF4A2B}
+@media (prefers-color-scheme:dark){:root{--fg:#F5F3EE;--muted:#8A9099;--line:#313D49;--bg:#101418}}`;
+
 export function renderWidget(input: WidgetInput): string {
   const { data, strings, locale } = input;
   const per10k =
@@ -154,8 +162,7 @@ export function renderWidget(input: WidgetInput): string {
 <meta name="robots" content="noindex">
 <title>${escapeHtml(input.cityName)} — ${escapeHtml(strings.title)}</title>
 <style>
-:root{color-scheme:light dark;--fg:#101418;--muted:#646A73;--line:#E3DFD4;--bg:#FEFDFB;--accent:#FF4A2B}
-@media (prefers-color-scheme:dark){:root{--fg:#F5F3EE;--muted:#8A9099;--line:#313D49;--bg:#101418}}
+${WIDGET_PALETTE_CSS}
 *{box-sizing:border-box}
 body{margin:0;padding:12px;background:var(--bg);color:var(--fg);border-top:3px solid var(--accent);
 font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}

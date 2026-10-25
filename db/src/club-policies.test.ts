@@ -4,6 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { sofiaToday } from '@sportkarta/lib/clubs';
 
 import { getDb } from './client.js';
+import { clubMonthFigures } from './clubs/mail.js';
 import { chargeClubBookingFees, renewClubMemberships } from './clubs/policies.js';
 import {
   cleanupClubFixtures,
@@ -163,6 +164,15 @@ describe.skipIf(!hasDb)('club policies (requires running database)', () => {
     );
     expect(result.code).toBe('23503');
     expect(result.constraint).toBe('club_memberships_renewal_fk');
+  });
+
+  it("sums a month for the owner's health mail", async () => {
+    await sellMembership(client, club.clubId, memberId, planId, { startOffsetDays: 0, days: 30 });
+    const first = `${today.slice(0, 7)}-01`;
+    const figures = (await clubMonthFigures(getDb(), first)).find((f) => f.clubId === club.clubId);
+    expect(figures?.members[0]).toBe(1);
+    expect(figures?.newMembers).toBe(1);
+    expect(figures?.churned).toBe(0);
   });
 
   describe('fees', () => {

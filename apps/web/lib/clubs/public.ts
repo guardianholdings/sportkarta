@@ -98,13 +98,28 @@ export interface PublicPlan {
   visitsCount: number | null;
 }
 
+export interface PublicTrainer {
+  name: string;
+  bio: string | null;
+}
+
+export interface PublicFaq {
+  question: string;
+  answer: string;
+}
+
 export interface PublicClub extends Omit<PublicClubCard, 'classesThisWeek'> {
   websiteUrl: string | null;
   publicEmail: string | null;
   publicPhone: string | null;
+  /** green | coral | sky — the page's accent (0045). */
+  accent: 'green' | 'coral' | 'sky';
   locations: PublicLocation[];
   plans: PublicPlan[];
   classes: PortalClass[];
+  /** Staff who opted in themselves (club_staff.public_profile). */
+  trainers: PublicTrainer[];
+  faq: PublicFaq[];
 }
 
 export async function publicClub(slug: string, locale: string): Promise<PublicClub | null> {
@@ -114,14 +129,14 @@ export async function publicClub(slug: string, locale: string): Promise<PublicCl
     await db.execute(sql`
       SELECT c.id, c.slug, ${NAME(locale)} AS name, c.kind, c.tier, c.sports, c.municipality_id,
              (c.logo_path IS NOT NULL) AS has_logo, ${DESCRIPTION(locale)} AS description,
-             c.website_url, c.public_email, c.public_phone
+             c.website_url, c.public_email, c.public_phone, c.accent
         FROM clubs c
        WHERE c.slug = ${slug} AND ${clubRenderableSql('c')}
     `)
   ).rows[0];
   if (!row) return null;
   const clubId = String(row.id);
-  const [locations, plans, classes] = await Promise.all([
+  const [locations, plans, classes, trainers, faq] = await Promise.all([
     db.execute(sql`
       SELECT l.id, l.name, l.address,
              CASE WHEN f.id IS NOT NULL AND ${publicFacilityVisible} THEN f.slug END AS facility_slug,
@@ -141,9 +156,33 @@ export async function publicClub(slug: string, locale: string): Promise<PublicCl
        ORDER BY p.sort_order, p.price_cents
     `),
     portalClasses(clubId),
+    // Only a name and a bio, and only for staff who switched it on themselves —
+    // never an e-mail, a role, a photo or the account behind it.
+    db.execute(sql`
+      SELECT coalesce(nullif(btrim(s.display_name), ''), nullif(btrim(u.display_name), '')) AS name,
+             s.bio
+        FROM club_staff s JOIN users u ON u.id = s.user_id
+       WHERE s.club_id = ${clubId}::uuid AND s.public_profile
+         AND coalesce(nullif(btrim(s.display_name), ''), nullif(btrim(u.display_name), '')) IS NOT NULL
+       ORDER BY array_position(ARRAY['owner','manager','trainer','desk'], s.role), name
+       LIMIT 24
+    `),
+    db.execute(sql`
+      SELECT CASE WHEN ${locale} = 'en' THEN coalesce(q.question_en, q.question_bg)
+                  ELSE q.question_bg END AS question,
+             CASE WHEN ${locale} = 'en' THEN coalesce(q.answer_en, q.answer_bg)
+                  ELSE q.answer_bg END AS answer
+        FROM club_faq q
+       WHERE q.club_id = ${clubId}::uuid
+       ORDER BY q.sort_order, q.created_at
+       LIMIT 30
+    `),
   ]);
   return {
     id: clubId,
+    accent: row.accent === 'coral' || row.accent === 'sky' ? row.accent : 'green',
+    trainers: trainers.rows.map((t) => ({ name: String(t.name), bio: text(t.bio) })),
+    faq: faq.rows.map((q) => ({ question: String(q.question), answer: String(q.answer) })),
     slug: String(row.slug),
     name: String(row.name),
     kind: String(row.kind) as ClubKind,

@@ -10,6 +10,7 @@ import {
   CLUB_ACTIVITY_QUEUE,
   CLUB_DIGEST_QUEUE,
   CLUB_EXPIRY_QUEUE,
+  CLUB_HEALTH_QUEUE,
   CLUB_MATERIALIZE_QUEUE,
   CLUB_NOTIFY_QUEUE,
   CLUB_POLICIES_QUEUE,
@@ -23,6 +24,7 @@ import { runImport } from '@sportkarta/import-osm';
 import {
   runClubActivity,
   runClubExpiry,
+  runClubHealth,
   runClubNotify,
   runClubOwnerWeekly,
   runClubPolicies,
@@ -308,6 +310,7 @@ async function main(): Promise<void> {
   await ensureQueue(CLUB_WEEKLY_QUEUE, WEEKLY_RETRY);
   await ensureQueue(CLUB_ACTIVITY_QUEUE, WEEKLY_RETRY);
   await ensureQueue(CLUB_POLICIES_QUEUE, WEEKLY_RETRY);
+  await ensureQueue(CLUB_HEALTH_QUEUE, WEEKLY_RETRY);
 
   // Triggered from the admin UI (Stage 1+) via boss.send('import.osm', {dryRun}).
   // dryRun defaults TRUE — a live import must be requested explicitly, matching
@@ -768,6 +771,22 @@ async function main(): Promise<void> {
     }),
   );
   await boss.schedule(CLUB_POLICIES_QUEUE, '40 5 * * *', {}, { tz: 'Europe/Sofia' });
+
+  // The owner's business-health mail for the month that closed — after
+  // club.activity (06:15) has frozen the month, before the working day.
+  await work(
+    CLUB_HEALTH_QUEUE,
+    logged(CLUB_HEALTH_QUEUE, async () => {
+      const report = await runClubHealth({ mailer, siteUrl });
+      console.log(
+        `[worker] ${CLUB_HEALTH_QUEUE}: ${String(report.sent)} sent, ` +
+          `${String(report.skipped)} skipped, ${String(report.failed)} failed`,
+      );
+      await reportMailFailures(CLUB_HEALTH_QUEUE, report);
+      assertDelivered(CLUB_HEALTH_QUEUE, report);
+    }),
+  );
+  await boss.schedule(CLUB_HEALTH_QUEUE, '10 7 1 * *', {}, { tz: 'Europe/Sofia' });
 
   // The heartbeat goes LAST, after every other queue is registered. A worker
   // that throws halfway through booting — a bad image, a missing env var — and

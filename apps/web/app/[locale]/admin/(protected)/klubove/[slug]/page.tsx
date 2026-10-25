@@ -1,4 +1,4 @@
-import { CLUB_TIERS, formatEuro, sofiaToday } from '@sportkarta/lib/clubs';
+import { CLUB_TIERS, formatEuro, sofiaToday, tierFeatures } from '@sportkarta/lib/clubs';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
@@ -134,6 +134,14 @@ export default async function AdminClubPage({
       <section className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm">
         <h2 className="text-h4 font-bold text-ink">{t('planTitle')}</h2>
         <p className="text-caption text-text-muted">{t('invoiceNote')}</p>
+        <p className="text-caption text-ink-soft">
+          {t('tierFeatures', { tier: tClub(`tier.${club.tier}`) })}{' '}
+          {tierFeatures(club.tier).length === 0
+            ? t('tierFeaturesNone')
+            : tierFeatures(club.tier)
+                .map((feature) => tClub(`feature.${feature}`))
+                .join(', ')}
+        </p>
         <form action={setClubPlanAction} className="grid gap-4 sm:grid-cols-2">
           {hidden}
           <div className="space-y-1">

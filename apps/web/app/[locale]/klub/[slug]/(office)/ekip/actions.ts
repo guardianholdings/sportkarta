@@ -7,9 +7,25 @@ import { revalidatePath } from 'next/cache';
 
 import { redirect } from '@/i18n/navigation';
 import { requireClubStaff } from '@/lib/clubs/club-session';
-import { isUuid, parseStaffInvite } from '@/lib/clubs/input';
+import { featureOn } from '@/lib/clubs/features';
+import {
+  isUuid,
+  parsePayRate,
+  parseStaffInvite,
+  parseStaffProfile,
+  parseTimeOff,
+} from '@/lib/clubs/input';
 import { enqueueClubNotify } from '@/lib/clubs/notify';
-import { changeStaffRole, inviteStaff, removeStaff, revokeStaffInvite } from '@/lib/clubs/staff';
+import {
+  addTimeOff,
+  changeStaffRole,
+  inviteStaff,
+  removeStaff,
+  removeTimeOff,
+  revokeStaffInvite,
+  setPayRate,
+  updateOwnProfile,
+} from '@/lib/clubs/staff';
 
 /** The team screen's actions; every one re-gated, every write scoped in SQL. */
 
@@ -75,4 +91,50 @@ export async function removeStaffAction(formData: FormData): Promise<void> {
     return redirect({ href: '/klub', locale: await getLocale() });
   }
   return back(slug, result.ok ? 'saved' : result.error);
+}
+
+/** One's own public profile (name, bio, the opt-in to appear on the club page). */
+export async function profileAction(formData: FormData): Promise<void> {
+  const slug = slugOf(formData);
+  const { actor } = await requireClubStaff(slug, 'office.view');
+  const parsed = parseStaffProfile(formData);
+  if (!parsed.ok) return back(slug, parsed.errors[0] ?? 'invalid');
+  const ok = await updateOwnProfile(getDb(), actor, parsed.value);
+  revalidatePath(`/klub/${slug}/ekip`);
+  revalidatePath(`/klub/${slug}`);
+  return back(slug, ok ? 'saved' : 'readOnly');
+}
+
+/** Pay terms — report data only; a tier with staff pay (the SQL checks it too). */
+export async function payAction(formData: FormData): Promise<void> {
+  const slug = slugOf(formData);
+  const { actor, club } = await requireClubStaff(slug, 'staff.manage');
+  if (!featureOn(club, 'staff_pay')) return back(slug, 'feature_unavailable');
+  const userId = formData.get('userId');
+  const parsed = parsePayRate(formData);
+  if (typeof userId !== 'string' || !parsed.ok) {
+    return back(slug, parsed.ok ? 'invalid' : (parsed.errors[0] ?? 'invalid'));
+  }
+  const ok = await setPayRate(getDb(), actor, userId, parsed.value);
+  revalidatePath(`/klub/${slug}/ekip`);
+  return back(slug, ok ? 'saved' : 'readOnly');
+}
+
+export async function timeOffAction(formData: FormData): Promise<void> {
+  const slug = slugOf(formData);
+  const { actor } = await requireClubStaff(slug, 'staff.view');
+  const parsed = parseTimeOff(formData);
+  if (!parsed.ok) return back(slug, parsed.errors[0] ?? 'invalid');
+  const ok = await addTimeOff(getDb(), actor, parsed.value);
+  revalidatePath(`/klub/${slug}/ekip`);
+  return back(slug, ok ? 'saved' : 'readOnly');
+}
+
+export async function removeTimeOffAction(formData: FormData): Promise<void> {
+  const slug = slugOf(formData);
+  const { actor } = await requireClubStaff(slug, 'staff.view');
+  const blockId = formData.get('blockId');
+  const ok = isUuid(blockId) && (await removeTimeOff(getDb(), actor, blockId));
+  revalidatePath(`/klub/${slug}/ekip`);
+  return back(slug, ok ? 'saved' : 'not_found');
 }

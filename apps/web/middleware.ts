@@ -7,8 +7,21 @@ import { isProtectedPath, REQUEST_PATH_HEADER } from './lib/sign-in-destination'
 
 const intlMiddleware = createMiddleware(routing);
 
+/** A club's short link, pops.bg/k/<slug> (0045) — for flyers and bios. */
+const CLUB_SHORT_LINK = /^(\/en)?\/k\/([a-z0-9-]{3,60})\/?$/;
+
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Permanent, and only a shape check: the club page itself 404s a slug that
+  // is not a renderable club, so the short link reveals nothing more.
+  const short = CLUB_SHORT_LINK.exec(pathname);
+  if (short) {
+    const target = request.nextUrl.clone();
+    target.pathname = `${short[1] ?? ''}/klub/${short[2] ?? ''}`;
+    target.search = '';
+    return NextResponse.redirect(target, 308);
+  }
 
   // First gate only, and an optimistic one: it checks that a session cookie
   // exists, not that it is valid. Role checks and real session verification

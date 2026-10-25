@@ -205,7 +205,12 @@ export interface ClubSettingsInput {
   bookingOpensHours: number;
   cancelDeadlineHours: number;
   mailUnlinkedMembers: boolean;
+  /** The public page's accent (0045). */
+  accent: ClubAccent;
 }
+
+export const CLUB_ACCENTS = ['green', 'coral', 'sky'] as const;
+export type ClubAccent = (typeof CLUB_ACCENTS)[number];
 
 export function parseClubSettings(form: Reader): InputResult<ClubSettingsInput> {
   const errors: string[] = [];
@@ -263,8 +268,31 @@ export function parseClubSettings(form: Reader): InputResult<ClubSettingsInput> 
       bookingOpensHours: opensDays * 24,
       cancelDeadlineHours: deadline,
       mailUnlinkedMembers: checked(form, 'mailUnlinkedMembers'),
+      accent: oneOf(text(form, 'accent'), CLUB_ACCENTS) ?? 'green',
     },
   };
+}
+
+// ─── The club's FAQ (0045) ─────────────────────────────────────────────────
+
+export interface FaqInput {
+  questionBg: string;
+  answerBg: string;
+  questionEn: string | null;
+  answerEn: string | null;
+  sortOrder: number;
+}
+
+export function parseFaq(form: Reader): InputResult<FaqInput> {
+  const errors: string[] = [];
+  const questionBg = required(text(form, 'questionBg'), 200, errors, 'question');
+  const answerBg = required(text(form, 'answerBg'), 1500, errors, 'answer');
+  const questionEn = bounded(optionalText(form, 'questionEn'), 200, errors, 'question_too_long');
+  const answerEn = bounded(optionalText(form, 'answerEn'), 1500, errors, 'answer_too_long');
+  if ((questionEn === null) !== (answerEn === null)) errors.push('faq_en_pair');
+  const sortOrder = intInRange(text(form, 'sortOrder') || '0', 0, 999) ?? 0;
+  if (errors.length > 0) return { ok: false, errors };
+  return { ok: true, value: { questionBg, answerBg, questionEn, answerEn, sortOrder } };
 }
 
 export interface LocationInput {
@@ -298,6 +326,69 @@ export function parseStaffInvite(form: Reader): InputResult<StaffInviteInput> {
   if (!role) errors.push('role_invalid');
   if (errors.length > 0 || !role || address === null) return { ok: false, errors };
   return { ok: true, value: { email: address, role } };
+}
+
+// ─── Staff profile, pay, time off (0045) ─────────────────────────────────────
+
+export interface StaffProfileInput {
+  displayName: string | null;
+  bio: string | null;
+  publicProfile: boolean;
+}
+
+export function parseStaffProfile(form: Reader): InputResult<StaffProfileInput> {
+  const errors: string[] = [];
+  const displayName = bounded(optionalText(form, 'displayName'), 80, errors, 'name_too_long');
+  const bio = bounded(optionalText(form, 'bio'), 1000, errors, 'bio_too_long');
+  if (errors.length > 0) return { ok: false, errors };
+  return { ok: true, value: { displayName, bio, publicProfile: checked(form, 'publicProfile') } };
+}
+
+export type PayRateInput =
+  | { kind: 'none' }
+  | { kind: 'flat' | 'per_head'; cents: number }
+  | { kind: 'share'; shareBp: number };
+
+export function parsePayRate(form: Reader): InputResult<PayRateInput> {
+  const kind = text(form, 'payKind');
+  if (kind === 'none' || kind === '') return { ok: true, value: { kind: 'none' } };
+  if (kind === 'flat' || kind === 'per_head') {
+    const cents = parseEuroCents(text(form, 'payAmount'));
+    if (cents === null || cents > 10_000_000) return { ok: false, errors: ['price_invalid'] };
+    return { ok: true, value: { kind, cents } };
+  }
+  if (kind === 'share') {
+    const raw = text(form, 'payShare').replace(',', '.');
+    const percent = /^\d{1,3}(\.\d{1,2})?$/.test(raw) ? Number(raw) : NaN;
+    if (!(percent >= 0 && percent <= 100)) return { ok: false, errors: ['share_invalid'] };
+    return { ok: true, value: { kind, shareBp: Math.round(percent * 100) } };
+  }
+  return { ok: false, errors: ['pay_kind_invalid'] };
+}
+
+export const TIME_OFF_REASONS = ['time_off', 'training', 'other'] as const;
+export type TimeOffReason = (typeof TIME_OFF_REASONS)[number];
+
+export interface TimeOffInput {
+  userId: string;
+  startsOn: IsoDate;
+  endsOn: IsoDate;
+  reason: TimeOffReason;
+}
+
+export function parseTimeOff(form: Reader): InputResult<TimeOffInput> {
+  const errors: string[] = [];
+  const userId = text(form, 'userId');
+  if (userId === '' || userId.length > 200) errors.push('not_found');
+  const startsOn = text(form, 'startsOn');
+  const endsOn = text(form, 'endsOn') || startsOn;
+  if (!isIsoDate(startsOn) || !isIsoDate(endsOn)) errors.push('date_invalid');
+  else if (endsOn < startsOn) errors.push('dates_reversed');
+  else if (endsOn > addDaysIso(startsOn, 365)) errors.push('range_too_long');
+  const reason = oneOf(text(form, 'reason') || 'time_off', TIME_OFF_REASONS);
+  if (!reason) errors.push('reason_invalid');
+  if (errors.length > 0 || !reason) return { ok: false, errors };
+  return { ok: true, value: { userId, startsOn, endsOn, reason } };
 }
 
 // ─── Members ───────────────────────────────────────────────────────────────

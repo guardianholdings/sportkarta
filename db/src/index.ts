@@ -34,6 +34,7 @@ export type {
 } from './clubs/policies.js';
 export type { ClubMaterializeOptions, ClubMaterializeReport } from './clubs/materialize.js';
 export {
+  clubMonthFigures,
   bookingsForMail,
   cancelledOccurrenceBookings,
   claimClubNotification,
@@ -51,6 +52,7 @@ export {
   trainerClassesOn,
 } from './clubs/mail.js';
 export type {
+  ClubMonthFigures,
   ClubBookingMail,
   ClubMailClub,
   ClubMemberRecipient,

@@ -84,6 +84,21 @@ export async function GET(
     });
   }
 
+  // Classes the account teaches (0045): one event per occurrence, in a UID
+  // space of their own; the roster is the link a trainer needs.
+  for (const lesson of feed.clubTeaching) {
+    events.push({
+      uid: `club-teach-${lesson.occurrenceId}@${host}`,
+      startsAt: new Date(lesson.startsAt),
+      endsAt: new Date(lesson.endsAt),
+      summary: lesson.title,
+      location: lesson.location,
+      url: `${base}/klub/${lesson.clubSlug}/grafik/t/${lesson.occurrenceId}`,
+      cancelled: lesson.cancelled,
+      sequence: lesson.cancelled ? 1 : 0,
+    });
+  }
+
   return new Response(
     renderCalendar({
       name: 'POPS',

@@ -182,6 +182,9 @@ export default async function ClubTimetablePage({
                       {o.instructorName && (
                         <p className="text-caption text-text-muted">{o.instructorName}</p>
                       )}
+                      {o.instructorAway && !cancelled && (
+                        <Badge tone="warning">{t('instructorAway')}</Badge>
+                      )}
                       <p className="mt-1 flex flex-wrap items-center gap-1 text-caption text-ink">
                         {cancelled ? (
                           <Badge tone="danger">{t('cancelled')}</Badge>

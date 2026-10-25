@@ -239,6 +239,8 @@ export interface WeekOccurrence {
   checkedIn: number;
   status: 'scheduled' | 'cancelled';
   mine: boolean;
+  /** The effective instructor has time off over the class (0045). */
+  instructorAway: boolean;
 }
 
 /**
@@ -263,7 +265,11 @@ export async function weekOccurrences(
            (SELECT count(*) FILTER (WHERE bp.booking_status = 'waitlisted')::int FROM club_booking_positions bp
              WHERE bp.club_id = o.club_id AND bp.occurrence_id = o.id) AS waitlisted,
            (SELECT count(*)::int FROM club_checkins ci WHERE ci.club_id = o.club_id AND ci.occurrence_id = o.id)
-             AS checked_in
+             AS checked_in,
+           EXISTS (SELECT 1 FROM club_time_blocks tb
+                    WHERE tb.club_id = o.club_id
+                      AND tb.staff_user_id = coalesce(o.instructor_user_id, k.instructor_user_id)
+                      AND tb.starts_at < o.ends_at AND tb.ends_at > o.starts_at) AS instructor_away
       FROM club_class_occurrences o
       JOIN club_classes k ON k.id = o.class_id
       JOIN club_locations l ON l.id = k.location_id
@@ -294,6 +300,7 @@ export async function weekOccurrences(
     checkedIn: Number(row.checked_in ?? 0),
     status: row.status === 'cancelled' ? 'cancelled' : 'scheduled',
     mine: row.mine === true,
+    instructorAway: row.instructor_away === true,
   }));
 }
 

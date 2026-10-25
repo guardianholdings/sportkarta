@@ -3032,7 +3032,32 @@
     "visitsLeft": "{count, plural, one {# visit left} other {# visits left}}",
     "validUntil": "valid until {date}",
     "expiredOn": "expired on {date}",
-    "expiresIn": "{days, plural, =0 {expires today} one {expires tomorrow} other {expires in # days}}"
+    "expiresIn": "{days, plural, =0 {expires today} one {expires tomorrow} other {expires in # days}}",
+    "chargeKind": {
+      "membership": "memberships",
+      "drop_in": "drop-in visits",
+      "product": "products",
+      "fee": "fees",
+      "other": "other"
+    },
+    "feature": {
+      "reports_advanced": "advanced reports",
+      "staff_pay": "team pay",
+      "embeds": "embedding in the club's site",
+      "shop": "products and till",
+      "promotions": "promotions and vouchers",
+      "wallet": "prepaid balance",
+      "invoices": "invoices",
+      "broadcasts": "messages to members",
+      "automations": "automated messages",
+      "sms": "SMS",
+      "feedback": "ratings and reviews",
+      "pixels": "Google Analytics and Meta Pixel",
+      "api": "API",
+      "webhooks": "webhooks",
+      "mcp": "connecting an AI assistant (MCP)",
+      "door_access": "door access control"
+    }
   },
   "ClubActivities": {
     "yoga": "yoga",
@@ -3134,7 +3159,9 @@
       "cap_invalid": "The limit must be a whole number.",
       "tier_invalid": "Invalid plan.",
       "not_changed": "Nothing changed."
-    }
+    },
+    "tierFeatures": "The “{tier}” plan also includes:",
+    "tierFeaturesNone": "the core features only."
   },
   "ClubOffice": {
     "metaTitle": "{club} — office",
@@ -3295,7 +3322,19 @@
       "notice_invalid": "The notice is 0 to 120 days.",
       "fee_invalid": "The fee is between €0.01 and €1000.",
       "strikes_invalid": "Strikes are 1 to 20, within 7 to 180 days.",
-      "strikes_reached": "Self-booking is paused because of no-shows or late cancellations. Please ask the desk."
+      "strikes_reached": "Self-booking is paused because of no-shows or late cancellations. Please ask the desk.",
+      "bio_too_long": "The introduction is too long.",
+      "share_invalid": "The share is between 0 and 100%.",
+      "pay_kind_invalid": "Choose a kind of pay.",
+      "date_invalid": "Invalid date.",
+      "dates_reversed": "The end date is before the start.",
+      "range_too_long": "Time off is up to one year.",
+      "feature_unavailable": "This is included in a higher plan of the module.",
+      "question_required": "Enter a question.",
+      "question_too_long": "The question is too long.",
+      "answer_required": "Enter an answer.",
+      "answer_too_long": "The answer is too long.",
+      "faq_en_pair": "In English fill in both the question and the answer — or neither."
     }
   },
   "ClubSettings": {
@@ -3366,7 +3405,33 @@
     "dataHint": "Download the club's data as CSV. The data is yours — take it whenever you like.",
     "export": "Download",
     "closeTitle": "Closing the club",
-    "closeHint": "If you want to close the club, write to us. You will have 90 days to download your data."
+    "closeHint": "If you want to close the club, write to us. You will have 90 days to download your data.",
+    "accent": "Page accent colour",
+    "accentHint": "The band and buttons of the club's public page.",
+    "accents": {
+      "green": "green",
+      "coral": "coral",
+      "sky": "sky blue"
+    },
+    "faqTitle": "Frequently asked questions",
+    "faqHint": "Shown on the club's public page — up to {max} questions.",
+    "faqQuestion": "Question",
+    "faqAnswer": "Answer",
+    "faqQuestionEn": "Question in English (optional)",
+    "faqAnswerEn": "Answer in English (optional)",
+    "faqOrder": "Order",
+    "faqSave": "Save",
+    "faqAdd": "Add a question",
+    "faqRemove": "Delete the question",
+    "faqRemoveConfirm": "Delete this question?",
+    "shareTitle": "Short link and embedding",
+    "shortLink": "Short address of the page:",
+    "embedHint": "Paste the code into your own website. The embed shows only the timetable or prices; its buttons open the page on POPS.",
+    "embed": {
+      "grafik": "Timetable for the week",
+      "ceni": "Memberships and prices"
+    },
+    "embedUpsell": "Embedding the timetable and prices in your own website is included from the “Start” plan up."
   },
   "ClubTeam": {
     "title": "Team",
@@ -3390,7 +3455,41 @@
     "remove": "Remove",
     "removeConfirm": "Remove from the team? Their POPS account stays.",
     "leave": "Leave the team",
-    "leaveConfirm": "Leave the club's team?"
+    "leaveConfirm": "Leave the club's team?",
+    "profileTitle": "My profile at the club",
+    "profileIntro": "The name and short introduction members see you by. They appear on the club's public page only if you switch that on yourself.",
+    "profileName": "Name for members",
+    "profileBio": "Introduction (optional)",
+    "profilePublic": "Show me on the club's public page as a trainer",
+    "profileSave": "Save the profile",
+    "payKind": "Pay",
+    "payAmount": "Amount (€)",
+    "payShare": "Share (%)",
+    "paySave": "Save",
+    "pay": {
+      "none": "none",
+      "flat": "per class",
+      "per_head": "per attendee",
+      "share": "share of sales"
+    },
+    "payNow": {
+      "flat": "{amount} per class taught",
+      "per_head": "{amount} per attendee"
+    },
+    "payShareNow": "{percent}% of their sales",
+    "timeOffTitle": "Time off",
+    "timeOffNone": "No upcoming time off.",
+    "timeOffWho": "Who",
+    "timeOffFrom": "From",
+    "timeOffTo": "To (incl.)",
+    "timeOffWhy": "Kind",
+    "timeOffAdd": "Add time off",
+    "timeOffRemove": "Remove",
+    "timeOffReason": {
+      "time_off": "leave",
+      "training": "training",
+      "other": "other"
+    }
   },
   "ClubMembers": {
     "title": "Members",
@@ -3847,7 +3946,8 @@
       "noneToBook": "Every member is already on the list."
     },
     "show": "Show",
-    "weekNav": "Weeks"
+    "weekNav": "Weeks",
+    "instructorAway": "trainer away — a substitute is needed"
   },
   "ClubCheckin": {
     "title": "Attendance",
@@ -4192,6 +4292,18 @@
     "feeLabel": {
       "noShow": "No-show",
       "lateCancel": "Late cancellation"
+    },
+    "month": {
+      "members": "Members with a valid membership: {now} ({change} on the month before)",
+      "revenue": "Revenue: {amount} ({change})",
+      "checkins": "Visits: {now} ({change})",
+      "newMembers": "New members: {count}",
+      "churned": "Lapsed (no membership this month): {count}",
+      "atRisk": "At risk now (no visit for 21 days): {count}",
+      "topClass": "Best-filled class: “{title}” — {fill}% of places",
+      "hintAtRisk": "Idea: call the members at risk — the list is in “Reports”. One reminder often brings someone back.",
+      "hintChurn": "More members lapsed than joined. Consider a trial class or a come-back offer.",
+      "hintSteady": "A steady month — keep it up."
     }
   },
   "ClubReports": {
@@ -4219,7 +4331,56 @@
     },
     "noLimit": "no limit",
     "csvTitle": "Data to download",
-    "csvHint": "The club's complete data as CSV, for accounting, analysis or moving to another system."
+    "csvHint": "The club's complete data as CSV, for accounting, analysis or moving to another system.",
+    "mtdTitle": "This month so far",
+    "mtdDef": "The first {days} days of the month against the same days of last month.",
+    "mtd": {
+      "revenue": "Revenue",
+      "checkins": "Visits",
+      "newMembers": "New members",
+      "sales": "Memberships sold"
+    },
+    "mtdVs": "last month: {then} ({delta})",
+    "peakTitle": "Peak hours",
+    "peakDef": "Visits over the last 8 weeks by day and hour. A darker cell is busier; the number is the count of visits.",
+    "peakDay": "Day",
+    "cohortTitle": "Retention",
+    "cohortDef": "Members whose first membership began in the month, and the share of them still holding a valid one 1–5 months later.",
+    "cohortNone": "Not enough history yet.",
+    "cohortMonth": "Start",
+    "cohortSize": "Members",
+    "cohortAfter": "+{months} mo",
+    "churnTitle": "Churn by month",
+    "churnDef": "Share of members with a valid membership in the previous month who have none in this one.",
+    "byPlanTitle": "Revenue by kind",
+    "byPlanDef": "The last 90 days — by membership or kind of charge.",
+    "top": {
+      "byVisits": "Most regular",
+      "byVisitsDef": "Most visits in 90 days.",
+      "bySpend": "Paid the most",
+      "bySpendDef": "Paid in 12 months."
+    },
+    "engagementTitle": "Engagement",
+    "engagementDef": "A 0–100 score for each member with a valid membership: up to 40 points for recency (full for a visit within {fresh} days, zero after {stale}), up to 40 for frequency ({perVisit} points per visit in 30 days) and up to 20 for tenure ({perMonth} points a month). High ≥ 70, medium 40–69, low < 40.",
+    "band": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "advancedTitle": "More reports",
+    "advancedUpsell": "Peak hours, retention, churn, revenue by kind, most regular members and engagement are included from the “{tier}” plan up.",
+    "payTitle": "Team pay",
+    "payDef": "Computed from the terms in “Team” — a reference only, POPS pays nothing out. A class counts for the trainer who taught it (substitutions included); sales are the payments on memberships they sold.",
+    "payMonth": "Month",
+    "payShow": "Show",
+    "payNone": "No classes taught or sales in the month.",
+    "payCol": {
+      "name": "Team member",
+      "classes": "Classes",
+      "attendees": "Attended",
+      "sales": "Sales",
+      "pay": "Pay"
+    }
   },
   "ClubPublic": {
     "directoryTitle": "Clubs, gyms and studios",
@@ -4290,6 +4451,11 @@
       "community": "A club at this facility",
       "next": "Next classes",
       "page": "Club page"
-    }
+    },
+    "trainersTitle": "Trainers",
+    "faqTitle": "Frequently asked questions",
+    "widgetBook": "Book",
+    "widgetMore": "Open the club's page",
+    "widgetPoweredBy": "Booking through POPS"
   }
 }

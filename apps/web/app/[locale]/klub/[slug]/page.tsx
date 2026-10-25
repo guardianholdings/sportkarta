@@ -57,11 +57,20 @@ export default async function PublicClubPage({ params }: { params: PageParams })
   const section = 'space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm';
   const trialClasses = club.classes.filter((c) => c.trialAllowed);
   const paid = club.tier !== 'community';
+  // The club's accent (0045): one of the design system's scales, never a value
+  // the club typed — a band over the header, nothing that carries meaning.
+  const accentBand = {
+    green: 'border-green-500',
+    coral: 'border-coral-500',
+    sky: 'border-sky-500',
+  }[club.accent];
 
   return (
     <AppShell active={null}>
       <main className="mx-auto max-w-3xl space-y-5 p-4">
-        <header className="flex flex-wrap items-start gap-4 border-b border-line pb-4">
+        <header
+          className={`flex flex-wrap items-start gap-4 rounded-card border-t-4 border-b border-b-line pb-4 pt-4 ${accentBand}`}
+        >
           {club.hasLogo && (
             // eslint-disable-next-line @next/next/no-img-element -- the row-decides logo route
             <img
@@ -180,6 +189,46 @@ export default async function PublicClubPage({ params }: { params: PageParams })
             </ul>
           )}
         </section>
+
+        {club.trainers.length > 0 && (
+          <section className={section} aria-labelledby="trainers-h">
+            <h2 id="trainers-h" className="text-h4 font-bold text-ink">
+              {t('trainersTitle')}
+            </h2>
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {club.trainers.map((trainer) => (
+                <li key={trainer.name} className="rounded-card border border-line p-3">
+                  <p className="font-semibold text-ink">{trainer.name}</p>
+                  {trainer.bio && (
+                    <p className="mt-1 whitespace-pre-line text-caption text-ink-soft">
+                      {trainer.bio}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {club.faq.length > 0 && (
+          <section className={section} aria-labelledby="faq-h">
+            <h2 id="faq-h" className="text-h4 font-bold text-ink">
+              {t('faqTitle')}
+            </h2>
+            <div className="divide-y divide-line">
+              {club.faq.map((entry, index) => (
+                <details key={index} className="group py-2">
+                  <summary className="flex min-h-11 cursor-pointer items-center text-body-sm font-semibold text-ink">
+                    {entry.question}
+                  </summary>
+                  <p className="whitespace-pre-line pb-2 text-body-sm text-ink-soft">
+                    {entry.answer}
+                  </p>
+                </details>
+              ))}
+            </div>
+          </section>
+        )}
 
         {club.locations.length > 0 && (
           <section className={section} aria-labelledby="where-h">

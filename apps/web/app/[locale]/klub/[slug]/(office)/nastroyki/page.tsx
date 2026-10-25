@@ -14,11 +14,15 @@ import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
 import { cityDisplayName } from '@/lib/city-names';
 import { requireClubStaff } from '@/lib/clubs/club-session';
+import { featureOn } from '@/lib/clubs/features';
 import { CLUB_EXPORT_DATASETS } from '@/lib/clubs/export';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { listKioskDevices } from '@/lib/clubs/kiosk';
 import { clubSportOptions } from '@/lib/clubs/labels';
+import { Textarea } from '@/components/ui/textarea';
 import {
+  MAX_FAQ,
+  clubFaq,
   clubLocations,
   clubSettings,
   facilitiesInMunicipality,
@@ -30,6 +34,8 @@ import { siteUrl } from '@/lib/seo';
 import {
   createKioskAction,
   newPairingCodeAction,
+  removeFaqAction,
+  saveFaqAction,
   revokeKioskAction,
   saveLocationAction,
   saveSettingsAction,
@@ -52,7 +58,7 @@ export default async function ClubSettingsPage({
   const { actor, club } = await requireClubStaff(slug, 'settings.manage');
   const settings = await clubSettings(club.id);
   if (!settings) notFound();
-  const [t, tClub, messages, locations, devices, cities, sportOptions] = await Promise.all([
+  const [t, tClub, messages, locations, devices, cities, sportOptions, faq] = await Promise.all([
     getTranslations('ClubSettings'),
     getTranslations('Club'),
     clubFormMessages(),
@@ -60,7 +66,72 @@ export default async function ClubSettingsPage({
     listKioskDevices(actor),
     municipalityChoices(),
     clubSportOptions(locale),
+    clubFaq(actor),
   ]);
+  const faqFields = (
+    entry: {
+      questionBg: string;
+      answerBg: string;
+      questionEn: string | null;
+      answerEn: string | null;
+      sortOrder: number;
+    } | null,
+  ) => (
+    <>
+      <label className="block text-body-sm font-semibold text-ink">
+        {t('faqQuestion')}
+        <Input
+          name="questionBg"
+          required
+          maxLength={200}
+          defaultValue={entry?.questionBg ?? ''}
+          className="mt-1"
+        />
+      </label>
+      <label className="block text-body-sm font-semibold text-ink">
+        {t('faqAnswer')}
+        <Textarea
+          name="answerBg"
+          required
+          maxLength={1500}
+          rows={3}
+          defaultValue={entry?.answerBg ?? ''}
+          className="mt-1"
+        />
+      </label>
+      <label className="block text-body-sm font-semibold text-ink">
+        {t('faqQuestionEn')}
+        <Input
+          name="questionEn"
+          maxLength={200}
+          defaultValue={entry?.questionEn ?? ''}
+          className="mt-1"
+        />
+      </label>
+      <label className="block text-body-sm font-semibold text-ink">
+        {t('faqAnswerEn')}
+        <Textarea
+          name="answerEn"
+          maxLength={1500}
+          rows={2}
+          defaultValue={entry?.answerEn ?? ''}
+          className="mt-1"
+        />
+      </label>
+      <label className="block text-caption text-ink-soft">
+        {t('faqOrder')}
+        <Input
+          name="sortOrder"
+          type="number"
+          min={0}
+          max={999}
+          size="sm"
+          defaultValue={entry?.sortOrder ?? faq.length}
+          className="mt-1 w-24"
+        />
+      </label>
+    </>
+  );
   const linkedIds = locations.map((l) => l.facilityId).filter((id): id is string => id !== null);
   const facilities = await facilitiesInMunicipality(settings.municipalityId, linkedIds[0] ?? null);
   const { logo } = await searchParams;
@@ -139,6 +210,13 @@ export default async function ClubSettingsPage({
             cancelDeadlineHours: t('cancelDeadlineHours'),
             mailUnlinked: t('mailUnlinked'),
             mailUnlinkedHint: t('mailUnlinkedHint'),
+            accent: t('accent'),
+            accentHint: t('accentHint'),
+            accents: {
+              green: t('accents.green'),
+              coral: t('accents.coral'),
+              sky: t('accents.sky'),
+            },
             save: t('save'),
           }}
           values={settings}
@@ -298,6 +376,85 @@ export default async function ClubSettingsPage({
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className={section} aria-labelledby="faq-h">
+        <h2 id="faq-h" className="text-h4 font-bold text-ink">
+          {t('faqTitle')}
+        </h2>
+        <p className="text-caption text-text-muted">{t('faqHint', { max: MAX_FAQ })}</p>
+        <ul className="space-y-2">
+          {faq.map((entry) => (
+            <li key={entry.id} className="rounded-card border border-line p-3">
+              <details>
+                <summary className="cursor-pointer text-body-sm font-semibold text-ink">
+                  {entry.questionBg}
+                </summary>
+                <form action={saveFaqAction} className="mt-3 space-y-2">
+                  <input type="hidden" name="slug" value={slug} />
+                  <input type="hidden" name="faqId" value={entry.id} />
+                  {faqFields(entry)}
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" variant="secondary" size="sm">
+                      {t('faqSave')}
+                    </Button>
+                  </div>
+                </form>
+                <form action={removeFaqAction} className="mt-2">
+                  <input type="hidden" name="slug" value={slug} />
+                  <input type="hidden" name="faqId" value={entry.id} />
+                  <ConfirmButton
+                    message={t('faqRemoveConfirm')}
+                    className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+                  >
+                    {t('faqRemove')}
+                  </ConfirmButton>
+                </form>
+              </details>
+            </li>
+          ))}
+        </ul>
+        {faq.length < MAX_FAQ && (
+          <details className="rounded-card border border-dashed border-line-strong p-3">
+            <summary className="cursor-pointer text-body-sm font-semibold text-ink">
+              {t('faqAdd')}
+            </summary>
+            <form action={saveFaqAction} className="mt-3 space-y-2">
+              <input type="hidden" name="slug" value={slug} />
+              {faqFields(null)}
+              <Button type="submit" variant="secondary" size="sm">
+                {t('faqSave')}
+              </Button>
+            </form>
+          </details>
+        )}
+      </section>
+
+      <section className={section} aria-labelledby="share-h">
+        <h2 id="share-h" className="text-h4 font-bold text-ink">
+          {t('shareTitle')}
+        </h2>
+        <p className="text-body-sm text-ink-soft">
+          {t('shortLink')}{' '}
+          <code className="rounded bg-paper-sunk px-1.5 py-0.5 text-caption">
+            {`${siteUrl().replace(/^https?:\/\//, '')}/k/${slug}`}
+          </code>
+        </p>
+        {featureOn(club, 'embeds') ? (
+          <div className="space-y-2">
+            <p className="text-caption text-text-muted">{t('embedHint')}</p>
+            {(['grafik', 'ceni'] as const).map((kind) => (
+              <div key={kind} className="space-y-1">
+                <p className="text-caption font-semibold text-ink">{t(`embed.${kind}`)}</p>
+                <pre className="overflow-x-auto rounded-card bg-paper-sunk p-2 text-caption">
+                  {`<iframe src="${siteUrl()}/api/widget/klub/${slug}/${kind}" title="${settings.nameBg}" width="100%" height="480" style="border:0" loading="lazy"></iframe>`}
+                </pre>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-caption text-text-muted">{t('embedUpsell')}</p>
+        )}
       </section>
 
       <section className={section}>

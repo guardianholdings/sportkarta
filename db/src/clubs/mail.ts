@@ -495,6 +495,101 @@ export async function clubWeekFigures(db: SqlRunner, monday: IsoDate): Promise<C
   }));
 }
 
+export interface ClubMonthFigures {
+  clubId: string;
+  /** Held a valid abonnement on any day of the month (this, previous). */
+  members: [number, number];
+  revenueCents: [number, number];
+  checkins: [number, number];
+  newMembers: number;
+  /** Valid in the previous month, not in this one. */
+  churned: number;
+  /** Today: a live abonnement and no visit for 21 days. */
+  atRisk: number;
+  /** The best-filled class of the month (≥ 2 occurrences), if any. */
+  topClass: { title: string; fill: number } | null;
+}
+
+/**
+ * The owner's monthly business-health figures for [month, month + 1 month) —
+ * the club.health mail (0045), the deterministic answer to an "AI report":
+ * every number is one SQL definition, the same ones the reports page prints.
+ */
+export async function clubMonthFigures(db: SqlRunner, month: IsoDate): Promise<ClubMonthFigures[]> {
+  const result = await db.execute(sql`
+    WITH span AS (
+      SELECT ${month}::date AS first, (${month}::date + interval '1 month')::date AS next,
+             (${month}::date - interval '1 month')::date AS prev
+    )
+    SELECT c.id,
+      (SELECT count(DISTINCT mb.member_id)::int FROM club_membership_balances mb
+        WHERE mb.club_id = c.id AND mb.cancelled_at IS NULL
+          AND mb.starts_on < span.next AND mb.effective_ends_on >= span.first) AS members_now,
+      (SELECT count(DISTINCT mb.member_id)::int FROM club_membership_balances mb
+        WHERE mb.club_id = c.id AND mb.cancelled_at IS NULL
+          AND mb.starts_on < span.first AND mb.effective_ends_on >= span.prev) AS members_then,
+      (SELECT coalesce(sum(p.amount_cents), 0)::bigint FROM club_payments p
+        WHERE p.club_id = c.id AND p.received_on >= span.first AND p.received_on < span.next) AS rev_now,
+      (SELECT coalesce(sum(p.amount_cents), 0)::bigint FROM club_payments p
+        WHERE p.club_id = c.id AND p.received_on >= span.prev AND p.received_on < span.first) AS rev_then,
+      (SELECT count(*)::int FROM club_checkins ci
+        WHERE ci.club_id = c.id AND ci.sofia_day >= span.first AND ci.sofia_day < span.next) AS ci_now,
+      (SELECT count(*)::int FROM club_checkins ci
+        WHERE ci.club_id = c.id AND ci.sofia_day >= span.prev AND ci.sofia_day < span.first) AS ci_then,
+      (SELECT count(*)::int FROM club_members m
+        WHERE m.club_id = c.id AND (m.created_at AT TIME ZONE 'Europe/Sofia')::date >= span.first
+          AND (m.created_at AT TIME ZONE 'Europe/Sofia')::date < span.next) AS new_members,
+      (SELECT count(*)::int FROM (
+         SELECT mb.member_id FROM club_membership_balances mb
+          WHERE mb.club_id = c.id AND mb.cancelled_at IS NULL
+            AND mb.starts_on < span.first AND mb.effective_ends_on >= span.prev
+         EXCEPT
+         SELECT mb.member_id FROM club_membership_balances mb
+          WHERE mb.club_id = c.id AND mb.cancelled_at IS NULL
+            AND mb.starts_on < span.next AND mb.effective_ends_on >= span.first) gone) AS churned,
+      (SELECT count(*)::int FROM club_membership_balances mb
+        WHERE mb.club_id = c.id AND mb.state = 'active'
+          AND mb.starts_on <= (now() AT TIME ZONE 'Europe/Sofia')::date - 21
+          AND NOT EXISTS (SELECT 1 FROM club_checkins ci
+                           WHERE ci.club_id = mb.club_id AND ci.member_id = mb.member_id
+                             AND ci.sofia_day > (now() AT TIME ZONE 'Europe/Sofia')::date - 21))
+        AS at_risk,
+      (SELECT k.title || '|' || (sum(g.going)::float / nullif(sum(g.capacity), 0))::text
+         FROM (SELECT o.class_id, coalesce(o.capacity, kk.capacity) AS capacity,
+                      (SELECT count(*) FILTER (WHERE bp.booking_status = 'going')
+                         FROM club_booking_positions bp WHERE bp.occurrence_id = o.id) AS going
+                 FROM club_class_occurrences o JOIN club_classes kk ON kk.id = o.class_id
+                WHERE o.club_id = c.id AND o.status = 'scheduled'
+                  AND (o.starts_at AT TIME ZONE 'Europe/Sofia')::date >= span.first
+                  AND (o.starts_at AT TIME ZONE 'Europe/Sofia')::date < span.next) g
+         JOIN club_classes k ON k.id = g.class_id
+        GROUP BY k.id, k.title
+       HAVING count(*) >= 2 AND bool_and(g.capacity IS NOT NULL) AND sum(g.capacity) > 0
+        ORDER BY sum(g.going)::float / sum(g.capacity) DESC
+        LIMIT 1) AS top_class
+      FROM clubs c, span
+     WHERE c.status = 'active'
+     ORDER BY c.id
+  `);
+  return result.rows.map((row) => {
+    const top = row.top_class === null ? null : String(row.top_class);
+    const cut = top === null ? -1 : top.lastIndexOf('|');
+    return {
+      clubId: String(row.id),
+      members: [Number(row.members_now ?? 0), Number(row.members_then ?? 0)],
+      revenueCents: [Number(row.rev_now ?? 0), Number(row.rev_then ?? 0)],
+      checkins: [Number(row.ci_now ?? 0), Number(row.ci_then ?? 0)],
+      newMembers: Number(row.new_members ?? 0),
+      churned: Number(row.churned ?? 0),
+      atRisk: Number(row.at_risk ?? 0),
+      topClass:
+        top === null || cut < 0
+          ? null
+          : { title: top.slice(0, cut), fill: Number(top.slice(cut + 1)) },
+    };
+  });
+}
+
 // ─── Monthly activity (the invoicing basis) ─────────────────────────────────
 
 /**
