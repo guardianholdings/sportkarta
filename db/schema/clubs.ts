@@ -860,6 +860,8 @@ export const clubCheckouts = pgTable(
     /** The offer an online purchase was opened with (0049); fixed with the rest. */
     promotionId: uuid('promotion_id'),
     discountCents: integer('discount_cents'),
+    /** A wallet top-up's charge label (0050), in the club's words. */
+    label: text('label'),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
     completedAt: timestamptz('completed_at'),
   },
@@ -1217,3 +1219,88 @@ export type ClubCheckoutRow = typeof clubCheckouts.$inferSelect;
 export type ClubResourceRow = typeof clubResources.$inferSelect;
 export type ClubServiceRow = typeof clubServices.$inferSelect;
 export type ClubReservationRow = typeof clubReservations.$inferSelect;
+
+/** What an invoice prints about a club (0050) beyond clubs.legal_name and eik. */
+export const clubInvoiceSettings = pgTable('club_invoice_settings', {
+  clubId: uuid('club_id')
+    .primaryKey()
+    .references(() => clubs.id, { onDelete: 'cascade' }),
+  legalAddress: text('legal_address'),
+  /** BG + 9/10 digits; none: the club invoices without VAT. */
+  vatNumber: text('vat_number'),
+  iban: text('iban'),
+  /** 0 | 900 | 2000 — the rate for what is not a product. */
+  invoiceVatBp: integer('invoice_vat_bp').notNull().default(2000),
+  /** The legal basis printed for a 0 % line of a VAT-registered club. */
+  zeroVatBasis: text('zero_vat_basis'),
+  updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+});
+
+/** Invoices and credit notes (0050): one gapless series per club; never changed. */
+export const clubInvoices = pgTable(
+  'club_invoices',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    /** invoice | credit_note */
+    kind: text('kind').notNull(),
+    number: bigint('number', { mode: 'number' }).notNull(),
+    issuedOn: date('issued_on').notNull(),
+    taxEventOn: date('tax_event_on').notNull(),
+    /** A credit note's invoice (composite key in 0050 only). */
+    correctsId: uuid('corrects_id'),
+    reason: text('reason'),
+    chargeId: uuid('charge_id').notNull(),
+    /** SET NULL on erasure; the buyer snapshot stays (the club's legal obligation). */
+    memberId: uuid('member_id'),
+    supplierName: text('supplier_name').notNull(),
+    supplierEik: text('supplier_eik').notNull(),
+    supplierVatNumber: text('supplier_vat_number'),
+    supplierAddress: text('supplier_address').notNull(),
+    supplierIban: text('supplier_iban'),
+    /** person | company */
+    buyerKind: text('buyer_kind').notNull(),
+    buyerName: text('buyer_name').notNull(),
+    buyerEik: text('buyer_eik'),
+    buyerVatNumber: text('buyer_vat_number'),
+    buyerAddress: text('buyer_address'),
+    paymentMethod: text('payment_method').notNull(),
+    /** The printed basis of the document's 0 % lines (snapshot). */
+    zeroVatBasis: text('zero_vat_basis'),
+    baseCents: integer('base_cents').notNull(),
+    vatCents: integer('vat_cents').notNull(),
+    totalCents: integer('total_cents').notNull(),
+    /** Staff id by value (0039 rule 5). */
+    issuedBy: text('issued_by').notNull(),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('club_invoices_club_id_unique').on(t.clubId, t.id),
+    unique('club_invoices_number_unique').on(t.clubId, t.number),
+  ],
+);
+
+/** An invoice's lines (0050): gross as charged, split into base and VAT. */
+export const clubInvoiceLines = pgTable(
+  'club_invoice_lines',
+  {
+    /** Its own key to clubs, so a purge empties it in the first round. */
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    invoiceId: uuid('invoice_id').notNull(),
+    lineNo: smallint('line_no').notNull(),
+    description: text('description').notNull(),
+    quantity: integer('quantity').notNull(),
+    unitPriceCents: integer('unit_price_cents').notNull(),
+    discountCents: integer('discount_cents').notNull().default(0),
+    /** Null when the supplier is not VAT-registered. */
+    vatRateBp: integer('vat_rate_bp'),
+    baseCents: integer('base_cents').notNull(),
+    vatCents: integer('vat_cents').notNull(),
+    totalCents: integer('total_cents').notNull(),
+  },
+  (t) => [primaryKey({ name: 'club_invoice_lines_pkey', columns: [t.invoiceId, t.lineNo] })],
+);

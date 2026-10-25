@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { CLUB_CANCEL_REASONS, addDaysIso, formatEuro, sofiaToday } from '@sportkarta/lib/clubs';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
@@ -10,6 +12,7 @@ import {
   membershipKind,
 } from '@/components/clubs/club-state-badge';
 import { IssueCardButton } from '@/components/clubs/member-form';
+import { WalletForms } from '@/components/clubs/wallet-forms';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
@@ -18,17 +21,21 @@ import { Select } from '@/components/ui/select';
 import { Link } from '@/i18n/navigation';
 import { clubAuditHistory } from '@/lib/clubs/audit';
 import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { featureOn } from '@/lib/clubs/features';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { isUuid } from '@/lib/clubs/input';
 import { memberCard } from '@/lib/clubs/members';
+import { memberWallet } from '@/lib/clubs/wallet';
 import { formatDate, formatDateTime } from '@/lib/format';
 
-import { issueCardAction, memberOpAction, pauseAction } from '../actions';
+import { issueCardAction, memberOpAction, pauseAction, walletAction } from '../actions';
 
 export const dynamic = 'force-dynamic';
 
 const OUTCOMES = new Set([
   'saved',
+  'wallet_topped_up',
+  'wallet_paid_out',
   'invited',
   'checked_in',
   'checked_in_uncovered',
@@ -47,16 +54,20 @@ export default async function MemberCardPage({
   const { locale, slug, memberId } = await params;
   setRequestLocale(locale);
   if (!isUuid(memberId)) notFound();
-  const { actor } = await requireClubStaff(slug, 'members.view');
+  const { actor, club } = await requireClubStaff(slug, 'members.view');
   const member = await memberCard(actor, memberId);
   if (!member) notFound();
-  const [t, tClub, messages, history] = await Promise.all([
+  const walletOn = featureOn(club, 'wallet') && actorCan(actor, 'payments.view');
+  const invoicesOn = featureOn(club, 'invoices') && actorCan(actor, 'invoices.issue');
+  const [t, tClub, messages, history, wallet] = await Promise.all([
     getTranslations('ClubMembers'),
     getTranslations('Club'),
     clubFormMessages(),
     actorCan(actor, 'audit.view')
       ? clubAuditHistory(actor.clubId, { subjectMemberId: memberId }, 30)
       : Promise.resolve([]),
+    // Shown wherever there is credit, even if the tier has lost the wallet.
+    actorCan(actor, 'payments.view') ? memberWallet(actor, memberId) : Promise.resolve(null),
   ]);
   const { rezultat } = await searchParams;
   const base = `/klub/${slug}`;
@@ -80,7 +91,12 @@ export default async function MemberCardPage({
         ? messages.readOnly
         : (messages.errors[rezultat] ?? null)
     : null;
-  const outcomeIsGood = rezultat === 'saved' || rezultat === 'invited' || rezultat === 'checked_in';
+  const outcomeIsGood =
+    rezultat === 'saved' ||
+    rezultat === 'invited' ||
+    rezultat === 'checked_in' ||
+    rezultat === 'wallet_topped_up' ||
+    rezultat === 'wallet_paid_out';
   const linkState = member.link ? member.link.status : member.pendingInvite ? 'invited' : 'none';
 
   return (
@@ -427,28 +443,108 @@ export default async function MemberCardPage({
                         {formatDate(charge.dueOn, locale)}
                       </span>
                     </span>
-                    <span className="flex items-center gap-2">
+                    <span className="flex flex-wrap items-center gap-2">
                       <StatusBadge
                         kind={chargeKind(charge.status)}
                         label={tClub(`chargeStatus.${charge.status}`)}
                       />
-                      {charge.status !== 'void' && actorCan(actor, 'charges.void') && (
-                        <form action={memberOpAction}>
-                          {op('void', { chargeId: charge.id })}
-                          <ConfirmButton
+                      {invoicesOn &&
+                        charge.kind !== 'wallet' &&
+                        (charge.invoiceId || charge.status !== 'void') && (
+                          <Link
+                            href={
+                              charge.invoiceId
+                                ? `/klub/${slug}/fakturi/${charge.invoiceId}`
+                                : {
+                                    pathname: `/klub/${slug}/fakturi/nova`,
+                                    query: { zadalzhenie: charge.id },
+                                  }
+                            }
                             className={buttonVariants({ variant: 'ghost', size: 'sm' })}
-                            message={t('card.voidConfirm')}
                           >
-                            {t('card.void')}
-                          </ConfirmButton>
-                        </form>
-                      )}
+                            {charge.invoiceId ? t('card.invoiceOpen') : t('card.invoiceIssue')}
+                          </Link>
+                        )}
+                      {charge.status !== 'void' &&
+                        charge.kind !== 'wallet' &&
+                        actorCan(actor, 'charges.void') && (
+                          <form action={memberOpAction}>
+                            {op('void', { chargeId: charge.id })}
+                            <ConfirmButton
+                              className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+                              message={t('card.voidConfirm')}
+                            >
+                              {t('card.void')}
+                            </ConfirmButton>
+                          </form>
+                        )}
                     </span>
                   </li>
                 ))}
               </ul>
             )}
           </section>
+          {wallet && (walletOn || wallet.balanceCents !== 0 || wallet.entries.length > 0) && (
+            <section className={`${section} lg:col-span-2`} aria-labelledby="wallet-h">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 id="wallet-h" className="text-h4 font-bold text-ink">
+                  {t('card.wallet')}
+                </h2>
+                <p className="font-mono text-h4 tabular-nums text-ink">
+                  {formatEuro(wallet.balanceCents, locale)}
+                </p>
+              </div>
+              <p className="text-caption text-text-muted">{t('card.walletHint')}</p>
+              {actorCan(actor, 'payments.record') && (walletOn || wallet.balanceCents > 0) && (
+                <WalletForms
+                  action={walletAction}
+                  slug={slug}
+                  memberId={memberId}
+                  nonces={{ topUp: randomUUID(), payOut: randomUUID() }}
+                  canTopUp={walletOn}
+                  // The client's money is paid back on any tier (0050).
+                  canPayOut={wallet.balanceCents > 0}
+                  messages={messages}
+                  labels={{
+                    topUp: t('card.walletTopUp'),
+                    payOut: t('card.walletPayOut'),
+                    method: t('card.walletMethod'),
+                    methods: Object.fromEntries(
+                      (['cash', 'card_desk', 'bank', 'other'] as const).map((m) => [
+                        m,
+                        tClub(`method.${m}`),
+                      ]),
+                    ),
+                    topUpSubmit: t('card.walletTopUpSubmit'),
+                    payOutSubmit: t('card.walletPayOutSubmit'),
+                    payOutConfirm: t('card.walletPayOutConfirm'),
+                  }}
+                />
+              )}
+              {wallet.entries.length > 0 && (
+                <ul className="divide-y divide-line">
+                  {wallet.entries.map((entry, i) => (
+                    <li
+                      key={i}
+                      className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-body-sm"
+                    >
+                      <span>
+                        <span className="block text-ink">{entry.label}</span>
+                        <span className="text-caption text-text-muted">
+                          {formatDate(entry.receivedOn, locale)} ·{' '}
+                          {t(`card.walletEntry.${entry.kind}`)}
+                        </span>
+                      </span>
+                      <span className="font-mono tabular-nums text-ink">
+                        {entry.amountCents > 0 ? '+' : '−'}
+                        {formatEuro(Math.abs(entry.amountCents), locale)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
           <section className={section}>
             <h2 className="text-h4 font-bold text-ink">{t('card.payments')}</h2>
             {member.payments.length === 0 ? (

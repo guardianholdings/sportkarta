@@ -468,6 +468,7 @@ export async function clubWeekFigures(db: SqlRunner, monday: IsoDate): Promise<C
           AND (b.created_at AT TIME ZONE 'Europe/Sofia')::date >= ${monday}::date
           AND (b.created_at AT TIME ZONE 'Europe/Sofia')::date < ${monday}::date + 7) AS bookings,
       (SELECT coalesce(sum(p.amount_cents), 0)::bigint FROM club_payments p WHERE p.club_id = c.id
+          AND p.method <> 'wallet'
           AND p.received_on >= ${monday}::date AND p.received_on < ${monday}::date + 7) AS revenue,
       (SELECT count(*)::int FROM club_membership_balances mb WHERE mb.club_id = c.id
           AND mb.state = 'active'
@@ -529,9 +530,11 @@ export async function clubMonthFigures(db: SqlRunner, month: IsoDate): Promise<C
         WHERE mb.club_id = c.id AND mb.cancelled_at IS NULL
           AND mb.starts_on < span.first AND mb.effective_ends_on >= span.prev) AS members_then,
       (SELECT coalesce(sum(p.amount_cents), 0)::bigint FROM club_payments p
-        WHERE p.club_id = c.id AND p.received_on >= span.first AND p.received_on < span.next) AS rev_now,
+        WHERE p.club_id = c.id AND p.method <> 'wallet'
+          AND p.received_on >= span.first AND p.received_on < span.next) AS rev_now,
       (SELECT coalesce(sum(p.amount_cents), 0)::bigint FROM club_payments p
-        WHERE p.club_id = c.id AND p.received_on >= span.prev AND p.received_on < span.first) AS rev_then,
+        WHERE p.club_id = c.id AND p.method <> 'wallet'
+          AND p.received_on >= span.prev AND p.received_on < span.first) AS rev_then,
       (SELECT count(*)::int FROM club_checkins ci
         WHERE ci.club_id = c.id AND ci.sofia_day >= span.first AND ci.sofia_day < span.next) AS ci_now,
       (SELECT count(*)::int FROM club_checkins ci
@@ -633,6 +636,7 @@ export async function recordClubMonthlyActivity(
           AND (b.created_at AT TIME ZONE 'Europe/Sofia')::date >= bounds.first
           AND (b.created_at AT TIME ZONE 'Europe/Sofia')::date < bounds.next),
       (SELECT coalesce(sum(p.amount_cents), 0)::bigint FROM club_payments p WHERE p.club_id = c.id
+          AND p.method <> 'wallet'
           AND p.received_on >= bounds.first AND p.received_on < bounds.next)
       FROM clubs c, bounds
      WHERE c.status <> 'archived' AND c.applied_at < bounds.next

@@ -79,6 +79,9 @@ export const CLUB_AUDIT_ACTIONS = [
   'sale_reversed',
   'promotion_saved',
   'promotion_archived',
+  'wallet_topped_up',
+  'invoice_issued',
+  'credit_note_issued',
 ] as const;
 export type ClubAuditAction = (typeof CLUB_AUDIT_ACTIONS)[number];
 
@@ -100,9 +103,16 @@ export const PASSPORT_CHECKIN_METHODS: readonly ClubCheckinMethod[] = [
   'card',
 ];
 
-/** club_payments_method_known (0041), minus the phase-2 online method. */
-export const CLUB_PAYMENT_METHODS = ['cash', 'card_desk', 'bank', 'other'] as const;
+/**
+ * club_payments_method_known (0041, 0050), minus the online method, which
+ * only the provider records. 'wallet' is the client's prepaid credit (0050):
+ * offered only where the club's tier has the wallet.
+ */
+export const CLUB_PAYMENT_METHODS = ['cash', 'card_desk', 'bank', 'wallet', 'other'] as const;
 export type ClubPaymentMethod = (typeof CLUB_PAYMENT_METHODS)[number];
+
+/** Every value of club_payments_method_known, the provider's included. */
+export const CLUB_PAYMENT_METHODS_ALL = [...CLUB_PAYMENT_METHODS, 'card_online'] as const;
 
 /** club_charges_kind_known (0041). */
 export const CLUB_CHARGE_KINDS = [
@@ -111,6 +121,7 @@ export const CLUB_CHARGE_KINDS = [
   'product',
   'fee',
   'reservation',
+  'wallet',
   'other',
 ] as const;
 export type ClubChargeKind = (typeof CLUB_CHARGE_KINDS)[number];

@@ -338,7 +338,23 @@ and, where an outside service is involved, by an env switch as well.
     of it after the offer) and on a one-off online purchase (recorded when the
     money lands); never on a Stripe subscription. Shop behind `shop` +
     `CLUB_SHOP_ENABLED`; offers behind `promotions`.
-  - [ ] **B2 — wallet and invoices**
+  - [x] **B2 — wallet and invoices** (`0050`): a client's prepaid credit
+    («Предплатен кредит») derived from the 0041 books — a top-up is a `wallet`
+    charge created already paid (at the desk, or online when the money
+    arrives), spending is a `wallet` payment at the desk, on a plan sale or at
+    the till; a trigger keeps every balance the club writes at zero or above
+    and is the only arbiter; a top-up is never owed, paid back rather than
+    voided, and a client with credit is never erased. Revenue figures leave
+    `wallet` payments out (the money came once, as the top-up). Invoices and
+    credit notes («Фактури»): issued from a charge (a till sale's lines, or
+    the charge as one line) to a person or a company, with the club's
+    details (address, VAT number, IBAN, default rate) snapshotted; VAT split
+    from gross to the cent (pure `lib/src/clubs/invoices.ts`); one gapless
+    10-digit series, never dated before the previous number; lines written
+    with their document and adding up to it at commit; never changed — a
+    credit note cancels the whole; never for a top-up (credit is invoiced
+    when spent). The document reads in Bulgarian in any UI locale and prints
+    from the browser. Invoices behind `invoices` + `CLUB_SHOP_ENABLED`.
 - [ ] **F — push, SMS, broadcasts, automations, inbox, leads, feedback**
 - [ ] **D — events, camps, tournaments**
 - [ ] **G — waivers and documents, ranks and belts**

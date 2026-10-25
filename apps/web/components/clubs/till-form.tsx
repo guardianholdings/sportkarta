@@ -45,7 +45,7 @@ export interface TillLabels {
   member: string;
   walkIn: string;
   method: string;
-  methods: Record<'cash' | 'card_desk' | 'other' | 'account', string>;
+  methods: Record<'cash' | 'card_desk' | 'other' | 'wallet' | 'account', string>;
   code: string;
   location: string;
   total: string;
@@ -69,6 +69,7 @@ export function TillForm({
   members,
   locations,
   offers,
+  wallet = false,
 }: {
   action: (state: TillState, payload: FormData) => Promise<TillState>;
   preview: (input: {
@@ -91,6 +92,8 @@ export function TillForm({
   members: { id: string; label: string }[];
   locations: { id: string; name: string }[];
   offers: boolean;
+  /** The club's tier has prepaid credit (0050): a client may pay from it. */
+  wallet?: boolean;
 }) {
   const [state, formProps, pending] = useFormAction(action, INITIAL);
   const [cart, setCart] = useState<Record<string, number>>({});
@@ -243,8 +246,8 @@ export function TillForm({
             onChange={(event) => {
               const next = event.currentTarget.value;
               setMemberId(next);
-              // On account needs somebody to owe it.
-              if (next === '' && method === 'account') setMethod('cash');
+              // On account, or from credit, needs a client.
+              if (next === '' && (method === 'account' || method === 'wallet')) setMethod('cash');
             }}
             className="mt-1"
           >
@@ -259,21 +262,24 @@ export function TillForm({
         <fieldset className="space-y-1">
           <legend className="text-caption text-ink-soft">{labels.method}</legend>
           <div className="flex flex-wrap gap-1.5">
-            {(['cash', 'card_desk', 'other', 'account'] as const).map((value) => (
+            {(wallet
+              ? (['cash', 'card_desk', 'other', 'wallet', 'account'] as const)
+              : (['cash', 'card_desk', 'other', 'account'] as const)
+            ).map((value) => (
               <label
                 key={value}
                 className={`flex min-h-10 cursor-pointer items-center gap-1.5 rounded-pill border px-3 text-body-sm ${
                   method === value
                     ? 'border-brand bg-brand-subtle text-ink'
                     : 'border-line-strong text-ink-soft'
-                } ${value === 'account' && memberId === '' ? 'opacity-50' : ''}`}
+                } ${(value === 'account' || value === 'wallet') && memberId === '' ? 'opacity-50' : ''}`}
               >
                 <input
                   type="radio"
                   name="method"
                   value={value}
                   checked={method === value}
-                  disabled={value === 'account' && memberId === ''}
+                  disabled={(value === 'account' || value === 'wallet') && memberId === ''}
                   onChange={() => setMethod(value)}
                   className="size-4 accent-[var(--brand)]"
                 />

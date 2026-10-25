@@ -6,6 +6,7 @@ import { PrintButton } from '@/components/clubs/print-button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Link } from '@/i18n/navigation';
 import { actorCan, clubName, requireClubStaff } from '@/lib/clubs/club-session';
+import { featureOn } from '@/lib/clubs/features';
 import { isUuid } from '@/lib/clubs/input';
 import { saleById } from '@/lib/clubs/shop';
 import { formatDateTime } from '@/lib/format';
@@ -28,6 +29,7 @@ export default async function ClubSalePage({
   const { locale, slug, saleId } = await params;
   setRequestLocale(locale);
   const { actor, club } = await requireClubStaff(slug, 'shop.sell');
+  const invoicesOn = featureOn(club, 'invoices') && actorCan(actor, 'invoices.issue');
   if (!isUuid(saleId)) notFound();
   const sale = await saleById(actor, saleId);
   if (!sale) notFound();
@@ -132,6 +134,18 @@ export default async function ClubSalePage({
         >
           {t('newSale')}
         </Link>
+        {invoicesOn && sale.chargeId && (sale.invoiceId || !sale.reversed) && (
+          <Link
+            href={
+              sale.invoiceId
+                ? `/klub/${slug}/fakturi/${sale.invoiceId}`
+                : { pathname: `/klub/${slug}/fakturi/nova`, query: { zadalzhenie: sale.chargeId } }
+            }
+            className="inline-flex min-h-11 items-center rounded-pill border border-line-strong px-4 text-body-sm font-semibold text-ink hover:bg-surface-2"
+          >
+            {sale.invoiceId ? t('invoiceOpen') : t('invoiceIssue')}
+          </Link>
+        )}
         {canReverse && (
           <form action={reverseSaleAction}>
             <input type="hidden" name="slug" value={slug} />

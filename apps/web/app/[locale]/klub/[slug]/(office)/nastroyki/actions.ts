@@ -10,6 +10,7 @@ import {
   isUuid,
   parseClubSettings,
   parseFaq,
+  parseInvoiceDetails,
   parseLocation,
   parseTermsUrl,
 } from '@/lib/clubs/input';
@@ -23,6 +24,7 @@ import {
 import {
   removeFaq,
   saveFaq,
+  saveInvoiceDetails,
   saveLocation,
   saveTermsUrl,
   setClubLogo,
@@ -243,4 +245,23 @@ export async function saveTermsUrlAction(formData: FormData): Promise<void> {
   const saved = parsed.ok && (await saveTermsUrl(getDb(), actor, parsed.value));
   refresh(slug);
   paymentsBack(slug, saved ? 'terms_saved' : 'read_only', locale);
+}
+
+/**
+ * What an invoice prints about the club (0050): its address, VAT number,
+ * IBAN and default VAT rate (the legal name and EIK are the club's identity,
+ * above). settings.manage.
+ */
+export async function saveInvoiceDetailsAction(formData: FormData): Promise<void> {
+  const slug = slugOf(formData);
+  const { actor } = await requireClubStaff(slug, 'settings.manage');
+  const locale = await getLocale();
+  const parsed = parseInvoiceDetails(formData);
+  // `outcome` is this file's own literal or a parser code, never user input.
+  const back = (outcome: string): never =>
+    redirect({ href: `/klub/${slug}/nastroyki?fakturi=${outcome}#fakturi`, locale });
+  if (!parsed.ok) return back(parsed.errors[0] ?? 'invalid');
+  const saved = await saveInvoiceDetails(getDb(), actor, parsed.value);
+  refresh(slug);
+  return back(saved ? 'saved' : 'read_only');
 }

@@ -351,6 +351,13 @@
       "when": 1785174000000,
       "tag": "0049_club_shop_promotions",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1785177600000,
+      "tag": "0050_club_wallet_invoices",
+      "breakpoints": true
     }
   ]
 }

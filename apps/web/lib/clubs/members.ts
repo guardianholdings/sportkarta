@@ -319,6 +319,8 @@ export interface MemberCharge {
   dueCents: number;
   dueOn: IsoDate;
   status: string;
+  /** Its live invoice (0050), if any. */
+  invoiceId: string | null;
 }
 
 export interface MemberPayment {
@@ -387,11 +389,17 @@ export async function memberCard(actor: ClubActor, memberId: string): Promise<Me
        WHERE mb.club_id = ${clubId}::uuid AND mb.member_id = ${memberId}::uuid
        ORDER BY mb.starts_on DESC, mb.created_at DESC LIMIT 50`),
     db.execute(sql`
-      SELECT charge_id, label, kind, amount_cents, paid_cents, due_cents,
-             to_char(due_on, 'YYYY-MM-DD') AS due_on, status
-        FROM club_charge_balances
-       WHERE club_id = ${clubId}::uuid AND member_id = ${memberId}::uuid
-       ORDER BY issued_on DESC, created_at DESC LIMIT 50`),
+      SELECT cb.charge_id, cb.label, cb.kind, cb.amount_cents, cb.paid_cents, cb.due_cents,
+             to_char(cb.due_on, 'YYYY-MM-DD') AS due_on, cb.status,
+             -- Its live invoice (0050), if one was issued and not wholly credited.
+             (SELECT i.id FROM club_invoices i
+               WHERE i.club_id = cb.club_id AND i.charge_id = cb.charge_id AND i.kind = 'invoice'
+                 AND i.total_cents > coalesce((SELECT sum(c.total_cents) FROM club_invoices c
+                                                WHERE c.club_id = i.club_id AND c.corrects_id = i.id), 0)
+               LIMIT 1) AS invoice_id
+        FROM club_charge_balances cb
+       WHERE cb.club_id = ${clubId}::uuid AND cb.member_id = ${memberId}::uuid
+       ORDER BY cb.issued_on DESC, cb.created_at DESC LIMIT 50`),
     db.execute(sql`
       SELECT p.id, ch.label, p.amount_cents, p.method, p.kind,
              to_char(p.received_on, 'YYYY-MM-DD') AS received_on
@@ -456,6 +464,7 @@ export async function memberCard(actor: ClubActor, memberId: string): Promise<Me
       dueCents: Number(c.due_cents),
       dueOn: String(c.due_on),
       status: String(c.status),
+      invoiceId: c.invoice_id === null || c.invoice_id === undefined ? null : String(c.invoice_id),
     })),
     payments: payments.rows.map((p) => ({
       id: Number(p.id),
@@ -594,20 +603,30 @@ export async function setMemberArchived(
  * books whole with member_id cleared (0040, 0041). The audit row is written
  * first and names the record only by its id, which then resolves to nothing.
  * Owner only ('members.erase'); allowed even when the club is read-only,
- * because an erasure obligation does not lapse with an invoice.
+ * because an erasure obligation does not lapse with an invoice. Refused while
+ * the client still has prepaid credit (0050): that is the client's money, to
+ * be paid back first — erased, it would belong to nobody.
  */
 export async function eraseMember(
   db: TransactionalDb,
   actor: ClubActor,
   memberId: string,
-): Promise<boolean> {
+): Promise<'ok' | 'not_found' | 'credit_left'> {
   return db.transaction(async (tx) => {
     const target = await tx.execute(sql`
       SELECT m.id FROM club_members m
        WHERE m.id = ${memberId}::uuid AND ${clubScope(actor, 'members.erase', 'm')}
        FOR UPDATE
     `);
-    if (target.rows.length === 0) return false;
+    if (target.rows.length === 0) return 'not_found' as const;
+    // A separate statement AFTER the lock: under READ COMMITTED it sees a
+    // top-up that committed while this waited (in the same statement, the
+    // snapshot would predate the wait, and the credit would be orphaned).
+    const credit = await tx.execute(sql`
+      SELECT coalesce(sum(w.balance_cents), 0) AS credit FROM club_wallet_balances w
+       WHERE w.club_id = ${actor.clubId}::uuid AND w.member_id = ${memberId}::uuid
+    `);
+    if (Number(credit.rows[0]?.credit) > 0) return 'credit_left' as const;
     await recordClubAudit(tx, {
       clubId: actor.clubId,
       by: { kind: 'staff', actor },
@@ -618,7 +637,7 @@ export async function eraseMember(
       DELETE FROM club_members m
        WHERE m.id = ${memberId}::uuid AND m.club_id = ${actor.clubId}::uuid
     `);
-    return true;
+    return 'ok' as const;
   });
 }
 

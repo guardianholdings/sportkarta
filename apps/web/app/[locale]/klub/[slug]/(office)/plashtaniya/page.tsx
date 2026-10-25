@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Link } from '@/i18n/navigation';
 import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { deskPaymentMethods } from '@/lib/clubs/features';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { isUuid } from '@/lib/clubs/input';
 import { memberChoices } from '@/lib/clubs/members';
@@ -47,7 +48,7 @@ export default async function ClubPaymentsPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor } = await requireClubStaff(slug, 'payments.view');
+  const { actor, club } = await requireClubStaff(slug, 'payments.view');
   const query = await searchParams;
   const today = sofiaToday();
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(query.mesec ?? '')
@@ -73,6 +74,10 @@ export default async function ClubPaymentsPage({
     ...Object.fromEntries(CLUB_PAYMENT_METHODS.map((m) => [m, tClub(`method.${m}`)])),
     card_online: tClub('method.card_online'),
   };
+  // What the desk may record with: prepaid credit only where the tier has it,
+  // never the provider's own online method.
+  const desk = deskPaymentMethods(club);
+  const deskMethods = Object.fromEntries(desk.map((m) => [m, methods[m] ?? m]));
   const canRefund = actorCan(actor, 'charges.void');
   const section = 'space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm';
 
@@ -179,7 +184,7 @@ export default async function ClubPaymentsPage({
                       <input type="hidden" name="slug" value={slug} />
                       <input type="hidden" name="reservationId" value={row.reservationId} />
                       <Select name="method" size="sm" aria-label={t('refundMethod')}>
-                        {CLUB_PAYMENT_METHODS.map((m) => (
+                        {desk.map((m) => (
                           <option key={m} value={m}>
                             {methods[m]}
                           </option>
@@ -228,7 +233,7 @@ export default async function ClubPaymentsPage({
                 payment: t('payment'),
                 refund: t('refund'),
                 method: t('col.method'),
-                methods,
+                methods: deskMethods,
                 amount: t('chargeAmount'),
                 receivedOn: t('col.date'),
                 submit: t('submit'),

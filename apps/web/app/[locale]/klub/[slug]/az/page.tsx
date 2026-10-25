@@ -16,6 +16,7 @@ import { requireClubsEnabled } from '@/lib/clubs/club-session';
 import { clubSportLabeler } from '@/lib/clubs/labels';
 import { clubTakesPayments } from '@/lib/clubs/payments';
 import { memberReservations, publicServices } from '@/lib/clubs/reservations';
+import { clubTakesWallet, portalWalletBalances } from '@/lib/clubs/wallet';
 import { portalView, type PortalMembership, type PortalRecord } from '@/lib/clubs/portal';
 import { ownContact } from '@/lib/clubs/self-service';
 import { formatDate, formatDateTime } from '@/lib/format';
@@ -86,11 +87,15 @@ export default async function ClubPortalPage({
     clubSportLabeler(),
   ]);
   const { club, link, records, classes } = view;
-  const [contact, takesPayments, reservations, services] = await Promise.all([
+  const [contact, takesPayments, reservations, services, walletOn, credit] = await Promise.all([
     link?.status === 'active' ? ownContact(getDb(), user.id, club.id) : Promise.resolve(null),
     club.live ? clubTakesPayments(club.id) : Promise.resolve(false),
     link?.status === 'active' ? memberReservations(user.id, club.id, locale) : Promise.resolve([]),
     publicServices(club.id, locale),
+    clubTakesWallet(club.id),
+    link?.status === 'active'
+      ? portalWalletBalances(user.id, club.id)
+      : Promise.resolve<Record<string, number>>({}),
   ]);
   const now = Date.now();
   const booked = new Map<string, Set<string>>();
@@ -218,6 +223,33 @@ export default async function ClubPortalPage({
                     label={t('owes', { amount: formatEuro(record.owedCents, locale) })}
                   />
                 </p>
+              )}
+              {(walletOn || credit[record.memberId] !== undefined) && (
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <p className="min-w-0 flex-1 text-body-sm text-ink">
+                    {t('wallet', { amount: formatEuro(credit[record.memberId] ?? 0, locale) })}
+                  </p>
+                  {walletOn && takesPayments && (
+                    <form action={portalOpAction} className="flex items-center gap-2">
+                      {hidden(record.memberId)}
+                      <input type="hidden" name="op" value="top_up" />
+                      <label className="sr-only" htmlFor={`top-${record.memberId}`}>
+                        {t('walletAmount')}
+                      </label>
+                      <input
+                        id={`top-${record.memberId}`}
+                        name="amount"
+                        inputMode="decimal"
+                        required
+                        placeholder={t('walletAmountPlaceholder')}
+                        className="min-h-11 w-24 rounded-input border border-line-strong bg-surface px-3 text-body-sm text-ink"
+                      />
+                      <button type="submit" className={pill}>
+                        {t('walletTopUp')}
+                      </button>
+                    </form>
+                  )}
+                </div>
               )}
               {takesPayments && record.openCharges.length > 0 && (
                 <ul className="space-y-2 pt-1">

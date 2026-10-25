@@ -1,5 +1,12 @@
 import { sql, type SQL } from '@sportkarta/db';
-import { CLUB_TIERS, clubHasFeature, type ClubFeature, type ClubTier } from '@sportkarta/lib/clubs';
+import {
+  CLUB_PAYMENT_METHODS,
+  CLUB_TIERS,
+  clubHasFeature,
+  type ClubFeature,
+  type ClubPaymentMethod,
+  type ClubTier,
+} from '@sportkarta/lib/clubs';
 
 /**
  * Whether a club may use a feature: its TIER includes it (the pure matrix in
@@ -51,4 +58,18 @@ export function clubFeatureSql(clubId: string, feature: ClubFeature): SQL {
   if (tiers.length === 0) return sql`false`;
   return sql`EXISTS (SELECT 1 FROM clubs ft WHERE ft.id = ${clubId}::uuid
                        AND ft.tier = ANY(${sql.param([...tiers])}::text[]))`;
+}
+
+/** The desk's payment methods: prepaid credit only where the tier has the wallet (0050). */
+export function deskPaymentMethods(club: { tier: ClubTier }): ClubPaymentMethod[] {
+  return CLUB_PAYMENT_METHODS.filter((m) => m !== 'wallet' || featureOn(club, 'wallet'));
+}
+
+/**
+ * SQL: a payment's method is allowed for this club — prepaid credit (0050)
+ * only on a tier with the wallet. Embedded in every desk payment's INSERT, so
+ * a forged form cannot spend credit where the feature is off.
+ */
+export function walletMethodAllowed(clubId: string, method: string): SQL {
+  return method === 'wallet' ? clubFeatureSql(clubId, 'wallet') : sql`true`;
 }

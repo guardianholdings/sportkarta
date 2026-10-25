@@ -2993,7 +2993,8 @@
       "card_desk": "Card at the desk",
       "bank": "Bank transfer",
       "card_online": "Card online",
-      "other": "Other"
+      "other": "Other",
+      "wallet": "From credit"
     },
     "checkinMethod": {
       "qr_kiosk": "Tablet QR",
@@ -3040,7 +3041,8 @@
       "product": "products",
       "fee": "fees",
       "other": "other",
-      "reservation": "bookings"
+      "reservation": "bookings",
+      "wallet": "credit"
     },
     "feature": {
       "reports_advanced": "advanced reports",
@@ -3183,7 +3185,8 @@
       "resources": "Facilities",
       "sales": "Sales",
       "products": "Products",
-      "promotions": "Offers"
+      "promotions": "Offers",
+      "invoices": "Invoices"
     },
     "map": "Back to the map",
     "profile": "My profile",
@@ -3390,7 +3393,31 @@
       "code_taken": "A live offer already has this code.",
       "sale_too_large": "The sale is over €100,000.",
       "till_sale_charge": "This is a till sale — reverse it from Sales.",
-      "stock_count_too_far": "The difference from the stock on hand is over 100,000. Check the count."
+      "stock_count_too_far": "The difference from the stock on hand is over 100,000. Check the count.",
+      "invalid": "Check the details.",
+      "wallet_insufficient": "The client's credit is not enough.",
+      "wallet_needs_client": "Paying with credit needs a client.",
+      "wallet_not_for_credit": "Credit is not paid with credit.",
+      "wallet_void": "Credit with money on it is not voided — pay it back.",
+      "wallet_spent": "Part of the credit has been spent — only the unspent part can be refunded.",
+      "credit_left": "The client has prepaid credit. Pay it back before erasing the record.",
+      "invoice_details_missing": "Fill in the club's invoice details.",
+      "invoice_exists": "This charge already has an invoice.",
+      "already_credited": "The invoice has already been credited.",
+      "buyer_incomplete": "A company needs an EIK or VAT number and an address.",
+      "buyer_name_invalid": "Enter the buyer's name.",
+      "buyer_id_required": "Enter the company's EIK or VAT number.",
+      "buyer_address_required": "Enter the company's address.",
+      "vat_number_invalid": "Invalid VAT number.",
+      "iban_invalid": "Invalid IBAN — check the digits.",
+      "vat_rate_invalid": "Choose a VAT rate.",
+      "reason_required": "Enter a reason.",
+      "invoice_chronology": "An invoice cannot be dated before the previous number.",
+      "invoice_live": "The charge has an invoice. Issue a credit note from Invoices first.",
+      "wallet_refund_exceeds": "Only what was paid with credit goes back to credit. Choose the method it was paid with.",
+      "zero_vat_basis_missing": "A line has a 0 % rate. Fill in the basis under Invoice details.",
+      "basis_too_long": "The basis is too long.",
+      "person_no_id": "No EIK or VAT number is entered for a person. Choose “a company” or remove the number."
     }
   },
   "ClubSettings": {
@@ -3514,6 +3541,22 @@
         "read_only": "The club is read-only — nothing has changed.",
         "subscriptions_live": "Some members have memberships paid automatically by card. Stop their renewal before disconnecting Stripe."
       }
+    },
+    "invoices": {
+      "title": "Invoice details",
+      "hint": "What every invoice says about the club. Without a VAT number the club invoices without VAT.",
+      "saved": "Invoice details saved.",
+      "identity": "Supplier: {name}, EIK {eik} (from the identity above).",
+      "identityMissing": "Fill in the legal name and EIK in the identity above — no invoice can be issued without them.",
+      "address": "Registered address",
+      "vatNumber": "VAT number",
+      "iban": "IBAN",
+      "vatRate": "VAT on plans and services",
+      "rate": "{rate} %",
+      "vatRateHint": "Products carry their own rate.",
+      "save": "Save",
+      "zeroBasis": "Basis for a 0 % rate (if you sell such items)",
+      "zeroBasisHint": "Printed on an invoice with a 0 % line, e.g. the provision of the VAT Act. Ask your accountant."
     }
   },
   "ClubTeam": {
@@ -3757,13 +3800,32 @@
         "checked_in_uncovered": "Checked in — the member has no valid membership.",
         "already": "Already checked in today.",
         "club_closed": "The club is read-only.",
-        "not_linked": "The record is not linked to an account."
+        "not_linked": "The record is not linked to an account.",
+        "wallet_topped_up": "Credit topped up.",
+        "wallet_paid_out": "Paid back and taken off the credit."
       },
       "renews": "Renews automatically.",
       "renewed": "Renewed — the next period is already added.",
       "renewalEnds": "Renewal stops: the contract runs until {date}.",
       "stopRenewal": "Stop renewing",
-      "startRenewal": "Renew automatically"
+      "startRenewal": "Renew automatically",
+      "invoiceOpen": "Invoice",
+      "invoiceIssue": "Issue invoice",
+      "wallet": "Prepaid credit",
+      "walletHint": "Money paid in advance. The client pays with it at the desk and the till; what is unused is paid back.",
+      "walletTopUp": "Top up (€)",
+      "walletPayOut": "Pay back (€)",
+      "walletMethod": "Method",
+      "walletTopUpSubmit": "Top up",
+      "walletPayOutSubmit": "Pay back",
+      "walletPayOutConfirm": "The amount is paid back to the client and taken off the credit. Continue?",
+      "walletTopUpLabel": "Prepaid credit",
+      "walletEntry": {
+        "top_up": "top-up",
+        "paid_out": "paid back to the client",
+        "spent": "paid with credit",
+        "returned": "returned to credit"
+      }
     },
     "audit": {
       "title": "Actions",
@@ -3819,7 +3881,38 @@
       "checkin_recorded": "Check-in",
       "import_committed": "CSV import",
       "export_downloaded": "Data downloaded",
-      "ngo_admin_viewed": "Viewed by the association"
+      "ngo_admin_viewed": "Viewed by the association",
+      "membership_renewed": "Membership renewed",
+      "renewal_stopped": "Renewal stopped",
+      "fee_charged": "Fee charged",
+      "time_off_saved": "Time off saved",
+      "time_off_removed": "Time off removed",
+      "faq_saved": "Question saved",
+      "faq_removed": "Question removed",
+      "staff_profile_changed": "Trainer profile changed",
+      "preferences_changed": "Preferences changed",
+      "payment_account_connected": "Stripe connected",
+      "payment_account_disconnected": "Stripe disconnected",
+      "checkout_started": "Online payment started",
+      "online_payment_received": "Online payment received",
+      "online_refund_issued": "Online payment refunded",
+      "resource_saved": "Resource saved",
+      "resource_archived": "Resource archived",
+      "hours_saved": "Opening hours saved",
+      "service_saved": "Service saved",
+      "service_archived": "Service archived",
+      "reservation_created": "Reservation made",
+      "reservation_cancelled": "Reservation cancelled",
+      "product_saved": "Product saved",
+      "product_archived": "Product archived",
+      "stock_moved": "Stock changed",
+      "sale_recorded": "Sale recorded",
+      "sale_reversed": "Sale reversed",
+      "promotion_saved": "Offer saved",
+      "promotion_archived": "Offer ended",
+      "wallet_topped_up": "Credit topped up",
+      "invoice_issued": "Invoice issued",
+      "credit_note_issued": "Credit note issued"
     }
   },
   "ClubSales": {
@@ -3938,7 +4031,9 @@
         "refund_amount_invalid": "The amount is more than what is left to refund.",
         "refund_not_allowed": "This payment cannot be refunded from here.",
         "refund_provider_error": "Stripe did not accept the refund. Try again or refund it from the Stripe dashboard.",
-        "refund_account_changed": "This payment went to a Stripe account that is no longer connected. Refund it from the Stripe dashboard."
+        "refund_account_changed": "This payment went to a Stripe account that is no longer connected. Refund it from the Stripe dashboard.",
+        "refund_wallet_spent": "Part of the credit has been spent — only the unspent part goes back online.",
+        "refund_invoice_live": "The payment is on an invoiced charge. Issue a credit note first."
       },
       "refundsDueTitle": "Bookings to refund",
       "refundsDueHint": "Paid bookings cancelled in time. Refund the amount and record the refund: the row disappears once it is recorded.",
@@ -4234,7 +4329,8 @@
       "reservation_cancelled": "Your booking is cancelled.",
       "reservation_cancelled_late": "Your booking is cancelled after the free cancellation period.",
       "reservation_cancelled_refund": "Your booking is cancelled. The club will refund what you paid.",
-      "payment_hold_ending": "The time to pay for this booking is running out. Cancel it and book again."
+      "payment_hold_ending": "The time to pay for this booking is running out. Cancel it and book again.",
+      "payment_amount_invalid": "Enter an amount between €0.50 and €1,000."
     },
     "checkin": {
       "recorded": "Your attendance is marked.",
@@ -4283,7 +4379,12 @@
     "cancelReservation": "Cancel",
     "cancelReservationConfirm": "The booking will be cancelled. Continue?",
     "cancelReservationLate": "The free cancellation period has passed — the amount stays due. Cancel the booking?",
-    "reserveCta": "Book"
+    "reserveCta": "Book",
+    "wallet": "Credit: {amount}",
+    "walletAmount": "Amount to top up (€)",
+    "walletAmountPlaceholder": "e.g. 20",
+    "walletTopUp": "Top up online",
+    "walletTopUpLabel": "Prepaid credit"
   },
   "ClubApply": {
     "title": "Register a club on POPS",
@@ -4909,7 +5010,8 @@
       "recorded": "Sale recorded.",
       "reversed": "Sale reversed.",
       "not_found": "The sale is already reversed or was not found.",
-      "paid_online": "This sale was paid online. Refund the online payment from Payments first, then reverse the sale."
+      "paid_online": "This sale was paid online. Refund the online payment from Payments first, then reverse the sale.",
+      "invoice_live": "The sale has an invoice. Issue a credit note first, then reverse it."
     },
     "salesTitle": "Sales",
     "salesIntro": "Sales from the till. Each has a number and a receipt.",
@@ -4950,7 +5052,9 @@
     "reverse": "Reverse",
     "reverseConfirm": "The sale will be reversed: the goods go back into stock and what was paid goes back the same way. Continue?",
     "refunded": "refunded {amount}",
-    "number": "No. {number}"
+    "number": "No. {number}",
+    "invoiceOpen": "Invoice",
+    "invoiceIssue": "Issue invoice"
   },
   "ClubPromotions": {
     "title": "Offers and vouchers",
@@ -5013,5 +5117,51 @@
     "newMembersOnly": "New clients only (no membership so far)",
     "rulesHint": "An offer limited per client, to new or to loyal clients applies only when a client is chosen, never to an anonymous sale.",
     "save": "Create the offer"
+  },
+  "ClubInvoices": {
+    "title": "Invoices",
+    "switchedOff": "Invoices are not switched on for clubs yet. They will be after an accountant's check.",
+    "upsell": "Invoices are part of the “{tier}” plan.",
+    "intro": "The club's invoices and credit notes, by number. An invoice is issued from a charge — on the client's card or a sale's receipt.",
+    "detailsHint": "What invoices say about the club:",
+    "detailsLink": "Invoice details",
+    "none": "No invoices yet.",
+    "kind": {
+      "invoice": "invoice",
+      "credit_note": "credit note"
+    },
+    "credited": "credited",
+    "newTitle": "New invoice",
+    "detailsMissing": "Fill in the club's invoice details before issuing the first one.",
+    "draft": "What the invoice will say",
+    "vatIncluded": "Of which VAT",
+    "total": "Total",
+    "vatRegistered": "The club is VAT-registered: prices include VAT, shown separately.",
+    "notVatRegistered": "The club is not VAT-registered: the invoice carries no VAT.",
+    "buyer": "Made out to",
+    "buyerKind": {
+      "person": "a person",
+      "company": "a company"
+    },
+    "buyerName": "Name",
+    "buyerAddress": "Address",
+    "buyerAddressHint": "Required for a company; for a person only if the client asks.",
+    "buyerEik": "EIK (a company)",
+    "buyerVatNumber": "VAT number (a company)",
+    "companyHint": "A Bulgarian company by its EIK, a foreign one by its VAT number. No identification number is ever entered for a person.",
+    "issue": "Issue invoice",
+    "issueNote": "An issued invoice never changes. A mistake is corrected with a credit note.",
+    "outcome": {
+      "issued": "Invoice issued.",
+      "credited": "Credit note issued."
+    },
+    "print": "Print",
+    "creditNoteLink": "Credit note {number}",
+    "creditTitle": "Cancel with a credit note",
+    "creditHint": "A credit note for the whole invoice is issued, with the same lines and parties.",
+    "creditReason": "Reason",
+    "creditConfirm": "A credit note for the whole invoice will be issued. Continue?",
+    "creditIssue": "Issue credit note",
+    "older": "Older invoices →"
   }
 }

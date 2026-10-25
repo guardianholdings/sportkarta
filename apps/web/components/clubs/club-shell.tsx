@@ -48,6 +48,7 @@ const NAV: readonly {
   { segment: 'prodazhbi', key: 'sales', permission: 'shop.sell', feature: 'shop' },
   { segment: 'produkti', key: 'products', permission: 'shop.manage', feature: 'shop' },
   { segment: 'promocii', key: 'promotions', permission: 'plans.manage', feature: 'promotions' },
+  { segment: 'fakturi', key: 'invoices', permission: 'invoices.issue', feature: 'invoices' },
   { segment: 'otcheti', key: 'reports', permission: 'reports.view' },
   { segment: 'ekip', key: 'team', permission: 'staff.view' },
   { segment: 'resursi', key: 'resources', permission: 'settings.manage' },

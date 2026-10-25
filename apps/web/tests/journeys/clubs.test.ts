@@ -83,8 +83,11 @@ import {
   refundOnlinePayment,
   startChargeCheckout,
   startPlanCheckout,
+  startWalletCheckout,
   unappliedCheckouts,
 } from '@/lib/clubs/payments';
+import { clubInvoices, invoiceById, issueCreditNote, issueInvoice } from '@/lib/clubs/invoices';
+import { memberWallet, payOutWallet, topUpWallet } from '@/lib/clubs/wallet';
 import { memberClubs, portalView } from '@/lib/clubs/portal';
 import {
   availability,
@@ -117,6 +120,7 @@ import { ClassRoomTaken, occurrenceRoster, saveClass, weekOccurrences } from '@/
 import type { ClubActor } from '@/lib/clubs/scope';
 import {
   clubLocations,
+  saveInvoiceDetails,
   saveLocation,
   setClubVisible,
   updateClubSettings,
@@ -1767,7 +1771,7 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
       // ── An erased client's booking can still be cancelled at the desk.
       const goner = await bookReservation(db, atDesk, slot(onSite, '19:00', stranger.memberId));
       if (!goner.ok) throw new Error(goner.error);
-      expect(await eraseMember(db, owner, stranger.memberId)).toBe(true);
+      expect(await eraseMember(db, owner, stranger.memberId)).toBe('ok');
       expect(await cancelReservation(db, atDesk, goner.reservationId)).toMatchObject({ ok: true });
 
       // ── Appointments: the trainer's hours ∩ the location's, minus the
@@ -2431,7 +2435,7 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
       if (!paying.ok) throw new Error(paying.error);
       expect(await fakeSettle(paying.checkoutId, 'paid')).toBe(true);
       expect(await reverseSale(db, owner, tab.saleId)).toBe('paid_online');
-      expect(await voidCharge(db, owner, tabCharge)).toBe(false);
+      expect(await voidCharge(db, owner, tabCharge)).toBe('till_sale_charge');
       const online = await db.execute(sql`
         SELECT id FROM club_payments
          WHERE charge_id = ${tabCharge}::uuid AND method = 'card_online' AND kind = 'payment'`);
@@ -2464,6 +2468,520 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
     }
   });
 
+  it('loads, spends and pays back credit, and invoices a sale with a credit note', async () => {
+    vi.stubEnv('CLUB_PAYMENTS_ENABLED', 'true');
+    vi.stubEnv('PAYMENT_PROVIDER', 'fake');
+    try {
+      const today = sofiaToday();
+      const back = { base: 'http://localhost', locale: 'bg' as const };
+      const label = 'Предплатен кредит';
+      const shake = await saveProduct(db, owner, null, {
+        name: 'Шейк',
+        sku: null,
+        category: 'drink',
+        priceCents: 1500,
+        vatRateBp: 2000,
+        trackStock: false,
+        lowStockAt: null,
+        sortOrder: 0,
+      });
+      if (!shake.ok) throw new Error(shake.error);
+      const till = (buyer: string | null, method: 'cash' | 'wallet', quantity = 1) =>
+        recordTillSale(
+          db,
+          desk,
+          {
+            lines: [{ productId: shake.productId, quantity }],
+            memberId: buyer,
+            method,
+            code: null,
+            locationId: null,
+          },
+          (n) => `Продажба №${n}`,
+        );
+      const created = await createMember(db, desk, {
+        displayName: 'Кредит Журни',
+        email: null,
+        phone: null,
+        isMinor: false,
+        guardianMemberId: null,
+        tags: [],
+        staffNote: null,
+      });
+      if (!created.ok) throw new Error('member');
+      const client = created.memberId;
+      const credit = async (who = client) => (await memberWallet(owner, who)).balanceCents;
+
+      // ── Loaded at the desk, spent on a plan and at the till.
+      expect(
+        await topUpWallet(
+          db,
+          desk,
+          { memberId: client, amountCents: 5000, method: 'cash', receivedOn: today },
+          label,
+        ),
+      ).toEqual({ ok: true });
+      expect(await credit()).toBe(5000);
+      const plan = await savePlan(db, owner, null, {
+        nameBg: 'Кредит план',
+        nameEn: null,
+        descriptionBg: null,
+        descriptionEn: null,
+        kind: 'unlimited',
+        audience: 'all',
+        priceCents: 3000,
+        validityDays: 30,
+        validityMonths: null,
+        visitsCount: null,
+        visibility: 'public',
+        ...NO_TERMS,
+      });
+      if (!plan) throw new Error('plan');
+      expect(
+        await sellMembership(db, desk, {
+          memberId: client,
+          planId: plan,
+          startsOn: today,
+          dueOn: today,
+          payment: { method: 'wallet', amountCents: null, receivedOn: today },
+        }),
+      ).toMatchObject({ ok: true });
+      expect(await credit()).toBe(2000);
+      // More than is left, or no client to take it from: refused.
+      expect(await till(client, 'wallet', 2)).toEqual({ ok: false, error: 'wallet_insufficient' });
+      expect(await till(null, 'wallet')).toEqual({ ok: false, error: 'wallet_needs_client' });
+      const paidWithCredit = await till(client, 'wallet');
+      if (!paidWithCredit.ok) throw new Error(paidWithCredit.error);
+      expect(await credit()).toBe(500);
+      // Reversing the sale gives the credit back.
+      expect(await reverseSale(db, owner, paidWithCredit.saleId)).toBe('ok');
+      expect(await credit()).toBe(2000);
+      // The client's credit history, newest first.
+      const wallet = await memberWallet(owner, client);
+      expect(wallet.entries.map((e) => e.kind)).toEqual(['returned', 'spent', 'spent', 'top_up']);
+
+      // ── The client's money: never erased with it, paid back no further than it goes.
+      expect(await eraseMember(db, owner, client)).toBe('credit_left');
+      expect(
+        await payOutWallet(db, desk, {
+          memberId: client,
+          amountCents: 2500,
+          method: 'cash',
+          receivedOn: today,
+        }),
+      ).toEqual({ ok: false, error: 'wallet_insufficient' });
+      expect(
+        await payOutWallet(db, desk, {
+          memberId: client,
+          amountCents: 2000,
+          method: 'cash',
+          receivedOn: today,
+        }),
+      ).toEqual({ ok: true });
+      expect(await credit()).toBe(0);
+
+      // ── Loaded online: the charge exists only once the money does, and an
+      // online refund gives back only what is unspent.
+      const before = await credit(memberId);
+      const online = await startWalletCheckout(
+        db,
+        memberUser,
+        { id: clubId, slug },
+        { memberId, amountCents: 2000, label },
+        back,
+      );
+      if (!online.ok) throw new Error(online.error);
+      expect(await credit(memberId)).toBe(before);
+      expect(await fakeSettle(online.checkoutId, 'paid')).toBe(true);
+      expect(await credit(memberId)).toBe(before + 2000);
+      const spent = await till(memberId, 'wallet');
+      if (!spent.ok) throw new Error(spent.error);
+      const loaded = await db.execute(sql`
+        SELECT p.id FROM club_payments p
+          JOIN club_checkouts k ON k.club_id = p.club_id AND k.charge_id = p.charge_id
+         WHERE k.id = ${online.checkoutId}::uuid AND p.kind = 'payment'`);
+      const paymentId = Number(loaded.rows[0]?.id);
+      // 2000 loaded, 1500 spent: the whole 2000 cannot go back to the card.
+      expect(before).toBe(0);
+      expect(await refundOnlinePayment(db, owner, paymentId, null)).toEqual({
+        ok: false,
+        error: 'wallet_spent',
+      });
+      expect(await refundOnlinePayment(db, owner, paymentId, 500)).toEqual({ ok: true });
+      expect(await credit(memberId)).toBe(before + 2000 - 1500 - 500);
+
+      // ── Invoices: the club's details first, then a sale's lines with VAT.
+      const sale = await till(client, 'cash', 2);
+      if (!sale.ok) throw new Error(sale.error);
+      const saleCharge = String(
+        (await db.execute(sql`SELECT charge_id FROM club_sales WHERE id = ${sale.saleId}::uuid`))
+          .rows[0]?.charge_id,
+      );
+      const buyer = {
+        kind: 'company' as const,
+        name: 'Фирма ООД',
+        eik: '987654321',
+        vatNumber: null,
+        address: 'София, ул. Фирмена 2',
+      };
+      expect(await issueInvoice(db, owner, { chargeId: saleCharge, buyer })).toEqual({
+        ok: false,
+        error: 'invoice_details_missing',
+      });
+      await db.execute(
+        sql`UPDATE clubs SET legal_name = 'Журни Фитнес ЕООД', eik = '123456789' WHERE id = ${clubId}::uuid`,
+      );
+      expect(
+        await saveInvoiceDetails(db, owner, {
+          legalAddress: 'София, ул. Тест 1',
+          vatNumber: 'BG123456789',
+          iban: 'BG80BNBG96611020345678',
+          invoiceVatBp: 2000,
+          zeroVatBasis: null,
+        }),
+      ).toBe(true);
+      // The desk does not issue invoices.
+      expect(await issueInvoice(db, desk, { chargeId: saleCharge, buyer })).toEqual({
+        ok: false,
+        error: 'not_allowed',
+      });
+      const issued = await issueInvoice(db, owner, { chargeId: saleCharge, buyer });
+      if (!issued.ok) throw new Error(issued.error);
+      const document = await invoiceById(owner, issued.invoiceId);
+      expect(document).toMatchObject({
+        kind: 'invoice',
+        totalCents: 3000,
+        baseCents: 2500,
+        vatCents: 500,
+        paymentMethod: 'cash',
+        supplier: { vatNumber: 'BG123456789', iban: 'BG80BNBG96611020345678' },
+        buyer: { kind: 'company', eik: '987654321' },
+      });
+      expect(document?.lines).toEqual([
+        expect.objectContaining({
+          description: 'Шейк',
+          quantity: 2,
+          vatRateBp: 2000,
+          totalCents: 3000,
+        }),
+      ]);
+      expect(await issueInvoice(db, owner, { chargeId: saleCharge, buyer })).toEqual({
+        ok: false,
+        error: 'invoice_exists',
+      });
+      // A top-up is not invoiced (credit is, when spent).
+      const topUpCharge = String(
+        (
+          await db.execute(sql`
+            SELECT id FROM club_charges
+             WHERE club_id = ${clubId}::uuid AND member_id = ${client}::uuid AND kind = 'wallet'
+             LIMIT 1`)
+        ).rows[0]?.id,
+      );
+      expect(await issueInvoice(db, owner, { chargeId: topUpCharge, buyer })).toEqual({
+        ok: false,
+        error: 'not_allowed',
+      });
+      // Corrected by a credit note for the whole; then the charge may be invoiced again.
+      const credited = await issueCreditNote(db, owner, issued.invoiceId, 'Грешен получател');
+      if (!credited.ok) throw new Error(credited.error);
+      expect(await issueCreditNote(db, owner, issued.invoiceId, 'Отново')).toEqual({
+        ok: false,
+        error: 'already_credited',
+      });
+      const again = await issueInvoice(db, owner, {
+        chargeId: saleCharge,
+        buyer: { ...buyer, name: 'Правилна Фирма ООД' },
+      });
+      if (!again.ok) throw new Error(again.error);
+      const numbers = (await clubInvoices(owner)).map((i) => [i.number, i.kind]);
+      expect(numbers.slice(0, 3)).toEqual([
+        [3, 'invoice'],
+        [2, 'credit_note'],
+        [1, 'invoice'],
+      ]);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('keeps credit and invoices honest at the edges: tiers, roles, repeats and corrections', async () => {
+    vi.stubEnv('CLUB_PAYMENTS_ENABLED', 'true');
+    vi.stubEnv('PAYMENT_PROVIDER', 'fake');
+    try {
+      const today = sofiaToday();
+      const back = { base: 'http://localhost', locale: 'bg' as const };
+      const label = 'Предплатен кредит';
+      const newClient = async (name: string) => {
+        const made = await createMember(db, desk, {
+          displayName: name,
+          email: null,
+          phone: null,
+          isMinor: false,
+          guardianMemberId: null,
+          tags: [],
+          staffNote: null,
+        });
+        if (!made.ok) throw new Error(name);
+        return made.memberId;
+      };
+      const credit = async (who: string) => (await memberWallet(owner, who)).balanceCents;
+      const top = (who: string, cents: number, nonce?: string) =>
+        topUpWallet(
+          db,
+          desk,
+          {
+            memberId: who,
+            amountCents: cents,
+            method: 'cash',
+            receivedOn: today,
+            ...(nonce ? { nonce } : {}),
+          },
+          label,
+        );
+      const payOut = (who: string, cents: number) =>
+        payOutWallet(db, desk, {
+          memberId: who,
+          amountCents: cents,
+          method: 'cash',
+          receivedOn: today,
+        });
+      const water = await saveProduct(db, owner, null, {
+        name: 'Вода без ДДС',
+        sku: null,
+        category: 'drink',
+        priceCents: 200,
+        vatRateBp: 0,
+        trackStock: false,
+        lowStockAt: null,
+        sortOrder: 0,
+      });
+      if (!water.ok) throw new Error(water.error);
+      const sell = (who: string | null, method: 'cash' | 'wallet') =>
+        recordTillSale(
+          db,
+          desk,
+          {
+            lines: [{ productId: water.productId, quantity: 1 }],
+            memberId: who,
+            method,
+            code: null,
+            locationId: null,
+          },
+          (n) => `Продажба №${n}`,
+        );
+
+      // ── A repeated form loads once (its token is remembered).
+      const ana = await newClient('Ана Кредит');
+      const nonce = '6f1d2c3b-4a59-4e6f-8a7b-9c0d1e2f3a4b';
+      expect(await top(ana, 1000, nonce)).toEqual({ ok: true });
+      expect(await top(ana, 1000, nonce)).toEqual({ ok: true });
+      expect(await credit(ana)).toBe(1000);
+      // A top-up with money on it is paid back, never voided.
+      const anaTopUp = String(
+        (
+          await db.execute(sql`
+            SELECT id FROM club_charges WHERE member_id = ${ana}::uuid AND kind = 'wallet' LIMIT 1`)
+        ).rows[0]?.id,
+      );
+      expect(await voidCharge(db, owner, anaTopUp)).toBe('wallet_void');
+
+      // ── Cash paid for a charge never turns into credit.
+      const cashSale = await sell(ana, 'cash');
+      if (!cashSale.ok) throw new Error(cashSale.error);
+      const cashCharge = String(
+        (
+          await db.execute(
+            sql`SELECT charge_id FROM club_sales WHERE id = ${cashSale.saleId}::uuid`,
+          )
+        ).rows[0]?.charge_id,
+      );
+      expect(
+        await recordPayment(db, owner, {
+          chargeId: cashCharge,
+          kind: 'refund',
+          amountCents: -200,
+          method: 'wallet',
+          receivedOn: today,
+        }),
+      ).toEqual({ ok: false, error: 'wallet_refund_exceeds' });
+
+      // ── Roles: a trainer neither loads nor pays back credit.
+      const trainerId = await user('trainer_b2');
+      await db.execute(
+        sql`INSERT INTO club_staff (club_id, user_id, role) VALUES (${clubId}::uuid, ${trainerId}, 'trainer')`,
+      );
+      const trainer: ClubActor = { userId: trainerId, clubId, role: 'trainer', ngoAdmin: false };
+      expect(
+        await topUpWallet(
+          db,
+          trainer,
+          { memberId: ana, amountCents: 100, method: 'cash', receivedOn: today },
+          label,
+        ),
+      ).toEqual({ ok: false, error: 'not_allowed' });
+      expect(
+        await payOutWallet(db, trainer, {
+          memberId: ana,
+          amountCents: 100,
+          method: 'cash',
+          receivedOn: today,
+        }),
+      ).toEqual({ ok: false, error: 'not_allowed' });
+
+      // ── Online top-up: only the account's own records, within bounds.
+      const outsider = await user('outsider_b2');
+      expect(
+        await startWalletCheckout(
+          db,
+          outsider,
+          { id: clubId, slug },
+          { memberId: ana, amountCents: 1000, label },
+          back,
+        ),
+      ).toEqual({ ok: false, error: 'not_allowed' });
+      expect(
+        await startWalletCheckout(
+          db,
+          memberUser,
+          { id: clubId, slug },
+          { memberId, amountCents: 10, label },
+          back,
+        ),
+      ).toEqual({ ok: false, error: 'amount_invalid' });
+
+      // ── Desk money goes back before card money; the card refund is capped
+      // by what is still on its top-up — never a refund the books refuse.
+      const base = await credit(memberId);
+      const online = await startWalletCheckout(
+        db,
+        memberUser,
+        { id: clubId, slug },
+        { memberId, amountCents: 1000, label },
+        back,
+      );
+      if (!online.ok) throw new Error(online.error);
+      expect(await fakeSettle(online.checkoutId, 'paid')).toBe(true);
+      await topUpWallet(
+        db,
+        desk,
+        { memberId, amountCents: 1000, method: 'cash', receivedOn: today },
+        label,
+      );
+      expect(await payOut(memberId, 1500)).toEqual({ ok: true });
+      const cardPayment = Number(
+        (
+          await db.execute(sql`
+            SELECT p.id FROM club_payments p
+              JOIN club_checkouts k ON k.club_id = p.club_id AND k.charge_id = p.charge_id
+             WHERE k.id = ${online.checkoutId}::uuid AND p.kind = 'payment'`)
+        ).rows[0]?.id,
+      );
+      // 1000 desk + 500 of the card's 1000 went back; 500 is left on the card.
+      expect(await refundOnlinePayment(db, owner, cardPayment, 600)).toEqual({
+        ok: false,
+        error: 'amount_invalid',
+      });
+      expect(await refundOnlinePayment(db, owner, cardPayment, null)).toEqual({ ok: true });
+      expect(await credit(memberId)).toBe(base);
+
+      // ── The payments screen counts money received: credit spent is not new money.
+      const ledger = await paymentLedger(owner, today.slice(0, 7), null);
+      expect(ledger.totalCents).toBe(
+        ledger.rows.filter((r) => r.method !== 'wallet').reduce((sum, r) => sum + r.amountCents, 0),
+      );
+
+      // ── Invoices: a 0 % line needs its basis; an invoiced charge is not
+      // voided, reversed or refunded until its credit note.
+      const zeroSale = await sell(ana, 'cash');
+      if (!zeroSale.ok) throw new Error(zeroSale.error);
+      const zeroCharge = String(
+        (
+          await db.execute(
+            sql`SELECT charge_id FROM club_sales WHERE id = ${zeroSale.saleId}::uuid`,
+          )
+        ).rows[0]?.charge_id,
+      );
+      const person = {
+        kind: 'person' as const,
+        name: 'Ана',
+        eik: null,
+        vatNumber: null,
+        address: null,
+      };
+      expect(await issueInvoice(db, owner, { chargeId: zeroCharge, buyer: person })).toEqual({
+        ok: false,
+        error: 'zero_vat_basis_missing',
+      });
+      expect(
+        await saveInvoiceDetails(db, owner, {
+          legalAddress: 'София, ул. Тест 1',
+          vatNumber: 'BG123456789',
+          iban: 'BG80BNBG96611020345678',
+          invoiceVatBp: 2000,
+          zeroVatBasis: 'чл. 45 от ЗДДС',
+        }),
+      ).toBe(true);
+      const zeroInvoice = await issueInvoice(db, owner, { chargeId: zeroCharge, buyer: person });
+      if (!zeroInvoice.ok) throw new Error(zeroInvoice.error);
+      expect(await invoiceById(owner, zeroInvoice.invoiceId)).toMatchObject({
+        vatCents: 0,
+        zeroVatBasis: 'чл. 45 от ЗДДС',
+      });
+      expect(await reverseSale(db, owner, zeroSale.saleId)).toBe('invoice_live');
+      expect(
+        await recordPayment(db, owner, {
+          chargeId: zeroCharge,
+          kind: 'refund',
+          amountCents: -200,
+          method: 'cash',
+          receivedOn: today,
+        }),
+      ).toEqual({ ok: false, error: 'invoice_live' });
+      // The desk never issues or cancels invoices.
+      expect(await issueCreditNote(db, desk, zeroInvoice.invoiceId, 'Отказ')).toEqual({
+        ok: false,
+        error: 'not_allowed',
+      });
+
+      // ── A downgraded club: no new credit, but the client's money still goes
+      // back, the record can then be erased, and an invoice can be corrected.
+      await db.execute(sql`UPDATE clubs SET tier = 'community' WHERE id = ${clubId}::uuid`);
+      try {
+        expect(await top(ana, 500)).toEqual({ ok: false, error: 'feature_unavailable' });
+        const otherSale = await sell(ana, 'wallet');
+        expect(otherSale.ok).toBe(false);
+        expect(await credit(ana)).toBe(1000);
+        expect(await issueCreditNote(db, owner, zeroInvoice.invoiceId, 'Отказ')).toMatchObject({
+          ok: true,
+        });
+        expect(await payOut(ana, 1000)).toEqual({ ok: true });
+        expect(await credit(ana)).toBe(0);
+      } finally {
+        await db.execute(sql`UPDATE clubs SET tier = 'standard' WHERE id = ${clubId}::uuid`);
+      }
+      // Credited, the sale reverses.
+      expect(await reverseSale(db, owner, zeroSale.saleId)).toBe('ok');
+
+      // ── Another club's charge is not this club's to invoice.
+      const foreignCharge = String(
+        (
+          await db.execute(sql`
+            INSERT INTO club_charges (club_id, kind, label, amount_cents, issued_on, due_on)
+            SELECT id, 'other', 'Чужда', 1000, current_date, current_date
+              FROM clubs WHERE slug LIKE 'e2e-jr-b-%' LIMIT 1
+            RETURNING id`)
+        ).rows[0]?.id,
+      );
+      expect(await issueInvoice(db, owner, { chargeId: foreignCharge, buyer: person })).toEqual({
+        ok: false,
+        error: 'not_allowed',
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('erases on both sides without losing the books, and stops when suspended', async () => {
     const countBooks = async () =>
       (
@@ -2472,8 +2990,8 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
         )
       ).rows[0]?.n;
     const booksBefore = await countBooks();
-    expect(await eraseMember(db, desk, childId)).toBe(false);
-    expect(await eraseMember(db, owner, childId)).toBe(true);
+    expect(await eraseMember(db, desk, childId)).toBe('not_found');
+    expect(await eraseMember(db, owner, childId)).toBe('ok');
     const visits = await db.execute(
       sql`SELECT count(*)::int AS n FROM club_checkins WHERE member_id = ${childId}::uuid`,
     );

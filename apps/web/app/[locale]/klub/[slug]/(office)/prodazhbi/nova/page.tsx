@@ -67,6 +67,7 @@ export default async function ClubTillPage({
           locale={locale}
           messages={messages}
           offers={featureOn(club, 'promotions')}
+          wallet={featureOn(club, 'wallet')}
           products={products.map((p) => ({
             id: p.id,
             name: p.name,
@@ -87,6 +88,7 @@ export default async function ClubTillPage({
               cash: tClub('method.cash'),
               card_desk: tClub('method.card_desk'),
               other: tClub('method.other'),
+              wallet: tClub('method.wallet'),
               account: t('onAccount'),
             },
             code: t('code'),

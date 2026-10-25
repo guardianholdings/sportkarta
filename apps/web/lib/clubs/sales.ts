@@ -11,6 +11,8 @@ import {
 
 import { recordClubAudit } from './audit';
 import { violatedConstraint } from './errors';
+import { walletMethodAllowed } from './features';
+import { liveInvoiceFor } from './invoices';
 import type { ChargeInput, PaymentInput, PauseInput, PlanInput, SaleInput } from './input';
 import { previewOffer, recordRedemption, resolveOffer } from './promotions';
 import { clubActorMay, clubScope, clubWriteScope, type ClubActor } from './scope';
@@ -36,14 +38,28 @@ function text(value: unknown): string | null {
   return value === null || value === undefined ? null : String(value);
 }
 
+/** A refusal found mid-sale: thrown so the whole sale rolls back. */
+class SaleRefused extends Error {
+  constructor(readonly code: string) {
+    super(code);
+  }
+}
+
 /** A database refusal, as the code a form shows; null = a real bug, rethrow. */
 export function saleErrorCode(error: unknown): string | null {
+  if (error instanceof SaleRefused) return error.code;
   const constraint = violatedConstraint(error);
   if (constraint === 'club_payments_within_charge') return 'amount_exceeds_due';
   if (constraint === 'club_payments_charge_not_void') return 'charge_void';
   if (constraint === 'club_memberships_one_trial') return 'trial_used';
   if (constraint === 'club_membership_pauses_no_overlap') return 'pause_overlap';
   if (constraint === 'club_membership_pauses_within_membership') return 'pause_outside';
+  // Prepaid credit (0050).
+  if (constraint === 'club_payments_wallet_balance') return 'wallet_insufficient';
+  if (constraint === 'club_payments_wallet_member') return 'wallet_needs_client';
+  if (constraint === 'club_payments_wallet_not_circular') return 'wallet_not_for_credit';
+  if (constraint === 'club_charges_wallet_void') return 'wallet_void';
+  if (constraint === 'club_payments_wallet_refund') return 'wallet_refund_exceeds';
   return null;
 }
 
@@ -294,13 +310,17 @@ export async function sellMembership(
         `);
         chargeId = text(charge.rows[0]?.id);
         if (input.payment && chargeId) {
-          await tx.execute(sql`
+          const paid = await tx.execute(sql`
             INSERT INTO club_payments (club_id, charge_id, member_id, kind, amount_cents, method,
                                        received_on, recorded_by)
-            VALUES (${actor.clubId}::uuid, ${chargeId}::uuid, ${input.memberId}::uuid, 'payment',
-                    ${input.payment.amountCents ?? priceCents}, ${input.payment.method},
-                    ${input.payment.receivedOn}::date, ${actor.userId})
+            SELECT ${actor.clubId}::uuid, ${chargeId}::uuid, ${input.memberId}::uuid, 'payment',
+                   ${input.payment.amountCents ?? priceCents}, ${input.payment.method},
+                   ${input.payment.receivedOn}::date, ${actor.userId}
+             WHERE ${walletMethodAllowed(actor.clubId, input.payment.method)}
+            RETURNING id
           `);
+          // Credit on a tier without the wallet: nothing of the sale stays.
+          if (paid.rows.length === 0) throw new SaleRefused('feature_unavailable');
         }
       }
       if (offer.applied && discountCents > 0) {
@@ -577,44 +597,65 @@ export async function createCharge(
   });
 }
 
+export type VoidResult = 'ok' | 'not_found' | 'till_sale_charge' | 'invoice_live' | 'wallet_void';
+
 /**
  * Void a charge. Never a till sale's (0049): that is undone by reversing the
  * sale, which also returns the goods and stops the offer's use counting —
  * voiding only its charge would leave the stock and best sellers wrong.
+ * Never while it has a live invoice (0050): the credit note comes first. And
+ * a top-up with money on it is paid back, never voided (the trigger refuses).
  */
 export async function voidCharge(
   db: TransactionalDb,
   actor: ClubActor,
   chargeId: string,
   options: { onlyIfNothingPaid?: boolean } = {},
-): Promise<boolean> {
-  return db.transaction(async (tx) => {
-    // onlyIfNothingPaid: after a full refund, so no money is left on the
-    // charge — a void row with money on it means the club still owes a refund.
-    const updated = await tx.execute(sql`
-      UPDATE club_charges ch SET voided_at = now()
-       WHERE ch.id = ${chargeId}::uuid AND ch.voided_at IS NULL
-         AND ${clubWriteScope(actor, 'charges.void', 'ch')}
-         AND NOT EXISTS (SELECT 1 FROM club_sales sa
-                          WHERE sa.club_id = ch.club_id AND sa.charge_id = ch.id)
-         AND ${
-           options.onlyIfNothingPaid
-             ? sql`coalesce((SELECT sum(pp.amount_cents) FROM club_payments pp
-                              WHERE pp.charge_id = ch.id), 0) = 0`
-             : sql`true`
-         }
-      RETURNING ch.member_id
-    `);
-    if (updated.rows.length === 0) return false;
-    await recordClubAudit(tx, {
-      clubId: actor.clubId,
-      by: { kind: 'staff', actor },
-      action: 'charge_voided',
-      subjectMemberId: text(updated.rows[0]?.member_id),
-      detail: { chargeId },
+): Promise<VoidResult> {
+  try {
+    return await db.transaction(async (tx) => {
+      const found = (
+        await tx.execute(sql`
+          SELECT EXISTS (SELECT 1 FROM club_sales sa
+                          WHERE sa.club_id = ch.club_id AND sa.charge_id = ch.id) AS sale,
+                 ${liveInvoiceFor(sql`ch.club_id`, sql`ch.id`)} AS invoiced
+            FROM club_charges ch
+           WHERE ch.id = ${chargeId}::uuid AND ch.voided_at IS NULL
+             AND ${clubWriteScope(actor, 'charges.void', 'ch')}
+             FOR NO KEY UPDATE
+        `)
+      ).rows[0];
+      if (!found) return 'not_found' as const;
+      if (found.sale === true) return 'till_sale_charge' as const;
+      if (found.invoiced === true) return 'invoice_live' as const;
+      // onlyIfNothingPaid: after a full refund, so no money is left on the
+      // charge — a void row with money on it means the club still owes a refund.
+      const updated = await tx.execute(sql`
+        UPDATE club_charges ch SET voided_at = now()
+         WHERE ch.id = ${chargeId}::uuid AND ch.voided_at IS NULL
+           AND ${clubWriteScope(actor, 'charges.void', 'ch')}
+           AND ${
+             options.onlyIfNothingPaid
+               ? sql`coalesce((SELECT sum(pp.amount_cents) FROM club_payments pp
+                                WHERE pp.charge_id = ch.id), 0) = 0`
+               : sql`true`
+           }
+        RETURNING ch.member_id
+      `);
+      if (updated.rows.length === 0) return 'not_found' as const;
+      await recordClubAudit(tx, {
+        clubId: actor.clubId,
+        by: { kind: 'staff', actor },
+        action: 'charge_voided',
+        subjectMemberId: text(updated.rows[0]?.member_id),
+        detail: { chargeId },
+      });
+      return 'ok' as const;
     });
-    return true;
-  });
+  } catch (error: unknown) {
+    if (saleErrorCode(error) === 'wallet_void') return 'wallet_void';
+    throw error;
+  }
 }
 
 export async function recordPayment(
@@ -631,9 +672,29 @@ export async function recordPayment(
                ${input.receivedOn}::date, ${actor.userId}
           FROM club_charges ch
          WHERE ch.id = ${input.chargeId}::uuid AND ${clubWriteScope(actor, 'payments.record', 'ch')}
+           AND ${walletMethodAllowed(actor.clubId, input.method)}
+           -- Money back on an invoiced charge waits for the credit note (0050).
+           AND (${input.kind} = 'payment' OR NOT ${liveInvoiceFor(sql`ch.club_id`, sql`ch.id`)})
         RETURNING member_id
       `);
-      if (inserted.rows.length === 0) return { ok: false, error: 'not_allowed' } as const;
+      if (inserted.rows.length === 0) {
+        // Say why, when it is not simply someone else's charge.
+        const why = (
+          await tx.execute(sql`
+            SELECT ${walletMethodAllowed(actor.clubId, input.method)} AS wallet_ok,
+                   ${liveInvoiceFor(sql`ch.club_id`, sql`ch.id`)} AS invoiced
+              FROM club_charges ch
+             WHERE ch.id = ${input.chargeId}::uuid AND ${clubScope(actor, 'payments.record', 'ch')}
+          `)
+        ).rows[0];
+        const error =
+          why?.wallet_ok === false
+            ? 'feature_unavailable'
+            : why?.invoiced === true && input.kind === 'refund'
+              ? 'invoice_live'
+              : 'not_allowed';
+        return { ok: false, error } as const;
+      }
       await recordClubAudit(tx, {
         clubId: actor.clubId,
         by: { kind: 'staff', actor },
@@ -698,7 +759,9 @@ export async function paymentLedger(
   const byMethod: Record<string, number> = {};
   let totalCents = 0;
   for (const row of ledger) {
-    totalCents += row.amountCents;
+    // Money received: paying with credit (0050) is not new money — it came
+    // in once, as the top-up. It keeps its own line in byMethod.
+    if (row.method !== 'wallet') totalCents += row.amountCents;
     byMethod[row.method] = (byMethod[row.method] ?? 0) + row.amountCents;
   }
   return { rows: ledger, totalCents, byMethod };

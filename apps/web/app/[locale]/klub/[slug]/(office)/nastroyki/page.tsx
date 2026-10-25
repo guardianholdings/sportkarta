@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { cityDisplayName } from '@/lib/city-names';
 import { requireClubStaff } from '@/lib/clubs/club-session';
 import { featureOn } from '@/lib/clubs/features';
@@ -48,6 +49,7 @@ import {
   saveFaqAction,
   revokeKioskAction,
   saveLocationAction,
+  saveInvoiceDetailsAction,
   saveSettingsAction,
   saveTermsUrlAction,
   setLocationActiveAction,
@@ -75,14 +77,14 @@ export default async function ClubSettingsPage({
   searchParams,
 }: {
   params: Promise<{ locale: string; slug: string }>;
-  searchParams: Promise<{ logo?: string; plashtaniya?: string }>;
+  searchParams: Promise<{ logo?: string; plashtaniya?: string; fakturi?: string }>;
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
   const { actor, club } = await requireClubStaff(slug, 'settings.manage');
   const settings = await clubSettings(club.id);
   if (!settings) notFound();
-  const { plashtaniya } = await searchParams;
+  const { plashtaniya, fakturi } = await searchParams;
   const paymentsOn = paymentsReady();
   const paymentAccount = paymentsOn ? await clubPaymentAccount(club.id) : null;
   const provider = paymentProvider();
@@ -550,6 +552,103 @@ export default async function ClubSettingsPage({
           </form>
         )}
       </section>
+
+      {featureOn(club, 'invoices') && (
+        <section id="fakturi" className={section} aria-labelledby="invoices-h">
+          <h2 id="invoices-h" className="text-h4 font-bold text-ink">
+            {t('invoices.title')}
+          </h2>
+          <p className="text-caption text-text-muted">{t('invoices.hint')}</p>
+          <div role="status" aria-live="polite">
+            {fakturi && (
+              <p
+                className={cn(
+                  'rounded-card border p-3 text-body-sm text-ink',
+                  fakturi === 'saved'
+                    ? 'border-success-border bg-success-bg'
+                    : 'border-warning-border bg-warning-bg',
+                )}
+              >
+                {fakturi === 'saved'
+                  ? t('invoices.saved')
+                  : fakturi === 'read_only'
+                    ? messages.readOnly
+                    : (messages.errors[fakturi] ?? messages.genericError)}
+              </p>
+            )}
+          </div>
+          <p className="text-body-sm text-ink">
+            {settings.legalName && settings.eik
+              ? t('invoices.identity', { name: settings.legalName, eik: settings.eik })
+              : t('invoices.identityMissing')}
+          </p>
+          <form action={saveInvoiceDetailsAction} className="space-y-3">
+            <input type="hidden" name="slug" value={slug} />
+            <label className="block text-body-sm font-semibold text-ink">
+              {t('invoices.address')}
+              <Input
+                name="legalAddress"
+                maxLength={300}
+                defaultValue={settings.invoiceDetails.legalAddress ?? ''}
+                className="mt-1"
+              />
+            </label>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="block text-body-sm font-semibold text-ink">
+                {t('invoices.vatNumber')}
+                <Input
+                  name="vatNumber"
+                  maxLength={14}
+                  placeholder="BG123456789"
+                  defaultValue={settings.invoiceDetails.vatNumber ?? ''}
+                  className="mt-1 uppercase"
+                />
+              </label>
+              <label className="block text-body-sm font-semibold text-ink sm:col-span-2">
+                {t('invoices.iban')}
+                <Input
+                  name="iban"
+                  maxLength={40}
+                  defaultValue={settings.invoiceDetails.iban ?? ''}
+                  className="mt-1 uppercase"
+                />
+              </label>
+            </div>
+            <label className="block text-body-sm font-semibold text-ink">
+              {t('invoices.vatRate')}
+              <Select
+                name="invoiceVatBp"
+                defaultValue={String(settings.invoiceDetails.invoiceVatBp)}
+                className="mt-1"
+              >
+                {[2000, 900, 0].map((rate) => (
+                  <option key={rate} value={rate}>
+                    {t('invoices.rate', { rate: rate / 100 })}
+                  </option>
+                ))}
+              </Select>
+              <span className="mt-1 block text-caption font-normal text-text-muted">
+                {t('invoices.vatRateHint')}
+              </span>
+            </label>
+            <label className="block text-body-sm font-semibold text-ink">
+              {t('invoices.zeroBasis')}
+              <Input
+                name="zeroVatBasis"
+                maxLength={200}
+                defaultValue={settings.invoiceDetails.zeroVatBasis ?? ''}
+                className="mt-1"
+              />
+              <span className="mt-1 block text-caption font-normal text-text-muted">
+                {t('invoices.zeroBasisHint')}
+              </span>
+            </label>
+            <Button type="submit" variant="secondary" size="sm">
+              {t('invoices.save')}
+            </Button>
+          </form>
+        </section>
+      )}
 
       <section className={section} aria-labelledby="share-h">
         <h2 id="share-h" className="text-h4 font-bold text-ink">

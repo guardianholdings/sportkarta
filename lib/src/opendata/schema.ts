@@ -177,6 +177,7 @@ export const DENIED_IDENTIFIERS = [
   'booked',
   'booking',
   'bookings',
+  'buyer',
   'card',
   'checkin',
   'checkins',
@@ -188,7 +189,10 @@ export const DENIED_IDENTIFIERS = [
   'instructor',
   'invite',
   'invites',
+  'invoice',
+  'invoices',
   'ip',
+  'issued',
   'mail',
   'member',
   'members',
@@ -222,6 +226,7 @@ export const DENIED_IDENTIFIERS = [
   'uploader',
   'user',
   'users',
+  'wallet',
 ] as const;
 
 /**

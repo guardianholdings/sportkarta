@@ -53,6 +53,11 @@ export async function activeByMonth(actor: ClubActor): Promise<MonthFigure[]> {
   return result.rows.map((row) => ({ month: String(row.month), value: Number(row.value ?? 0) }));
 }
 
+/**
+ * Money RECEIVED, by month. Paying with prepaid credit (0050) is not new
+ * money — it came in once, as the top-up — so 'wallet' payments are left out
+ * here and in every revenue figure below.
+ */
 export async function revenueByMonth(actor: ClubActor): Promise<MonthFigure[]> {
   const result = await getDb().execute(sql`
     WITH months AS (
@@ -63,7 +68,7 @@ export async function revenueByMonth(actor: ClubActor): Promise<MonthFigure[]> {
     )
     SELECT to_char(mo.first, 'YYYY-MM') AS month,
            (SELECT coalesce(sum(p.amount_cents), 0)::bigint FROM club_payments p
-             WHERE ${clubScope(actor, 'reports.view', 'p')}
+             WHERE ${clubScope(actor, 'reports.view', 'p')} AND p.method <> 'wallet'
                AND p.received_on >= mo.first
                AND p.received_on < (mo.first + interval '1 month')::date) AS value
       FROM months mo
@@ -286,7 +291,7 @@ export async function revenueByPlan(actor: ClubActor): Promise<RevenueLine[]> {
       FROM club_payments p
       JOIN club_charges ch ON ch.id = p.charge_id
       LEFT JOIN club_memberships ms ON ms.id = ch.membership_id
-     WHERE ${clubScope(actor, 'reports.view', 'p')}
+     WHERE ${clubScope(actor, 'reports.view', 'p')} AND p.method <> 'wallet'
        AND p.received_on >= (now() AT TIME ZONE 'Europe/Sofia')::date - 90
      GROUP BY 1, 2
      ORDER BY cents DESC
@@ -322,9 +327,11 @@ export async function monthToDate(actor: ClubActor): Promise<MonthToDate> {
     )
     SELECT w.elapsed + 1 AS days,
       (SELECT coalesce(sum(p.amount_cents), 0)::bigint FROM club_payments p
-        WHERE ${clubScope(actor, 'reports.view', 'p')} AND p.received_on BETWEEN w.this_first AND w.today) AS rev_now,
+        WHERE ${clubScope(actor, 'reports.view', 'p')} AND p.method <> 'wallet'
+          AND p.received_on BETWEEN w.this_first AND w.today) AS rev_now,
       (SELECT coalesce(sum(p.amount_cents), 0)::bigint FROM club_payments p
-        WHERE ${clubScope(actor, 'reports.view', 'p')} AND p.received_on BETWEEN w.last_first AND w.last_until) AS rev_then,
+        WHERE ${clubScope(actor, 'reports.view', 'p')} AND p.method <> 'wallet'
+          AND p.received_on BETWEEN w.last_first AND w.last_until) AS rev_then,
       (SELECT count(*)::int FROM club_checkins ci
         WHERE ${clubScope(actor, 'reports.view', 'ci')} AND ci.sofia_day BETWEEN w.this_first AND w.today) AS ci_now,
       (SELECT count(*)::int FROM club_checkins ci
@@ -379,7 +386,7 @@ export async function topClients(
       SELECT m.id, m.display_name, sum(p.amount_cents)::bigint AS value
         FROM club_payments p
         JOIN club_members m ON m.club_id = p.club_id AND m.id = p.member_id AND m.archived_at IS NULL
-       WHERE ${clubScope(actor, 'reports.view', 'p')}
+       WHERE ${clubScope(actor, 'reports.view', 'p')} AND p.method <> 'wallet'
          AND p.received_on >= (now() AT TIME ZONE 'Europe/Sofia')::date - 365
        GROUP BY m.id, m.display_name
       HAVING sum(p.amount_cents) > 0

@@ -100,12 +100,24 @@ describe.skipIf(!hasDb)('club shop and offers (requires running database)', () =
     return saleId;
   }
 
+  /** A sale as the till writes one: its number drawn in its own transaction. */
+  async function newSale(total = 300): Promise<string> {
+    await client.query('BEGIN');
+    const saleId = await sale(await nextNumber(), total);
+    await client.query('COMMIT');
+    return saleId;
+  }
+
   it('numbers sales gaplessly, and a rolled-back sale gives its number back', async () => {
+    await client.query('BEGIN');
     expect(await nextNumber()).toBe(1);
+    await sale(1);
+    await client.query('COMMIT');
     await client.query('BEGIN');
     expect(await nextNumber()).toBe(2);
     await client.query('ROLLBACK');
-    expect(await nextNumber()).toBe(2);
+    // Drawn and committed without its sale: refused at commit, so no gap (0050).
+    expect((await failure(nextNumber())).constraint).toBe('club_number_sequences_used');
     const skip = await failure(
       client.query(
         `UPDATE club_number_sequences SET last_value = last_value + 5 WHERE club_id = $1`,
@@ -121,13 +133,18 @@ describe.skipIf(!hasDb)('club shop and offers (requires running database)', () =
       ).message,
     ).toMatch(/never removed/);
     // A sale takes the number its transaction just drew — never another.
+    await client.query('BEGIN');
+    expect(await nextNumber()).toBe(2);
     expect((await failure(sale(1))).constraint).toBe('club_sales_number_drawn');
-    await sale(2);
+    await client.query('ROLLBACK');
+    await client.query('BEGIN');
+    await sale(await nextNumber());
     expect((await failure(sale(2))).constraint).toBe('club_sales_number_unique');
+    await client.query('ROLLBACK');
   });
 
   it('keeps a sale a fact: reversed once, lines never changed', async () => {
-    const saleId = await sale(await nextNumber());
+    const saleId = await newSale();
     expect(
       (await failure(client.query(`UPDATE club_sales SET total_cents = 1 WHERE id = $1`, [saleId])))
         .constraint,
@@ -157,7 +174,8 @@ describe.skipIf(!hasDb)('club shop and offers (requires running database)', () =
       (await failure(client.query(`DELETE FROM club_sales WHERE id = $1`, [saleId]))).message,
     ).toMatch(/never deleted/);
     // A free sale has no charge; a priced one must have one.
-    await sale(await nextNumber(), 0);
+    await newSale(0);
+    await client.query('BEGIN');
     const priced = await failure(
       client.query(
         `INSERT INTO club_sales (club_id, number, subtotal_cents, total_cents, sold_by)
@@ -165,6 +183,7 @@ describe.skipIf(!hasDb)('club shop and offers (requires running database)', () =
         [club.clubId, await nextNumber(), club.ownerId],
       ),
     );
+    await client.query('ROLLBACK');
     expect(priced.constraint).toBe('club_sales_charge_iff_total');
   });
 
@@ -176,7 +195,7 @@ describe.skipIf(!hasDb)('club shop and offers (requires running database)', () =
         [club.clubId, productId, kind, quantity, saleId],
       );
     await move('receive', 10);
-    const saleId = await sale(await nextNumber());
+    const saleId = await newSale();
     await move('sale', -12, saleId);
     const onHand = async () =>
       Number(
@@ -305,7 +324,7 @@ describe.skipIf(!hasDb)('club shop and offers (requires running database)', () =
           [other.clubId],
         )
       ).rows[0]?.id ?? '';
-    const saleId = await sale(await nextNumber());
+    const saleId = await newSale();
     const line = await failure(
       client.query(
         `INSERT INTO club_sale_lines (club_id, sale_id, line_no, product_id, name, unit_price_cents,
@@ -355,7 +374,7 @@ describe.skipIf(!hasDb)('club shop and offers (requires running database)', () =
     const someoneElse = await makeMember(client, club.clubId, 'Иван');
     expect((await failure(use('membership', someoneElse, membershipId, null))).code).toBe('23503');
     // A sale use names no membership.
-    const saleId = await sale(await nextNumber());
+    const saleId = await newSale();
     expect((await failure(use('sale', memberId, membershipId, saleId))).constraint).toBe(
       'club_promotion_redemptions_membership_only',
     );

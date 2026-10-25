@@ -1,7 +1,7 @@
 import { getDb, sql, type SQL } from '@sportkarta/db';
 
 import { recordClubAudit } from './audit';
-import type { ClubSettingsInput, FaqInput, LocationInput } from './input';
+import type { ClubSettingsInput, FaqInput, InvoiceDetailsInput, LocationInput } from './input';
 import { clubActorMay, clubScope, clubWriteScope, type ClubActor } from './scope';
 
 /**
@@ -27,6 +27,8 @@ export interface ClubSettings extends ClubSettingsInput {
   visible: boolean;
   logoPath: string | null;
   termsUrl: string | null;
+  /** What an invoice prints about the club (0050), beside legalName and eik. */
+  invoiceDetails: InvoiceDetailsInput;
 }
 
 export async function clubSettings(clubId: string): Promise<ClubSettings | null> {
@@ -34,8 +36,11 @@ export async function clubSettings(clubId: string): Promise<ClubSettings | null>
     SELECT slug, name_bg, name_en, kind, description_bg, description_en, sports, municipality_id,
            website_url, public_email, public_phone, legal_name, eik, locale,
            booking_opens_hours, cancel_deadline_hours, mail_unlinked_members, visible, logo_path,
-           accent, terms_url
-      FROM clubs WHERE id = ${clubId}::uuid
+           accent, terms_url, ist.legal_address, ist.vat_number, ist.iban, ist.invoice_vat_bp,
+           ist.zero_vat_basis
+      FROM clubs
+      LEFT JOIN club_invoice_settings ist ON ist.club_id = clubs.id
+     WHERE clubs.id = ${clubId}::uuid
   `);
   const row = result.rows[0];
   if (!row) return null;
@@ -61,7 +66,46 @@ export async function clubSettings(clubId: string): Promise<ClubSettings | null>
     visible: row.visible === true,
     logoPath: text(row.logo_path),
     termsUrl: text(row.terms_url),
+    invoiceDetails: {
+      legalAddress: text(row.legal_address),
+      vatNumber: text(row.vat_number),
+      iban: text(row.iban),
+      invoiceVatBp: [0, 900, 2000].includes(Number(row.invoice_vat_bp))
+        ? (Number(row.invoice_vat_bp) as InvoiceDetailsInput['invoiceVatBp'])
+        : 2000,
+      zeroVatBasis: text(row.zero_vat_basis),
+    },
   };
+}
+
+/** What an invoice prints about the club (0050). settings.manage. */
+export async function saveInvoiceDetails(
+  db: TransactionalDb,
+  actor: ClubActor,
+  input: InvoiceDetailsInput,
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const updated = await tx.execute(sql`
+      INSERT INTO club_invoice_settings (club_id, legal_address, vat_number, iban, invoice_vat_bp,
+                                         zero_vat_basis)
+      SELECT ${actor.clubId}::uuid, ${input.legalAddress}, ${input.vatNumber}, ${input.iban},
+             ${input.invoiceVatBp}, ${input.zeroVatBasis}
+       WHERE ${clubActorMay(actor, 'settings.manage', { write: true })}
+      ON CONFLICT (club_id) DO UPDATE
+        SET legal_address = EXCLUDED.legal_address, vat_number = EXCLUDED.vat_number,
+            iban = EXCLUDED.iban, invoice_vat_bp = EXCLUDED.invoice_vat_bp,
+            zero_vat_basis = EXCLUDED.zero_vat_basis
+      RETURNING club_id
+    `);
+    if (updated.rows.length === 0) return false;
+    await recordClubAudit(tx, {
+      clubId: actor.clubId,
+      by: { kind: 'staff', actor },
+      action: 'settings_changed',
+      detail: { part: 'invoices' },
+    });
+    return true;
+  });
 }
 
 /** The club's terms of sale for online payments (0046). settings.manage. */

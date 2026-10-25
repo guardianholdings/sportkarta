@@ -4,7 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { SaleForm } from '@/components/clubs/sales-forms';
 import { Link } from '@/i18n/navigation';
 import { requireClubStaff } from '@/lib/clubs/club-session';
-import { featureOn } from '@/lib/clubs/features';
+import { deskPaymentMethods, featureOn } from '@/lib/clubs/features';
 import { clubFormMessages, saleFormLabels } from '@/lib/clubs/form-labels';
 import { isUuid } from '@/lib/clubs/input';
 import { memberChoices } from '@/lib/clubs/members';
@@ -28,7 +28,7 @@ export default async function SalePage({
   const [t, tClub, labels, messages, members, plans] = await Promise.all([
     getTranslations('ClubSales'),
     getTranslations('Club'),
-    saleFormLabels(),
+    saleFormLabels(deskPaymentMethods(club)),
     clubFormMessages(),
     memberChoices(actor),
     listPlans(actor),

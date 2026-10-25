@@ -12,6 +12,12 @@ import {
   PROMOTION_KINDS,
   PROMOTION_TARGETS,
   formatClock,
+  compactCode,
+  INVOICE_VAT_RATES,
+  isBgVatNumber,
+  isEik,
+  isIban,
+  isVatNumber,
   normalizePromoCode,
   parseClock,
   parseClosing,
@@ -26,6 +32,8 @@ import {
   type ClubRole,
   type ClubSport,
   type ClubTier,
+  type InvoiceBuyerKind,
+  type InvoiceVatRate,
   type IsoDate,
 } from '@sportkarta/lib/clubs';
 import {
@@ -1328,12 +1336,13 @@ export interface TillSaleInput {
   lines: { productId: string; quantity: number }[];
   memberId: string | null;
   /** null = left on the client's account (a client is then required). */
-  method: 'cash' | 'card_desk' | 'other' | null;
+  method: 'cash' | 'card_desk' | 'other' | 'wallet' | null;
   code: string | null;
   locationId: string | null;
 }
 
-export const TILL_METHODS = ['cash', 'card_desk', 'other'] as const;
+/** 'wallet' is the client's prepaid credit (0050): a client is then required. */
+export const TILL_METHODS = ['cash', 'card_desk', 'other', 'wallet'] as const;
 
 /**
  * The cart as `productId:quantity` strings — one product's lines summed.
@@ -1369,6 +1378,7 @@ export function parseTillSale(form: Reader): InputResult<TillSaleInput> {
   const method = methodRaw === 'account' ? null : oneOf(methodRaw || 'cash', TILL_METHODS);
   if (methodRaw !== 'account' && !method) errors.push('method_invalid');
   if (methodRaw === 'account' && memberId === null) errors.push('account_needs_member');
+  if (methodRaw === 'wallet' && memberId === null) errors.push('wallet_needs_client');
   const codeRaw = text(form, 'code');
   const code = codeRaw === '' ? null : normalizePromoCode(codeRaw);
   if (codeRaw !== '' && code === null) errors.push('code_invalid');
@@ -1469,4 +1479,83 @@ export function parsePromotion(form: Reader, today: IsoDate): InputResult<Promot
       minVisits90d,
     },
   };
+}
+
+// ─── Invoices (0050) ───────────────────────────────────────────────────────
+
+export interface InvoiceDetailsInput {
+  legalAddress: string | null;
+  vatNumber: string | null;
+  iban: string | null;
+  invoiceVatBp: InvoiceVatRate;
+  /** The legal basis printed for a 0 % line (a VAT-registered club). */
+  zeroVatBasis: string | null;
+}
+
+/** What an invoice prints about the club: address, VAT number, IBAN, default rate. */
+export function parseInvoiceDetails(form: Reader): InputResult<InvoiceDetailsInput> {
+  const errors: string[] = [];
+  const legalAddress = optionalText(form, 'legalAddress');
+  if (legalAddress !== null && legalAddress.length > 300) errors.push('address_too_long');
+  const vatRaw = optionalText(form, 'vatNumber');
+  const vatNumber = vatRaw === null ? null : compactCode(vatRaw);
+  if (vatNumber !== null && !isBgVatNumber(vatNumber)) errors.push('vat_number_invalid');
+  const ibanRaw = optionalText(form, 'iban');
+  const iban = ibanRaw === null ? null : compactCode(ibanRaw);
+  if (iban !== null && !isIban(iban)) errors.push('iban_invalid');
+  const rate = Number(text(form, 'invoiceVatBp'));
+  const invoiceVatBp = (INVOICE_VAT_RATES as readonly number[]).includes(rate)
+    ? (rate as InvoiceVatRate)
+    : null;
+  if (invoiceVatBp === null) errors.push('vat_rate_invalid');
+  const zeroVatBasis = optionalText(form, 'zeroVatBasis');
+  if (zeroVatBasis !== null && zeroVatBasis.length > 200) errors.push('basis_too_long');
+  if (errors.length > 0 || invoiceVatBp === null) return { ok: false, errors };
+  return { ok: true, value: { legalAddress, vatNumber, iban, invoiceVatBp, zeroVatBasis } };
+}
+
+export interface InvoiceBuyerInput {
+  kind: InvoiceBuyerKind;
+  name: string;
+  eik: string | null;
+  vatNumber: string | null;
+  address: string | null;
+}
+
+/**
+ * Who an invoice is made out to: a person (a name; an address if they give
+ * one — never an identification number), or a company (name, address, and
+ * its EIK or — a foreign company — its VAT number).
+ */
+export function parseInvoiceBuyer(form: Reader): InputResult<InvoiceBuyerInput> {
+  const errors: string[] = [];
+  const kind: InvoiceBuyerKind = text(form, 'buyerKind') === 'company' ? 'company' : 'person';
+  const name = text(form, 'buyerName');
+  if (name === '' || name.length > 200) errors.push('buyer_name_invalid');
+  const address = optionalText(form, 'buyerAddress');
+  if (address !== null && address.length > 300) errors.push('address_too_long');
+  let eik: string | null = null;
+  let vatNumber: string | null = null;
+  if (kind === 'company') {
+    // A Bulgarian company by its EIK; a foreign one may have only a VAT number.
+    const eikRaw = compactCode(text(form, 'buyerEik'));
+    eik = eikRaw === '' ? null : isEik(eikRaw) ? eikRaw : null;
+    if (eikRaw !== '' && eik === null) errors.push('eik_invalid');
+    const vatRaw = optionalText(form, 'buyerVatNumber');
+    vatNumber = vatRaw === null ? null : compactCode(vatRaw);
+    if (vatNumber !== null && !isVatNumber(vatNumber)) errors.push('vat_number_invalid');
+    if (eikRaw === '' && vatNumber === null) errors.push('buyer_id_required');
+    if (address === null) errors.push('buyer_address_required');
+  } else if (text(form, 'buyerEik') !== '' || text(form, 'buyerVatNumber') !== '') {
+    // A person never gets an identification number — say so rather than drop it.
+    errors.push('person_no_id');
+  }
+  if (errors.length > 0) return { ok: false, errors };
+  return { ok: true, value: { kind, name, eik, vatNumber, address } };
+}
+
+/** A credit note's reason: required, at most 200 characters. */
+export function parseCreditReason(form: Reader): string | null {
+  const reason = text(form, 'reason');
+  return reason === '' || reason.length > 200 ? null : reason;
 }

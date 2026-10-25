@@ -1,3 +1,8 @@
+import {
+  CLUB_AUDIT_ACTIONS,
+  CLUB_CHARGE_KINDS,
+  CLUB_PAYMENT_METHODS_ALL,
+} from '@sportkarta/lib/clubs';
 import { describe, expect, it } from 'vitest';
 
 import bg from '../messages/bg.json';
@@ -50,5 +55,22 @@ describe('message keys are nested, never dotted', () => {
 
   it('en declares no key containing a dot', () => {
     expect(dottedKeys(en)).toEqual([]);
+  });
+});
+
+/**
+ * A closed vocabulary the office renders as `t(\`<namespace>.${value}\`)` must
+ * have a label for every value — a new audit action, payment method or charge
+ * kind (each widened by a migration) otherwise shows its raw key in the
+ * club's history. bg is checked; parity above carries it to en.
+ */
+describe('club vocabularies have labels', () => {
+  const keys = new Set(flattenKeys(bg));
+  it.each([
+    ['ClubAudit.action', CLUB_AUDIT_ACTIONS],
+    ['Club.method', CLUB_PAYMENT_METHODS_ALL],
+    ['Club.chargeKind', CLUB_CHARGE_KINDS],
+  ] as const)('%s', (namespace, values) => {
+    expect(values.filter((value) => !keys.has(`${namespace}.${value}`))).toEqual([]);
   });
 });

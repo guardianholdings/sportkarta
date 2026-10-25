@@ -55,6 +55,11 @@ const SCANNED_ROOTS = [join(REPO_ROOT, 'lib', 'src'), join(REPO_ROOT, 'apps', 'w
  */
 const ALLOWLIST = new Map<string, string>([
   [
+    'lib/src/clubs/invoice-document.ts',
+    'Invoice document: a Bulgarian accounting document (the Accounting Act and ' +
+      'ЗДДС) that reads the same in any UI locale — the ministry annex rule.',
+  ],
+  [
     'lib/src/reports',
     'Ministry annex: a specified document format that must read identically in ' +
       'any UI locale. CLAUDE.md puts these field names in the catalogue on purpose.',

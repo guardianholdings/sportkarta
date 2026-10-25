@@ -29,6 +29,7 @@ import {
   CLUB_AUDIT_ACTOR_KINDS,
   CLUB_CANCEL_REASONS,
   CLUB_CHARGE_KINDS,
+  CLUB_PAYMENT_METHODS_ALL,
   CLUB_CHECKIN_METHODS,
   CLUB_NOTIFICATION_KINDS,
   CLUB_PERMISSIONS,
@@ -72,6 +73,17 @@ import {
   type PriceQuery,
   type PriceRule,
   type SlotQuery,
+  compactCode,
+  documentDate,
+  documentRate,
+  formatInvoiceNumber,
+  invoiceLines,
+  invoiceTotals,
+  isBgVatNumber,
+  isEik,
+  isIban,
+  isVatNumber,
+  splitVat,
 } from './index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -106,6 +118,7 @@ describe('the vocabularies equal their SQL CHECKs', () => {
     ['club_audit_actor_kind_known', CLUB_AUDIT_ACTOR_KINDS],
     ['club_checkins_method_known', CLUB_CHECKIN_METHODS],
     ['club_charges_kind_known', CLUB_CHARGE_KINDS],
+    ['club_payments_method_known', CLUB_PAYMENT_METHODS_ALL],
     ['club_plans_kind_known', CLUB_PLAN_KINDS],
     ['club_plans_audience_known', CLUB_PLAN_AUDIENCES],
     ['club_memberships_cancel_reason_known', CLUB_CANCEL_REASONS],
@@ -878,5 +891,64 @@ describe('club offers (0049)', () => {
     expect(advertisedPrice([offer({ newMembersOnly: true })], plan, today)?.priceCents).toBe(4500);
     expect(advertisedPrice([offer({ minVisits90d: 5 })], plan, today)).toBeNull();
     expect(advertisedPrice([offer({ code: 'X12' })], plan, today)).toBeNull();
+  });
+});
+
+describe('invoices (0050)', () => {
+  it('splits gross into base and VAT that add up to the cent', () => {
+    expect(splitVat(1200, 2000)).toEqual({ baseCents: 1000, vatCents: 200 });
+    expect(splitVat(999, 2000)).toEqual({ baseCents: 833, vatCents: 166 });
+    expect(splitVat(1090, 900)).toEqual({ baseCents: 1000, vatCents: 90 });
+    expect(splitVat(500, 0)).toEqual({ baseCents: 500, vatCents: 0 });
+    expect(splitVat(500, null)).toEqual({ baseCents: 500, vatCents: 0 });
+    for (let total = 0; total < 3000; total += 7) {
+      const { baseCents, vatCents } = splitVat(total, 2000);
+      expect(baseCents + vatCents).toBe(total);
+    }
+  });
+
+  it('prices lines by their own rate, the default, or none without registration', () => {
+    const inputs = [
+      { description: 'Вода', quantity: 2, unitPriceCents: 150, discountCents: 30, vatRateBp: 2000 },
+      {
+        description: 'Абонамент',
+        quantity: 1,
+        unitPriceCents: 4000,
+        discountCents: 0,
+        vatRateBp: null,
+      },
+    ] as const;
+    const registered = invoiceLines(inputs, { vatRegistered: true, defaultVatBp: 900 });
+    expect(registered.map((l) => [l.vatRateBp, l.totalCents, l.baseCents, l.vatCents])).toEqual([
+      [2000, 270, 225, 45],
+      [900, 4000, 3670, 330],
+    ]);
+    const totals = invoiceTotals(registered);
+    expect(totals).toMatchObject({ totalCents: 4270, baseCents: 3895, vatCents: 375 });
+    expect(totals.byRate.map((r) => r.vatRateBp)).toEqual([2000, 900]);
+    const plain = invoiceLines(inputs, { vatRegistered: false, defaultVatBp: 2000 });
+    expect(plain.every((l) => l.vatRateBp === null && l.vatCents === 0)).toBe(true);
+    expect(invoiceTotals(plain)).toMatchObject({ totalCents: 4270, baseCents: 4270, vatCents: 0 });
+  });
+
+  it('numbers, identifiers and accounts', () => {
+    expect(formatInvoiceNumber(42)).toBe('0000000042');
+    expect(isEik('123456789')).toBe(true);
+    expect(isEik('1234567890123')).toBe(true);
+    expect(isEik('12345678')).toBe(false);
+    expect(isBgVatNumber('BG123456789')).toBe(true);
+    expect(isBgVatNumber('DE123456789')).toBe(false);
+    expect(isVatNumber('DE123456789')).toBe(true);
+    expect(compactCode(' bg80 bnbg-9661 1020 3456 78 ')).toBe('BG80BNBG96611020345678');
+    expect(isIban('BG80BNBG96611020345678')).toBe(true);
+    expect(isIban('GB82WEST12345698765432')).toBe(true);
+    expect(isIban('BG81BNBG96611020345678')).toBe(false);
+    expect(isIban('BG80BNBG9661')).toBe(false);
+  });
+
+  it('prints a document date and rate the Bulgarian way', () => {
+    expect(documentDate('2026-10-25')).toBe('25.10.2026 г.');
+    expect(documentRate(2000)).toBe('20 %');
+    expect(documentRate(900)).toBe('9 %');
   });
 });

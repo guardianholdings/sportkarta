@@ -8,6 +8,7 @@ import {
   CLUB_PLAN_AUDIENCES,
   CLUB_PLAN_KINDS,
   euroInputValue,
+  type ClubPaymentMethod,
 } from '@sportkarta/lib/clubs';
 import { instantToWall, parseRrule, SOFIA_TZ, WEEKDAY_CODES } from '@sportkarta/lib/recurrence';
 
@@ -91,7 +92,10 @@ export async function planFormLabels(): Promise<PlanFormLabels> {
   };
 }
 
-export async function saleFormLabels(): Promise<SaleFormLabels> {
+/** `methods`: the desk's methods for this club (deskPaymentMethods). */
+export async function saleFormLabels(
+  methods: readonly ClubPaymentMethod[] = CLUB_PAYMENT_METHODS.filter((m) => m !== 'wallet'),
+): Promise<SaleFormLabels> {
   const [t, tClub] = await Promise.all([
     getTranslations('ClubSales.sale'),
     getTranslations('Club'),
@@ -104,7 +108,7 @@ export async function saleFormLabels(): Promise<SaleFormLabels> {
     payNow: t('payNow'),
     payLater: t('payLater'),
     method: t('method'),
-    methods: Object.fromEntries(CLUB_PAYMENT_METHODS.map((m) => [m, tClub(`method.${m}`)])),
+    methods: Object.fromEntries(methods.map((m) => [m, tClub(`method.${m}`)])),
     amount: t('amount'),
     receivedOn: t('receivedOn'),
     dueOn: t('dueOn'),

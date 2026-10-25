@@ -27,6 +27,7 @@ export const CLUB_EXPORT_DATASETS = [
   'plans',
   'reservations',
   'sales',
+  'invoices',
   'audit',
 ] as const;
 export type ClubExportDataset = (typeof CLUB_EXPORT_DATASETS)[number];
@@ -214,6 +215,44 @@ const DATASETS: Record<ClubExportDataset, Dataset> = {
         LEFT JOIN club_members m ON m.club_id = sa.club_id AND m.id = sa.member_id
        WHERE ${scope}
        ORDER BY sa.number, sl.line_no`,
+  },
+  // Invoices and credit notes (0050), one row per line; a credit note's
+  // amounts are as printed (positive), its kind says it corrects.
+  invoices: {
+    permission: 'data.export',
+    alias: 'i',
+    header: [
+      'number',
+      'kind',
+      'issued_on',
+      'tax_event_on',
+      'corrects_number',
+      'buyer',
+      'buyer_eik',
+      'buyer_vat_number',
+      'payment_method',
+      'line',
+      'quantity',
+      'unit_eur',
+      'discount_eur',
+      'vat_bp',
+      'base_eur',
+      'vat_eur',
+      'line_eur',
+    ],
+    query: (scope) => sql`
+      SELECT ARRAY[lpad(i.number::text, 10, '0'), i.kind, i.issued_on::text, i.tax_event_on::text,
+             coalesce((SELECT lpad(c.number::text, 10, '0') FROM club_invoices c
+                        WHERE c.club_id = i.club_id AND c.id = i.corrects_id), ''),
+             i.buyer_name, coalesce(i.buyer_eik, ''), coalesce(i.buyer_vat_number, ''),
+             i.payment_method, il.description, il.quantity::text, ${EUR(sql`il.unit_price_cents`)},
+             ${EUR(sql`il.discount_cents`)}, coalesce(il.vat_rate_bp::text, ''),
+             ${EUR(sql`il.base_cents`)}, ${EUR(sql`il.vat_cents`)},
+             ${EUR(sql`il.total_cents`)}]::text[] AS r
+        FROM club_invoices i
+        JOIN club_invoice_lines il ON il.club_id = i.club_id AND il.invoice_id = i.id
+       WHERE ${scope}
+       ORDER BY i.number, il.line_no`,
   },
   classes: {
     permission: 'data.export',

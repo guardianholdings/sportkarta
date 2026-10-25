@@ -3,9 +3,10 @@ import { sofiaToday, type IsoDate } from '@sportkarta/lib/clubs';
 
 import { recordClubAudit } from './audit';
 import { violatedConstraint } from './errors';
-import { clubFeatureSql } from './features';
+import { clubFeatureSql, walletMethodAllowed } from './features';
 import type { ClubProductCategory, ProductInput, StockInput, TillSaleInput } from './input';
 import { closeChargeCheckout } from './payments';
+import { liveInvoiceFor } from './invoices';
 import { previewOffer, recordRedemption, resolveOffer } from './promotions';
 import { saleErrorCode } from './sales';
 import { clubActorMay, clubScope, clubWriteScope, type ClubActor } from './scope';
@@ -381,13 +382,16 @@ export async function recordTillSale(
         }
       }
       if (chargeId !== null && input.method !== null) {
-        await tx.execute(sql`
+        const paid = await tx.execute(sql`
           INSERT INTO club_payments (club_id, charge_id, member_id, kind, amount_cents, method,
                                      received_on, recorded_by)
           SELECT ${actor.clubId}::uuid, ${chargeId}::uuid, ${input.memberId}::uuid, 'payment',
                  ${total}, ${input.method}, ${today}::date, ${actor.userId}
            WHERE ${clubActorMay(actor, 'shop.sell', { write: true })}
+             AND ${walletMethodAllowed(actor.clubId, input.method)}
+          RETURNING id
         `);
+        if (paid.rows.length === 0) throw new Refused('feature_unavailable');
       }
       if (offer.applied && discount > 0) {
         await recordRedemption(tx, {
@@ -427,15 +431,16 @@ export async function recordTillSale(
  * voided so nothing stays owed. Once. charges.void (owner, manager) — the
  * people who may void any charge. Money paid ONLINE (a tab settled through
  * Stripe) is refused here: it goes back through the online refund first,
- * since a desk refund row would record money that never left Stripe. After
- * commit the charge's open online checkout, if any, is closed.
+ * since a desk refund row would record money that never left Stripe; so is
+ * an invoiced sale, until its credit note is issued. After commit the
+ * charge's open online checkout, if any, is closed.
  */
 export async function reverseSale(
   db: TransactionalDb,
   actor: ClubActor,
   saleId: string,
   today: IsoDate = sofiaToday(),
-): Promise<'ok' | 'not_found' | 'paid_online'> {
+): Promise<'ok' | 'not_found' | 'paid_online' | 'invoice_live'> {
   const outcome = await db.transaction(async (tx) => {
     const sale = (
       await tx.execute(sql`
@@ -467,6 +472,15 @@ export async function reverseSale(
           ).rows.map((row) => ({ method: String(row.method), net: Number(row.net) }));
     if (money.some((m) => m.method === 'card_online' && m.net !== 0)) {
       return { result: 'paid_online' as const };
+    }
+    // An invoiced sale is cancelled by its credit note first (0050).
+    if (chargeId !== null) {
+      const invoiced = await tx.execute(sql`
+        SELECT 1 FROM club_charges ch
+         WHERE ch.club_id = ${actor.clubId}::uuid AND ch.id = ${chargeId}::uuid
+           AND ${liveInvoiceFor(sql`ch.club_id`, sql`ch.id`)}
+      `);
+      if (invoiced.rows.length > 0) return { result: 'invoice_live' as const };
     }
     const reversed = await tx.execute(sql`
       UPDATE club_sales sa SET reversed_at = now(), reversed_by = ${actor.userId}
@@ -591,15 +605,6 @@ export async function previewTillSale(
   };
 }
 
-/** Whether a charge was raised by a till sale — undone by reversing the sale. */
-export async function isTillSaleCharge(actor: ClubActor, chargeId: string): Promise<boolean> {
-  const result = await getDb().execute(sql`
-    SELECT 1 FROM club_sales sa
-     WHERE sa.charge_id = ${chargeId}::uuid AND ${clubScope(actor, 'charges.void', 'sa')}
-  `);
-  return result.rows.length > 0;
-}
-
 export interface SaleSummary {
   id: string;
   number: number;
@@ -650,6 +655,9 @@ export interface SaleDetail extends SaleSummary {
   }[];
   /** Per method: money taken, and money given back (a reversal). */
   payments: { method: string; amountCents: number; refundedCents: number }[];
+  /** The charge it raised (none when free), and that charge's live invoice (0050). */
+  chargeId: string | null;
+  invoiceId: string | null;
 }
 
 export async function saleById(actor: ClubActor, saleId: string): Promise<SaleDetail | null> {
@@ -659,6 +667,11 @@ export async function saleById(actor: ClubActor, saleId: string): Promise<SaleDe
       SELECT sa.id, sa.number, sa.sold_at, sa.member_id, m.display_name, sa.subtotal_cents,
              sa.total_cents, sa.discount_cents, sa.reversed_at IS NOT NULL AS reversed,
              cb.status, sa.charge_id,
+             (SELECT i.id FROM club_invoices i
+               WHERE i.club_id = sa.club_id AND i.charge_id = sa.charge_id AND i.kind = 'invoice'
+                 AND i.total_cents > coalesce((SELECT sum(c.total_cents) FROM club_invoices c
+                                                WHERE c.club_id = i.club_id AND c.corrects_id = i.id), 0)
+               LIMIT 1) AS invoice_id,
              (SELECT po.name FROM club_promotion_redemptions rd
                 JOIN club_promotions po ON po.club_id = rd.club_id AND po.id = rd.promotion_id
                WHERE rd.club_id = sa.club_id AND rd.sale_id = sa.id) AS promotion
@@ -712,6 +725,8 @@ export async function saleById(actor: ClubActor, saleId: string): Promise<SaleDe
       amountCents: Number(row.amount ?? 0),
       refundedCents: Number(row.refunded ?? 0),
     })),
+    chargeId,
+    invoiceId: text(head.invoice_id),
   };
 }
 

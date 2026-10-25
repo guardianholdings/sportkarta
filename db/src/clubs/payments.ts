@@ -91,7 +91,7 @@ export async function applyCheckoutPaid(
          AND ${paid.accountRef ? sql`account_ref = ${paid.accountRef}` : sql`true`}`;
     const found = await tx.execute(sql`
       SELECT id, club_id, purpose, member_id, charge_id, plan_id, amount_cents, mode,
-             to_char(starts_on, 'YYYY-MM-DD') AS starts_on, promotion_id, discount_cents
+             to_char(starts_on, 'YYYY-MM-DD') AS starts_on, promotion_id, discount_cents, label
         FROM club_checkouts
        WHERE status = 'open' AND ${target}
          FOR UPDATE
@@ -145,6 +145,17 @@ export async function applyCheckoutPaid(
       if (!due.rows[0] || Number(due.rows[0].due_cents) < paid.amountCents) {
         return fail('charge_settled');
       }
+    } else if (row.purpose === 'wallet') {
+      // Credit bought online (0050): the top-up charge is created now, with
+      // the money — an abandoned top-up never left a charge behind.
+      if (memberId === null) return fail('amount_mismatch');
+      const charge = await tx.execute(sql`
+        INSERT INTO club_charges (club_id, member_id, kind, label, amount_cents, issued_on, due_on)
+        VALUES (${clubId}::uuid, ${memberId}::uuid, 'wallet', ${String(row.label)},
+                ${paid.amountCents}, ${today}::date, ${today}::date)
+        RETURNING id
+      `);
+      chargeId = String(charge.rows[0]?.id);
     } else {
       // A plan bought online: the membership, its charge and the payment, in
       // this transaction — the sellMembership shape, with the system as seller.

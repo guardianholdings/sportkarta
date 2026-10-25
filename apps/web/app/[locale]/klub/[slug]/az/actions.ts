@@ -1,8 +1,8 @@
 'use server';
 
 import { getDb } from '@sportkarta/db';
-import { isIsoDate, sofiaToday } from '@sportkarta/lib/clubs';
-import { getLocale } from 'next-intl/server';
+import { isIsoDate, parseEuroCents, sofiaToday } from '@sportkarta/lib/clubs';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { revalidatePath } from 'next/cache';
 import { redirect as redirectOut } from 'next/navigation';
 
@@ -19,9 +19,11 @@ import { clubMemberActionLimiter } from '@/lib/clubs/rate-limit';
 import {
   checkoutReturn,
   startChargeCheckout,
+  startWalletCheckout,
   stopProviderSubscriptions,
 } from '@/lib/clubs/payments';
 import { memberPause, memberStopRenewal, setContactPreferences } from '@/lib/clubs/self-service';
+import { clubLanguage } from '@/lib/clubs/wallet';
 
 /**
  * Everything a member does in their club portal, dispatched by `op`. Each
@@ -137,6 +139,26 @@ export async function portalOpAction(formData: FormData): Promise<void> {
         user.id,
         { id: clubId, slug },
         chargeId,
+        checkoutReturn(locale),
+      );
+      if (!started.ok) return back(`payment_${started.error}`);
+      return redirectOut(started.url);
+    }
+    case 'top_up': {
+      // Credit loaded online (0050) for this account's record or a child's;
+      // the top-up exists only once the provider confirms the money.
+      const amount = parseEuroCents(str(formData, 'amount'));
+      if (!isUuid(memberId) || amount === null) return back('payment_amount_invalid');
+      // Named in the CLUB's language: a charge in the club's own books.
+      const t = await getTranslations({
+        locale: await clubLanguage(clubId),
+        namespace: 'ClubPortal',
+      });
+      const started = await startWalletCheckout(
+        db,
+        user.id,
+        { id: clubId, slug },
+        { memberId, amountCents: amount, label: t('walletTopUpLabel') },
         checkoutReturn(locale),
       );
       if (!started.ok) return back(`payment_${started.error}`);

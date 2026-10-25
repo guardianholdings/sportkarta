@@ -26,10 +26,11 @@ import { siteUrl } from '../seo';
 import { clubWritableGuard } from './access';
 import { recordClubAudit } from './audit';
 import { ensureSelfRecord } from './bookings';
+import { liveInvoiceFor } from './invoices';
 import { resolveOffer } from './promotions';
 import { voidCharge } from './sales';
 import { violatedConstraint } from './errors';
-import { clubSwitchOn } from './features';
+import { clubFeatureSql, clubSwitchOn } from './features';
 import { clubActorMay, clubScope, clubWriteScope, memberSelfScope, type ClubActor } from './scope';
 
 /**
@@ -313,7 +314,9 @@ export type CheckoutStart =
         | 'code_invalid'
         | 'offer_used_up'
         /** An offer takes the price under the online minimum: buy at the desk. */
-        | 'offer_below_minimum';
+        | 'offer_below_minimum'
+        /** A top-up outside the online bounds (0050). */
+        | 'amount_invalid';
     };
 
 export interface Return {
@@ -883,12 +886,86 @@ export async function startPlanCheckout(
   return { ok: false, error: 'provider_error' };
 }
 
+/** The most one online top-up loads (0050): a card payment, not a deposit account. */
+export const MAX_ONLINE_TOP_UP_CENTS = 100_000;
+
+/**
+ * Load credit online (0050) for the account's own record or a child's: a
+ * checkout of purpose 'wallet' carrying the charge's label (`label`, in the
+ * buyer's words); the top-up charge is created only when the provider
+ * confirms the money, so an abandoned one leaves nothing behind.
+ */
+export async function startWalletCheckout(
+  db: TransactionalDb,
+  userId: string,
+  club: { id: string; slug: string },
+  input: { memberId: string; amountCents: number; label: string },
+  back: Return,
+): Promise<CheckoutStart> {
+  const account = await liveAccount(club.id);
+  if (!account) return { ok: false, error: 'unavailable' };
+  if (
+    !Number.isInteger(input.amountCents) ||
+    input.amountCents < MIN_ONLINE_CENTS ||
+    input.amountCents > MAX_ONLINE_TOP_UP_CENTS
+  ) {
+    return { ok: false, error: 'amount_invalid' };
+  }
+  const checkoutId = randomUUID();
+  const created = await db.transaction(async (tx) => {
+    const inserted = await tx.execute(sql`
+      INSERT INTO club_checkouts (id, club_id, purpose, member_id, amount_cents, mode, provider,
+                                  account_ref, label)
+      SELECT ${checkoutId}::uuid, m.club_id, 'wallet', m.id, ${input.amountCents}, 'payment',
+             ${account.provider}, ${account.accountRef}, ${input.label.slice(0, 120)}
+        FROM club_members m
+       WHERE m.id = ${input.memberId}::uuid AND m.archived_at IS NULL
+         AND ${memberSelfScope(userId, club.id, 'm')} AND ${clubWritableGuard(club.id)}
+         AND ${clubFeatureSql(club.id, 'wallet')}
+      RETURNING id
+    `);
+    if (inserted.rows.length === 0) return false;
+    await recordClubAudit(tx, {
+      clubId: club.id,
+      by: { kind: 'member', userId },
+      action: 'checkout_started',
+      subjectMemberId: input.memberId,
+      detail: { purpose: 'wallet', amountCents: input.amountCents },
+    });
+    return true;
+  });
+  if (!created) return { ok: false, error: 'not_allowed' };
+  let url: string | null = null;
+  try {
+    url = await openSession(getDb(), {
+      checkoutId,
+      clubId: club.id,
+      clubSlug: club.slug,
+      account,
+      label: input.label,
+      amountCents: input.amountCents,
+      subscriptionMonths: null,
+      email: await verifiedEmail(getDb(), userId),
+      back,
+    });
+  } catch {
+    url = null;
+  }
+  if (url) return { ok: true, url, checkoutId };
+  // No session reached the buyer: nothing can be paid on it.
+  await getDb().execute(sql`
+    UPDATE club_checkouts SET status = 'expired', completed_at = now()
+     WHERE id = ${checkoutId}::uuid AND status = 'open' AND session_ref IS NULL
+  `);
+  return { ok: false, error: 'provider_error' };
+}
+
 export interface MemberCheckout {
   id: string;
   /** 0046's states; `unapplied` is paid at the provider, waiting for the club. */
   status: 'open' | 'paid' | 'expired' | 'unapplied';
   amountCents: number;
-  purpose: 'charge' | 'membership';
+  purpose: 'charge' | 'membership' | 'wallet';
   provider: 'stripe' | 'fake';
 }
 
@@ -911,7 +988,7 @@ export async function checkoutForMember(
     id: String(row.id),
     status: String(row.status) as MemberCheckout['status'],
     amountCents: Number(row.amount_cents),
-    purpose: row.purpose === 'membership' ? 'membership' : 'charge',
+    purpose: row.purpose === 'membership' || row.purpose === 'wallet' ? row.purpose : 'charge',
     provider: row.provider === 'fake' ? 'fake' : 'stripe',
   };
 }
@@ -995,8 +1072,18 @@ export type RefundResult =
   | { ok: true }
   | {
       ok: false;
-      /** account_changed: paid to an account no longer connected — refund in Stripe. */
-      error: 'not_allowed' | 'amount_invalid' | 'provider_error' | 'account_changed';
+      /**
+       * account_changed: paid to an account no longer connected — refund in
+       * Stripe. wallet_spent: credit loaded online is refunded only as far as
+       * it is unspent (0050).
+       */
+      error:
+        | 'not_allowed'
+        | 'amount_invalid'
+        | 'provider_error'
+        | 'account_changed'
+        | 'wallet_spent'
+        | 'invoice_live';
     };
 
 /**
@@ -1021,6 +1108,11 @@ export async function refundOnlinePayment(
              pay.amount_cents + coalesce((SELECT sum(r.amount_cents) FROM club_payments r
                                            WHERE r.charge_id = pay.charge_id AND r.kind = 'refund'
                                              AND r.method = 'card_online'), 0) AS refundable,
+             -- What is still on the charge: a desk refund (credit paid back in
+             -- cash, 0050) may already have taken part of it.
+             (SELECT coalesce(sum(n.amount_cents), 0) FROM club_payments n
+               WHERE n.charge_id = pay.charge_id) AS charge_net,
+             ${liveInvoiceFor(sql`pay.club_id`, sql`pay.charge_id`)} AS invoiced,
              paid_on.account_ref,
              EXISTS (SELECT 1 FROM club_payment_accounts a
                       WHERE a.club_id = pay.club_id AND a.disconnected_at IS NULL
@@ -1044,10 +1136,27 @@ export async function refundOnlinePayment(
     `)
   ).rows[0];
   if (!payment || payment.provider_ref === null) return { ok: false, error: 'not_allowed' };
-  const refundable = Number(payment.refundable);
+  // An invoiced charge is corrected by its credit note before money goes back.
+  if (payment.invoiced === true) return { ok: false, error: 'invoice_live' };
+  const refundable = Math.min(Number(payment.refundable), Number(payment.charge_net));
   const amount = amountCents ?? refundable;
   if (!Number.isInteger(amount) || amount <= 0 || amount > refundable) {
     return { ok: false, error: 'amount_invalid' };
+  }
+  // Credit loaded online (0050) goes back only as far as it is unspent. The
+  // provider's refund is recorded whatever the balance (the money has left),
+  // so the check is here, before the money moves.
+  const credit = (
+    await db.execute(sql`
+      SELECT ch.kind,
+             (SELECT coalesce(sum(w.balance_cents), 0) FROM club_wallet_balances w
+               WHERE w.club_id = ch.club_id AND w.member_id = ch.member_id) AS balance
+        FROM club_charges ch
+       WHERE ch.id = ${String(payment.charge_id)}::uuid AND ${clubScope(actor, 'charges.void', 'ch')}
+    `)
+  ).rows[0];
+  if (credit?.kind === 'wallet' && amount > Number(credit.balance)) {
+    return { ok: false, error: 'wallet_spent' };
   }
   const provider = payment.provider === 'fake' ? 'fake' : 'stripe';
   let refundRef: string;

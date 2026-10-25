@@ -210,7 +210,18 @@ browser) in a MANUAL STEPS list at the end of the session.
   offer); a use is DERIVED (a reversed sale or a mistaken membership frees
   it) and an OPEN online checkout carrying an offer counts as one (a
   reservation, with a 31-minute session), so a voucher cannot be spent twice.
-  Tills and desks show the post-offer total via `previewOffer`. Writes need `clubWritableSql` (active and paid or
+  Tills and desks show the post-offer total via `previewOffer`. Wallet and
+  invoices (wave B2, `0050`): credit is DERIVED from the books
+  (`club_wallet_balances`: wallet-charge payments minus `wallet`-method
+  payments), and `club_payments_wallet` is the only arbiter — every row the
+  club writes keeps it ≥ 0, while a refund the provider reports is a fact and
+  may take it below (what the client owes). Revenue sums exclude
+  `method = 'wallet'`. An invoice's number, chronology, lines-add-up and
+  one-live-per-charge are triggers (deferred where they must see the whole
+  transaction), and `club_number_sequences_used` refuses a number drawn
+  without its document. The invoice document's words live in
+  `lib/src/clubs/invoice-document.ts` (Bulgarian in any locale, like the
+  ministry annex), allowlisted in the package Cyrillic gate. Writes need `clubWritableSql` (active and paid or
   community, 14-day grace); every public surface embeds `clubRenderableSql`.
   Check-ins never refuse (`covered=false` is recorded); only a QR/card visit of
   a consenting linked member writes `training_logs(source='club',

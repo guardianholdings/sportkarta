@@ -42,6 +42,7 @@ export const CLUB_PERMISSIONS = [
   'charges.void',
   'shop.sell',
   'shop.manage',
+  'invoices.issue',
   'schedule.view',
   'schedule.manage',
   'roster.view',
@@ -81,6 +82,8 @@ const MATRIX: Readonly<Record<ClubPermission, readonly ClubRole[]>> = {
   // count are management's (wave B1).
   'shop.sell': FRONT_OF_HOUSE,
   'shop.manage': MANAGEMENT,
+  /** Invoices and credit notes (0050): a legal document, so owner and manager. */
+  'invoices.issue': MANAGEMENT,
   'schedule.view': ALL,
   'schedule.manage': MANAGEMENT,
   'roster.view': FRONT_OF_HOUSE,
