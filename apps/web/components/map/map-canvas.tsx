@@ -19,6 +19,7 @@ import {
   insideVisibleFrame,
   openingCenter,
   widthFitZoom,
+  zoomFloor,
 } from './camera';
 import { createCluster, createPin } from './markers';
 
@@ -550,6 +551,13 @@ export default function MapCanvas({
       };
     };
 
+    // zoomFloor (camera.ts) clamps into setMinZoom's range and returns null
+    // for a canvas too small to fit anything, which would otherwise throw.
+    const setFloor = (fit: number) => {
+      const floor = zoomFloor(fit, map.getMaxZoom());
+      if (floor !== null) map.setMinZoom(floor);
+    };
+
     const applyPadding = () => {
       const p = framePadding();
       map.setPadding(p);
@@ -578,7 +586,7 @@ export default function MapCanvas({
         const widthFit = widthFitZoom(map.getCanvas().clientWidth, BULGARIA_BOUNDS);
         // Clamp to maxZoom as well: setMinZoom THROWS above it, and on a small
         // canvas the fit math can legitimately land there.
-        map.setMinZoom(Math.min(Math.max(0, widthFit - 0.1), map.getMaxZoom()));
+        setFloor(widthFit);
       } else if (cam?.zoom !== undefined) {
         // Desktop: the floor is the whole country fitted into the visible
         // frame — both axes — so it is always one zoom-out away. On a
@@ -586,7 +594,7 @@ export default function MapCanvas({
         // cameraForBounds then reports a zoom past maxZoom — setMinZoom throws
         // ("minZoom must be between -2 and the current maxZoom") instead of
         // clamping, so clamp here.
-        map.setMinZoom(Math.min(Math.max(0, cam.zoom - 0.1), map.getMaxZoom()));
+        setFloor(cam.zoom);
       }
 
       // MapLibre re-runs a transform constraint when the centre, the zoom or
