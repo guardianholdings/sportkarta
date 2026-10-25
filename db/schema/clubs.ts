@@ -22,7 +22,7 @@ import { users } from './auth.js';
 import { businesses, facilities, municipalities, trainingLogs } from './index.js';
 
 /**
- * The «Клубове» add-on (migrations 0039–0044; docs/ROADMAP.md Stage 9).
+ * The «Клубове» add-on (migrations 0039–0045; docs/ROADMAP.md Stage 9).
  *
  * THE MIGRATIONS ARE THE SOURCE OF TRUTH. They were hand-written (the snapshot
  * chain stops at 0029), and they carry what drizzle cannot express or
@@ -77,6 +77,8 @@ export const clubs = pgTable(
     cancelDeadlineHours: integer('cancel_deadline_hours').notNull().default(2),
     mailUnlinkedMembers: boolean('mail_unlinked_members').notNull().default(false),
     logoPath: text('logo_path'),
+    /** green | coral | sky — one of the design system's scales (0045). */
+    accent: text('accent').notNull().default('green'),
     memberCap: integer('member_cap'),
     trialEndsOn: date('trial_ends_on'),
     /** Set by hand when the operator's invoice is paid. */
@@ -173,6 +175,8 @@ export const clubStaff = pgTable(
     payRateKind: text('pay_rate_kind').notNull().default('none'),
     payRateCents: integer('pay_rate_cents'),
     payShareBp: integer('pay_share_bp'),
+    /** The trainer's own opt-in to appear on the public club page (0045). */
+    publicProfile: boolean('public_profile').notNull().default(false),
     grantedBy: text('granted_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
     updatedAt: timestamptz('updated_at').notNull().defaultNow(),
@@ -245,6 +249,10 @@ export const clubMembers = pgTable(
     source: text('source').notNull().default('staff'),
     unsubscribeToken: text('unsubscribe_token').notNull(),
     emailOptOutAt: timestamptz('email_opt_out_at'),
+    /** Consent timestamps for marketing, and the SMS opt-out (0045). */
+    marketingEmailAt: timestamptz('marketing_email_at'),
+    marketingSmsAt: timestamptz('marketing_sms_at'),
+    smsOptOutAt: timestamptz('sms_opt_out_at'),
     cardTokenHash: text('card_token_hash'),
     erasureRequestedAt: timestamptz('erasure_requested_at'),
     archivedAt: timestamptz('archived_at'),
@@ -345,6 +353,12 @@ export const clubPlans = pgTable(
     visitsCount: integer('visits_count'),
     /** public | private */
     visibility: text('visibility').notNull().default('public'),
+    /** The club's terms for the plan (0045). */
+    autoRenew: boolean('auto_renew').notNull().default(false),
+    minTermMonths: integer('min_term_months'),
+    noticeDays: integer('notice_days').notNull().default(0),
+    selfPauseAllowed: boolean('self_pause_allowed').notNull().default(false),
+    selfCancelAllowed: boolean('self_cancel_allowed').notNull().default(false),
     sortOrder: integer('sort_order').notNull().default(0),
     archivedAt: timestamptz('archived_at'),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
@@ -377,11 +391,19 @@ export const clubMemberships = pgTable(
     cancelledAt: timestamptz('cancelled_at'),
     cancelReason: text('cancel_reason'),
     soldBy: text('sold_by'),
+    /** A renewing chain (0045): the period this one follows, and its terms. */
+    renews: boolean('renews').notNull().default(false),
+    renewalOf: uuid('renewal_of'),
+    termStartedOn: date('term_started_on'),
+    renewalEndsOn: date('renewal_ends_on'),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
     updatedAt: timestamptz('updated_at').notNull().defaultNow(),
   },
   (t) => [
     unique('club_memberships_club_id_unique').on(t.clubId, t.id),
+    uniqueIndex('club_memberships_one_successor')
+      .on(t.renewalOf)
+      .where(sql`${t.renewalOf} IS NOT NULL`),
     unique('club_memberships_member_unique').on(t.clubId, t.memberId, t.id),
     foreignKey({
       name: 'club_memberships_member_fk',
@@ -438,8 +460,15 @@ export const clubCharges = pgTable(
     voidedAt: timestamptz('voided_at'),
     createdBy: text('created_by'),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
+    /** The booking a no-show or late-cancel fee is for (0045). */
+    bookingId: uuid('booking_id'),
   },
-  (t) => [unique('club_charges_club_id_unique').on(t.clubId, t.id)],
+  (t) => [
+    unique('club_charges_club_id_unique').on(t.clubId, t.id),
+    uniqueIndex('club_charges_one_fee_per_booking')
+      .on(t.bookingId)
+      .where(sql`${t.bookingId} IS NOT NULL`),
+  ],
 );
 
 /** Append-only (0041): a refund is a new negative row. */
@@ -498,6 +527,11 @@ export const clubClasses = pgTable(
     bookingOpensHours: integer('booking_opens_hours').notNull().default(168),
     cancelDeadlineHours: integer('cancel_deadline_hours').notNull().default(2),
     dropInPriceCents: integer('drop_in_price_cents'),
+    /** No-show and late-cancel policy (0045). */
+    noShowFeeCents: integer('no_show_fee_cents'),
+    lateCancelFeeCents: integer('late_cancel_fee_cents'),
+    strikeLimit: integer('strike_limit'),
+    strikeDays: integer('strike_days'),
     coversAllPlans: boolean('covers_all_plans').notNull().default(true),
     trialAllowed: boolean('trial_allowed').notNull().default(true),
     public: boolean('public').notNull().default(true),
@@ -687,6 +721,55 @@ export const clubMonthlyActivity = pgTable(
     computedAt: timestamptz('computed_at').notNull().defaultNow(),
   },
   (t) => [uniqueIndex('club_monthly_activity_club_month_unique').on(t.clubId, t.month)],
+);
+
+/** A trainer's leave (0045); Wave C adds rooms and courts. */
+export const clubTimeBlocks = pgTable(
+  'club_time_blocks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    staffUserId: text('staff_user_id').notNull(),
+    startsAt: timestamptz('starts_at').notNull(),
+    endsAt: timestamptz('ends_at').notNull(),
+    /** time_off | training | other — never a health reason */
+    reason: text('reason').notNull(),
+    createdBy: text('created_by'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('club_time_blocks_club_id_unique').on(t.clubId, t.id),
+    foreignKey({
+      name: 'club_time_blocks_staff_fk',
+      columns: [t.clubId, t.staffUserId],
+      foreignColumns: [clubStaff.clubId, clubStaff.userId],
+    }).onDelete('cascade'),
+    index('club_time_blocks_staff_idx').on(t.clubId, t.staffUserId, t.startsAt),
+  ],
+);
+
+/** The club's questions and answers on its public page (0045). */
+export const clubFaq = pgTable(
+  'club_faq',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    questionBg: text('question_bg').notNull(),
+    answerBg: text('answer_bg').notNull(),
+    questionEn: text('question_en'),
+    answerEn: text('answer_en'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('club_faq_club_id_unique').on(t.clubId, t.id),
+    index('club_faq_club_idx').on(t.clubId, t.sortOrder),
+  ],
 );
 
 export type ClubRow = typeof clubs.$inferSelect;

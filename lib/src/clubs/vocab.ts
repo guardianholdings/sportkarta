@@ -6,7 +6,7 @@ import type { IsoDate } from './dates.js';
  * every list here equal to its constraint, so the two copies cannot drift.
  */
 
-/** club_audit_action_known (0039). */
+/** club_audit_action_known (0039, widened in 0045). */
 export const CLUB_AUDIT_ACTIONS = [
   'club_applied',
   'settings_changed',
@@ -51,6 +51,15 @@ export const CLUB_AUDIT_ACTIONS = [
   'import_committed',
   'export_downloaded',
   'ngo_admin_viewed',
+  'membership_renewed',
+  'renewal_stopped',
+  'fee_charged',
+  'time_off_saved',
+  'time_off_removed',
+  'faq_saved',
+  'faq_removed',
+  'staff_profile_changed',
+  'preferences_changed',
 ] as const;
 export type ClubAuditAction = (typeof CLUB_AUDIT_ACTIONS)[number];
 
@@ -92,7 +101,7 @@ export type ClubPlanAudience = (typeof CLUB_PLAN_AUDIENCES)[number];
 export const CLUB_CANCEL_REASONS = ['member_request', 'non_payment', 'mistake', 'other'] as const;
 export type ClubCancelReason = (typeof CLUB_CANCEL_REASONS)[number];
 
-/** club_notifications_kind_known (0044). */
+/** club_notifications_kind_known (0044, widened in 0045). */
 export const CLUB_NOTIFICATION_KINDS = [
   'member_invite',
   'staff_invite',
@@ -110,6 +119,9 @@ export const CLUB_NOTIFICATION_KINDS = [
   'erasure_requested',
   'roster_daily',
   'owner_weekly',
+  'membership_renewed',
+  'fee_charged',
+  'owner_monthly',
 ] as const;
 export type ClubNotificationKind = (typeof CLUB_NOTIFICATION_KINDS)[number];
 
@@ -119,7 +131,8 @@ export type ClubNotificationKind = (typeof CLUB_NOTIFICATION_KINDS)[number];
  *  * booking mail is keyed by the arrival ticket (seq), so a member who
  *    re-books after cancelling is confirmed again (0013's rsvp_seq lesson);
  *  * a reminder by occurrence and member — once per class;
- *  * an expiry notice by membership — once per sale;
+ *  * an expiry or renewal notice by membership — once per sale or period;
+ *  * a fee notice by charge;
  *  * digests by recipient and civil day / ISO week.
  * The shape matches club_notifications_dedupe_key_shape.
  */
@@ -131,7 +144,11 @@ export type DedupeInput =
       seq: number;
     }
   | { kind: 'class_cancelled' | 'reminder_24h'; occurrenceId: string; memberId: string }
-  | { kind: 'membership_expiring' | 'membership_expired'; membershipId: string }
+  | {
+      kind: 'membership_expiring' | 'membership_expired' | 'membership_renewed';
+      membershipId: string;
+    }
+  | { kind: 'fee_charged'; chargeId: string }
   | { kind: 'member_invite'; inviteId: string }
   | { kind: 'staff_invite'; inviteId: string }
   | {
@@ -142,7 +159,8 @@ export type DedupeInput =
   | { kind: 'claim_pending'; memberId: string; userId: string }
   | { kind: 'erasure_requested'; memberId: string; userId: string }
   | { kind: 'roster_daily'; userId: string; day: IsoDate }
-  | { kind: 'owner_weekly'; userId: string; week: string };
+  | { kind: 'owner_weekly'; userId: string; week: string }
+  | { kind: 'owner_monthly'; userId: string; month: string };
 
 export function dedupeKey(input: DedupeInput): string {
   switch (input.kind) {
@@ -155,7 +173,10 @@ export function dedupeKey(input: DedupeInput): string {
       return `${input.kind}:${input.occurrenceId}:${input.memberId}`;
     case 'membership_expiring':
     case 'membership_expired':
+    case 'membership_renewed':
       return `${input.kind}:${input.membershipId}`;
+    case 'fee_charged':
+      return `${input.kind}:${input.chargeId}`;
     case 'member_invite':
     case 'staff_invite':
       return `${input.kind}:${input.inviteId}`;
@@ -170,5 +191,7 @@ export function dedupeKey(input: DedupeInput): string {
       return `${input.kind}:${input.userId}:${input.day}`;
     case 'owner_weekly':
       return `${input.kind}:${input.userId}:${input.week}`;
+    case 'owner_monthly':
+      return `${input.kind}:${input.userId}:${input.month}`;
   }
 }

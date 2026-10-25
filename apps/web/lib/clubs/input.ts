@@ -370,6 +370,12 @@ export interface PlanInput {
   validityMonths: number | null;
   visitsCount: number | null;
   visibility: 'public' | 'private';
+  /** The club's terms (0045). */
+  autoRenew: boolean;
+  minTermMonths: number | null;
+  noticeDays: number;
+  selfPauseAllowed: boolean;
+  selfCancelAllowed: boolean;
 }
 
 export function parsePlan(form: Reader): InputResult<PlanInput> {
@@ -407,7 +413,22 @@ export function parsePlan(form: Reader): InputResult<PlanInput> {
     if (visitsCount === null) errors.push('visits_invalid');
   }
   const visibility = text(form, 'visibility') === 'private' ? 'private' : 'public';
-  if (errors.length > 0 || !kind || !audience || priceCents === null || amount === null) {
+  const autoRenew = checked(form, 'autoRenew');
+  if (autoRenew && kind === 'trial') errors.push('trial_cannot_renew');
+  const minTermRaw = text(form, 'minTermMonths');
+  const minTermMonths = minTermRaw === '' ? null : intInRange(minTermRaw, 1, 36);
+  if (minTermRaw !== '' && minTermMonths === null) errors.push('min_term_invalid');
+  const noticeRaw = text(form, 'noticeDays');
+  const noticeDays = noticeRaw === '' ? 0 : intInRange(noticeRaw, 0, 120);
+  if (noticeDays === null) errors.push('notice_invalid');
+  if (
+    errors.length > 0 ||
+    !kind ||
+    !audience ||
+    priceCents === null ||
+    amount === null ||
+    noticeDays === null
+  ) {
     return { ok: false, errors };
   }
   return {
@@ -424,7 +445,32 @@ export function parsePlan(form: Reader): InputResult<PlanInput> {
       validityMonths: unit === 'months' ? amount : null,
       visitsCount,
       visibility,
+      autoRenew,
+      minTermMonths: autoRenew ? minTermMonths : null,
+      noticeDays: autoRenew ? noticeDays : 0,
+      selfPauseAllowed: checked(form, 'selfPause'),
+      selfCancelAllowed: autoRenew && checked(form, 'selfCancel'),
     },
+  };
+}
+
+// ─── The member's own contact preferences (portal, 0045) ───────────────────
+
+export interface ContactPreferencesInput {
+  phone: string | null;
+  marketingEmail: boolean;
+  marketingSms: boolean;
+}
+
+export function parseContactPreferences(form: Reader): InputResult<ContactPreferencesInput> {
+  const errors: string[] = [];
+  const number = phone(optionalText(form, 'phone'), errors);
+  const marketingSms = checked(form, 'marketingSms');
+  if (marketingSms && number === null) errors.push('sms_needs_phone');
+  if (errors.length > 0) return { ok: false, errors };
+  return {
+    ok: true,
+    value: { phone: number, marketingEmail: checked(form, 'marketingEmail'), marketingSms },
   };
 }
 
@@ -591,6 +637,11 @@ export interface ClassInput {
   planIds: string[];
   trialAllowed: boolean;
   public: boolean;
+  /** No-show and late-cancel policy (0045); null = none. */
+  noShowFeeCents: number | null;
+  lateCancelFeeCents: number | null;
+  strikeLimit: number | null;
+  strikeDays: number | null;
 }
 
 function isoWeekdayOf(date: IsoDate): number {
@@ -704,6 +755,24 @@ export function parseClass(
         ),
       ];
   if (!coversAllPlans && planIds.length === 0) errors.push('plans_required');
+  const fee = (name: string): number | null => {
+    const raw = text(form, name);
+    if (raw === '') return null;
+    const cents = parseEuroCents(raw);
+    if (cents === null || cents < 1 || cents > 100000) {
+      errors.push('fee_invalid');
+      return null;
+    }
+    return cents;
+  };
+  const noShowFeeCents = fee('noShowFee');
+  const lateCancelFeeCents = fee('lateCancelFee');
+  const strikeRaw = text(form, 'strikeLimit');
+  const strikeLimit = strikeRaw === '' ? null : intInRange(strikeRaw, 1, 20);
+  if (strikeRaw !== '' && strikeLimit === null) errors.push('strikes_invalid');
+  const strikeDaysRaw = text(form, 'strikeDays');
+  const strikeDays = strikeLimit === null ? null : intInRange(strikeDaysRaw || '30', 7, 180);
+  if (strikeLimit !== null && strikeDays === null) errors.push('strikes_invalid');
 
   if (
     errors.length > 0 ||
@@ -734,6 +803,10 @@ export function parseClass(
       planIds,
       trialAllowed: checked(form, 'trialAllowed'),
       public: checked(form, 'public'),
+      noShowFeeCents,
+      lateCancelFeeCents,
+      strikeLimit,
+      strikeDays,
     },
   };
 }

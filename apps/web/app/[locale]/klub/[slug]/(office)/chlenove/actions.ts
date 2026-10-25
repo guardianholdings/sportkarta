@@ -18,7 +18,13 @@ import {
   updateMember,
 } from '@/lib/clubs/members';
 import { enqueueClubNotify } from '@/lib/clubs/notify';
-import { cancelMembership, pauseMembership, resumeMembership, voidCharge } from '@/lib/clubs/sales';
+import {
+  cancelMembership,
+  pauseMembership,
+  resumeMembership,
+  setMembershipRenewal,
+  voidCharge,
+} from '@/lib/clubs/sales';
 
 /**
  * The member screens' actions. Each re-gates with requireClubStaff for the
@@ -146,6 +152,18 @@ export async function memberOpAction(formData: FormData): Promise<void> {
       if (!isUuid(membershipId) || !CANCEL_REASONS.has(reason)) {
         outcome = 'reason_invalid';
       } else if (!(await cancelMembership(db, actor, membershipId, reason as ClubCancelReason))) {
+        outcome = 'not_found';
+      }
+      break;
+    }
+    case 'stop_renewal':
+    case 'start_renewal': {
+      const { actor } = await requireClubStaff(slug, 'sales.manage');
+      const membershipId = str(formData, 'membershipId');
+      if (
+        !isUuid(membershipId) ||
+        !(await setMembershipRenewal(db, actor, membershipId, op === 'start_renewal'))
+      ) {
         outcome = 'not_found';
       }
       break;

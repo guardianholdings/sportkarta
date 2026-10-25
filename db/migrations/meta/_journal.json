@@ -316,6 +316,13 @@
       "when": 1785156000000,
       "tag": "0044_club_notifications_activity",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1785159600000,
+      "tag": "0045_club_policies_staff_site",
+      "breakpoints": true
     }
   ]
 }

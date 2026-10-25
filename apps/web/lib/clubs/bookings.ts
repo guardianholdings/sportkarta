@@ -1,4 +1,5 @@
 import { sql, type SQL } from '@sportkarta/db';
+import { selfBookingBlocked } from '@sportkarta/lib/clubs';
 
 import { recordClubAudit } from './audit';
 import { violatedConstraint } from './errors';
@@ -27,7 +28,10 @@ interface TransactionalDb extends SqlRunner {
 
 export type BookingResult =
   | { ok: true; bookingId: string; status: 'going' | 'waitlisted' }
-  | { ok: false; error: 'not_allowed' | 'closed' | 'not_open_yet' | 'started' | 'already' };
+  | {
+      ok: false;
+      error: 'not_allowed' | 'closed' | 'not_open_yet' | 'started' | 'already' | 'strikes_reached';
+    };
 
 function bookingErrorCode(error: unknown): BookingResult | null {
   const constraint = violatedConstraint(error);
@@ -121,8 +125,27 @@ export async function bookSelf(
 ): Promise<BookingResult> {
   try {
     return await db.transaction(async (tx) => {
+      // Strikes (0045): no-shows and late cancellations inside the class's
+      // window. Reaching the limit stops SELF-booking only; the desk can
+      // always book, and attendance is never refused.
       const ok = await tx.execute(sql`
-        SELECT 1 FROM club_members m
+        SELECT k.strike_limit,
+               CASE WHEN k.strike_limit IS NULL THEN 0 ELSE
+                 (SELECT count(*)::int FROM club_bookings lb
+                   WHERE lb.club_id = m.club_id AND lb.member_id = m.id
+                     AND lb.state = 'late_cancelled'
+                     AND lb.cancelled_at > now() - make_interval(days => k.strike_days))
+                 + (SELECT count(*)::int FROM club_booking_positions np
+                      JOIN club_class_occurrences no ON no.id = np.occurrence_id
+                     WHERE np.club_id = m.club_id AND np.member_id = m.id
+                       AND np.booking_status = 'going' AND no.status = 'scheduled'
+                       AND no.ends_at < now()
+                       AND no.ends_at > now() - make_interval(days => k.strike_days)
+                       AND NOT EXISTS (SELECT 1 FROM club_checkins ci
+                                        WHERE ci.occurrence_id = np.occurrence_id
+                                          AND ci.member_id = np.member_id))
+               END AS strikes
+          FROM club_members m
           JOIN club_class_occurrences o ON o.club_id = m.club_id AND o.id = ${occurrenceId}::uuid
           JOIN club_classes k ON k.id = o.class_id
          WHERE m.id = ${memberId}::uuid AND ${memberSelfScope(userId, clubId, 'm')}
@@ -130,7 +153,16 @@ export async function bookSelf(
            ${options.trial ? sql`AND k.trial_allowed` : sql``}
            AND ${clubWritableGuard(clubId)}
       `);
-      if (ok.rows.length === 0) return { ok: false, error: 'not_allowed' } as const;
+      const allowed = ok.rows[0];
+      if (!allowed) return { ok: false, error: 'not_allowed' } as const;
+      if (
+        selfBookingBlocked(
+          Number(allowed.strikes),
+          allowed.strike_limit === null ? null : Number(allowed.strike_limit),
+        )
+      ) {
+        return { ok: false, error: 'strikes_reached' } as const;
+      }
       const bookingId = await upsertBooking(
         tx,
         clubId,

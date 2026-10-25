@@ -57,6 +57,14 @@ export interface PortalMembership {
   startsOn: IsoDate;
   effectiveEndsOn: IsoDate;
   visitsRemaining: number | null;
+  /** Renewing chain (0045): renews, and the last day after notice, if given. */
+  renews: boolean;
+  renewalEndsOn: IsoDate | null;
+  noticeDays: number;
+  selfPauseAllowed: boolean;
+  selfCancelAllowed: boolean;
+  /** A pause the member set themselves already exists (one per membership). */
+  selfPaused: boolean;
 }
 
 export interface PortalBooking {
@@ -187,8 +195,14 @@ export async function portalView(
     db.execute(sql`
       SELECT mb.member_id, mb.membership_id, mb.plan_name, mb.kind, mb.state,
              to_char(mb.starts_on, 'YYYY-MM-DD') AS starts_on,
-             to_char(mb.effective_ends_on, 'YYYY-MM-DD') AS ends_on, mb.visits_remaining
+             to_char(mb.effective_ends_on, 'YYYY-MM-DD') AS ends_on, mb.visits_remaining,
+             ms.renews, to_char(ms.renewal_ends_on, 'YYYY-MM-DD') AS renewal_ends_on,
+             p.notice_days, p.self_pause_allowed, p.self_cancel_allowed,
+             EXISTS (SELECT 1 FROM club_membership_pauses ps
+                      WHERE ps.membership_id = ms.id AND ps.created_by = ${userId}) AS self_paused
         FROM club_membership_balances mb
+        JOIN club_memberships ms ON ms.id = mb.membership_id
+        JOIN club_plans p ON p.club_id = ms.club_id AND p.id = ms.plan_id
        WHERE mb.club_id = ${clubId}::uuid AND mb.member_id = ANY(${sql.param(ids)}::uuid[])
          AND mb.state <> 'cancelled'
          AND mb.effective_ends_on >= (now() AT TIME ZONE 'Europe/Sofia')::date - 60
@@ -236,6 +250,12 @@ export async function portalView(
           startsOn: String(m.starts_on),
           effectiveEndsOn: String(m.ends_on),
           visitsRemaining: m.visits_remaining === null ? null : Number(m.visits_remaining),
+          renews: m.renews === true,
+          renewalEndsOn: text(m.renewal_ends_on),
+          noticeDays: Number(m.notice_days ?? 0),
+          selfPauseAllowed: m.self_pause_allowed === true,
+          selfCancelAllowed: m.self_cancel_allowed === true,
+          selfPaused: m.self_paused === true,
         })),
       owedCents: Number(owed.rows.find((o) => String(o.member_id) === memberId)?.owed ?? 0),
       bookings: bookings.rows

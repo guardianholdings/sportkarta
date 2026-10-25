@@ -1,4 +1,5 @@
-import { formatEuro } from '@sportkarta/lib/clubs';
+import { getDb } from '@sportkarta/db';
+import { SELF_PAUSE_MAX_DAYS, formatEuro, sofiaToday } from '@sportkarta/lib/clubs';
 import { QrCode } from 'lucide-react';
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
@@ -14,6 +15,7 @@ import { requireUser } from '@/lib/auth-session';
 import { requireClubsEnabled } from '@/lib/clubs/club-session';
 import { clubSportLabeler } from '@/lib/clubs/labels';
 import { portalView, type PortalMembership, type PortalRecord } from '@/lib/clubs/portal';
+import { ownContact } from '@/lib/clubs/self-service';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +30,9 @@ const GOOD = new Set([
   'passport_on',
   'passport_off',
   'linked',
+  'renewal_stopped',
+  'paused',
+  'contact_saved',
 ]);
 const GOOD_CHECKIN = new Set(['recorded', 'already']);
 
@@ -74,6 +79,7 @@ export default async function ClubPortalPage({
     clubSportLabeler(),
   ]);
   const { club, link, records, classes } = view;
+  const contact = link?.status === 'active' ? await ownContact(getDb(), user.id, club.id) : null;
   const now = Date.now();
   const booked = new Map<string, Set<string>>();
   for (const record of records) {
@@ -201,6 +207,76 @@ export default async function ClubPortalPage({
                 </p>
               )}
               <p className="text-caption text-text-muted">{t('renewAtDesk')}</p>
+              {(() => {
+                const live = current(record.memberships);
+                if (!live) return null;
+                return (
+                  <div className="space-y-2 pt-1">
+                    {live.renews && (
+                      <p className="text-body-sm text-ink-soft">
+                        {live.renewalEndsOn
+                          ? t('renewalEnds', { date: formatDate(live.renewalEndsOn, locale) })
+                          : t('renewsAuto')}
+                      </p>
+                    )}
+                    {club.live && live.renews && !live.renewalEndsOn && live.selfCancelAllowed && (
+                      <form action={portalOpAction}>
+                        {hidden(record.memberId)}
+                        <input type="hidden" name="op" value="stop_renewal" />
+                        <input type="hidden" name="membershipId" value={live.id} />
+                        <ConfirmButton
+                          message={t('stopRenewalConfirm', { days: live.noticeDays })}
+                          className={pill}
+                        >
+                          {t('stopRenewal')}
+                        </ConfirmButton>
+                      </form>
+                    )}
+                    {club.live && live.selfPauseAllowed && !live.selfPaused && (
+                      <details className="rounded-card border border-line p-3">
+                        <summary className="cursor-pointer text-body-sm font-semibold text-ink">
+                          {t('pauseTitle')}
+                        </summary>
+                        <form
+                          action={portalOpAction}
+                          className="mt-2 flex flex-wrap items-end gap-2"
+                        >
+                          {hidden(record.memberId)}
+                          <input type="hidden" name="op" value="pause" />
+                          <input type="hidden" name="membershipId" value={live.id} />
+                          <label className="text-caption text-ink-soft">
+                            {t('pauseFrom')}
+                            <input
+                              type="date"
+                              name="startsOn"
+                              required
+                              min={sofiaToday()}
+                              defaultValue={sofiaToday()}
+                              className="mt-1 block min-h-11 rounded-input border border-line-strong bg-surface px-3 text-body-sm focus-visible:border-brand text-ink"
+                            />
+                          </label>
+                          <label className="text-caption text-ink-soft">
+                            {t('pauseDays', { max: SELF_PAUSE_MAX_DAYS })}
+                            <input
+                              type="number"
+                              name="days"
+                              required
+                              min={1}
+                              max={SELF_PAUSE_MAX_DAYS}
+                              defaultValue={7}
+                              className="mt-1 block min-h-11 w-24 rounded-input border border-line-strong bg-surface px-3 text-body-sm focus-visible:border-brand text-ink"
+                            />
+                          </label>
+                          <button type="submit" className={pill}>
+                            {t('pauseSubmit')}
+                          </button>
+                        </form>
+                        <p className="mt-2 text-caption text-text-muted">{t('pauseHint')}</p>
+                      </details>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             <div className="space-y-2">
               <p className="text-caption text-text-muted">{t('bookingsTitle')}</p>
@@ -374,6 +450,56 @@ export default async function ClubPortalPage({
             ))}
           </section>
         )}
+
+        {contact &&
+          (() => {
+            const self = contact;
+            return (
+              <section className={section} aria-labelledby="contact-h">
+                <h2 id="contact-h" className="text-h4 font-bold text-ink">
+                  {t('contactTitle')}
+                </h2>
+                <p className="text-caption text-ink-soft">{t('contactIntro')}</p>
+                <form action={portalOpAction} className="space-y-3">
+                  {hidden(self.memberId)}
+                  <input type="hidden" name="op" value="contact" />
+                  <label className="block text-body-sm font-semibold text-ink">
+                    {t('contactPhone')}
+                    <input
+                      type="tel"
+                      name="phone"
+                      autoComplete="tel"
+                      maxLength={32}
+                      defaultValue={self.phone ?? ''}
+                      className="mt-1 block min-h-11 w-full max-w-xs rounded-input border border-line-strong bg-surface px-3 text-body-sm focus-visible:border-brand font-normal text-ink"
+                    />
+                  </label>
+                  <label className="flex min-h-11 items-start gap-3 text-body-sm text-ink">
+                    <input
+                      type="checkbox"
+                      name="marketingEmail"
+                      defaultChecked={self.marketingEmail}
+                      className="mt-1 size-4 accent-[var(--brand)]"
+                    />
+                    {t('contactMarketingEmail', { club: club.name })}
+                  </label>
+                  <label className="flex min-h-11 items-start gap-3 text-body-sm text-ink">
+                    <input
+                      type="checkbox"
+                      name="marketingSms"
+                      defaultChecked={self.marketingSms}
+                      className="mt-1 size-4 accent-[var(--brand)]"
+                    />
+                    {t('contactMarketingSms', { club: club.name })}
+                  </label>
+                  <p className="text-caption text-text-muted">{t('contactHint')}</p>
+                  <button type="submit" className={pill}>
+                    {t('contactSave')}
+                  </button>
+                </form>
+              </section>
+            );
+          })()}
 
         {link?.status === 'active' && (
           <section className={section} aria-labelledby="data-h">

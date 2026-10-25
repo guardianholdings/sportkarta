@@ -77,6 +77,21 @@ import { hasDb } from './db';
 
 const PREFIX = 'e2e_club_jr_';
 
+/** Plans and classes without the 0045 terms and policies. */
+const NO_TERMS = {
+  autoRenew: false,
+  minTermMonths: null,
+  noticeDays: 0,
+  selfPauseAllowed: false,
+  selfCancelAllowed: false,
+} as const;
+const NO_POLICY = {
+  noShowFeeCents: null,
+  lateCancelFeeCents: null,
+  strikeLimit: null,
+  strikeDays: null,
+} as const;
+
 async function user(label: string, role: 'user' | 'admin' = 'user'): Promise<string> {
   const id = `${PREFIX}${label}_${Math.random().toString(36).slice(2, 8)}`;
   await getDb().execute(sql`
@@ -239,6 +254,7 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
       validityMonths: 1,
       visitsCount: null,
       visibility: 'public',
+      ...NO_TERMS,
     });
     expect(planId).not.toBeNull();
     // A desk may not edit plans.
@@ -255,6 +271,7 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
         validityMonths: 1,
         visitsCount: null,
         visibility: 'public',
+        ...NO_TERMS,
       }),
     ).toBeNull();
 
@@ -349,6 +366,7 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
       planIds: [],
       trialAllowed: true,
       public: true,
+      ...NO_POLICY,
     });
     expect(classId).not.toBeNull();
     const report = await materializeClubClasses(getPool(), { classId: classId ?? '' });

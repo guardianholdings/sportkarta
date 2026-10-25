@@ -39,6 +39,9 @@ export const CLUB_MAIL_KINDS = [
   'erasure_requested',
   'roster_daily',
   'owner_weekly',
+  'membership_renewed',
+  'fee_charged',
+  'owner_monthly',
 ] as const;
 export type ClubMailKind = (typeof CLUB_MAIL_KINDS)[number];
 

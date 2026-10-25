@@ -302,6 +302,10 @@ export interface MemberMembership {
   state: string;
   priceCents: number;
   pausedToday: boolean;
+  /** A renewing chain (0045): renews, its notice end, and whether it is the tail. */
+  renews: boolean;
+  renewalEndsOn: string | null;
+  hasSuccessor: boolean;
 }
 
 export interface MemberCharge {
@@ -369,13 +373,16 @@ export async function memberCard(actor: ClubActor, memberId: string): Promise<Me
        WHERE club_id = ${clubId}::uuid AND guardian_member_id = ${memberId}::uuid
        ORDER BY display_name`),
     db.execute(sql`
-      SELECT membership_id, plan_name, kind, to_char(starts_on, 'YYYY-MM-DD') AS starts_on,
-             to_char(ends_on, 'YYYY-MM-DD') AS ends_on,
-             to_char(effective_ends_on, 'YYYY-MM-DD') AS effective_ends_on,
-             visits_total, visits_remaining, state, price_cents, paused_today
-        FROM club_membership_balances
-       WHERE club_id = ${clubId}::uuid AND member_id = ${memberId}::uuid
-       ORDER BY starts_on DESC, created_at DESC LIMIT 50`),
+      SELECT mb.membership_id, mb.plan_name, mb.kind, to_char(mb.starts_on, 'YYYY-MM-DD') AS starts_on,
+             to_char(mb.ends_on, 'YYYY-MM-DD') AS ends_on,
+             to_char(mb.effective_ends_on, 'YYYY-MM-DD') AS effective_ends_on,
+             mb.visits_total, mb.visits_remaining, mb.state, mb.price_cents, mb.paused_today,
+             ms.renews, to_char(ms.renewal_ends_on, 'YYYY-MM-DD') AS renewal_ends_on,
+             EXISTS (SELECT 1 FROM club_memberships nx WHERE nx.renewal_of = ms.id) AS has_successor
+        FROM club_membership_balances mb
+        JOIN club_memberships ms ON ms.id = mb.membership_id
+       WHERE mb.club_id = ${clubId}::uuid AND mb.member_id = ${memberId}::uuid
+       ORDER BY mb.starts_on DESC, mb.created_at DESC LIMIT 50`),
     db.execute(sql`
       SELECT charge_id, label, kind, amount_cents, paid_cents, due_cents,
              to_char(due_on, 'YYYY-MM-DD') AS due_on, status
@@ -432,6 +439,9 @@ export async function memberCard(actor: ClubActor, memberId: string): Promise<Me
       state: String(m.state),
       priceCents: Number(m.price_cents),
       pausedToday: m.paused_today === true,
+      renews: m.renews === true,
+      renewalEndsOn: text(m.renewal_ends_on),
+      hasSuccessor: m.has_successor === true,
     })),
     charges: charges.rows.map((c) => ({
       id: String(c.charge_id),

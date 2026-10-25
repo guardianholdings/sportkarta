@@ -3,6 +3,10 @@ import { readFileSync } from 'node:fs';
 import {
   bookingsForMail,
   cancelledOccurrenceBookings,
+  chargeClubBookingFees,
+  feeMailCandidates,
+  renewClubMemberships,
+  renewalMailCandidates,
   claimClubNotification,
   clubForMail,
   clubWeekFigures,
@@ -658,6 +662,77 @@ export async function runClubOwnerWeekly(
     }
   }
   return deliverEach(mails, (mail) => sendToStaff(mail, options), { job: 'club.digest' });
+}
+
+/**
+ * Daily (0045): renew abonnements and raise no-show / late-cancel fees, then
+ * tell the members. The writes come first and stand on their own — a mail
+ * failure leaves the renewal in place and tomorrow's sweep mails it.
+ */
+export async function runClubPolicies(
+  options: ClubMailOptions,
+  now = new Date(),
+): Promise<{
+  renewed: number;
+  ended: number;
+  fees: number;
+  renewalMail: DeliveryReport;
+  feeMail: DeliveryReport;
+}> {
+  const today = sofiaToday(now);
+  const renewals = await renewClubMemberships(db(), today);
+  const fees = await chargeClubBookingFees(db(), now, (locale) => ({
+    noShow: pick(locale, 'feeLabel.noShow'),
+    lateCancel: pick(locale, 'feeLabel.lateCancel'),
+  }));
+  const renewalMail = await deliverEach(
+    await renewalMailCandidates(db()),
+    async (candidate) => {
+      const club = await clubForMail(db(), candidate.clubId);
+      const locale = club?.locale ?? 'bg';
+      return sendToMember(
+        {
+          kind: 'membership_renewed',
+          clubId: candidate.clubId,
+          memberId: candidate.memberId,
+          key: dedupeKey({ kind: 'membership_renewed', membershipId: candidate.membershipId }),
+          values: {
+            plan: candidate.planName,
+            from: formatCivilDate(candidate.startsOn, locale),
+            to: formatCivilDate(candidate.endsOn, locale),
+            amount: formatEuro(candidate.priceCents, locale),
+          },
+        },
+        options,
+      );
+    },
+    { job: 'club.policies' },
+  );
+  const feeMail = renewalMail.transportDown
+    ? emptyDeliveryReport()
+    : await deliverEach(
+        await feeMailCandidates(db()),
+        async (candidate) => {
+          const club = await clubForMail(db(), candidate.clubId);
+          const locale = club?.locale ?? 'bg';
+          return sendToMember(
+            {
+              kind: 'fee_charged',
+              clubId: candidate.clubId,
+              memberId: candidate.memberId,
+              key: dedupeKey({ kind: 'fee_charged', chargeId: candidate.chargeId }),
+              values: {
+                label: candidate.label,
+                amount: formatEuro(candidate.amountCents, locale),
+                date: formatCivilDate(candidate.dueOn, locale),
+              },
+            },
+            options,
+          );
+        },
+        { job: 'club.policies' },
+      );
+  return { ...renewals, fees, renewalMail, feeMail };
 }
 
 /** Monthly: freeze the month that just closed (the invoicing basis). */

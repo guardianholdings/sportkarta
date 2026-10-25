@@ -12,6 +12,7 @@ import {
   CLUB_EXPIRY_QUEUE,
   CLUB_MATERIALIZE_QUEUE,
   CLUB_NOTIFY_QUEUE,
+  CLUB_POLICIES_QUEUE,
   CLUB_REMINDERS_QUEUE,
   CLUB_WEEKLY_QUEUE,
   type ClubMaterializeJob,
@@ -24,6 +25,7 @@ import {
   runClubExpiry,
   runClubNotify,
   runClubOwnerWeekly,
+  runClubPolicies,
   runClubReminders,
   runClubRosterDigest,
 } from './club-mail-job.js';
@@ -305,6 +307,7 @@ async function main(): Promise<void> {
   await ensureQueue(CLUB_DIGEST_QUEUE, WEEKLY_RETRY);
   await ensureQueue(CLUB_WEEKLY_QUEUE, WEEKLY_RETRY);
   await ensureQueue(CLUB_ACTIVITY_QUEUE, WEEKLY_RETRY);
+  await ensureQueue(CLUB_POLICIES_QUEUE, WEEKLY_RETRY);
 
   // Triggered from the admin UI (Stage 1+) via boss.send('import.osm', {dryRun}).
   // dryRun defaults TRUE — a live import must be requested explicitly, matching
@@ -745,6 +748,26 @@ async function main(): Promise<void> {
     }),
   );
   await boss.schedule(CLUB_ACTIVITY_QUEUE, '15 6 1 * *', {}, { tz: 'Europe/Sofia' });
+
+  // Renewals and no-show / late-cancel fees (0045), then the members' mail.
+  // 05:40 Sofia: after the night's classes have ended and before the desk
+  // opens, so the renewed abonnement is in place for the first visit.
+  await work(
+    CLUB_POLICIES_QUEUE,
+    logged(CLUB_POLICIES_QUEUE, async () => {
+      const out = await runClubPolicies({ mailer, siteUrl });
+      console.log(
+        `[worker] ${CLUB_POLICIES_QUEUE}: ${String(out.renewed)} renewed, ` +
+          `${String(out.ended)} ended, ${String(out.fees)} fee(s); mail ` +
+          `${String(out.renewalMail.sent + out.feeMail.sent)} sent`,
+      );
+      await reportMailFailures(`${CLUB_POLICIES_QUEUE}/renewal`, out.renewalMail);
+      await reportMailFailures(`${CLUB_POLICIES_QUEUE}/fee`, out.feeMail);
+      assertDelivered(CLUB_POLICIES_QUEUE, out.renewalMail);
+      assertDelivered(CLUB_POLICIES_QUEUE, out.feeMail);
+    }),
+  );
+  await boss.schedule(CLUB_POLICIES_QUEUE, '40 5 * * *', {}, { tz: 'Europe/Sofia' });
 
   // The heartbeat goes LAST, after every other queue is registered. A worker
   // that throws halfway through booting — a bad image, a missing env var — and

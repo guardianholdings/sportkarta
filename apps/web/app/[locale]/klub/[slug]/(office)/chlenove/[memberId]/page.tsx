@@ -324,6 +324,15 @@ export default async function MemberCardPage({
                       ` · ${tClub('visitsLeft', { count: ms.visitsRemaining })}`}
                     {` · ${formatEuro(ms.priceCents, locale)}`}
                   </p>
+                  {ms.renews && (
+                    <p className="text-caption text-ink-soft">
+                      {ms.renewalEndsOn
+                        ? t('card.renewalEnds', { date: formatDate(ms.renewalEndsOn, locale) })
+                        : ms.hasSuccessor
+                          ? t('card.renewed')
+                          : t('card.renews')}
+                    </p>
+                  )}
                   {live && actorCan(actor, 'sales.manage') && (
                     <div className="flex flex-wrap items-end gap-2">
                       {ms.pausedToday ? (
@@ -360,6 +369,16 @@ export default async function MemberCardPage({
                           </label>
                           <Button type="submit" variant="secondary" size="sm">
                             {t('card.pause')}
+                          </Button>
+                        </form>
+                      )}
+                      {ms.kind !== 'trial' && !ms.hasSuccessor && (
+                        <form action={memberOpAction}>
+                          {op(ms.renews ? 'stop_renewal' : 'start_renewal', {
+                            membershipId: ms.id,
+                          })}
+                          <Button type="submit" variant="secondary" size="sm">
+                            {ms.renews ? t('card.stopRenewal') : t('card.startRenewal')}
                           </Button>
                         </form>
                       )}

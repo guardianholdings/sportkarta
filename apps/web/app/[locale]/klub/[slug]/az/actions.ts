@@ -1,6 +1,7 @@
 'use server';
 
 import { getDb } from '@sportkarta/db';
+import { isIsoDate, sofiaToday } from '@sportkarta/lib/clubs';
 import { getLocale } from 'next-intl/server';
 import { revalidatePath } from 'next/cache';
 
@@ -8,11 +9,12 @@ import { redirect } from '@/i18n/navigation';
 import { requireUser } from '@/lib/auth-session';
 import { bookSelf, cancelBooking } from '@/lib/clubs/bookings';
 import { requireClubsEnabled } from '@/lib/clubs/club-session';
-import { isUuid } from '@/lib/clubs/input';
+import { isUuid, parseContactPreferences } from '@/lib/clubs/input';
 import { requestErasure, setLinkPreference, unlinkRecord } from '@/lib/clubs/links';
 import { enqueueClubNotify } from '@/lib/clubs/notify';
 import { clubIdForSlug } from '@/lib/clubs/portal';
 import { clubMemberActionLimiter } from '@/lib/clubs/rate-limit';
+import { memberPause, memberStopRenewal, setContactPreferences } from '@/lib/clubs/self-service';
 
 /**
  * Everything a member does in their club portal, dispatched by `op`. Each
@@ -83,6 +85,34 @@ export async function portalOpAction(formData: FormData): Promise<void> {
       const result = await requestErasure(db, user.id, memberId);
       if (result.ok) await enqueueClubNotify({ kind: 'erasure_requested', memberId });
       return back(result.ok ? 'erasure_requested' : 'not_found');
+    }
+    case 'stop_renewal': {
+      const membershipId = str(formData, 'membershipId');
+      if (!isUuid(membershipId)) return back('not_found');
+      const result = await memberStopRenewal(db, user.id, clubId, membershipId, sofiaToday());
+      return back(result.ok ? 'renewal_stopped' : result.error);
+    }
+    case 'pause': {
+      const membershipId = str(formData, 'membershipId');
+      const startsOn = str(formData, 'startsOn');
+      const days = Number(str(formData, 'days'));
+      if (!isUuid(membershipId) || !isIsoDate(startsOn)) return back('pause_invalid');
+      const result = await memberPause(
+        db,
+        user.id,
+        clubId,
+        membershipId,
+        { startsOn, days },
+        sofiaToday(),
+      );
+      return back(result.ok ? 'paused' : result.error);
+    }
+    case 'contact': {
+      if (!isUuid(memberId)) return back('not_found');
+      const parsed = parseContactPreferences(formData);
+      if (!parsed.ok) return back(parsed.errors[0] ?? 'not_allowed');
+      const ok = await setContactPreferences(db, user.id, clubId, memberId, parsed.value);
+      return back(ok ? 'contact_saved' : 'not_found');
     }
     default:
       return;

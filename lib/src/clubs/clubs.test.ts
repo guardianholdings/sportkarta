@@ -8,6 +8,23 @@ import { describe, expect, it } from 'vitest';
 import { CANONICAL_SPORTS } from '../sports.js';
 import {
   CLUB_ACTIVITIES,
+  CLUB_FEATURES,
+  CLUB_TIERS,
+  classifyImportRows,
+  normalizeImportRow,
+  parseImportDate,
+  phoneKey,
+  type ClubImportRow,
+  SELF_PAUSE_MAX_DAYS,
+  clubHasFeature,
+  contractEndsOn,
+  engagementBand,
+  engagementScore,
+  lowestTierWith,
+  renewsInto,
+  selfBookingBlocked,
+  selfPauseRange,
+  tierFeatures,
   CLUB_AUDIT_ACTIONS,
   CLUB_AUDIT_ACTOR_KINDS,
   CLUB_CANCEL_REASONS,
@@ -45,18 +62,23 @@ import {
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS = path.join(HERE, '..', '..', '..', 'db', 'migrations');
 
+/** Every club migration, 0039 onward, in order. */
 function migrationText(): string {
   return readdirSync(MIGRATIONS)
-    .filter((name) => /^004[0-4]_|^0039_/.test(name))
+    .filter((name) => /^\d{4}_/.test(name) && Number(name.slice(0, 4)) >= 39)
     .sort()
     .map((name) => readFileSync(path.join(MIGRATIONS, name), 'utf8').replace(/^--.*$/gm, ''))
     .join('\n');
 }
 
-/** The quoted values of `"<constraint>" CHECK (... IN (...))`. */
+/**
+ * The quoted values of `"<constraint>" CHECK (... IN (...))` — the LAST
+ * definition, since a later migration widens a list by re-creating the
+ * constraint under the same name (0045).
+ */
 function checkValues(constraint: string): string[] {
   const text = migrationText();
-  const at = text.indexOf(`"${constraint}" CHECK`);
+  const at = text.lastIndexOf(`"${constraint}" CHECK`);
   expect(at, constraint).toBeGreaterThan(-1);
   const open = text.indexOf(' IN (', at);
   const close = text.indexOf(')', open + 5);
@@ -308,5 +330,237 @@ describe('notification dedupe keys', () => {
     const first = dedupeKey({ kind: 'booking_confirmed', occurrenceId: id, memberId: id, seq: 1 });
     const again = dedupeKey({ kind: 'booking_confirmed', occurrenceId: id, memberId: id, seq: 9 });
     expect(first).not.toBe(again);
+  });
+});
+
+describe('the tier feature matrix', () => {
+  it('only ever adds features going up a tier', () => {
+    for (const feature of CLUB_FEATURES) {
+      if (clubHasFeature('community', feature))
+        expect(clubHasFeature('standard', feature)).toBe(true);
+      if (clubHasFeature('standard', feature)) expect(clubHasFeature('pro', feature)).toBe(true);
+    }
+  });
+
+  it('gives pro every feature and community none of the gated ones', () => {
+    expect(tierFeatures('pro')).toEqual(CLUB_FEATURES);
+    expect(tierFeatures('community')).toEqual([]);
+  });
+
+  it('keeps the integrations on pro and the shop on standard', () => {
+    for (const feature of ['api', 'webhooks', 'mcp', 'door_access'] as const) {
+      expect(lowestTierWith(feature), feature).toBe('pro');
+    }
+    expect(lowestTierWith('shop')).toBe('standard');
+    expect(lowestTierWith('sms')).toBe('standard');
+  });
+
+  it('names a lowest tier that really has the feature', () => {
+    for (const feature of CLUB_FEATURES) {
+      expect(clubHasFeature(lowestTierWith(feature), feature)).toBe(true);
+    }
+    expect(CLUB_TIERS).toContain(lowestTierWith('pixels'));
+  });
+});
+
+describe('membership policies', () => {
+  it('keeps renewing the period that starts inside the notice', () => {
+    const last = contractEndsOn('2026-10-25', {
+      noticeDays: 30,
+      minTermMonths: null,
+      termStartedOn: null,
+    });
+    expect(last).toBe('2026-11-24');
+    expect(renewsInto('2026-11-01', last)).toBe(true);
+    expect(renewsInto('2026-12-01', last)).toBe(false);
+  });
+
+  it('runs to the end of the minimum term when that is later', () => {
+    const last = contractEndsOn('2026-03-10', {
+      noticeDays: 14,
+      minTermMonths: 12,
+      termStartedOn: '2026-01-01',
+    });
+    expect(last).toBe('2026-12-31');
+  });
+
+  it('renews forever while no notice was given', () => {
+    expect(renewsInto('2099-01-01', null)).toBe(true);
+  });
+
+  it('never gives a contract end before today', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: 120 }),
+        fc.integer({ min: 0, max: 36 }),
+        (notice, term) => {
+          const today = '2026-06-15';
+          const last = contractEndsOn(today, {
+            noticeDays: notice,
+            minTermMonths: term === 0 ? null : term,
+            termStartedOn: '2026-01-31',
+          });
+          return last >= today;
+        },
+      ),
+    );
+  });
+
+  it("bounds a member's own pause", () => {
+    expect(selfPauseRange({ startsOn: '2026-10-26', days: 7 }, '2026-10-25')).toEqual({
+      startsOn: '2026-10-26',
+      endsOn: '2026-11-01',
+    });
+    expect(selfPauseRange({ startsOn: '2026-10-24', days: 7 }, '2026-10-25')).toBeNull();
+    expect(
+      selfPauseRange({ startsOn: '2026-10-25', days: SELF_PAUSE_MAX_DAYS + 1 }, '2026-10-25'),
+    ).toBeNull();
+    expect(selfPauseRange({ startsOn: '2026-10-25', days: 0 }, '2026-10-25')).toBeNull();
+  });
+
+  it('blocks self-booking only at the limit, and never without a rule', () => {
+    expect(selfBookingBlocked(2, 3)).toBe(false);
+    expect(selfBookingBlocked(3, 3)).toBe(true);
+    expect(selfBookingBlocked(99, null)).toBe(false);
+  });
+});
+
+describe('the engagement score', () => {
+  it('is 100 for a fresh, frequent, long-standing member and 0 for a stranger', () => {
+    expect(
+      engagementScore({ daysSinceLastVisit: 1, visitsLast30Days: 12, monthsAsMember: 24 }),
+    ).toBe(100);
+    expect(
+      engagementScore({ daysSinceLastVisit: null, visitsLast30Days: 0, monthsAsMember: 0 }),
+    ).toBe(0);
+  });
+
+  it('stays within 0..100 and falls as the last visit ages', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: 400 }),
+        fc.integer({ min: 0, max: 60 }),
+        fc.integer({ min: 0, max: 120 }),
+        (days, visits, months) => {
+          const score = engagementScore({
+            daysSinceLastVisit: days,
+            visitsLast30Days: visits,
+            monthsAsMember: months,
+          });
+          const older = engagementScore({
+            daysSinceLastVisit: days + 5,
+            visitsLast30Days: visits,
+            monthsAsMember: months,
+          });
+          return score >= 0 && score <= 100 && older <= score;
+        },
+      ),
+    );
+  });
+
+  it('bands the score into words', () => {
+    expect(engagementBand(70)).toBe('high');
+    expect(engagementBand(69)).toBe('medium');
+    expect(engagementBand(39)).toBe('low');
+  });
+});
+
+describe('the member import', () => {
+  const row = (fields: Record<string, string>, line = 2): ClubImportRow => {
+    const result = normalizeImportRow(line, fields);
+    if (!result.ok) throw new Error(result.errors.join(','));
+    return result.row;
+  };
+
+  it('reads Bulgarian and ISO dates, and refuses impossible ones', () => {
+    expect(parseImportDate('01.10.2026')).toBe('2026-10-01');
+    expect(parseImportDate('5/3/2026')).toBe('2026-03-05');
+    expect(parseImportDate('2026-10-01')).toBe('2026-10-01');
+    expect(parseImportDate('31.02.2026')).toBeNull();
+    expect(parseImportDate('утре')).toBeNull();
+  });
+
+  it('normalises a row and reports every problem at once', () => {
+    const ok = row({
+      name: '  Мария   Петрова ',
+      email: 'MARIA@Example.org',
+      tags: 'Сутрин; Йога|сутрин',
+      plan: 'Месечен',
+      startsOn: '01.10.2026',
+      paid: '45,50 €',
+      minor: 'не',
+    });
+    expect(ok).toMatchObject({
+      displayName: 'Мария Петрова',
+      email: 'maria@example.org',
+      tags: ['Сутрин', 'Йога'],
+      paidCents: 4550,
+      isMinor: false,
+    });
+    const bad = normalizeImportRow(3, {
+      name: '',
+      email: 'no-at-sign',
+      startsOn: '2026-10-05',
+      endsOn: '2026-10-01',
+      guardianEmail: 'p@example.org',
+    });
+    expect(bad.ok).toBe(false);
+    if (!bad.ok) {
+      expect(bad.errors).toEqual(
+        expect.arrayContaining([
+          'name_required',
+          'email_invalid',
+          'dates_reversed',
+          'plan_required',
+          'guardian_only_for_minors',
+        ]),
+      );
+    }
+  });
+
+  it('never reads a date of birth: a minor is a yes/no column', () => {
+    expect(row({ name: 'Иван', minor: 'да' }).isMinor).toBe(true);
+    expect(row({ name: 'Иван', minor: '2015-04-01' }).isMinor).toBe(false);
+  });
+
+  it('compares phones by digits, with 0 read as +359', () => {
+    expect(phoneKey('0888 123 456')).toBe(phoneKey('+359 888 123 456'));
+    expect(phoneKey('00359888123456')).toBe('359888123456');
+  });
+
+  it('matches only when one record is unambiguous, and prefers a conflict', () => {
+    const existing = [
+      { id: 'a', email: 'maria@example.org', phone: '0888123456' },
+      { id: 'b', email: 'ivan@example.org', phone: null },
+      { id: 'c', email: 'twin@example.org', phone: null },
+      { id: 'd', email: 'twin@example.org', phone: null },
+      { id: 'e', email: null, phone: '0899000111' },
+    ];
+    const rows = [
+      row({ name: 'Мария', email: 'maria@example.org', phone: '+359888123456' }),
+      row({ name: 'Иван', email: 'ivan@example.org', phone: '0888123456' }),
+      row({ name: 'Близнак', email: 'twin@example.org' }),
+      row({ name: 'Без имейл', phone: '0899 000 111' }),
+      row({ name: 'Нов', email: 'new@example.org', phone: '0899000111' }),
+      row({ name: 'Съвсем нов', email: 'fresh@example.org' }),
+      row({ name: 'Дете', minor: 'да', guardianEmail: 'maria@example.org' }),
+    ];
+    expect(classifyImportRows(rows, existing)).toEqual([
+      { kind: 'match', memberId: 'a' },
+      { kind: 'conflict', reason: 'email_phone_disagree' },
+      { kind: 'conflict', reason: 'several_records' },
+      { kind: 'match', memberId: 'e' },
+      { kind: 'conflict', reason: 'email_phone_disagree' },
+      { kind: 'new' },
+      { kind: 'new' },
+    ]);
+  });
+
+  it('holds both copies of a person repeated in one file', () => {
+    const rows = [
+      row({ name: 'Мария', email: 'maria@example.org' }),
+      row({ name: 'Мария П.', email: 'maria@example.org' }, 3),
+    ];
+    expect(classifyImportRows(rows, []).map((c) => c.kind)).toEqual(['conflict', 'conflict']);
   });
 });

@@ -67,6 +67,11 @@ function toPlan(row: Record<string, unknown>): ClubPlan {
     validityMonths: row.validity_months === null ? null : Number(row.validity_months),
     visitsCount: row.visits_count === null ? null : Number(row.visits_count),
     visibility: row.visibility === 'private' ? 'private' : 'public',
+    autoRenew: row.auto_renew === true,
+    minTermMonths: row.min_term_months === null ? null : Number(row.min_term_months),
+    noticeDays: Number(row.notice_days ?? 0),
+    selfPauseAllowed: row.self_pause_allowed === true,
+    selfCancelAllowed: row.self_cancel_allowed === true,
     archived: row.archived_at !== null && row.archived_at !== undefined,
     liveCount: Number(row.live_count ?? 0),
   };
@@ -75,6 +80,7 @@ function toPlan(row: Record<string, unknown>): ClubPlan {
 const PLAN_COLUMNS = sql`
   p.id, p.name_bg, p.name_en, p.description_bg, p.description_en, p.kind, p.audience,
   p.price_cents, p.validity_days, p.validity_months, p.visits_count, p.visibility, p.archived_at,
+  p.auto_renew, p.min_term_months, p.notice_days, p.self_pause_allowed, p.self_cancel_allowed,
   (SELECT count(*)::int FROM club_membership_balances b
     WHERE b.club_id = p.club_id AND b.plan_id = p.id AND b.state IN ('active', 'paused', 'upcoming'))
     AS live_count`;
@@ -110,18 +116,21 @@ export async function savePlan(
   return db.transaction(async (tx) => {
     const values = sql`${input.nameBg}, ${input.nameEn}, ${input.descriptionBg}, ${input.descriptionEn},
       ${input.kind}, ${input.audience}, ${input.priceCents}, ${input.validityDays},
-      ${input.validityMonths}, ${input.visitsCount}, ${input.visibility}`;
+      ${input.validityMonths}, ${input.visitsCount}, ${input.visibility}, ${input.autoRenew},
+      ${input.minTermMonths}, ${input.noticeDays}, ${input.selfPauseAllowed}, ${input.selfCancelAllowed}`;
     const result = planId
       ? await tx.execute(sql`
           UPDATE club_plans p
              SET (name_bg, name_en, description_bg, description_en, kind, audience, price_cents,
-                  validity_days, validity_months, visits_count, visibility) = (${values})
+                  validity_days, validity_months, visits_count, visibility, auto_renew,
+                  min_term_months, notice_days, self_pause_allowed, self_cancel_allowed) = (${values})
            WHERE p.id = ${planId}::uuid AND ${clubWriteScope(actor, 'plans.manage', 'p')}
            RETURNING p.id`)
       : await tx.execute(sql`
           INSERT INTO club_plans (club_id, name_bg, name_en, description_bg, description_en, kind,
                                   audience, price_cents, validity_days, validity_months,
-                                  visits_count, visibility)
+                                  visits_count, visibility, auto_renew, min_term_months,
+                                  notice_days, self_pause_allowed, self_cancel_allowed)
           SELECT ${actor.clubId}::uuid, ${values}
            WHERE ${clubActorMay(actor, 'plans.manage', { write: true })}
           RETURNING id`);
@@ -194,7 +203,7 @@ export async function sellMembership(
       `);
       const found = await tx.execute(sql`
         SELECT p.name_bg, p.kind, p.audience, p.price_cents, p.validity_days, p.validity_months,
-               p.visits_count, m.is_minor,
+               p.visits_count, p.auto_renew, m.is_minor,
                c.member_cap,
                (SELECT count(DISTINCT b.member_id)::int FROM club_membership_balances b
                  WHERE b.club_id = c.id AND b.member_id <> m.id
@@ -226,13 +235,18 @@ export async function sellMembership(
           : { months: Number(plan.validity_months) },
       );
       const priceCents = Number(plan.price_cents);
+      // A plan with auto-renewal starts a chain whose term counts from today's
+      // first day (0045); the club.renewals job appends the next periods.
+      const renews = plan.auto_renew === true;
       const sold = await tx.execute(sql`
         INSERT INTO club_memberships (club_id, member_id, plan_id, plan_name, kind, audience,
-                                      price_cents, visits_total, starts_on, ends_on, sold_by)
+                                      price_cents, visits_total, starts_on, ends_on, sold_by,
+                                      renews, term_started_on)
         SELECT ${actor.clubId}::uuid, ${input.memberId}::uuid, ${input.planId}::uuid,
                ${String(plan.name_bg)}, ${String(plan.kind)}, ${String(plan.audience)}, ${priceCents},
                ${plan.visits_count === null ? null : Number(plan.visits_count)},
-               ${input.startsOn}::date, ${endsOn}::date, ${actor.userId}
+               ${input.startsOn}::date, ${endsOn}::date, ${actor.userId},
+               ${renews}, ${renews ? input.startsOn : null}::date
          WHERE ${clubActorMay(actor, 'sales.manage', { write: true })}
         RETURNING id
       `);
@@ -384,6 +398,42 @@ export async function cancelMembership(
       action: 'membership_cancelled',
       subjectMemberId: memberId,
       detail: { membershipId, reason },
+    });
+    return true;
+  });
+}
+
+/**
+ * Switch a renewing chain on or off from the office (0045). Off is immediate —
+ * it is the club's own decision — and stops the club.renewals job from adding
+ * the next period; the period already sold runs to its end. On clears any
+ * notice the member gave.
+ */
+export async function setMembershipRenewal(
+  db: TransactionalDb,
+  actor: ClubActor,
+  membershipId: string,
+  renews: boolean,
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const updated = await tx.execute(sql`
+      UPDATE club_memberships ms
+         SET renews = ${renews}, renewal_ends_on = NULL,
+             term_started_on = coalesce(ms.term_started_on, ms.starts_on)
+       WHERE ms.id = ${membershipId}::uuid AND ms.cancelled_at IS NULL AND ms.kind <> 'trial'
+         AND ms.renews IS DISTINCT FROM ${renews}
+         AND NOT EXISTS (SELECT 1 FROM club_memberships nx WHERE nx.renewal_of = ms.id)
+         AND ${clubWriteScope(actor, 'sales.manage', 'ms')}
+      RETURNING ms.member_id
+    `);
+    const memberId = text(updated.rows[0]?.member_id);
+    if (!memberId) return false;
+    await recordClubAudit(tx, {
+      clubId: actor.clubId,
+      by: { kind: 'staff', actor },
+      action: renews ? 'membership_renewed' : 'renewal_stopped',
+      subjectMemberId: memberId,
+      detail: { membershipId, renews },
     });
     return true;
   });

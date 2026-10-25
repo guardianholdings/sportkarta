@@ -52,6 +52,12 @@ export interface ClassFormLabels {
   bookingOpensDays: string;
   cancelDeadlineHours: string;
   dropInPrice: string;
+  policyTitle: string;
+  policyHint: string;
+  noShowFee: string;
+  lateCancelFee: string;
+  strikeLimit: string;
+  strikeDays: string;
   coverage: string;
   coverageAll: string;
   coverageSelected: string;
@@ -78,6 +84,10 @@ export interface ClassValues {
   bookingOpensDays: number;
   cancelDeadlineHours: number;
   dropInPrice: string;
+  noShowFee: string;
+  lateCancelFee: string;
+  strikeLimit: number | null;
+  strikeDays: number | null;
   coversAllPlans: boolean;
   planIds: string[];
   trialAllowed: boolean;
@@ -392,6 +402,60 @@ export function ClassForm({
           defaultChecked={value?.trialAllowed ?? true}
         />
         <Checkbox name="public" label={labels.public} defaultChecked={value?.public ?? true} />
+      </fieldset>
+      <fieldset className="space-y-3 rounded-card border border-line p-3">
+        <legend className={`${label} px-1`}>{labels.policyTitle}</legend>
+        <p className="text-caption text-text-muted">{labels.policyHint}</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1">
+            <label className={label} htmlFor="c-noshow">
+              {labels.noShowFee}
+            </label>
+            <Input
+              id="c-noshow"
+              name="noShowFee"
+              inputMode="decimal"
+              defaultValue={value?.noShowFee ?? ''}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className={label} htmlFor="c-latecancel">
+              {labels.lateCancelFee}
+            </label>
+            <Input
+              id="c-latecancel"
+              name="lateCancelFee"
+              inputMode="decimal"
+              defaultValue={value?.lateCancelFee ?? ''}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className={label} htmlFor="c-strikes">
+              {labels.strikeLimit}
+            </label>
+            <Input
+              id="c-strikes"
+              name="strikeLimit"
+              type="number"
+              min={1}
+              max={20}
+              defaultValue={value?.strikeLimit ?? ''}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className={label} htmlFor="c-strike-days">
+              {labels.strikeDays}
+            </label>
+            <Input
+              id="c-strike-days"
+              name="strikeDays"
+              type="number"
+              min={7}
+              max={180}
+              defaultValue={value?.strikeDays ?? 30}
+            />
+          </div>
+        </div>
       </fieldset>
       <div className="space-y-1">
         <label className={label} htmlFor="c-description">

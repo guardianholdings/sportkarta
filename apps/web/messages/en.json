@@ -3289,7 +3289,13 @@
       "too_many": "This account owns the maximum number of clubs.",
       "rate_limited": "Too many attempts. Try again in a few minutes.",
       "opted_out": "This member unsubscribed from the club's email, so no invitation is sent. They can link the record themselves from “Clubs” in their POPS profile.",
-      "recently_invited": "An invitation was already sent in the last 24 hours."
+      "recently_invited": "An invitation was already sent in the last 24 hours.",
+      "trial_cannot_renew": "A trial cannot renew automatically.",
+      "min_term_invalid": "The minimum term is 1 to 36 months.",
+      "notice_invalid": "The notice is 0 to 120 days.",
+      "fee_invalid": "The fee is between €0.01 and €1000.",
+      "strikes_invalid": "Strikes are 1 to 20, within 7 to 180 days.",
+      "strikes_reached": "Self-booking is paused because of no-shows or late cancellations. Please ask the desk."
     }
   },
   "ClubSettings": {
@@ -3392,7 +3398,73 @@
     "search": "Search by name, email or phone",
     "searchSubmit": "Search",
     "newMember": "New member",
-    "import": "Import CSV",
+    "import": {
+      "title": "Import members",
+      "intro": "Bring your list over from another system or a spreadsheet — vedro, 1club, Excel. You first check how the file was read, and nothing is saved until you confirm. A date of birth is never brought over: for children a “child” column with “yes” is enough.",
+      "upload": "File (CSV)",
+      "paste": "Or paste the contents",
+      "templateHint": "Example file",
+      "next": "Next",
+      "mapHint": "Say which column holds what. Only the name is required.",
+      "ignoreColumn": "— skip —",
+      "preview": "Preview",
+      "previewHint": "New records are created; matching ones only get a missing e-mail or phone and the tags. Doubtful rows are skipped unless you tick “Create as new”.",
+      "line": "Line",
+      "name": "Name",
+      "status": "Result",
+      "plan": "Membership",
+      "planUnknown": "“{plan}” — no such plan; the member is added without it",
+      "count_new": "{count} new",
+      "count_match": "{count, plural, one {# matches} other {# match}}",
+      "count_conflict": "{count} to check",
+      "count_invalid": "{count, plural, one {# with an error} other {# with errors}}",
+      "status_new": "New member",
+      "status_match": "Matches an existing record",
+      "status_conflict": "To check",
+      "status_invalid": "Error — will be skipped",
+      "conflict_several_records": "The e-mail or phone belongs to more than one record.",
+      "conflict_email_phone_disagree": "The e-mail and the phone point at different records.",
+      "conflict_duplicate_in_file": "The same person is on more than one line of the file.",
+      "createAnyway": "Create as new",
+      "commit": "Import",
+      "backToMapping": "Back to the columns",
+      "doneTitle": "The import is done",
+      "doneCreated": "{count, plural, one {# new member} other {# new members}}",
+      "doneUpdated": "{count, plural, one {# record completed} other {# records completed}}",
+      "doneMemberships": "{count, plural, one {# membership} other {# memberships}}",
+      "doneSkipped": "{count, plural, one {# line skipped} other {# lines skipped}}",
+      "importAnother": "New import",
+      "error_no_rows": "The file has no rows.",
+      "error_csv_truncated": "The file looks cut off (an unclosed quote). Check it and try again.",
+      "error_too_many_rows": "The file is too large — up to 2000 rows at a time.",
+      "error_name_unmapped": "Choose the column with the name.",
+      "error_member_cap_reached": "With this import, members with a valid membership exceed the plan's limit. Nothing was saved.",
+      "error_not_allowed": "The club is read-only or you may not import.",
+      "rowError_name_required": "The name is missing.",
+      "rowError_name_too_long": "The name is too long.",
+      "rowError_email_invalid": "The e-mail does not look right.",
+      "rowError_phone_invalid": "The phone does not look right.",
+      "rowError_guardian_invalid": "The parent's e-mail does not look right.",
+      "rowError_guardian_only_for_minors": "A parent is given only for a child.",
+      "rowError_date_invalid": "The date was not read (example: 01.10.2026).",
+      "rowError_dates_reversed": "The end is before the start.",
+      "rowError_plan_required": "There are dates but no membership.",
+      "rowError_visits_invalid": "The remaining visits are not a number.",
+      "rowError_price_invalid": "The paid amount was not read.",
+      "field": {
+        "name": "Name",
+        "email": "E-mail",
+        "phone": "Phone",
+        "tags": "Tags",
+        "minor": "Child (yes/no)",
+        "guardianEmail": "Parent's e-mail",
+        "plan": "Membership",
+        "startsOn": "Start",
+        "endsOn": "End",
+        "visitsLeft": "Visits left",
+        "paid": "Paid (€)"
+      }
+    },
     "filter": {
       "all": "All",
       "with_membership": "With membership",
@@ -3499,7 +3571,12 @@
         "already": "Already checked in today.",
         "club_closed": "The club is read-only.",
         "not_linked": "The record is not linked to an account."
-      }
+      },
+      "renews": "Renews automatically.",
+      "renewed": "Renewed — the next period is already added.",
+      "renewalEnds": "Renewal stops: the contract runs until {date}.",
+      "stopRenewal": "Stop renewing",
+      "startRenewal": "Renew automatically"
     },
     "audit": {
       "title": "Actions",
@@ -3508,7 +3585,8 @@
       "kiosk": "The tablet",
       "member": "The member",
       "ngo": "The association"
-    }
+    },
+    "importCta": "Import CSV"
   },
   "ClubAudit": {
     "action": {
@@ -3592,7 +3670,15 @@
       "visibility": "Visibility",
       "public": "Shown on the club page",
       "privatePlan": "Front desk only",
-      "save": "Save"
+      "save": "Save",
+      "terms": "Terms",
+      "termsHint": "How the plan renews and what a member may do themselves in their portal.",
+      "autoRenew": "Renews automatically",
+      "autoRenewHint": "At the end of each period the next one is added and a charge opened for it.",
+      "minTermMonths": "Minimum term (months, optional)",
+      "noticeDays": "Notice to stop (days)",
+      "selfPause": "Members may pause it themselves",
+      "selfCancel": "Members may stop the renewal themselves (with the notice)"
     },
     "sale": {
       "title": "Sell a membership",
@@ -3705,7 +3791,13 @@
       "needLocation": "First add a location where the classes take place.",
       "toSettings": "Go to settings",
       "seriesCancelled": "This series is cancelled and can no longer be edited.",
-      "cancelSeriesHint": "Future classes in the series are cancelled and the people booked are told. Past ones stay in the history."
+      "cancelSeriesHint": "Future classes in the series are cancelled and the people booked are told. Past ones stay in the history.",
+      "policyTitle": "No-shows and late cancellations",
+      "policyHint": "Optional. The fee is charged automatically the next morning; attendance is never refused. Once the strike limit is reached the member cannot book themselves until the strikes age out — the desk still can.",
+      "noShowFee": "No-show fee (€)",
+      "lateCancelFee": "Late-cancel fee (€)",
+      "strikeLimit": "Strikes before self-booking stops",
+      "strikeDays": "Within (days)"
     },
     "rosterPage": {
       "back": "Timetable",
@@ -3903,7 +3995,16 @@
       "notify_off": "Email from the club is off.",
       "erasure_requested": "Your erasure request has been sent to the club.",
       "unlinked": "The record is no longer linked to your account.",
-      "linked": "The record is now linked to your account."
+      "linked": "The record is now linked to your account.",
+      "strikes_reached": "Self-booking is paused because of no-shows or late cancellations. Please ask the desk.",
+      "renewal_stopped": "The renewal is stopped.",
+      "paused": "The membership is paused.",
+      "pause_invalid": "A pause starts today or later and lasts 1 to 60 days.",
+      "pause_overlap": "The pause overlaps another.",
+      "pause_outside": "A pause must start while a membership is valid.",
+      "contact_saved": "Preferences saved.",
+      "phone_invalid": "The phone number does not look right.",
+      "sms_needs_phone": "Enter a phone number for SMS."
     },
     "checkin": {
       "recorded": "Your attendance is marked.",
@@ -3915,7 +4016,23 @@
       "not_allowed": "Attendance was not marked.",
       "too_early": "The class has not started yet."
     },
-    "attended": "attended"
+    "attended": "attended",
+    "renewsAuto": "Renews automatically at the end of the period.",
+    "renewalEnds": "The renewal is stopped. The membership runs until {date}.",
+    "stopRenewal": "Stop the renewal",
+    "stopRenewalConfirm": "The membership continues for the {days}-day notice and any minimum term in the club's terms, then stops renewing. Continue?",
+    "pauseTitle": "Pause the membership",
+    "pauseFrom": "From",
+    "pauseDays": "For how many days (up to {max})",
+    "pauseSubmit": "Pause",
+    "pauseHint": "The validity is extended by the paused days. You can do this once for this membership — ask the desk for more.",
+    "contactTitle": "Contact with the club",
+    "contactIntro": "How the club may reach you.",
+    "contactPhone": "Phone (optional)",
+    "contactMarketingEmail": "I want news and offers from {club} by e-mail",
+    "contactMarketingSms": "I want news and offers from {club} by SMS",
+    "contactHint": "Booking confirmations and reminders do not depend on these boxes. You can untick them at any time.",
+    "contactSave": "Save"
   },
   "ClubApply": {
     "title": "Register a club on POPS",
@@ -4013,7 +4130,10 @@
       "claim_pending": "A request to link a record",
       "erasure_requested": "A request to erase data",
       "roster_daily": "Your classes today",
-      "owner_weekly": "The week at the club"
+      "owner_weekly": "The week at the club",
+      "membership_renewed": "Your membership has renewed",
+      "fee_charged": "Fee: {label}",
+      "owner_monthly": "{month} at the club"
     },
     "lead": {
       "staff_invite": "{club} invites you to join its team as {role}. The invitation is valid for 14 days.",
@@ -4031,7 +4151,10 @@
       "claim_pending": "“{name}” asked to link their record to a POPS account. Confirm or refuse it on the member's record.",
       "erasure_requested": "“{name}” asked the club to erase their record. The club is the controller and the decision is yours; erasure is done from the member's record.",
       "roster_daily": "Your timetable today at {club}:",
-      "owner_weekly": "The week {week} at {club}:"
+      "owner_weekly": "The week {week} at {club}:",
+      "membership_renewed": "The membership “{plan}” ({name}) has renewed for {from} – {to}. Amount: {amount}.",
+      "fee_charged": "The club charged a fee “{label}” ({name}): {amount}, due by {date}. The no-show and late-cancel terms are on the class page.",
+      "owner_monthly": "How {month} went at {club} — the figures come straight from the club's records:"
     },
     "action": {
       "staff_invite": "Accept the invitation",
@@ -4049,7 +4172,10 @@
       "claim_pending": "Open the record",
       "erasure_requested": "Open the record",
       "roster_daily": "Open the timetable",
-      "owner_weekly": "Open the dashboard"
+      "owner_weekly": "Open the dashboard",
+      "membership_renewed": "My club",
+      "fee_charged": "My club",
+      "owner_monthly": "Open the reports"
     },
     "rosterLine": "{time} {title}: {going} of {capacity} booked",
     "rosterLineOpen": "{time} {title}: {going} booked",
@@ -4062,6 +4188,10 @@
       "overdue": "Overdue charges: {count}",
       "claims": "Requests to link: {count}",
       "erasures": "Erasure requests: {count}"
+    },
+    "feeLabel": {
+      "noShow": "No-show",
+      "lateCancel": "Late cancellation"
     }
   },
   "ClubReports": {

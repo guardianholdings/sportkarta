@@ -76,6 +76,11 @@ function toClass(row: Record<string, unknown>): ClubClass {
     planIds: Array.isArray(row.plan_ids) ? row.plan_ids.map(String) : [],
     trialAllowed: row.trial_allowed === true,
     public: row.public === true,
+    noShowFeeCents: row.no_show_fee_cents === null ? null : Number(row.no_show_fee_cents),
+    lateCancelFeeCents:
+      row.late_cancel_fee_cents === null ? null : Number(row.late_cancel_fee_cents),
+    strikeLimit: row.strike_limit === null ? null : Number(row.strike_limit),
+    strikeDays: row.strike_days === null ? null : Number(row.strike_days),
     status: row.status === 'cancelled' ? 'cancelled' : 'scheduled',
     locationName: String(row.location_name),
     instructorName: text(row.instructor_name),
@@ -116,13 +121,15 @@ export async function saveClass(
       ${input.instructorUserId}, ${input.startsAtLocal}::timestamp, ${input.rrule},
       ${input.durationMinutes}, ${input.capacity}, ${input.bookingOpensHours},
       ${input.cancelDeadlineHours}, ${input.dropInPriceCents}, ${input.coversAllPlans},
-      ${input.trialAllowed}, ${input.public}`;
+      ${input.trialAllowed}, ${input.public}, ${input.noShowFeeCents}, ${input.lateCancelFeeCents},
+      ${input.strikeLimit}, ${input.strikeDays}`;
     const result = classId
       ? await tx.execute(sql`
           UPDATE club_classes k
              SET (location_id, title, description, sport, instructor_user_id, starts_at_local, rrule,
                   duration_minutes, capacity, booking_opens_hours, cancel_deadline_hours,
-                  drop_in_price_cents, covers_all_plans, trial_allowed, public) = (${fields}),
+                  drop_in_price_cents, covers_all_plans, trial_allowed, public, no_show_fee_cents,
+                  late_cancel_fee_cents, strike_limit, strike_days) = (${fields}),
                  materialized_through = NULL
            WHERE k.id = ${classId}::uuid AND k.status = 'scheduled'
              AND ${clubWriteScope(actor, 'schedule.manage', 'k')}
@@ -132,7 +139,8 @@ export async function saveClass(
                                     instructor_user_id, starts_at_local, rrule, duration_minutes,
                                     capacity, booking_opens_hours, cancel_deadline_hours,
                                     drop_in_price_cents, covers_all_plans, trial_allowed, public,
-                                    created_by)
+                                    no_show_fee_cents, late_cancel_fee_cents, strike_limit,
+                                    strike_days, created_by)
           SELECT ${actor.clubId}::uuid, ${fields}, ${actor.userId}
            WHERE ${clubActorMay(actor, 'schedule.manage', { write: true })}
           RETURNING id`);

@@ -27,6 +27,10 @@ export const CLUB_DIGEST_QUEUE = 'club.digest';
  */
 export const CLUB_WEEKLY_QUEUE = 'club.weekly';
 export const CLUB_ACTIVITY_QUEUE = 'club.activity';
+/** Daily: renew abonnements, raise no-show and late-cancel fees, mail both (0045). */
+export const CLUB_POLICIES_QUEUE = 'club.policies';
+/** Monthly: the owner's business-health mail for the month that closed. */
+export const CLUB_HEALTH_QUEUE = 'club.health';
 
 export type ClubNotifyJob =
   | { kind: 'application_received'; clubId: string }

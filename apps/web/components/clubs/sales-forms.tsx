@@ -41,6 +41,14 @@ export interface PlanFormLabels {
   visibility: string;
   public: string;
   privatePlan: string;
+  terms: string;
+  termsHint: string;
+  autoRenew: string;
+  autoRenewHint: string;
+  minTermMonths: string;
+  noticeDays: string;
+  selfPause: string;
+  selfCancel: string;
   save: string;
 }
 
@@ -57,6 +65,11 @@ export interface PlanValues {
   validityMonths: number | null;
   visitsCount: number | null;
   visibility: string;
+  autoRenew: boolean;
+  minTermMonths: number | null;
+  noticeDays: number;
+  selfPauseAllowed: boolean;
+  selfCancelAllowed: boolean;
 }
 
 /** The kind radio drives the fields: a visit card asks for visits. */
@@ -75,6 +88,7 @@ export function PlanForm({
 }) {
   const [state, formProps, pending] = useFormAction(action, INITIAL);
   const [kind, setKind] = useState(plan?.kind ?? 'unlimited');
+  const [autoRenew, setAutoRenew] = useState(plan?.autoRenew ?? false);
   return (
     <form {...formProps} className="space-y-4">
       <input type="hidden" name="slug" value={slug} />
@@ -226,6 +240,78 @@ export function PlanForm({
           defaultValue={plan?.descriptionEn ?? ''}
         />
       </div>
+      <fieldset className="space-y-3 rounded-card border border-line p-3">
+        <legend className={`${label} px-1`}>{labels.terms}</legend>
+        <p className="text-caption text-text-muted">{labels.termsHint}</p>
+        {kind !== 'trial' && (
+          <label className="flex min-h-11 items-start gap-3 text-body-sm text-ink">
+            <input
+              type="checkbox"
+              name="autoRenew"
+              checked={autoRenew}
+              onChange={(event) => setAutoRenew(event.target.checked)}
+              className="mt-1 size-4 accent-[var(--brand)]"
+              aria-describedby="p-renew-hint"
+            />
+            <span>
+              {labels.autoRenew}
+              <span id="p-renew-hint" className="block text-caption text-text-muted">
+                {labels.autoRenewHint}
+              </span>
+            </span>
+          </label>
+        )}
+        {autoRenew && kind !== 'trial' && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className={label} htmlFor="p-min-term">
+                {labels.minTermMonths}
+              </label>
+              <Input
+                id="p-min-term"
+                name="minTermMonths"
+                type="number"
+                min={1}
+                max={36}
+                defaultValue={plan?.minTermMonths ?? ''}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className={label} htmlFor="p-notice">
+                {labels.noticeDays}
+              </label>
+              <Input
+                id="p-notice"
+                name="noticeDays"
+                type="number"
+                min={0}
+                max={120}
+                defaultValue={plan?.noticeDays ?? 0}
+              />
+            </div>
+          </div>
+        )}
+        <label className="flex min-h-11 items-center gap-3 text-body-sm text-ink">
+          <input
+            type="checkbox"
+            name="selfPause"
+            defaultChecked={plan?.selfPauseAllowed ?? false}
+            className="size-4 accent-[var(--brand)]"
+          />
+          {labels.selfPause}
+        </label>
+        {autoRenew && kind !== 'trial' && (
+          <label className="flex min-h-11 items-center gap-3 text-body-sm text-ink">
+            <input
+              type="checkbox"
+              name="selfCancel"
+              defaultChecked={plan?.selfCancelAllowed ?? false}
+              className="size-4 accent-[var(--brand)]"
+            />
+            {labels.selfCancel}
+          </label>
+        )}
+      </fieldset>
       <Button type="submit" disabled={pending}>
         {labels.save}
       </Button>

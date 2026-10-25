@@ -20,6 +20,18 @@ export type {
 export { refreshStats, STATS_MATVIEWS } from './stats.js';
 export { HORIZON_WEEKS, materializeSessions } from './sessions/materialize.js';
 export { materializeClubClasses } from './clubs/materialize.js';
+export {
+  chargeClubBookingFees,
+  feeMailCandidates,
+  renewClubMemberships,
+  renewalMailCandidates,
+} from './clubs/policies.js';
+export type {
+  FeeLabels,
+  FeeMailCandidate,
+  RenewalMailCandidate,
+  RenewalReport,
+} from './clubs/policies.js';
 export type { ClubMaterializeOptions, ClubMaterializeReport } from './clubs/materialize.js';
 export {
   bookingsForMail,
