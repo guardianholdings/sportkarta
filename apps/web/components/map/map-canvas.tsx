@@ -67,7 +67,12 @@ interface MapCanvasProps {
   initialView: MapView | null;
   myLocationLabel: string;
   onSelect: (slug: string) => void;
-  onMoveEnd: (view: MapView) => void;
+  /**
+   * Where the camera settled, for the address bar. NULL = keep the view out of
+   * it: after a locate the centre is the member's own position, so it stays out
+   * until they move the map by hand (`locatedRef`).
+   */
+  onMoveEnd: (view: MapView | null) => void;
   /** Card the user is hovering — its marker grows + lifts (hover-sync). */
   hoveredSlug?: string | null;
   nearMe?: NearMe | null;
@@ -217,6 +222,28 @@ function circlePolygon(center: { lon: number; lat: number }, radiusKm: number): 
 
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
 
+/** Where a locate flight is going: the member's position, at least zoom 13. */
+interface LocateFlight {
+  center: [number, number];
+  zoom: number;
+}
+
+/**
+ * Fly to the member's position, keeping the target in `flight` while the camera
+ * is in the air (see `locateFlightRef` in the component).
+ */
+function flyToLocated(
+  map: maplibregl.Map,
+  flight: { current: LocateFlight | null },
+  to: LocateFlight,
+) {
+  map.flyTo({ ...to, speed: 1.4 });
+  // Kept only after the call: flyTo first ends any move still running, and
+  // that move's moveend clears the ref. With reduced motion flyTo jumps, so
+  // nothing is in the air and nothing is kept.
+  flight.current = map.isMoving() ? to : null;
+}
+
 export default function MapCanvas({
   points,
   userLocation,
@@ -266,6 +293,25 @@ export default function MapCanvas({
    * moves that end the automatic fit.
    */
   const urlCameraRef = useRef(initialView !== null);
+  /**
+   * True from the moment the camera flies to the member's own position (the
+   * locate button, or a sticker link that locates on arrival) until their first
+   * gesture. Until then the centre is where they stand, so it is kept out of
+   * the address bar: a reload, a shared link or a server log would otherwise
+   * carry their position to the metre. Re-framing and revealing a selection
+   * are not gestures, so they keep it out too.
+   */
+  const locatedRef = useRef(false);
+  /**
+   * The locate flight's target while the camera is in the air. A re-frame
+   * stops any running flight: MapLibre's `setPadding()` is a `jumpTo()`, which
+   * starts with `stop()`. A link that locates on arrival flies while the frame
+   * is still settling (the sheet is measured after mount, the canvas resizes),
+   * so the camera could stop short of the member, and their field sort below
+   * the off-map divider. `applyPadding` flies on to it after re-framing. Every
+   * move that ends clears it, so a landing, a gesture or a reveal all do.
+   */
+  const locateFlightRef = useRef<LocateFlight | null>(null);
   /** MapLibre could not start (no WebGL): the list still works, so say so. */
   const [unavailable, setUnavailable] = useState(false);
 
@@ -479,6 +525,7 @@ export default function MapCanvas({
       if (!e.originalEvent) return;
       autoFitRef.current = false;
       urlCameraRef.current = false;
+      locatedRef.current = false;
     });
 
     /**
@@ -549,6 +596,9 @@ export default function MapCanvas({
     };
 
     const applyPadding = () => {
+      // Read before re-framing: setPadding stops the flight, and the moveend
+      // that ends it clears the ref (see `locateFlightRef`).
+      const flight = map.isMoving() ? locateFlightRef.current : null;
       const p = framePadding();
       map.setPadding(p);
 
@@ -622,6 +672,9 @@ export default function MapCanvas({
         const cam = countryCamera();
         if (cam) map.jumpTo(cam);
       }
+
+      // A locate flight the re-frame stopped flies on, from where it stopped.
+      if (flight) flyToLocated(map, locateFlightRef, flight);
     };
     applyPadding();
     paddingApplyRef.current = applyPadding;
@@ -680,12 +733,17 @@ export default function MapCanvas({
     });
 
     map.on('moveend', () => {
+      // Whatever ended this move (the flight landed, a gesture or a reveal took
+      // over, a re-frame stopped it), no locate flight is in the air now.
+      locateFlightRef.current = null;
       // The automatic country fit is NOT written to the URL: it is a function of
       // this screen's size, and pinning it there would make a reload — or a
       // shared link opened on a different device — replay one screen's zoom.
       if (!autoFitRef.current) {
         const c = map.getCenter();
-        onMoveEndRef.current({ lng: c.lng, lat: c.lat, zoom: map.getZoom() });
+        onMoveEndRef.current(
+          locatedRef.current ? null : { lng: c.lng, lat: c.lat, zoom: map.getZoom() },
+        );
       }
       reportBounds();
       scheduleSync();
@@ -822,7 +880,8 @@ export default function MapCanvas({
     }
     autoFitRef.current = false;
     urlCameraRef.current = false;
-    map.flyTo({ center: lngLat, zoom: Math.max(map.getZoom(), 13), speed: 1.4 });
+    locatedRef.current = true;
+    flyToLocated(map, locateFlightRef, { center: lngLat, zoom: Math.max(map.getZoom(), 13) });
   }, [userLocation, myLocationLabel]);
 
   return (

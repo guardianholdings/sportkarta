@@ -33,3 +33,27 @@ export function parseView(sp: UrlParams): MapView | null {
   }
   return null;
 }
+
+/**
+ * The address bar's query with the map's view written in, or taken out
+ * (`null`). Every other parameter stays: the filters, a selection, a sticker
+ * link's `blizo` and campaign tags.
+ *
+ * Five decimals of lat/lng is about a metre. That is right for a view the member
+ * moved by hand, which a reload or a shared link should restore exactly. It is
+ * wrong for the view the map flies to after locating them: that centre is where
+ * they stand. For that view the canvas hands over `null` until they move the
+ * map themselves (map-canvas.tsx, `locatedRef`), and the address then holds no
+ * position at all.
+ */
+export function withView(search: string, view: MapView | null): string {
+  const sp = new URLSearchParams(search);
+  if (view) {
+    sp.set('z', view.zoom.toFixed(2));
+    sp.set('lat', view.lat.toFixed(5));
+    sp.set('lng', view.lng.toFixed(5));
+  } else {
+    for (const key of ['z', 'lat', 'lng']) sp.delete(key);
+  }
+  return sp.toString();
+}

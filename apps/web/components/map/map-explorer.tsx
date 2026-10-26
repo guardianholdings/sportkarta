@@ -41,8 +41,9 @@ import {
 import { NAV_PROVIDERS } from '@/lib/directions';
 import { inReadingOrder } from '@/lib/format';
 import { formatKm } from '@/lib/geo';
+import { wantsAutoLocate } from '@/lib/map/auto-locate';
 import { DEFAULT_LAYER, type ExternalMapLayer } from '@/lib/map/layers';
-import { parseView } from '@/lib/map/view';
+import { parseView, withView } from '@/lib/map/view';
 import { Link } from '@/i18n/navigation';
 import { CANONICAL_SPORTS, CANONICAL_SURFACES, type CanonicalSport } from '@sportkarta/lib/sports';
 
@@ -138,6 +139,15 @@ const PREVIEW_PX = {
   half: (viewport: number) => Math.max(viewport * 0.4, 288),
   full: (viewport: number) => viewport,
 } as const;
+
+/**
+ * Set once the explorer has located a visitor who arrived on a sticker link
+ * (`?blizo=1`, lib/map/auto-locate.ts). Module scope, so it lasts as long as
+ * the page and not the component: the explorer mounts again when a visitor
+ * comes back to the map later in the same visit, and that must not locate them
+ * a second time.
+ */
+let autoLocated = false;
 
 interface MapExplorerProps {
   /**
@@ -425,13 +435,14 @@ export function MapExplorer({
     if (slug) setSnap((s) => (s === 'peek' ? 'half' : s));
   }
 
-  const onMoveEndRef = useRef((view: MapView) => {
+  // The view the map settled on, into the address bar; `null` takes the view out
+  // (after a locate, until the member moves the map by hand: lib/map/view.ts).
+  const onMoveEndRef = useRef((view: MapView | null) => {
     if (typeof window === 'undefined') return;
-    const sp = new URLSearchParams(window.location.search);
-    sp.set('z', view.zoom.toFixed(2));
-    sp.set('lat', view.lat.toFixed(5));
-    sp.set('lng', view.lng.toFixed(5));
-    window.history.replaceState(null, '', `${window.location.pathname}?${sp.toString()}`);
+    const { pathname, search } = window.location;
+    const qs = withView(search, view);
+    if (qs === search.replace(/^\?/, '')) return;
+    window.history.replaceState(null, '', qs ? `${pathname}?${qs}` : pathname);
   });
 
   /**
@@ -480,6 +491,19 @@ export function MapExplorer({
       window.clearTimeout(timer);
     };
   }, [locateError]);
+
+  // A printed QR code opens the map on `?blizo=1`: locate the visitor on
+  // arrival, through the very locate() the button calls. Same browser prompt,
+  // same notice when it is refused or fails, and nothing written to the
+  // address bar for it. Once per page load (`autoLocated`), and a `selected`
+  // facility in the address wins (lib/map/auto-locate.ts).
+  useEffect(() => {
+    if (autoLocated || !wantsAutoLocate(urlParams)) return;
+    autoLocated = true;
+    locate();
+    // Arrival only: the address as the page opened. locate() only sets state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const nearMe = useMemo<NearMe | null>(
     () => (nearMeOn && userLocation ? { center: userLocation, radiusKm } : null),
