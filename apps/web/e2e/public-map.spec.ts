@@ -164,4 +164,57 @@ test.describe('public map — a sticker link locates on arrival', () => {
       expect(run).toEqual([...run].sort((a, b) => a - b));
     }
   });
+
+  // After a locate the map's centre is where the visitor stands, so it stays out
+  // of the address bar until they move the map by hand (map-canvas.tsx,
+  // locatedRef). Reduced motion makes the map jump instead of fly: once the count
+  // reads "N on the map · M in total", the camera has settled on the visitor.
+  test.describe('the address bar never holds the located position', () => {
+    test.use({ reducedMotion: 'reduce' });
+
+    const PRECISE = /\d\.\d{3,}/;
+    const ON_MAP = new RegExp(bg.Map.resultsOnMap.replace(/\{\w+, number\}/g, '[\\d\\s]+'));
+
+    test('not on the printed address; a move by hand writes the view again', async ({
+      page,
+      context,
+    }) => {
+      await context.grantPermissions(['geolocation']);
+      await context.setGeolocation(SOFIA);
+      const query = () => new URL(page.url()).searchParams;
+
+      await page.goto(STICKER_URL);
+      await expect(page.locator('[role="status"]', { hasText: ON_MAP }).first()).toBeAttached({
+        timeout: 15_000,
+      });
+      expect(page.url()).not.toMatch(PRECISE);
+      expect(query().has('lat')).toBe(false);
+
+      // An arrow key pans the map and carries its key event: a gesture.
+      await page.locator('canvas.maplibregl-canvas').focus();
+      await page.keyboard.press('ArrowUp');
+      await expect
+        .poll(() => query().get('lat') ?? '', { timeout: 10_000 })
+        .toMatch(/^\d+\.\d{5}$/);
+      expect(query().get('blizo')).toBe('1');
+    });
+
+    test('a saved view in the address is taken out once the map has located', async ({
+      page,
+      context,
+    }) => {
+      await context.grantPermissions(['geolocation']);
+      await context.setGeolocation(SOFIA);
+      const query = () => new URL(page.url()).searchParams;
+
+      // A view far from the visitor (Varna), as an earlier pan writes it.
+      await page.goto(`${STICKER_URL}&z=7.00&lat=43.20000&lng=27.90000`);
+      await expect.poll(() => query().has('lat'), { timeout: 15_000 }).toBe(false);
+      expect(query().has('lng')).toBe(false);
+      expect(query().has('z')).toBe(false);
+      expect(page.url()).not.toMatch(PRECISE);
+      expect(query().get('blizo')).toBe('1');
+      expect(query().get('utm_content')).toBe('s1');
+    });
+  });
 });

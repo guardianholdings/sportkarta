@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { AUTO_LOCATE_PARAM, wantsAutoLocate } from '@/lib/map/auto-locate';
+import { withView } from '@/lib/map/view';
 
 /** The search params of an address, the way the explorer reads them. */
 function params(search: string) {
@@ -49,5 +50,39 @@ describe('wantsAutoLocate — the sticker QR flag', () => {
     expect(wantsAutoLocate({})).toBe(false);
     expect(wantsAutoLocate(params('?utm_source=sticker&utm_content=s5'))).toBe(false);
     expect(wantsAutoLocate(params('?BLIZO=1'))).toBe(false);
+  });
+});
+
+describe('withView — a located position stays out of the address bar', () => {
+  const SOFIA = { lng: 23.3219, lat: 42.6977, zoom: 13 };
+  const STICKER = 'blizo=1&utm_source=sticker&utm_medium=offline&utm_content=s1';
+
+  it('writes a view moved by hand to the metre, as before', () => {
+    const sp = new URLSearchParams(withView(`?${STICKER}`, SOFIA));
+    expect(sp.get('z')).toBe('13.00');
+    expect(sp.get('lat')).toBe('42.69770');
+    expect(sp.get('lng')).toBe('23.32190');
+    expect(sp.get('blizo')).toBe('1');
+    expect(sp.get('utm_content')).toBe('s1');
+  });
+
+  it('replaces a view already in the address', () => {
+    expect(withView('?sport=football&z=7.00&lat=43.20000&lng=27.90000', SOFIA)).toBe(
+      'sport=football&z=13.00&lat=42.69770&lng=23.32190',
+    );
+  });
+
+  it('takes the view out after a locate and keeps every other parameter', () => {
+    const qs = withView(`?${STICKER}&z=13.00&lat=42.69770&lng=23.32190`, null);
+    expect(qs).toBe(STICKER);
+    expect(qs).not.toMatch(/\d\.\d{3,}/);
+    expect(
+      withView('?z=13.00&sport=football&lat=42.69770&selected=some-pitch&lng=23.32190', null),
+    ).toBe('sport=football&selected=some-pitch');
+  });
+
+  it('leaves an address with no view as it is', () => {
+    expect(withView(`?${STICKER}`, null)).toBe(STICKER);
+    expect(withView('', null)).toBe('');
   });
 });

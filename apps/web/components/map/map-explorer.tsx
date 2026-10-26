@@ -43,7 +43,7 @@ import { inReadingOrder } from '@/lib/format';
 import { formatKm } from '@/lib/geo';
 import { wantsAutoLocate } from '@/lib/map/auto-locate';
 import { DEFAULT_LAYER, type ExternalMapLayer } from '@/lib/map/layers';
-import { parseView } from '@/lib/map/view';
+import { parseView, withView } from '@/lib/map/view';
 import { Link } from '@/i18n/navigation';
 import { CANONICAL_SPORTS, CANONICAL_SURFACES, type CanonicalSport } from '@sportkarta/lib/sports';
 
@@ -435,13 +435,14 @@ export function MapExplorer({
     if (slug) setSnap((s) => (s === 'peek' ? 'half' : s));
   }
 
-  const onMoveEndRef = useRef((view: MapView) => {
+  // The view the map settled on, into the address bar; `null` takes the view out
+  // (after a locate, until the member moves the map by hand: lib/map/view.ts).
+  const onMoveEndRef = useRef((view: MapView | null) => {
     if (typeof window === 'undefined') return;
-    const sp = new URLSearchParams(window.location.search);
-    sp.set('z', view.zoom.toFixed(2));
-    sp.set('lat', view.lat.toFixed(5));
-    sp.set('lng', view.lng.toFixed(5));
-    window.history.replaceState(null, '', `${window.location.pathname}?${sp.toString()}`);
+    const { pathname, search } = window.location;
+    const qs = withView(search, view);
+    if (qs === search.replace(/^\?/, '')) return;
+    window.history.replaceState(null, '', qs ? `${pathname}?${qs}` : pathname);
   });
 
   /**
