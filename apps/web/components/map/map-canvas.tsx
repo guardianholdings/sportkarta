@@ -223,7 +223,10 @@ function circlePolygon(center: { lon: number; lat: number }, radiusKm: number): 
 const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
 
 /** Where a locate flight is going: the member's position, at least zoom 13. */
-type LocateFlight = { center: [number, number]; zoom: number };
+interface LocateFlight {
+  center: [number, number];
+  zoom: number;
+}
 
 /**
  * Fly to the member's position, keeping the target in `flight` while the camera
