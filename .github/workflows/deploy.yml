@@ -274,6 +274,11 @@ jobs:
           AUTH_FACEBOOK_ENABLED=${{ vars.AUTH_FACEBOOK_ENABLED || 'false' }}
           FACEBOOK_CLIENT_ID=${{ secrets.FACEBOOK_CLIENT_ID }}
           FACEBOOK_CLIENT_SECRET=${{ secrets.FACEBOOK_CLIENT_SECRET }}
+          # The /tiktok demo page (TikTok Login Kit + Content Posting API):
+          # OFF unless the variable is "true" AND both secrets are set.
+          TIKTOK_DEMO_ENABLED=${{ vars.TIKTOK_DEMO_ENABLED || 'false' }}
+          TIKTOK_CLIENT_KEY=${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET=${{ secrets.TIKTOK_CLIENT_SECRET }}
           SMTP_HOST=${{ secrets.SMTP_HOST }}
           SMTP_PORT=${{ vars.SMTP_PORT || '587' }}
           SMTP_USER=${{ secrets.SMTP_USER }}

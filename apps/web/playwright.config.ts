@@ -2,6 +2,8 @@ import { randomBytes } from 'node:crypto';
 
 import { defineConfig, devices } from '@playwright/test';
 
+import { TIKTOK_E2E_ENV } from './e2e/tiktok-mock';
+
 /**
  * Which server the suite drives, and where sign-in codes go.
  *
@@ -30,6 +32,11 @@ const RATE_LIMITS = {
   OTP_SEND_LIMIT_PER_HOUR: process.env.OTP_SEND_LIMIT_PER_HOUR ?? '1000',
 };
 
+// The /tiktok demo is on for the suite, against a loopback mock of TikTok's
+// API that e2e/tiktok-demo.spec.ts starts (e2e/tiktok-mock.ts). Test values
+// only: nothing in the suite reaches TikTok.
+const TIKTOK = TIKTOK_E2E_ENV;
+
 const productionServer = {
   command: 'pnpm start',
   url: 'http://localhost:3000',
@@ -52,6 +59,7 @@ const productionServer = {
     SMTP_PASS: '',
     SMTP_FROM: 'POPS e2e <no-reply@example.org>',
     ...RATE_LIMITS,
+    ...TIKTOK,
   },
 };
 
@@ -70,6 +78,7 @@ const devServer = {
     MAIL_TRANSPORT: 'file',
     MAIL_OUTBOX_DIR: process.env.MAIL_OUTBOX_DIR ?? './var/mail',
     ...RATE_LIMITS,
+    ...TIKTOK,
   },
 };
 
