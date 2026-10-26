@@ -938,7 +938,8 @@
     "quarterLabel": "Neighbourhood (optional)",
     "submit": "Add facility",
     "submitting": "Sending…",
-    "moderationNote": "The new facility appears on the map straight away — before another member or a moderator has checked it. The data becomes part of the open data under the ODbL licence (see the Terms of use).",
+    "moderationNoteMap": "The new facility appears on the map straight away — before another member or a moderator has checked it.",
+    "moderationNoteData": "The data becomes part of the open data under the ODbL licence (see the Terms of use).",
     "savedHiddenBody": "Paid facilities are not shown on the public map for now, so you will not see it there. If that changes, it will appear automatically.",
     "addAnother": "Add another facility",
     "photoPendingNote": "The photo will appear once a moderator has reviewed it.",
@@ -954,11 +955,21 @@
     "error_invalid_coordinates": "Choose a point on the map.",
     "error_outside_bulgaria": "That point is outside Bulgaria.",
     "error_duplicate_nearby": "There is already such a facility nearby.",
-    "error_duplicate_hidden": "A facility for the same sport is already recorded here but is not shown publicly (for example, a paid one). If it is actually free, write to us.",
+    "error_duplicate_hidden": "A facility for the same sport is already recorded here but is not shown publicly (for example, a paid one). If it is actually free, <contact>write to us</contact>.",
+    "error_duplicate_own": "You've already added this facility.",
+    "toFacility": "Go to the facility",
+    "error_unexpected": "Something went wrong on our side and the facility wasn't saved. Try again in a moment — what you filled in stays.",
+    "errorReference": "Reference code: {code}",
     "error_invalid_state": "Choose a condition.",
     "error_facility_not_found": "Facility not found.",
     "error_rate_limited": "Too many additions in a short time. Try again later.",
-    "error_own_facility": "You already added this facility; it needs confirmation from someone else."
+    "error_own_facility": "You already added this facility; it needs confirmation from someone else.",
+    "error_no_answer": "The connection dropped, so we can't tell whether the facility was saved. Press “Add facility” again — if it's already saved, we'll tell you, and it won't be added twice."
+  },
+  "FormRecovery": {
+    "staleForm": "We updated the site while this form was open, so it needs to reload. Nothing was saved.",
+    "reload": "Reload the form",
+    "photoAgain": "What you've filled in will stay, but you'll need to choose the photo again."
   },
   "Contribute": {
     "title": "Help with the data",
@@ -1002,6 +1013,7 @@
     "error_duplicate_nearby": "There is already such a facility nearby.",
     "error_name_too_long": "That text is too long.",
     "error_unknown": "Something went wrong. Try again.",
+    "error_no_answer": "The connection dropped, so we can't tell whether your contribution was recorded. If you send it again, the points won't be counted twice.",
     "error_own_facility": "You cannot confirm a facility you added yourself — another member has to.",
     "locationIdle": "If you are at the facility, share your location: only contributions made on the spot earn points. Without it your contribution is still accepted, but it will wait for review.",
     "locating": "Finding your location… If nothing happens within a few seconds, tap the button again.",

@@ -124,17 +124,29 @@ export interface AddFacilityResult {
  * A duplicate the public cannot see (a hidden paid venue, a row without a slug)
  * still blocks the add, but is never offered as a link: «Вижте съществуващото
  * съоръжение» used to open a 404.
+ *
+ * The member's OWN facility comes first and is reported as such (`own`, the
+ * author test verify-facility.ts uses): a resend after a lost answer is their
+ * saved place, not somebody else's duplicate.
  */
 async function findNearbyDuplicate(
   db: SqlRunner,
   facility: NormalizedFacility,
-): Promise<{ publicSlug: string | null } | null> {
+  userId: string,
+): Promise<{ publicSlug: string | null; own: boolean } | null> {
   // Two-stage on purpose: the geometry predicate can use facilities_geom_gist
   // (a geography cast cannot), and the geography distance then makes the radius
   // exact metres rather than degrees. ~0.0005° comfortably covers 30 m at
   // Bulgarian latitudes, so nothing real is filtered out before the exact test.
   const result = await db.execute(sql`
-    SELECT f.slug, (${publicFacilityVisible}) AS visible FROM facilities f
+    SELECT f.slug, (${publicFacilityVisible}) AS visible,
+      EXISTS (
+        SELECT 1 FROM facility_edits e
+        WHERE e.facility_id = f.id
+          AND e.field = 'created'
+          AND e.actor = ${userId}
+      ) AS own
+    FROM facilities f
     WHERE f.status <> 'gone'
       AND f.sport_types && ${sql.param(facility.sportTypes)}::text[]
       AND ST_DWithin(
@@ -146,12 +158,15 @@ async function findNearbyDuplicate(
             f.geom,
             ST_SetSRID(ST_MakePoint(${facility.lon}, ${facility.lat}), 4326)
           ) <= ${DUPLICATE_RADIUS_METRES}
-    ORDER BY 2 DESC
+    ORDER BY 3 DESC, 2 DESC
     LIMIT 1
   `);
   const row = result.rows[0];
   if (!row) return null;
-  return { publicSlug: row.visible === true ? (row.slug as string) : null };
+  return {
+    publicSlug: row.visible === true ? (row.slug as string) : null,
+    own: row.own === true,
+  };
 }
 
 export async function addFacility(
@@ -183,8 +198,11 @@ export async function addFacility(
     // Inside the transaction: two concurrent submissions of the same pin would
     // otherwise both pass a check made before either insert. Not airtight
     // without an exclusion constraint, but the window shrinks to a statement.
-    const duplicate = await findNearbyDuplicate(tx, facility);
+    const duplicate = await findNearbyDuplicate(tx, facility, params.userId);
     if (duplicate) {
+      if (duplicate.own) {
+        throw new ContributionError('duplicate_own', duplicate.publicSlug ?? undefined);
+      }
       throw duplicate.publicSlug
         ? new ContributionError('duplicate_nearby', duplicate.publicSlug)
         : new ContributionError('duplicate_hidden');
