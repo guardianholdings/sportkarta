@@ -656,8 +656,8 @@
     "back": "← Home",
     "title": "Privacy",
     "metaDescription": "What personal data POPS (“More than just sport”) processes, why and on what legal basis, who receives it, how long it is kept and what your rights are.",
-    "updated": "Last updated: 9 October 2026",
-    "intro": "POPS (“More than just sport”) is a non-profit project. This page explains what personal data we process, why and on what legal basis, who we share it with, how long we keep it and what your rights are. We collect as little data as possible and do not track users.",
+    "updated": "Last updated: 14 October 2026",
+    "intro": "POPS (“More than just sport”) is a non-profit project. This page explains what personal data we process, why and on what legal basis, who we share it with, how long we keep it and what your rights are. We collect as little data as possible and do not track users without their consent.",
     "controller": {
       "title": "Who is responsible for your data",
       "body": "The controller of your personal data is the non-profit association that runs POPS:"
@@ -672,8 +672,13 @@
       },
       "analytics": {
         "title": "Visit statistics and errors",
-        "body": "We use self-hosted, cookieless analytics (Umami). It records the page visited (without the parameters in its address, except the campaign tags utm_source, utm_medium, utm_campaign, utm_content and utm_term on the first page of a visit that starts from a link carrying them, which tell us which post or campaign a visit came from), the referring site, the type of browser, operating system and device, the language, and an approximate country and city derived from the IP address, which is not stored. We also record the kind of some actions — for example that someone asked for directions, sent a contribution or opened a share sheet — without who did it or which facility, training, check-in or network it concerned. If an error occurs in your browser, our self-hosted GlitchTip receives the error message, the page address (which, on the map, includes the map's centre) and the browser type, with no data from your profile. We build no profiles and do not track people across sites.",
+        "body": "We use self-hosted, cookieless analytics (Umami). It records the page visited (without the parameters in its address, except the campaign tags utm_source, utm_medium, utm_campaign, utm_content and utm_term on the first page of a visit that starts from a link carrying them, which tell us which post or campaign a visit came from), the referring site, the type of browser, operating system and device, the language, and an approximate country and city derived from the IP address, which is not stored. We also record the kind of some actions — for example that someone asked for directions, sent a contribution or opened a share sheet — without who did it or which facility, training, check-in or network it concerned. If an error occurs in your browser, our self-hosted GlitchTip receives the error message, the page address (which, on the map, includes the map's centre) and the browser type, with no data from your profile. With Umami and GlitchTip we build no profiles and do not track people across sites.",
         "basis": "Basis: legitimate interest in knowing what is used and what is broken (Art. 6(1)(f))."
+      },
+      "googleAnalytics": {
+        "title": "Google Analytics, only with your consent",
+        "body": "If you answer “Yes” in the analytics notice, we switch on Google Analytics through the Cloudflare Zaraz service: Cloudflare’s servers send Google the pages you open, so we can see which places and features get used. What Google receives includes the page address, the referring address, your browser type and a random identifier stored in your browser, which lets Google Analytics recognise repeat visits. Cloudflare removes the parameters from the addresses before sending them, so Google does not get the map’s centre, even when it matches your location. Google does not get your IP address, only that of a Cloudflare server. In Google Analytics we have switched off Google signals, ads personalisation and data sharing with Google. We do not send Google your name, your email address or any other data from your account. Google Analytics does not run in the admin panel, on personal links for unsubscribing and checking in, or on pages that show a person’s name, such as public passports. Until you answer “Yes”, neither Cloudflare Zaraz nor Google Analytics loads, and neither leaves cookies or other data in your browser. The cookieless analytics described above (Umami) runs whatever you answer. If you are under 14, the consent has to be given by your parent or guardian. You can withdraw your consent at any time, as easily as you gave it: under “Cookie settings” at the bottom of the pages, and on the map at the end of the facilities list.",
+        "basis": "Basis: consent (Art. 6(1)(a) GDPR), which you withdraw under “Cookie settings”. Article 4a of the Bulgarian Electronic Commerce Act also applies to storing and reading data in your browser."
       },
       "account": {
         "title": "Account and sign-in",
@@ -692,7 +697,7 @@
       },
       "location": {
         "title": "Location",
-        "body": "If you allow it, your browser uses your location to show the map and the nearest facilities around you; this happens in the browser itself and the coordinates are not sent to the server. When you contribute, report a problem or check in at a session, the coordinates arrive with the form; the server works out the distance to the facility and stores only that, never the coordinates themselves.",
+        "body": "If you allow it, your browser uses your location to show the map and the nearest facilities around you; this happens in the browser itself and the coordinates are not sent to the server. If you answer “Yes” in the analytics notice, the page address also reaches Cloudflare through its Zaraz service, and on the map it includes the map’s centre (after “Find me”, your location); Cloudflare removes the parameters from the address, and the centre with them, before sending anything to Google. When you contribute, report a problem or check in at a session, the coordinates arrive with the form; the server works out the distance to the facility and stores only that, never the coordinates themselves.",
         "basis": "Basis: contract and legitimate interest in protecting points and data from abuse (Art. 6(1)(b) and (f))."
       },
       "passport": {
@@ -740,7 +745,8 @@
       "title": "Who receives data",
       "intro": "We do not sell data and do not use it for advertising. We share it only with the following recipients, and only as far as needed:",
       "hosting": "Hetzner Online GmbH (Germany) — hosting and backups. The server and the database are in a data centre in Finland (EU); once off-server backups are switched on, encrypted copies of the database and the uploaded photos are kept in a separate Hetzner data centre in Germany (EU).",
-      "network": "Cloudflare, Inc. (USA) — network protection and delivery. Every visit to the site passes through Cloudflare’s network on its way to our server, so Cloudflare processes your IP address and the requests themselves (including which pages you open) to deliver the site and protect it from attacks, and keeps technical logs of this for a limited time under its own terms. It keeps copies only of the site’s design files, fonts and icons, which are the same for everyone — never of pages, photos or anything about you.",
+      "network": "Cloudflare, Inc. (USA) — network protection and delivery. Every visit to the site passes through Cloudflare’s network on its way to our server, so Cloudflare processes your IP address and the requests themselves (including which pages you open) to deliver the site and protect it from attacks, and keeps technical logs of this for a limited time under its own terms. It keeps copies only of the site’s design files, fonts and icons, which are the same for everyone — never of pages, photos or anything about you. If you have agreed to analytics, Cloudflare also sends the Google Analytics data to Google through its Zaraz service (see “Google Analytics, only with your consent”).",
+      "googleAnalytics": "Google Ireland Limited (Ireland) — visit statistics through Google Analytics, only if you have agreed. It receives the data described under “Google Analytics, only with your consent” from Cloudflare’s servers and may transfer it to the United States (see “Transfers outside the EU”).",
       "mail": "Migadu-Mail GmbH (Switzerland) — our email. The site’s messages to you (sign-in codes, session confirmations and reminders, decisions on your contributions) are sent through Migadu, so your address and their content pass through it; messages you write to us are kept in our mailbox there until we delete them — write to us if you want yours deleted.",
       "people": "People at POPS: a session organiser sees the display names of those signed up; ambassadors (volunteer moderators for their municipality) see the contributions and facility reports there; administrators can use the admin panel, and every time they open an account it is recorded.",
       "external": "External services you choose. The default map is served entirely from our own server, but if you pick an external map layer (CyclOSM, Thunderforest Transport, Tracestrack Topo), your browser loads tiles directly from that provider, and the “Directions” button opens Waze or Google Maps at the facility. They see your IP address, as they would if you visited their site.",
@@ -749,7 +755,7 @@
     },
     "transfers": {
       "title": "Transfers outside the EU",
-      "body": "Your data is stored in the EU. It can leave the EU through Cloudflare, whose network every visit to the site passes through and which also processes data in the United States under the EU-U.S. Data Privacy Framework; through our email provider Migadu, a Swiss company — the EU recognises Switzerland as ensuring an adequate level of data protection; and through the external services you choose yourself."
+      "body": "The data we keep is stored in the EU. Data about you can leave the EU through Cloudflare, whose network every visit to the site passes through and which also processes data in the United States under the EU-U.S. Data Privacy Framework; through Google, which receives the Google Analytics data if you have agreed to analytics and may transfer it to the United States under the same framework; through our email provider Migadu, a Swiss company — the EU recognises Switzerland as ensuring an adequate level of data protection; and through the external services you choose yourself."
     },
     "retention": {
       "title": "How long we keep data",
@@ -760,6 +766,7 @@
       "notices": "The name and email in a content notice — up to {days} days after the decision on it; the notice itself and the decision are kept as a record.",
       "logs": "Records of administrators opening accounts — with no time limit, so that every such access can be checked.",
       "errors": "Error reports in GlitchTip — up to 90 days.",
+      "googleAnalytics": "Google Analytics data linked to the identifier in your browser — up to [G3] months [G3].",
       "backups": "Backups — of the database for up to 14 days on the server, and of the database and uploaded photos for about 8 weeks in a separate data centre, once that is switched on. A deleted account or photo disappears from them as the copies expire."
     },
     "rights": {
@@ -771,7 +778,7 @@
     },
     "cookies": {
       "title": "Cookies and data in your browser",
-      "body": "We use no analytics or advertising cookies, and the site sets no language cookie. When you sign in, your browser keeps a session cookie (up to 30 days) and a short-lived signed cookie (5 minutes) so we do not have to look the session up on every request. They are strictly necessary for signing in and are deleted when you sign out.",
+      "body": "We use no advertising cookies, and the site sets no language cookie. Google Analytics data is stored in your browser only if you agree to analytics: a random identifier and session data. Your answer in the analytics notice is kept in the hcc_v1 entry in your browser so we do not ask again, and after “Yes” Cloudflare Zaraz also keeps it in the cf_consent cookie. When you sign in, your browser keeps a session cookie (up to 30 days) and a short-lived signed cookie (5 minutes) so we do not have to look the session up on every request. They are strictly necessary for signing in and are deleted when you sign out.",
       "providers": "If you sign in with {providers}, your browser also keeps a short signed cookie (up to 5 minutes) during the sign-in itself, which links your request to the service's answer. It is strictly necessary too.",
       "cache": "So that the map works offline, your browser caches the app's files and icons, an offline page and the map tiles you viewed last. They contain no data about you and you can clear them in your browser settings."
     },
@@ -2107,7 +2114,8 @@
     "campaigns": "Campaigns",
     "terms": "Terms of use",
     "contact": "Contact",
-    "notice": "Report content"
+    "notice": "Report content",
+    "cookieSettings": "Cookie settings"
   },
   "LocaleSwitcher": {
     "switchTo": "Български"
@@ -2182,7 +2190,7 @@
     "fundsTitle": "What a donation pays for",
     "fundsBody": "Hosting on our own server in the European Union, map layers and backups; on-the-ground verification and work with municipalities; maintaining the open data anybody can download for free.",
     "bankTitle": "Bank transfer",
-    "bankIntro": "We accept donations by bank transfer. There is no card form on the site: payment providers load third-party scripts and tracking cookies, and our promise is the opposite — see the Privacy page.",
+    "bankIntro": "We accept donations by bank transfer. There is no card form on the site: payment providers load third-party scripts and tracking cookies, and we do not track users without their consent — see the Privacy page.",
     "bankBeneficiary": "Beneficiary",
     "bankIban": "IBAN",
     "bankBic": "BIC",

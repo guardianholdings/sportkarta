@@ -80,6 +80,12 @@ export function SiteFooter() {
         <Link href="/signal" className={LINK}>
           {t('notice')}
         </Link>
+        {/* A plain anchor, not <Link>: the consent script (/consent.js) catches
+            every click on a link ending in #cookie-settings and reopens its card,
+            so there is no route to navigate to. */}
+        <a href="#cookie-settings" className={LINK}>
+          {t('cookieSettings')}
+        </a>
         <span className="ml-auto text-text-muted">{t('attribution')}</span>
       </nav>
     </footer>

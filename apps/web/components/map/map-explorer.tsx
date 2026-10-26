@@ -1244,6 +1244,12 @@ function MapLegalLinks() {
       <Link href="/signal" className={link}>
         {t('notice')}
       </Link>
+      {/* The footer's cookie-settings link, for the page that hides the footer.
+          A plain anchor: /consent.js reopens its card on any link ending in
+          #cookie-settings. */}
+      <a href="#cookie-settings" className={link}>
+        {t('cookieSettings')}
+      </a>
     </nav>
   );
 }

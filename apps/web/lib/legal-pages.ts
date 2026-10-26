@@ -11,6 +11,9 @@
 export const PRIVACY_ACTIVITIES = [
   'browsing',
   'analytics',
+  // Google Analytics through Cloudflare Zaraz, only after a yes in the consent
+  // card (public/consent.js).
+  'googleAnalytics',
   'account',
   // Printed only while at least one of Google, Apple or Facebook is switched
   // on (PRIVACY_PROVIDER_ONLY): the page describes what the site really does.
@@ -31,6 +34,7 @@ export const PRIVACY_ACTIVITIES = [
 export const PRIVACY_RECIPIENTS = [
   'hosting',
   'network',
+  'googleAnalytics',
   'mail',
   'people',
   'external',
@@ -54,6 +58,7 @@ export const PRIVACY_RETENTION = [
   'notices',
   'logs',
   'errors',
+  'googleAnalytics',
   'backups',
 ] as const;
 
