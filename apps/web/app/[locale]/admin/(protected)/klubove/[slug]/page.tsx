@@ -29,6 +29,7 @@ const OUTCOMES = new Set(['saved', 'approved', 'rejected', 'unchanged', 'not_cha
 const ERRORS = new Set([
   'date_invalid',
   'cap_invalid',
+  'sms_cap_invalid',
   'tier_invalid',
   'invalid',
   'provider_error',
@@ -176,6 +177,22 @@ export default async function AdminClubPage({
             />
             <p id="c-cap-hint" className="text-caption text-text-muted">
               {t('memberCapHint')}
+            </p>
+          </div>
+          <div className="space-y-1">
+            <label className={label} htmlFor="c-sms">
+              {t('fieldSmsCap')}
+            </label>
+            <Input
+              id="c-sms"
+              name="smsMonthlyCap"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              defaultValue={club.smsMonthlyCap}
+              aria-describedby="c-sms-hint"
+            />
+            <p id="c-sms-hint" className="text-caption text-text-muted">
+              {t('smsCapHint')}
             </p>
           </div>
           <div className="space-y-1">

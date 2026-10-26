@@ -358,6 +358,13 @@
       "when": 1785177600000,
       "tag": "0050_club_wallet_invoices",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1785181200000,
+      "tag": "0051_club_messaging",
+      "breakpoints": true
     }
   ]
 }

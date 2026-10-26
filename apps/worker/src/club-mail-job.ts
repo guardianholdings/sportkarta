@@ -16,6 +16,7 @@ import {
   expiryCandidates,
   getDb,
   inviteForMail,
+  memberChannels,
   memberForStaffMail,
   memberRecipient,
   operatorRecipients,
@@ -37,6 +38,9 @@ import {
   isoWeekMonday,
   monthStart,
   parseClubNotifyJob,
+  PUSH_NOTIFY_KINDS,
+  SMS_NOTIFY_KINDS,
+  composeSms,
   rolesWith,
   sofiaToday,
   type ClubNotifyJob,
@@ -56,6 +60,8 @@ import {
   type DeliveryReport,
   type Mailer,
 } from '@sportkarta/lib/email';
+
+import { sendPushTo, sendSmsTo, shortWhen, type ClubChannelOptions } from './club-channels.js';
 
 /**
  * Club mail (docs/ROADMAP.md Stage 9): invitations, booking notices,
@@ -91,7 +97,7 @@ function messages(locale: string): Messages {
 }
 
 /** A nested message, or a throw: a missing key must not ship as a subject. */
-function pick(locale: string, path: string): string {
+export function pick(locale: string, path: string): string {
   let node: unknown = messages(locale).ClubEmail;
   for (const part of path.split('.')) {
     node = node && typeof node === 'object' ? (node as Record<string, unknown>)[part] : undefined;
@@ -124,7 +130,7 @@ export function clubMailStrings(locale: string): ClubMailStrings {
 }
 
 /** «12 октомври 2026 г.» / "12 October 2026" for a civil date. */
-function formatCivilDate(date: string, locale: string): string {
+export function formatCivilDate(date: string, locale: string): string {
   const [y, m, d] = date.split('-').map(Number) as [number, number, number];
   return new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'bg', {
     day: 'numeric',
@@ -138,9 +144,11 @@ export interface ClubMailOptions {
   mailer: Mailer;
   /** Absolute site base, e.g. https://pops.bg. */
   siteUrl: string;
+  /** SMS and push (0051); absent, a notice goes by e-mail only. */
+  channels?: ClubChannelOptions;
 }
 
-function siteBase(options: ClubMailOptions, locale: string): string {
+export function siteBase(options: ClubMailOptions, locale: string): string {
   return `${options.siteUrl.replace(/\/+$/, '')}${locale === 'en' ? '/en' : ''}`;
 }
 
@@ -159,11 +167,88 @@ interface MemberMail {
 }
 
 /**
+ * A notice to a member, by every channel it goes by: e-mail as always, then —
+ * each in its own claim (club-channels.ts) — push for the notices about time
+ * (PUSH_NOTIFY_KINDS) and SMS for the ones the club switched on
+ * (clubs.sms_notify). A failed e-mail stops here and is retried whole. A
+ * failed SMS or push makes a `club.notify` job retry, and the retry sends only
+ * that channel (the e-mail is in the ledger); the SWEEPS (reminders, expiry)
+ * pick a notice only while it has no ledger row at all, so there an SMS or a
+ * push that failed after its e-mail went is not tried again — the e-mail
+ * carried the news.
+ */
+async function sendToMember(mail: MemberMail, options: ClubMailOptions): Promise<DeliveryOutcome> {
+  const email = await sendEmailToMember(mail, options);
+  const other = options.channels ? await sendOtherChannels(mail, options) : 'skipped';
+  return email === 'sent' || other === 'sent' ? 'sent' : 'skipped';
+}
+
+async function sendOtherChannels(
+  mail: MemberMail,
+  options: ClubMailOptions,
+): Promise<DeliveryOutcome> {
+  const channels = options.channels;
+  const push = channels?.push.on === true && PUSH_NOTIFY_KINDS.includes(mail.kind);
+  const sms =
+    channels?.sms.on === true && (SMS_NOTIFY_KINDS as readonly string[]).includes(mail.kind);
+  if (!push && !sms) return 'skipped';
+  const recipient = await memberChannels(db(), mail.clubId, mail.memberId);
+  if (!recipient) return 'skipped';
+  const values = {
+    name: recipient.aboutName,
+    ...(mail.values ?? {}),
+    when: shortWhen(mail.startsAtLocal),
+    where: mail.where ?? '',
+  };
+  const outcomes: DeliveryOutcome[] = [];
+  if (push) {
+    outcomes.push(
+      await sendPushTo(
+        recipient,
+        {
+          kind: mail.kind,
+          key: mail.key,
+          ledgerMemberId: mail.memberId,
+          payload: {
+            title: recipient.clubName,
+            body: fillClubTemplate(pick(recipient.locale, `push.${mail.kind}`), values),
+            url: `${recipient.locale === 'en' ? '/en' : ''}/klub/${recipient.clubSlug}/az`,
+            tag: mail.key.slice(0, 64),
+          },
+        },
+        channels,
+      ),
+    );
+  }
+  if (sms && recipient.smsNotify.includes(mail.kind)) {
+    outcomes.push(
+      await sendSmsTo(
+        recipient,
+        {
+          kind: mail.kind,
+          key: mail.key,
+          ledgerMemberId: mail.memberId,
+          text: composeSms({
+            clubName: recipient.clubName,
+            text: fillClubTemplate(pick(recipient.locale, `sms.${mail.kind}`), values),
+          }),
+        },
+        channels,
+      ),
+    );
+  }
+  return outcomes.includes('sent') ? 'sent' : 'skipped';
+}
+
+/**
  * Resolve, claim, render, send — one transaction. The link a linked member
  * gets is their portal; an unlinked one has no account to sign in with, so
  * theirs is the club's public page.
  */
-async function sendToMember(mail: MemberMail, options: ClubMailOptions): Promise<DeliveryOutcome> {
+async function sendEmailToMember(
+  mail: MemberMail,
+  options: ClubMailOptions,
+): Promise<DeliveryOutcome> {
   return db().transaction(async (tx) => {
     const recipient = await memberRecipient(tx, mail.clubId, mail.memberId);
     if (!recipient) return 'skipped';

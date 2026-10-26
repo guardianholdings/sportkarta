@@ -310,13 +310,15 @@ export async function unlinkRecord(
 export async function setLinkPreference(
   userId: string,
   memberId: string,
-  preference: 'passport' | 'notify',
+  preference: 'passport' | 'notify' | 'push',
   on: boolean,
 ): Promise<boolean> {
   const set =
     preference === 'passport'
       ? sql`passport_consent_at = ${on ? sql`coalesce(passport_consent_at, now())` : sql`NULL`}`
-      : sql`notify_email = ${on}`;
+      : preference === 'push'
+        ? sql`notify_push = ${on}`
+        : sql`notify_email = ${on}`;
   const updated = await getDb().execute(sql`
     UPDATE club_member_links SET ${set}
      WHERE member_id = ${memberId}::uuid AND user_id = ${userId} AND status = 'active'

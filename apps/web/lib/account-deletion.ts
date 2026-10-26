@@ -64,6 +64,8 @@ export interface DeletionSummary {
   clubStaffErased: number;
   /** club_member_links removed with the account; the clubs' records stay. */
   clubMemberLinksErased: number;
+  /** push_subscriptions — the account's notification devices (0051). */
+  pushSubscriptionsErased: number;
 }
 
 interface SqlRunner {
@@ -217,6 +219,12 @@ export async function deleteAccount(
         sql`SELECT count(*)::int AS n FROM club_member_links WHERE user_id = ${userId}`,
       ),
     );
+    // The account's notification devices (0051) leave through the cascade.
+    const pushSubscriptionsErased = countFrom(
+      await tx.execute(
+        sql`SELECT count(*)::int AS n FROM push_subscriptions WHERE user_id = ${userId}`,
+      ),
+    );
     if (clubStaffErased > 0) {
       // The club's own accountability log learns that an owner left, so the
       // owner who remains (or the operator) can see why a name vanished.
@@ -250,14 +258,14 @@ export async function deleteAccount(
         sessions_cancelled, rsvps_erased, checkins_erased,
         digest_subscriptions_erased, results_anonymized, badges_erased,
         campaign_results_anonymized, session_notifications_erased,
-        club_staff_erased, club_member_links_erased
+        club_staff_erased, club_member_links_erased, push_subscriptions_erased
       )
       VALUES (${userId}, ${auditRowsPreserved}, ${photosAnonymized},
               ${conditionReportsAnonymized}, ${pointsErased}, ${moderationDecisionsPreserved},
               ${sessionsCancelled}, ${rsvpsErased}, ${checkinsErased},
               ${digestSubscriptionsErased}, ${resultsAnonymized}, ${badgesErased},
               ${campaignResultsAnonymized}, ${sessionNotificationsErased},
-              ${clubStaffErased}, ${clubMemberLinksErased})
+              ${clubStaffErased}, ${clubMemberLinksErased}, ${pushSubscriptionsErased})
     `);
 
     // No FK on admin_actions.subject_id (0033), so this row outlives the
@@ -292,6 +300,7 @@ export async function deleteAccount(
         sessionNotificationsErased,
         clubStaffErased,
         clubMemberLinksErased,
+        pushSubscriptionsErased,
       },
       orphanedSessionIds: Array.isArray(orphanedIds) ? orphanedIds.map(String) : [],
     };

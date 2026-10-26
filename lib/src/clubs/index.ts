@@ -16,6 +16,7 @@ export * from './import.js';
 export * from './invoice-document.js';
 export * from './invoices.js';
 export * from './jobs.js';
+export * from './messaging.js';
 export * from './money.js';
 export * from './permissions.js';
 export * from './policies.js';

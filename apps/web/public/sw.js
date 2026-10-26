@@ -5,8 +5,12 @@
  * what makes installed clients drop the old teal icons.
  * v3: cached tile ranges now keep the archive's ETag (see handleTile); the
  * bump drops the v2 ranges, which had none and so could never be told apart
- * from a rebuilt basemap. */
-const VERSION = 'v3';
+ * from a rebuilt basemap.
+ * v4: club notifications (0051) — `push` shows what the worker sent (a
+ * title, a line, a same-site path; the payload was encrypted to this device),
+ * `notificationclick` opens that path. Nothing cached changed shape; the bump
+ * makes installed clients take the new handlers at once. */
+const VERSION = 'v4';
 const APP_CACHE = `sk-app-${VERSION}`;
 const STATIC_CACHE = `sk-static-${VERSION}`;
 const TILE_CACHE = `sk-tiles-${VERSION}`;
@@ -171,4 +175,54 @@ self.addEventListener('fetch', (event) => {
   } else if (request.mode === 'navigate') {
     event.respondWith(handleNavigate(request));
   }
+});
+
+// Club notifications (0051). The worker encrypts a small JSON object to this
+// device: { title, body, url, tag }. Anything else is shown as POPS's own
+// name and opens the home page — never a URL from another origin.
+// Resolved, not prefix-matched: '/\\evil.example' starts with a slash and
+// still resolves to another origin (lib/src/push samePath is the twin).
+function samePath(value) {
+  if (typeof value !== 'string' || !value.startsWith('/')) return '/';
+  try {
+    const url = new URL(value, self.location.origin);
+    return url.origin === self.location.origin ? url.pathname + url.search : '/';
+  } catch {
+    return '/';
+  }
+}
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = {};
+  }
+  const title = typeof data.title === 'string' && data.title ? data.title : 'POPS';
+  const options = {
+    body: typeof data.body === 'string' ? data.body : '',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    data: { url: samePath(data.url) },
+  };
+  if (typeof data.tag === 'string' && data.tag) options.tag = data.tag;
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL(
+    samePath(event.notification.data && event.notification.data.url),
+    self.location.origin,
+  );
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of windows) {
+        if (client.url === target.href && 'focus' in client) return client.focus();
+      }
+      return self.clients.openWindow(target.href);
+    })(),
+  );
 });

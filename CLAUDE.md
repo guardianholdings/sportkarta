@@ -228,7 +228,23 @@ browser) in a MANUAL STEPS list at the end of the session.
   transaction), and `club_number_sequences_used` refuses a number drawn
   without its document. The invoice document's words live in
   `lib/src/clubs/invoice-document.ts` (Bulgarian in any locale, like the
-  ministry annex), allowlisted in the package Cyrillic gate. Writes need `clubWritableSql` (active and paid or
+  ministry annex), allowlisted in the package Cyrillic gate. Messaging (wave F1, `0051`):
+  e-mail, SMS and push are sent ONLY by the worker, each channel its own
+  claim in `club_notifications`, unique per (club, channel, key); a club's
+  SMS parts per Sofia month are capped by a trigger (`club_notifications_sms_cap`,
+  operator-set `clubs.sms_monthly_cap`); a push endpoint must match the
+  known-push-service CHECK (the SSRF guard) and the VAPID key is derived from
+  `PUSH_VAPID_SECRET`, never stored. Who a group is lives ONCE in
+  `db/src/clubs/audience.ts` (the members list and broadcasts share it); who
+  may receive by which channel is `memberChannels` + `channelAllowed`
+  (`db/src/clubs/messaging.ts`): offers need the receiving record's consent
+  timestamp for that channel, never go by push, and always carry a way out.
+  Bulk e-mail (`CLUB_BULK_MAIL_DAILY_LIMIT`) is SHARED, never first-come:
+  broadcasts take at most `BROADCAST_SHARE_OF_BULK` of the day, a capped
+  number per club per sweep, least-sent club first; automations split the
+  rest in equal per-club parts, then hand on the leftover. The allowance is
+  spent only after a claim succeeds, so somebody already reached never costs
+  a token. Writes need `clubWritableSql` (active and paid or
   community, 14-day grace); every public surface embeds `clubRenderableSql`.
   Check-ins never refuse (`covered=false` is recorded); only a QR/card visit of
   a consenting linked member writes `training_logs(source='club',

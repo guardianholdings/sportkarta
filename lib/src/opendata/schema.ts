@@ -156,7 +156,9 @@ export interface ExportDataset {
  * calendar feeds, and the better-auth users/sessions/accounts family. The
  * «Клубове» add-on (0039–0044) added `guardian_member_id`, `instructor_user_id`,
  * `booked_by`, `sold_by`, `card_token_hash`, staff, invites, bookings, payments
- * and memberships — every one a club client or employee. When a new table adds
+ * and memberships — every one a club client or employee. 0051 added the
+ * account's notification devices (`push_subscriptions`: `endpoint`, `p256dh`).
+ * When a new table adds
  * a person-shaped column, its name belongs here.
  *
  * `verification` is deliberately ABSENT: `needs_verification` is a count of
@@ -183,6 +185,7 @@ export const DENIED_IDENTIFIERS = [
   'checkins',
   'dob',
   'email',
+  'endpoint',
   'granted',
   'guardian',
   'handle',
@@ -206,7 +209,9 @@ export const DENIED_IDENTIFIERS = [
   'password',
   'payment',
   'payments',
+  'p256dh',
   'phone',
+  'push',
   'recorded',
   'recorder',
   'reporter',
@@ -219,6 +224,7 @@ export const DENIED_IDENTIFIERS = [
   'staff',
   'subscriber',
   'subscription',
+  'subscriptions',
   'tel',
   'token',
   'trainer',

@@ -38,6 +38,8 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
     }),
     description: t('metaDescription', { name: club.name }),
     alternates: buildAlternates(`/klub/${club.slug}`, locale),
+    // The club's own installable app (0051).
+    manifest: `/klub/${club.slug}/manifest.webmanifest`,
   };
 }
 

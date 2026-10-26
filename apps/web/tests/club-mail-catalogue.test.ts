@@ -1,4 +1,4 @@
-import { CLUB_ROLES } from '@sportkarta/lib/clubs';
+import { CLUB_ROLES, PUSH_NOTIFY_KINDS, SMS_NOTIFY_KINDS } from '@sportkarta/lib/clubs';
 import { CLUB_MAIL_KINDS } from '@sportkarta/lib/email';
 import { describe, expect, it } from 'vitest';
 
@@ -35,6 +35,13 @@ describe.each([
       const value = at(mail, `${group}.${kind}`);
       expect(typeof value === 'string' && value.length > 0, `${group}.${kind}`).toBe(true);
     }
+  });
+
+  it('has a push line and an SMS line for every notice that goes by them (0051)', () => {
+    for (const kind of PUSH_NOTIFY_KINDS) expect(at(mail, `push.${kind}`), kind).toBeTruthy();
+    for (const kind of SMS_NOTIFY_KINDS) expect(at(mail, `sms.${kind}`), kind).toBeTruthy();
+    expect(at(mail, 'unsubscribeMarketing')).toBeTruthy();
+    expect(at(mail, 'smsOptOut')).toBeTruthy();
   });
 
   it('names every staff role', () => {

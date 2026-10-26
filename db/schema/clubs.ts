@@ -83,6 +83,13 @@ export const clubs = pgTable(
     /** The club's own terms of sale, linked before an online payment (0046). */
     termsUrl: text('terms_url'),
     memberCap: integer('member_cap'),
+    /** SMS parts per Sofia month, set by the operator; 0 = no SMS (0051). */
+    smsMonthlyCap: integer('sms_monthly_cap').notNull().default(0),
+    /** reminder_24h | class_cancelled | booking_promoted — also sent by SMS (0051). */
+    smsNotify: text('sms_notify')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
     trialEndsOn: date('trial_ends_on'),
     /** Set by hand when the operator's invoice is paid. */
     paidUntil: date('paid_until'),
@@ -296,6 +303,8 @@ export const clubMemberLinks = pgTable(
     method: text('method').notNull(),
     passportConsentAt: timestamptz('passport_consent_at'),
     notifyEmail: boolean('notify_email').notNull().default(true),
+    /** Mute this club's push notifications only (0051). */
+    notifyPush: boolean('notify_push').notNull().default(true),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
     updatedAt: timestamptz('updated_at').notNull().defaultNow(),
   },
@@ -721,10 +730,14 @@ export const clubNotifications = pgTable(
     userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
     kind: text('kind').notNull(),
     dedupeKey: text('dedupe_key').notNull(),
+    /** email | sms | push (0051). */
+    channel: text('channel').notNull().default('email'),
+    /** SMS only: the parts the gateway charges for (0051). */
+    smsParts: smallint('sms_parts'),
     sentAt: timestamptz('sent_at').notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex('club_notifications_dedupe_unique').on(t.clubId, t.dedupeKey),
+    uniqueIndex('club_notifications_dedupe_channel_unique').on(t.clubId, t.channel, t.dedupeKey),
     check('club_notifications_one_recipient', sql`num_nonnulls(${t.memberId}, ${t.userId}) = 1`),
   ],
 );
@@ -745,6 +758,8 @@ export const clubMonthlyActivity = pgTable(
     checkins: integer('checkins').notNull(),
     bookings: integer('bookings').notNull(),
     revenueCents: bigint('revenue_cents', { mode: 'number' }).notNull(),
+    /** SMS parts sent in the month (0051) — re-invoiced to the club. */
+    smsParts: integer('sms_parts').notNull().default(0),
     computedAt: timestamptz('computed_at').notNull().defaultNow(),
   },
   (t) => [uniqueIndex('club_monthly_activity_club_month_unique').on(t.clubId, t.month)],
@@ -1303,4 +1318,105 @@ export const clubInvoiceLines = pgTable(
     totalCents: integer('total_cents').notNull(),
   },
   (t) => [primaryKey({ name: 'club_invoice_lines_pkey', columns: [t.invoiceId, t.lineNo] })],
+);
+
+/**
+ * A club's message to a group (0051): fixed once scheduled, kept once sent.
+ * Recipients are resolved by the worker at send time.
+ */
+export const clubBroadcasts = pgTable(
+  'club_broadcasts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    /** service | marketing */
+    purpose: text('purpose').notNull(),
+    /** email | sms | push (marketing: never push) */
+    channels: text('channels').array().notNull(),
+    /** all | segment | filter | tag | plan | class */
+    audienceKind: text('audience_kind').notNull(),
+    /** The segment, filter or tag; null for all, plan and class. */
+    audienceValue: text('audience_value'),
+    planId: uuid('plan_id'),
+    classId: uuid('class_id'),
+    subject: text('subject').notNull(),
+    body: text('body').notNull(),
+    smsBody: text('sms_body'),
+    /** draft | scheduled | sending | sent | cancelled */
+    status: text('status').notNull().default('draft'),
+    scheduledFor: timestamptz('scheduled_for'),
+    /** Staff ids by value (0039 rule 5). */
+    createdBy: text('created_by').notNull(),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+    startedAt: timestamptz('started_at'),
+    finishedAt: timestamptz('finished_at'),
+    cancelledBy: text('cancelled_by'),
+    cancelledAt: timestamptz('cancelled_at'),
+    sentEmail: integer('sent_email'),
+    sentSms: integer('sent_sms'),
+    sentPush: integer('sent_push'),
+  },
+  (t) => [
+    unique('club_broadcasts_club_id_unique').on(t.clubId, t.id),
+    foreignKey({
+      name: 'club_broadcasts_plan_fk',
+      columns: [t.clubId, t.planId],
+      foreignColumns: [clubPlans.clubId, clubPlans.id],
+    }),
+    foreignKey({
+      name: 'club_broadcasts_class_fk',
+      columns: [t.clubId, t.classId],
+      foreignColumns: [clubClasses.clubId, clubClasses.id],
+    }),
+    index('club_broadcasts_club_idx').on(t.clubId, t.createdAt),
+  ],
+);
+
+/**
+ * SMS parts a club sent per Sofia month (0051) — a counter raised by a
+ * trigger on every SMS claim and never lowered, so erasing a client gives no
+ * parts back. Capped by clubs.sms_monthly_cap; the activity job reads it.
+ */
+export const clubSmsUsage = pgTable(
+  'club_sms_usage',
+  {
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    /** First day of the Sofia month. */
+    month: date('month').notNull(),
+    parts: integer('parts').notNull(),
+  },
+  (t) => [primaryKey({ name: 'club_sms_usage_pkey', columns: [t.clubId, t.month] })],
+);
+
+/** Messages that go by themselves (0051): one row per trigger and channel. */
+export const clubAutomations = pgTable(
+  'club_automations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    /** welcome | trial_follow_up | expired_follow_up | win_back */
+    trigger: text('trigger').notNull(),
+    /** email | sms */
+    channel: text('channel').notNull(),
+    delayDays: smallint('delay_days').notNull(),
+    /** E-mail only. */
+    subject: text('subject'),
+    body: text('body').notNull(),
+    active: boolean('active').notNull().default(true),
+    /** Staff id by value. */
+    updatedBy: text('updated_by'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('club_automations_club_id_unique').on(t.clubId, t.id),
+    unique('club_automations_one_per_trigger').on(t.clubId, t.trigger, t.channel),
+  ],
 );

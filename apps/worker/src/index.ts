@@ -8,6 +8,8 @@ import {
 } from '@sportkarta/db';
 import {
   CLUB_ACTIVITY_QUEUE,
+  CLUB_AUTOMATIONS_QUEUE,
+  CLUB_BROADCASTS_QUEUE,
   CLUB_DIGEST_QUEUE,
   CLUB_EXPIRY_QUEUE,
   CLUB_HEALTH_QUEUE,
@@ -21,6 +23,8 @@ import {
   type ClubPaymentEventJob,
 } from '@sportkarta/lib/clubs';
 import { assertDelivered, createMailer } from '@sportkarta/lib/email';
+import { createPushSender } from '@sportkarta/lib/push';
+import { createSmsSender } from '@sportkarta/lib/sms';
 import { runImport } from '@sportkarta/import-osm';
 
 import {
@@ -34,6 +38,7 @@ import {
   runClubReminders,
   runClubRosterDigest,
 } from './club-mail-job.js';
+import { runClubAutomations, runClubBroadcasts } from './club-messages-job.js';
 import { runClubPaymentEvent, sweepClubPaymentEvents } from './club-payments-job.js';
 import { runDivisions } from './divisions-job.js';
 import { runWeeklyDigest } from './digest-job.js';
@@ -244,6 +249,35 @@ async function main(): Promise<void> {
   const mailer = createMailer(process.env);
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 
+  // SMS and push for club messages (0051). A channel is attempted only when
+  // the operator switched the service on (the same env master switches the
+  // web app reads) AND its transport resolved — and both transports fail
+  // closed in production exactly like the mailer, so a missing gateway or
+  // VAPID secret sends nothing rather than something unsafe.
+  const sms = createSmsSender(process.env);
+  const push = createPushSender(process.env);
+  const clubMail = {
+    mailer,
+    siteUrl,
+    channels: {
+      sms: {
+        sender: sms.sender,
+        on: process.env.CLUB_SMS_ENABLED === 'true' && sms.kind !== 'disabled',
+      },
+      push: {
+        sender: push.sender,
+        on: process.env.CLUB_PUSH_ENABLED === 'true' && push.kind !== 'disabled',
+      },
+    },
+  };
+  // Bulk club e-mail (broadcasts + automations) per Sofia day across every
+  // club — below the relay's own daily quota, which sign-in codes share.
+  const bulkLimitRaw = (process.env.CLUB_BULK_MAIL_DAILY_LIMIT ?? '').trim();
+  const clubMessages = {
+    ...clubMail,
+    bulkMailDailyLimit: /^\d{1,6}$/.test(bulkLimitRaw) ? Number(bulkLimitRaw) : 200,
+  };
+
   // Separate pool for REFRESH MATERIALIZED VIEW CONCURRENTLY (pg-boss owns its
   // own connections). CONCURRENTLY runs in autocommit, so a pool is fine. An
   // idle-client error (DB restart/failover) must be handled or it crashes the
@@ -317,6 +351,12 @@ async function main(): Promise<void> {
   await ensureQueue(CLUB_HEALTH_QUEUE, WEEKLY_RETRY);
   // A Stripe event: retried with backoff by pg-boss, and swept every 10 minutes.
   await ensureQueue(CLUB_PAYMENT_EVENT_QUEUE, MAIL_RETRY);
+  // Broadcasts are a sweep (their own retry); automations act on "today" and
+  // catch up within their window, so a failed day is retried within it.
+  // SHORT: «Изпрати сега» sends with a singletonKey, so a burst of presses
+  // leaves one waiting run (it reads the whole table anyway).
+  await ensureQueue(CLUB_BROADCASTS_QUEUE, { policy: 'short' });
+  await ensureQueue(CLUB_AUTOMATIONS_QUEUE, WEEKLY_RETRY);
 
   // Triggered from the admin UI (Stage 1+) via boss.send('import.osm', {dryRun}).
   // dryRun defaults TRUE — a live import must be requested explicitly, matching
@@ -669,7 +709,7 @@ async function main(): Promise<void> {
     { batchSize: FEED_BATCH_SIZE },
     logged(CLUB_NOTIFY_QUEUE, async (jobs) => {
       await eachJobIsolated(boss, CLUB_NOTIFY_QUEUE, jobs, async (job) => {
-        const { kind, report } = await runClubNotify(job.data, { mailer, siteUrl });
+        const { kind, report } = await runClubNotify(job.data, clubMail);
         // `kind` is from the validated vocabulary (parseClubNotifyJob).
         console.log(
           `[worker] ${CLUB_NOTIFY_QUEUE} job ${job.id}: ${kind} ` +
@@ -689,7 +729,7 @@ async function main(): Promise<void> {
     { batchSize: 1 },
     logged(CLUB_REMINDERS_QUEUE, async (jobs) => {
       for (const job of jobs) {
-        const report = await runClubReminders({ mailer, siteUrl });
+        const report = await runClubReminders(clubMail);
         if (report.candidates === 0) continue;
         console.log(
           `[worker] ${CLUB_REMINDERS_QUEUE} job ${job.id}: ${String(report.sent)} sent, ` +
@@ -706,7 +746,7 @@ async function main(): Promise<void> {
   await work(
     CLUB_EXPIRY_QUEUE,
     logged(CLUB_EXPIRY_QUEUE, async () => {
-      const out = await runClubExpiry({ mailer, siteUrl });
+      const out = await runClubExpiry(clubMail);
       for (const [kind, report] of Object.entries(out)) {
         console.log(
           `[worker] ${CLUB_EXPIRY_QUEUE} ${kind}: ${String(report.sent)} sent, ` +
@@ -723,7 +763,7 @@ async function main(): Promise<void> {
   await work(
     CLUB_DIGEST_QUEUE,
     logged(CLUB_DIGEST_QUEUE, async () => {
-      const report = await runClubRosterDigest({ mailer, siteUrl });
+      const report = await runClubRosterDigest(clubMail);
       console.log(
         `[worker] ${CLUB_DIGEST_QUEUE}: ${String(report.sent)} sent, ` +
           `${String(report.skipped)} skipped, ${String(report.failed)} failed`,
@@ -738,7 +778,7 @@ async function main(): Promise<void> {
   await work(
     CLUB_WEEKLY_QUEUE,
     logged(CLUB_WEEKLY_QUEUE, async () => {
-      const report = await runClubOwnerWeekly({ mailer, siteUrl });
+      const report = await runClubOwnerWeekly(clubMail);
       console.log(
         `[worker] ${CLUB_WEEKLY_QUEUE}: ${String(report.sent)} sent, ` +
           `${String(report.skipped)} skipped, ${String(report.failed)} failed`,
@@ -765,7 +805,7 @@ async function main(): Promise<void> {
   await work(
     CLUB_POLICIES_QUEUE,
     logged(CLUB_POLICIES_QUEUE, async () => {
-      const out = await runClubPolicies({ mailer, siteUrl });
+      const out = await runClubPolicies(clubMail);
       console.log(
         `[worker] ${CLUB_POLICIES_QUEUE}: ${String(out.renewed)} renewed, ` +
           `${String(out.ended)} ended, ${String(out.failed)} failed, ${String(out.fees)} fee(s); mail ` +
@@ -784,7 +824,7 @@ async function main(): Promise<void> {
   await work(
     CLUB_HEALTH_QUEUE,
     logged(CLUB_HEALTH_QUEUE, async () => {
-      const report = await runClubHealth({ mailer, siteUrl });
+      const report = await runClubHealth(clubMail);
       console.log(
         `[worker] ${CLUB_HEALTH_QUEUE}: ${String(report.sent)} sent, ` +
           `${String(report.skipped)} skipped, ${String(report.failed)} failed`,
@@ -815,12 +855,54 @@ async function main(): Promise<void> {
           if (swept > 0)
             console.log(`[worker] ${CLUB_PAYMENT_EVENT_QUEUE} sweep: ${String(swept)}`);
         }
-        const receipts = await runClubReceipts({ mailer, siteUrl });
+        const receipts = await runClubReceipts(clubMail);
         await reportMailFailures(`${CLUB_PAYMENT_EVENT_QUEUE}/receipt`, receipts);
       }
     }),
   );
   await boss.schedule(CLUB_PAYMENT_EVENT_QUEUE, '*/10 * * * *');
+
+  // A club's messages to a group (0051): every five minutes, and on demand
+  // when the office presses «Изпрати сега». One run at a time is enough —
+  // the ledger makes an overlapping run harmless, never a double send.
+  let broadcastsHeld = false;
+  await work(
+    CLUB_BROADCASTS_QUEUE,
+    { batchSize: 1 },
+    logged(CLUB_BROADCASTS_QUEUE, async () => {
+      const out = await runClubBroadcasts(clubMessages);
+      // «Held» is logged when it begins or ends, not every five minutes.
+      const changed = out.held !== broadcastsHeld;
+      broadcastsHeld = out.held;
+      if (out.report.sent > 0 || out.finished > 0 || out.stale > 0 || changed) {
+        console.log(
+          `[worker] ${CLUB_BROADCASTS_QUEUE}: ${String(out.broadcasts)} message(s), ` +
+            `${String(out.finished)} finished, ${String(out.report.sent)} sent, ` +
+            `${String(out.report.failed)} failed, ${String(out.stale)} stale cancelled` +
+            `${out.held ? ', held by the daily limit' : ''}`,
+        );
+      }
+      await reportMailFailures(CLUB_BROADCASTS_QUEUE, out.report);
+    }),
+  );
+  await boss.schedule(CLUB_BROADCASTS_QUEUE, '*/5 * * * *');
+
+  // Automations (0051): welcome, follow-ups, win-back — 10:15 Sofia, a
+  // decent hour to receive a club's message.
+  await work(
+    CLUB_AUTOMATIONS_QUEUE,
+    logged(CLUB_AUTOMATIONS_QUEUE, async () => {
+      const out = await runClubAutomations(clubMessages);
+      console.log(
+        `[worker] ${CLUB_AUTOMATIONS_QUEUE}: ${String(out.automations)} automation(s), ` +
+          `${String(out.report.sent)} sent, ${String(out.report.skipped)} skipped, ` +
+          `${String(out.report.failed)} failed${out.held ? ', held by the daily limit' : ''}`,
+      );
+      await reportMailFailures(CLUB_AUTOMATIONS_QUEUE, out.report);
+      assertDelivered(CLUB_AUTOMATIONS_QUEUE, out.report);
+    }),
+  );
+  await boss.schedule(CLUB_AUTOMATIONS_QUEUE, '15 10 * * *', {}, { tz: 'Europe/Sofia' });
 
   // The heartbeat goes LAST, after every other queue is registered. A worker
   // that throws halfway through booting — a bad image, a missing env var — and

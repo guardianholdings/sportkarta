@@ -59,6 +59,8 @@ export interface AdminClubRow {
   trialEndsOn: IsoDate | null;
   paidUntil: IsoDate | null;
   memberCap: number | null;
+  /** SMS parts per Sofia month (0051); 0 = no SMS. */
+  smsMonthlyCap: number;
   appliedAt: string;
   cityBg: string | null;
   cityEn: string | null;
@@ -104,6 +106,7 @@ function toRow(row: Record<string, unknown>, today: IsoDate): AdminClubRow {
     accessState: clubAccessState(club, today),
     visible: row.visible === true,
     memberCap: row.member_cap === null ? null : Number(row.member_cap),
+    smsMonthlyCap: Number(row.sms_monthly_cap ?? 0),
     appliedAt: new Date(String(row.applied_at)).toISOString(),
     cityBg: text(row.city_bg),
     cityEn: text(row.city_en),
@@ -116,7 +119,8 @@ function toRow(row: Record<string, unknown>, today: IsoDate): AdminClubRow {
 }
 
 const LIST_COLUMNS = sql`
-  c.id, c.slug, c.name_bg, c.kind, c.tier, c.status, c.visible, c.member_cap, c.applied_at,
+  c.id, c.slug, c.name_bg, c.kind, c.tier, c.status, c.visible, c.member_cap, c.sms_monthly_cap,
+  c.applied_at,
   to_char(c.trial_ends_on, 'YYYY-MM-DD') AS trial_ends_on,
   to_char(c.paid_until, 'YYYY-MM-DD') AS paid_until,
   mu.name_bg AS city_bg, mu.name_en AS city_en,
@@ -310,6 +314,7 @@ export interface ClubPlanChange {
   paidUntil: IsoDate | null;
   trialEndsOn: IsoDate | null;
   memberCap: number | null;
+  smsMonthlyCap: number;
 }
 
 export async function setClubPlan(
@@ -322,11 +327,12 @@ export async function setClubPlan(
     const updated = await tx.execute(sql`
       UPDATE clubs
          SET tier = ${change.tier}, paid_until = ${change.paidUntil}::date,
-             trial_ends_on = ${change.trialEndsOn}::date, member_cap = ${change.memberCap}
+             trial_ends_on = ${change.trialEndsOn}::date, member_cap = ${change.memberCap},
+             sms_monthly_cap = ${change.smsMonthlyCap}
        WHERE id = ${clubId}::uuid
-         AND (tier, paid_until, trial_ends_on, member_cap) IS DISTINCT FROM
+         AND (tier, paid_until, trial_ends_on, member_cap, sms_monthly_cap) IS DISTINCT FROM
              (${change.tier}::text, ${change.paidUntil}::date, ${change.trialEndsOn}::date,
-              ${change.memberCap}::int)
+              ${change.memberCap}::int, ${change.smsMonthlyCap}::int)
        RETURNING id
     `);
     if (updated.rows.length === 0) return false;

@@ -6,6 +6,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
 import { StatusBadge } from '@/components/clubs/club-state-badge';
+import { PushToggle } from '@/components/pwa/push-toggle';
 import { AppShell } from '@/components/shell/app-shell';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
@@ -20,6 +21,7 @@ import { clubTakesWallet, portalWalletBalances } from '@/lib/clubs/wallet';
 import { portalView, type PortalMembership, type PortalRecord } from '@/lib/clubs/portal';
 import { ownContact } from '@/lib/clubs/self-service';
 import { formatDate, formatDateTime } from '@/lib/format';
+import { pushPublicKey, pushToggleLabels } from '@/lib/push';
 import { cn } from '@/lib/utils';
 
 import { portalOpAction } from './actions';
@@ -45,9 +47,14 @@ const GOOD_CHECKIN = new Set(['recorded', 'already']);
 type PageParams = Promise<{ locale: string; slug: string }>;
 
 export async function generateMetadata({ params }: { params: PageParams }): Promise<Metadata> {
-  const { locale } = await params;
+  const { locale, slug } = await params;
   const t = await getTranslations({ locale, namespace: 'ClubPortal' });
-  return { title: t('overline'), robots: { index: false, follow: false } };
+  return {
+    title: t('overline'),
+    robots: { index: false, follow: false },
+    // Installing from the portal installs the club's own app (0051).
+    manifest: `/klub/${slug}/manifest.webmanifest`,
+  };
 }
 
 /** The membership a member should read first: live, then paused, then upcoming. */
@@ -81,11 +88,15 @@ export default async function ClubPortalPage({
   const view = await portalView(user.id, slug, locale);
   if (!view) notFound();
   const query = await searchParams;
-  const [t, tClub, sportLabel] = await Promise.all([
+  const [t, tClub, tPush, sportLabel, pushLabels] = await Promise.all([
     getTranslations('ClubPortal'),
     getTranslations('Club'),
+    getTranslations('PushDevice'),
     clubSportLabeler(),
+    pushToggleLabels(),
   ]);
+  // Push on this device (0051): offered only while POPS runs push.
+  const pushKey = pushPublicKey();
   const { club, link, records, classes } = view;
   const [contact, takesPayments, reservations, services, walletOn, credit] = await Promise.all([
     link?.status === 'active' ? ownContact(getDb(), user.id, club.id) : Promise.resolve(null),
@@ -125,7 +136,10 @@ export default async function ClubPortalPage({
     : query.rezultat
       ? {
           text: t.has(`outcome.${query.rezultat}`) ? t(`outcome.${query.rezultat}`) : null,
-          good: GOOD.has(query.rezultat) || query.rezultat.startsWith('notify_'),
+          good:
+            GOOD.has(query.rezultat) ||
+            query.rezultat.startsWith('notify_') ||
+            query.rezultat.startsWith('push_'),
           warn:
             query.rezultat === 'cancelled_late' || query.rezultat === 'reservation_cancelled_late',
         }
@@ -628,6 +642,7 @@ export default async function ClubPortalPage({
               [
                 ['passport', link.passportConsent],
                 ['notify', link.notifyEmail],
+                ...(pushKey ? ([['push', link.notifyPush]] as const) : []),
               ] as const
             ).map(([kind, on]) => (
               <div key={kind} className="flex flex-wrap items-center justify-between gap-3">
@@ -645,6 +660,12 @@ export default async function ClubPortalPage({
                 </form>
               </div>
             ))}
+            {pushKey && (
+              <div className="space-y-1 border-t border-line pt-3">
+                <p className="text-body-sm font-semibold text-ink">{tPush('title')}</p>
+                <PushToggle publicKey={pushKey} labels={pushLabels} />
+              </div>
+            )}
           </section>
         )}
 

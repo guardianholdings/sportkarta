@@ -3163,10 +3163,13 @@
       "cap_invalid": "The limit must be a whole number.",
       "tier_invalid": "Invalid plan.",
       "not_changed": "Nothing changed.",
-      "provider_error": "Stripe did not respond while ending the club's subscriptions. Nothing has changed — please try again."
+      "provider_error": "Stripe did not respond while ending the club's subscriptions. Nothing has changed — please try again.",
+      "sms_cap_invalid": "The SMS allowance must be a whole number up to 100,000."
     },
     "tierFeatures": "The “{tier}” plan also includes:",
-    "tierFeaturesNone": "the core features only."
+    "tierFeaturesNone": "the core features only.",
+    "fieldSmsCap": "SMS parts per month",
+    "smsCapHint": "0 means the club sends no SMS. The parts are invoiced to the club."
   },
   "ClubOffice": {
     "metaTitle": "{club} — office",
@@ -3186,7 +3189,8 @@
       "sales": "Sales",
       "products": "Products",
       "promotions": "Offers",
-      "invoices": "Invoices"
+      "invoices": "Invoices",
+      "messages": "Messages"
     },
     "map": "Back to the map",
     "profile": "My profile",
@@ -3421,7 +3425,21 @@
       "invoice_paid_by_credit": "The charge was paid with prepaid credit, and credit is invoiced when it is loaded. Issue an invoice for the top-up from the client's card.",
       "wallet_invoiced": "The charge has an invoice. Prepaid credit is invoiced when it is loaded, so it does not pay an invoiced charge. Pay another way.",
       "wallet_payout_invoiced": "Part of the credit was loaded with an invoice. Paying it back issues a credit note and is done by an owner or manager.",
-      "refund_paid_by_credit": "Part of what was paid is prepaid credit — it goes back to the credit, not as money."
+      "refund_paid_by_credit": "Part of what was paid is prepaid credit — it goes back to the credit, not as money.",
+      "purpose_invalid": "Choose the kind of message.",
+      "channels_required": "Choose at least one channel.",
+      "marketing_no_push": "Offers are not sent as phone notifications.",
+      "subject_required": "Write a subject.",
+      "subject_too_long": "The subject is too long (up to 150 characters).",
+      "message_body_required": "Write the text.",
+      "message_body_too_long": "The text is too long (up to 4000 characters).",
+      "sms_body_required": "Write the SMS text.",
+      "sms_body_too_long": "The SMS text is too long (up to 320 characters).",
+      "schedule_invalid": "Choose a date and time within the next 90 days.",
+      "delay_invalid": "That number of days is not allowed for this message.",
+      "broadcast_daily_limit": "That day already has three messages. Choose another day.",
+      "message_audience_invalid": "Choose who the message is for.",
+      "sms_too_long": "With the club’s name, the member’s name and (for an offer) the opt-out link, the SMS would run past 5 parts. Shorten the text."
     }
   },
   "ClubSettings": {
@@ -3917,7 +3935,12 @@
       "promotion_archived": "Offer ended",
       "wallet_topped_up": "Credit topped up",
       "invoice_issued": "Invoice issued",
-      "credit_note_issued": "Credit note issued"
+      "credit_note_issued": "Credit note issued",
+      "broadcast_saved": "Message saved",
+      "broadcast_scheduled": "Message scheduled",
+      "broadcast_cancelled": "Message cancelled",
+      "automation_saved": "Automatic message",
+      "sms_settings_changed": "SMS settings"
     }
   },
   "ClubSales": {
@@ -4336,7 +4359,9 @@
       "reservation_cancelled_late": "Your booking is cancelled after the free cancellation period.",
       "reservation_cancelled_refund": "Your booking is cancelled. The club will refund what you paid.",
       "payment_hold_ending": "The time to pay for this booking is running out. Cancel it and book again.",
-      "payment_amount_invalid": "Enter an amount between €0.50 and €1,000."
+      "payment_amount_invalid": "Enter an amount between €0.50 and €1,000.",
+      "push_on": "Notifications from the club are on.",
+      "push_off": "Notifications from the club are stopped."
     },
     "checkin": {
       "recorded": "Your attendance is marked.",
@@ -4390,7 +4415,12 @@
     "walletAmount": "Amount to top up (€)",
     "walletAmountPlaceholder": "e.g. 20",
     "walletTopUp": "Top up online",
-    "walletTopUpLabel": "Prepaid credit"
+    "walletTopUpLabel": "Prepaid credit",
+    "pushTitle": "Notifications from the club",
+    "pushOn": "The club may send you notifications on your phone — reminders, cancelled classes, a freed place.",
+    "pushOff": "Notifications from the club are stopped.",
+    "pushEnable": "Turn on",
+    "pushDisable": "Stop"
   },
   "ClubApply": {
     "title": "Register a club on POPS",
@@ -4457,7 +4487,19 @@
     "body": "You will receive no more email from {club} through POPS.",
     "confirm": "Unsubscribe me",
     "done": "You are unsubscribed. You will receive no more email from {club} through POPS.",
-    "invalid": "The unsubscribe link is not valid."
+    "invalid": "The unsubscribe link is not valid.",
+    "marketing": {
+      "body": "You will receive no offers from {club} — neither by email nor by SMS. Service messages, such as reminders and timetable changes, continue.",
+      "confirm": "Stop the offers",
+      "done": "Done — {club} will send you no offers.",
+      "title": "No offers from the club"
+    },
+    "sms": {
+      "body": "You will receive no SMS from {club} through POPS.",
+      "confirm": "Stop SMS",
+      "done": "Done — {club} will send you no SMS.",
+      "title": "No SMS from the club"
+    }
   },
   "ClubEmail": {
     "greeting": "Hello {name},",
@@ -4492,7 +4534,9 @@
       "membership_renewed": "Your membership has renewed",
       "fee_charged": "Fee: {label}",
       "owner_monthly": "{month} at the club",
-      "payment_received": "Payment: {label}"
+      "payment_received": "Payment: {label}",
+      "broadcast": "{subject}",
+      "automation": "{subject}"
     },
     "lead": {
       "staff_invite": "{club} invites you to join its team as {role}. The invitation is valid for 14 days.",
@@ -4514,7 +4558,9 @@
       "membership_renewed": "The membership “{plan}” ({name}) has renewed for {from} – {to}. Amount: {amount}.",
       "fee_charged": "The club charged a fee “{label}” ({name}): {amount}, due by {date}. Each class's no-show and late-cancel terms are shown under “My club” before you book.",
       "owner_monthly": "How {month} went at {club} — the figures come straight from the club's records:",
-      "payment_received": "We received your online payment for “{label}” ({name}): {amount}. The payment goes to the club through Stripe; card details never pass through POPS. This is not a fiscal document — ask the club for a receipt or invoice."
+      "payment_received": "We received your online payment for “{label}” ({name}): {amount}. The payment goes to the club through Stripe; card details never pass through POPS. This is not a fiscal document — ask the club for a receipt or invoice.",
+      "broadcast": "{body}",
+      "automation": "{body}"
     },
     "action": {
       "staff_invite": "Accept the invitation",
@@ -4536,7 +4582,9 @@
       "membership_renewed": "My club",
       "fee_charged": "My club",
       "owner_monthly": "Open the reports",
-      "payment_received": "My club"
+      "payment_received": "My club",
+      "broadcast": "Go to the club",
+      "automation": "Go to the club"
     },
     "rosterLine": "{time} {title}: {going} of {capacity} booked",
     "rosterLineOpen": "{time} {title}: {going} booked",
@@ -4565,6 +4613,19 @@
       "hintAtRisk": "Idea: call the members at risk — the list is in “Reports”. One reminder often brings someone back.",
       "hintChurn": "More members lapsed than joined. Consider a trial class or a come-back offer.",
       "hintSteady": "A steady month — keep it up."
+    },
+    "unsubscribeMarketing": "No more offers from the club",
+    "smsOptOut": "Opt out:",
+    "push": {
+      "booking_promoted": "A place opened up — you are booked for {title}, {when}.",
+      "class_cancelled": "Class cancelled: {title}, {when}.",
+      "reminder_24h": "Reminder: {title}, {when}.",
+      "membership_expiring": "Your plan “{plan}” ends on {date}."
+    },
+    "sms": {
+      "reminder_24h": "Reminder — {title}, {when}.",
+      "class_cancelled": "Class cancelled: {title}, {when}.",
+      "booking_promoted": "A place opened up — you are booked for {title}, {when}."
     }
   },
   "ClubReports": {
@@ -5178,5 +5239,171 @@
       "hint": "Money was returned on these invoices after they were issued — for example a refund from the Stripe dashboard. Open the invoice and issue a credit note.",
       "item": "Invoice {number} · {buyer} · returned {amount}"
     }
+  },
+  "ClubMessages": {
+    "title": "Messages",
+    "intro": "Send a message to a group of {club}'s members — by email, SMS or as a notification on their phone. Offers reach only the members who agreed to receive them.",
+    "upsell": "Messages to groups and automatic messages are included in the “{tier}” plan.",
+    "tabs": {
+      "label": "Messages — views",
+      "list": "Messages",
+      "auto": "Automatic",
+      "sms": "SMS"
+    },
+    "listTitle": "Messages",
+    "empty": "No messages yet.",
+    "newTitle": "New message",
+    "newHint": "The message is saved as a draft. You then see how many people it will reach and send it — now or at a set time. Messages go out between {from}:00 and {until}:00, up to {count} a day.",
+    "purpose": {
+      "label": "Kind",
+      "service": "Service",
+      "serviceHint": "About something members already have — the hall is closed, a class moved, a new timetable.",
+      "marketing": "Offer",
+      "marketingHint": "A discount, a new plan, an event. Only members who agreed to offers on that channel receive it, never as a phone notification, and each one carries an opt-out link."
+    },
+    "channels": {
+      "label": "Channels",
+      "email": "Email",
+      "sms": "SMS",
+      "push": "Phone notification",
+      "hint": "SMS are charged per part. Notifications reach only members with a POPS account who turned them on."
+    },
+    "audience": {
+      "label": "To whom",
+      "all": "All members",
+      "segment": "Groups",
+      "filter": "Lists",
+      "plan": "Holders of a plan",
+      "class": "Attendees of a class",
+      "tag": "With a tag",
+      "hint": "A child receives the message through their parent, and a parent of several children receives it once.",
+      "tagValue": "Tagged “{tag}”",
+      "planValue": "Plan “{plan}”",
+      "classValue": "Class “{title}”"
+    },
+    "subject": "Subject",
+    "subjectHint": "The email subject and the notification text.",
+    "body": "Text",
+    "placeholders": "You can use '{name}' for the member's name and '{club}' for the club's name.",
+    "smsBody": "SMS text",
+    "smsBodyHint": "The club's name is added in front, and for an offer an opt-out link too.",
+    "smsCounter": "{count} characters · {parts} SMS",
+    "createDraft": "Save as draft",
+    "saveDraft": "Save changes",
+    "status": {
+      "draft": "Draft",
+      "scheduled": "Scheduled for {when}",
+      "sending": "Sending",
+      "sent": "Sent {when}",
+      "cancelled": "Cancelled",
+      "cancelledStale": "Cancelled — it could not start within 3 days of its time"
+    },
+    "sentCounts": "{email} by email · {sms} SMS · {push} notifications",
+    "sentTitle": "Sent",
+    "back": "← Messages",
+    "textTitle": "Text",
+    "smsPreview": "How the SMS will look: {parts, plural, one {# part} other {# parts}}",
+    "smsOptOutLabel": "Opt out:",
+    "reach": {
+      "title": "Would reach",
+      "recipients": "{count, plural, one {# member} other {# members}} in the group",
+      "email": "{count} by email",
+      "sms": "{count} by SMS",
+      "push": "{count} as a notification",
+      "hint": "Recipients are decided again at the moment of sending.",
+      "hintMarketing": "Recipients are decided again at the moment of sending. Only members who agreed to offers on that channel receive it."
+    },
+    "sendTitle": "Sending",
+    "sendNow": "Now",
+    "sendLater": "Later:",
+    "date": "Date",
+    "time": "Time",
+    "send": "Send",
+    "sendConfirm": "Send the message? The group has {count, plural, one {# member} other {# members}}.",
+    "changeTitle": "Change",
+    "changeHint": "A scheduled message's text does not change. Return it to a draft to edit it, or cancel it.",
+    "unschedule": "Return to draft",
+    "cancel": "Cancel",
+    "cancelConfirm": "Cancel the message? It will not be sent.",
+    "editTitle": "Edit",
+    "delete": "Delete draft",
+    "deleteConfirm": "Delete the draft?",
+    "outcome": {
+      "saved": "The draft is saved.",
+      "scheduled": "The message is scheduled.",
+      "sending": "The message is being sent. Between 08:00 and 21:00, SMS and notifications go at once; e-mails go gradually, within the daily sending limit.",
+      "unscheduled": "The message is back to a draft.",
+      "cancelled": "The message is cancelled.",
+      "deleted": "The draft is deleted.",
+      "automation_saved": "The automatic message is saved.",
+      "sms_saved": "The SMS settings are saved."
+    },
+    "auto": {
+      "title": "Automatic messages",
+      "intro": "They go by themselves every day at 10:15 — to each member once for each event. Changing the text does not send a message again.",
+      "service": "service",
+      "marketing": "offer — only for members who agreed",
+      "delay": "After how many days",
+      "active": "On",
+      "save": "Save",
+      "on": "on",
+      "off": "off",
+      "notSet": "not set up",
+      "trigger": {
+        "welcome": {
+          "title": "Welcome",
+          "hint": "After the first visit to the club",
+          "delayHint": "0 means on the day of the first visit."
+        },
+        "trial_follow_up": {
+          "title": "After the trial",
+          "hint": "The trial plan ended and the member has not bought another",
+          "delayHint": "Days after the trial plan ended."
+        },
+        "expired_follow_up": {
+          "title": "After a plan ended",
+          "hint": "The plan ended and the member has no new one",
+          "delayHint": "Days after the plan ended."
+        },
+        "win_back": {
+          "title": "We miss you",
+          "hint": "The member has not visited for a number of days",
+          "delayHint": "Days without a visit — at least 14."
+        }
+      }
+    },
+    "sms": {
+      "title": "SMS",
+      "intro": "How many SMS the club sent this month, and which automatic notices also go by SMS.",
+      "notRunning": "SMS is not running in POPS yet. The settings are kept and apply once it is.",
+      "usageTitle": "This month",
+      "usage": "{used} of {cap} SMS parts used.",
+      "noAllowance": "The club has no monthly SMS allowance yet. Contact POPS to get one.",
+      "partsHint": "An SMS in Cyrillic holds 70 characters. A longer one goes in parts of 67 characters, and each part is charged.",
+      "notifyTitle": "Also send by SMS",
+      "notify": {
+        "reminder_24h": "Reminder the day before a class",
+        "class_cancelled": "Cancelled class",
+        "booking_promoted": "A place freed from the waiting list"
+      },
+      "save": "Save",
+      "upsell": "SMS from the club are included in the “{tier}” plan."
+    },
+    "whenLabel": "When",
+    "changeHintDue": "The message is going out now. You can cancel it for those it has not reached yet."
+  },
+  "PushDevice": {
+    "title": "Notifications on this device",
+    "on": "Notifications are on for this device.",
+    "off": "Notifications are off for this device.",
+    "enable": "Turn on notifications",
+    "disable": "Turn off",
+    "denied": "The browser has blocked notifications for pops.bg. Allow them in the browser's settings.",
+    "unsupported": "This browser does not show notifications. On an iPhone, first add POPS to the Home Screen (Share → Add to Home Screen) and turn notifications on from there.",
+    "failed": "That did not work. Please try again.",
+    "profileTitle": "Phone notifications",
+    "profileText": "The clubs you are a member of can send you notifications — reminders, cancelled classes, a freed place. Turn them on on each device separately. If the device is shared, turn them off before signing out.",
+    "devices": "{count, plural, one {Notifications are on for # device.} other {Notifications are on for # devices.}}",
+    "removeAll": "Turn off on all devices"
   }
 }

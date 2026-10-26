@@ -30,7 +30,10 @@
     "./storage": "./src/storage/index.ts",
     "./training": "./src/training/index.ts",
     "./csv": "./src/csv.ts",
-    "./cities": "./src/cities.ts"
+    "./cities": "./src/cities.ts",
+    "./push": "./src/push/index.ts",
+    "./sms": "./src/sms/index.ts",
+    "./sms/text": "./src/sms/text.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

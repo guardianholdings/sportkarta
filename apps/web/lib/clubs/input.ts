@@ -35,6 +35,23 @@ import {
   type InvoiceBuyerKind,
   type InvoiceVatRate,
   type IsoDate,
+  AUDIENCE_FILTERS,
+  AUDIENCE_KINDS,
+  AUDIENCE_SEGMENTS,
+  AUTOMATION_CHANNELS,
+  AUTOMATION_TRIGGERS,
+  BROADCAST_BODY_MAX,
+  BROADCAST_PURPOSES,
+  BROADCAST_SUBJECT_MAX,
+  SMS_BODY_MAX,
+  SMS_NOTIFY_KINDS,
+  automationMinDelay,
+  type Audience,
+  type AutomationChannel,
+  type AutomationTrigger,
+  type BroadcastPurpose,
+  type MessageChannel,
+  type SmsNotifyKind,
 } from '@sportkarta/lib/clubs';
 import {
   SOFIA_TZ,
@@ -1559,4 +1576,147 @@ export function parseInvoiceBuyer(form: Reader): InputResult<InvoiceBuyerInput> 
 export function parseCreditReason(form: Reader): string | null {
   const reason = text(form, 'reason');
   return reason === '' || reason.length > 200 ? null : reason;
+}
+
+// ─── Messages (0051) ───────────────────────────────────────────────────────
+
+const MESSAGE_CHANNELS: readonly MessageChannel[] = ['email', 'sms', 'push'];
+
+/**
+ * A group, as ONE select value — `all`, `segment:at_risk`, `filter:unpaid`,
+ * `tag:Йога`, `plan:<uuid>`, `class:<uuid>` — so the picker is a plain
+ * <select> that works without JavaScript.
+ */
+export function audienceValue(audience: Audience): string {
+  switch (audience.kind) {
+    case 'all':
+      return 'all';
+    case 'segment':
+      return `segment:${audience.segment}`;
+    case 'filter':
+      return `filter:${audience.filter}`;
+    case 'tag':
+      return `tag:${audience.tag}`;
+    case 'plan':
+      return `plan:${audience.planId}`;
+    case 'class':
+      return `class:${audience.classId}`;
+  }
+}
+
+export function parseAudience(raw: string): Audience | null {
+  const at = raw.indexOf(':');
+  const kind = oneOf(at < 0 ? raw : raw.slice(0, at), AUDIENCE_KINDS);
+  const value = at < 0 ? '' : raw.slice(at + 1);
+  switch (kind) {
+    case 'all':
+      return at < 0 ? { kind: 'all' } : null;
+    case 'segment': {
+      const segment = oneOf(value, AUDIENCE_SEGMENTS);
+      return segment ? { kind: 'segment', segment } : null;
+    }
+    case 'filter': {
+      const filter = oneOf(value, AUDIENCE_FILTERS);
+      return filter ? { kind: 'filter', filter } : null;
+    }
+    case 'tag': {
+      const tags = parseTags(value);
+      return tags?.length === 1 ? { kind: 'tag', tag: tags[0] as string } : null;
+    }
+    case 'plan':
+      return isUuid(value) ? { kind: 'plan', planId: value.toLowerCase() } : null;
+    case 'class':
+      return isUuid(value) ? { kind: 'class', classId: value.toLowerCase() } : null;
+    default:
+      return null;
+  }
+}
+
+export interface BroadcastInput {
+  purpose: BroadcastPurpose;
+  channels: MessageChannel[];
+  audience: Audience;
+  subject: string;
+  body: string;
+  smsBody: string | null;
+}
+
+export function parseBroadcast(form: Reader): InputResult<BroadcastInput> {
+  const errors: string[] = [];
+  const purpose = oneOf(text(form, 'purpose'), BROADCAST_PURPOSES);
+  if (purpose === null) errors.push('purpose_invalid');
+  const channels = MESSAGE_CHANNELS.filter((channel) =>
+    form.getAll('channels').some((value) => value === channel),
+  );
+  if (channels.length === 0) errors.push('channels_required');
+  if (purpose === 'marketing' && channels.includes('push')) errors.push('marketing_no_push');
+
+  const audience = parseAudience(text(form, 'audience'));
+  if (audience === null) errors.push('message_audience_invalid');
+
+  const subject = required(text(form, 'subject'), BROADCAST_SUBJECT_MAX, errors, 'subject');
+  const body = required(text(form, 'body'), BROADCAST_BODY_MAX, errors, 'message_body');
+  let smsBody: string | null = null;
+  if (channels.includes('sms')) {
+    smsBody = required(text(form, 'smsBody'), SMS_BODY_MAX, errors, 'sms_body');
+  }
+  if (errors.length > 0 || purpose === null || audience === null) {
+    return { ok: false, errors };
+  }
+  return { ok: true, value: { purpose, channels, audience, subject, body, smsBody } };
+}
+
+/**
+ * When a message goes: now, or a Sofia wall-clock date and time in the next
+ * 90 days.
+ */
+export function parseSchedule(form: Reader, now: Date): InputResult<Date> {
+  if (text(form, 'when') !== 'later') return { ok: true, value: now };
+  const date = text(form, 'date');
+  const clock = parseClock(text(form, 'time'));
+  if (!isIsoDate(date) || clock === null) return { ok: false, errors: ['schedule_invalid'] };
+  const [year, month, day] = date.split('-').map(Number) as [number, number, number];
+  const at = new Date(
+    zonedToInstant({ year, month, day, hour: Math.floor(clock / 60), minute: clock % 60 }, SOFIA_TZ)
+      .instantMs,
+  );
+  const ahead = at.getTime() - now.getTime();
+  if (ahead < 0 || ahead > 90 * 86_400_000) return { ok: false, errors: ['schedule_invalid'] };
+  return { ok: true, value: at };
+}
+
+export interface AutomationInput {
+  trigger: AutomationTrigger;
+  channel: AutomationChannel;
+  delayDays: number;
+  subject: string | null;
+  body: string;
+  active: boolean;
+}
+
+export function parseAutomation(form: Reader): InputResult<AutomationInput> {
+  const errors: string[] = [];
+  const trigger = oneOf(text(form, 'trigger'), AUTOMATION_TRIGGERS);
+  const channel = oneOf(text(form, 'channel'), AUTOMATION_CHANNELS);
+  if (trigger === null || channel === null) return { ok: false, errors: ['invalid'] };
+  const delayDays = intInRange(text(form, 'delayDays'), automationMinDelay(trigger), 365);
+  if (delayDays === null) errors.push('delay_invalid');
+  let subject: string | null = null;
+  let body: string;
+  if (channel === 'email') {
+    subject = required(text(form, 'subject'), BROADCAST_SUBJECT_MAX, errors, 'subject');
+    body = required(text(form, 'body'), BROADCAST_BODY_MAX, errors, 'message_body');
+  } else {
+    body = required(text(form, 'body'), SMS_BODY_MAX, errors, 'sms_body');
+  }
+  if (errors.length > 0 || delayDays === null) return { ok: false, errors };
+  return {
+    ok: true,
+    value: { trigger, channel, delayDays, subject, body, active: checked(form, 'active') },
+  };
+}
+
+/** Which automatic notices also go by SMS (clubs.sms_notify). */
+export function parseSmsNotify(form: Reader): SmsNotifyKind[] {
+  return SMS_NOTIFY_KINDS.filter((kind) => form.getAll('smsNotify').some((v) => v === kind));
 }

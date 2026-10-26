@@ -88,4 +88,24 @@ describe('renderClubMail', () => {
   it('greets without a name when there is none', () => {
     expect(renderClubMail({ ...base, recipientName: ' ' }, STRINGS).text).toMatch(/^Здравейте,\n/);
   });
+
+  it('adds no greeting to the club’s own words, and fills nothing inside them (0051)', () => {
+    const own = renderClubMail(
+      {
+        kind: 'broadcast',
+        clubName: 'Зала Сила',
+        recipientName: 'Мария',
+        values: { subject: 'Затворено', body: 'Здравейте, Мария! {title} остава.' },
+        actionUrl: 'https://pops.bg/klub/zala-sila/az',
+      },
+      {
+        ...STRINGS,
+        subject: { ...STRINGS.subject, broadcast: '{subject}' },
+        lead: { ...STRINGS.lead, broadcast: '{body}' },
+      },
+    );
+    expect(own.subject).toBe('Зала Сила · Затворено');
+    expect(own.text.startsWith('Здравейте, Мария! {title} остава.')).toBe(true);
+    expect(own.text).not.toMatch(/^Здравейте, Мария,/m);
+  });
 });

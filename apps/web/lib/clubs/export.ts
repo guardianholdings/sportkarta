@@ -28,6 +28,7 @@ export const CLUB_EXPORT_DATASETS = [
   'reservations',
   'sales',
   'invoices',
+  'messages',
   'audit',
 ] as const;
 export type ClubExportDataset = (typeof CLUB_EXPORT_DATASETS)[number];
@@ -253,6 +254,41 @@ const DATASETS: Record<ClubExportDataset, Dataset> = {
         JOIN club_invoice_lines il ON il.club_id = i.club_id AND il.invoice_id = i.id
        WHERE ${scope}
        ORDER BY i.number, il.line_no`,
+  },
+  // What the club sent, to which group, and how many it reached (0051).
+  messages: {
+    permission: 'data.export',
+    alias: 'bc',
+    header: [
+      'created_at',
+      'status',
+      'scheduled_for',
+      'finished_at',
+      'purpose',
+      'channels',
+      'audience',
+      'subject',
+      'body',
+      'sms_body',
+      'sent_email',
+      'sent_sms',
+      'sent_push',
+    ],
+    query: (scope) => sql`
+      SELECT ARRAY[${STAMP(sql`bc.created_at`)}, bc.status,
+             coalesce(${STAMP(sql`bc.scheduled_for`)}, ''), coalesce(${STAMP(sql`bc.finished_at`)}, ''),
+             bc.purpose, array_to_string(bc.channels, ' '),
+             bc.audience_kind || coalesce(':' || bc.audience_value, '')
+               || coalesce(':' || (SELECT p.name_bg FROM club_plans p
+                                    WHERE p.club_id = bc.club_id AND p.id = bc.plan_id), '')
+               || coalesce(':' || (SELECT k.title FROM club_classes k
+                                    WHERE k.club_id = bc.club_id AND k.id = bc.class_id), ''),
+             bc.subject, bc.body, coalesce(bc.sms_body, ''),
+             coalesce(bc.sent_email::text, ''), coalesce(bc.sent_sms::text, ''),
+             coalesce(bc.sent_push::text, '')]::text[] AS r
+        FROM club_broadcasts bc
+       WHERE ${scope}
+       ORDER BY bc.created_at, bc.id`,
   },
   classes: {
     permission: 'data.export',

@@ -84,6 +84,23 @@ import {
   isIban,
   isVatNumber,
   splitVat,
+  AUDIENCE_FILTERS,
+  AUDIENCE_KINDS,
+  AUDIENCE_SEGMENTS,
+  AUTOMATION_CHANNELS,
+  AUTOMATION_TRIGGERS,
+  BROADCAST_HOURS,
+  BROADCAST_PURPOSES,
+  BROADCAST_SHARE_OF_BULK,
+  BROADCAST_STATUSES,
+  CLUB_CHANNELS,
+  SMS_NOTIFY_KINDS,
+  automationDefaultDelay,
+  automationMinDelay,
+  automationPurpose,
+  composeSms,
+  inBroadcastHours,
+  personalise,
 } from './index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -124,8 +141,94 @@ describe('the vocabularies equal their SQL CHECKs', () => {
     ['club_memberships_cancel_reason_known', CLUB_CANCEL_REASONS],
     ['club_notifications_kind_known', CLUB_NOTIFICATION_KINDS],
     ['club_staff_role_known', CLUB_ROLES],
+    ['club_notifications_channel_known', CLUB_CHANNELS],
+    ['club_broadcasts_purpose_known', BROADCAST_PURPOSES],
+    ['club_broadcasts_status_known', BROADCAST_STATUSES],
+    // The first list in the audience CHECK is the segment list.
+    ['club_broadcasts_audience_known', AUDIENCE_SEGMENTS],
+    ['club_automations_trigger_known', AUTOMATION_TRIGGERS],
+    ['club_automations_channel_known', AUTOMATION_CHANNELS],
   ] as const)('%s', (constraint, values) => {
     expect(checkValues(constraint).sort()).toEqual([...values].sort());
+  });
+
+  it('club_broadcasts_audience_known: the filters, and the audience kinds', () => {
+    const text = migrationText();
+    const at = text.lastIndexOf('"club_broadcasts_audience_known" CHECK');
+    const block = text.slice(at, text.indexOf('CONSTRAINT', at + 10));
+    const filters = /'filter' AND "club_broadcasts"\."audience_value" IN \(([^)]*)\)/.exec(block);
+    expect([...(filters?.[1] ?? '').matchAll(/'([a-z_]+)'/g)].map((m) => m[1]).sort()).toEqual(
+      [...AUDIENCE_FILTERS].sort(),
+    );
+    const kinds = [...block.matchAll(/"audience_kind" (?:=|IN \() ?'([a-z]+)'(?:, '([a-z]+)')?/g)]
+      .flatMap((m) => [m[1], m[2]])
+      .filter(Boolean);
+    expect([...new Set(kinds)].sort()).toEqual([...AUDIENCE_KINDS].sort());
+  });
+
+  it('clubs_sms_notify_known equals SMS_NOTIFY_KINDS', () => {
+    const text = migrationText();
+    const at = text.lastIndexOf('"clubs_sms_notify_known" CHECK');
+    const array = /ARRAY\[([^\]]*)\]/.exec(text.slice(at));
+    expect([...(array?.[1] ?? '').matchAll(/'([a-z0-9_]+)'/g)].map((m) => m[1]).sort()).toEqual(
+      [...SMS_NOTIFY_KINDS].sort(),
+    );
+  });
+});
+
+describe('club messages (0051)', () => {
+  it('fixes a purpose per trigger: only the welcome is service', () => {
+    expect(AUTOMATION_TRIGGERS.filter((t) => automationPurpose(t) === 'service')).toEqual([
+      'welcome',
+    ]);
+  });
+
+  it('defaults every trigger to a delay its CHECK admits', () => {
+    for (const trigger of AUTOMATION_TRIGGERS) {
+      expect(automationDefaultDelay(trigger)).toBeGreaterThanOrEqual(automationMinDelay(trigger));
+    }
+  });
+
+  it('keys a broadcast by the receiving record, an automation by the event', () => {
+    expect(dedupeKey({ kind: 'broadcast', broadcastId: 'b1', recipientMemberId: 'm1' })).toBe(
+      'broadcast:b1:m1',
+    );
+    expect(
+      dedupeKey({ kind: 'automation', trigger: 'win_back', memberId: 'm1', anchor: '2026-10-01' }),
+    ).toBe('automation:win_back:m1:2026-10-01');
+  });
+
+  it('puts the club first in an SMS and the way out last, for marketing only', () => {
+    expect(composeSms({ clubName: 'Зала Сила', text: ' Затворено в понеделник. ' })).toBe(
+      'Зала Сила: Затворено в понеделник.',
+    );
+    expect(
+      composeSms({
+        clubName: 'Зала Сила',
+        text: '−20% този месец',
+        optOut: { label: 'Отказ:', url: 'https://pops.bg/s/abc' },
+      }),
+    ).toBe('Зала Сила: −20% този месец\nОтказ: https://pops.bg/s/abc');
+  });
+
+  it('sends in Sofia’s day only, and leaves the automations a real part of the allowance', () => {
+    // 07:59 and 21:00 in Sofia (EEST, UTC+3) are outside; 08:00 and 20:59 inside.
+    expect(inBroadcastHours(new Date('2026-07-01T04:59:00Z'))).toBe(false);
+    expect(inBroadcastHours(new Date('2026-07-01T05:00:00Z'))).toBe(true);
+    expect(inBroadcastHours(new Date('2026-07-01T17:59:00Z'))).toBe(true);
+    expect(inBroadcastHours(new Date('2026-07-01T18:00:00Z'))).toBe(false);
+    // In winter (EET, UTC+2) the same wall clock.
+    expect(inBroadcastHours(new Date('2026-12-01T06:00:00Z'))).toBe(true);
+    expect(inBroadcastHours(new Date('2026-12-01T19:00:00Z'))).toBe(false);
+    expect(BROADCAST_HOURS.from).toBeLessThan(BROADCAST_HOURS.until);
+    expect(BROADCAST_SHARE_OF_BULK).toBeGreaterThan(0);
+    expect(BROADCAST_SHARE_OF_BULK).toBeLessThanOrEqual(0.8);
+  });
+
+  it('fills {name} and {club} and nothing else', () => {
+    expect(personalise('Здравейте, {name}! {club} {other}', { name: 'Ана', club: 'Сила' })).toBe(
+      'Здравейте, Ана! Сила {other}',
+    );
   });
 });
 

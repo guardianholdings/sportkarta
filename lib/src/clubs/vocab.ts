@@ -6,7 +6,7 @@ import type { IsoDate } from './dates.js';
  * every list here equal to its constraint, so the two copies cannot drift.
  */
 
-/** club_audit_action_known (0039, widened in 0045, 0046, 0048 and 0049). */
+/** club_audit_action_known (0039, widened in 0045, 0046, 0048, 0049, 0050 and 0051). */
 export const CLUB_AUDIT_ACTIONS = [
   'club_applied',
   'settings_changed',
@@ -82,6 +82,11 @@ export const CLUB_AUDIT_ACTIONS = [
   'wallet_topped_up',
   'invoice_issued',
   'credit_note_issued',
+  'broadcast_saved',
+  'broadcast_scheduled',
+  'broadcast_cancelled',
+  'automation_saved',
+  'sms_settings_changed',
 ] as const;
 export type ClubAuditAction = (typeof CLUB_AUDIT_ACTIONS)[number];
 
@@ -138,7 +143,7 @@ export type ClubPlanAudience = (typeof CLUB_PLAN_AUDIENCES)[number];
 export const CLUB_CANCEL_REASONS = ['member_request', 'non_payment', 'mistake', 'other'] as const;
 export type ClubCancelReason = (typeof CLUB_CANCEL_REASONS)[number];
 
-/** club_notifications_kind_known (0044, widened in 0045 and 0046). */
+/** club_notifications_kind_known (0044, widened in 0045, 0046 and 0051). */
 export const CLUB_NOTIFICATION_KINDS = [
   'member_invite',
   'staff_invite',
@@ -160,8 +165,14 @@ export const CLUB_NOTIFICATION_KINDS = [
   'fee_charged',
   'owner_monthly',
   'payment_received',
+  'broadcast',
+  'automation',
 ] as const;
 export type ClubNotificationKind = (typeof CLUB_NOTIFICATION_KINDS)[number];
+
+/** club_notifications_channel_known (0051): how one send went out. */
+export const CLUB_CHANNELS = ['email', 'sms', 'push'] as const;
+export type ClubChannel = (typeof CLUB_CHANNELS)[number];
 
 /**
  * The one builder of club_notifications.dedupe_key — "we already sent THIS".
@@ -199,7 +210,15 @@ export type DedupeInput =
   | { kind: 'erasure_requested'; memberId: string; userId: string }
   | { kind: 'roster_daily'; userId: string; day: IsoDate }
   | { kind: 'owner_weekly'; userId: string; week: string }
-  | { kind: 'owner_monthly'; userId: string; month: string };
+  | { kind: 'owner_monthly'; userId: string; month: string }
+  /** Keyed by the RECEIVING record: a guardian of two children gets it once. */
+  | { kind: 'broadcast'; broadcastId: string; recipientMemberId: string }
+  /**
+   * By trigger, not by automation row, and by the event answered (a
+   * membership, a first visit's day, a last visit's day) — editing or
+   * re-creating an automation never re-sends it.
+   */
+  | { kind: 'automation'; trigger: string; memberId: string; anchor: string };
 
 export function dedupeKey(input: DedupeInput): string {
   switch (input.kind) {
@@ -234,5 +253,9 @@ export function dedupeKey(input: DedupeInput): string {
       return `${input.kind}:${input.userId}:${input.week}`;
     case 'owner_monthly':
       return `${input.kind}:${input.userId}:${input.month}`;
+    case 'broadcast':
+      return `${input.kind}:${input.broadcastId}:${input.recipientMemberId}`;
+    case 'automation':
+      return `${input.kind}:${input.trigger}:${input.memberId}:${input.anchor}`;
   }
 }

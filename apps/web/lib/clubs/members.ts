@@ -1,5 +1,21 @@
-import { getDb, sql, type SQL } from '@sportkarta/db';
-import type { ClubCheckinMethod, IsoDate } from '@sportkarta/lib/clubs';
+import {
+  getDb,
+  MEMBER_DERIVED_COLUMNS,
+  MEMBER_DERIVED_JOINS,
+  memberFilterSql,
+  memberSegmentSql,
+  sql,
+  type SQL,
+} from '@sportkarta/db';
+import {
+  AUDIENCE_SEGMENTS,
+  CLUB_AT_RISK_DAYS,
+  CLUB_MEMBER_FILTERS,
+  type AudienceSegment,
+  type ClubCheckinMethod,
+  type ClubMemberFilter,
+  type IsoDate,
+} from '@sportkarta/lib/clubs';
 import { generateCardKey, sha256Hex } from '@sportkarta/lib/clubs/secrets';
 
 import { recordClubAudit } from './audit';
@@ -32,25 +48,15 @@ export const MEMBER_STATUSES = ['active', 'trial', 'lapsed', 'lead', 'archived']
 export type MemberStatus = (typeof MEMBER_STATUSES)[number];
 
 /** The list's filter chips (GET params, so the screen works without JS). */
-export const MEMBER_FILTERS = [
-  'all',
-  'with_membership',
-  'unpaid',
-  'overdue',
-  'partial',
-  'expiring',
-  'leads',
-  'lapsed',
-  'archived',
-] as const;
-export type MemberFilter = (typeof MEMBER_FILTERS)[number];
+export const MEMBER_FILTERS = CLUB_MEMBER_FILTERS;
+export type MemberFilter = ClubMemberFilter;
 
 /** Derived segments, the 1club-style tags — computed, never stored. */
-export const MEMBER_SEGMENTS = ['top', 'regular', 'new', 'trial', 'owes', 'at_risk'] as const;
-export type MemberSegment = (typeof MEMBER_SEGMENTS)[number];
+export const MEMBER_SEGMENTS = AUDIENCE_SEGMENTS;
+export type MemberSegment = AudienceSegment;
 
 /** Days without a visit after which a paying member counts as at risk. */
-export const AT_RISK_DAYS = 21;
+export const AT_RISK_DAYS = CLUB_AT_RISK_DAYS;
 
 export interface MemberListRow {
   id: string;
@@ -76,82 +82,13 @@ function text(value: unknown): string | null {
   return value === null || value === undefined ? null : String(value);
 }
 
-/**
- * The per-member derived columns, as LATERAL joins on `m` (club_members).
- * Every lookup leads with club_id so it uses the (club_id, member_id) indexes.
- */
-const DERIVED = sql`
-  JOIN club_member_status st ON st.member_id = m.id
-  LEFT JOIN club_members g ON g.club_id = m.club_id AND g.id = m.guardian_member_id
-  LEFT JOIN LATERAL (
-    SELECT max(b.effective_ends_on) FILTER (WHERE b.state IN ('active', 'paused', 'upcoming')) AS valid_until,
-           sum(b.visits_remaining) FILTER (WHERE b.state IN ('active', 'paused')
-                                             AND b.visits_total IS NOT NULL)::int AS visits_remaining
-      FROM club_membership_balances b
-     WHERE b.club_id = m.club_id AND b.member_id = m.id
-  ) v ON true
-  LEFT JOIN LATERAL (
-    SELECT coalesce(sum(cb.due_cents) FILTER (WHERE cb.status IN ('open', 'overdue', 'partial')), 0)::int AS owed_cents,
-           coalesce(bool_or(cb.status = 'overdue'), false) AS overdue,
-           coalesce(bool_or(cb.status = 'partial'), false) AS partial
-      FROM club_charge_balances cb
-     WHERE cb.club_id = m.club_id AND cb.member_id = m.id
-  ) o ON true
-  LEFT JOIN LATERAL (
-    SELECT max(ci.checked_in_at) AS last_visit,
-           count(*) FILTER (WHERE ci.sofia_day > (now() AT TIME ZONE 'Europe/Sofia')::date - 30)::int AS visits30
-      FROM club_checkins ci
-     WHERE ci.club_id = m.club_id AND ci.member_id = m.id
-  ) lv ON true
-  LEFT JOIN club_member_links ln ON ln.member_id = m.id AND ln.status <> 'declined'`;
-
-const DERIVED_COLUMNS = sql`
-  st.status, g.display_name AS guardian_name,
-  to_char(v.valid_until, 'YYYY-MM-DD') AS valid_until, v.visits_remaining,
-  o.owed_cents, o.overdue, o.partial, lv.last_visit, lv.visits30, ln.status AS link_status`;
-
-function filterSql(filter: MemberFilter): SQL {
-  switch (filter) {
-    case 'all':
-      return sql`m.archived_at IS NULL`;
-    case 'with_membership':
-      return sql`st.status IN ('active', 'trial')`;
-    case 'unpaid':
-      return sql`m.archived_at IS NULL AND o.owed_cents > 0`;
-    case 'overdue':
-      return sql`m.archived_at IS NULL AND o.overdue`;
-    case 'partial':
-      return sql`m.archived_at IS NULL AND o.partial`;
-    case 'expiring':
-      return sql`m.archived_at IS NULL
-        AND v.valid_until BETWEEN (now() AT TIME ZONE 'Europe/Sofia')::date
-                              AND (now() AT TIME ZONE 'Europe/Sofia')::date + 7`;
-    case 'leads':
-      return sql`st.status = 'lead'`;
-    case 'lapsed':
-      return sql`st.status = 'lapsed'`;
-    case 'archived':
-      return sql`st.status = 'archived'`;
-  }
-}
-
-function segmentSql(segment: MemberSegment): SQL {
-  switch (segment) {
-    case 'top':
-      return sql`lv.visits30 >= 8`;
-    case 'regular':
-      return sql`lv.visits30 BETWEEN 4 AND 7`;
-    case 'new':
-      return sql`m.created_at > now() - interval '30 days'`;
-    case 'trial':
-      return sql`st.status = 'trial'`;
-    case 'owes':
-      return sql`o.owed_cents > 0`;
-    case 'at_risk':
-      return sql`st.status = 'active'
-        AND (lv.last_visit IS NULL OR lv.last_visit < now() - make_interval(days => ${AT_RISK_DAYS}::int))`;
-  }
-}
+// The derived joins and the filter / segment predicates are shared with the
+// worker's broadcast audiences (db/src/clubs/audience.ts, 0051), so the list
+// and a message to "the members at risk" can never disagree about who that is.
+const DERIVED = MEMBER_DERIVED_JOINS;
+const DERIVED_COLUMNS = MEMBER_DERIVED_COLUMNS;
+const filterSql = memberFilterSql;
+const segmentSql = memberSegmentSql;
 
 /** Pure: which derived segments a row belongs to (unit-tested with the SQL above). */
 export function segmentsFor(row: {

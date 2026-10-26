@@ -386,6 +386,65 @@ and, where an outside service is involved, by an env switch as well.
       closing note take the exact remainder (needs a one-cent tolerance on
       credit-note lines).
 - [ ] **F — push, SMS, broadcasts, automations, inbox, leads, feedback**
+  - [x] **F1 — channels, broadcasts, automations** (`0051`): every club
+    message goes by e-mail, SMS or Web Push from the WORKER, through the 0044
+    ledger, now unique per (club, channel, key) — one message may go by every
+    channel, never twice by one. Push is self-implemented (VAPID, RFC 8291,
+    pinned by the RFC's own example), the key pair DERIVED from
+    `PUSH_VAPID_SECRET` (deploy.yml derives it from `AUTH_SECRET`), and a
+    subscription's endpoint must be a known browser push service (a CHECK —
+    the worker never posts to an address a browser chose). SMS goes through a
+    transport seam with the part count (Cyrillic: 70, then 67 per part); a
+    club's parts per Sofia month never exceed `clubs.sms_monthly_cap`, set by
+    the operator (a trigger, race-free) and frozen into the monthly activity
+    for re-invoicing. The automatic notices go by push (freed place, cancelled
+    class, reminder, abonnement ending) and, where the club chose, by SMS.
+    «Съобщения» in the office: a message to a group (everyone, a segment, a
+    list filter, a tag, a plan's holders, a class's attendees — the members
+    list's own SQL, shared), service or OFFER; offers only to records with a
+    consent timestamp for that channel, never by push, always with a way out
+    (one-click e-mail opt-out, a short `/s/<token>` link in an SMS); drafts,
+    reach per channel, send now or later, three a club per day, fixed once
+    scheduled, kept once sent, counted from the ledger. Automations: welcome
+    after the first visit (service), trial / ended-abonnement follow-ups and
+    "we miss you" (offers), daily at 10:15, each event answered once.
+    Bulk e-mail stops at `CLUB_BULK_MAIL_DAILY_LIMIT` per day across clubs,
+    and is shared: broadcasts use at most three quarters (the rest is kept
+    for the automations), each club at most 25 per five-minute sweep, the
+    club that sent least today first; messages go out only 08:00–21:00 Sofia,
+    SMS and push never wait for the e-mail allowance, a message can be
+    cancelled while it is being sent (it keeps the count of what it reached),
+    and one that could never start within 3 days of its time is retired with
+    the reason shown. The automations' part is shared too: each club with
+    somebody to answer gets an equal slice, the club that sent fewest today
+    first, and the leftover goes to those still waiting (an event that
+    automation's channel already answered is never a candidate again).
+    Push on the member's devices from the portal and `/profil`; each club can
+    be muted on its own link. A club's own installable app:
+    `/klub/<slug>/manifest.webmanifest` (name, logo, opens on the portal).
+    Behind `broadcasts` / `automations` / `sms` tiers and `CLUB_SMS_ENABLED`,
+    `CLUB_PUSH_ENABLED`.
+    - [ ] **Operator:** choose the EU SMS gateway (price, DPA, the «POPS»
+      sender ID); its adapter is one class behind `SMS_TRANSPORT`. Confirm
+      the relay's daily limit for `CLUB_BULK_MAIL_DAILY_LIMIT` (Migadu).
+    - [ ] **Later:** «service» is the club's own label — a club could call an
+      offer a service message and reach members without consent. The terms
+      forbid it; give the operator a view of service messages by volume and
+      text to spot it.
+    - [ ] **Known limits (accepted for v1):** a broadcast has no per-club
+      DAILY e-mail cap — fairness is per sweep (25) and by who sent least
+      today, so a club alone in a quiet day may use the whole broadcast
+      share. Cancelling a message mid-send records its counts at that
+      instant; a send already in flight may land just after and is in the
+      ledger but not in the count. The SMS length check uses the longest
+      member name when the message is saved; a longer name added later can
+      push one SMS past the part limit (the club's monthly cap still holds).
+      A member who joins the group while a started message waits only on
+      e-mail allowance gets its SMS/push when that club next has e-mail room.
+    - [ ] **For the lawyer:** offers by e-mail go only with explicit consent
+      (no "soft opt-in" for existing clients yet) — confirm, or allow the
+      ZEK/ePrivacy existing-customer exemption with an opt-out at collection.
+  - [ ] **F2 — inbox and inquiries, leads pipeline, feedback** (`0052`)
 - [ ] **D — events, camps, tournaments**
 - [ ] **G — waivers and documents, ranks and belts**
 - [ ] **H — club API, webhooks, MCP, door access, pixels** (pixels wait on legal)

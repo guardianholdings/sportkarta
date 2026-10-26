@@ -295,6 +295,16 @@ jobs:
           STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
           STRIPE_CONNECT_CLIENT_ID=${{ secrets.STRIPE_CONNECT_CLIENT_ID }}
+          # Club till/invoices, SMS and push (0049–0051): switches are
+          # VARIABLES ("true" = on); the SMS gateway key is a SECRET. The push
+          # key is derived below. Empty = off.
+          CLUB_SHOP_ENABLED=${{ vars.CLUB_SHOP_ENABLED }}
+          CLUB_SMS_ENABLED=${{ vars.CLUB_SMS_ENABLED }}
+          CLUB_PUSH_ENABLED=${{ vars.CLUB_PUSH_ENABLED }}
+          SMS_TRANSPORT=${{ vars.SMS_TRANSPORT }}
+          SMS_SENDER_ID=${{ vars.SMS_SENDER_ID }}
+          SMS_API_KEY=${{ secrets.SMS_API_KEY }}
+          CLUB_BULK_MAIL_DAILY_LIMIT=${{ vars.CLUB_BULK_MAIL_DAILY_LIMIT || '200' }}
           DONATION_IBAN=${{ vars.DONATION_IBAN }}
           DONATION_BENEFICIARY=${{ vars.DONATION_BENEFICIARY }}
           DONATION_BIC=${{ vars.DONATION_BIC }}
@@ -316,6 +326,7 @@ jobs:
         env:
           AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
           CHECKIN_TOKEN_SECRET: ${{ secrets.CHECKIN_TOKEN_SECRET }}
+          PUSH_VAPID_SECRET: ${{ secrets.PUSH_VAPID_SECRET }}
           ADMIN_TOOLS_PASSWORD: ${{ secrets.ADMIN_TOOLS_PASSWORD }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ vars.SMTP_PORT || '587' }}
@@ -334,6 +345,14 @@ jobs:
           checkin="${CHECKIN_TOKEN_SECRET:-}"
           if [ -z "$checkin" ] && [ -n "${AUTH_SECRET:-}" ]; then
             checkin=$(printf '%s' 'pops/checkin-token/v1' | openssl dgst -sha256 -hmac "$AUTH_SECRET" -r | cut -d' ' -f1)
+          fi
+          # Web Push (0051) derives its VAPID key pair from PUSH_VAPID_SECRET,
+          # and browsers bind every subscription to the public half — so it is
+          # derived from AUTH_SECRET the same way, stable across deploys, under
+          # its own label. No AUTH_SECRET: empty, and push stays off.
+          vapid="${PUSH_VAPID_SECRET:-}"
+          if [ -z "$vapid" ] && [ -n "${AUTH_SECRET:-}" ]; then
+            vapid=$(printf '%s' 'pops/push-vapid/v1' | openssl dgst -sha256 -hmac "$AUTH_SECRET" -r | cut -d' ' -f1)
           fi
           # The Umami and GlitchTip dashboards sit behind HTTP basic auth
           # (user "admin"). With no ADMIN_TOOLS_PASSWORD secret the hash is of a
@@ -361,6 +380,7 @@ jobs:
           apple_key=$(printf '%b\n' "${APPLE_PRIVATE_KEY:-}" | sed '/-----/d' | tr -d '\r\n\t ')
           {
             printf "CHECKIN_TOKEN_SECRET='%s'\n" "$checkin"
+            printf "PUSH_VAPID_SECRET='%s'\n" "$vapid"
             printf "ADMIN_TOOLS_HASH='%s'\n" "$hash"
             printf "GLITCHTIP_EMAIL_URL='%s'\n" "$gt_mail"
             printf "GLITCHTIP_FROM_EMAIL='%s'\n" "${SMTP_FROM:-}"

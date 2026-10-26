@@ -78,7 +78,8 @@ export async function portalOpAction(formData: FormData): Promise<void> {
       return back(!result.cancelled ? 'not_found' : result.late ? 'cancelled_late' : 'cancelled');
     }
     case 'passport':
-    case 'notify': {
+    case 'notify':
+    case 'push': {
       if (!isUuid(memberId)) return back('not_found');
       const on = str(formData, 'on') === '1';
       const ok = await setLinkPreference(user.id, memberId, op, on);

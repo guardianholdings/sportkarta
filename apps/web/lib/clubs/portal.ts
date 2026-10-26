@@ -148,6 +148,8 @@ export interface PortalView {
     status: 'active' | 'pending';
     passportConsent: boolean;
     notifyEmail: boolean;
+    /** This club's push notifications on the member's devices (0051). */
+    notifyPush: boolean;
     erasureRequested: boolean;
   } | null;
   records: PortalRecord[];
@@ -186,6 +188,7 @@ export async function portalView(
   const linkRow = (
     await db.execute(sql`
       SELECT l.member_id, l.status, (l.passport_consent_at IS NOT NULL) AS consent, l.notify_email,
+             l.notify_push,
              (m.erasure_requested_at IS NOT NULL) AS erasure
         FROM club_member_links l
         JOIN club_members m ON m.club_id = l.club_id AND m.id = l.member_id
@@ -199,6 +202,7 @@ export async function portalView(
         status: linkRow.status === 'pending' ? ('pending' as const) : ('active' as const),
         passportConsent: linkRow.consent === true,
         notifyEmail: linkRow.notify_email === true,
+        notifyPush: linkRow.notify_push === true,
         erasureRequested: linkRow.erasure === true,
       }
     : null;

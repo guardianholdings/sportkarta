@@ -1,4 +1,5 @@
 import {
+  CLUB_BROADCASTS_QUEUE,
   CLUB_MATERIALIZE_QUEUE,
   CLUB_NOTIFY_QUEUE,
   type ClubMaterializeJob,
@@ -45,4 +46,13 @@ export async function enqueueClubNotify(job: ClubNotifyJob): Promise<void> {
 export async function enqueueClubMaterialize(classId: string): Promise<void> {
   const job: ClubMaterializeJob = { classId };
   await send(CLUB_MATERIALIZE_QUEUE, job, classId);
+}
+
+/**
+ * «Изпрати сега» (0051): wake the broadcast sweep instead of waiting up to
+ * five minutes for it. One waiting run is enough — it reads the table.
+ */
+export async function enqueueClubBroadcasts(): Promise<void> {
+  if (process.env.CLUBS_ENABLED !== 'true') return;
+  await send(CLUB_BROADCASTS_QUEUE, {}, 'club.broadcasts');
 }

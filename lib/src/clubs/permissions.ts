@@ -54,6 +54,7 @@ export const CLUB_PERMISSIONS = [
   'data.export',
   'data.import',
   'audit.view',
+  'messages.send',
 ] as const;
 export type ClubPermission = (typeof CLUB_PERMISSIONS)[number];
 
@@ -95,6 +96,11 @@ const MATRIX: Readonly<Record<ClubPermission, readonly ClubRole[]>> = {
   'data.export': MANAGEMENT,
   'data.import': MANAGEMENT,
   'audit.view': MANAGEMENT,
+  /**
+   * Messages to a group and automations (0051): what goes out under the
+   * club's name, to many people, is management's.
+   */
+  'messages.send': MANAGEMENT,
 };
 
 export function isClubRole(value: unknown): value is ClubRole {

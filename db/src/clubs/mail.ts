@@ -1,4 +1,4 @@
-import type { ClubNotificationKind, ClubRole, IsoDate } from '@sportkarta/lib/clubs';
+import type { ClubChannel, ClubNotificationKind, ClubRole, IsoDate } from '@sportkarta/lib/clubs';
 import { sql, type SQL } from 'drizzle-orm';
 
 /**
@@ -172,6 +172,11 @@ export async function operatorRecipients(db: SqlRunner): Promise<StaffRecipient[
 /**
  * Claim a ledger row; true when THIS run may send. Run it in the same
  * transaction as the send, before it: a failed send rolls the claim back.
+ *
+ * One row per channel (0051): the same key may be claimed once by e-mail,
+ * once by SMS and once by push. An SMS claim carries its parts, and the
+ * club_notifications_sms_cap trigger refuses it (23514) when the club's
+ * monthly allowance would be exceeded — `isSmsCapRefusal` tells the caller.
  */
 export async function claimClubNotification(
   db: SqlRunner,
@@ -181,16 +186,31 @@ export async function claimClubNotification(
     userId?: string | null;
     kind: ClubNotificationKind;
     key: string;
+    channel?: ClubChannel;
+    smsParts?: number;
   },
 ): Promise<boolean> {
+  const channel = input.channel ?? 'email';
   const result = await db.execute(sql`
-    INSERT INTO club_notifications (club_id, member_id, user_id, kind, dedupe_key)
+    INSERT INTO club_notifications (club_id, member_id, user_id, kind, dedupe_key, channel, sms_parts)
     VALUES (${input.clubId}::uuid, ${input.memberId ?? null}::uuid, ${input.userId ?? null},
-            ${input.kind}, ${input.key})
-    ON CONFLICT (club_id, dedupe_key) DO NOTHING
+            ${input.kind}, ${input.key}, ${channel},
+            ${channel === 'sms' ? (input.smsParts ?? 1) : null}::smallint)
+    ON CONFLICT (club_id, channel, dedupe_key) DO NOTHING
     RETURNING id
   `);
   return result.rows.length > 0;
+}
+
+/** The SMS allowance refused a claim (club_notifications_sms_cap). */
+export function isSmsCapRefusal(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 4 && current && typeof current === 'object'; depth++) {
+    const fields = current as { code?: unknown; constraint?: unknown; cause?: unknown };
+    if (fields.code === '23514' && fields.constraint === 'club_notifications_sms_cap') return true;
+    current = fields.cause;
+  }
+  return false;
 }
 
 // ─── Invitations ────────────────────────────────────────────────────────────
@@ -624,7 +644,7 @@ export async function recordClubMonthlyActivity(
        GROUP BY ci.club_id, ci.member_id HAVING count(*) >= 3
     )
     INSERT INTO club_monthly_activity (club_id, month, members_with_membership, members_with_visits,
-                                       members_active, checkins, bookings, revenue_cents)
+                                       members_active, checkins, bookings, revenue_cents, sms_parts)
     SELECT c.id, bounds.first,
       (SELECT count(*)::int FROM held h WHERE h.club_id = c.id),
       (SELECT count(*)::int FROM visited v WHERE v.club_id = c.id),
@@ -637,7 +657,11 @@ export async function recordClubMonthlyActivity(
           AND (b.created_at AT TIME ZONE 'Europe/Sofia')::date < bounds.next),
       (SELECT coalesce(sum(p.amount_cents), 0)::bigint FROM club_payments p WHERE p.club_id = c.id
           AND p.method <> 'wallet'
-          AND p.received_on >= bounds.first AND p.received_on < bounds.next)
+          AND p.received_on >= bounds.first AND p.received_on < bounds.next),
+      -- The SMS parts sent in the month (0051), what the operator re-invoices:
+      -- the counter, which erasing a client does not lower.
+      (SELECT coalesce(sum(u.parts), 0)::int FROM club_sms_usage u
+        WHERE u.club_id = c.id AND u.month = bounds.first)
       FROM clubs c, bounds
      WHERE c.status <> 'archived' AND c.applied_at < bounds.next
     ON CONFLICT (club_id, month) DO NOTHING

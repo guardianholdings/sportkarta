@@ -27,6 +27,7 @@ function fakeDb(counts: {
   sessionNotifications?: number;
   clubStaff?: number;
   clubLinks?: number;
+  pushDevices?: number;
 }) {
   const statements: { sql: string; params: unknown[] }[] = [];
   // Counts are answered in the order deleteAccount asks for them.
@@ -46,6 +47,7 @@ function fakeDb(counts: {
     counts.sessionNotifications ?? 0,
     counts.clubStaff ?? 0,
     counts.clubLinks ?? 0,
+    counts.pushDevices ?? 0,
   ];
   let selects = 0;
   const runner = {
@@ -87,6 +89,7 @@ describe('deleteAccount', () => {
       sessionNotifications: 13,
       clubStaff: 14,
       clubLinks: 15,
+      pushDevices: 16,
     });
     const summary = await deleteAccount(db, 'user_1');
 
@@ -107,6 +110,7 @@ describe('deleteAccount', () => {
       sessionNotificationsErased: 13,
       clubStaffErased: 14,
       clubMemberLinksErased: 15,
+      pushSubscriptionsErased: 16,
     });
     const text = db.statements.map((s) => s.sql).join('\n');
     // An owner leaving is written to the club's own log; nothing the club owns
@@ -149,6 +153,7 @@ describe('deleteAccount', () => {
       sessionNotifications: 13,
       clubStaff: 14,
       clubLinks: 15,
+      pushDevices: 16,
     });
     await deleteAccount(db, 'user_1');
 
@@ -158,7 +163,25 @@ describe('deleteAccount', () => {
     // condition reports and the play layer are evidenced too: each of them
     // leaves, is anonymised or is cancelled, so the tombstone would otherwise
     // be silent about them.
-    expect(insert?.params).toEqual(['user_1', 1, 0, 2, 4, 3, 7, 5, 6, 8, 9, 10, 12, 13, 14, 15]);
+    expect(insert?.params).toEqual([
+      'user_1',
+      1,
+      0,
+      2,
+      4,
+      3,
+      7,
+      5,
+      6,
+      8,
+      9,
+      10,
+      12,
+      13,
+      14,
+      15,
+      16,
+    ]);
     expect(insert?.sql).not.toMatch(/email|display_name/i);
   });
 

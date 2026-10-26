@@ -95,11 +95,17 @@ export async function setClubPlanAction(formData: FormData): Promise<void> {
   if (memberCap !== null && (!Number.isInteger(memberCap) || memberCap < 1)) {
     return backTo(slug, 'cap_invalid');
   }
+  // SMS parts a month (0051): what the club may send, and is re-invoiced for.
+  const smsRaw = field(formData, 'smsMonthlyCap') || '0';
+  if (!/^\d{1,6}$/.test(smsRaw) || Number(smsRaw) > 100_000) {
+    return backTo(slug, 'sms_cap_invalid');
+  }
   const changed = await setClubPlan(getDb(), adminId, clubId, {
     tier: tierRaw as ClubTier,
     paidUntil,
     trialEndsOn,
     memberCap,
+    smsMonthlyCap: Number(smsRaw),
   });
   refresh(slug);
   return backTo(slug, changed ? 'saved' : 'not_changed');

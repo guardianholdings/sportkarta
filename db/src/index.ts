@@ -69,6 +69,7 @@ export {
   dueClubReminders,
   expiryCandidates,
   inviteForMail,
+  isSmsCapRefusal,
   memberForStaffMail,
   memberRecipient,
   operatorRecipients,
@@ -88,6 +89,39 @@ export type {
   StaffRecipient,
   TrainerClass,
 } from './clubs/mail.js';
+export {
+  MEMBER_DERIVED_COLUMNS,
+  MEMBER_DERIVED_JOINS,
+  audienceSql,
+  broadcastTargets,
+  memberFilterSql,
+  memberSegmentSql,
+} from './clubs/audience.js';
+export {
+  BROADCAST_STALE_DAYS,
+  activeAutomations,
+  automationCandidates,
+  automationMailToday,
+  broadcastReached,
+  broadcastStillSending,
+  bulkMailSentToday,
+  cancelStaleBroadcasts,
+  channelAllowed,
+  dueBroadcasts,
+  finishBroadcast,
+  memberChannels,
+  membersChannels,
+  notePushResult,
+  pushSubscriptionsOf,
+  startBroadcast,
+} from './clubs/messaging.js';
+export type {
+  ActiveAutomation,
+  AutomationCandidate,
+  BroadcastToSend,
+  MemberChannels,
+  StoredPushSubscription,
+} from './clubs/messaging.js';
 export {
   claimDigestSend,
   digestRecipients,

@@ -37,6 +37,14 @@ export const CLUB_HEALTH_QUEUE = 'club.health';
  * Also swept every 10 minutes for events whose enqueue failed.
  */
 export const CLUB_PAYMENT_EVENT_QUEUE = 'club.payment_event';
+/**
+ * Club broadcasts whose time has come (0051), swept every five minutes; the
+ * office enqueues an empty job on «Изпрати сега» so a message does not wait
+ * for the sweep. The payload is always empty — the sweep reads the table.
+ */
+export const CLUB_BROADCASTS_QUEUE = 'club.broadcasts';
+/** Daily: the clubs' automations (welcome, follow-ups, win-back), 0051. */
+export const CLUB_AUTOMATIONS_QUEUE = 'club.automations';
 
 export interface ClubPaymentEventJob {
   eventId?: number;

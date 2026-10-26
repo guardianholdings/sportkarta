@@ -43,6 +43,8 @@ export const CLUB_MAIL_KINDS = [
   'fee_charged',
   'owner_monthly',
   'payment_received',
+  'broadcast',
+  'automation',
 ] as const;
 export type ClubMailKind = (typeof CLUB_MAIL_KINDS)[number];
 
@@ -95,12 +97,19 @@ export function fillClubTemplate(
 
 const EMAIL = /^[^@\s<>"]{1,64}@[^@\s<>"]{1,190}$/;
 
+/**
+ * The club's own words (0051): a broadcast or an automation is the club's
+ * whole letter, salutation included, so ours is not added on top of it.
+ */
+const OWN_TEXT: readonly ClubMailKind[] = ['broadcast', 'automation'];
+
 export function renderClubMail(data: ClubMailData, strings: ClubMailStrings): MailMessage {
   const values = { ...(data.values ?? {}), club: data.clubName };
   const name = data.recipientName.trim();
   const lines: string[] = [
-    name === '' ? strings.greetingNoName : fillClubTemplate(strings.greeting, { name }),
-    '',
+    ...(OWN_TEXT.includes(data.kind)
+      ? []
+      : [name === '' ? strings.greetingNoName : fillClubTemplate(strings.greeting, { name }), '']),
     fillClubTemplate(strings.lead[data.kind], values),
   ];
   if (data.startsAtLocal || data.where) {

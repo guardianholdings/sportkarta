@@ -75,6 +75,15 @@ const STRIPE_FAMILY = [
   'STRIPE_APPLICATION_FEE_BP',
 ];
 
+/**
+ * Keys read by `createSmsSender(env)` and `createPushSender(env)` (0051) —
+ * the same whole-env handoff: club SMS and push are sent by the worker, and a
+ * worker without these fails closed in production while every local test
+ * passes on the file outboxes.
+ */
+const SMS_FAMILY = ['SMS_TRANSPORT', 'SMS_API_KEY', 'SMS_SENDER_ID'];
+const PUSH_FAMILY = ['PUSH_VAPID_SECRET', 'CONTACT_EMAIL', 'NEXT_PUBLIC_SITE_URL'];
+
 function walk(dir: string): string[] {
   let out: string[] = [];
   for (const name of readdirSync(dir)) {
@@ -174,6 +183,18 @@ describe('deploy/compose.prod.yml — worker environment', () => {
     expect(
       missing,
       'apps/worker/src calls stripeSettings(process.env) but compose.prod.yml withholds:\n' +
+        missing.map((k) => `  ${k}`).join('\n'),
+    ).toEqual([]);
+  });
+
+  it('declares the SMS and push families, because the worker hands the whole env to them', () => {
+    const missing = [
+      ...(/createSmsSender\(\s*process\.env\s*\)/.test(workerSource) ? SMS_FAMILY : []),
+      ...(/createPushSender\(\s*process\.env\s*\)/.test(workerSource) ? PUSH_FAMILY : []),
+    ].filter((k) => !workerEnv.includes(k));
+    expect(
+      missing,
+      'apps/worker/src sends SMS/push from the whole env but compose.prod.yml withholds:\n' +
         missing.map((k) => `  ${k}`).join('\n'),
     ).toEqual([]);
   });
