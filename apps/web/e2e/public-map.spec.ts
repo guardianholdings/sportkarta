@@ -170,7 +170,9 @@ test.describe('public map — a sticker link locates on arrival', () => {
   // locatedRef). Reduced motion makes the map jump instead of fly: once the count
   // reads "N on the map · M in total", the camera has settled on the visitor.
   test.describe('the address bar never holds the located position', () => {
-    test.use({ reducedMotion: 'reduce' });
+    test.beforeEach(async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+    });
 
     const PRECISE = /\d\.\d{3,}/;
     const ON_MAP = new RegExp(bg.Map.resultsOnMap.replace(/\{\w+, number\}/g, '[\\d\\s]+'));
