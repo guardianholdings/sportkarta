@@ -167,16 +167,15 @@ test.describe('public map — a sticker link locates on arrival', () => {
 
   // After a locate the map's centre is where the visitor stands, so it stays out
   // of the address bar until they move the map by hand (map-canvas.tsx,
-  // locatedRef). Reduced motion makes the map jump instead of fly: once the count
-  // reads "N on the map · M in total", the camera has settled on the visitor.
+  // locatedRef).
   test.describe('the address bar never holds the located position', () => {
-    test.beforeEach(async ({ page }) => {
-      await page.emulateMedia({ reducedMotion: 'reduce' });
-    });
-
     const PRECISE = /\d\.\d{3,}/;
     const ON_MAP = new RegExp(bg.Map.resultsOnMap.replace(/\{\w+, number\}/g, '[\\d\\s]+'));
 
+    // The flight stays animated here on purpose: it starts while the frame is
+    // still settling, and a re-frame must not leave it short of the visitor
+    // (map-canvas.tsx, locateFlightRef). Zoomed in on them, the count reads
+    // "N on the map · M in total".
     test('not on the printed address; a move by hand writes the view again', async ({
       page,
       context,
@@ -207,6 +206,8 @@ test.describe('public map — a sticker link locates on arrival', () => {
     }) => {
       await context.grantPermissions(['geolocation']);
       await context.setGeolocation(SOFIA);
+      // Reduced motion: the map jumps to the visitor instead of flying.
+      await page.emulateMedia({ reducedMotion: 'reduce' });
       const query = () => new URL(page.url()).searchParams;
 
       // A view far from the visitor (Varna), as an earlier pan writes it.
