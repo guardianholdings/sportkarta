@@ -8,6 +8,9 @@ WORKDIR /app
 
 FROM base AS deps
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+# pnpm applies the patches listed under patchedDependencies (pnpm-workspace.yaml)
+# while it installs, so the patch files have to be in place before it runs.
+COPY patches ./patches/
 COPY apps/web/package.json apps/web/
 COPY apps/worker/package.json apps/worker/
 COPY db/package.json db/
