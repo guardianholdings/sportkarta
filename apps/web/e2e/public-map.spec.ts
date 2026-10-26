@@ -97,3 +97,71 @@ test.describe('public map — find nearest free football pitch', () => {
     await expect(page.getByText(bg.Access.free, { exact: true })).toBeVisible();
   });
 });
+
+// The QR codes printed on facility stickers open the map with `?blizo=1` and
+// campaign tags. The map locates the visitor on arrival, with no tap, through the
+// same locate() as the button (lib/map/auto-locate.ts).
+const STICKER_URL = '/?blizo=1&utm_source=sticker&utm_medium=offline&utm_content=s1';
+const SOFIA = { latitude: 42.6977, longitude: 23.3219 };
+const DISTANCE = new RegExp(bg.Map.distanceKm.replace('{km}', '([\\d,]+)'));
+
+test.describe('public map — a sticker link locates on arrival', () => {
+  // The phone layout, as above: a sticker is scanned with a phone.
+  test.use({ viewport: { width: 390, height: 844 } });
+  test.beforeAll(seedPitch);
+
+  test('the facility the visitor stands at heads the list, without a tap', async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({ latitude: PITCH.lat, longitude: PITCH.lon });
+
+    const apiLoaded = page.waitForResponse((r) => r.url().includes('/api/facilities') && r.ok());
+    await page.goto(STICKER_URL);
+    await apiLoaded;
+
+    // No click on the locate button anywhere in this test.
+    const firstItem = page.locator('[id^="facility-list"]:visible button[data-slug]').first();
+    await expect(firstItem).toHaveAttribute('data-slug', PITCH.slug);
+    await expect(firstItem).toContainText(DISTANCE);
+  });
+
+  test('in Sofia the list reads nearest first', async ({ page, context }) => {
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation(SOFIA);
+
+    const apiLoaded = page.waitForResponse((r) => r.url().includes('/api/facilities') && r.ok());
+    await page.goto(STICKER_URL);
+    await apiLoaded;
+
+    const list = page.locator('[id^="facility-list"]:visible');
+    await expect(list.locator('button[data-slug]').first()).toContainText(DISTANCE);
+
+    // The rows on the map come first, then, past a divider, the rest of the
+    // country; each run is sorted nearest first (list-rows.ts). Read in one pass,
+    // so the runs come from one render.
+    const runs = await list.evaluate(
+      (root, { distance, divider }) => {
+        const re = new RegExp(distance);
+        const out: number[][] = [[]];
+        for (const li of Array.from(root.querySelectorAll('li'))) {
+          const card = li.querySelector('button[data-slug]');
+          if (!card) {
+            if (li.textContent?.includes(divider)) out.push([]);
+            continue;
+          }
+          const km = re.exec(card.textContent ?? '')?.[1];
+          if (km) out[out.length - 1]?.push(Number(km.replace(',', '.')));
+        }
+        return out;
+      },
+      { distance: DISTANCE.source, divider: bg.Map.outsideMap },
+    );
+
+    expect(runs.flat().length).toBeGreaterThan(0);
+    for (const run of runs) {
+      expect(run).toEqual([...run].sort((a, b) => a - b));
+    }
+  });
+});
