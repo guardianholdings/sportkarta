@@ -11,7 +11,7 @@ import { FacilityDetailView } from '@/components/facility/facility-detail-view';
 import { FacilityLegendBlock } from '@/components/facility/facility-legend';
 import { facilityTitle, type LabelStrings } from '@/components/map/facility-label';
 import { ShareSheet } from '@/components/share/share-sheet';
-import { facilitySharePlace } from '@/lib/share/facility-place';
+import { facilitySharePlace, facilityShareTextKey } from '@/lib/share/facility-place';
 import { siteUrl } from '@/lib/seo';
 import { shareSheetStrings } from '@/lib/share/sheet-strings';
 import { FacilityClubBlock } from '@/components/clubs/facility-club-block';
@@ -255,7 +255,7 @@ export default async function FacilityPage({
               origin: siteUrl(),
               page: `/obekt/${slug}`,
               ref: slug,
-              text: tShareSheet('textFacility', {
+              text: tShareSheet(facilityShareTextKey(facility.access), {
                 place: facilitySharePlace(facility, labels),
               }),
             })}

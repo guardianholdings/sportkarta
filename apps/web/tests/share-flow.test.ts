@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
+import { facilityAccess } from '@sportkarta/db/schema';
 import { buildShare } from '@sportkarta/lib/share';
 import { createTranslator } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
@@ -13,7 +14,7 @@ import {
 } from '../components/share/share-flow';
 import { facilityTitle, type LabelStrings } from '../components/map/facility-label';
 import { placeLabel } from '../lib/geo';
-import { facilitySharePlace } from '../lib/share/facility-place';
+import { facilitySharePlace, facilityShareTextKey } from '../lib/share/facility-place';
 import bg from '../messages/bg.json';
 import en from '../messages/en.json';
 
@@ -306,12 +307,58 @@ describe('the facility share text', () => {
     ).toBe('Спортно съоръжение, София — свободна спортна площадка в POPS.');
   });
 
+  /**
+   * `textFacility` calls the place free. Live on 2026-10-14, the 75 public
+   * pages of restricted places said „свободна спортна площадка“ in their share
+   * text, next to their own „ограничен“ label and a JSON-LD
+   * `isAccessibleForFree: false`. Only `free` keeps that text; every other
+   * access value, today's and any added later, gets the neutral one.
+   */
+  it('calls only a free place free; every other access value gets the neutral text', () => {
+    const tBg = createTranslator({ locale: 'bg', messages: bg, namespace: 'ShareSheet' });
+    const tEn = createTranslator({ locale: 'en', messages: en, namespace: 'ShareSheet' });
+    const placeBg = facilitySharePlace(unnamed, labelsFor('bg'));
+    const placeEn = facilitySharePlace({ ...unnamed, municipalityName: 'Sofia' }, labelsFor('en'));
+
+    expect(facilityShareTextKey('free')).toBe('textFacility');
+    expect(tBg(facilityShareTextKey('free'), { place: placeBg })).toBe(
+      'Футбол, София — свободна спортна площадка в POPS.',
+    );
+    expect(tEn(facilityShareTextKey('free'), { place: placeEn })).toBe(
+      'Football, Sofia — a free sports facility on POPS.',
+    );
+
+    const others = facilityAccess.enumValues.filter((access) => access !== 'free');
+    expect(others).toEqual(['paid', 'restricted', 'school']);
+    for (const access of [...others, 'some-future-value']) {
+      expect(facilityShareTextKey(access)).toBe('textFacilityNeutral');
+      expect(tBg(facilityShareTextKey(access), { place: placeBg })).toBe(
+        'Футбол, София — спортна площадка в POPS.',
+      );
+      expect(tEn(facilityShareTextKey(access), { place: placeEn })).toBe(
+        'Football, Sofia — a sports facility on POPS.',
+      );
+    }
+  });
+
+  it('never calls a place free or open in the neutral text', () => {
+    expect(bg.ShareSheet.textFacilityNeutral).not.toMatch(/свободн|безплатн|достъп/i);
+    expect(en.ShareSheet.textFacilityNeutral).not.toMatch(/\b(?:free|open|public)\b/i);
+    for (const messages of [bg, en]) {
+      expect(messages.ShareSheet.textFacilityNeutral.startsWith('{place} — ')).toBe(true);
+    }
+  });
+
   it('is built through facilitySharePlace on the facility page, never from the slug', () => {
     const page = readFileSync(
       path.join(__dirname, '..', 'app', '[locale]', 'obekt', '[slug]', 'page.tsx'),
       'utf8',
     );
-    expect(page).toMatch(/textFacility', \{\s*place: facilitySharePlace\(/);
+    expect(page).toMatch(
+      /tShareSheet\(facilityShareTextKey\(facility\.access\), \{\s*place: facilitySharePlace\(/,
+    );
+    // The key comes from the place's access value, never the free text by default.
+    expect(page).not.toMatch(/tShareSheet\(\s*'textFacility/);
   });
 
   it('has no name-or-slug fallback anywhere a share, OG title or alt text is built', () => {
