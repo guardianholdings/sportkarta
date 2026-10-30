@@ -140,6 +140,11 @@ export async function applyCheckoutPaid(
            AND NOT EXISTS (SELECT 1 FROM club_reservations r
                             WHERE r.club_id = ch.club_id AND r.charge_id = ch.id
                               AND r.state IN ('expired', 'cancelled'))
+           -- Nor an event place (0053) released, given up in time or cancelled
+           -- with its event — even a charge an invoice kept alive.
+           AND NOT EXISTS (SELECT 1 FROM club_event_registrations er
+                            WHERE er.club_id = ch.club_id AND er.charge_id = ch.id
+                              AND er.state IN ('expired', 'cancelled'))
            FOR UPDATE OF ch
       `);
       if (!due.rows[0] || Number(due.rows[0].due_cents) < paid.amountCents) {
@@ -662,20 +667,7 @@ export async function releaseLapsedHolds(
   ).rows;
   if (candidates.length === 0) return 0;
   const ids = candidates.map((row) => String(row.id));
-  const charges = candidates
-    .filter((row) => row.charge_id !== null)
-    .map((row) => String(row.charge_id));
-  if (charges.length > 0) {
-    await tx.execute(sql`
-      SELECT id FROM club_checkouts
-       WHERE charge_id = ANY(${sql.param(charges)}::uuid[]) AND status = 'open'
-       ORDER BY id FOR UPDATE
-    `);
-    await tx.execute(sql`
-      SELECT id FROM club_charges WHERE id = ANY(${sql.param(charges)}::uuid[])
-       ORDER BY id FOR NO KEY UPDATE
-    `);
-  }
+  await lockHoldCharges(tx, chargeIdsOf(candidates));
   await tx.execute(sql`
     SELECT id FROM club_reservations WHERE id = ANY(${sql.param(ids)}::uuid[])
      ORDER BY id FOR UPDATE
@@ -687,29 +679,58 @@ export async function releaseLapsedHolds(
        AND NOT EXISTS (SELECT 1 FROM club_payments pp WHERE pp.charge_id = h.charge_id)
     RETURNING h.charge_id
   `);
-  const voided = released.rows
-    .filter((row) => row.charge_id !== null)
-    .map((row) => String(row.charge_id));
-  if (voided.length > 0) {
-    // Logged like any void, by the system, so the office sees why a debt went.
-    await tx.execute(sql`
-      WITH v AS (
-        UPDATE club_charges ch SET voided_at = now()
-         WHERE ch.id = ANY(${sql.param(voided)}::uuid[]) AND ch.voided_at IS NULL
-           AND NOT EXISTS (SELECT 1 FROM club_payments pp WHERE pp.charge_id = ch.id)
-        RETURNING ch.club_id, ch.id, ch.member_id
-      )
-      INSERT INTO club_audit (club_id, actor_kind, actor_id, action, subject_member_id, detail)
-      SELECT v.club_id, 'system', NULL, 'charge_voided', v.member_id,
-             jsonb_build_object('chargeId', v.id::text, 'reason', 'hold_expired')
-        FROM v
-    `);
-    await tx.execute(sql`
-      UPDATE club_checkouts SET status = 'expired', completed_at = now()
-       WHERE charge_id = ANY(${sql.param(voided)}::uuid[]) AND status = 'open'
-    `);
-  }
+  await voidHeldCharges(tx, chargeIdsOf(released.rows));
   return released.rows.length;
+}
+
+/** The charge ids of hold rows, those with one. */
+export function chargeIdsOf(rows: readonly Record<string, unknown>[]): string[] {
+  return rows
+    .filter((row) => row.charge_id !== null && row.charge_id !== undefined)
+    .map((row) => String(row.charge_id));
+}
+
+/**
+ * The first two steps of every hold release's lock order (applyCheckoutPaid's
+ * order: checkout → charge → the hold row, each set by id): the open
+ * checkouts of these charges, then the charges.
+ */
+export async function lockHoldCharges(tx: SqlRunner, charges: readonly string[]): Promise<void> {
+  if (charges.length === 0) return;
+  await tx.execute(sql`
+    SELECT id FROM club_checkouts
+     WHERE charge_id = ANY(${sql.param([...charges])}::uuid[]) AND status = 'open'
+     ORDER BY id FOR UPDATE
+  `);
+  await tx.execute(sql`
+    SELECT id FROM club_charges WHERE id = ANY(${sql.param([...charges])}::uuid[])
+     ORDER BY id FOR NO KEY UPDATE
+  `);
+}
+
+/**
+ * The charges of released holds: voided (when nothing was paid on them),
+ * logged like any void by the system so the office sees why a debt went, and
+ * their open checkouts closed — under the locks lockHoldCharges took.
+ */
+export async function voidHeldCharges(tx: SqlRunner, charges: readonly string[]): Promise<void> {
+  if (charges.length === 0) return;
+  await tx.execute(sql`
+    WITH v AS (
+      UPDATE club_charges ch SET voided_at = now()
+       WHERE ch.id = ANY(${sql.param([...charges])}::uuid[]) AND ch.voided_at IS NULL
+         AND NOT EXISTS (SELECT 1 FROM club_payments pp WHERE pp.charge_id = ch.id)
+      RETURNING ch.club_id, ch.id, ch.member_id
+    )
+    INSERT INTO club_audit (club_id, actor_kind, actor_id, action, subject_member_id, detail)
+    SELECT v.club_id, 'system', NULL, 'charge_voided', v.member_id,
+           jsonb_build_object('chargeId', v.id::text, 'reason', 'hold_expired')
+      FROM v
+  `);
+  await tx.execute(sql`
+    UPDATE club_checkouts SET status = 'expired', completed_at = now()
+     WHERE charge_id = ANY(${sql.param([...charges])}::uuid[]) AND status = 'open'
+  `);
 }
 
 /** The worker's sweep: every lapsed hold, in one transaction. */

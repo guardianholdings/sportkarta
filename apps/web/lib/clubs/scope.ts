@@ -73,7 +73,10 @@ export type ScopeAlias =
   | 'bc'
   | 'au'
   | 'th'
-  | 'fb';
+  | 'fb'
+  | 'ev'
+  | 'et'
+  | 'er';
 
 function staffHolds(actor: ClubActor, roles: readonly ClubRole[]): SQL {
   return sql`EXISTS (SELECT 1 FROM club_staff sc

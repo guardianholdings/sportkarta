@@ -14,6 +14,7 @@ import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Link } from '@/i18n/navigation';
 import { requireUser } from '@/lib/auth-session';
 import { requireClubsEnabled } from '@/lib/clubs/club-session';
+import { memberEventPlaces, publicEvents } from '@/lib/clubs/events';
 import { feedbackToGive } from '@/lib/clubs/feedback';
 import { memberUnreadCount } from '@/lib/clubs/inbox';
 import { clubSportLabeler } from '@/lib/clubs/labels';
@@ -100,21 +101,31 @@ export default async function ClubPortalPage({
   // Push on this device (0051): offered only while POPS runs push.
   const pushKey = pushPublicKey();
   const { club, link, records, classes } = view;
-  const [contact, takesPayments, reservations, services, walletOn, credit, unread, toRate] =
-    await Promise.all([
-      link?.status === 'active' ? ownContact(getDb(), user.id, club.id) : Promise.resolve(null),
-      club.live ? clubTakesPayments(club.id) : Promise.resolve(false),
-      link?.status === 'active'
-        ? memberReservations(user.id, club.id, locale)
-        : Promise.resolve([]),
-      publicServices(club.id, locale),
-      clubTakesWallet(club.id),
-      link?.status === 'active'
-        ? portalWalletBalances(user.id, club.id)
-        : Promise.resolve<Record<string, number>>({}),
-      link?.status === 'active' ? memberUnreadCount(user.id, club.id) : Promise.resolve(0),
-      link?.status === 'active' ? feedbackToGive(user.id, club.id, locale) : Promise.resolve([]),
-    ]);
+  const [
+    contact,
+    takesPayments,
+    reservations,
+    services,
+    walletOn,
+    credit,
+    unread,
+    toRate,
+    eventPlaces,
+    events,
+  ] = await Promise.all([
+    link?.status === 'active' ? ownContact(getDb(), user.id, club.id) : Promise.resolve(null),
+    club.live ? clubTakesPayments(club.id) : Promise.resolve(false),
+    link?.status === 'active' ? memberReservations(user.id, club.id, locale) : Promise.resolve([]),
+    publicServices(club.id, locale),
+    clubTakesWallet(club.id),
+    link?.status === 'active'
+      ? portalWalletBalances(user.id, club.id)
+      : Promise.resolve<Record<string, number>>({}),
+    link?.status === 'active' ? memberUnreadCount(user.id, club.id) : Promise.resolve(0),
+    link?.status === 'active' ? feedbackToGive(user.id, club.id, locale) : Promise.resolve([]),
+    link?.status === 'active' ? memberEventPlaces(user.id, club.id, locale) : Promise.resolve([]),
+    publicEvents(club.id, locale, 5),
+  ]);
   const now = Date.now();
   const booked = new Map<string, Set<string>>();
   for (const record of records) {
@@ -510,6 +521,74 @@ export default async function ClubPortalPage({
               <Link href={`/klub/${slug}/rezervatsiya`} className={pill}>
                 {t('reserveCta')}
               </Link>
+            )}
+          </section>
+        )}
+
+        {(eventPlaces.length > 0 || events.length > 0) && (
+          <section className={section} aria-labelledby="events-h">
+            <h2 id="events-h" className="text-h4 font-bold text-ink">
+              {t('eventsTitle')}
+            </h2>
+            {eventPlaces.length > 0 && (
+              <ul className="divide-y divide-line">
+                {eventPlaces.map((place) => (
+                  <li key={place.id} className="flex flex-wrap items-center gap-3 py-2">
+                    <span className="min-w-0 flex-1 text-body-sm">
+                      <Link
+                        href={`/klub/${slug}/sabitie/${place.eventId}`}
+                        className="font-medium text-link hover:text-link-hover"
+                      >
+                        {place.eventTitle}
+                      </Link>
+                      {records.length > 1 && (
+                        <span className="text-text-muted"> · {place.memberName}</span>
+                      )}
+                      <span className="block text-caption text-text-muted">
+                        {formatDateTime(place.startsAt, locale)} · {place.ticketName}
+                      </span>
+                      {place.state === 'held' && place.holdExpiresAt && (
+                        <span className="block text-caption text-text-muted">
+                          {t('eventPayBy', { time: formatDateTime(place.holdExpiresAt, locale) })}
+                        </span>
+                      )}
+                    </span>
+                    <Badge
+                      tone={
+                        place.state === 'confirmed'
+                          ? 'success'
+                          : place.state === 'held'
+                            ? 'warning'
+                            : 'info'
+                      }
+                    >
+                      {place.position !== null
+                        ? t('eventPosition', { position: place.position })
+                        : t(`eventState.${place.state}`)}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {events.length > 0 && (
+              <ul className="space-y-1">
+                {events
+                  .filter((event) => !eventPlaces.some((p) => p.eventId === event.id))
+                  .map((event) => (
+                    <li key={event.id} className="text-body-sm">
+                      <Link
+                        href={`/klub/${slug}/sabitie/${event.id}`}
+                        className="font-semibold text-link hover:text-link-hover"
+                      >
+                        {event.title}
+                      </Link>
+                      <span className="text-caption text-text-muted">
+                        {' '}
+                        · {formatDateTime(event.startsAt, locale)}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
             )}
           </section>
         )}

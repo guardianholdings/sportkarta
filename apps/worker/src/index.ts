@@ -21,6 +21,7 @@ import {
   CLUB_REMINDERS_QUEUE,
   CLUB_WEEKLY_QUEUE,
   type ClubMaterializeJob,
+  type ClubNotifyJob,
   type ClubPaymentEventJob,
 } from '@sportkarta/lib/clubs';
 import { assertDelivered, createMailer } from '@sportkarta/lib/email';
@@ -870,8 +871,14 @@ async function main(): Promise<void> {
           }
         } else {
           const swept = await sweepClubPaymentEvents();
-          if (swept > 0)
-            console.log(`[worker] ${CLUB_PAYMENT_EVENT_QUEUE} sweep: ${String(swept)}`);
+          if (swept.done > 0)
+            console.log(`[worker] ${CLUB_PAYMENT_EVENT_QUEUE} sweep: ${String(swept.done)}`);
+          // Places that moved up into a seat a lapsed hold freed (0053): told
+          // through club.notify like every other notice, ids only.
+          if (swept.promoted.length > 0) {
+            const job: ClubNotifyJob = { kind: 'event_promoted', registrationIds: swept.promoted };
+            await boss.send(CLUB_NOTIFY_QUEUE, job);
+          }
         }
         const receipts = await runClubReceipts(clubMail);
         await reportMailFailures(`${CLUB_PAYMENT_EVENT_QUEUE}/receipt`, receipts);

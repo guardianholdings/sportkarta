@@ -13,6 +13,7 @@ import {
   clubForMail,
   clubWeekFigures,
   dueClubReminders,
+  eventPlacesForMail,
   expiryCandidates,
   getDb,
   inboxNoticeOf,
@@ -27,6 +28,7 @@ import {
   staffRecipients,
   trainerClassesOn,
   type ClubBookingMail,
+  type ClubEventPlaceMail,
   type ClubMailClub,
   type ClubMemberRecipient,
   type StaffRecipient,
@@ -168,6 +170,13 @@ interface MemberMail {
   where?: string;
   /** Where in the portal the link opens (0052: a thread); the portal's front page by default. */
   portalPath?: string;
+  /**
+   * Lines under the lead, each a ClubEmail path and its values, filled in the
+   * RECIPIENT's language (0053: what an event place now is).
+   */
+  detailLines?: { key: string; values: Record<string, string | number> }[];
+  /** The push text's ClubEmail path, when not `push.<kind>` (0053: an offer to pay). */
+  pushKey?: string;
 }
 
 /**
@@ -215,7 +224,10 @@ async function sendOtherChannels(
           ledgerMemberId: mail.memberId,
           payload: {
             title: recipient.clubName,
-            body: fillClubTemplate(pick(recipient.locale, `push.${mail.kind}`), values),
+            body: fillClubTemplate(
+              pick(recipient.locale, mail.pushKey ?? `push.${mail.kind}`),
+              values,
+            ),
             url: `${recipient.locale === 'en' ? '/en' : ''}/klub/${recipient.clubSlug}/az${mail.portalPath ?? ''}`,
             tag: mail.key.slice(0, 64),
           },
@@ -278,6 +290,9 @@ function memberMessage(recipient: ClubMemberRecipient, mail: MemberMail, options
     values: { name: recipient.aboutName, ...(mail.values ?? {}) },
     startsAtLocal: mail.startsAtLocal,
     where: mail.where,
+    details: mail.detailLines?.map((line) =>
+      fillClubTemplate(pick(recipient.locale, line.key), line.values),
+    ),
     actionUrl: recipient.linked
       ? `${base}/klub/${recipient.clubSlug}/az${mail.portalPath ?? ''}`
       : `${base}/klub/${recipient.clubSlug}`,
@@ -339,6 +354,89 @@ async function deliverBookings(
     bookings,
     async (booking) =>
       stillApplies(kind, booking) ? sendToMember(bookingMail(kind, booking), options) : 'skipped',
+    { job: 'club.notify' },
+  );
+}
+
+/**
+ * An event place's notice (0053), sent only while it is still true: a
+ * registration while the place is alive, a promotion while it holds a seat,
+ * a cancellation for a place the club's cancelled event took with it.
+ */
+function eventPlaceApplies(
+  kind: 'event_registered' | 'event_promoted' | 'event_cancelled',
+  place: ClubEventPlaceMail,
+): boolean {
+  switch (kind) {
+    // A held place is news only while its hold runs — an offer whose time is
+    // up (not yet swept) is not sent with a deadline in the past.
+    case 'event_registered':
+      return (
+        place.eventStatus === 'published' &&
+        (['confirmed', 'waitlisted'].includes(place.state) ||
+          (place.state === 'held' && place.holdLive))
+      );
+    case 'event_promoted':
+      return (
+        place.eventStatus === 'published' &&
+        (place.state === 'confirmed' || (place.state === 'held' && place.holdLive))
+      );
+    case 'event_cancelled':
+      return place.state === 'cancelled' && place.cancelKind === 'club';
+  }
+}
+
+/** What the place is now, in a line: a seat, a seat to pay for by then, or a place in line. */
+function eventPlaceLine(
+  kind: 'event_registered' | 'event_promoted' | 'event_cancelled',
+  place: ClubEventPlaceMail,
+): { key: string; values: Record<string, string | number> }[] {
+  if (kind === 'event_cancelled') return [{ key: 'event.refund', values: {} }];
+  if (place.state === 'held') {
+    return [
+      {
+        key: kind === 'event_promoted' ? 'event.offered' : 'event.held',
+        values: { until: shortWhen(place.holdEndsLocal ?? undefined) },
+      },
+    ];
+  }
+  if (place.state === 'waitlisted') {
+    return [{ key: 'event.waitlisted', values: { position: place.position ?? 1 } }];
+  }
+  return [{ key: 'event.confirmed', values: {} }];
+}
+
+async function deliverEventPlaces(
+  kind: 'event_registered' | 'event_promoted' | 'event_cancelled',
+  registrationIds: string[],
+  options: ClubMailOptions,
+): Promise<DeliveryReport> {
+  const places = await eventPlacesForMail(db(), registrationIds);
+  return deliverEach(
+    places,
+    async (place) =>
+      eventPlaceApplies(kind, place)
+        ? sendToMember(
+            {
+              kind,
+              clubId: place.clubId,
+              memberId: place.memberId,
+              key: dedupeKey({ kind, registrationId: place.registrationId }),
+              values: {
+                title: place.title,
+                ticket: place.ticketName,
+                until: shortWhen(place.holdEndsLocal ?? undefined),
+              },
+              startsAtLocal: place.startsAtLocal,
+              where: place.locationName,
+              detailLines: eventPlaceLine(kind, place),
+              ...(kind === 'event_promoted' && place.state === 'held'
+                ? { pushKey: 'push.event_offered' }
+                : {}),
+            },
+            options,
+          )
+        : 'skipped',
     { job: 'club.notify' },
   );
 }
@@ -480,6 +578,17 @@ export async function runClubNotify(
       return {
         kind: job.kind,
         report: await deliverBookings('booking_promoted', job.bookingIds, options),
+      };
+    case 'event_registered':
+      return {
+        kind: job.kind,
+        report: await deliverEventPlaces(job.kind, [job.registrationId], options),
+      };
+    case 'event_promoted':
+    case 'event_cancelled':
+      return {
+        kind: job.kind,
+        report: await deliverEventPlaces(job.kind, job.registrationIds, options),
       };
     case 'class_cancelled': {
       const bookings = await cancelledOccurrenceBookings(db(), job.occurrenceIds);

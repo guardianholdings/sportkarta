@@ -245,6 +245,11 @@ export async function portalView(
         FROM club_charge_balances cb
        WHERE cb.club_id = ${clubId}::uuid AND cb.member_id = ANY(${sql.param(ids)}::uuid[])
          AND cb.status IN ('open', 'partial', 'overdue') AND cb.due_cents > 0
+         -- Not a charge an invoice kept alive for a place that is gone (0053):
+         -- the club corrects it with a credit note; nothing to pay.
+         AND NOT EXISTS (SELECT 1 FROM club_event_registrations dead
+                          WHERE dead.club_id = cb.club_id AND dead.charge_id = cb.charge_id
+                            AND dead.state IN ('cancelled', 'expired'))
        ORDER BY cb.due_on, cb.charge_id
     `),
     db.execute(sql`

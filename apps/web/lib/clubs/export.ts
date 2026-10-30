@@ -31,6 +31,7 @@ export const CLUB_EXPORT_DATASETS = [
   'messages',
   'conversations',
   'feedback',
+  'events',
   'audit',
 ] as const;
 export type ClubExportDataset = (typeof CLUB_EXPORT_DATASETS)[number];
@@ -350,6 +351,34 @@ const DATASETS: Record<ClubExportDataset, Dataset> = {
         LEFT JOIN club_staff s ON s.club_id = fb.club_id AND s.user_id = fb.instructor_user_id
        WHERE ${scope}
        ORDER BY fb.created_at, fb.id`,
+  },
+  /** Every place at the club's events (0053), the ended ones included; an erased client's is blank. */
+  events: {
+    permission: 'data.export',
+    alias: 'er',
+    header: [
+      'event',
+      'kind',
+      'starts_at',
+      'ticket',
+      'member',
+      'team',
+      'state',
+      'price',
+      'registered_at',
+      'cancelled_at',
+    ],
+    query: (scope) => sql`
+      SELECT ARRAY[ev.title_bg, ev.kind, ${STAMP(sql`ev.starts_at`)}, t.name_bg,
+             coalesce(m.display_name, ''), coalesce(er.team_name, ''), er.state,
+             ${EUR(sql`er.price_cents`)}, ${STAMP(sql`er.created_at`)},
+             coalesce(${STAMP(sql`er.cancelled_at`)}, '')]::text[] AS r
+        FROM club_event_registrations er
+        JOIN club_events ev ON ev.club_id = er.club_id AND ev.id = er.event_id
+        JOIN club_event_tickets t ON t.club_id = er.club_id AND t.id = er.ticket_id
+        LEFT JOIN club_members m ON m.club_id = er.club_id AND m.id = er.member_id
+       WHERE ${scope}
+       ORDER BY ev.starts_at, er.seq`,
   },
   classes: {
     permission: 'data.export',

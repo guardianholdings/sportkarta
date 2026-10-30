@@ -845,7 +845,8 @@
       "clubPortal": "Sign in to see your membership and bookings at the club.",
       "clubOffice": "Sign in to open the club's office.",
       "clubPurchase": "Sign in to buy the membership online.",
-      "clubInquiry": "Sign in to send the club an inquiry."
+      "clubInquiry": "Sign in to send the club an inquiry.",
+      "clubEvent": "Sign in to register for the event."
     }
   },
   "AuthEmail": {
@@ -3043,7 +3044,8 @@
       "fee": "fees",
       "other": "other",
       "reservation": "bookings",
-      "wallet": "credit"
+      "wallet": "credit",
+      "event": "events"
     },
     "feature": {
       "reports_advanced": "advanced reports",
@@ -3193,7 +3195,8 @@
       "invoices": "Invoices",
       "messages": "Messages",
       "inbox": "Inbox",
-      "feedback": "Ratings"
+      "feedback": "Ratings",
+      "events": "Events"
     },
     "map": "Back to the map",
     "profile": "My profile",
@@ -3463,7 +3466,29 @@
       "already_rated": "You have already rated this.",
       "not_attended": "You can rate only a class you came to.",
       "too_many_messages": "You have sent many messages today. Please try again tomorrow.",
-      "minor_record": "This record is a minor’s — the club writes to the parent or guardian."
+      "minor_record": "This record is a minor’s — the club writes to the parent or guardian.",
+      "title_required": "Enter a title.",
+      "title_too_long": "The title is too long.",
+      "sport_required": "Choose the tournament’s sport.",
+      "resource_invalid": "Choose a room at the same location.",
+      "event_span_invalid": "Check the dates: the end comes after the start, within 60 days, and the event is not over.",
+      "event_window_invalid": "Check the registration window: it closes after it opens and no later than the event ends.",
+      "member_price_invalid": "The member price cannot be higher than the price.",
+      "sort_invalid": "Invalid order.",
+      "ticket_invalid": "Choose a ticket.",
+      "member_invalid": "Choose a client.",
+      "team_name_required": "Enter the team’s name.",
+      "team_name_too_long": "The team name is too long.",
+      "online_unavailable": "The club does not take online payments — connect payments in the settings.",
+      "resource_taken": "The room is taken at that time — move the booking or class, or choose another room.",
+      "capacity_below_taken": "The places cannot be fewer than those already taken.",
+      "tickets_too_many": "The maximum number of tickets is reached.",
+      "no_tickets": "Add at least one ticket to publish.",
+      "closed": "Registration for this event is not open.",
+      "payment_unavailable": "The club is not taking online payments right now.",
+      "hold_pending": "A place is awaiting payment.",
+      "already_registered": "This client already has a place at this event.",
+      "team_required": "Enter the team’s name."
     }
   },
   "ClubSettings": {
@@ -3975,7 +4000,12 @@
       "lead_updated": "Prospect updated",
       "lead_lost": "Prospect dropped out",
       "lead_reopened": "Prospect back on the list",
-      "feedback_settings_changed": "Google review link"
+      "feedback_settings_changed": "Google review link",
+      "event_saved": "Event saved",
+      "event_published": "Event published",
+      "event_cancelled": "Event cancelled",
+      "event_registered": "Event registration",
+      "event_registration_cancelled": "Event place cancelled"
     }
   },
   "ClubSales": {
@@ -4459,7 +4489,15 @@
     "talkTitle": "Messages and ratings",
     "messages": "Messages",
     "messagesUnread": "{count, plural, one {Messages · # new} other {Messages · # new}}",
-    "rateCount": "Rate ({count})"
+    "rateCount": "Rate ({count})",
+    "eventsTitle": "Events",
+    "eventPayBy": "Pay by {time}",
+    "eventPosition": "No. {position} on the waitlist",
+    "eventState": {
+      "held": "Awaiting payment",
+      "confirmed": "Confirmed",
+      "waitlisted": "On the waitlist"
+    }
   },
   "ClubApply": {
     "title": "Register a club on POPS",
@@ -4578,7 +4616,10 @@
       "automation": "{subject}",
       "inbox_message": "New message from {name}",
       "inbox_reply": "New reply from {club}",
-      "leads_due": "Prospects to call today: {count}"
+      "leads_due": "Prospects to call today: {count}",
+      "event_registered": "Registered for “{title}”",
+      "event_promoted": "A place freed up — “{title}”",
+      "event_cancelled": "Event cancelled: “{title}”"
     },
     "lead": {
       "staff_invite": "{club} invites you to join its team as {role}. The invitation is valid for 14 days.",
@@ -4605,7 +4646,10 @@
       "automation": "{body}",
       "inbox_message": "{name} wrote to you. Read and reply in the club’s inbox.",
       "inbox_reply": "{club} replied to you. Read the reply in the club’s portal.",
-      "leads_due": "You have prospects to call today."
+      "leads_due": "You have prospects to call today.",
+      "event_registered": "{name} is registered for “{title}” ({ticket}).",
+      "event_promoted": "A place freed up for {name} at “{title}” ({ticket}).",
+      "event_cancelled": "The club cancelled “{title}”. {name}’s place ({ticket}) is cancelled."
     },
     "action": {
       "staff_invite": "Accept the invitation",
@@ -4632,7 +4676,10 @@
       "automation": "Go to the club",
       "inbox_message": "Open the conversation",
       "inbox_reply": "Read the reply",
-      "leads_due": "Open the list"
+      "leads_due": "Open the list",
+      "event_registered": "To the event",
+      "event_promoted": "To the event",
+      "event_cancelled": "My club"
     },
     "rosterLine": "{time} {title}: {going} of {capacity} booked",
     "rosterLineOpen": "{time} {title}: {going} booked",
@@ -4669,7 +4716,10 @@
       "class_cancelled": "Class cancelled: {title}, {when}.",
       "reminder_24h": "Reminder: {title}, {when}.",
       "membership_expiring": "Your plan “{plan}” ends on {date}.",
-      "inbox_reply": "The club replied to you."
+      "inbox_reply": "The club replied to you.",
+      "event_promoted": "A place freed up — {title}, {when}.",
+      "event_cancelled": "Event cancelled: {title}, {when}.",
+      "event_offered": "A place freed up — {title}. Pay by {until}, or it goes to the next in line."
     },
     "sms": {
       "reminder_24h": "Reminder — {title}, {when}.",
@@ -4692,6 +4742,13 @@
     "leads": {
       "uncalled": "New, nobody has called yet: {count}",
       "planned": "With a next step due today or earlier: {count}"
+    },
+    "event": {
+      "confirmed": "The place is confirmed.",
+      "held": "The place is held until {until}. Pay from the portal to confirm it.",
+      "offered": "The place is held until {until}. Pay from the portal to confirm it — otherwise it goes to the next in line.",
+      "waitlisted": "The event is full — you are on the waitlist, No. {position}. We will write if a place frees up.",
+      "refund": "If you paid, the club will refund you."
     }
   },
   "ClubReports": {
@@ -4855,7 +4912,8 @@
     "offerNewOnly": "for new clients",
     "offerUntil": "until {date}",
     "inquiry": "Send an inquiry",
-    "rating": "{average} out of 5 · {count, plural, one {# rating} other {# ratings}}"
+    "rating": "{average} out of 5 · {count, plural, one {# rating} other {# ratings}}",
+    "eventsTitle": "Events"
   },
   "ClubPurchase": {
     "title": "Buy online",
@@ -4948,7 +5006,8 @@
       "quantity_conflict": "At some times more bookings are already made than the new number allows. Cancel or move some of them first.",
       "room_in_use": "A class at this location uses this facility. Change the class's room first.",
       "resource_busy": "This facility has upcoming bookings, classes or closures. Cancel or move them first."
-    }
+    },
+    "eventBlock": "Closed for an event"
   },
   "ClubServices": {
     "title": "Services",
@@ -5033,7 +5092,8 @@
     "blockReason": {
       "training": "training",
       "other": "closed",
-      "time_off": "time off"
+      "time_off": "time off",
+      "event": "event"
     },
     "cancel": "Cancel",
     "cancelConfirm": "The booking will be cancelled and any unpaid amount voided. Continue?",
@@ -5672,6 +5732,213 @@
       "commentLabel": "Comment",
       "commentHint": "Optional. Only the club sees it.",
       "send": "Send the rating"
+    }
+  },
+  "ClubEvents": {
+    "title": "Events",
+    "intro": "Events, camps, workshops and tournaments — with tickets, places, a waitlist and online payment.",
+    "new": "New event",
+    "empty": "No events here.",
+    "filters": {
+      "upcoming": "Upcoming",
+      "drafts": "Drafts",
+      "past": "Past",
+      "cancelled": "Cancelled"
+    },
+    "kinds": {
+      "event": "Event",
+      "camp": "Camp",
+      "workshop": "Workshop",
+      "tournament": "Tournament"
+    },
+    "draft": "Draft",
+    "cancelled": "Cancelled",
+    "private": "Not public",
+    "seats": "{taken} of {capacity} places",
+    "seatsOpen": "{taken, plural, one {# registered} other {# registered}}",
+    "waitlisted": "{count, plural, one {# on the waitlist} other {# on the waitlist}}",
+    "outcome": {
+      "saved": "Saved.",
+      "ticket_saved": "The ticket is saved.",
+      "published": "The event is published — registration is open.",
+      "event_cancelled": "The event is cancelled. Everyone registered is told; what was paid is listed under “Payments” to refund.",
+      "registered": "The place is registered.",
+      "registered_waitlist": "The event is full — put on the waitlist.",
+      "place_cancelled": "The place is cancelled.",
+      "place_cancelled_refund": "The place is cancelled. What was paid is listed under “Payments” to refund.",
+      "event_cancelled_invoiced": "The event is cancelled. Some places have an invoice — issue a credit note under “Invoices”, then void the charge; what was paid is listed under “Payments” to refund.",
+      "place_cancelled_invoice": "The place is cancelled. The charge has an invoice — issue a credit note under “Invoices”, then void it."
+    },
+    "manage": {
+      "title": "Manage",
+      "publish": "Publish",
+      "publicPage": "Public page",
+      "cancel": "Cancel the event",
+      "cancelConfirm": "Cancel the event? {count, plural, =0 {Nobody is registered.} one {# place will be cancelled and the person told.} other {# places will be cancelled and the people told.}}",
+      "needTicket": "Add at least one ticket to publish.",
+      "publishHint": "Once published, registration opens and the room (if chosen) is closed for the event."
+    },
+    "tickets": {
+      "title": "Tickets",
+      "none": "No tickets yet.",
+      "archived": "off sale",
+      "memberPriceShort": "members {amount}",
+      "edit": "Edit",
+      "save": "Save",
+      "archive": "Stop selling",
+      "archiveConfirm": "Stop selling this ticket? Places already taken stay.",
+      "add": "Add a ticket",
+      "hint": "The member price applies to clients with an active abonnement on the day of the event. Price changes do not affect places already taken.",
+      "create": "Add",
+      "nameBg": "Name",
+      "nameEn": "Name in English (optional)",
+      "price": "Price (€)",
+      "memberPrice": "Member price (€, optional)",
+      "capacity": "Places on this ticket (optional)",
+      "audience": "Who for"
+    },
+    "places": {
+      "title": "Registered",
+      "none": "Nobody registered yet.",
+      "line": "Waitlist",
+      "ended": "Cancelled and expired ({count})",
+      "erased": "Erased client",
+      "team": "team “{team}”",
+      "owed": "owes {amount}",
+      "holdUntil": "awaiting payment until {when}",
+      "position": "No. {position} on the waitlist",
+      "state": {
+        "held": "Awaiting payment",
+        "confirmed": "Confirmed",
+        "waitlisted": "On the waitlist",
+        "cancelled": "Cancelled",
+        "late_cancelled": "Cancelled late",
+        "expired": "Expired"
+      },
+      "cancel": "Cancel",
+      "cancelConfirm": "Cancel this place? An unpaid charge is voided; money paid is listed to refund."
+    },
+    "desk": {
+      "title": "Register a client",
+      "member": "Client",
+      "memberPick": "Choose a client",
+      "minor": "child",
+      "ticket": "Ticket",
+      "team": "Team",
+      "hint": "The front desk can register outside the registration window. If the event is full, the client goes on the waitlist.",
+      "submit": "Register"
+    },
+    "form": {
+      "titleNew": "New event",
+      "titleEdit": "Event settings",
+      "needLocation": "Add a location in the settings first.",
+      "toSettings": "To the settings",
+      "draftHint": "The event is saved as a draft. Add tickets and publish it.",
+      "create": "Create a draft",
+      "save": "Save",
+      "kind": "Kind",
+      "kinds": {
+        "event": "Event",
+        "camp": "Camp",
+        "workshop": "Workshop",
+        "tournament": "Tournament"
+      },
+      "sport": "Sport",
+      "sportNone": "No sport",
+      "sportHint": "Required for a tournament — ratings are per sport.",
+      "titleBg": "Title",
+      "titleEn": "Title in English (optional)",
+      "descriptionBg": "Description",
+      "descriptionEn": "Description in English (optional)",
+      "location": "Location",
+      "resource": "Room or court (optional)",
+      "resourceNone": "None",
+      "resourceHint": "The chosen room is closed for bookings for the event’s duration.",
+      "when": "When",
+      "startDate": "Start date",
+      "startTime": "Start time",
+      "endDate": "End date",
+      "endTime": "End time",
+      "window": "Registration (optional)",
+      "opensDate": "Opens on",
+      "opensTime": "at",
+      "closesDate": "Closes on",
+      "closesTime": "at",
+      "windowHint": "Without dates, registration is open from publication until the event starts.",
+      "capacity": "Places",
+      "capacityHint": "Empty — no limit.",
+      "payment": "Payment",
+      "payments": {
+        "desk": "Pay at the front desk",
+        "online_optional": "Online or at the front desk",
+        "online_required": "Online payment only"
+      },
+      "cancelHours": "Free cancellation until (hours before the start)",
+      "cancelHoursHint": "A later cancellation keeps the fee. The deadline in force at registration applies.",
+      "teamEvent": "Team event — registration asks for a team name",
+      "public": "Public — shown on the club’s page"
+    },
+    "public": {
+      "cancelled": "The club cancelled this event.",
+      "closed": "Registration is not open.",
+      "signIn": "Sign in to register",
+      "ticket": "Ticket",
+      "free": "Free",
+      "seatsOpen": "places available",
+      "lineOnly": "waitlist only",
+      "seatsLeft": "{count, plural, one {# place left} other {# places left}}",
+      "forWhom": "Who for",
+      "forMe": "Me",
+      "team": "Team name",
+      "payOnlineNow": "You pay online straight away — your place is held while you pay.",
+      "payUnavailable": "The club is not taking online payments right now.",
+      "payOnlineLater": "You can pay online from the portal or at the front desk.",
+      "payAtDesk": "You pay at the front desk.",
+      "register": "Register",
+      "joinLine": "Join the waitlist",
+      "when": "When",
+      "where": "Where",
+      "seatsTitle": "Places",
+      "terms": "Terms",
+      "cancelHours": "free cancellation until {hours} hours before the start",
+      "closes": "registration closes on {when}",
+      "mine": "Your places",
+      "payBy": "Pay by {when}, or the place goes to the next in line.",
+      "pay": "Pay {amount}",
+      "cancelConfirm": "Cancel the place?",
+      "cancelLateConfirm": "The deadline has passed — the fee stays. Cancel the place?",
+      "cancel": "Cancel",
+      "ics": "Add to calendar",
+      "more": "See and register",
+      "outcome": {
+        "registered": "You are registered. A confirmation is on its way by e-mail.",
+        "registered_waitlist": "The event is full — you are on the waitlist. We will write if a place frees up.",
+        "place_cancelled": "The place is cancelled.",
+        "place_cancelled_late": "The place is cancelled after the deadline — the fee stays.",
+        "generic": "Registration did not go through. Please try again.",
+        "rate_limited": "Too many attempts. Please try again shortly.",
+        "closed": "Registration for this event is not open.",
+        "audience_mismatch": "This ticket is not for this age group.",
+        "claim_first": "The club already has a record with your e-mail. Link it from “My clubs” and try again.",
+        "link_pending": "Your link with the club is awaiting confirmation.",
+        "payment_unavailable": "The club is not taking online payments right now.",
+        "hold_pending": "You have a place awaiting payment. Pay for it or cancel it before reserving another.",
+        "already_registered": "This person already has a place at this event.",
+        "team_required": "Enter the team’s name.",
+        "team_name_required": "Enter the team’s name.",
+        "team_name_too_long": "The team name is too long.",
+        "ticket_invalid": "Choose a ticket.",
+        "member_invalid": "Choose who the place is for.",
+        "not_allowed": "This is not possible.",
+        "not_found": "We could not find this place.",
+        "payment_not_allowed": "This payment is no longer possible.",
+        "payment_too_small": "The amount is too small to pay online — please pay at the front desk.",
+        "payment_provider_error": "The payment page did not open. Please try again.",
+        "payment_in_progress": "A payment is already under way in another window.",
+        "payment_hold_ending": "The place will be released soon — pay on the open payment page or at the front desk.",
+        "place_cancelled_invoice": "The place is cancelled. The club will issue a credit note and refund what you paid."
+      },
+      "forName": "For: {name}"
     }
   }
 }

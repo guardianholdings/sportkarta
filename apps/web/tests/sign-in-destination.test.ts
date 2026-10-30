@@ -33,6 +33,9 @@ describe('signInReason — /vhod says why the visitor is there', () => {
     expect(signInReason('/klub/zala-sila/trenirovka/abc')).toBe('clubPortal');
     expect(signInReason('/klub/zala-sila/kupi/abc')).toBe('clubPurchase');
     expect(signInReason('/klub/zala-sila/zapitvane')).toBe('clubInquiry');
+    expect(signInReason('/klub/zala-sila/sabitie/0b6f5c56-2f0e-4f4e-9a4f-6f6b1a7f8e01')).toBe(
+      'clubEvent',
+    );
     expect(signInReason('/klub/zala-sila/rezervatsiya')).toBe('clubPortal');
     expect(signInReason('/klub/zala-sila/tablo')).toBe('clubOffice');
     // A club's public page needs no account, so it gives no reason.

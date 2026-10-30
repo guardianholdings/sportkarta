@@ -6,7 +6,7 @@ import type { IsoDate } from './dates.js';
  * every list here equal to its constraint, so the two copies cannot drift.
  */
 
-/** club_audit_action_known (0039, widened in 0045, 0046, 0048, 0049, 0050 and 0051). */
+/** club_audit_action_known (0039, widened in 0045, 0046, 0048–0053). */
 export const CLUB_AUDIT_ACTIONS = [
   'club_applied',
   'settings_changed',
@@ -96,6 +96,11 @@ export const CLUB_AUDIT_ACTIONS = [
   'lead_lost',
   'lead_reopened',
   'feedback_settings_changed',
+  'event_saved',
+  'event_published',
+  'event_cancelled',
+  'event_registered',
+  'event_registration_cancelled',
 ] as const;
 export type ClubAuditAction = (typeof CLUB_AUDIT_ACTIONS)[number];
 
@@ -128,7 +133,7 @@ export type ClubPaymentMethod = (typeof CLUB_PAYMENT_METHODS)[number];
 /** Every value of club_payments_method_known, the provider's included. */
 export const CLUB_PAYMENT_METHODS_ALL = [...CLUB_PAYMENT_METHODS, 'card_online'] as const;
 
-/** club_charges_kind_known (0041). */
+/** club_charges_kind_known (0041, widened in 0048, 0050 and 0053). */
 export const CLUB_CHARGE_KINDS = [
   'membership',
   'drop_in',
@@ -136,6 +141,7 @@ export const CLUB_CHARGE_KINDS = [
   'fee',
   'reservation',
   'wallet',
+  'event',
   'other',
 ] as const;
 export type ClubChargeKind = (typeof CLUB_CHARGE_KINDS)[number];
@@ -152,7 +158,7 @@ export type ClubPlanAudience = (typeof CLUB_PLAN_AUDIENCES)[number];
 export const CLUB_CANCEL_REASONS = ['member_request', 'non_payment', 'mistake', 'other'] as const;
 export type ClubCancelReason = (typeof CLUB_CANCEL_REASONS)[number];
 
-/** club_notifications_kind_known (0044, widened in 0045, 0046, 0051 and 0052). */
+/** club_notifications_kind_known (0044, widened in 0045, 0046, 0051, 0052 and 0053). */
 export const CLUB_NOTIFICATION_KINDS = [
   'member_invite',
   'staff_invite',
@@ -179,6 +185,9 @@ export const CLUB_NOTIFICATION_KINDS = [
   'inbox_message',
   'inbox_reply',
   'leads_due',
+  'event_registered',
+  'event_promoted',
+  'event_cancelled',
 ] as const;
 export type ClubNotificationKind = (typeof CLUB_NOTIFICATION_KINDS)[number];
 
@@ -236,7 +245,15 @@ export type DedupeInput =
   /** The club's answer, to the member (0052). */
   | { kind: 'inbox_reply'; messageId: string }
   /** The prospects to call today, per member of staff and Sofia day (0052). */
-  | { kind: 'leads_due'; userId: string; day: IsoDate };
+  | { kind: 'leads_due'; userId: string; day: IsoDate }
+  /**
+   * An event place (0053), by registration: a place given up and taken again
+   * is a NEW registration, so it is told again.
+   */
+  | {
+      kind: 'event_registered' | 'event_promoted' | 'event_cancelled';
+      registrationId: string;
+    };
 
 export function dedupeKey(input: DedupeInput): string {
   switch (input.kind) {
@@ -281,5 +298,9 @@ export function dedupeKey(input: DedupeInput): string {
       return `${input.kind}:${input.messageId}`;
     case 'leads_due':
       return `${input.kind}:${input.userId}:${input.day}`;
+    case 'event_registered':
+    case 'event_promoted':
+    case 'event_cancelled':
+      return `${input.kind}:${input.registrationId}`;
   }
 }

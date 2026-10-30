@@ -262,11 +262,13 @@ export interface ResourceBlock {
   startsAt: string;
   endsAt: string;
   reason: string;
+  /** The event that closes the resource (0053): removed with the event, not here. */
+  eventId: string | null;
 }
 
 export async function upcomingResourceBlocks(actor: ClubActor): Promise<ResourceBlock[]> {
   const result = await getDb().execute(sql`
-    SELECT tb.id, tb.resource_id, rs.name, tb.starts_at, tb.ends_at, tb.reason
+    SELECT tb.id, tb.resource_id, rs.name, tb.starts_at, tb.ends_at, tb.reason, tb.event_id
       FROM club_time_blocks tb
       JOIN club_resources rs ON rs.club_id = tb.club_id AND rs.id = tb.resource_id
      WHERE ${clubScope(actor, 'schedule.view', 'tb')} AND tb.ends_at > now()
@@ -280,6 +282,7 @@ export async function upcomingResourceBlocks(actor: ClubActor): Promise<Resource
     startsAt: new Date(String(row.starts_at)).toISOString(),
     endsAt: new Date(String(row.ends_at)).toISOString(),
     reason: String(row.reason),
+    eventId: row.event_id === null || row.event_id === undefined ? null : String(row.event_id),
   }));
 }
 
@@ -325,6 +328,7 @@ export async function addResourceBlock(
   }
 }
 
+/** An event's closure (0053) is the event's: it goes when the event is cancelled or moved. */
 export async function removeResourceBlock(
   db: TransactionalDb,
   actor: ClubActor,
@@ -334,6 +338,7 @@ export async function removeResourceBlock(
     const removed = await tx.execute(sql`
       DELETE FROM club_time_blocks tb
        WHERE tb.id = ${blockId}::uuid AND tb.resource_id IS NOT NULL
+         AND tb.event_id IS NULL
          AND ${clubWriteScope(actor, 'schedule.manage', 'tb')}
       RETURNING tb.id
     `);

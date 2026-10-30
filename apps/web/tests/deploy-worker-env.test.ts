@@ -82,6 +82,12 @@ const STRIPE_FAMILY = [
  * passes on the file outboxes.
  */
 const SMS_FAMILY = ['SMS_TRANSPORT', 'SMS_API_KEY', 'SMS_SENDER_ID'];
+/**
+ * Keys read by `resolvePaymentProvider(env)` (0053): the worker offers a
+ * freed event seat for online payment only when it sees the same provider as
+ * the web app — without them every offer silently becomes a desk debt.
+ */
+const PAYMENT_PROVIDER_FAMILY = ['PAYMENT_PROVIDER', ...STRIPE_FAMILY];
 const PUSH_FAMILY = ['PUSH_VAPID_SECRET', 'CONTACT_EMAIL', 'NEXT_PUBLIC_SITE_URL'];
 
 function walk(dir: string): string[] {
@@ -156,6 +162,16 @@ describe('deploy/compose.prod.yml — worker environment', () => {
     expect(
       missing,
       `apps/worker/src reads these but deploy/compose.prod.yml does not give them to the worker:\n` +
+        missing.map((k) => `  ${k}`).join('\n'),
+    ).toEqual([]);
+  });
+
+  it('declares the payment provider family, because the worker resolves the provider from the whole env', () => {
+    if (!/resolvePaymentProvider\(\s*process\.env\s*\)/.test(workerSource)) return;
+    const missing = PAYMENT_PROVIDER_FAMILY.filter((k) => !workerEnv.includes(k));
+    expect(
+      missing,
+      `the worker resolves the payment provider from process.env but the manifest lacks:\n` +
         missing.map((k) => `  ${k}`).join('\n'),
     ).toEqual([]);
   });

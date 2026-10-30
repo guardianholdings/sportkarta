@@ -8,9 +8,16 @@ import {
   recordProviderRefund,
   sql,
   subscriptionRefsFor,
+  type OnlineProvider,
   type SQL,
 } from '@sportkarta/db';
-import { addDaysIso, isIsoDate, sofiaToday, type IsoDate } from '@sportkarta/lib/clubs';
+import {
+  MIN_ONLINE_CENTS,
+  addDaysIso,
+  isIsoDate,
+  sofiaToday,
+  type IsoDate,
+} from '@sportkarta/lib/clubs';
 import { zonedToDate } from '@sportkarta/lib/recurrence';
 import {
   applicationFeeCents,
@@ -69,8 +76,8 @@ function text(value: unknown): string | null {
   return value === null || value === undefined ? null : String(value);
 }
 
-/** Stripe's minimum charge in EUR. */
-export const MIN_ONLINE_CENTS = 50;
+/** Stripe's minimum charge in EUR (one definition, in lib: the worker's sweep reads it too). */
+export { MIN_ONLINE_CENTS };
 
 /**
  * A checkout carrying an offer reserves one of its uses while it is open
@@ -333,6 +340,17 @@ async function liveAccount(clubId: string): Promise<ClubPaymentAccount | null> {
   return account;
 }
 
+/**
+ * The provider an event's waitlist may offer a paid seat through right now
+ * (0053) — the switch and a working provider; the club's own account is
+ * checked in SQL by promoteEventWaitlist. Null when POPS takes no payments.
+ */
+export function onlineProvider(): OnlineProvider {
+  if (!paymentsReady()) return null;
+  const provider = paymentProvider();
+  return provider === 'stripe' || provider === 'fake' ? provider : null;
+}
+
 /** Whether members of this club can pay online right now (what the buttons ask). */
 export async function clubTakesPayments(clubId: string): Promise<boolean> {
   return (await liveAccount(clubId)) !== null;
@@ -512,7 +530,8 @@ async function resumableSessionUrl(
 
 /**
  * A member pays one of their (or their child's) open charges online. A
- * charge that holds a slot (0048) gets a session that dies WITH the hold —
+ * charge that holds a slot (0048) or an event place (0053) — club_charge_holds
+ * — gets a session that dies WITH the hold —
  * read from the database's clock, never computed here — so the provider can
  * never take money after the slot was released; with less than the
  * provider's 30-minute floor left on the hold, it is refused instead.
@@ -533,6 +552,10 @@ export async function startChargeCheckout(
       JOIN club_members m ON m.club_id = cb.club_id AND m.id = cb.member_id
      WHERE cb.charge_id = ${chargeId}::uuid AND cb.status IN ('open', 'partial', 'overdue')
        AND ${memberSelfScope(userId, club.id, 'm')} AND ${clubWritableGuard(club.id)}
+       -- Never for an event place that is gone (an invoice kept its charge alive).
+       AND NOT EXISTS (SELECT 1 FROM club_event_registrations dead
+                          WHERE dead.club_id = cb.club_id AND dead.charge_id = cb.charge_id
+                            AND dead.state IN ('cancelled', 'expired'))
   `;
   if ((await getDb().execute(dueQuery())).rows.length === 0) {
     return { ok: false, error: 'not_allowed' };
@@ -552,9 +575,8 @@ export async function startChargeCheckout(
   const hold = (
     await getDb().execute(sql`
       SELECT h.hold_expires_at > now() + interval '31 minutes' AS long_enough
-        FROM club_reservations h
+        FROM club_charge_holds h
        WHERE h.club_id = ${club.id}::uuid AND h.charge_id = ${chargeId}::uuid
-         AND h.state = 'held'
     `)
   ).rows[0];
   if (hold && previous) {
@@ -598,9 +620,8 @@ export async function startChargeCheckout(
       const hold = (
         await tx.execute(sql`
           SELECT h.hold_expires_at, h.hold_expires_at > now() + interval '31 minutes' AS long_enough
-            FROM club_reservations h
+            FROM club_charge_holds h
            WHERE h.club_id = ${club.id}::uuid AND h.charge_id = ${chargeId}::uuid
-             AND h.state = 'held'
         `)
       ).rows[0];
       if (hold && hold.long_enough !== true) return { error: 'hold_ending' };

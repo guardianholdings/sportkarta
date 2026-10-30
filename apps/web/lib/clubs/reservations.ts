@@ -628,10 +628,13 @@ async function cancelOnce(
 }
 
 export interface RefundDue {
-  reservationId: string;
+  /** The key: one booking or event place per charge. */
   chargeId: string;
+  /** A court / trainer booking (0048) or an event place (0053). */
+  source: 'reservation' | 'event';
   memberId: string | null;
   memberName: string | null;
+  /** The service's or the event's name. */
   serviceName: string;
   startsAt: string;
   paidCents: number;
@@ -642,32 +645,54 @@ export interface RefundDue {
 }
 
 /**
- * Bookings cancelled in time after they were paid: money the club owes back.
- * Derived, not stored — a booking leaves this list the moment the refund is
- * recorded against its charge (net paid falls to zero).
+ * Bookings and event places cancelled in time (or with their event) after
+ * they were paid: money the club owes back. Derived, not stored — a place
+ * leaves this list the moment the refund is recorded against its charge (net
+ * paid falls to zero).
  */
-export async function refundsDue(actor: ClubActor): Promise<RefundDue[]> {
-  const result = await getDb().execute(sql`
-    SELECT rv.id, rv.charge_id, rv.member_id, m.display_name, sv.name_bg AS service,
-           rv.starts_at, net.paid_cents, net.credit_cents, net.online
-      FROM club_reservations rv
-      JOIN club_services sv ON sv.club_id = rv.club_id AND sv.id = rv.service_id
+export async function refundsDue(
+  actor: ClubActor,
+  options: { chargeId?: string } = {},
+): Promise<RefundDue[]> {
+  // One charge, looked up directly (the refund action), or the list.
+  const only = (alias: 'rv' | 'er') =>
+    options.chargeId ? sql`AND ${sql.raw(alias)}.charge_id = ${options.chargeId}::uuid` : sql``;
+  const net = (alias: 'rv' | 'er') => sql`
       JOIN LATERAL (SELECT sum(pp.amount_cents)::int AS paid_cents,
                            coalesce(sum(pp.amount_cents) FILTER (WHERE pp.method = 'wallet'), 0)::int
                              AS credit_cents,
                            coalesce(sum(pp.amount_cents)
                                       FILTER (WHERE pp.method = 'card_online'), 0) > 0 AS online
                       FROM club_payments pp
-                     WHERE pp.club_id = rv.club_id AND pp.charge_id = rv.charge_id) net ON true
-      LEFT JOIN club_members m ON m.club_id = rv.club_id AND m.id = rv.member_id
-     WHERE ${clubScope(actor, 'payments.view', 'rv')}
-       AND rv.state IN ('cancelled', 'expired') AND net.paid_cents > 0
-     ORDER BY rv.cancelled_at DESC NULLS LAST, rv.starts_at DESC
+                     WHERE pp.club_id = ${sql.raw(alias)}.club_id
+                       AND pp.charge_id = ${sql.raw(alias)}.charge_id) net ON true`;
+  const result = await getDb().execute(sql`
+    SELECT * FROM (
+      SELECT 'reservation' AS source, rv.charge_id, rv.member_id, m.display_name,
+             sv.name_bg AS service, rv.starts_at, rv.cancelled_at, net.paid_cents,
+             net.credit_cents, net.online
+        FROM club_reservations rv
+        JOIN club_services sv ON sv.club_id = rv.club_id AND sv.id = rv.service_id
+        ${net('rv')}
+        LEFT JOIN club_members m ON m.club_id = rv.club_id AND m.id = rv.member_id
+       WHERE ${clubScope(actor, 'payments.view', 'rv')}
+         AND rv.state IN ('cancelled', 'expired') AND net.paid_cents > 0 ${only('rv')}
+      UNION ALL
+      SELECT 'event', er.charge_id, er.member_id, m.display_name, ev.title_bg, ev.starts_at,
+             er.cancelled_at, net.paid_cents, net.credit_cents, net.online
+        FROM club_event_registrations er
+        JOIN club_events ev ON ev.club_id = er.club_id AND ev.id = er.event_id
+        ${net('er')}
+        LEFT JOIN club_members m ON m.club_id = er.club_id AND m.id = er.member_id
+       WHERE ${clubScope(actor, 'payments.view', 'er')}
+         AND er.state IN ('cancelled', 'expired') AND net.paid_cents > 0 ${only('er')}
+    ) due
+     ORDER BY due.cancelled_at DESC NULLS LAST, due.starts_at DESC, due.charge_id
      LIMIT 100
   `);
   return result.rows.map((row) => ({
-    reservationId: String(row.id),
     chargeId: String(row.charge_id),
+    source: row.source === 'event' ? 'event' : 'reservation',
     memberId: text(row.member_id),
     memberName: text(row.display_name),
     serviceName: String(row.service),

@@ -256,7 +256,15 @@ browser) in a MANUAL STEPS list at the end of the session.
   card), and the club's Google link follows EVERY rating (review gating is
   forbidden). A minor's record has no conversation; an NGO admin reads the
   inbox and never writes as the club. The request to rate is marketing
-  (consent) until a lawyer says otherwise. Writes need `clubWritableSql` (active and paid or
+  (consent) until a lawyer says otherwise. Events (wave D1, `0053`): SEATS are
+  the database's — `club_event_registrations_seat` counts under the event row
+  lock, refuses a newcomer while somebody waits for that ticket, and a
+  capacity never drops below the seats taken; a freed seat goes to the line in
+  the SAME transaction (`promoteEventWaitlist`), as a hold-to-pay offer when
+  the event takes payment online only. Every place-writer locks the event
+  first, then checkouts → charges → registrations; a payment never takes the
+  event lock. One charge per place; a published event's court closure is its
+  trigger's alone (`club_time_blocks_event_guard`). Writes need `clubWritableSql` (active and paid or
   community, 14-day grace); every public surface embeds `clubRenderableSql`.
   Check-ins never refuse (`covered=false` is recorded); only a QR/card visit of
   a consenting linked member writes `training_logs(source='club',

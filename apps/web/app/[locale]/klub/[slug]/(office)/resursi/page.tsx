@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { Link } from '@/i18n/navigation';
 import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { CLUB_RESOURCE_KINDS } from '@/lib/clubs/input';
@@ -251,13 +252,22 @@ export default async function ClubResourcesPage({
                         {block.resourceName} · {formatDateTime(block.startsAt, locale)} –{' '}
                         {formatDateTime(block.endsAt, locale)}
                       </span>
-                      <form action={removeBlockAction}>
-                        <input type="hidden" name="slug" value={slug} />
-                        <input type="hidden" name="blockId" value={block.id} />
-                        <Button type="submit" variant="secondary" size="sm">
-                          {t('removeBlock')}
-                        </Button>
-                      </form>
+                      {block.eventId ? (
+                        <Link
+                          href={`/klub/${slug}/sabitiya/${block.eventId}`}
+                          className="text-body-sm font-semibold text-link hover:text-link-hover"
+                        >
+                          {t('eventBlock')}
+                        </Link>
+                      ) : (
+                        <form action={removeBlockAction}>
+                          <input type="hidden" name="slug" value={slug} />
+                          <input type="hidden" name="blockId" value={block.id} />
+                          <Button type="submit" variant="secondary" size="sm">
+                            {t('removeBlock')}
+                          </Button>
+                        </form>
+                      )}
                     </li>
                   ))}
                 </ul>

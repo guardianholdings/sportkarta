@@ -797,8 +797,10 @@ export const clubTimeBlocks = pgTable(
     resourceId: uuid('resource_id'),
     startsAt: timestamptz('starts_at').notNull(),
     endsAt: timestamptz('ends_at').notNull(),
-    /** time_off | training | other — never a health reason */
+    /** time_off | training | other | event — never a health reason */
     reason: text('reason').notNull(),
+    /** The event that closes this resource (0053) — written by its trigger only. */
+    eventId: uuid('event_id'),
     createdBy: text('created_by'),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
   },
@@ -1558,5 +1560,159 @@ export const clubFeedback = pgTable(
     index('club_feedback_member_idx').on(t.clubId, t.memberId),
     index('club_feedback_club_idx').on(t.clubId, t.createdAt),
     check('club_feedback_rating_sane', sql`${t.rating} BETWEEN 1 AND 5`),
+  ],
+);
+
+/**
+ * An event, camp, workshop or tournament (0053), at one location, optionally
+ * closing one resource for its span (its trigger writes the time block).
+ * Cancelled, never deleted.
+ */
+export const clubEvents = pgTable(
+  'club_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    /** event | camp | workshop | tournament */
+    kind: text('kind').notNull(),
+    titleBg: text('title_bg').notNull(),
+    titleEn: text('title_en'),
+    descriptionBg: text('description_bg'),
+    descriptionEn: text('description_en'),
+    sport: text('sport'),
+    locationId: uuid('location_id').notNull(),
+    resourceId: uuid('resource_id'),
+    startsAt: timestamptz('starts_at').notNull(),
+    endsAt: timestamptz('ends_at').notNull(),
+    registrationOpensAt: timestamptz('registration_opens_at'),
+    registrationClosesAt: timestamptz('registration_closes_at'),
+    capacity: integer('capacity'),
+    teamEvent: boolean('team_event').notNull().default(false),
+    /** desk | online_optional | online_required (the services' vocabulary) */
+    payment: text('payment').notNull().default('desk'),
+    cancelDeadlineHours: integer('cancel_deadline_hours').notNull().default(48),
+    public: boolean('public').notNull().default(true),
+    /** draft | published | cancelled */
+    status: text('status').notNull().default('draft'),
+    cancelledAt: timestamptz('cancelled_at'),
+    createdBy: text('created_by'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('club_events_club_id_unique').on(t.clubId, t.id),
+    foreignKey({
+      name: 'club_events_location_fk',
+      columns: [t.clubId, t.locationId],
+      foreignColumns: [clubLocations.clubId, clubLocations.id],
+    }),
+    index('club_events_club_starts_idx').on(t.clubId, t.startsAt),
+    // + the resource key (club_id, location_id, resource_id) and the resource
+    // block trigger, declared in 0053 only.
+  ],
+);
+
+/** A ticket type of an event (0053). Archived, never deleted. */
+export const clubEventTickets = pgTable(
+  'club_event_tickets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    eventId: uuid('event_id').notNull(),
+    nameBg: text('name_bg').notNull(),
+    nameEn: text('name_en'),
+    priceCents: integer('price_cents').notNull().default(0),
+    memberPriceCents: integer('member_price_cents'),
+    capacity: integer('capacity'),
+    /** all | adults | minors */
+    audience: text('audience').notNull().default('all'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    archivedAt: timestamptz('archived_at'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('club_event_tickets_club_id_unique').on(t.clubId, t.id),
+    unique('club_event_tickets_event_unique').on(t.clubId, t.eventId, t.id),
+    foreignKey({
+      name: 'club_event_tickets_event_fk',
+      columns: [t.clubId, t.eventId],
+      foreignColumns: [clubEvents.clubId, clubEvents.id],
+    }),
+    index('club_event_tickets_event_idx').on(t.clubId, t.eventId, t.sortOrder),
+  ],
+);
+
+export const clubEventRegistrationSeq = pgSequence('club_event_registration_seq');
+
+/**
+ * One place at an event (0053). Seats are counted by trigger under the event
+ * row lock; the arrival ticket (seq) orders the waitlist; the price and the
+ * cancel deadline are snapshotted.
+ */
+export const clubEventRegistrations = pgTable(
+  'club_event_registrations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    eventId: uuid('event_id').notNull(),
+    ticketId: uuid('ticket_id').notNull(),
+    /** SET NULL on erasure (column list in 0053 only). */
+    memberId: uuid('member_id'),
+    seq: bigint('seq', { mode: 'number' })
+      .notNull()
+      .default(sql`nextval('club_event_registration_seq')`),
+    /** held | confirmed | waitlisted | cancelled | late_cancelled | expired */
+    state: text('state').notNull(),
+    holdExpiresAt: timestamptz('hold_expires_at'),
+    priceCents: integer('price_cents').notNull(),
+    cancelDeadlineHours: integer('cancel_deadline_hours').notNull(),
+    /** starts_at − the hours, set by the seat trigger at registration; immutable. */
+    freeCancelUntil: timestamptz('free_cancel_until').notNull().defaultNow(),
+    /** When the place got its seat (the seat trigger); NULL while in line. */
+    seatedAt: timestamptz('seated_at'),
+    chargeId: uuid('charge_id'),
+    teamName: text('team_name'),
+    /** Staff id by value (0039 rule 5). */
+    bookedBy: text('booked_by'),
+    /** member | staff | club */
+    cancelKind: text('cancel_kind'),
+    cancelledAt: timestamptz('cancelled_at'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('club_event_registrations_club_id_unique').on(t.clubId, t.id),
+    unique('club_event_registrations_seq_unique').on(t.seq),
+    foreignKey({
+      name: 'club_event_registrations_event_fk',
+      columns: [t.clubId, t.eventId],
+      foreignColumns: [clubEvents.clubId, clubEvents.id],
+    }),
+    foreignKey({
+      name: 'club_event_registrations_ticket_fk',
+      columns: [t.clubId, t.eventId, t.ticketId],
+      foreignColumns: [clubEventTickets.clubId, clubEventTickets.eventId, clubEventTickets.id],
+    }),
+    foreignKey({
+      name: 'club_event_registrations_charge_fk',
+      columns: [t.clubId, t.chargeId],
+      foreignColumns: [clubCharges.clubId, clubCharges.id],
+    }),
+    index('club_event_registrations_event_idx').on(t.clubId, t.eventId, t.seq),
+    uniqueIndex('club_event_registrations_charge_unique')
+      .on(t.clubId, t.chargeId)
+      .where(sql`${t.chargeId} IS NOT NULL`),
+    uniqueIndex('club_event_registrations_one_live')
+      .on(t.clubId, t.eventId, t.memberId)
+      .where(sql`${t.memberId} IS NOT NULL AND ${t.state} IN ('held', 'confirmed', 'waitlisted')`),
+    // + the member key (SET NULL on one column), the seat and guard triggers,
+    // the confirm-hold trigger on club_payments and club_charge_holds, in 0053.
   ],
 );

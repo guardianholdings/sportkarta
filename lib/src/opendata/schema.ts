@@ -220,6 +220,8 @@ export const DENIED_IDENTIFIERS = [
   'rating',
   'recorded',
   'recorder',
+  'registration',
+  'registrations',
   'reporter',
   'reversed',
   'rsvp',

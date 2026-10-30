@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
 import { clubsEnabled } from '@/lib/clubs/access';
+import { publicEvents } from '@/lib/clubs/events';
 import { publicRating } from '@/lib/clubs/feedback';
 import { clubTakesInquiries } from '@/lib/clubs/inbox';
 import { clubSportLabeler } from '@/lib/clubs/labels';
@@ -57,17 +58,29 @@ export default async function PublicClubPage({ params }: { params: PageParams })
   if (!clubsEnabled()) notFound();
   const club = await publicClub(slug, locale);
   if (!club) notFound();
-  const [t, tClub, sportLabel, takesPayments, services, offers, rating, inquiries] =
-    await Promise.all([
-      getTranslations('ClubPublic'),
-      getTranslations('Club'),
-      clubSportLabeler(),
-      clubTakesPayments(club.id),
-      publicServices(club.id, locale),
-      publicOffers(club.id, sofiaToday()),
-      publicRating(club.id),
-      clubTakesInquiries(club.id),
-    ]);
+  const [
+    t,
+    tClub,
+    sportLabel,
+    takesPayments,
+    services,
+    offers,
+    rating,
+    inquiries,
+    events,
+    tEvents,
+  ] = await Promise.all([
+    getTranslations('ClubPublic'),
+    getTranslations('Club'),
+    clubSportLabeler(),
+    clubTakesPayments(club.id),
+    publicServices(club.id, locale),
+    publicOffers(club.id, sofiaToday()),
+    publicRating(club.id),
+    clubTakesInquiries(club.id),
+    publicEvents(club.id, locale, 12),
+    getTranslations('ClubEvents'),
+  ]);
   const today = sofiaToday();
   // An automatic offer open to a new visitor, struck through (0049). Not on a
   // subscription, which renews at the price it was opened with.
@@ -293,6 +306,39 @@ export default async function PublicClubPage({ params }: { params: PageParams })
                     className={cn(buttonVariants({ size: 'sm', variant: 'secondary' }), 'mt-2')}
                   >
                     {t('reserve')}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {events.length > 0 && (
+          <section id="sabitiya" className={section} aria-labelledby="events-h">
+            <h2 id="events-h" className="text-h4 font-bold text-ink">
+              {t('eventsTitle')}
+            </h2>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {events.map((event) => (
+                <li key={event.id} className="rounded-card border border-line p-3">
+                  <p className="flex items-baseline justify-between gap-2">
+                    <span className="font-semibold text-ink">{event.title}</span>
+                    {event.fromCents !== null && (
+                      <span className="font-mono tabular-nums text-ink">
+                        {event.fromCents === 0
+                          ? tEvents('public.free')
+                          : formatEuro(event.fromCents, locale)}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-caption text-text-muted">
+                    {tEvents(`kinds.${event.kind}`)} · {formatDateTime(event.startsAt, locale)}
+                  </p>
+                  <Link
+                    href={`/klub/${club.slug}/sabitie/${event.id}`}
+                    className={cn(buttonVariants({ size: 'sm', variant: 'secondary' }), 'mt-2')}
+                  >
+                    {tEvents('public.more')}
                   </Link>
                 </li>
               ))}

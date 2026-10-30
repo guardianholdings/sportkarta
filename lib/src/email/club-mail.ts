@@ -48,6 +48,9 @@ export const CLUB_MAIL_KINDS = [
   'inbox_message',
   'inbox_reply',
   'leads_due',
+  'event_registered',
+  'event_promoted',
+  'event_cancelled',
 ] as const;
 export type ClubMailKind = (typeof CLUB_MAIL_KINDS)[number];
 

@@ -112,6 +112,14 @@ import {
   composeSms,
   inBroadcastHours,
   personalise,
+  EVENT_KINDS,
+  EVENT_PAYMENTS,
+  EVENT_STATUSES,
+  REGISTRATION_STATES,
+  audienceFits,
+  lateCancellation,
+  registrationOpen,
+  ticketPrice,
 } from './index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -163,6 +171,11 @@ describe('the vocabularies equal their SQL CHECKs', () => {
     ['club_threads_inquiry_kind_known', INQUIRY_KINDS],
     ['club_members_lead_source_known', LEAD_SOURCES],
     ['club_members_lead_lost_reason_known', LEAD_LOST_REASONS],
+    ['club_events_kind_known', EVENT_KINDS],
+    ['club_events_status_known', EVENT_STATUSES],
+    ['club_events_payment_known', EVENT_PAYMENTS],
+    ['club_event_registrations_state_known', REGISTRATION_STATES],
+    ['club_event_tickets_audience_known', CLUB_PLAN_AUDIENCES],
   ] as const)('%s', (constraint, values) => {
     expect(checkValues(constraint).sort()).toEqual([...values].sort());
   });
@@ -1134,5 +1147,53 @@ describe('inbox, prospects and ratings (0052)', () => {
     expect(publicRatingVisible(5)).toBe(true);
     expect(roundRating(4.449)).toBe(4.4);
     expect(roundRating(4.45)).toBe(4.5);
+  });
+});
+
+describe('event places (0053)', () => {
+  const at = (iso: string) => new Date(iso);
+
+  it('charges the member price only to a client with a live abonnement, and only where set', () => {
+    expect(ticketPrice({ priceCents: 3000, memberPriceCents: 2000 }, true)).toBe(2000);
+    expect(ticketPrice({ priceCents: 3000, memberPriceCents: 2000 }, false)).toBe(3000);
+    expect(ticketPrice({ priceCents: 3000, memberPriceCents: null }, true)).toBe(3000);
+  });
+
+  it('opens registration from its opening until it closes — by default, the start', () => {
+    const event = {
+      status: 'published' as const,
+      startsAt: at('2030-06-01T08:00:00Z'),
+      registrationOpensAt: at('2030-05-01T00:00:00Z'),
+      registrationClosesAt: null,
+    };
+    expect(registrationOpen(event, at('2030-04-30T23:59:59Z'))).toBe(false);
+    expect(registrationOpen(event, at('2030-05-01T00:00:00Z'))).toBe(true);
+    expect(registrationOpen(event, at('2030-06-01T07:59:59Z'))).toBe(true);
+    expect(registrationOpen(event, at('2030-06-01T08:00:00Z'))).toBe(false);
+    expect(
+      registrationOpen(
+        { ...event, registrationClosesAt: at('2030-05-20T00:00:00Z') },
+        at('2030-05-25T00:00:00Z'),
+      ),
+    ).toBe(false);
+    expect(registrationOpen({ ...event, status: 'draft' }, at('2030-05-10T00:00:00Z'))).toBe(false);
+    expect(registrationOpen({ ...event, status: 'cancelled' }, at('2030-05-10T00:00:00Z'))).toBe(
+      false,
+    );
+  });
+
+  it('is late only past the deadline', () => {
+    const starts = at('2030-06-01T08:00:00Z');
+    expect(lateCancellation(starts, 48, at('2030-05-30T08:00:00Z'))).toBe(false);
+    expect(lateCancellation(starts, 48, at('2030-05-30T08:00:01Z'))).toBe(true);
+    expect(lateCancellation(starts, 0, at('2030-06-01T07:59:59Z'))).toBe(false);
+  });
+
+  it('fits a ticket to its audience', () => {
+    expect(audienceFits('all', true)).toBe(true);
+    expect(audienceFits('adults', false)).toBe(true);
+    expect(audienceFits('adults', true)).toBe(false);
+    expect(audienceFits('minors', true)).toBe(true);
+    expect(audienceFits('minors', false)).toBe(false);
   });
 });

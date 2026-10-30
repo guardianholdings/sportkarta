@@ -125,6 +125,14 @@ export type {
 export { inboxNoticeOf, leadsDue } from './clubs/inbox.js';
 export type { InboxNotice, LeadsDue } from './clubs/inbox.js';
 export {
+  eventPlacesForMail,
+  expireEventHolds,
+  lockEvent,
+  promoteEventWaitlist,
+  releaseLapsedEventHolds,
+} from './clubs/events.js';
+export type { ClubEventPlaceMail, EventPromotion, OnlineProvider } from './clubs/events.js';
+export {
   claimDigestSend,
   digestRecipients,
   formatWeekStart,

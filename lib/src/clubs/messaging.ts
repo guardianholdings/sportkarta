@@ -151,6 +151,8 @@ export const PUSH_NOTIFY_KINDS: readonly ClubNotificationKind[] = [
   'reminder_24h',
   'membership_expiring',
   'inbox_reply',
+  'event_promoted',
+  'event_cancelled',
 ];
 
 export const BROADCAST_SUBJECT_MAX = 150;

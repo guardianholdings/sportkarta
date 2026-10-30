@@ -544,7 +544,7 @@ export async function removeTimeOff(
   return db.transaction(async (tx) => {
     const removed = await tx.execute(sql`
       DELETE FROM club_time_blocks b
-       WHERE b.id = ${blockId}::uuid
+       WHERE b.id = ${blockId}::uuid AND b.staff_user_id IS NOT NULL
          AND CASE WHEN b.staff_user_id = ${actor.userId}
                   THEN ${clubWriteScope(actor, 'office.view', 'b')}
                   ELSE ${clubWriteScope(actor, 'staff.manage', 'b')} END

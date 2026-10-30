@@ -372,6 +372,13 @@
       "when": 1785184800000,
       "tag": "0052_club_inbox_leads_feedback",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1785188400000,
+      "tag": "0053_club_events",
+      "breakpoints": true
     }
   ]
 }

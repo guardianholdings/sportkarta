@@ -68,7 +68,15 @@ export type ClubNotifyJob =
    * answer, the club's tells the member. Enqueued only when the thread was
    * read up to then, so a burst of messages is one notice.
    */
-  | { kind: 'inbox_message'; messageId: string };
+  | { kind: 'inbox_message'; messageId: string }
+  /**
+   * Event places (0053): a registration (a seat, an offer to pay, or a place
+   * in line), places that moved up from the waitlist, and places whose event
+   * the club cancelled.
+   */
+  | { kind: 'event_registered'; registrationId: string }
+  | { kind: 'event_promoted'; registrationIds: string[] }
+  | { kind: 'event_cancelled'; registrationIds: string[] };
 
 export type ClubNotifyKind = ClubNotifyJob['kind'];
 
@@ -111,6 +119,15 @@ export function parseClubNotifyJob(data: unknown): ClubNotifyJob | null {
     case 'claim_pending':
     case 'erasure_requested':
       return uuid(job.memberId) ? { kind: job.kind, memberId: job.memberId } : null;
+    case 'event_registered':
+      return uuid(job.registrationId)
+        ? { kind: job.kind, registrationId: job.registrationId }
+        : null;
+    case 'event_promoted':
+    case 'event_cancelled':
+      return uuids(job.registrationIds)
+        ? { kind: job.kind, registrationIds: job.registrationIds }
+        : null;
     case 'inbox_message':
       return uuid(job.messageId) ? { kind: job.kind, messageId: job.messageId } : null;
     default:

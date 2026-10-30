@@ -9,6 +9,13 @@
  * anything with more than two decimals, a sign, or above the database bound.
  */
 
+/**
+ * The smallest amount a card provider takes online (Stripe's minimum in EUR):
+ * below it a place or a booking is paid at the desk, never held for an online
+ * payment that cannot happen.
+ */
+export const MIN_ONLINE_CENTS = 50;
+
 /** The bound every amount CHECK in 0041 uses (100 000 €). */
 export const MAX_AMOUNT_CENTS = 10_000_000;
 

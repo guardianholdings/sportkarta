@@ -57,6 +57,7 @@ export const CLUB_PERMISSIONS = [
   'messages.send',
   'inbox.reply',
   'feedback.view',
+  'events.manage',
 ] as const;
 export type ClubPermission = (typeof CLUB_PERMISSIONS)[number];
 
@@ -110,6 +111,12 @@ const MATRIX: Readonly<Record<ClubPermission, readonly ClubRole[]>> = {
   'inbox.reply': FRONT_OF_HOUSE,
   /** Ratings and their comments (0052): how the club is doing is management's. */
   'feedback.view': MANAGEMENT,
+  /**
+   * Events, camps and tournaments (0053): what the club puts on, its tickets,
+   * prices and cancellation are management's. Registering a person at the
+   * desk, and giving a place up for them, is bookings.manage (front of house).
+   */
+  'events.manage': MANAGEMENT,
 };
 
 export function isClubRole(value: unknown): value is ClubRole {

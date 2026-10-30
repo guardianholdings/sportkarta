@@ -211,6 +211,12 @@ services:
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       STRIPE_CONNECT_CLIENT_ID: ${STRIPE_CONNECT_CLIENT_ID:-}
       STRIPE_APPLICATION_FEE_BP: ${STRIPE_APPLICATION_FEE_BP:-}
+      # A seat freed at an event that takes payment online only (0053) is
+      # offered from the waitlist for online payment only when POPS takes
+      # payments — the same switch and provider as the web app. Unset: the
+      # seat is given outright and owed at the desk.
+      CLUB_PAYMENTS_ENABLED: ${CLUB_PAYMENTS_ENABLED:-}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-}
       # Club SMS and push are SENT from here (0051), so the worker needs the
       # switches, the push key and the SMS gateway — the same whole-env
       # handoff as the mailer (createSmsSender / createPushSender). Unset, both

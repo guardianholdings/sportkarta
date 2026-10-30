@@ -157,10 +157,7 @@ export default async function ClubPaymentsPage({
           <p className="max-w-prose text-body-sm text-ink">{t('refundsDueHint')}</p>
           <ul className="divide-y divide-line">
             {owed.map((row) => (
-              <li
-                key={row.reservationId}
-                className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2"
-              >
+              <li key={row.chargeId} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
                 <span className="font-mono tabular-nums text-ink">
                   {formatEuro(row.paidCents, locale)}
                 </span>
@@ -187,7 +184,7 @@ export default async function ClubPaymentsPage({
                   canRecord && (
                     <form action={refundReservationAction} className="flex items-center gap-1">
                       <input type="hidden" name="slug" value={slug} />
-                      <input type="hidden" name="reservationId" value={row.reservationId} />
+                      <input type="hidden" name="chargeId" value={row.chargeId} />
                       {row.creditCents >= row.paidCents ? (
                         // All of it was credit: it goes back to the credit.
                         <input type="hidden" name="method" value="cash" />

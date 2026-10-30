@@ -13,7 +13,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from '@/i18n/navigation';
 
 import { requireClubStaff } from '@/lib/clubs/club-session';
-import { parseCharge, parsePayment } from '@/lib/clubs/input';
+import { isUuid, parseCharge, parsePayment } from '@/lib/clubs/input';
 import { refundOnlinePayment } from '@/lib/clubs/payments';
 import { refundsDue } from '@/lib/clubs/reservations';
 import { createCharge, recordPayment, refundPaid } from '@/lib/clubs/sales';
@@ -92,7 +92,8 @@ export async function refundOnlineAction(formData: FormData): Promise<void> {
 }
 
 /**
- * Record the refund of a paid booking cancelled in time (0048). The amount is
+ * Record the refund of a paid booking cancelled in time (0048), or of a paid
+ * event place given up in time or cancelled with its event (0053). The amount is
  * what the books say was paid on it — never a typed one — and the method is
  * how the money went back. Money paid online goes back through the provider,
  * from its row in the ledger, instead.
@@ -100,9 +101,9 @@ export async function refundOnlineAction(formData: FormData): Promise<void> {
 export async function refundReservationAction(formData: FormData): Promise<void> {
   const slug = slugOf(formData);
   const { actor } = await requireClubStaff(slug, 'payments.record');
-  const reservationId = String(formData.get('reservationId') ?? '');
+  const chargeId = String(formData.get('chargeId') ?? '');
   const method = String(formData.get('method') ?? '');
-  const due = (await refundsDue(actor)).find((row) => row.reservationId === reservationId);
+  const due = isUuid(chargeId) ? (await refundsDue(actor, { chargeId }))[0] : undefined;
   let outcome = 'refund_invalid';
   if (due && !due.online && (MONEY_METHODS as readonly string[]).includes(method)) {
     // Credit spent on the booking goes back to the credit; the money by `method`.

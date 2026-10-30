@@ -2,6 +2,7 @@ import {
   applyCheckoutPaid,
   applySubscriptionInvoice,
   expireCheckout,
+  expireEventHolds,
   expireReservationHolds,
   getDb,
   markPaymentAccountGone,
@@ -12,9 +13,15 @@ import {
   recordProviderRefund,
   setPaymentAccountState,
   stopSubscription,
+  type OnlineProvider,
   type PaymentEvent,
 } from '@sportkarta/db';
-import { createStripeClient, stripeSettings, type StripeClient } from '@sportkarta/lib/payments';
+import {
+  createStripeClient,
+  resolvePaymentProvider,
+  stripeSettings,
+  type StripeClient,
+} from '@sportkarta/lib/payments';
 
 /**
  * Apply a verified Stripe webhook event (0046). The web route recorded only
@@ -168,10 +175,24 @@ export async function runClubPaymentEvent(
 }
 
 /**
- * The backlog: events recorded but never processed (a lost enqueue), and the
- * 90-day retention of processed ones (0046's header).
+ * The provider a freed event seat may be offered through for online payment
+ * (0053): the operator's switch and a working provider, as the web app reads
+ * them (apps/web/lib/clubs/payments.ts onlineProvider). Off: the seat is
+ * given outright and owed at the desk.
  */
-export async function sweepClubPaymentEvents(): Promise<number> {
+function onlineProvider(): OnlineProvider {
+  if (process.env.CLUB_PAYMENTS_ENABLED !== 'true') return null;
+  const provider = resolvePaymentProvider(process.env);
+  return provider === 'stripe' || provider === 'fake' ? provider : null;
+}
+
+/**
+ * The backlog: events recorded but never processed (a lost enqueue), and the
+ * 90-day retention of processed ones (0046's header). Returns how many were
+ * applied, and the event places that moved up from a waitlist into a seat a
+ * lapsed hold freed (0053) — for the caller to tell.
+ */
+export async function sweepClubPaymentEvents(): Promise<{ done: number; promoted: string[] }> {
   const ids = await pendingPaymentEventIds(getDb());
   let done = 0;
   for (const id of ids) {
@@ -198,6 +219,16 @@ export async function sweepClubPaymentEvents(): Promise<number> {
       `[worker] club holds sweep failed (${error instanceof Error ? error.name : 'error'})`,
     );
   }
+  // Event places held for a payment that never came (0053): released, and
+  // the line moves into the freed seat — event by event, each on its own.
+  let promoted: string[] = [];
+  try {
+    promoted = (await expireEventHolds(getDb(), onlineProvider())).map((p) => p.registrationId);
+  } catch (error: unknown) {
+    console.warn(
+      `[worker] club event holds sweep failed (${error instanceof Error ? error.name : 'error'})`,
+    );
+  }
   await prunePaymentEvents(getDb());
-  return done;
+  return { done, promoted };
 }

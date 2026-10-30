@@ -1604,9 +1604,11 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
         refundDue: true,
       });
       expect(await voided(second.chargeId)).toBe(true);
-      expect(
-        (await refundsDue(owner)).find((r) => r.reservationId === second.reservationId),
-      ).toMatchObject({ paidCents: 500, online: false });
+      expect((await refundsDue(owner)).find((r) => r.chargeId === second.chargeId)).toMatchObject({
+        source: 'reservation',
+        paidCents: 500,
+        online: false,
+      });
       // A trainer may not see the money side at all.
       expect(await refundsDue(trainer)).toEqual([]);
       expect(
@@ -1618,9 +1620,7 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
           receivedOn: sofiaToday(),
         }),
       ).toEqual({ ok: true });
-      expect((await refundsDue(owner)).some((r) => r.reservationId === second.reservationId)).toBe(
-        false,
-      );
+      expect((await refundsDue(owner)).some((r) => r.chargeId === second.chargeId)).toBe(false);
 
       // ── Holds. One unpaid hold per account; the session dies with it.
       const held = await bookReservation(db, asMember, slot(online, '13:00'));

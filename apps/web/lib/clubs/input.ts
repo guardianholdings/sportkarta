@@ -66,6 +66,18 @@ import {
   type BroadcastPurpose,
   type MessageChannel,
   type SmsNotifyKind,
+  EVENT_CANCEL_HOURS_MAX,
+  EVENT_CAPACITY_MAX,
+  EVENT_DESCRIPTION_MAX,
+  EVENT_HORIZON_DAYS,
+  EVENT_KINDS,
+  EVENT_PAYMENTS,
+  EVENT_SPAN_DAYS_MAX,
+  EVENT_TEAM_NAME_MAX,
+  EVENT_TICKET_NAME_MAX,
+  EVENT_TITLE_MAX,
+  type EventKind,
+  type EventPayment,
 } from '@sportkarta/lib/clubs';
 import {
   SOFIA_TZ,
@@ -1871,4 +1883,223 @@ export function parseGoogleReviewUrl(form: Reader): InputResult<string | null> {
   return isGoogleReviewUrl(raw)
     ? { ok: true, value: raw }
     : { ok: false, errors: ['google_review_url_invalid'] };
+}
+
+// ─── Events (0053) ─────────────────────────────────────────────────────────
+
+/** A Sofia wall-clock date and time as an instant; null when either is missing or wrong. */
+function wallInstant(date: string, time: string): Date | null {
+  const clock = parseClock(time);
+  if (!isIsoDate(date) || clock === null) return null;
+  const [year, month, day] = date.split('-').map(Number) as [number, number, number];
+  return new Date(
+    zonedToInstant({ year, month, day, hour: Math.floor(clock / 60), minute: clock % 60 }, SOFIA_TZ)
+      .instantMs,
+  );
+}
+
+/** An optional date-and-time pair: both empty is null, one half is an error. */
+function optionalWallInstant(
+  form: Reader,
+  prefix: string,
+  errors: string[],
+  code: string,
+): Date | null {
+  const date = text(form, `${prefix}Date`);
+  const time = text(form, `${prefix}Time`);
+  if (date === '' && time === '') return null;
+  const at = wallInstant(date, time || '00:00');
+  if (at === null) errors.push(code);
+  return at;
+}
+
+export interface EventInput {
+  kind: EventKind;
+  titleBg: string;
+  titleEn: string | null;
+  descriptionBg: string | null;
+  descriptionEn: string | null;
+  sport: ClubSport | null;
+  locationId: string;
+  resourceId: string | null;
+  startsAt: Date;
+  endsAt: Date;
+  registrationOpensAt: Date | null;
+  registrationClosesAt: Date | null;
+  capacity: number | null;
+  teamEvent: boolean;
+  payment: EventPayment;
+  cancelDeadlineHours: number;
+  public: boolean;
+}
+
+/**
+ * An event's settings. Its span is Sofia wall-clock dates and times, at most
+ * EVENT_SPAN_DAYS_MAX days, ending in the future and starting within
+ * EVENT_HORIZON_DAYS; registration closes no later than the event ends. A
+ * tournament names its sport (its ratings are per sport).
+ */
+export function parseEvent(form: Reader, now: Date): InputResult<EventInput> {
+  const errors: string[] = [];
+  const kind = oneOf(text(form, 'kind'), EVENT_KINDS);
+  if (!kind) errors.push('kind_invalid');
+  const titleBg = required(text(form, 'titleBg'), EVENT_TITLE_MAX, errors, 'title');
+  const titleEn = bounded(optionalText(form, 'titleEn'), EVENT_TITLE_MAX, errors, 'title_too_long');
+  const descriptionBg = bounded(
+    optionalText(form, 'descriptionBg'),
+    EVENT_DESCRIPTION_MAX,
+    errors,
+    'description_too_long',
+  );
+  const descriptionEn = bounded(
+    optionalText(form, 'descriptionEn'),
+    EVENT_DESCRIPTION_MAX,
+    errors,
+    'description_too_long',
+  );
+  const sportRaw = text(form, 'sport');
+  const sport = sportRaw === '' ? null : isClubSport(sportRaw) ? sportRaw : null;
+  if (sportRaw !== '' && sport === null) errors.push('sport_invalid');
+  if (kind === 'tournament' && sport === null && sportRaw === '') errors.push('sport_required');
+  const locationId = text(form, 'locationId');
+  if (!isUuid(locationId)) errors.push('location_invalid');
+  const resourceId = optionalUuid(form, 'resourceId');
+  if (resourceId === 'invalid') errors.push('resource_invalid');
+  const startsAt = wallInstant(text(form, 'startDate'), text(form, 'startTime'));
+  const endsAt = wallInstant(text(form, 'endDate'), text(form, 'endTime'));
+  if (
+    startsAt === null ||
+    endsAt === null ||
+    endsAt <= startsAt ||
+    endsAt.getTime() - startsAt.getTime() > EVENT_SPAN_DAYS_MAX * 86_400_000 ||
+    endsAt <= now ||
+    startsAt.getTime() - now.getTime() > EVENT_HORIZON_DAYS * 86_400_000
+  ) {
+    errors.push('event_span_invalid');
+  }
+  const registrationOpensAt = optionalWallInstant(form, 'opens', errors, 'event_window_invalid');
+  const registrationClosesAt = optionalWallInstant(form, 'closes', errors, 'event_window_invalid');
+  if (
+    (endsAt && registrationClosesAt && registrationClosesAt > endsAt) ||
+    (registrationOpensAt && registrationClosesAt && registrationOpensAt >= registrationClosesAt) ||
+    (registrationOpensAt && startsAt && !registrationClosesAt && registrationOpensAt >= startsAt)
+  ) {
+    errors.push('event_window_invalid');
+  }
+  const capacityRaw = text(form, 'capacity');
+  const capacity = capacityRaw === '' ? null : intInRange(capacityRaw, 1, EVENT_CAPACITY_MAX);
+  if (capacityRaw !== '' && capacity === null) errors.push('capacity_invalid');
+  const payment = oneOf(text(form, 'payment') || 'desk', EVENT_PAYMENTS);
+  if (!payment) errors.push('payment_invalid');
+  const cancelDeadlineHours = intInRange(
+    text(form, 'cancelHours') || '48',
+    0,
+    EVENT_CANCEL_HOURS_MAX,
+  );
+  if (cancelDeadlineHours === null) errors.push('cancel_hours_invalid');
+  if (
+    errors.length > 0 ||
+    !kind ||
+    !payment ||
+    startsAt === null ||
+    endsAt === null ||
+    cancelDeadlineHours === null ||
+    resourceId === 'invalid'
+  ) {
+    return { ok: false, errors: [...new Set(errors)] };
+  }
+  return {
+    ok: true,
+    value: {
+      kind,
+      titleBg,
+      titleEn,
+      descriptionBg,
+      descriptionEn,
+      sport,
+      locationId: locationId.toLowerCase(),
+      resourceId,
+      startsAt,
+      endsAt,
+      registrationOpensAt,
+      registrationClosesAt,
+      capacity,
+      teamEvent: checked(form, 'teamEvent'),
+      payment,
+      cancelDeadlineHours,
+      public: checked(form, 'public'),
+    },
+  };
+}
+
+export interface EventTicketInput {
+  nameBg: string;
+  nameEn: string | null;
+  priceCents: number;
+  memberPriceCents: number | null;
+  capacity: number | null;
+  audience: ClubPlanAudience;
+  sortOrder: number;
+}
+
+/** A ticket type: a name, a price (a member price at most the price), an optional capacity. */
+export function parseEventTicket(form: Reader): InputResult<EventTicketInput> {
+  const errors: string[] = [];
+  const nameBg = required(text(form, 'nameBg'), EVENT_TICKET_NAME_MAX, errors, 'name');
+  const nameEn = bounded(
+    optionalText(form, 'nameEn'),
+    EVENT_TICKET_NAME_MAX,
+    errors,
+    'name_too_long',
+  );
+  const priceCents = parseEuroCents(text(form, 'price') || '0');
+  if (priceCents === null || priceCents > 10_000_000) errors.push('price_invalid');
+  const memberRaw = text(form, 'memberPrice');
+  const memberPriceCents = memberRaw === '' ? null : parseEuroCents(memberRaw);
+  if (
+    memberRaw !== '' &&
+    (memberPriceCents === null || (priceCents !== null && memberPriceCents > priceCents))
+  ) {
+    errors.push('member_price_invalid');
+  }
+  const capacityRaw = text(form, 'capacity');
+  const capacity = capacityRaw === '' ? null : intInRange(capacityRaw, 1, EVENT_CAPACITY_MAX);
+  if (capacityRaw !== '' && capacity === null) errors.push('capacity_invalid');
+  const audience = oneOf(text(form, 'audience') || 'all', CLUB_PLAN_AUDIENCES);
+  if (!audience) errors.push('audience_invalid');
+  const sortOrder = intInRange(text(form, 'sortOrder') || '0', 0, 1000);
+  if (sortOrder === null) errors.push('sort_invalid');
+  if (errors.length > 0 || priceCents === null || !audience || sortOrder === null) {
+    return { ok: false, errors };
+  }
+  return {
+    ok: true,
+    value: { nameBg, nameEn, priceCents, memberPriceCents, capacity, audience, sortOrder },
+  };
+}
+
+export interface EventRegistrationInput {
+  ticketId: string;
+  /** The person: the account's own record or a child's; null — their own, made if need be. */
+  memberId: string | null;
+  teamName: string | null;
+}
+
+/** A registration request: the ticket, whom for, and a team name where the event has teams. */
+export function parseEventRegistration(
+  form: Reader,
+  teamEvent: boolean,
+): InputResult<EventRegistrationInput> {
+  const errors: string[] = [];
+  const ticketId = text(form, 'ticketId');
+  if (!isUuid(ticketId)) errors.push('ticket_invalid');
+  const memberId = optionalUuid(form, 'memberId');
+  if (memberId === 'invalid') errors.push('member_invalid');
+  const teamRaw = optionalText(form, 'teamName');
+  const teamName = teamEvent
+    ? bounded(teamRaw, EVENT_TEAM_NAME_MAX, errors, 'team_name_too_long')
+    : null;
+  if (teamEvent && teamRaw === null) errors.push('team_name_required');
+  if (errors.length > 0 || memberId === 'invalid') return { ok: false, errors };
+  return { ok: true, value: { ticketId: ticketId.toLowerCase(), memberId, teamName } };
 }

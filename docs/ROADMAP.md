@@ -485,6 +485,31 @@ and, where an outside service is involved, by an env switch as well.
       14-day window credits the class's current instructor. Staff are told of
       a new message by e-mail only (no push to staff yet).
 - [ ] **D — events, camps, tournaments**
+  - [x] **D1 — events, camps, workshops: tickets, waitlist, online payment** (`0053`):
+    «Събития» in the office (management puts an event on — a draft, its ticket
+    types with a price, a member price, a capacity and an audience, then
+    «Публикувай»; the desk registers clients and gives places up), a public
+    event page (register yourself or a child, team name for team events, pay a
+    held place, give a place up, «Добавете в календара» `.ics`), the events on
+    the club's page and in the portal. A seat is taken only while there is one —
+    the database counts under the event lock and refuses a newcomer while
+    somebody waits for that ticket; a full event takes a place in line, in
+    arrival order; a freed seat goes to the first in line at once (outright, or
+    held 23 hours to pay when the event takes payment online only); a lapsed
+    hold is released by the 10-minute sweep and the line moves. Giving a
+    confirmed place up after the snapshotted deadline keeps the charge;
+    otherwise it is voided and paid money is listed as owed back («Плащания»,
+    with the court bookings). Cancelling the event is final: every place goes,
+    everyone is told. A published event with a court closes it for its span —
+    the calendar refuses an event on a booked court and a booking over an event.
+    Notices: registered (a seat, a held seat with its deadline, or the place in
+    line), moved up, event cancelled — by e-mail, and push for the last two.
+    Events are on every tier.
+    - [ ] **Known limits (accepted for v1):** the member's private calendar
+      feed does not list event places yet (the public `.ics` per event does);
+      an event's time change after registration tells nobody; places are per
+      person (a team registers once, under its captain).
+  - [ ] **D2 — tournaments: draws, results, standings, ratings**
 - [ ] **G — waivers and documents, ranks and belts**
 - [ ] **H — club API, webhooks, MCP, door access, pixels** (pixels wait on legal)
 
