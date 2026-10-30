@@ -14,6 +14,7 @@ import { enqueueClubNotify } from '@/lib/clubs/notify';
 import { checkoutReturn, startChargeCheckout } from '@/lib/clubs/payments';
 import { clubIdForSlug } from '@/lib/clubs/portal';
 import { clubMemberActionLimiter } from '@/lib/clubs/rate-limit';
+import { setNamePublic } from '@/lib/clubs/tournaments';
 
 /**
  * A member registers for an event from its public page (0053) — for
@@ -139,4 +140,17 @@ export async function cancelPlaceAction(formData: FormData): Promise<void> {
         ? 'place_cancelled_late'
         : 'place_cancelled',
   );
+}
+
+/** The entrant's own consent to their name in the public results, on or off. */
+export async function namePublicAction(formData: FormData): Promise<void> {
+  const { user, clubId, back } = await target(formData);
+  if (!clubId) return;
+  const registrationId = str(formData, 'registrationId');
+  if (!isUuid(registrationId)) return back('not_found');
+  // Every change is an audit row: no endless toggling.
+  if (!clubMemberActionLimiter.check(`event:${user.id}`).allowed) return back('rate_limited');
+  const on = str(formData, 'on') === '1';
+  const ok = await setNamePublic(getDb(), user.id, clubId, registrationId, on);
+  return back(ok ? (on ? 'name_shown' : 'name_hidden') : 'not_allowed');
 }

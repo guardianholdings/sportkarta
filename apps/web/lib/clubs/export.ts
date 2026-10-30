@@ -32,6 +32,7 @@ export const CLUB_EXPORT_DATASETS = [
   'conversations',
   'feedback',
   'events',
+  'matches',
   'audit',
 ] as const;
 export type ClubExportDataset = (typeof CLUB_EXPORT_DATASETS)[number];
@@ -379,6 +380,45 @@ const DATASETS: Record<ClubExportDataset, Dataset> = {
         LEFT JOIN club_members m ON m.club_id = er.club_id AND m.id = er.member_id
        WHERE ${scope}
        ORDER BY ev.starts_at, er.seq`,
+  },
+  /**
+   * Every match of the club's drawn tournaments (0054) with its result; an
+   * entrant is the place's team or client name, blank once the client is erased.
+   */
+  matches: {
+    permission: 'data.export',
+    alias: 'tm',
+    header: [
+      'event',
+      'starts_at',
+      'round',
+      'slot',
+      'entrant_a',
+      'entrant_b',
+      'score_a',
+      'score_b',
+      'winner',
+      'status',
+      'recorded_by',
+      'recorded_at',
+    ],
+    query: (scope) => sql`
+      SELECT ARRAY[ev.title_bg, ${STAMP(sql`ev.starts_at`)}, tm.round::text, tm.slot::text,
+             coalesce(ra.team_name, ma.display_name, ''), coalesce(rb.team_name, mb.display_name, ''),
+             coalesce(tm.score_a::text, ''), coalesce(tm.score_b::text, ''),
+             CASE WHEN tm.winner IS NULL THEN ''
+                  WHEN tm.winner = tm.entrant_a THEN 'a' ELSE 'b' END,
+             tm.status, coalesce(s.display_name, ''),
+             coalesce(${STAMP(sql`tm.recorded_at`)}, '')]::text[] AS r
+        FROM club_tournament_matches tm
+        JOIN club_events ev ON ev.club_id = tm.club_id AND ev.id = tm.event_id
+        LEFT JOIN club_event_registrations ra ON ra.club_id = tm.club_id AND ra.id = tm.entrant_a
+        LEFT JOIN club_members ma ON ma.club_id = ra.club_id AND ma.id = ra.member_id
+        LEFT JOIN club_event_registrations rb ON rb.club_id = tm.club_id AND rb.id = tm.entrant_b
+        LEFT JOIN club_members mb ON mb.club_id = rb.club_id AND mb.id = rb.member_id
+        LEFT JOIN club_staff s ON s.club_id = tm.club_id AND s.user_id = tm.recorded_by
+       WHERE ${scope}
+       ORDER BY ev.starts_at, tm.event_id, tm.round, tm.slot`,
   },
   classes: {
     permission: 'data.export',

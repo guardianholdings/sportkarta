@@ -35,7 +35,7 @@ function strings(node: Tree, prefix: string): [string, string][] {
 
 /** Second-person-singular markers that turned up in these keys. */
 const INFORMAL =
-  /(?<![\p{L}])(Виж|Влез|Запиши|Абонирай|Върни|разгледай|твои|твоите|Имаш|получиш|играеш|споделяй|публикувай|абонираш|Здравей|Получаваш|Натисни|спреш|влизаш|се запишеш|си се записал|Записан си|Отписан си)(?![\p{L}])/u;
+  /(?<![\p{L}])(Виж|Влез|Запиши|Абонирай|Върни|разгледай|твои|твоите|Имаш|получиш|играеш|споделяй|публикувай|абонираш|Здравей|Получаваш|Натисни|спреш|влизаш|се запишеш|си се записал|Записан си|Отписан си|Покажи|Скрий)(?![\p{L}])/u;
 
 const FORMAL_KEYS = [
   'Session.metaDescription',
@@ -60,6 +60,8 @@ const FORMAL_KEYS = [
   'DigestEmail.greetingNoName',
   'DigestEmail.footer',
   'Passport.activityExplainer',
+  'ClubEvents.public.showName',
+  'ClubEvents.public.hideName',
 ];
 
 describe('formal address', () => {

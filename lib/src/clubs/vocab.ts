@@ -6,7 +6,7 @@ import type { IsoDate } from './dates.js';
  * every list here equal to its constraint, so the two copies cannot drift.
  */
 
-/** club_audit_action_known (0039, widened in 0045, 0046, 0048–0053). */
+/** club_audit_action_known (0039, widened in 0045, 0046, 0048–0054). */
 export const CLUB_AUDIT_ACTIONS = [
   'club_applied',
   'settings_changed',
@@ -101,6 +101,9 @@ export const CLUB_AUDIT_ACTIONS = [
   'event_cancelled',
   'event_registered',
   'event_registration_cancelled',
+  'tournament_drawn',
+  'match_recorded',
+  'name_visibility_changed',
 ] as const;
 export type ClubAuditAction = (typeof CLUB_AUDIT_ACTIONS)[number];
 

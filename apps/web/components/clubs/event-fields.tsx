@@ -35,12 +35,15 @@ export async function EventFields({
   locations,
   resources,
   sports,
+  drawn = false,
 }: {
   slug: string;
   event: ClubEvent | null;
   locations: { id: string; name: string }[];
   resources: { id: string; name: string; locationId: string }[];
   sports: { value: string; label: string }[];
+  /** A drawn tournament: kind, sport and team format stay (the save keeps them too). */
+  drawn?: boolean;
 }) {
   const t = await getTranslations('ClubEvents.form');
   const field = 'block text-body-sm font-semibold text-ink';
@@ -60,7 +63,12 @@ export async function EventFields({
       <div className="grid gap-3 sm:grid-cols-2">
         <label className={field}>
           {t('kind')}
-          <Select name="kind" defaultValue={event?.kind ?? 'event'} className="mt-1">
+          <Select
+            name="kind"
+            defaultValue={event?.kind ?? 'event'}
+            className="mt-1"
+            disabled={drawn}
+          >
             {EVENT_KINDS.map((kind) => (
               <option key={kind} value={kind}>
                 {t(`kinds.${kind}`)}
@@ -70,7 +78,7 @@ export async function EventFields({
         </label>
         <label className={field}>
           {t('sport')}
-          <Select name="sport" defaultValue={event?.sport ?? ''} className="mt-1">
+          <Select name="sport" defaultValue={event?.sport ?? ''} className="mt-1" disabled={drawn}>
             <option value="">{t('sportNone')}</option>
             {sports.map((sport) => (
               <option key={sport.value} value={sport.value}>
@@ -81,6 +89,15 @@ export async function EventFields({
           <span className={hint}>{t('sportHint')}</span>
         </label>
       </div>
+      {drawn && event && (
+        <>
+          {/* A disabled field is not sent: the kept values travel here. */}
+          <input type="hidden" name="kind" value={event.kind} />
+          <input type="hidden" name="sport" value={event.sport ?? ''} />
+          {event.teamEvent && <input type="hidden" name="teamEvent" value="on" />}
+          <p className="text-caption text-text-muted">{t('drawnLocked')}</p>
+        </>
+      )}
       <label className={field}>
         {t('titleBg')}
         <Input
@@ -241,6 +258,7 @@ export async function EventFields({
           type="checkbox"
           name="teamEvent"
           defaultChecked={event?.teamEvent ?? false}
+          disabled={drawn}
           className="size-4 accent-[var(--brand)]"
         />
         {t('teamEvent')}

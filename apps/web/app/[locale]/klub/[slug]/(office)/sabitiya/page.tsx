@@ -42,11 +42,18 @@ export default async function ClubEventsPage({
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
           <p className="mt-1.5 max-w-prose text-body-sm text-ink-soft">{t('intro')}</p>
         </div>
-        {actorCan(actor, 'events.manage') && (
-          <Link href={`${base}/novo`} className={buttonVariants({ variant: 'accent' })}>
-            {t('new')}
-          </Link>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {actorCan(actor, 'members.view') && (
+            <Link href={`${base}/reyting`} className={buttonVariants({ variant: 'secondary' })}>
+              {t('ratingsLink')}
+            </Link>
+          )}
+          {actorCan(actor, 'events.manage') && (
+            <Link href={`${base}/novo`} className={buttonVariants({ variant: 'accent' })}>
+              {t('new')}
+            </Link>
+          )}
+        </div>
       </div>
 
       <nav aria-label={t('title')} className="-mx-4 overflow-x-auto px-4">

@@ -116,6 +116,8 @@ import {
   EVENT_PAYMENTS,
   EVENT_STATUSES,
   REGISTRATION_STATES,
+  MATCH_STATUSES,
+  TOURNAMENT_FORMATS,
   audienceFits,
   lateCancellation,
   registrationOpen,
@@ -176,6 +178,8 @@ describe('the vocabularies equal their SQL CHECKs', () => {
     ['club_events_payment_known', EVENT_PAYMENTS],
     ['club_event_registrations_state_known', REGISTRATION_STATES],
     ['club_event_tickets_audience_known', CLUB_PLAN_AUDIENCES],
+    ['club_events_tournament_format', TOURNAMENT_FORMATS],
+    ['club_tournament_matches_status_known', MATCH_STATUSES],
   ] as const)('%s', (constraint, values) => {
     expect(checkValues(constraint).sort()).toEqual([...values].sort());
   });

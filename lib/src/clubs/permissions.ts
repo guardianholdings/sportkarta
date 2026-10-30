@@ -58,6 +58,7 @@ export const CLUB_PERMISSIONS = [
   'inbox.reply',
   'feedback.view',
   'events.manage',
+  'events.results',
 ] as const;
 export type ClubPermission = (typeof CLUB_PERMISSIONS)[number];
 
@@ -117,6 +118,11 @@ const MATRIX: Readonly<Record<ClubPermission, readonly ClubRole[]>> = {
    * desk, and giving a place up for them, is bookings.manage (front of house).
    */
   'events.manage': MANAGEMENT,
+  /**
+   * A tournament's results (0054): whoever runs the matches records them —
+   * management and the trainers. The draw itself is events.manage.
+   */
+  'events.results': ['owner', 'manager', 'trainer'],
 };
 
 export function isClubRole(value: unknown): value is ClubRole {

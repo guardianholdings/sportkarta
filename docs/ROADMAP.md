@@ -484,7 +484,7 @@ and, where an outside service is involved, by an env switch as well.
       removed from the staff, or a class's instructor changed, inside the
       14-day window credits the class's current instructor. Staff are told of
       a new message by e-mail only (no push to staff yet).
-- [ ] **D — events, camps, tournaments**
+- [x] **D — events, camps, tournaments**
   - [x] **D1 — events, camps, workshops: tickets, waitlist, online payment** (`0053`):
     «Събития» in the office (management puts an event on — a draft, its ticket
     types with a price, a member price, a capacity and an audience, then
@@ -509,7 +509,33 @@ and, where an outside service is involved, by an env switch as well.
       feed does not list event places yet (the public `.ics` per event does);
       an event's time change after registration tells nobody; places are per
       person (a team registers once, under its captain).
-  - [ ] **D2 — tournaments: draws, results, standings, ratings**
+  - [x] **D2 — tournaments: draws, results, standings, ratings** (`0054`): a
+    tournament is an event of kind «Турнир»; its entrants are the confirmed
+    places, numbered in arrival order. Management draws it («Изтегли схемата»)
+    as single elimination — standard seeding, the byes to the top seeds,
+    decided at once — or round robin (everybody meets everybody, circle
+    method), seeded by arrival or by the club rating. A trainer or management
+    records a result (two scores or a walkover); the winner moves on by itself;
+    an elimination has no draws; a result is corrected only while the next
+    match has none, and a re-draw only before any result. Round robin keeps a
+    table (3 / 1 / 0). The club rating per sport («Рейтинг», members.view) is an
+    Elo fold (start 1500, K 32) over every individual tournament — derived on
+    every read, never stored; a correction keeps its match's place in that
+    fold. The public event page shows the bracket or the table, a name only
+    with the entrant's OWN «Покажете името в резултатите» (otherwise
+    «Участник N»), given by the client's own account when they have one. The
+    consent ends with the place, with the link it was given through (unlinked
+    or the account deleted) and with erasure; it is withdrawn from the event
+    page at any time, the tournament over or not, and the desk hides a name on
+    request. A withdrawn entrant keeps their number in the draw; somebody
+    confirmed after the draw is no entrant. The database keeps the rest: a bye
+    names its winner, the higher score wins, a recorded result is never deleted
+    or withdrawn, a drawn tournament keeps its format (and its kind, sport and
+    team format on a save). Matches are in the club export (`matches.csv`).
+    Tournaments are on every tier.
+    - [ ] **Known limits (accepted for v1):** no double elimination, Swiss or
+      groups-then-knockout; no seeding by hand; a team tournament is rated
+      nowhere (the Elo is individual only); no third-place match.
 - [ ] **G — waivers and documents, ranks and belts**
 - [ ] **H — club API, webhooks, MCP, door access, pixels** (pixels wait on legal)
 

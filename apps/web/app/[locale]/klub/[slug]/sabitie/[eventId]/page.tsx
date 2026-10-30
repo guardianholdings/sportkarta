@@ -23,7 +23,10 @@ import { formatDateTime } from '@/lib/format';
 import { signInHref } from '@/lib/sign-in-destination';
 import { cn } from '@/lib/utils';
 
-import { cancelPlaceAction, payPlaceAction, registerAction } from './actions';
+import { TournamentPanel } from '@/components/clubs/tournament-panel';
+import { memberNameConsents, publicTournament } from '@/lib/clubs/tournaments';
+
+import { cancelPlaceAction, namePublicAction, payPlaceAction, registerAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +35,8 @@ const GOOD = new Set([
   'registered_waitlist',
   'place_cancelled',
   'place_cancelled_late',
+  'name_shown',
+  'name_hidden',
 ]);
 
 type PageParams = Promise<{ locale: string; slug: string; eventId: string }>;
@@ -79,6 +84,16 @@ export default async function PublicEventPage({
     user ? portalView(user.id, slug, locale) : Promise.resolve(null),
     clubTakesPayments(club.id),
   ]);
+  const results = event.kind === 'tournament' ? await publicTournament(club.id, event.id) : null;
+  // A consent outlives the portal list (a tournament that is over): it is
+  // withdrawn here, whenever.
+  const listed = new Set(mine.map((p) => p.id));
+  const consents =
+    user && event.kind === 'tournament'
+      ? (await memberNameConsents(user.id, club.id, event.id)).filter(
+          (c) => !listed.has(c.registrationId),
+        )
+      : [];
   const records = view?.link?.status === 'active' ? view.records : [];
   const selfMissing = !records.some((r) => r.self);
   const placed = new Set(mine.map((p) => p.memberId));
@@ -309,6 +324,17 @@ export default async function PublicEventPage({
                         </button>
                       </form>
                     )}
+                    {event.kind === 'tournament' && place.state === 'confirmed' && (
+                      <form action={namePublicAction}>
+                        <input type="hidden" name="slug" value={slug} />
+                        <input type="hidden" name="eventId" value={event.id} />
+                        <input type="hidden" name="registrationId" value={place.id} />
+                        <input type="hidden" name="on" value={place.namePublic ? '0' : '1'} />
+                        <button type="submit" className={pill}>
+                          {place.namePublic ? t('public.hideName') : t('public.showName')}
+                        </button>
+                      </form>
+                    )}
                     <form action={cancelPlaceAction}>
                       <input type="hidden" name="slug" value={slug} />
                       <input type="hidden" name="eventId" value={event.id} />
@@ -330,6 +356,47 @@ export default async function PublicEventPage({
               ))}
             </ul>
           </section>
+        )}
+
+        {consents.length > 0 && (
+          <section
+            className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm"
+            aria-labelledby="names-h"
+          >
+            <h2 id="names-h" className="text-h4 font-bold text-ink">
+              {t('public.namesTitle')}
+            </h2>
+            <ul className="space-y-2">
+              {consents.map((consent) => (
+                <li
+                  key={consent.registrationId}
+                  className="flex flex-wrap items-center justify-between gap-2"
+                >
+                  <span className="text-body-sm text-ink">{consent.memberName}</span>
+                  <form action={namePublicAction}>
+                    <input type="hidden" name="slug" value={slug} />
+                    <input type="hidden" name="eventId" value={event.id} />
+                    <input type="hidden" name="registrationId" value={consent.registrationId} />
+                    <input type="hidden" name="on" value="0" />
+                    <button type="submit" className={pill}>
+                      {t('public.hideName')}
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {results && results.format !== null && (
+          <TournamentPanel
+            slug={slug}
+            eventId={event.id}
+            tournament={results}
+            office={false}
+            canDraw={false}
+            canRecord={false}
+          />
         )}
 
         {action && (

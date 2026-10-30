@@ -20,6 +20,13 @@ import { isUuid, parseEvent, parseEventRegistration, parseEventTicket } from '@/
 import { enqueueClubNotify } from '@/lib/clubs/notify';
 import { clubTakesPayments } from '@/lib/clubs/payments';
 import { revalidateClubSurfaces } from '@/lib/clubs/surfaces';
+import {
+  drawTournament,
+  hideEntrantName,
+  recordMatch,
+  type MatchResult,
+} from '@/lib/clubs/tournaments';
+import { MATCH_SCORE_MAX, TOURNAMENT_FORMATS, type TournamentFormat } from '@sportkarta/lib/clubs';
 
 /**
  * Events, camps and tournaments in the office (0053). Putting an event on —
@@ -166,4 +173,55 @@ export async function deskCancelPlaceAction(formData: FormData): Promise<void> {
         ? 'place_cancelled_refund'
         : 'place_cancelled',
   );
+}
+
+/** Hide an entrant's public name on their request — bookings.manage; never shows one. */
+export async function hideEntrantNameAction(formData: FormData): Promise<void> {
+  const slug = slugOf(formData);
+  const { actor } = await requireClubStaff(slug, 'bookings.manage');
+  const eventId = str(formData, 'eventId');
+  const registrationId = str(formData, 'registrationId');
+  if (!isUuid(eventId) || !isUuid(registrationId)) return back(slug, null, 'not_found');
+  const ok = await hideEntrantName(getDb(), actor, registrationId);
+  return back(slug, eventId, ok ? 'name_hidden' : 'not_allowed');
+}
+
+/** Draw (or re-draw, before any result) a tournament — events.manage. */
+export async function drawTournamentAction(formData: FormData): Promise<void> {
+  const slug = slugOf(formData);
+  const { actor } = await requireClubStaff(slug, 'events.manage');
+  const eventId = str(formData, 'eventId');
+  if (!isUuid(eventId)) return back(slug, null, 'not_found');
+  const format = str(formData, 'format');
+  if (!(TOURNAMENT_FORMATS as readonly string[]).includes(format)) {
+    return back(slug, eventId, 'format_invalid');
+  }
+  const seeding = str(formData, 'seeding') === 'rating' ? 'rating' : 'arrival';
+  const result = await drawTournament(getDb(), actor, eventId, format as TournamentFormat, seeding);
+  return back(slug, eventId, result.ok ? 'drawn' : `draw_${result.error}`);
+}
+
+/** A match's result: two scores, or a walkover for one side — events.results. */
+export async function recordMatchAction(formData: FormData): Promise<void> {
+  const slug = slugOf(formData);
+  const { actor } = await requireClubStaff(slug, 'events.results');
+  const eventId = str(formData, 'eventId');
+  const matchId = str(formData, 'matchId');
+  if (!isUuid(eventId) || !isUuid(matchId)) return back(slug, null, 'not_found');
+  const walkover = str(formData, 'walkover');
+  let result: MatchResult;
+  if (walkover === 'a' || walkover === 'b') {
+    result = { kind: 'walkover', winner: walkover };
+  } else {
+    const score = (name: string) => {
+      const raw = str(formData, name);
+      return /^\d{1,4}$/.test(raw) && Number(raw) <= MATCH_SCORE_MAX ? Number(raw) : null;
+    };
+    const scoreA = score('scoreA');
+    const scoreB = score('scoreB');
+    if (scoreA === null || scoreB === null) return back(slug, eventId, 'score_invalid');
+    result = { kind: 'score', scoreA, scoreB };
+  }
+  const recorded = await recordMatch(getDb(), actor, eventId, matchId, result);
+  return back(slug, eventId, recorded.ok ? 'result_saved' : `result_${recorded.error}`);
 }

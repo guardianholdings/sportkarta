@@ -10,6 +10,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
 import { EventFields } from '@/components/clubs/event-fields';
+import { TournamentPanel } from '@/components/clubs/tournament-panel';
 import { Badge, type BadgeTone } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
@@ -24,6 +25,7 @@ import { clubSportOptions } from '@/lib/clubs/labels';
 import { memberChoices } from '@/lib/clubs/members';
 import { clubResources } from '@/lib/clubs/resources';
 import { clubLocations } from '@/lib/clubs/settings';
+import { tournamentForStaff } from '@/lib/clubs/tournaments';
 import { formatDateTime } from '@/lib/format';
 
 import {
@@ -31,7 +33,10 @@ import {
   cancelEventAction,
   deskCancelPlaceAction,
   deskRegisterAction,
+  drawTournamentAction,
+  hideEntrantNameAction,
   publishEventAction,
+  recordMatchAction,
   saveEventAction,
   saveTicketAction,
 } from '../actions';
@@ -49,6 +54,9 @@ const GOOD = new Set([
   'place_cancelled',
   'place_cancelled_refund',
   'place_cancelled_invoice',
+  'drawn',
+  'result_saved',
+  'name_hidden',
 ]);
 
 const STATE_TONE: Record<string, BadgeTone> = {
@@ -88,6 +96,13 @@ export default async function ClubEventPage({
     canManage ? clubResources(actor) : Promise.resolve([]),
     canDesk ? memberChoices(actor) : Promise.resolve([]),
   ]);
+  const tournament =
+    // Who runs the matches sees who plays them (a display name, the roster's
+    // projection); the front of house too.
+    event.kind === 'tournament' &&
+    (actorCan(actor, 'members.view') || actorCan(actor, 'events.results'))
+      ? await tournamentForStaff(actor, event.id)
+      : null;
   const { rezultat } = await searchParams;
   const good = rezultat !== undefined && GOOD.has(rezultat);
   const section = 'space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm';
@@ -225,6 +240,19 @@ export default async function ClubEventPage({
             </ConfirmButton>
           </form>
         )}
+      {canDesk && place.namePublic && (
+        <form action={hideEntrantNameAction}>
+          <input type="hidden" name="slug" value={slug} />
+          <input type="hidden" name="eventId" value={event.id} />
+          <input type="hidden" name="registrationId" value={place.id} />
+          <button
+            type="submit"
+            className="min-h-9 rounded-pill border border-line-strong px-3 text-caption font-semibold text-ink hover:bg-surface-2"
+          >
+            {t('places.hideName')}
+          </button>
+        </form>
+      )}
     </li>
   );
 
@@ -403,6 +431,19 @@ export default async function ClubEventPage({
         )}
       </section>
 
+      {tournament && (
+        <TournamentPanel
+          slug={slug}
+          eventId={event.id}
+          tournament={tournament}
+          office
+          canDraw={canManage && editable}
+          canRecord={actorCan(actor, 'events.results') && editable}
+          drawAction={drawTournamentAction}
+          recordAction={recordMatchAction}
+        />
+      )}
+
       {canDesk && (
         <section className={section} aria-labelledby="places-h">
           <h2 id="places-h" className="text-h4 font-bold text-ink">
@@ -494,6 +535,7 @@ export default async function ClubEventPage({
             <EventFields
               slug={slug}
               event={event}
+              drawn={tournament !== null && tournament.format !== null}
               locations={locations.filter((l) => l.active || l.id === event.locationId)}
               resources={resources.filter((r) => !r.archived || r.id === event.resourceId)}
               sports={sports}

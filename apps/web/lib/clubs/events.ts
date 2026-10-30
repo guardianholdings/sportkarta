@@ -243,6 +243,8 @@ export interface EventPlace {
   owedCents: number;
   holdExpiresAt: string | null;
   createdAt: string;
+  /** The entrant consented to their name in public tournament results (0054). */
+  namePublic: boolean;
 }
 
 /**
@@ -273,7 +275,7 @@ const FREE_UNTIL = sql`CASE WHEN ${SEATED_LATE_FROM_LINE} THEN ev.starts_at ELSE
 
 const PLACE_COLUMNS = sql`
   er.id, er.member_id, er.ticket_id, er.state, er.team_name, er.price_cents, er.charge_id,
-  er.hold_expires_at, er.created_at,
+  er.hold_expires_at, er.created_at, er.name_public_at IS NOT NULL AS name_public,
   CASE WHEN er.state = 'waitlisted' THEN
     (SELECT count(*)::int FROM club_event_registrations w
       WHERE w.club_id = er.club_id AND w.event_id = er.event_id AND w.state = 'waitlisted'
@@ -296,6 +298,7 @@ function toPlace(row: Record<string, unknown>): EventPlace {
     owedCents: Number(row.owed ?? 0),
     holdExpiresAt: isoOrNull(row.hold_expires_at),
     createdAt: iso(row.created_at),
+    namePublic: row.name_public === true,
   };
 }
 
@@ -425,15 +428,21 @@ export async function saveEvent(
       }
       const updated = await tx.execute(sql`
         UPDATE club_events ev
-           SET kind = ${input.kind}, title_bg = ${input.titleBg}, title_en = ${input.titleEn},
+           -- A drawn tournament keeps its kind, sport and team format: its
+           -- matches were drawn for them, and its results rate that sport (0054).
+           SET kind = CASE WHEN ev.tournament_format IS NULL THEN ${input.kind} ELSE ev.kind END,
+               title_bg = ${input.titleBg}, title_en = ${input.titleEn},
                description_bg = ${input.descriptionBg}, description_en = ${input.descriptionEn},
-               sport = ${input.sport}, location_id = ${input.locationId}::uuid,
+               sport = CASE WHEN ev.tournament_format IS NULL THEN ${input.sport} ELSE ev.sport END,
+               location_id = ${input.locationId}::uuid,
                resource_id = ${input.resourceId}::uuid,
                starts_at = ${input.startsAt.toISOString()}::timestamptz,
                ends_at = ${input.endsAt.toISOString()}::timestamptz,
                registration_opens_at = ${input.registrationOpensAt?.toISOString() ?? null}::timestamptz,
                registration_closes_at = ${input.registrationClosesAt?.toISOString() ?? null}::timestamptz,
-               capacity = ${input.capacity}, team_event = ${input.teamEvent},
+               capacity = ${input.capacity},
+               team_event = CASE WHEN ev.tournament_format IS NULL THEN ${input.teamEvent}
+                                 ELSE ev.team_event END,
                payment = ${input.payment}, cancel_deadline_hours = ${input.cancelDeadlineHours},
                public = ${input.public}
          WHERE ev.id = ${eventId}::uuid AND ev.status <> 'cancelled'

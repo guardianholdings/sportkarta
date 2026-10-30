@@ -379,6 +379,13 @@
       "when": 1785188400000,
       "tag": "0053_club_events",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1785192000000,
+      "tag": "0054_club_tournaments",
+      "breakpoints": true
     }
   ]
 }

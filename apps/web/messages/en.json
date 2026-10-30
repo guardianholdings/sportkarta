@@ -3488,7 +3488,17 @@
       "payment_unavailable": "The club is not taking online payments right now.",
       "hold_pending": "A place is awaiting payment.",
       "already_registered": "This client already has a place at this event.",
-      "team_required": "Enter the team’s name."
+      "team_required": "Enter the team’s name.",
+      "format_invalid": "Choose a format.",
+      "score_invalid": "Enter two scores (whole numbers) or a walkover.",
+      "draw_not_allowed": "A draw cannot be made for this event.",
+      "draw_too_few": "At least two confirmed entrants are needed.",
+      "draw_too_many": "There are too many entrants for one draw (128 at most).",
+      "draw_results_exist": "Results are already recorded — the draw cannot be made again.",
+      "result_not_allowed": "This result cannot be recorded.",
+      "result_not_ready": "The match does not have two entrants yet.",
+      "result_draw_not_allowed": "Single elimination has no draws.",
+      "result_next_played": "The next match already has a result — correct that one first."
     }
   },
   "ClubSettings": {
@@ -4005,7 +4015,10 @@
       "event_published": "Event published",
       "event_cancelled": "Event cancelled",
       "event_registered": "Event registration",
-      "event_registration_cancelled": "Event place cancelled"
+      "event_registration_cancelled": "Event place cancelled",
+      "tournament_drawn": "Tournament draw made",
+      "match_recorded": "Match result",
+      "name_visibility_changed": "Name in results"
     }
   },
   "ClubSales": {
@@ -5767,7 +5780,10 @@
       "place_cancelled": "The place is cancelled.",
       "place_cancelled_refund": "The place is cancelled. What was paid is listed under “Payments” to refund.",
       "event_cancelled_invoiced": "The event is cancelled. Some places have an invoice — issue a credit note under “Invoices”, then void the charge; what was paid is listed under “Payments” to refund.",
-      "place_cancelled_invoice": "The place is cancelled. The charge has an invoice — issue a credit note under “Invoices”, then void it."
+      "place_cancelled_invoice": "The place is cancelled. The charge has an invoice — issue a credit note under “Invoices”, then void it.",
+      "drawn": "The draw is made.",
+      "result_saved": "The result is saved.",
+      "name_hidden": "The name is hidden from the public results."
     },
     "manage": {
       "title": "Manage",
@@ -5816,7 +5832,8 @@
         "expired": "Expired"
       },
       "cancel": "Cancel",
-      "cancelConfirm": "Cancel this place? An unpaid charge is voided; money paid is listed to refund."
+      "cancelConfirm": "Cancel this place? An unpaid charge is voided; money paid is listed to refund.",
+      "hideName": "Hide the name from the results"
     },
     "desk": {
       "title": "Register a client",
@@ -5876,7 +5893,8 @@
       "cancelHours": "Free cancellation until (hours before the start)",
       "cancelHoursHint": "A later cancellation keeps the fee. The deadline in force at registration applies.",
       "teamEvent": "Team event — registration asks for a team name",
-      "public": "Public — shown on the club’s page"
+      "public": "Public — shown on the club’s page",
+      "drawnLocked": "The draw is made: the kind, the sport and the team format stay as they are."
     },
     "public": {
       "cancelled": "The club cancelled this event.",
@@ -5936,9 +5954,60 @@
         "payment_provider_error": "The payment page did not open. Please try again.",
         "payment_in_progress": "A payment is already under way in another window.",
         "payment_hold_ending": "The place will be released soon — pay on the open payment page or at the front desk.",
-        "place_cancelled_invoice": "The place is cancelled. The club will issue a credit note and refund what you paid."
+        "place_cancelled_invoice": "The place is cancelled. The club will issue a credit note and refund what you paid.",
+        "name_shown": "Your name now shows in the public results.",
+        "name_hidden": "Your name is hidden — in the public results you are “Entrant N”."
       },
-      "forName": "For: {name}"
+      "forName": "For: {name}",
+      "showName": "Show the name in the results",
+      "hideName": "Hide the name from the results",
+      "namesTitle": "Names in the results"
+    },
+    "ratingsLink": "Ratings",
+    "ratings": {
+      "back": "Events",
+      "title": "Ratings",
+      "intro": "The club’s rating per sport — from the results of its individual tournaments, worked out afresh on every visit (Elo, starting at 1500). The office sees it only.",
+      "empty": "No match of an individual tournament has been played yet.",
+      "played": "{count, plural, one {# match} other {# matches}}"
+    },
+    "tournament": {
+      "title": "Tournament",
+      "tbd": "to come",
+      "withdrawn": "withdrawn",
+      "anonymous": "Entrant {number}",
+      "final": "Final",
+      "semifinal": "Semi-finals",
+      "round": "Round {round}",
+      "walkover": "walkover",
+      "bye": "bye",
+      "notDrawn": "The draw has not been made yet. Confirmed entrants: {count}.",
+      "notDrawnPublic": "The draw has not been made yet.",
+      "formats": {
+        "single_elimination": "Single elimination",
+        "round_robin": "Round robin"
+      },
+      "format": "Format",
+      "seeding": "Seeding",
+      "seedings": {
+        "arrival": "In order of registration",
+        "rating": "By the club rating"
+      },
+      "draw": "Make the draw",
+      "redraw": "Draw again",
+      "enter": "Enter the result",
+      "correct": "Correct the result",
+      "walkoverLabel": "Walkover for",
+      "walkoverNone": "— (score)",
+      "save": "Save",
+      "table": "Standings",
+      "entrant": "Entrant",
+      "playedShort": "P",
+      "wdl": "W-D-L",
+      "diff": "+/-",
+      "points": "Pts",
+      "privacy": "An entrant’s name is shown only with their consent — everybody else is “Entrant N”.",
+      "derived": "Standings and ratings are worked out from the results"
     }
   }
 }

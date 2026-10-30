@@ -264,7 +264,18 @@ browser) in a MANUAL STEPS list at the end of the session.
   the event takes payment online only. Every place-writer locks the event
   first, then checkouts → charges → registrations; a payment never takes the
   event lock. One charge per place; a published event's court closure is its
-  trigger's alone (`club_time_blocks_event_guard`). Writes need `clubWritableSql` (active and paid or
+  trigger's alone (`club_time_blocks_event_guard`). Tournaments (wave D2,
+  `0054`) are events of kind `tournament`: the draw and the Elo are pure in
+  `lib/src/clubs/tournament.ts`, matches are rows, and standings and ratings
+  are DERIVED on every read, never stored. Once drawn, the entrants are the
+  places the draw names, numbered by seed (`drawnSeeds`). A public result names
+  an entrant only with their own `name_public_at`, decided IN THE PUBLIC
+  STATEMENT, and only for a confirmed place whose client still has a live
+  link; the registrations guard clears it when the place ends or the client
+  is erased, `club_member_links_clear_names` when the link goes, and a consent
+  can always be withdrawn (`setNamePublic` off needs no live place and no
+  writable club). A recorded result is never deleted or withdrawn
+  (`club_tournament_matches_guard`, purge excepted). Writes need `clubWritableSql` (active and paid or
   community, 14-day grace); every public surface embeds `clubRenderableSql`.
   Check-ins never refuse (`covered=false` is recorded); only a QR/card visit of
   a consenting linked member writes `training_logs(source='club',

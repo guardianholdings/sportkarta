@@ -1590,6 +1590,8 @@ export const clubEvents = pgTable(
     registrationClosesAt: timestamptz('registration_closes_at'),
     capacity: integer('capacity'),
     teamEvent: boolean('team_event').notNull().default(false),
+    /** single_elimination | round_robin — set when a tournament is drawn (0054). */
+    tournamentFormat: text('tournament_format'),
     /** desk | online_optional | online_required (the services' vocabulary) */
     payment: text('payment').notNull().default('desk'),
     cancelDeadlineHours: integer('cancel_deadline_hours').notNull().default(48),
@@ -1683,6 +1685,8 @@ export const clubEventRegistrations = pgTable(
     bookedBy: text('booked_by'),
     /** member | staff | club */
     cancelKind: text('cancel_kind'),
+    /** The entrant's own consent to a name in public results (0054). */
+    namePublicAt: timestamptz('name_public_at'),
     cancelledAt: timestamptz('cancelled_at'),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
     updatedAt: timestamptz('updated_at').notNull().defaultNow(),
@@ -1714,5 +1718,47 @@ export const clubEventRegistrations = pgTable(
       .where(sql`${t.memberId} IS NOT NULL AND ${t.state} IN ('held', 'confirmed', 'waitlisted')`),
     // + the member key (SET NULL on one column), the seat and guard triggers,
     // the confirm-hold trigger on club_payments and club_charge_holds, in 0053.
+  ],
+);
+
+/**
+ * One match of a drawn tournament (0054): entrants are places of the same
+ * event; the result's shape is CHECK-pinned to its status. Standings and
+ * ratings are derived from these rows (lib/src/clubs/tournament.ts).
+ */
+export const clubTournamentMatches = pgTable(
+  'club_tournament_matches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    eventId: uuid('event_id').notNull(),
+    round: smallint('round').notNull(),
+    slot: smallint('slot').notNull(),
+    entrantA: uuid('entrant_a'),
+    entrantB: uuid('entrant_b'),
+    scoreA: integer('score_a'),
+    scoreB: integer('score_b'),
+    winner: uuid('winner'),
+    /** pending | played | walkover | bye */
+    status: text('status').notNull().default('pending'),
+    /** Staff id by value (0039 rule 5). */
+    recordedBy: text('recorded_by'),
+    recordedAt: timestamptz('recorded_at'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('club_tournament_matches_club_id_unique').on(t.clubId, t.id),
+    unique('club_tournament_matches_position_unique').on(t.clubId, t.eventId, t.round, t.slot),
+    foreignKey({
+      name: 'club_tournament_matches_event_fk',
+      columns: [t.clubId, t.eventId],
+      foreignColumns: [clubEvents.clubId, clubEvents.id],
+    }),
+    // + the three entrant / winner keys to (club_id, event_id, registration),
+    // the result-shape CHECKs and the guard (results kept, format kept, an
+    // elimination never drawn), declared in 0054 only.
   ],
 );
