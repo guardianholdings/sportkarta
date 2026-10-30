@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Link, redirect } from '@/i18n/navigation';
 import { getCurrentUser } from '@/lib/auth-session';
 import { clubsEnabled } from '@/lib/clubs/access';
+import { isOutcomeCode } from '@/lib/clubs/form-error';
 import { isUuid } from '@/lib/clubs/input';
 import { clubTakesPayments } from '@/lib/clubs/payments';
 import { portalView } from '@/lib/clubs/portal';
@@ -137,7 +138,7 @@ export default async function BuyPlanPage({
         </header>
 
         <div role="status" aria-live="polite">
-          {rezultat && t.has(`error.${rezultat}`) && (
+          {isOutcomeCode(rezultat) && t.has(`error.${rezultat}`) && (
             <p className="rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink">
               {t(`error.${rezultat}`)}
             </p>

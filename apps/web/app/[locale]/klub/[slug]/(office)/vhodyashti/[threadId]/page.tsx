@@ -12,7 +12,7 @@ import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { threadForStaff } from '@/lib/clubs/inbox';
 import { isUuid } from '@/lib/clubs/input';
 import { formatDate } from '@/lib/format';
-import { formErrorText } from '@/lib/clubs/form-error';
+import { formErrorText, isOutcomeCode } from '@/lib/clubs/form-error';
 
 import { closeThreadAction, replyAction } from '../actions';
 
@@ -39,7 +39,7 @@ export default async function ClubThreadPage({
   const [t, messages] = await Promise.all([getTranslations('ClubInbox'), clubFormMessages()]);
   const { rezultat } = await searchParams;
   const section = 'space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm';
-  const good = rezultat !== undefined && t.has(`outcome.${rezultat}`);
+  const good = rezultat !== undefined && isOutcomeCode(rezultat) && t.has(`outcome.${rezultat}`);
 
   return (
     <main className="space-y-5">

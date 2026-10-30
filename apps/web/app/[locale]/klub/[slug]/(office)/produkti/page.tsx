@@ -10,7 +10,7 @@ import { featureOn } from '@/lib/clubs/features';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { CLUB_PRODUCT_CATEGORIES, CLUB_VAT_RATES } from '@/lib/clubs/input';
 import { bestSellers, clubProducts, type ClubProduct } from '@/lib/clubs/shop';
-import { formErrorText } from '@/lib/clubs/form-error';
+import { formErrorText, isOutcomeCode } from '@/lib/clubs/form-error';
 
 import { archiveProductAction, saveProductAction, stockAction } from './actions';
 
@@ -155,7 +155,7 @@ export default async function ClubProductsPage({
               : 'rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink'
           }
         >
-          {t.has(`outcome.${rezultat}`)
+          {isOutcomeCode(rezultat) && t.has(`outcome.${rezultat}`)
             ? t(`outcome.${rezultat}`)
             : rezultat === 'readOnly'
               ? messages.readOnly

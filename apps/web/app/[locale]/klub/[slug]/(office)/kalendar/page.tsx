@@ -21,7 +21,7 @@ import { availability, dayCalendar, type CalendarLane } from '@/lib/clubs/reserv
 import { clubServices } from '@/lib/clubs/services';
 import { clubLocations } from '@/lib/clubs/settings';
 import { formatDate, intlLocale } from '@/lib/format';
-import { formErrorText } from '@/lib/clubs/form-error';
+import { formErrorText, isOutcomeCode } from '@/lib/clubs/form-error';
 
 import { deskBookAction, deskCancelAction } from './actions';
 
@@ -149,7 +149,7 @@ export default async function ClubCalendarPage({
                 : 'rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink'
             }
           >
-            {t.has(`outcome.${query.rezultat}`)
+            {isOutcomeCode(query.rezultat) && t.has(`outcome.${query.rezultat}`)
               ? t(`outcome.${query.rezultat}`)
               : formErrorText(messages, query.rezultat)}
           </p>

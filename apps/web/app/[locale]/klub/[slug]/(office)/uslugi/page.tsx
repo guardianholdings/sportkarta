@@ -327,7 +327,9 @@ export default async function ClubServicesPage({
         >
           {isPlainCode(rezultat) && t.has(`error.${rezultat}`)
             ? t(`error.${rezultat}`)
-            : formErrorText(messages, rezultat)}
+            : rezultat === 'readOnly'
+              ? messages.readOnly
+              : formErrorText(messages, rezultat)}
         </p>
       )}
 

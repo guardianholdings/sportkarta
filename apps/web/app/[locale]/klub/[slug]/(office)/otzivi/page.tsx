@@ -13,7 +13,7 @@ import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
 import { feedbackOverview } from '@/lib/clubs/feedback';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { formatDate } from '@/lib/format';
-import { formErrorText } from '@/lib/clubs/form-error';
+import { formErrorText, isOutcomeCode } from '@/lib/clubs/form-error';
 
 import { saveGoogleReviewAction } from './actions';
 
@@ -54,7 +54,7 @@ export default async function ClubFeedbackPage({
 
   const overview = await feedbackOverview(actor, locale);
   const { rezultat } = await searchParams;
-  const good = rezultat !== undefined && t.has(`outcome.${rezultat}`);
+  const good = rezultat !== undefined && isOutcomeCode(rezultat) && t.has(`outcome.${rezultat}`);
   const section = 'space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm';
   const stars = (n: number) => '★'.repeat(n) + '☆'.repeat(5 - n);
   const decimal = (value: number) =>

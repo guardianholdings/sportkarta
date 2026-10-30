@@ -157,7 +157,7 @@ export default async function PublicClubPage({ params }: { params: PageParams })
                 href={`/klub/${club.slug}/az`}
                 className={buttonVariants({ variant: 'secondary' })}
               >
-                {t('memberHere')} {t('myClub')}
+                {t('memberHereLink')}
               </Link>
               {inquiries && (
                 <Link

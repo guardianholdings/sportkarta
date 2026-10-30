@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
 import { getCurrentUser } from '@/lib/auth-session';
 import { clubsEnabled } from '@/lib/clubs/access';
+import { isOutcomeCode } from '@/lib/clubs/form-error';
 import { isUuid } from '@/lib/clubs/input';
 import { clubSportLabeler } from '@/lib/clubs/labels';
 import { portalView } from '@/lib/clubs/portal';
@@ -166,7 +167,7 @@ export default async function PublicClassPage({
         </header>
 
         <div role="status" aria-live="polite">
-          {rezultat && t.has(`class.outcome.${rezultat}`) && (
+          {isOutcomeCode(rezultat) && t.has(`class.outcome.${rezultat}`) && (
             <p
               className={cn(
                 'rounded-card border p-3 text-body-sm text-ink',

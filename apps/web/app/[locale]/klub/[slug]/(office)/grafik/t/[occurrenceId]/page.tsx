@@ -180,9 +180,9 @@ export default async function ClubRosterPage({
           {hidden}
           <input type="hidden" name="op" value="cancelBooking" />
           <input type="hidden" name="bookingId" value={person.bookingId} />
-          <button type="submit" className={smallButton}>
+          <ConfirmButton message={t('rosterPage.cancelBookingConfirm')} className={smallButton}>
             {t('rosterPage.cancelBooking')}
-          </button>
+          </ConfirmButton>
         </form>
       )}
     </li>

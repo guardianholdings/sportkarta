@@ -21,7 +21,7 @@ import { requireClubStaff } from '@/lib/clubs/club-session';
 import { featureOn } from '@/lib/clubs/features';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { channelsOn, listAutomations } from '@/lib/clubs/messages';
-import { formErrorText } from '@/lib/clubs/form-error';
+import { formErrorText, isOutcomeCode } from '@/lib/clubs/form-error';
 
 import { saveAutomationAction } from '../actions';
 import { MessagesTabs } from '../parts';
@@ -83,12 +83,12 @@ export default async function ClubAutomationsPage({
         <p
           role="status"
           className={
-            t.has(`outcome.${rezultat}`)
+            isOutcomeCode(rezultat) && t.has(`outcome.${rezultat}`)
               ? 'rounded-card border border-success-border bg-success-bg p-3 text-body-sm text-ink'
               : 'rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink'
           }
         >
-          {t.has(`outcome.${rezultat}`)
+          {isOutcomeCode(rezultat) && t.has(`outcome.${rezultat}`)
             ? t(`outcome.${rezultat}`)
             : rezultat === 'readOnly'
               ? messages.readOnly

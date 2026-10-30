@@ -7,6 +7,7 @@ import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Link } from '@/i18n/navigation';
 import { actorCan, clubName, requireClubStaff } from '@/lib/clubs/club-session';
 import { featureOn } from '@/lib/clubs/features';
+import { isOutcomeCode } from '@/lib/clubs/form-error';
 import { isUuid } from '@/lib/clubs/input';
 import { saleById } from '@/lib/clubs/shop';
 import { formatDateTime } from '@/lib/format';
@@ -51,7 +52,7 @@ export default async function ClubSalePage({
       >
         ← {t('salesTitle')}
       </Link>
-      {rezultat && t.has(`outcome.${rezultat}`) && (
+      {isOutcomeCode(rezultat) && t.has(`outcome.${rezultat}`) && (
         <p
           role="status"
           className={`rounded-card border p-3 text-body-sm text-ink print:hidden ${

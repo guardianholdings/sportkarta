@@ -8,6 +8,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
 import { requireUser } from '@/lib/auth-session';
 import { clubName, requireClubsEnabled } from '@/lib/clubs/club-session';
+import { isOutcomeCode } from '@/lib/clubs/form-error';
 import { claimableRecords } from '@/lib/clubs/links';
 import { memberClubs } from '@/lib/clubs/portal';
 import { clubsForStaff } from '@/lib/clubs/staff';
@@ -67,7 +68,7 @@ export default async function ClubHubPage({
         </header>
 
         <div role="status" aria-live="polite">
-          {rezultat && t.has(`outcome.${rezultat}`) && (
+          {isOutcomeCode(rezultat) && t.has(`outcome.${rezultat}`) && (
             <p
               className={cn(
                 'rounded-card border p-3 text-body-sm text-ink',

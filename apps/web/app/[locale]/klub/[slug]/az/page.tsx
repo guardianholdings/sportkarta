@@ -16,6 +16,7 @@ import { requireUser } from '@/lib/auth-session';
 import { requireClubsEnabled } from '@/lib/clubs/club-session';
 import { memberEventPlaces, publicEvents } from '@/lib/clubs/events';
 import { portalDocumentCounts } from '@/lib/clubs/documents';
+import { isOutcomeCode } from '@/lib/clubs/form-error';
 import { portalRankCount } from '@/lib/clubs/ranks';
 import { feedbackToGive } from '@/lib/clubs/feedback';
 import { memberUnreadCount } from '@/lib/clubs/inbox';
@@ -158,13 +159,19 @@ export default async function ClubPortalPage({
 
   const flash = query.otmetka
     ? {
-        text: t.has(`checkin.${query.otmetka}`) ? t(`checkin.${query.otmetka}`) : null,
+        text:
+          isOutcomeCode(query.otmetka) && t.has(`checkin.${query.otmetka}`)
+            ? t(`checkin.${query.otmetka}`)
+            : null,
         good: GOOD_CHECKIN.has(query.otmetka),
         warn: query.otmetka === 'recorded_uncovered',
       }
     : query.rezultat
       ? {
-          text: t.has(`outcome.${query.rezultat}`) ? t(`outcome.${query.rezultat}`) : null,
+          text:
+            isOutcomeCode(query.rezultat) && t.has(`outcome.${query.rezultat}`)
+              ? t(`outcome.${query.rezultat}`)
+              : null,
           good:
             GOOD.has(query.rezultat) ||
             query.rezultat.startsWith('notify_') ||
@@ -176,7 +183,27 @@ export default async function ClubPortalPage({
 
   const membershipLine = (record: PortalRecord) => {
     const live = current(record.memberships);
-    if (!live) return <StatusBadge kind="warning" label={t('noMembership')} />;
+    if (!live) {
+      // The period that ran out (kept 60 days) says WHEN — what the member
+      // wants to know before renewing.
+      const ended = record.memberships.find((m) => m.state === 'expired');
+      return (
+        <span className="flex flex-wrap items-center gap-1.5">
+          <StatusBadge
+            kind="warning"
+            label={t(takesPayments ? 'noMembershipOnline' : 'noMembership')}
+          />
+          {ended && (
+            <span className="text-body-sm text-ink-soft">
+              {t('expiredOn', {
+                plan: ended.planName,
+                date: formatDate(ended.effectiveEndsOn, locale),
+              })}
+            </span>
+          )}
+        </span>
+      );
+    }
     return (
       <span className="flex flex-wrap items-center gap-1.5">
         <span className="font-semibold text-ink">{live.planName}</span>
@@ -458,9 +485,20 @@ export default async function ClubPortalPage({
                               {hidden()}
                               <input type="hidden" name="op" value="cancel" />
                               <input type="hidden" name="bookingId" value={booking.bookingId} />
-                              <button type="submit" className={pill}>
+                              <ConfirmButton
+                                message={
+                                  late
+                                    ? booking.lateCancelFeeCents !== null
+                                      ? t('cancelBookingLateFee', {
+                                          amount: formatEuro(booking.lateCancelFeeCents, locale),
+                                        })
+                                      : t('cancelBookingLate')
+                                    : t('cancelBookingConfirm')
+                                }
+                                className={pill}
+                              >
                                 {t('cancel')}
-                              </button>
+                              </ConfirmButton>
                             </form>
                           )}
                       </li>

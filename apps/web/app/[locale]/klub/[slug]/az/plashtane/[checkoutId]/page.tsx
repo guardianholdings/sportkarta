@@ -69,6 +69,9 @@ export default async function CheckoutReturnPage({
         >
           {t(`status.${checkout.status}`, { amount })}
         </p>
+        {checkout.status === 'open' && (
+          <p className="text-body-sm text-ink-soft">{t('status.openHint')}</p>
+        )}
         <Link href={`/klub/${slug}/az`} className={buttonVariants({ variant: 'secondary' })}>
           {t('toPortal')}
         </Link>

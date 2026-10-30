@@ -19,7 +19,7 @@ import {
 import { listPlans } from '@/lib/clubs/sales';
 import { listClasses } from '@/lib/clubs/schedule';
 import { formatDateTime } from '@/lib/format';
-import { formErrorText } from '@/lib/clubs/form-error';
+import { formErrorText, isOutcomeCode } from '@/lib/clubs/form-error';
 
 import { ComposeForm, MessagesTabs } from './parts';
 
@@ -100,12 +100,12 @@ export default async function ClubMessagesPage({
         <p
           role="status"
           className={
-            t.has(`outcome.${rezultat}`)
+            isOutcomeCode(rezultat) && t.has(`outcome.${rezultat}`)
               ? 'rounded-card border border-success-border bg-success-bg p-3 text-body-sm text-ink'
               : 'rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink'
           }
         >
-          {t.has(`outcome.${rezultat}`)
+          {isOutcomeCode(rezultat) && t.has(`outcome.${rezultat}`)
             ? t(`outcome.${rezultat}`)
             : rezultat === 'readOnly'
               ? messages.readOnly

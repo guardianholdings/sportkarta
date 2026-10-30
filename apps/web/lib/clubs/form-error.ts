@@ -25,3 +25,17 @@ export function formErrorText<F extends string | null = string>(
 export function isPlainCode(code: string): boolean {
   return /^[a-z][a-z0-9_]{0,63}$/.test(code) && !(code in Object.prototype);
 }
+
+/**
+ * An outcome a page reads off the address (`?rezultat=`) and looks up in a
+ * catalogue. `t.has('x.' + code)` alone is not enough: a code such as
+ * `__proto__` or `constructor` resolves to an object, and the lookup throws
+ * — a 500 from a URL anyone can type.
+ */
+export function isOutcomeCode(code: string | null | undefined): code is string {
+  return (
+    typeof code === 'string' &&
+    /^[a-zA-Z][a-zA-Z0-9_]{0,63}$/.test(code) &&
+    !(code in Object.prototype)
+  );
+}

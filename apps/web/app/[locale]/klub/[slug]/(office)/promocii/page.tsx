@@ -21,7 +21,7 @@ import { clubPromotions } from '@/lib/clubs/promotions';
 import { listPlans } from '@/lib/clubs/sales';
 import { clubProducts } from '@/lib/clubs/shop';
 import { formatDate } from '@/lib/format';
-import { formErrorText } from '@/lib/clubs/form-error';
+import { formErrorText, isOutcomeCode } from '@/lib/clubs/form-error';
 
 import { archivePromotionAction, createVoucherAction, savePromotionAction } from './actions';
 
@@ -104,7 +104,7 @@ export default async function ClubPromotionsPage({
               : 'rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink'
           }
         >
-          {t.has(`outcome.${rezultat}`)
+          {isOutcomeCode(rezultat) && t.has(`outcome.${rezultat}`)
             ? t(`outcome.${rezultat}`)
             : rezultat === 'readOnly'
               ? messages.readOnly

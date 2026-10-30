@@ -11,6 +11,7 @@ import { Select } from '@/components/ui/select';
 import { Link, redirect } from '@/i18n/navigation';
 import { getCurrentUser } from '@/lib/auth-session';
 import { clubsEnabled } from '@/lib/clubs/access';
+import { isOutcomeCode } from '@/lib/clubs/form-error';
 import { clubTakesPayments } from '@/lib/clubs/payments';
 import { portalView } from '@/lib/clubs/portal';
 import { availability, publicServices } from '@/lib/clubs/reservations';
@@ -109,7 +110,9 @@ export default async function ClubBookingPage({
         <div role="status" aria-live="polite">
           {query.rezultat && (
             <p className="rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink">
-              {t.has(`error.${query.rezultat}`) ? t(`error.${query.rezultat}`) : t('error.generic')}
+              {isOutcomeCode(query.rezultat) && t.has(`error.${query.rezultat}`)
+                ? t(`error.${query.rezultat}`)
+                : t('error.generic')}
             </p>
           )}
         </div>

@@ -23,7 +23,7 @@ import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { inquiryTarget, memberOwnsThread } from '@/lib/clubs/inbox';
 import { isUuid } from '@/lib/clubs/input';
 import { signInHref } from '@/lib/sign-in-destination';
-import { formErrorText } from '@/lib/clubs/form-error';
+import { formErrorText, isOutcomeCode } from '@/lib/clubs/form-error';
 
 import { inquiryAction } from './actions';
 
@@ -117,7 +117,7 @@ export default async function InquiryPage({
                 role="status"
                 className="rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink"
               >
-                {t.has(`inquiry.error.${rezultat}`)
+                {isOutcomeCode(rezultat) && t.has(`inquiry.error.${rezultat}`)
                   ? t(`inquiry.error.${rezultat}`)
                   : rezultat === 'readOnly'
                     ? messages.readOnly

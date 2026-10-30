@@ -13,6 +13,7 @@ import { Select } from '@/components/ui/select';
 import { Link } from '@/i18n/navigation';
 import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
 import { deskPaymentMethods } from '@/lib/clubs/features';
+import { isOutcomeCode } from '@/lib/clubs/form-error';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { isUuid } from '@/lib/clubs/input';
 import { memberChoices } from '@/lib/clubs/members';
@@ -69,7 +70,8 @@ export default async function ClubPaymentsPage({
     unappliedCheckouts(actor),
     refundsDue(actor),
   ]);
-  const outcome = query.rezultat && t.has(`outcome.${query.rezultat}`) ? query.rezultat : null;
+  const outcome =
+    isOutcomeCode(query.rezultat) && t.has(`outcome.${query.rezultat}`) ? query.rezultat : null;
   const methods: Record<string, string> = {
     ...Object.fromEntries(CLUB_PAYMENT_METHODS.map((m) => [m, tClub(`method.${m}`)])),
     card_online: tClub('method.card_online'),

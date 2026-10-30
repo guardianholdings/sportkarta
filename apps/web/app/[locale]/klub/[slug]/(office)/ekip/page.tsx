@@ -67,7 +67,7 @@ export default async function ClubTeamPage({
           role="status"
           className="rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink"
         >
-          {formErrorText(messages, rezultat)}
+          {rezultat === 'readOnly' ? messages.readOnly : formErrorText(messages, rezultat)}
         </p>
       )}
 

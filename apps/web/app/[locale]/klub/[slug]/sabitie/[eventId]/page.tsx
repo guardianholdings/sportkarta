@@ -15,6 +15,7 @@ import { Link } from '@/i18n/navigation';
 import { getCurrentUser } from '@/lib/auth-session';
 import { clubsEnabled } from '@/lib/clubs/access';
 import { memberEventPlaces, publicEvent } from '@/lib/clubs/events';
+import { isOutcomeCode } from '@/lib/clubs/form-error';
 import { isUuid } from '@/lib/clubs/input';
 import { clubSportLabeler } from '@/lib/clubs/labels';
 import { clubTakesPayments } from '@/lib/clubs/payments';
@@ -103,7 +104,7 @@ export default async function PublicEventPage({
   const pill =
     'inline-flex min-h-11 items-center rounded-pill border border-line-strong bg-surface px-4 text-body-sm font-semibold text-ink hover:bg-surface-2 focus-visible:shadow-[var(--ring)] focus-visible:outline-none';
   const outcome = rezultat
-    ? t.has(`public.outcome.${rezultat}`)
+    ? isOutcomeCode(rezultat) && t.has(`public.outcome.${rezultat}`)
       ? t(`public.outcome.${rezultat}`)
       : t('public.outcome.generic')
     : null;

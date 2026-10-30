@@ -455,9 +455,12 @@ export default async function MemberCardPage({
                             ))}
                           </Select>
                         </label>
-                        <Button type="submit" variant="ghost" size="sm">
+                        <ConfirmButton
+                          message={t('card.cancelConfirm')}
+                          className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+                        >
                           {t('card.cancel')}
-                        </Button>
+                        </ConfirmButton>
                       </form>
                     </div>
                   )}

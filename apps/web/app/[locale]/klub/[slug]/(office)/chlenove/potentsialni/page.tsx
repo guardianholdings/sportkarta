@@ -8,7 +8,7 @@ import { Link } from '@/i18n/navigation';
 import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { leadBoard, leadOwners } from '@/lib/clubs/leads';
-import { formErrorText } from '@/lib/clubs/form-error';
+import { formErrorText, isOutcomeCode } from '@/lib/clubs/form-error';
 
 import { addLeadAction } from './actions';
 
@@ -40,7 +40,7 @@ export default async function ClubLeadsPage({
   ]);
   const { rezultat } = await searchParams;
   const canManage = actorCan(actor, 'members.manage');
-  const good = rezultat !== undefined && t.has(`outcome.${rezultat}`);
+  const good = rezultat !== undefined && isOutcomeCode(rezultat) && t.has(`outcome.${rezultat}`);
   const section = 'space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm';
   const field = 'block text-body-sm font-semibold text-ink';
 
