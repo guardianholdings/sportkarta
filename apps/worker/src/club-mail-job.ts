@@ -4,17 +4,15 @@ import {
   bookingsForMail,
   cancelledOccurrenceBookings,
   chargeClubBookingFees,
-  clubMonthFigures,
-  feeMailCandidates,
-  receiptCandidates,
-  renewClubMemberships,
-  renewalMailCandidates,
   claimClubNotification,
   clubForMail,
+  clubLifecycleCandidates,
+  clubMonthFigures,
   clubWeekFigures,
   dueClubReminders,
   eventPlacesForMail,
   expiryCandidates,
+  feeMailCandidates,
   getDb,
   inboxNoticeOf,
   inviteForMail,
@@ -23,7 +21,10 @@ import {
   memberForStaffMail,
   memberRecipient,
   operatorRecipients,
+  receiptCandidates,
   recordClubMonthlyActivity,
+  renewalMailCandidates,
+  renewClubMemberships,
   setInviteTokenHash,
   staffRecipients,
   trainerClassesOn,
@@ -34,8 +35,10 @@ import {
   type StaffRecipient,
 } from '@sportkarta/db';
 import {
-  CLUB_ROLES,
   addDaysIso,
+  CLUB_GRACE_DAYS,
+  CLUB_ROLES,
+  composeSms,
   dedupeKey,
   formatEuro,
   isoWeekKey,
@@ -43,9 +46,8 @@ import {
   monthStart,
   parseClubNotifyJob,
   PUSH_NOTIFY_KINDS,
-  SMS_NOTIFY_KINDS,
-  composeSms,
   rolesWith,
+  SMS_NOTIFY_KINDS,
   sofiaToday,
   type ClubNotifyJob,
   type ClubRole,
@@ -150,6 +152,8 @@ export interface ClubMailOptions {
   siteUrl: string;
   /** SMS and push (0051); absent, a notice goes by e-mail only. */
   channels?: ClubChannelOptions;
+  /** Where a club writes to the association (CONTACT_EMAIL) — in the standing mails. */
+  contactEmail?: string;
 }
 
 export function siteBase(options: ClubMailOptions, locale: string): string {
@@ -652,10 +656,14 @@ export async function runClubNotify(
         report: await deliverEach(mails, (mail) => sendToStaff(mail, options), run),
       };
     }
-    case 'application_approved': {
+    case 'application_approved':
+    case 'application_rejected': {
+      // Rejected: the club is archived, but its owners' staff rows stay — the
+      // applicant is told, with where to write (audit 2026-10-30).
       const club = await clubForMail(db(), job.clubId);
       if (!club) return { kind: job.kind, report: emptyDeliveryReport() };
       const owners = await staffOf(club.clubId, ['owner']);
+      const kind = job.kind;
       return {
         kind: job.kind,
         report: await deliverEach(
@@ -663,16 +671,16 @@ export async function runClubNotify(
           (recipient) =>
             sendToStaff(
               {
-                kind: 'application_approved',
+                kind,
                 club,
                 recipient,
-                key: dedupeKey({
-                  kind: 'application_approved',
-                  clubId: club.clubId,
-                  userId: recipient.userId,
-                }),
+                key: dedupeKey({ kind, clubId: club.clubId, userId: recipient.userId }),
                 ledgerUserId: recipient.userId,
-                actionUrl: `${base(club)}/tablo`,
+                actionUrl:
+                  kind === 'application_approved'
+                    ? `${base(club)}/tablo`
+                    : siteBase(options, club.locale),
+                values: { contact: options.contactEmail ?? '' },
               },
               options,
             ),
@@ -845,6 +853,43 @@ export async function runClubExpiry(
     if (out[kind].transportDown) break;
   }
   return out;
+}
+
+/**
+ * Daily, with the expiry run: a paying club's own standing, to its owners —
+ * the trial ending, coverage run out, the grace over, a suspension (0059).
+ * Each owner once per milestone (the ledger key carries its date).
+ */
+export async function runClubLifecycle(
+  options: ClubMailOptions,
+  today = sofiaToday(),
+): Promise<DeliveryReport> {
+  const mails: StaffMail[] = [];
+  for (const candidate of await clubLifecycleCandidates(db(), today)) {
+    const club = await clubForMail(db(), candidate.clubId);
+    if (!club) continue;
+    for (const recipient of await staffOf(club.clubId, ['owner'])) {
+      mails.push({
+        kind: candidate.kind,
+        club,
+        recipient,
+        key: dedupeKey({
+          kind: candidate.kind,
+          clubId: club.clubId,
+          userId: recipient.userId,
+          anchor: candidate.anchor,
+        }),
+        ledgerUserId: recipient.userId,
+        actionUrl: `${siteBase(options, club.locale)}/klub/${club.clubSlug}/tablo`,
+        values: {
+          date: formatCivilDate(candidate.date, club.locale),
+          grace: CLUB_GRACE_DAYS,
+          contact: options.contactEmail ?? '',
+        },
+      });
+    }
+  }
+  return deliverEach(mails, (mail) => sendToStaff(mail, options), { job: 'club.expiry' });
 }
 
 /** Daily 06:30: each trainer's classes today, counts only. */

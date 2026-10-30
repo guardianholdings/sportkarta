@@ -757,10 +757,14 @@ and, where an outside service is involved, by an env switch as well.
     manager (settings.manage) may re-point Stripe and change the invoice
     identity (legal name, EIK, IBAN) — owner-only?; the minor-signature note
     and the consumer-withdrawal checkbox (the two questions of 2026-10-30).
-  - [ ] **Later:** lifecycle mail to a paying club (trial ending, past due,
-    lapsed, suspended) and to a rejected applicant; retention prunes
-    (expired checkouts, resolved staff invites, year-old notices); a club
-    e2e smoke spec as a deploy gate; the weekday in dates; a member-facing
+  - [x] **Lifecycle mail (0059):** a paying club's owners are told when the
+    trial ends in a week and tomorrow, when coverage ran out (the grace
+    begins), when the grace is over (read-only, page hidden) and when the
+    association suspends the club — each milestone once, with the
+    association's address; a rejected applicant gets a mail instead of
+    silence. Daily with `club.expiry`; the admin's «Отхвърли» enqueues it.
+  - [ ] **Later:** the club e2e smoke spec as a deploy gate (it exists;
+    e2e.yml is not a gate yet); the weekday in dates; a member-facing
     invoice; `club_notifications.user_id` counted in `account_deletions`;
     the account export's later club datasets; the SMS adapter.
 ---

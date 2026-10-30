@@ -114,7 +114,10 @@ jobs:
       # journey runs in a transaction that is rolled back, so it leaves nothing
       # behind (apps/web/tests/journeys/db.ts).
       - name: Journey tests (the app's own SQL)
-        run: pnpm --filter @sportkarta/web exec vitest run tests/journeys
+        # One file at a time: the journeys share one database and a few of them
+        # read global tallies (today's bulk mail, the payment books), so two
+        # files side by side mis-count each other (audit 2026-10-31).
+        run: pnpm --filter @sportkarta/web exec vitest run tests/journeys --no-file-parallelism
       - name: Database logs on failure
         if: failure()
         run: docker compose -f compose.dev.yml logs --tail 100 db

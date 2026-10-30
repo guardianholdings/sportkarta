@@ -77,6 +77,7 @@ export async function approveClubAction(formData: FormData): Promise<void> {
 export async function rejectClubAction(formData: FormData): Promise<void> {
   const { adminId, clubId, slug } = await guard(formData);
   const changed = await rejectApplication(getDb(), adminId, clubId);
+  if (changed) await enqueueClubNotify({ kind: 'application_rejected', clubId });
   refresh(slug);
   return backTo(slug, changed ? 'rejected' : 'unchanged');
 }

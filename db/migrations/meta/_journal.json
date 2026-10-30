@@ -414,6 +414,13 @@
       "when": 1785206400000,
       "tag": "0058_club_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1785210000000,
+      "tag": "0059_club_lifecycle_mail",
+      "breakpoints": true
     }
   ]
 }

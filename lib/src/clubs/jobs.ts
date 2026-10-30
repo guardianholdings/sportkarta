@@ -62,6 +62,7 @@ export interface ClubPaymentEventJob {
 export type ClubNotifyJob =
   | { kind: 'application_received'; clubId: string }
   | { kind: 'application_approved'; clubId: string }
+  | { kind: 'application_rejected'; clubId: string }
   | { kind: 'staff_invite'; inviteId: string }
   | { kind: 'member_invite'; inviteId: string }
   | { kind: 'booking_confirmed'; bookingId: string }
@@ -112,6 +113,7 @@ export function parseClubNotifyJob(data: unknown): ClubNotifyJob | null {
   switch (job.kind) {
     case 'application_received':
     case 'application_approved':
+    case 'application_rejected':
       return uuid(job.clubId) ? { kind: job.kind, clubId: job.clubId } : null;
     case 'staff_invite':
     case 'member_invite':

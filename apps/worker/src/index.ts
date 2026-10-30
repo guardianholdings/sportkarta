@@ -38,6 +38,7 @@ import {
   runClubExpiry,
   runClubHealth,
   runClubLeadsDue,
+  runClubLifecycle,
   runClubNotify,
   runClubOwnerWeekly,
   runClubPolicies,
@@ -267,6 +268,8 @@ async function main(): Promise<void> {
   const clubMail = {
     mailer,
     siteUrl,
+    // Where a club writes to the association — in the standing mails (0059).
+    contactEmail: process.env.CONTACT_EMAIL?.trim() || undefined,
     channels: {
       sms: {
         sender: sms.sender,
@@ -762,7 +765,9 @@ async function main(): Promise<void> {
     CLUB_EXPIRY_QUEUE,
     logged(CLUB_EXPIRY_QUEUE, async () => {
       const out = await runClubExpiry(clubMail);
-      for (const [kind, report] of Object.entries(out)) {
+      // The club's own standing (0059), to its owners, in the same run.
+      const standing = await runClubLifecycle(clubMail);
+      for (const [kind, report] of [...Object.entries(out), ['club_standing', standing] as const]) {
         console.log(
           `[worker] ${CLUB_EXPIRY_QUEUE} ${kind}: ${String(report.sent)} sent, ` +
             `${String(report.skipped)} skipped, ${String(report.failed)} failed`,

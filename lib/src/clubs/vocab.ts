@@ -201,7 +201,7 @@ export type ClubPlanAudience = (typeof CLUB_PLAN_AUDIENCES)[number];
 export const CLUB_CANCEL_REASONS = ['member_request', 'non_payment', 'mistake', 'other'] as const;
 export type ClubCancelReason = (typeof CLUB_CANCEL_REASONS)[number];
 
-/** club_notifications_kind_known (0044, widened in 0045, 0046, 0051, 0052 and 0053). */
+/** club_notifications_kind_known (0044, widened in 0045, 0046, 0051, 0052, 0053 and 0059). */
 export const CLUB_NOTIFICATION_KINDS = [
   'member_invite',
   'staff_invite',
@@ -231,6 +231,11 @@ export const CLUB_NOTIFICATION_KINDS = [
   'event_registered',
   'event_promoted',
   'event_cancelled',
+  'application_rejected',
+  'club_trial_ending',
+  'club_past_due',
+  'club_lapsed',
+  'club_suspended',
 ] as const;
 export type ClubNotificationKind = (typeof CLUB_NOTIFICATION_KINDS)[number];
 
@@ -266,9 +271,25 @@ export type DedupeInput =
   | { kind: 'member_invite'; inviteId: string }
   | { kind: 'staff_invite'; inviteId: string }
   | {
-      kind: 'application_received' | 'application_approved' | 'operator_new_application';
+      kind:
+        | 'application_received'
+        | 'application_approved'
+        | 'application_rejected'
+        | 'operator_new_application';
       clubId: string;
       userId: string;
+    }
+  /**
+   * The club's own standing (0059), to each owner once per milestone — the
+   * day a trial ends, the day coverage ran out, the day the grace was over,
+   * the day it was suspended — so a club that pays and lapses again a year
+   * later is told again.
+   */
+  | {
+      kind: 'club_trial_ending' | 'club_past_due' | 'club_lapsed' | 'club_suspended';
+      clubId: string;
+      userId: string;
+      anchor: string;
     }
   | { kind: 'claim_pending'; memberId: string; userId: string }
   | { kind: 'erasure_requested'; memberId: string; userId: string }
@@ -320,8 +341,14 @@ export function dedupeKey(input: DedupeInput): string {
       return `${input.kind}:${input.inviteId}`;
     case 'application_received':
     case 'application_approved':
+    case 'application_rejected':
     case 'operator_new_application':
       return `${input.kind}:${input.clubId}:${input.userId}`;
+    case 'club_trial_ending':
+    case 'club_past_due':
+    case 'club_lapsed':
+    case 'club_suspended':
+      return `${input.kind}:${input.clubId}:${input.userId}:${input.anchor}`;
     case 'claim_pending':
     case 'erasure_requested':
       return `${input.kind}:${input.memberId}:${input.userId}`;

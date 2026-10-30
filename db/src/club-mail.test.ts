@@ -4,6 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { getDb } from './client.js';
 import {
   claimClubNotification,
+  clubLifecycleCandidates,
   expiryCandidates,
   memberRecipient,
   recordClubMonthlyActivity,
@@ -176,6 +177,37 @@ describe.skipIf(!hasDb)('club mail recipients (requires running database)', () =
     await sellMembership(client, club.clubId, other, planId, { startOffsetDays: 5, days: 30 });
     const renewed = await expiryCandidates(getDb(), 'membership_expiring', today);
     expect(renewed.map((c) => c.membershipId)).not.toContain(first.membershipId);
+  });
+
+  it('lists a paying club’s milestones once each, and a community club never', async () => {
+    const paying = await makeClub(client, 'standing', { tier: 'standard' });
+    const dbToday = String(
+      (await client.query<{ d: string }>(`SELECT current_date::text AS d`)).rows[0]?.d,
+    );
+    const set = (assignment: string) =>
+      client.query(`UPDATE clubs SET ${assignment} WHERE id = $1`, [paying.clubId]);
+    const mine = async () =>
+      (await clubLifecycleCandidates(getDb(), dbToday)).filter((c) => c.clubId === paying.clubId);
+    await set(`trial_ends_on = current_date + 7, paid_until = NULL`);
+    expect(await mine()).toEqual([
+      {
+        kind: 'club_trial_ending',
+        clubId: paying.clubId,
+        date: expect.any(String),
+        anchor: expect.stringMatching(/:7$/),
+      },
+    ]);
+    // Paid past the trial: no warning about the trial.
+    await set(`paid_until = current_date + 60`);
+    expect(await mine()).toEqual([]);
+    await set(`trial_ends_on = current_date - 30, paid_until = current_date - 1`);
+    expect((await mine()).map((c) => c.kind)).toEqual(['club_past_due']);
+    await set(`paid_until = current_date - 15`);
+    expect((await mine()).map((c) => c.kind)).toEqual(['club_lapsed']);
+    await set(`status = 'suspended', suspended_at = now()`);
+    expect((await mine()).map((c) => c.kind)).toEqual(['club_suspended']);
+    await set(`tier = 'community', status = 'active', suspended_at = NULL`);
+    expect(await mine()).toEqual([]);
   });
 
   it('freezes a month of activity once', async () => {

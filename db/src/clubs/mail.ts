@@ -1,3 +1,4 @@
+import { CLUB_GRACE_DAYS } from '@sportkarta/lib/clubs';
 import type { ClubChannel, ClubNotificationKind, ClubRole, IsoDate } from '@sportkarta/lib/clubs';
 import { sql, type SQL } from 'drizzle-orm';
 
@@ -419,6 +420,73 @@ export async function expiryCandidates(
     membershipId: String(row.membership_id),
     planName: String(row.plan_name),
     endsOn: String(row.ends_on),
+  }));
+}
+
+// ─── The club's own standing (0059) ─────────────────────────────────────────
+
+export type ClubLifecycleKind =
+  'club_trial_ending' | 'club_past_due' | 'club_lapsed' | 'club_suspended';
+
+export interface ClubLifecycleCandidate {
+  kind: ClubLifecycleKind;
+  clubId: string;
+  /** The milestone's day: the trial's last day, the day coverage ran out, … */
+  date: IsoDate;
+  /** What the ledger key carries, so the same milestone is told once. */
+  anchor: string;
+}
+
+/**
+ * Paying clubs at a milestone of their own standing, for the owners' mail:
+ * a trial that ends in a week or tomorrow (and is not already paid past),
+ * coverage that ran out in the last three days (the grace begins), a grace
+ * that ended in the last three days (read-only, public page hidden), a
+ * suspension in the last three days. Three days is the catch-up window for
+ * a worker that was down; the ledger key (kind, owner, milestone) keeps
+ * each mail to one. The community tier pays nothing and is never listed.
+ */
+export async function clubLifecycleCandidates(
+  db: SqlRunner,
+  today: IsoDate,
+): Promise<ClubLifecycleCandidate[]> {
+  const result = await db.execute(sql`
+    WITH paying AS (
+      SELECT c.id, c.status, c.trial_ends_on, c.paid_until, c.suspended_at,
+             greatest(c.paid_until, c.trial_ends_on) AS coverage
+        FROM clubs c
+       WHERE c.tier <> 'community' AND c.status IN ('active', 'suspended')
+    )
+    SELECT 'club_trial_ending' AS kind, id AS club_id,
+           to_char(trial_ends_on, 'YYYY-MM-DD') AS date,
+           to_char(trial_ends_on, 'YYYY-MM-DD') || ':' || (trial_ends_on - ${today}::date)::text AS anchor
+      FROM paying
+     WHERE status = 'active' AND (paid_until IS NULL OR paid_until <= trial_ends_on)
+       AND trial_ends_on IN (${today}::date + 7, ${today}::date + 1)
+    UNION ALL
+    SELECT 'club_past_due', id, to_char(coverage, 'YYYY-MM-DD'), to_char(coverage, 'YYYY-MM-DD')
+      FROM paying
+     WHERE status = 'active' AND coverage BETWEEN ${today}::date - 3 AND ${today}::date - 1
+    UNION ALL
+    SELECT 'club_lapsed', id,
+           to_char(coverage + ${CLUB_GRACE_DAYS}::int, 'YYYY-MM-DD'),
+           to_char(coverage + ${CLUB_GRACE_DAYS}::int, 'YYYY-MM-DD')
+      FROM paying
+     WHERE status = 'active'
+       AND coverage + ${CLUB_GRACE_DAYS}::int BETWEEN ${today}::date - 3 AND ${today}::date - 1
+    UNION ALL
+    SELECT 'club_suspended', id,
+           to_char(suspended_at AT TIME ZONE 'Europe/Sofia', 'YYYY-MM-DD'),
+           to_char(suspended_at AT TIME ZONE 'Europe/Sofia', 'YYYY-MM-DD')
+      FROM paying
+     WHERE status = 'suspended' AND suspended_at > now() - interval '3 days'
+     ORDER BY 2, 1
+  `);
+  return result.rows.map((row) => ({
+    kind: String(row.kind) as ClubLifecycleKind,
+    clubId: String(row.club_id),
+    date: String(row.date),
+    anchor: String(row.anchor),
   }));
 }
 
