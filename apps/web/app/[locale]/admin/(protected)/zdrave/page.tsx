@@ -8,6 +8,7 @@ import { requireRole } from '@/lib/auth-session';
 import {
   HEARTBEAT_STALE_SECONDS,
   MAIL_WINDOW_DAYS,
+  clubOpsHealth,
   mailOutcomes,
   queueHealth,
   readWorkerHeartbeat,
@@ -49,13 +50,14 @@ export default async function AdminHealthPage({ params }: { params: Promise<{ lo
   await requireRole('admin');
 
   const db = getDb();
-  const [t, activeLocale, heartbeat, queues, schedules, mail] = await Promise.all([
+  const [t, activeLocale, heartbeat, queues, schedules, mail, clubs] = await Promise.all([
     getTranslations('AdminHealth'),
     getLocale(),
     readWorkerHeartbeat(db, process.uptime()),
     queueHealth(db),
     scheduleHealth(db),
     mailOutcomes(db),
+    clubOpsHealth(db),
   ]);
   const enqueue = enqueueFailures();
   const serverReporting = parseDsn(process.env.GLITCHTIP_DSN) !== null;
@@ -161,6 +163,30 @@ export default async function AdminHealthPage({ params }: { params: Promise<{ lo
           </table>
         </div>
         <p className="mt-2 max-w-prose text-caption text-text-muted">{t('mailHelp')}</p>
+      </section>
+
+      <section aria-labelledby="clubs-h" className={card}>
+        <h2 id="clubs-h" className="t-overline mb-3">
+          {t('clubsTitle')}
+        </h2>
+        <ul className="space-y-1 text-body-sm">
+          {(
+            [
+              ['clubPendingEvents', clubs.pendingPaymentEvents, clubs.pendingPaymentEvents > 0],
+              ['clubEndpointsDisabled', clubs.endpointsDisabled7d, clubs.endpointsDisabled7d > 0],
+              ['clubBroadcastsWaiting', clubs.broadcastsWaiting, clubs.broadcastsWaiting > 0],
+              ['clubSmsCapped', clubs.clubsAtSmsCap, clubs.clubsAtSmsCap > 0],
+            ] as const
+          ).map(([key, count, warn]) => (
+            <li key={key} className={warn ? 'font-semibold text-danger' : ''}>
+              {t(key, {
+                count,
+                age: key === 'clubPendingEvents' ? age(clubs.oldestPendingEventSeconds) : '',
+              })}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2 max-w-prose text-caption text-text-muted">{t('clubsHelp')}</p>
       </section>
 
       <section aria-labelledby="queues-h" className={card}>

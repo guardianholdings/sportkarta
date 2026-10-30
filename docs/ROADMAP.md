@@ -429,9 +429,38 @@ and, where an outside service is involved, by an env switch as well.
     `/klub/<slug>/manifest.webmanifest` (name, logo, opens on the portal).
     Behind `broadcasts` / `automations` / `sms` tiers and `CLUB_SMS_ENABLED`,
     `CLUB_PUSH_ENABLED`.
-    - [ ] **Operator:** choose the EU SMS gateway (price, DPA, the «POPS»
-      sender ID); its adapter is one class behind `SMS_TRANSPORT`. Confirm
-      the relay's daily limit for `CLUB_BULK_MAIL_DAILY_LIMIT` (Migadu).
+    - [ ] **Operator — before each switch goes on (audit 2026-10-30):**
+      - **Stripe** (`CLUB_PAYMENTS_ENABLED`, `PAYMENT_PROVIDER=stripe`): the
+        NGO's platform account; a Connect application (`ca_…`) whose redirect
+        is `https://pops.bg/api/clubs/stripe/connect`; a CONNECT webhook
+        endpoint at `https://pops.bg/api/clubs/stripe/webhook` subscribed to
+        `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+        `checkout.session.async_payment_failed`, `checkout.session.expired`,
+        `invoice.paid`, `customer.subscription.deleted`, `charge.refunded`,
+        `account.updated`, `account.application.deauthorized`; the secrets
+        `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_CLIENT_ID`.
+        Test-mode keys first; the webhook answers whenever the keys are set.
+      - **Cloudflare**: a WAF custom rule that SKIPS Bot Fight Mode and the
+        managed challenges for `/api/clubs/stripe/webhook`, `/api/clubs/v1/*`,
+        `/api/clubs/mcp` and `/api/clubs/v1/access/check` — Stripe, API
+        clients and door controllers are not browsers, and a challenge page
+        means events silently never arrive.
+      - **Mail relay**: `CLUB_BULK_MAIL_DAILY_LIMIT` (repository variable;
+        default 60) stays below the relay's daily quota minus the sign-in
+        codes (Migadu Mini: 100 a day) — upgrade the plan before the first
+        club on a broadcasts tier.
+      - **SMS** (`CLUB_SMS_ENABLED`): choose the EU gateway (price, DPA, the
+        «POPS» sender ID) AND land its adapter — one class behind
+        `SMS_TRANSPORT`, and none exists yet: with the switch on and no
+        adapter the office offers SMS that are silently skipped. Then
+        `SMS_TRANSPORT`, `SMS_API_KEY`, `SMS_SENDER_ID`.
+      - **Secrets**: rotating `AUTH_SECRET` silently orphans every push
+        subscription and every webhook signing secret (deploy.yml derives
+        both from it) — members re-enable push, integrators rotate keys.
+      - **Dependencies**: `better-auth` 1.6.23 carries a critical advisory
+        (an OAuth state usable as a magic link) reachable only with a social
+        provider ON — keep `AUTH_GOOGLE/APPLE/FACEBOOK_ENABLED=false` until
+        the bump to ≥ 1.7.7 is tested; `nodemailer` ≥ 10.1.4 likewise.
     - [ ] **Later:** «service» is the club's own label — a club could call an
       offer a service message and reach members without consent. The terms
       forbid it; give the operator a view of service messages by volume and
@@ -702,6 +731,38 @@ and, where an outside service is involved, by an env switch as well.
       - The notice's «не проследяваме потребителите» gains a qualifier
         while the switch is on (`Privacy.introClubTracking`).
     - [ ] **Before switching on:** the club terms carry the Art. 26 clause.
+- [x] **Audit 2026-10-30 — production readiness** (eight reviewers over
+  authorisation, money, privacy, the worker, the web layer, the migrations,
+  the journeys and operations, plus a browser crawl). Fixed on the branch:
+  a subscription whose money went `unapplied` is now ended at Stripe on every
+  visit until the cancel lands, and money Stripe collects for a renewal the
+  books refuse is listed for the office; a full refund voids its charge
+  wherever it was made; credit refunds decided under the client's lock; the
+  webhook never 404s on the clubs switch and reads its body capped; renewal
+  terms Stripe cannot bill are refused; a booking's or sale's charge keeps its
+  live invoice; a trainer is named outside the office only by their own
+  opt-in; hidden clubs are reached only by their own people; a trainer ticks
+  only their own list; the door answer carries no minor flag; a forged Lead
+  is impossible; staff invitations are capped and deduplicated; automations
+  never run at night; «три на ден» counts a cancelled send; a crafted
+  `?rezultat=` can no longer 500 a club page; confirmations before fee-
+  bearing cancellations; the portal names an expired period; read-only and
+  permission outcomes say the right thing; the bulk-mail default is below a
+  100-a-day relay; nightly retention prunes; club rows on «Здраве»; a club
+  e2e smoke spec (the 0045 lock order was re-reviewed and kept as it was:
+  erasure's first club lock is the club_staff read, which 0045 takes first).
+  - [ ] **Operator decisions:** the NGO admin acts as the club on money,
+    erasure, messages and staff (every act logged as `ngo_admin`) — keep as
+    "processor with write", or narrow those to `clubStaffWriteScope`; a
+    manager (settings.manage) may re-point Stripe and change the invoice
+    identity (legal name, EIK, IBAN) — owner-only?; the minor-signature note
+    and the consumer-withdrawal checkbox (the two questions of 2026-10-30).
+  - [ ] **Later:** lifecycle mail to a paying club (trial ending, past due,
+    lapsed, suspended) and to a rejected applicant; retention prunes
+    (expired checkouts, resolved staff invites, year-old notices); a club
+    e2e smoke spec as a deploy gate; the weekday in dates; a member-facing
+    invoice; `club_notifications.user_id` counted in `account_deletions`;
+    the account export's later club datasets; the SMS adapter.
 ---
 
 ## 10. Cadence & top risks

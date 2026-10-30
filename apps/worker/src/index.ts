@@ -4,6 +4,7 @@ import {
   getPool,
   materializeClubClasses,
   materializeSessions,
+  pruneClubRetention,
   refreshStats,
 } from '@sportkarta/db';
 import {
@@ -981,6 +982,15 @@ async function main(): Promise<void> {
         console.log(
           `[worker] ${CLUB_INTEGRATIONS_PRUNE_QUEUE}: ${String(out.deliveries)} deliveries, ` +
             `${String(out.idempotency)} idempotency records`,
+        );
+      }
+      // What the club module forgets (db/src/clubs/retention.ts): dead
+      // checkouts, resolved invitations, year-old dated notices. Counts only.
+      const kept = await pruneClubRetention(getDb());
+      if (kept.checkouts + kept.staffInvites + kept.notifications > 0) {
+        console.log(
+          `[worker] ${CLUB_INTEGRATIONS_PRUNE_QUEUE}: ${String(kept.checkouts)} checkouts, ` +
+            `${String(kept.staffInvites)} staff invites, ${String(kept.notifications)} notices forgotten`,
         );
       }
     }),

@@ -2,7 +2,7 @@ import type { IsoDate } from './dates.js';
 
 /**
  * The closed vocabularies of the club module, each of which is ALSO a CHECK
- * constraint in SQL. lib/src/clubs/vocab.test.ts reads the migrations and holds
+ * constraint in SQL. lib/src/clubs/clubs.test.ts reads the migrations and holds
  * every list here equal to its constraint, so the two copies cannot drift.
  */
 

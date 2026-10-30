@@ -23,7 +23,7 @@ import { users } from './auth.js';
 import { businesses, facilities, municipalities, trainingLogs } from './index.js';
 
 /**
- * The «Клубове» add-on (migrations 0039–0048; docs/ROADMAP.md Stage 9).
+ * The «Клубове» add-on (migrations 0039–0058; docs/ROADMAP.md Stage 9).
  *
  * THE MIGRATIONS ARE THE SOURCE OF TRUTH. They were hand-written (the snapshot
  * chain stops at 0029), and they carry what drizzle cannot express or
@@ -267,7 +267,7 @@ export const clubMembers = pgTable(
       .notNull()
       .default(sql`'{}'`),
     staffNote: text('staff_note'),
-    /** staff | import | self */
+    /** staff | import | self | api (0057) */
     source: text('source').notNull().default('staff'),
     unsubscribeToken: text('unsubscribe_token').notNull(),
     emailOptOutAt: timestamptz('email_opt_out_at'),
@@ -507,7 +507,7 @@ export const clubCharges = pgTable(
       .references(() => clubs.id, { onDelete: 'cascade' }),
     memberId: uuid('member_id'),
     membershipId: uuid('membership_id'),
-    /** membership | drop_in | product | fee | other */
+    /** membership | drop_in | product | fee | reservation | wallet | event | other (0053) */
     kind: text('kind').notNull(),
     label: text('label').notNull(),
     amountCents: integer('amount_cents').notNull(),
@@ -540,9 +540,9 @@ export const clubPayments = pgTable(
     /** payment | refund */
     kind: text('kind').notNull(),
     amountCents: integer('amount_cents').notNull(),
-    /** cash | card_desk | bank | card_online | other */
+    /** cash | card_desk | bank | card_online | wallet | other (0050) */
     method: text('method').notNull(),
-    /** manual | stripe (phase 2) */
+    /** manual | stripe | fake (0046) */
     provider: text('provider').notNull().default('manual'),
     providerRef: text('provider_ref'),
     receivedOn: date('received_on').notNull(),
@@ -724,7 +724,7 @@ export const clubCheckins = pgTable(
     /** NULL = an open-gym visit. */
     occurrenceId: uuid('occurrence_id'),
     locationId: uuid('location_id').notNull(),
-    /** qr_kiosk | qr_member | card | desk | api */
+    /** qr_kiosk | qr_member | card | desk | api | door (0057) */
     method: text('method').notNull(),
     recordedBy: text('recorded_by'),
     consumedMembershipId: uuid('consumed_membership_id'),
@@ -886,7 +886,7 @@ export const clubCheckouts = pgTable(
     clubId: uuid('club_id')
       .notNull()
       .references(() => clubs.id, { onDelete: 'cascade' }),
-    /** charge | membership */
+    /** charge | membership | wallet (0050) */
     purpose: text('purpose').notNull(),
     memberId: uuid('member_id'),
     chargeId: uuid('charge_id'),
@@ -913,7 +913,7 @@ export const clubCheckouts = pgTable(
   },
   (t) => [
     unique('club_checkouts_club_id_unique').on(t.clubId, t.id),
-    check('club_checkouts_purpose_known', sql`${t.purpose} IN ('charge', 'membership')`),
+    check('club_checkouts_purpose_known', sql`${t.purpose} IN ('charge', 'membership', 'wallet')`),
     check(
       'club_checkouts_status_known',
       sql`${t.status} IN ('open', 'paid', 'expired', 'unapplied')`,

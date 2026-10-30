@@ -55,6 +55,11 @@ export type {
   PaymentEvent,
   ReceiptCandidate,
 } from './clubs/payments.js';
+export {
+  DATED_NOTIFICATION_KINDS,
+  pruneClubRetention,
+  type RetentionPruneReport,
+} from './clubs/retention.js';
 export type {
   FeeLabels,
   FeeMailCandidate,
