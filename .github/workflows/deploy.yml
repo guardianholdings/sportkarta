@@ -307,6 +307,9 @@ jobs:
           # The club API, webhooks, MCP and door access (0057): a VARIABLE
           # ("true" = on). The webhook signing master is derived below.
           CLUB_API_ENABLED=${{ vars.CLUB_API_ENABLED }}
+          # A paid club's own GA4 / Meta Pixel on its public pages (0058): a
+          # VARIABLE ("true" = on), only after the lawyer's sign-off.
+          CLUB_PIXELS_ENABLED=${{ vars.CLUB_PIXELS_ENABLED }}
           CLUB_BULK_MAIL_DAILY_LIMIT=${{ vars.CLUB_BULK_MAIL_DAILY_LIMIT || '200' }}
           DONATION_IBAN=${{ vars.DONATION_IBAN }}
           DONATION_BENEFICIARY=${{ vars.DONATION_BENEFICIARY }}

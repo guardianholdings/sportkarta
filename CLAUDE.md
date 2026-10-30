@@ -163,7 +163,9 @@ browser) in a MANUAL STEPS list at the end of the session.
   (`facility_sponsorships`, 0023) and the ad slots (`ad_placements`, 0021).
   Ad slots are the compliance-critical part: four slot keys closed in three
   agreeing places, selection by SURFACE only (`AdSlot` receives no viewer
-  attribute, which is why the site still needs no consent banner), an unsold
+  attribute, which is why the site still needs no consent banner — the ONE
+  banner is a paid club's own GA4 / Meta Pixel on that club's public pages,
+  wave H2 below), an unsold
   slot renders nothing, the «Реклама» label is inseparable from the creative,
   and there is deliberately NO impression or click counter anywhere. Slot
   exclusivity and one-adoption-per-facility are EXCLUDE constraints (btree_gist),
@@ -308,6 +310,28 @@ browser) in a MANUAL STEPS list at the end of the session.
   row of kind 'door' whose secret has a kiosk cookie's shape, so EVERY device
   lookup names its kind; a door is the one check-in that may say no (the
   club's rule), and a refused door records nothing.
+  Club pixels (wave H2, `0058`, operator decision 2026-10-25,
+  `CLUB_PIXELS_ENABLED` ships off): a paid club's own GA4 measurement id and
+  Meta Pixel id — IDS ONLY (CHECKs; Google Tag Manager is never offered, a
+  container would run arbitrary code on our origin; an id still pulls the
+  vendor-side configuration the club sets in Google's/Meta's console) — plus
+  the club's privacy notice, which a CHECK requires with any id. They render
+  only on that club's PUBLIC pages (club page, event, class date, inquiry)
+  through `ClubTrackingSlot` — the class and event pages only for a visitor
+  who is NOT signed in (signed in, they show family names) — never the
+  office, portal or the rest of pops.bg. Nothing loads before the visitor
+  accepts; the answer lives in localStorage per club for a year (no server
+  cookie). ONE DOCUMENT, ONE ADDRESS (`lib/club-tracking-runtime.ts`): the
+  vendors start only in a document loaded at the club page, and once they run
+  every move elsewhere is a full load (links native, back/forward and route
+  changes reload with the vendors switched off first), so a pixel can never
+  follow the visitor in-app to the map, the portal or another club. Meta's
+  autoConfig is off and every event names its own id. Withdrawing switches
+  the vendors off, then clears their cookies on every locale's club path, then
+  reloads. Only the club's own management sets them (clubStaffWriteScope,
+  with a responsibility confirmation). Those pages carry the script policy of
+  `lib/club-page-csp.ts` (set in middleware; it REPLACES next.config's CSP
+  there, so its `frame-ancestors 'none'` is load-bearing).
   Form-error lookups go through `formErrorText` (own keys only): the
   `ClubFormMessages` catalogue must stay a PLAIN object, because it crosses
   into client components. Writes need `clubWritableSql` (active and paid or

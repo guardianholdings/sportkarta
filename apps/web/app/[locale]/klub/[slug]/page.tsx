@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
+import { ClubTrackingSlot } from '@/components/clubs/club-tracking-slot';
 import { AppShell } from '@/components/shell/app-shell';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
@@ -106,6 +107,7 @@ export default async function PublicClubPage({ params }: { params: PageParams })
   return (
     <AppShell active={null}>
       <main className="mx-auto max-w-3xl space-y-5 p-4">
+        <ClubTrackingSlot clubId={club.id} clubName={club.name} slug={slug} locale={locale} />
         <header
           className={`flex flex-wrap items-start gap-4 rounded-card border-t-4 border-b border-b-line pb-4 pt-4 ${accentBand}`}
         >

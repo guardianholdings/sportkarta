@@ -10,6 +10,7 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
+import { ClubTrackingSlot } from '@/components/clubs/club-tracking-slot';
 import { AppShell } from '@/components/shell/app-shell';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,6 +68,15 @@ export default async function InquiryPage({
   return (
     <AppShell active={null}>
       <main className="mx-auto max-w-2xl space-y-5 p-4">
+        <ClubTrackingSlot
+          clubId={club.id}
+          clubName={club.name}
+          slug={slug}
+          locale={locale}
+          leadId={rezultat === 'sent' && isUuid(razgovor) ? razgovor : null}
+          // The conversation's id is the club's and the member's, not the vendors'.
+          hideParams={['razgovor']}
+        />
         <header className="space-y-1 border-b border-line pb-3">
           <Link
             href={`/klub/${slug}`}

@@ -30,4 +30,5 @@ export * from './ranks.js';
 export * from './slots.js';
 export * from './slug.js';
 export * from './tournament.js';
+export * from './tracking.js';
 export * from './vocab.js';

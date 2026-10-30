@@ -588,7 +588,7 @@ and, where an outside service is involved, by an env switch as well.
       rank's asks are counted from the CURRENT award's day, so a client
       demoted and re-awarded starts counting again; belts never reach the
       public passport (that would need the passport's own opt-in, Stage 5).
-- [ ] **H — club API, webhooks, MCP, door access, pixels** (pixels wait on legal)
+- [x] **H — club API, webhooks, MCP, door access, pixels** (pixels built, switched off until the lawyer's sign-off)
   - [x] **H1 — API, webhooks, MCP connector, doors** (`0057`): «Интеграции» in
     the office (management; Pro tier; `CLUB_API_ENABLED`, ships off). API
     keys (`skbk_…`, shown once, SHA-256 only, closed scopes) ACT AS THE STAFF
@@ -633,8 +633,53 @@ and, where an outside service is involved, by an env switch as well.
       key whose creator is an NGO admin as well as club staff keeps the
       admin's reach inside that club (it never exceeds what the admin can
       already do in the office).
-  - [ ] **H2 — GA4 / Meta Pixel on the club's public pages** (waits on the
-    lawyer's joint-controller sign-off; `CLUB_PIXELS_ENABLED`, ships off)
+  - [x] **H2 — GA4 / Meta Pixel on the club's public pages** (`0058`; built,
+    `CLUB_PIXELS_ENABLED` ships off until the lawyer's joint-controller
+    sign-off): in Настройки a paid club (Старт and up) enters its GA4
+    measurement id and/or Meta Pixel id — ids only, CHECK-pinned, never a
+    tag manager — plus a link to the club's privacy notice (a CHECK requires
+    it with any id), and confirms it is responsible for the tracking. Its
+    public pages (club page, inquiry form; event and class date only for a
+    visitor who is not signed in, since those then show family names) ask the
+    visitor first, at the top of the page, with «Приемам» and «Отказвам» of
+    equal weight, naming the purposes (Meta: ad targeting) and transfers
+    outside the EU and linking the club's notice; nothing loads before an
+    answer of yes, the answer stays in the visitor's browser per club for a
+    year (no server cookie), it can be changed at any time, and withdrawing
+    switches the vendors off, clears their cookies on every locale's club path
+    and reloads. ONE DOCUMENT, ONE ADDRESS (`lib/club-tracking-runtime.ts`):
+    the vendors start only in a document loaded at the club page, and once
+    they run every move elsewhere is a full load — so no pixel follows the
+    visitor in-app to the map, the portal or another club. PageView on every
+    such page, Lead once per sent inquiry (the conversation id is taken out of
+    the address first); Meta's automatic events off, every event addressed to
+    the club's own id; GA4 cookies limited to the club's own path, Google
+    signals and ad personalisation off; a same-site referrer is cut to its
+    path. Those pages carry a script policy (`lib/club-page-csp.ts`: this
+    site, the two vendors and Umami only). The privacy notice gains a
+    paragraph while the switch is on. The office, the portal and the rest of
+    pops.bg never load a pixel.
+    - [ ] **Known limits (accepted for v1):** no Purchase event (an online
+      payment returns to the member portal, which stays tracker-free); Meta's
+      `_fbp` cookie cannot be limited to the club's path; the GA4 cookie path
+      differs between /klub and /en/klub, so a visitor switching language is
+      measured as two; the script policy carries no nonce (Next's inline
+      hydration scripts need 'unsafe-inline'), so it limits script SOURCES,
+      not inline injection, and has no report-uri; a club page reached
+      in-app is reloaded once before the vendors start; the banner appears
+      after hydration (the answer is in the browser), so an undecided visit
+      shifts the page once; the consent flow is tested against a stand-in
+      window (`tests/club-tracking-runtime.test.ts`), not a real browser run
+      in CI.
+    - [ ] **For the lawyer:** the joint-controller position with Google and
+      Meta (CJEU C-40/17 Fashion ID) — the texts no longer claim POPS is not
+      one; the banner and privacy-notice wording (purposes, US transfers);
+      consent kept only in the visitor's browser, so the club cannot produce
+      a record of it (GDPR Art. 7(1)); the one-year duration; Art. 8 and the
+      Bulgarian digital-consent age of 14 for children's clubs (minors are
+      treated as adults — nothing is gated on age without an operator
+      decision); and whether the notice's opening «не проследяваме
+      потребителите» needs a qualifier while club pixels are on.
 
 ---
 

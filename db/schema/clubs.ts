@@ -92,6 +92,12 @@ export const clubs = pgTable(
       .default(sql`'{}'`),
     /** The club's own Google review page — Google's hosts over https only (0052). */
     googleReviewUrl: text('google_review_url'),
+    /** The club's own GA4 measurement id — an id, never a script (0058). */
+    gaMeasurementId: text('ga_measurement_id'),
+    /** The club's own Meta Pixel id (0058). */
+    metaPixelId: text('meta_pixel_id'),
+    /** The club's own privacy notice, linked from the consent banner; required with an id (0058). */
+    privacyUrl: text('privacy_url'),
     trialEndsOn: date('trial_ends_on'),
     /** Set by hand when the operator's invoice is paid. */
     paidUntil: date('paid_until'),

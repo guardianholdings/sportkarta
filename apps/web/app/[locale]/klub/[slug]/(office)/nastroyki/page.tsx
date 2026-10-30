@@ -1,4 +1,4 @@
-import { CLUB_KINDS } from '@sportkarta/lib/clubs';
+import { CLUB_KINDS, lowestTierWith } from '@sportkarta/lib/clubs';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
@@ -15,7 +15,8 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { cityDisplayName } from '@/lib/city-names';
 import { requireClubStaff } from '@/lib/clubs/club-session';
-import { featureOn } from '@/lib/clubs/features';
+import { clubSwitchOn, featureOn } from '@/lib/clubs/features';
+import { clubTrackingSettings } from '@/lib/clubs/tracking';
 import { CLUB_EXPORT_DATASETS } from '@/lib/clubs/export';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { listKioskDevices } from '@/lib/clubs/kiosk';
@@ -53,6 +54,7 @@ import {
   saveInvoiceDetailsAction,
   saveSettingsAction,
   saveTermsUrlAction,
+  saveTrackingAction,
   setLocationActiveAction,
   setVisibleAction,
   uploadLogoAction,
@@ -73,19 +75,39 @@ const PAYMENT_OUTCOMES = new Set([
 ]);
 const GOOD_OUTCOMES = new Set(['connected', 'disconnected', 'terms_saved']);
 
+/** ?prosledyavane= values saveTrackingAction sends back (0058). */
+const TRACKING_OUTCOMES = new Set([
+  'saved',
+  'feature_off',
+  'ga_invalid',
+  'meta_invalid',
+  'privacy_invalid',
+  'privacy_needed',
+  'confirm_needed',
+  'read_only',
+]);
+
 export default async function ClubSettingsPage({
   params,
   searchParams,
 }: {
   params: Promise<{ locale: string; slug: string }>;
-  searchParams: Promise<{ logo?: string; plashtaniya?: string; fakturi?: string }>;
+  searchParams: Promise<{
+    logo?: string;
+    plashtaniya?: string;
+    fakturi?: string;
+    prosledyavane?: string;
+  }>;
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
   const { actor, club } = await requireClubStaff(slug, 'settings.manage');
   const settings = await clubSettings(club.id);
   if (!settings) notFound();
-  const { plashtaniya, fakturi } = await searchParams;
+  const { plashtaniya, fakturi, prosledyavane } = await searchParams;
+  // The club's own pixels (0058): offered once the operator has switched them on.
+  const pixelsSwitch = clubSwitchOn('pixels');
+  const tracking = featureOn(club, 'pixels') ? await clubTrackingSettings(actor) : null;
   const paymentsOn = paymentsReady();
   const paymentAccount = paymentsOn ? await clubPaymentAccount(club.id) : null;
   const provider = paymentProvider();
@@ -647,6 +669,90 @@ export default async function ClubSettingsPage({
               {t('invoices.save')}
             </Button>
           </form>
+        </section>
+      )}
+
+      {pixelsSwitch && (
+        <section id="prosledyavane" className={section} aria-labelledby="tracking-h">
+          <h2 id="tracking-h" className="text-h4 font-bold text-ink">
+            {t('tracking.title')}
+          </h2>
+          {tracking === null ? (
+            <p className="max-w-prose text-body-sm text-ink-soft">
+              {t('tracking.upsell', { tier: tClub(`tier.${lowestTierWith('pixels')}`) })}
+            </p>
+          ) : (
+            <>
+              <p className="max-w-prose text-caption text-text-muted">{t('tracking.hint')}</p>
+              <div role="status" aria-live="polite">
+                {prosledyavane && TRACKING_OUTCOMES.has(prosledyavane) && (
+                  <p
+                    className={cn(
+                      'rounded-card border p-3 text-body-sm text-ink',
+                      prosledyavane === 'saved'
+                        ? 'border-success-border bg-success-bg'
+                        : 'border-warning-border bg-warning-bg',
+                    )}
+                  >
+                    {prosledyavane === 'read_only'
+                      ? messages.readOnly
+                      : t(`tracking.outcome.${prosledyavane}`)}
+                  </p>
+                )}
+              </div>
+              <form action={saveTrackingAction} className="space-y-3">
+                <input type="hidden" name="slug" value={slug} />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block text-body-sm font-semibold text-ink">
+                    {t('tracking.ga')}
+                    <Input
+                      name="gaId"
+                      maxLength={20}
+                      autoComplete="off"
+                      spellCheck={false}
+                      placeholder="G-XXXXXXXXXX"
+                      defaultValue={tracking.gaId ?? ''}
+                      className="mt-1"
+                    />
+                  </label>
+                  <label className="block text-body-sm font-semibold text-ink">
+                    {t('tracking.meta')}
+                    <Input
+                      name="metaId"
+                      maxLength={30}
+                      inputMode="numeric"
+                      autoComplete="off"
+                      spellCheck={false}
+                      defaultValue={tracking.metaId ?? ''}
+                      className="mt-1"
+                    />
+                  </label>
+                </div>
+                <label className="block text-body-sm font-semibold text-ink">
+                  {t('tracking.privacy')}
+                  <span className="mt-1 block text-caption font-normal text-text-muted">
+                    {t('tracking.privacyHint')}
+                  </span>
+                  <Input
+                    name="privacyUrl"
+                    inputMode="url"
+                    maxLength={300}
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="https://"
+                    defaultValue={tracking.privacyUrl ?? ''}
+                    className="mt-1"
+                  />
+                </label>
+                <p className="max-w-prose text-caption text-text-muted">{t('tracking.where')}</p>
+                <label className="flex min-h-11 items-start gap-2 text-body-sm text-ink">
+                  <input type="checkbox" name="responsible" className="mt-1 size-5 shrink-0" />
+                  <span>{t('tracking.responsible')}</span>
+                </label>
+                <Button type="submit">{t('save')}</Button>
+              </form>
+            </>
+          )}
         </section>
       )}
 

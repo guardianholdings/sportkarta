@@ -17,6 +17,7 @@ import {
 } from '@/lib/legal-pages';
 import { organisation } from '@/lib/organisation';
 import { buildAlternates } from '@/lib/seo';
+import { clubSwitchOn } from '@/lib/clubs/features';
 
 /**
  * «Поверителност» — the GDPR Art. 13 notice.
@@ -153,6 +154,8 @@ export default async function PrivacyPage({ params }: { params: PageParams }) {
           {providers.length > 0 && (
             <p className="text-ink-soft">{t('cookies.providers', { providers: providerNames })}</p>
           )}
+          {/* A paid club's own pixels (wave H2): said only while they can run. */}
+          {clubSwitchOn('pixels') && <p className="text-ink-soft">{t('cookies.clubTracking')}</p>}
           <p className="text-ink-soft">{t('cookies.cache')}</p>
         </Section>
 

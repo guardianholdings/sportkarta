@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
+import { ClubTrackingSlot } from '@/components/clubs/club-tracking-slot';
 import { AppShell } from '@/components/shell/app-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -214,6 +215,10 @@ export default async function PublicEventPage({
   return (
     <AppShell active={null}>
       <main className="mx-auto max-w-md space-y-4 p-4">
+        {/* Signed in, the page shows names (the viewer's family): no pixels there. */}
+        {!user && (
+          <ClubTrackingSlot clubId={club.id} clubName={club.name} slug={slug} locale={locale} />
+        )}
         <Link
           href={`/klub/${slug}`}
           className="text-body-sm font-semibold text-link hover:text-link-hover"

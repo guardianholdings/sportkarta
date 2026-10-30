@@ -270,16 +270,30 @@ export function parseApplication(form: Reader): InputResult<ApplicationInput> {
  * clubs_terms_url_sane: https only, at most 300 characters). Empty clears it.
  */
 export function parseTermsUrl(form: Reader): InputResult<string | null> {
-  const raw = optionalText(form, 'termsUrl');
-  if (raw === null) return { ok: true, value: null };
+  const value = parseClubPageUrl(form, 'termsUrl');
+  return value === 'invalid' ? { ok: false, errors: ['terms_url_invalid'] } : { ok: true, value };
+}
+
+/**
+ * The club's own privacy notice (0058's clubs_privacy_url_sane: the same
+ * shape as the terms). Empty clears it.
+ */
+export function parsePrivacyUrl(form: Reader): string | null | 'invalid' {
+  return parseClubPageUrl(form, 'privacyUrl');
+}
+
+/** An https page of the club's own, at most 300 characters; null for empty. */
+function parseClubPageUrl(form: Reader, field: string): string | null | 'invalid' {
+  const raw = optionalText(form, field);
+  if (raw === null) return null;
   const value = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
   try {
     const url = new URL(value);
     const href = url.toString();
-    if (url.protocol !== 'https:' || /\s/.test(value) || href.length > 300) throw new Error('bad');
-    return { ok: true, value: href };
+    if (url.protocol !== 'https:' || /\s/.test(value) || href.length > 300) return 'invalid';
+    return href;
   } catch {
-    return { ok: false, errors: ['terms_url_invalid'] };
+    return 'invalid';
   }
 }
 

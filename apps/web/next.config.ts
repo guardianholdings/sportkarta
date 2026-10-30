@@ -39,6 +39,9 @@ const nextConfig: NextConfig = {
   // `frame-ancestors *` on its own response. Everything else — the admin shell,
   // the moderation queue, the profile and passport pages — is denied here, so
   // adding the widget did not quietly make the whole app frameable.
+  // On a club's public pages the middleware's script policy REPLACES the CSP
+  // below (lib/club-page-csp.ts); it repeats `frame-ancestors 'none'`, and
+  // tests/club-page-csp.test.ts holds it there. X-Frame-Options stays as is.
   //
   // The negative lookahead is deliberate rather than relying on rule ordering:
   // two overlapping `source` entries both match, and which Content-Security-

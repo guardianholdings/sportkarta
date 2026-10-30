@@ -133,6 +133,9 @@ services:
       # office shows an endpoint's secret once, derived from it.
       CLUB_API_ENABLED: ${CLUB_API_ENABLED:-}
       CLUB_WEBHOOK_SECRET: ${CLUB_WEBHOOK_SECRET:-}
+      # A paid club's own GA4 / Meta Pixel on its public pages, after consent
+      # (0058). Ships off; on only after the lawyer's sign-off.
+      CLUB_PIXELS_ENABLED: ${CLUB_PIXELS_ENABLED:-}
       # Bank details on /podkrepi (lib/donations.ts). All empty = the page
       # shows no transfer box rather than a half-filled one.
       DONATION_IBAN: ${DONATION_IBAN:-}

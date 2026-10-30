@@ -3,6 +3,7 @@ import createMiddleware from 'next-intl/middleware';
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { routing } from './i18n/routing';
+import { clubPageCsp, isClubPublicPage } from './lib/club-page-csp';
 import { isProtectedPath, REQUEST_PATH_HEADER } from './lib/sign-in-destination';
 
 const intlMiddleware = createMiddleware(routing);
@@ -45,7 +46,20 @@ export default function middleware(request: NextRequest) {
   // EVERY request, overwriting anything the client sent; next-intl copies the
   // request headers onto the request the page renders with.
   request.headers.set(REQUEST_PATH_HEADER, pathname);
-  return intlMiddleware(request);
+  const response = intlMiddleware(request);
+  // A club's public pages may load the club's own pixels after consent
+  // (wave H2): there, scripts come only from this site, the two vendors and
+  // the site's own analytics (lib/club-page-csp.ts).
+  if (isClubPublicPage(pathname)) {
+    response.headers.set(
+      'Content-Security-Policy',
+      clubPageCsp({
+        dev: process.env.NODE_ENV !== 'production',
+        analyticsSrc: process.env.UMAMI_SRC,
+      }),
+    );
+  }
+  return response;
 }
 
 export const config = {

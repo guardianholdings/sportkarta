@@ -1,6 +1,7 @@
 'use server';
 
 import { getDb } from '@sportkarta/db';
+import { parseGaMeasurementId, parseMetaPixelId } from '@sportkarta/lib/clubs';
 import { getLocale } from 'next-intl/server';
 import { revalidatePath } from 'next/cache';
 
@@ -12,9 +13,12 @@ import {
   parseFaq,
   parseInvoiceDetails,
   parseLocation,
+  parsePrivacyUrl,
   parseTermsUrl,
 } from '@/lib/clubs/input';
+import { featureOn } from '@/lib/clubs/features';
 import { createKioskDevice, newPairingCode, revokeKiosk } from '@/lib/clubs/kiosk';
+import { saveClubTracking } from '@/lib/clubs/tracking';
 import {
   connectAccount,
   disconnectAccount,
@@ -262,6 +266,41 @@ export async function saveInvoiceDetailsAction(formData: FormData): Promise<void
     redirect({ href: `/klub/${slug}/nastroyki?fakturi=${outcome}#fakturi`, locale });
   if (!parsed.ok) return back(parsed.errors[0] ?? 'invalid');
   const saved = await saveInvoiceDetails(getDb(), actor, parsed.value);
+  refresh(slug);
+  return back(saved ? 'saved' : 'read_only');
+}
+
+/**
+ * The club's own GA4 measurement id and Meta Pixel id (0058) — ids only, set
+ * by the club's own management on a tier with pixels while the operator's
+ * switch is on. Setting one asks the club to confirm that it is responsible
+ * for that tracking (it is the controller, with the vendor) and tells its
+ * visitors so; clearing both needs nothing.
+ */
+export async function saveTrackingAction(formData: FormData): Promise<void> {
+  const slug = slugOf(formData);
+  const { actor, club } = await requireClubStaff(slug, 'settings.manage');
+  const locale = await getLocale();
+  // `outcome` is this file's own literal, never user input.
+  const back = (outcome: string): never =>
+    redirect({ href: `/klub/${slug}/nastroyki?prosledyavane=${outcome}#prosledyavane`, locale });
+  if (!featureOn(club, 'pixels')) return back('feature_off');
+  const raw = (name: string) => {
+    const value = formData.get(name);
+    return typeof value === 'string' ? value : '';
+  };
+  const gaId = parseGaMeasurementId(raw('gaId'));
+  const metaId = parseMetaPixelId(raw('metaId'));
+  const privacyUrl = parsePrivacyUrl(formData);
+  if (gaId === 'invalid') return back('ga_invalid');
+  if (metaId === 'invalid') return back('meta_invalid');
+  if (privacyUrl === 'invalid') return back('privacy_invalid');
+  if (gaId !== null || metaId !== null) {
+    // 0058's CHECK holds the same rule; this keeps its refusal off the screen.
+    if (privacyUrl === null) return back('privacy_needed');
+    if (formData.get('responsible') !== 'on') return back('confirm_needed');
+  }
+  const saved = await saveClubTracking(getDb(), actor, { gaId, metaId, privacyUrl });
   refresh(slug);
   return back(saved ? 'saved' : 'read_only');
 }

@@ -103,6 +103,13 @@ import {
   roundRating,
   BROADCAST_SHARE_OF_BULK,
   CLUB_API_SCOPES,
+  gaScriptUrl,
+  isTrackingCookie,
+  decodeTrackingConsent,
+  encodeTrackingConsent,
+  parseGaMeasurementId,
+  parseMetaPixelId,
+  trackingConsentKey,
   CLUB_API_SCOPE_PERMISSION,
   CLUB_WEBHOOK_DELIVERY_ERRORS,
   CLUB_WEBHOOK_DELIVERY_STATES,
@@ -1328,5 +1335,66 @@ describe('the club API and webhooks (0057)', () => {
 
   it('can never record more attempts than the CHECK admits', () => {
     expect(WEBHOOK_MAX_ATTEMPTS).toBeLessThanOrEqual(50);
+  });
+});
+
+describe('club tracking ids (0058)', () => {
+  it('accepts a GA4 measurement id, forgiving case and spaces', () => {
+    expect(parseGaMeasurementId(' g-ab12cd34 ')).toBe('G-AB12CD34');
+    expect(parseGaMeasurementId('')).toBeNull();
+    for (const bad of [
+      'UA-12345-1',
+      'GTM-ABC123',
+      'G-',
+      'G-ABC',
+      'G-<script>',
+      'G-ABCDEFGHIJKLM',
+    ]) {
+      expect(parseGaMeasurementId(bad), bad).toBe('invalid');
+    }
+  });
+
+  it('accepts a Meta Pixel id of digits only', () => {
+    expect(parseMetaPixelId('1234 5678 9012')).toBe('123456789012');
+    expect(parseMetaPixelId('  ')).toBeNull();
+    for (const bad of ['12345', '1'.repeat(21), '12345a', 'fbq(1)']) {
+      expect(parseMetaPixelId(bad), bad).toBe('invalid');
+    }
+  });
+
+  it('builds the vendor address itself, from an id', () => {
+    expect(gaScriptUrl('G-AB12CD34')).toBe(
+      'https://www.googletagmanager.com/gtag/js?id=G-AB12CD34',
+    );
+  });
+
+  it("keeps one answer per club, and knows the vendors' cookies", () => {
+    expect(trackingConsentKey('a')).not.toBe(trackingConsentKey('b'));
+    for (const name of ['_ga', '_ga_ABC123', '_gcl_au', '_gcl_aw', '_gac_UA-1', '_fbp', '_fbc'])
+      expect(isTrackingCookie(name)).toBe(true);
+    for (const name of ['pops_session', 'better-auth.session_token', 'galaxy', '_gclid']) {
+      expect(isTrackingCookie(name)).toBe(false);
+    }
+  });
+
+  it('remembers an answer for a year, then asks again', () => {
+    const given = new Date('2026-10-30T12:00:00Z');
+    const stored = encodeTrackingConsent('granted', given);
+    expect(decodeTrackingConsent(stored, given)).toBe('granted');
+    expect(decodeTrackingConsent(stored, new Date('2027-10-29T12:00:00Z'))).toBe('granted');
+    expect(decodeTrackingConsent(stored, new Date('2027-10-30T12:00:00Z'))).toBeNull();
+    expect(decodeTrackingConsent(encodeTrackingConsent('denied', given), given)).toBe('denied');
+    // Anything else is no answer: the banner asks.
+    for (const raw of [
+      null,
+      'granted',
+      '{}',
+      '{"answer":"granted"}',
+      '{"answer":"maybe","at":"2026-10-30"}',
+      '{"answer":"granted","at":"2099-01-01"}',
+      'not json',
+    ]) {
+      expect(decodeTrackingConsent(raw, given), String(raw)).toBeNull();
+    }
   });
 });

@@ -63,7 +63,12 @@ never instead of it.** Concretely:
   pixel, or sponsor-hosted creative with tracking parameters would require a
   consent banner (EDPB Guidelines 2/2023 scope) and break a published promise.
   All sponsor creatives must be **self-hosted** (storage adapter), sponsor
-  links plain (no click IDs). Impression counts, if ever wanted, are
+  links plain (no click IDs). The ONE exception is not POPS's tracking but a
+  club's (operator decision 2026-10-25, «Клубове» v2 wave H2): a paid club
+  may add its OWN GA4 or Meta Pixel id to ITS public pages, loaded only after
+  the visitor accepts in a banner on those pages — ids only, never a tag
+  manager, `CLUB_PIXELS_ENABLED` off until the lawyer signs off the
+  joint-controller position. POPS's own pages stay pixel-free. Impression counts, if ever wanted, are
   self-hosted Umami events — nothing else. This is why S5 advertising is
   direct-sold and first-party served: the slot model needs none of the
   consent machinery, and the only sanctioned path to network fill is the
