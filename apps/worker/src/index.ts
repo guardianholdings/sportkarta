@@ -22,6 +22,7 @@ import {
   CLUB_REMINDERS_QUEUE,
   CLUB_WEBHOOKS_QUEUE,
   CLUB_WEEKLY_QUEUE,
+  inBroadcastHours,
   type ClubMaterializeJob,
   type ClubNotifyJob,
   type ClubPaymentEventJob,
@@ -277,11 +278,13 @@ async function main(): Promise<void> {
     },
   };
   // Bulk club e-mail (broadcasts + automations) per Sofia day across every
-  // club — below the relay's own daily quota, which sign-in codes share.
+  // club — below the relay's own daily quota, which sign-in codes share. The
+  // default leaves a 100-a-day relay (Migadu's smallest plan) room for the
+  // codes; the operator raises it with the plan.
   const bulkLimitRaw = (process.env.CLUB_BULK_MAIL_DAILY_LIMIT ?? '').trim();
   const clubMessages = {
     ...clubMail,
-    bulkMailDailyLimit: /^\d{1,6}$/.test(bulkLimitRaw) ? Number(bulkLimitRaw) : 200,
+    bulkMailDailyLimit: /^\d{1,6}$/.test(bulkLimitRaw) ? Number(bulkLimitRaw) : 60,
   };
 
   // Separate pool for REFRESH MATERIALIZED VIEW CONCURRENTLY (pg-boss owns its
@@ -882,8 +885,13 @@ async function main(): Promise<void> {
             console.log(`[worker] ${CLUB_PAYMENT_EVENT_QUEUE} sweep: ${String(swept.done)}`);
           // Places that moved up into a seat a lapsed hold freed (0053): told
           // through club.notify like every other notice, ids only.
-          if (swept.promoted.length > 0) {
-            const job: ClubNotifyJob = { kind: 'event_promoted', registrationIds: swept.promoted };
+          // A job carries at most 500 ids (lib/src/clubs/jobs.ts): more go in
+          // several jobs, never in one the queue would reject as invalid.
+          for (let at = 0; at < swept.promoted.length; at += 500) {
+            const job: ClubNotifyJob = {
+              kind: 'event_promoted',
+              registrationIds: swept.promoted.slice(at, at + 500),
+            };
             await boss.send(CLUB_NOTIFY_QUEUE, job);
           }
         }
@@ -924,6 +932,13 @@ async function main(): Promise<void> {
   await work(
     CLUB_AUTOMATIONS_QUEUE,
     logged(CLUB_AUTOMATIONS_QUEUE, async () => {
+      // A retry of a failed run must not land at night: the queue's backoff
+      // reaches the small hours, and after midnight a re-run would answer the
+      // next day's events too. Outside the sending hours it simply waits.
+      if (!inBroadcastHours(new Date())) {
+        console.log(`[worker] ${CLUB_AUTOMATIONS_QUEUE}: outside the sending hours, held`);
+        return;
+      }
       const out = await runClubAutomations(clubMessages);
       console.log(
         `[worker] ${CLUB_AUTOMATIONS_QUEUE}: ${String(out.automations)} automation(s), ` +
@@ -931,7 +946,9 @@ async function main(): Promise<void> {
           `${String(out.report.failed)} failed${out.held ? ', held by the daily limit' : ''}`,
       );
       await reportMailFailures(CLUB_AUTOMATIONS_QUEUE, out.report);
-      assertDelivered(CLUB_AUTOMATIONS_QUEUE, out.report);
+      // A bounced address is final (the ledger and the catch-up window take
+      // care of the rest); only a relay that is down is worth a retry.
+      if (out.report.transportDown) assertDelivered(CLUB_AUTOMATIONS_QUEUE, out.report);
     }),
   );
   await boss.schedule(CLUB_AUTOMATIONS_QUEUE, '15 10 * * *', {}, { tz: 'Europe/Sofia' });

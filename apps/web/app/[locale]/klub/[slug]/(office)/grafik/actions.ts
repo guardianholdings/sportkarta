@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from '@/i18n/navigation';
 import { bookAtDesk, cancelBooking } from '@/lib/clubs/bookings';
 import { clubCheckIn } from '@/lib/clubs/checkin';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
 import { isUuid, parseClass } from '@/lib/clubs/input';
 import { enqueueClubMaterialize, enqueueClubNotify } from '@/lib/clubs/notify';
 import {
@@ -106,9 +106,11 @@ export async function rosterOpAction(formData: FormData): Promise<void> {
       const memberId = str(formData, 'memberId');
       if (!isUuid(memberId)) return;
       const result = await clubCheckIn(db, { method: 'desk', actor, memberId, occurrenceId });
+      // Whether the client is covered is the desk's business (attendance.record);
+      // a trainer ticking their own class learns only that the tick landed.
       outcome =
         result.status === 'recorded'
-          ? result.covered
+          ? result.covered || !actorCan(actor, 'attendance.record')
             ? 'checked_in'
             : 'checked_in_uncovered'
           : result.status === 'already'

@@ -9,10 +9,13 @@ import {
   applySubscriptionInvoice,
   markPaymentAccountGone,
   markPaymentEvent,
+  providerPaymentKnown,
   prunePaymentEvents,
   recordPaymentEvent,
   recordProviderRefund,
+  recordUnappliedRenewal,
   stopSubscription,
+  subscriptionCancelOwed,
 } from './clubs/payments.js';
 import {
   cleanupClubFixtures,
@@ -237,12 +240,20 @@ describe.skipIf(!hasDb)('club online payments (requires running database)', () =
       refundRef: 're_test_once',
       amountCents: 1500,
     };
+    expect(await providerPaymentKnown(getDb(), 'fake', 'pi_test_refund')).toBe(true);
+    expect(await providerPaymentKnown(getDb(), 'fake', 'pi_test_nobody')).toBe(false);
     expect(await recordProviderRefund(getDb(), refund, null)).toBe(true);
     expect(await recordProviderRefund(getDb(), refund, null)).toBe(false);
     expect(await onlinePayments(chargeId)).toEqual([
       { kind: 'payment', amount_cents: 4500 },
       { kind: 'refund', amount_cents: -1500 },
     ]);
+    // A partial refund leaves the remainder owed: the charge stays live.
+    const live = await client.query<{ voided_at: string | null }>(
+      `SELECT voided_at FROM club_charges WHERE id = $1`,
+      [chargeId],
+    );
+    expect(live.rows[0]?.voided_at).toBeNull();
   });
 
   it('keeps a settled checkout final and one open checkout per charge', async () => {
@@ -386,18 +397,117 @@ describe.skipIf(!hasDb)('club online payments (requires running database)', () =
         paymentRef: 'pi_test_after_notice',
         amountCents: 4500,
       }),
-    ).toEqual({ applied: false, reason: 'after_notice' });
+    ).toMatchObject({ applied: false, reason: 'after_notice', chain: { planId } });
     await client.query(`UPDATE club_memberships SET renews = false WHERE member_id = $1`, [
       memberId,
     ]);
+    const stopped = await applySubscriptionInvoice(getDb(), {
+      provider: 'fake',
+      subscriptionRef,
+      paymentRef: 'pi_test_stopped',
+      amountCents: 4500,
+    });
+    expect(stopped).toMatchObject({ applied: false, reason: 'not_renewing' });
+    // The money Stripe took for the refused period is listed for the office
+    // as `unapplied` — once per invoice — never applied, never lost.
+    const renewal = {
+      provider: 'fake' as const,
+      accountRef: ACCOUNT,
+      subscriptionRef,
+      paymentRef: 'pi_test_stopped',
+      amountCents: 4500,
+      chain: stopped.applied ? null : (stopped.chain ?? null),
+    };
+    expect(await recordUnappliedRenewal(getDb(), renewal)).toBe(true);
+    expect(await recordUnappliedRenewal(getDb(), renewal)).toBe(false);
+    const listed = await client.query(
+      `SELECT status, mode, member_id, payment_ref FROM club_checkouts
+        WHERE club_id = $1 AND payment_ref = 'pi_test_stopped'`,
+      [club.clubId],
+    );
+    expect(listed.rows).toEqual([
+      {
+        status: 'unapplied',
+        mode: 'subscription',
+        member_id: memberId,
+        payment_ref: 'pi_test_stopped',
+      },
+    ]);
+    // A chain carries the subscription: ending it is the caller's call on
+    // this very event, not a cancel owed from an earlier failure.
+    expect(await subscriptionCancelOwed(getDb(), subscriptionRef)).toBe(false);
+  });
+
+  it('owes the cancel of a subscription whose first payment went unapplied, until it lands', async () => {
+    await client.query(`UPDATE club_plans SET auto_renew = true WHERE id = $1`, [planId]);
+    const created = await client.query<{ id: string }>(
+      `INSERT INTO club_checkouts (club_id, purpose, member_id, plan_id, starts_on, amount_cents,
+                                   mode, provider, account_ref)
+       VALUES ($1, 'membership', $2, $3, current_date, 4500, 'subscription', 'fake', $4)
+       RETURNING id`,
+      [club.clubId, memberId, planId, ACCOUNT],
+    );
+    const subscriptionRef = `sub_test_${randomUUID().slice(0, 8)}`;
+    // Stripe collected a different amount: unapplied, and the subscription
+    // behind it must end. The worker's cancel call may fail right here.
+    expect(
+      await applyCheckoutPaid(getDb(), {
+        checkoutId: created.rows[0]?.id ?? '',
+        provider: 'fake',
+        paymentRef: 'pi_test_owed',
+        amountCents: 4400,
+        subscriptionRef,
+      }),
+    ).toMatchObject({ applied: false, reason: 'amount_mismatch', subscriptionRef });
+    // The retried event finds the checkout settled — and the cancel still owed.
+    expect(
+      await applyCheckoutPaid(getDb(), {
+        checkoutId: created.rows[0]?.id ?? '',
+        provider: 'fake',
+        paymentRef: 'pi_test_owed',
+        amountCents: 4400,
+        subscriptionRef,
+      }),
+    ).toEqual({ applied: false, reason: 'unknown_or_done' });
+    expect(await subscriptionCancelOwed(getDb(), subscriptionRef)).toBe(true);
+    // A month later Stripe bills again: no chain, but the subscription is
+    // ours — the money is listed against the opening checkout's client and plan.
     expect(
       await applySubscriptionInvoice(getDb(), {
         provider: 'fake',
         subscriptionRef,
-        paymentRef: 'pi_test_stopped',
-        amountCents: 4500,
+        paymentRef: 'pi_test_owed_2',
+        amountCents: 4400,
       }),
-    ).toEqual({ applied: false, reason: 'not_renewing' });
+    ).toEqual({ applied: false, reason: 'no_chain' });
+    expect(
+      await recordUnappliedRenewal(getDb(), {
+        provider: 'fake',
+        accountRef: ACCOUNT,
+        subscriptionRef,
+        paymentRef: 'pi_test_owed_2',
+        amountCents: 4400,
+        chain: null,
+      }),
+    ).toBe(true);
+    const listed = await client.query(
+      `SELECT member_id, plan_id, amount_cents FROM club_checkouts
+        WHERE club_id = $1 AND payment_ref = 'pi_test_owed_2' AND status = 'unapplied'`,
+      [club.clubId],
+    );
+    expect(listed.rows).toEqual([{ member_id: memberId, plan_id: planId, amount_cents: 4400 }]);
+    // A subscription no checkout of ours opened is the club's own: never ours to end or list.
+    expect(await subscriptionCancelOwed(getDb(), 'sub_test_foreign')).toBe(false);
+    expect(
+      await recordUnappliedRenewal(getDb(), {
+        provider: 'fake',
+        accountRef: ACCOUNT,
+        subscriptionRef: 'sub_test_foreign',
+        paymentRef: 'pi_test_foreign',
+        amountCents: 4400,
+        chain: null,
+      }),
+    ).toBe(false);
   });
 
   it('never renews a plan bought as a one-off payment', async () => {
@@ -473,7 +583,18 @@ describe.skipIf(!hasDb)('club online payments (requires running database)', () =
       amountCents: 4500,
     };
     expect(await recordProviderRefund(getDb(), refund, null)).toBe(true);
-    await client.query(`UPDATE club_charges SET voided_at = now() WHERE id = $1`, [chargeId]);
+    // Nothing paid is left on the charge, so the refund voided it — the
+    // member is never shown the refunded money as owed again (whoever made
+    // the refund: the office, or the club in its Stripe dashboard).
+    const voided = await client.query<{ voided: boolean; reason: string | null }>(
+      `SELECT ch.voided_at IS NOT NULL AS voided,
+              (SELECT a.detail->>'reason' FROM club_audit a
+                WHERE a.club_id = ch.club_id AND a.action = 'charge_voided'
+                  AND a.detail->>'chargeId' = ch.id::text) AS reason
+         FROM club_charges ch WHERE ch.id = $1`,
+      [chargeId],
+    );
+    expect(voided.rows[0]).toEqual({ voided: true, reason: 'refunded' });
     // charge.refunded arrives later: already booked, so a no-op — not the
     // within-charge trigger refusing a duplicate on a charge with no room.
     expect(await recordProviderRefund(getDb(), refund, null)).toBe(false);

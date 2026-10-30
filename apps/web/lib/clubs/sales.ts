@@ -506,12 +506,27 @@ export async function cancelMembership(
     const memberId = text(updated.rows[0]?.member_id);
     if (!memberId) return false;
     if (reason === 'mistake') {
-      await tx.execute(sql`
+      // Voiding is management's act (charges.void, as voidCharge): a desk
+      // cancel-as-mistake leaves the unpaid charge for management to void. An
+      // invoiced charge waits for its credit note (0050), whoever cancels.
+      const voided = await tx.execute(sql`
         UPDATE club_charges ch SET voided_at = now()
          WHERE ch.club_id = ${actor.clubId}::uuid AND ch.membership_id = ${membershipId}::uuid
            AND ch.voided_at IS NULL
            AND NOT EXISTS (SELECT 1 FROM club_payments p WHERE p.charge_id = ch.id)
+           AND NOT ${liveInvoiceFor(sql`ch.club_id`, sql`ch.id`)}
+           AND ${clubWriteScope(actor, 'charges.void', 'ch')}
+        RETURNING ch.id
       `);
+      for (const row of voided.rows) {
+        await recordClubAudit(tx, {
+          clubId: actor.clubId,
+          by: { kind: 'staff', actor },
+          action: 'charge_voided',
+          subjectMemberId: memberId,
+          detail: { chargeId: String(row.id), reason: 'membership_mistake' },
+        });
+      }
     }
     await recordClubAudit(tx, {
       clubId: actor.clubId,

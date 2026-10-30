@@ -224,7 +224,11 @@ export async function connectFakePaymentsAction(formData: FormData): Promise<voi
     chargesEnabled: true,
   });
   refresh(slug);
-  paymentsBack(slug, saved ? 'connected' : 'connect_failed', locale);
+  paymentsBack(
+    slug,
+    saved === 'ok' ? 'connected' : saved === 'subscriptions_live' ? saved : 'connect_failed',
+    locale,
+  );
 }
 
 export async function disconnectPaymentsAction(formData: FormData): Promise<void> {

@@ -164,7 +164,9 @@ function optionalUuid(form: Reader, name: string): string | null | 'invalid' {
   return isUuid(value) ? value.toLowerCase() : 'invalid';
 }
 
-const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+// Permissive on letters (a Cyrillic address is fine) but never a character
+// that would smuggle a query or a header into a mailto: link or a To: line.
+const EMAIL = /^[^@\s"'<>,;()?&#%\\]+@[^@\s"'<>,;()?&#%\\]+\.[^@\s"'<>,;()?&#%\\]+$/;
 const PHONE = /^\+?[0-9 ()-]{5,32}$/;
 
 function email(raw: string | null, errors: string[], code = 'email_invalid'): string | null {
@@ -619,6 +621,11 @@ export function parsePlan(form: Reader): InputResult<PlanInput> {
   const visibility = text(form, 'visibility') === 'private' ? 'private' : 'public';
   const autoRenew = checked(form, 'autoRenew');
   if (autoRenew && kind === 'trial') errors.push('trial_cannot_renew');
+  // A renewing plan is a Stripe subscription (0046): up to 12 months a cycle,
+  // or whole years — anything else Stripe cannot bill (recurringInterval).
+  if (autoRenew && unit === 'months' && amount !== null && amount > 12 && amount % 12 !== 0) {
+    errors.push('renew_term_invalid');
+  }
   const minTermRaw = text(form, 'minTermMonths');
   const minTermMonths = minTermRaw === '' ? null : intInRange(minTermRaw, 1, 36);
   if (minTermRaw !== '' && minTermMonths === null) errors.push('min_term_invalid');

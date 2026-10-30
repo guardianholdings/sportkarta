@@ -1,7 +1,7 @@
 import { getDb, sql, type SQL } from '@sportkarta/db';
 import type { ClubAuditAction } from '@sportkarta/lib/clubs';
 
-import type { ClubActor } from './scope';
+import { clubScope, type ClubActor } from './scope';
 
 /**
  * The only writer (and the only reader) of `club_audit` (0039) — the club's
@@ -97,7 +97,7 @@ export interface ClubAuditEntry {
  * "former" label and the row survives.
  */
 export async function clubAuditHistory(
-  clubId: string,
+  actor: ClubActor,
   filter: { subjectMemberId?: string } = {},
   limit = 50,
 ): Promise<ClubAuditEntry[]> {
@@ -112,7 +112,7 @@ export async function clubAuditHistory(
       LEFT JOIN users u ON u.id = a.actor_id
       LEFT JOIN club_staff st ON st.club_id = a.club_id AND st.user_id = a.actor_id
       LEFT JOIN club_members m ON m.club_id = a.club_id AND m.id = a.subject_member_id
-     WHERE a.club_id = ${clubId}::uuid ${subject}
+     WHERE ${clubScope(actor, 'audit.view', 'a')} ${subject}
      ORDER BY a.acted_at DESC, a.id DESC
      LIMIT ${limit}
   `);

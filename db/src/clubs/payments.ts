@@ -282,7 +282,16 @@ export async function applySubscriptionInvoice(
   today: IsoDate = sofiaToday(),
 ): Promise<
   | { applied: true; clubId: string; memberId: string }
-  | { applied: false; reason: 'duplicate' | 'no_chain' | 'not_renewing' | 'after_notice' }
+  | {
+      applied: false;
+      reason: 'duplicate' | 'no_chain' | 'not_renewing' | 'after_notice';
+      /**
+       * The chain the money was billed for when no period is appended
+       * (not_renewing, after_notice): what recordUnappliedRenewal needs to
+       * list the money for the office — Stripe took it, the books refuse it.
+       */
+      chain?: { clubId: string; memberId: string; planId: string; startsOn: IsoDate };
+    }
 > {
   return db.transaction(async (tx) => {
     // Idempotent per invoice: a retried job (the commit landed, marking the
@@ -311,16 +320,18 @@ export async function applySubscriptionInvoice(
       `)
     ).rows[0];
     if (!tail) return { applied: false, reason: 'no_chain' } as const;
-    // The office stopped renewing, or the member's notice ends before this
-    // period: no period is appended, and the caller ends the subscription.
-    if (tail.renews !== true) return { applied: false, reason: 'not_renewing' } as const;
     const clubId = String(tail.club_id);
     const memberId = String(tail.member_id);
     const after = addDaysIso(String(tail.effective_ends_on), 1);
     const startsOn = after < today ? today : after;
+    const chain = { clubId, memberId, planId: String(tail.plan_id), startsOn };
+    // The office stopped renewing, or the member's notice ends before this
+    // period: no period is appended; the caller lists the money for the
+    // office (recordUnappliedRenewal) and ends the subscription.
+    if (tail.renews !== true) return { applied: false, reason: 'not_renewing', chain } as const;
     const noticeEnds = text(tail.renewal_ends_on);
     if (noticeEnds !== null && startsOn > noticeEnds) {
-      return { applied: false, reason: 'after_notice' } as const;
+      return { applied: false, reason: 'after_notice', chain } as const;
     }
     const endsOn = membershipEndsOn(
       startsOn,
@@ -384,6 +395,104 @@ export async function stopSubscription(db: SqlRunner, subscriptionRef: string): 
   return updated.rows.length;
 }
 
+/**
+ * A subscription POPS opened whose money never reached the books: a checkout
+ * of ours carries its reference as `unapplied`, and no membership chain does.
+ * Its card is billed until the subscription is ended at the provider, so the
+ * worker ends it on EVERY visit until that call succeeds — the first attempt
+ * follows the `unapplied` commit and may fail (a timeout, a 5xx); the retried
+ * event then finds the checkout already settled and asks here. A subscription
+ * no checkout of ours knows is the club's own business at Stripe and is never
+ * touched.
+ */
+export async function subscriptionCancelOwed(
+  db: SqlRunner,
+  subscriptionRef: string,
+): Promise<boolean> {
+  const found = await db.execute(sql`
+    SELECT 1 FROM club_checkouts k
+     WHERE k.subscription_ref = ${subscriptionRef} AND k.status = 'unapplied'
+       AND NOT EXISTS (SELECT 1 FROM club_memberships ms
+                        WHERE ms.provider_subscription_ref = ${subscriptionRef})
+     LIMIT 1
+  `);
+  return found.rows.length > 0;
+}
+
+/**
+ * Money the provider collected for a renewal the books refuse — the office
+ * stopped renewing, the notice has ended, or the chain was never opened
+ * (its first payment went `unapplied`): listed for the office as an
+ * `unapplied` checkout on the payments screen, exactly like money paid on a
+ * closed session — never lost, never applied. Once per invoice (its payment
+ * reference). False when nothing of ours is behind the subscription, or the
+ * amount is outside what a checkout may hold (the CHECK: 0.50 – 100 000 €).
+ */
+export async function recordUnappliedRenewal(
+  db: SqlRunner,
+  renewal: {
+    provider: 'stripe' | 'fake';
+    accountRef: string;
+    subscriptionRef: string;
+    paymentRef: string;
+    amountCents: number;
+    chain: { clubId: string; memberId: string | null; planId: string; startsOn: IsoDate } | null;
+  },
+  today: IsoDate = sofiaToday(),
+): Promise<boolean> {
+  if (renewal.amountCents < 50 || renewal.amountCents > 10_000_000) return false;
+  let chain = renewal.chain;
+  if (!chain) {
+    const opened = (
+      await db.execute(sql`
+        SELECT club_id, member_id, plan_id FROM club_checkouts
+         WHERE subscription_ref = ${renewal.subscriptionRef} AND purpose = 'membership'
+         ORDER BY created_at
+         LIMIT 1
+      `)
+    ).rows[0];
+    if (!opened) return false;
+    chain = {
+      clubId: String(opened.club_id),
+      memberId: text(opened.member_id),
+      planId: String(opened.plan_id),
+      startsOn: today,
+    };
+  }
+  const inserted = await db.execute(sql`
+    INSERT INTO club_checkouts (club_id, purpose, member_id, plan_id, starts_on, amount_cents,
+                                mode, provider, account_ref, status, payment_ref,
+                                subscription_ref, completed_at)
+    SELECT ${chain.clubId}::uuid, 'membership', ${chain.memberId}::uuid, ${chain.planId}::uuid,
+           ${chain.startsOn}::date, ${renewal.amountCents}, 'subscription', ${renewal.provider},
+           ${renewal.accountRef}, 'unapplied', ${renewal.paymentRef}, ${renewal.subscriptionRef},
+           now()
+     WHERE NOT EXISTS (SELECT 1 FROM club_checkouts k
+                        WHERE k.club_id = ${chain.clubId}::uuid
+                          AND k.payment_ref = ${renewal.paymentRef})
+    RETURNING id
+  `);
+  return inserted.rows.length > 0;
+}
+
+/**
+ * Whether a payment with this provider reference is in the books. A refund
+ * reported before its payment was applied (the payment's own event is still
+ * being retried) is waited for, not dropped.
+ */
+export async function providerPaymentKnown(
+  db: SqlRunner,
+  provider: 'stripe' | 'fake',
+  paymentRef: string,
+): Promise<boolean> {
+  const found = await db.execute(sql`
+    SELECT 1 FROM club_payments
+     WHERE provider = ${provider} AND provider_ref = ${paymentRef} AND kind = 'payment'
+     LIMIT 1
+  `);
+  return found.rows.length > 0;
+}
+
 // ─── Refunds ───────────────────────────────────────────────────────────────
 
 /**
@@ -393,7 +502,9 @@ export async function stopSubscription(db: SqlRunner, subscriptionRef: string): 
  * the second a no-op.
  */
 export async function recordProviderRefund(
-  db: TransactionalDb,
+  // A transaction of the caller's (the office refunding credit under the
+  // client's lock) or the connection, in which case this opens its own.
+  db: TransactionalDb | SqlRunner,
   refund: {
     provider: 'stripe' | 'fake';
     paymentRef: string;
@@ -403,7 +514,9 @@ export async function recordProviderRefund(
   recordedBy: string | null,
   today: IsoDate = sofiaToday(),
 ): Promise<boolean> {
-  return db.transaction(async (tx) => {
+  const run = <T>(callback: (tx: SqlRunner) => Promise<T>): Promise<T> =>
+    'transaction' in db ? db.transaction(callback) : callback(db);
+  return run(async (tx) => {
     const original = (
       await tx.execute(sql`
         SELECT club_id, charge_id, member_id FROM club_payments
@@ -440,6 +553,37 @@ export async function recordProviderRefund(
       text(original.member_id),
       sql`jsonb_build_object('amountCents', ${Math.abs(refund.amountCents)}::int)`,
     );
+    // The books follow 0041: a refund on a live charge makes the money owed
+    // again. A refund that leaves NOTHING paid on the charge voids it here —
+    // whoever made it (the office, or the club in its Stripe dashboard) — so
+    // the member is never shown «Платете» for money just given back. A till
+    // sale is undone by its reversal, an invoiced charge by its credit note,
+    // and a top-up is paid back rather than voided (0049, 0050): those keep
+    // their charge. A partial refund leaves the remainder owed.
+    await tx.execute(sql`
+      WITH v AS (
+        UPDATE club_charges ch SET voided_at = now()
+         WHERE ch.id = ${String(original.charge_id)}::uuid AND ch.voided_at IS NULL
+           AND ch.kind <> 'wallet'
+           AND coalesce((SELECT sum(pp.amount_cents) FROM club_payments pp
+                          WHERE pp.charge_id = ch.id), 0) = 0
+           AND NOT EXISTS (SELECT 1 FROM club_sales sa
+                            WHERE sa.club_id = ch.club_id AND sa.charge_id = ch.id)
+           AND NOT EXISTS (SELECT 1 FROM club_invoices li
+                            WHERE li.club_id = ch.club_id AND li.charge_id = ch.id
+                              AND li.kind = 'invoice'
+                              AND li.total_cents > coalesce((SELECT sum(lc.total_cents)
+                                                                FROM club_invoices lc
+                                                               WHERE lc.club_id = li.club_id
+                                                                 AND lc.corrects_id = li.id), 0))
+         RETURNING ch.club_id, ch.id, ch.member_id
+      )
+      INSERT INTO club_audit (club_id, actor_kind, actor_id, action, subject_member_id, detail)
+      SELECT v.club_id, ${recordedBy === null ? 'system' : 'staff'}, ${recordedBy},
+             'charge_voided', v.member_id,
+             jsonb_build_object('chargeId', v.id::text, 'reason', 'refunded')
+        FROM v
+    `);
     return true;
   });
 }

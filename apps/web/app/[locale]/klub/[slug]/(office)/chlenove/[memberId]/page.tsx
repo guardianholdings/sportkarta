@@ -92,7 +92,7 @@ export default async function MemberCardPage({
       getTranslations('ClubInbox'),
       clubFormMessages(),
       actorCan(actor, 'audit.view')
-        ? clubAuditHistory(actor.clubId, { subjectMemberId: memberId }, 30)
+        ? clubAuditHistory(actor, { subjectMemberId: memberId }, 30)
         : Promise.resolve([]),
       // Shown wherever there is credit, even if the tier has lost the wallet.
       actorCan(actor, 'payments.view') ? memberWallet(actor, memberId) : Promise.resolve(null),

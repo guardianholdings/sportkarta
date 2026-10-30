@@ -176,6 +176,19 @@ describe('deploy/compose.prod.yml — worker environment', () => {
     ).toEqual([]);
   });
 
+  it('declares the webhook family, because the worker reads it through a default parameter', () => {
+    // runClubWebhooks(env = process.env) reads CLUB_API_ENABLED and
+    // CLUB_WEBHOOK_SECRET off its parameter, so the direct scan above cannot
+    // see them; without them every webhook silently stops — in production only.
+    if (!/runClubWebhooks\(/.test(workerSource)) return;
+    const missing = ['CLUB_API_ENABLED', 'CLUB_WEBHOOK_SECRET'].filter(
+      (k) => !workerEnv.includes(k),
+    );
+    expect(missing, `compose.prod.yml withholds from the worker:\n${missing.join('\n')}`).toEqual(
+      [],
+    );
+  });
+
   it('declares the SMTP family, because the worker hands the whole env to createMailer', () => {
     // The regression that motivated this file. `createMailer(process.env)` is a
     // whole-environment handoff, so the direct scan above cannot see the keys

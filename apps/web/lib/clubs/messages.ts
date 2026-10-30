@@ -341,7 +341,10 @@ export async function scheduleBroadcast(
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`);
     const day = await tx.execute(sql`
       SELECT count(*)::int AS n FROM club_broadcasts x
-       WHERE x.club_id = ${actor.clubId}::uuid AND x.status IN ('scheduled', 'sending', 'sent')
+       WHERE x.club_id = ${actor.clubId}::uuid
+         -- A message cancelled once it had started still spent its place.
+         AND (x.status IN ('scheduled', 'sending', 'sent')
+              OR (x.status = 'cancelled' AND x.started_at IS NOT NULL))
          AND (x.scheduled_for AT TIME ZONE 'Europe/Sofia')::date
              = (${at.toISOString()}::timestamptz AT TIME ZONE 'Europe/Sofia')::date
     `);

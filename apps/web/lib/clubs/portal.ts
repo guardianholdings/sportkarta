@@ -1,6 +1,7 @@
 import { getDb, sql } from '@sportkarta/db';
 import type { ClubSport, IsoDate } from '@sportkarta/lib/clubs';
 
+import { clubRenderableSql } from './access';
 import { memberSelfScope } from './scope';
 
 /**
@@ -171,6 +172,12 @@ export async function portalView(
                AS live
         FROM clubs c
        WHERE c.slug = ${slug} AND c.status <> 'archived'
+         -- A club that is not on the public site (hidden, pending, suspended)
+         -- is reached here only by its own people: a linked client or staff.
+         AND (${clubRenderableSql('c')}
+              OR EXISTS (SELECT 1 FROM club_member_links l
+                          WHERE l.club_id = c.id AND l.user_id = ${userId} AND l.status <> 'declined')
+              OR EXISTS (SELECT 1 FROM club_staff s WHERE s.club_id = c.id AND s.user_id = ${userId}))
     `)
   ).rows[0];
   if (!clubRow) return null;
@@ -340,7 +347,13 @@ export async function portalView(
 export async function portalClasses(clubId: string, days = 7): Promise<PortalClass[]> {
   const result = await getDb().execute(sql`
     SELECT o.id, k.title, k.sport, o.starts_at, o.ends_at, l.name AS location_name,
-           coalesce(nullif(btrim(sto.display_name), ''), nullif(btrim(uo.display_name), ''), nullif(btrim(stk.display_name), ''), nullif(btrim(uk.display_name), '')) AS instructor_name,
+           -- A trainer is named outside the office only by their OWN choice
+           -- (club_staff.public_profile, 0045) — never from the account
+           -- behind them alone, and never the class's trainer for a date
+           -- somebody else teaches.
+           CASE WHEN sto.public_profile THEN coalesce(nullif(btrim(sto.display_name), ''), nullif(btrim(uo.display_name), ''))
+                WHEN o.instructor_user_id IS NULL AND stk.public_profile THEN coalesce(nullif(btrim(stk.display_name), ''), nullif(btrim(uk.display_name), ''))
+           END AS instructor_name,
            coalesce(o.capacity, k.capacity) AS capacity, k.trial_allowed,
            o.starts_at - make_interval(hours => k.booking_opens_hours) AS opens_at,
            k.cancel_deadline_hours, k.late_cancel_fee_cents, k.no_show_fee_cents,

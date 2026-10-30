@@ -35,7 +35,6 @@ import { recordClubAudit } from './audit';
 import { ensureSelfRecord } from './bookings';
 import { liveInvoiceFor } from './invoices';
 import { resolveOffer } from './promotions';
-import { voidCharge } from './sales';
 import { violatedConstraint } from './errors';
 import { clubFeatureSql, clubSwitchOn } from './features';
 import { clubActorMay, clubScope, clubWriteScope, memberSelfScope, type ClubActor } from './scope';
@@ -173,16 +172,32 @@ export function connectStartUrl(actor: ClubActor): string | null {
   return `https://connect.stripe.com/oauth/authorize?${params.toString()}`;
 }
 
+export type ConnectResult = 'ok' | 'not_allowed' | 'subscriptions_live';
+
 /**
  * Record the club's connected account (a reconnect replaces the live one).
- * settings.manage, on a writable club, in the statement.
+ * settings.manage, on a writable club, in the statement. Re-pointing the
+ * club's payments to ANOTHER account while members hold renewing
+ * subscriptions on the live one is refused like a disconnect: those
+ * subscriptions would be out of reach from here, billing cards for periods
+ * nobody records. Authorising the same account again is always fine.
  */
 export async function connectAccount(
   db: TransactionalDb,
   actor: ClubActor,
   account: { provider: 'stripe' | 'fake'; accountRef: string; chargesEnabled: boolean },
-): Promise<boolean> {
+): Promise<ConnectResult> {
   return db.transaction(async (tx) => {
+    const live = (
+      await tx.execute(sql`
+        SELECT a.account_ref FROM club_payment_accounts a
+         WHERE a.club_id = ${actor.clubId}::uuid AND a.disconnected_at IS NULL
+      `)
+    ).rows[0];
+    if (live && String(live.account_ref) !== account.accountRef) {
+      const open = await subscriptionRefsFor(tx, actor.clubId, { club: true });
+      if (open.some((subscription) => subscription.reachable)) return 'subscriptions_live';
+    }
     await tx.execute(sql`
       UPDATE club_payment_accounts a SET disconnected_at = now(), charges_enabled = false
        WHERE a.club_id = ${actor.clubId}::uuid AND a.disconnected_at IS NULL
@@ -195,14 +210,14 @@ export async function connectAccount(
        WHERE ${clubActorMay(actor, 'settings.manage', { write: true })}
       RETURNING id
     `);
-    if (inserted.rows.length === 0) return false;
+    if (inserted.rows.length === 0) return 'not_allowed';
     await recordClubAudit(tx, {
       clubId: actor.clubId,
       by: { kind: 'staff', actor },
       action: 'payment_account_connected',
       detail: { provider: account.provider },
     });
-    return true;
+    return 'ok';
   });
 }
 
@@ -398,6 +413,10 @@ async function openSession(
   const { client, settings } = stripe();
   const fee = applicationFeeCents(input.amountCents, settings.applicationFeeBp);
   const subscription = input.subscriptionMonths !== null;
+  // Stripe bills at most 12 months a cycle; a whole number of years is billed
+  // yearly, anything else cannot be a subscription (the plan form refuses it).
+  const recurring = subscription ? recurringInterval(input.subscriptionMonths ?? 0) : null;
+  if (subscription && recurring === null) return null;
   const session = await client.createCheckoutSession(
     {
       mode: subscription ? 'subscription' : 'payment',
@@ -427,9 +446,7 @@ async function openSession(
             currency: 'eur',
             unit_amount: input.amountCents,
             product_data: { name: input.label.slice(0, 120) },
-            ...(subscription
-              ? { recurring: { interval: 'month', interval_count: input.subscriptionMonths } }
-              : {}),
+            ...(recurring ? { recurring } : {}),
           },
         },
       ],
@@ -456,6 +473,20 @@ async function openSession(
     UPDATE club_checkouts SET session_ref = ${session.id} WHERE id = ${input.checkoutId}::uuid
   `);
   return session.url;
+}
+
+/**
+ * A plan's renewal term as a Stripe price interval: months up to a year,
+ * whole years beyond (Stripe caps `month` at 12 and `year` at 3); null when
+ * Stripe cannot bill it, which the plan form refuses (renew_term_invalid).
+ */
+export function recurringInterval(
+  months: number,
+): { interval: 'month' | 'year'; interval_count: number } | null {
+  if (!Number.isInteger(months) || months < 1) return null;
+  if (months <= 12) return { interval: 'month', interval_count: months };
+  if (months % 12 === 0 && months <= 36) return { interval: 'year', interval_count: months / 12 };
+  return null;
 }
 
 async function verifiedEmail(db: SqlRunner, userId: string): Promise<string | null> {
@@ -1166,50 +1197,83 @@ export async function refundOnlinePayment(
   if (!Number.isInteger(amount) || amount <= 0 || amount > refundable) {
     return { ok: false, error: 'amount_invalid' };
   }
-  // Credit loaded online (0050) goes back only as far as it is unspent. The
-  // provider's refund is recorded whatever the balance (the money has left),
-  // so the check is here, before the money moves.
-  const credit = (
-    await db.execute(sql`
-      SELECT ch.kind,
-             (SELECT coalesce(sum(w.balance_cents), 0) FROM club_wallet_balances w
-               WHERE w.club_id = ch.club_id AND w.member_id = ch.member_id) AS balance
-        FROM club_charges ch
-       WHERE ch.id = ${String(payment.charge_id)}::uuid AND ${clubScope(actor, 'charges.void', 'ch')}
-    `)
-  ).rows[0];
-  if (credit?.kind === 'wallet' && amount > Number(credit.balance)) {
-    return { ok: false, error: 'wallet_spent' };
-  }
   const provider = payment.provider === 'fake' ? 'fake' : 'stripe';
-  let refundRef: string;
-  if (provider === 'fake') {
-    refundRef = `fake_re_${randomUUID()}`;
-  } else {
+  if (provider === 'stripe') {
     if (paymentProvider() !== 'stripe') return { ok: false, error: 'provider_error' };
     if (payment.account_ref === null || payment.reachable !== true) {
       return { ok: false, error: 'account_changed' };
     }
+  }
+  const chargeId = String(payment.charge_id);
+  const paymentRef = String(payment.provider_ref);
+  /** The money moves at the provider; its reference is what the books record. */
+  const issue = async (): Promise<string | null> => {
+    if (provider === 'fake') return `fake_re_${randomUUID()}`;
     try {
       const { client } = stripe();
       const refund = await client.createRefund(
-        { payment_intent: String(payment.provider_ref), amount },
+        { payment_intent: paymentRef, amount },
         {
           account: String(payment.account_ref),
           idempotencyKey: `refund:${String(paymentId)}:${String(amount)}:${String(refundable)}`,
         },
       );
-      refundRef = refund.id;
+      return refund.id;
     } catch {
-      return { ok: false, error: 'provider_error' };
+      return null;
     }
+  };
+  const kind = (
+    await db.execute(sql`
+      SELECT ch.kind FROM club_charges ch
+       WHERE ch.id = ${chargeId}::uuid AND ${clubScope(actor, 'charges.void', 'ch')}
+    `)
+  ).rows[0]?.kind;
+  if (kind === 'wallet') {
+    // Credit loaded online (0050) goes back only as far as it is unspent —
+    // decided under the client's lock, in 0050's order (the charge, then the
+    // client) and HELD while the provider answers: a desk spending that
+    // credit meanwhile waits on the same row and then finds it gone. The
+    // provider's refund is recorded whatever the balance (the money has
+    // left), so this is the only place the rule is kept.
+    return db.transaction(async (tx) => {
+      await tx.execute(sql`
+        SELECT 1 FROM club_charges ch WHERE ch.id = ${chargeId}::uuid FOR NO KEY UPDATE
+      `);
+      const locked = (
+        await tx.execute(sql`
+          SELECT (SELECT coalesce(sum(w.balance_cents), 0) FROM club_wallet_balances w
+                   WHERE w.club_id = m.club_id AND w.member_id = m.id) AS balance
+            FROM club_charges ch
+            JOIN club_members m ON m.club_id = ch.club_id AND m.id = ch.member_id
+           WHERE ch.id = ${chargeId}::uuid
+             FOR NO KEY UPDATE OF m
+        `)
+      ).rows[0];
+      // An erased client's credit belongs to nobody: nothing goes back.
+      if (!locked || amount > Number(locked.balance)) {
+        return { ok: false, error: 'wallet_spent' } as const;
+      }
+      const refundRef = await issue();
+      if (refundRef === null) return { ok: false, error: 'provider_error' } as const;
+      await recordProviderRefund(
+        tx,
+        { provider, paymentRef, refundRef, amountCents: amount },
+        actor.userId,
+      );
+      return { ok: true } as const;
+    });
   }
+  const refundRef = await issue();
+  if (refundRef === null) return { ok: false, error: 'provider_error' };
+  // The negative row — and the charge voided when nothing paid is left on it
+  // (recordProviderRefund), so the member is never asked to pay their own
+  // refund back.
   await recordProviderRefund(
     db,
-    { provider, paymentRef: String(payment.provider_ref), refundRef, amountCents: amount },
+    { provider, paymentRef, refundRef, amountCents: amount },
     actor.userId,
   );
-  await voidCharge(db, actor, String(payment.charge_id), { onlyIfNothingPaid: true });
   return { ok: true };
 }
 

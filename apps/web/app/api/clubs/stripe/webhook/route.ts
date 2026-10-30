@@ -3,7 +3,7 @@ import { CLUB_PAYMENT_EVENT_QUEUE, type ClubPaymentEventJob } from '@sportkarta/
 import { stripeSettings, verifyStripeSignature } from '@sportkarta/lib/payments';
 
 import { getBoss, recordEnqueueFailure } from '@/lib/admin-boss';
-import { clubsEnabled } from '@/lib/clubs/access';
+import { readCappedText } from '@/lib/clubs/api';
 
 /**
  * Stripe → POPS (0046). The ONLY thing this route trusts is the signature:
@@ -39,15 +39,15 @@ function reply(status: number): Response {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  if (!clubsEnabled()) return reply(404);
+  // Not gated on CLUBS_ENABLED: money events arrive whenever a club's Stripe
+  // account is connected, and Stripe gives up on a 404 after three days. The
+  // keys decide; the worker applies events only while payments are on.
   const settings = stripeSettings(process.env);
   if (!settings) return reply(404);
-  // Refuse an oversized body before reading it; the second check catches a
-  // request that lied about (or omitted) its length.
-  const declared = Number(request.headers.get('content-length') ?? '0');
-  if (Number.isFinite(declared) && declared > 1_000_000) return reply(413);
-  const raw = await request.text();
-  if (raw.length > 1_000_000) return reply(413);
+  // Read at most 1 MB, cancelling the stream past it — a chunked body never
+  // declares its length, so the cap is enforced while reading.
+  const raw = await readCappedText(request, 1_000_000);
+  if (raw === null) return reply(413);
   const verdict = verifyStripeSignature(
     raw,
     request.headers.get('stripe-signature'),

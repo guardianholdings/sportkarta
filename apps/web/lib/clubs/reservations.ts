@@ -22,6 +22,7 @@ import { recordClubAudit } from './audit';
 import { ensureSelfRecord } from './bookings';
 import { pgError, violatedConstraint } from './errors';
 import { MAX_BOOKING_WINDOW_DAYS, type ReservationRequest } from './input';
+import { liveInvoiceFor } from './invoices';
 import { MIN_ONLINE_CENTS, closeChargeCheckout, clubTakesPayments } from './payments';
 import { clubActorMay, clubScope, clubWriteScope, memberSelfScope, type ClubActor } from './scope';
 import { SERVICE_COLUMNS, toPriceRule, toService, type ClubService } from './services';
@@ -594,11 +595,14 @@ async function cancelOnce(
       // Voided even when money was paid on it: nothing more is owed for a
       // booking that no longer exists (a part-paid one would otherwise go on
       // "owing" the rest), a void charge refuses any further payment, and what
-      // was paid shows as a refund the club owes.
+      // was paid shows as a refund the club owes. An INVOICED charge is not
+      // voided here (0050: the credit note comes first) — the booking still
+      // goes; the office corrects the invoice, then the charge.
       const voided = await tx.execute(sql`
         UPDATE club_charges ch SET voided_at = now()
          WHERE ch.club_id = ${clubId}::uuid AND ch.id = ${chargeId}::uuid
            AND ch.voided_at IS NULL
+           AND NOT ${liveInvoiceFor(sql`ch.club_id`, sql`ch.id`)}
         RETURNING ch.id
       `);
       if (voided.rows[0]) {

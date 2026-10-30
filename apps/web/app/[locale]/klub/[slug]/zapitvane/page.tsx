@@ -20,7 +20,7 @@ import { Link } from '@/i18n/navigation';
 import { getCurrentUser } from '@/lib/auth-session';
 import { clubsEnabled } from '@/lib/clubs/access';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
-import { inquiryTarget } from '@/lib/clubs/inbox';
+import { inquiryTarget, memberOwnsThread } from '@/lib/clubs/inbox';
 import { isUuid } from '@/lib/clubs/input';
 import { signInHref } from '@/lib/sign-in-destination';
 import { formErrorText } from '@/lib/clubs/form-error';
@@ -61,6 +61,14 @@ export default async function InquiryPage({
     getCurrentUser(),
   ]);
   const { rezultat, razgovor } = await searchParams;
+  // Lead is reported to the club's pixels only for a conversation this
+  // person just opened — never for an id pasted into the address.
+  const leadId =
+    rezultat === 'sent' && isUuid(razgovor) && user
+      ? (await memberOwnsThread(user.id, club.id, razgovor))
+        ? razgovor
+        : null
+      : null;
   const today = sofiaToday();
   const field = 'block text-body-sm font-semibold text-ink';
   const hint = 'mt-1 block text-caption font-normal text-text-muted';
@@ -73,7 +81,7 @@ export default async function InquiryPage({
           clubName={club.name}
           slug={slug}
           locale={locale}
-          leadId={rezultat === 'sent' && isUuid(razgovor) ? razgovor : null}
+          leadId={leadId}
           // The conversation's id is the club's and the member's, not the vendors'.
           hideParams={['razgovor']}
         />

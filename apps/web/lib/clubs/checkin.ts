@@ -195,7 +195,8 @@ export async function clubCheckIn(
       linkUserId = linked.rows[0]?.consent === true ? request.userId : null;
     } else {
       const allowed = await tx.execute(sql`
-        SELECT 1 AS ok WHERE ${clubActorMay(request.actor, 'attendance.record', { write: true })}
+        SELECT (${clubActorMay(request.actor, 'attendance.record', { write: true })}) AS full
+         WHERE ${clubActorMay(request.actor, 'attendance.record', { write: true })}
            OR (${request.method === 'desk' && request.occurrenceId ? sql`TRUE` : sql`FALSE`}
                AND ${clubActorMay(request.actor, 'attendance.record_own', { write: true })}
                AND EXISTS (SELECT 1 FROM club_class_occurrences o JOIN club_classes k ON k.id = o.class_id
@@ -204,6 +205,7 @@ export async function clubCheckIn(
                               AND coalesce(o.instructor_user_id, k.instructor_user_id) = ${request.actor.userId}))
       `);
       if (allowed.rows.length === 0) return { status: 'not_allowed' };
+      const ownClassOnly = allowed.rows[0]?.full !== true;
       if (request.method === 'card') {
         const card = await tx.execute(sql`
           SELECT id FROM club_members
@@ -212,8 +214,15 @@ export async function clubCheckIn(
         `);
         memberId = text(card.rows[0]?.id);
       } else {
+        // A trainer ticking their own class (record_own) names only somebody
+        // on its list — booked, or in line — never any client of the club.
         const member = await tx.execute(sql`
-          SELECT id FROM club_members WHERE club_id = ${clubId}::uuid AND id = ${request.memberId}::uuid
+          SELECT m.id FROM club_members m
+           WHERE m.club_id = ${clubId}::uuid AND m.id = ${request.memberId}::uuid
+             AND (${!ownClassOnly} OR EXISTS (SELECT 1 FROM club_bookings b
+                     WHERE b.club_id = m.club_id AND b.member_id = m.id
+                       AND b.occurrence_id = ${request.method === 'desk' ? (request.occurrenceId ?? null) : null}::uuid
+                       AND b.state = 'active'))
         `);
         memberId = text(member.rows[0]?.id);
       }
@@ -238,9 +247,9 @@ export async function clubCheckIn(
       request.method === 'desk' || request.method === 'api' ? (request.occurrenceId ?? null) : null;
     const requestedLocation =
       request.method === 'door' ? doorLocation : (request.locationId ?? null);
-    // An integration names a location by id: it must be one of THIS club's
-    // live ones (the desk picks from its own list).
-    if (request.method === 'api' && requestedLocation) {
+    // A location named by id — the desk's form, an integration — must be one
+    // of THIS club's live ones: a foreign id is a refusal, not a 23503.
+    if (requestedLocation && request.method !== 'door') {
       const location = await tx.execute(sql`
         SELECT 1 FROM club_locations
          WHERE id = ${requestedLocation}::uuid AND club_id = ${clubId}::uuid AND active

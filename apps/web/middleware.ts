@@ -58,6 +58,12 @@ export default function middleware(request: NextRequest) {
         analyticsSrc: process.env.UMAMI_SRC,
       }),
     );
+    // The vendors' scripts run in this origin: whatever a visitor once
+    // granted pops.bg (the map's geolocation) must not reach them.
+    response.headers.set(
+      'Permissions-Policy',
+      'geolocation=(), camera=(), microphone=(), payment=(), interest-cohort=()',
+    );
   }
   return response;
 }

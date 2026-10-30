@@ -40,11 +40,14 @@ export {
   prunePaymentEvents,
   subscriptionRefsFor,
   pendingPaymentEventIds,
+  providerPaymentKnown,
   receiptCandidates,
   recordPaymentEvent,
   recordProviderRefund,
+  recordUnappliedRenewal,
   setPaymentAccountState,
   stopSubscription,
+  subscriptionCancelOwed,
 } from './clubs/payments.js';
 export type {
   CheckoutOutcome,

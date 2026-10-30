@@ -443,6 +443,21 @@ export async function memberUnreadCount(userId: string, clubId: string): Promise
   return Number(result.rows[0]?.n ?? 0);
 }
 
+/** Whether `threadId` is one of this person's own at the club (nothing is marked). */
+export async function memberOwnsThread(
+  userId: string,
+  clubId: string,
+  threadId: string,
+): Promise<boolean> {
+  const result = await getDb().execute(sql`
+    SELECT 1 FROM club_threads th
+      JOIN club_members m ON m.club_id = th.club_id AND m.id = th.member_id
+     WHERE th.id = ${threadId}::uuid AND ${memberSelfScope(userId, clubId, 'm')}
+       AND ${OWN_RECORD(userId)}
+  `);
+  return result.rows.length > 0;
+}
+
 /** A thread as its member reads it — marking it read for them. No staff names. */
 export async function memberThread(
   userId: string,

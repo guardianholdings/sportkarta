@@ -585,11 +585,11 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
     const feed = await calendarFeed(db, await ensureCalendarToken(db, memberUser));
     const here = feed?.clubBookings.filter((b) => b.occurrenceId === occurrenceId) ?? [];
     expect(here.map((b) => b.cancelled).sort()).toEqual([false, true]);
-    // Somebody without a record sees the club, and no record at all.
+    // Somebody without a record sees nothing of a club that is not on the
+    // public site yet (it is published in a later step, where a stranger then
+    // sees the club and no record at all).
     const stranger = await user('stranger');
-    const other = await portalView(stranger, slug, 'bg');
-    expect(other?.link).toBeNull();
-    expect(other?.records).toEqual([]);
+    expect(await portalView(stranger, slug, 'bg')).toBeNull();
 
     const token = (
       await db.execute(sql`SELECT unsubscribe_token FROM club_members WHERE id = ${childId}::uuid`)
@@ -780,6 +780,10 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
     expect(await publicClub(slug, 'bg')).toBeNull();
     expect(await setClubVisible(db, owner, true)).toBe(true);
     expect((await publicClubDirectory('bg')).map((c) => c.slug)).toContain(slug);
+    // Published: a stranger reaches the portal and finds no record of theirs.
+    const nobody = await portalView(await user('nobody'), slug, 'bg');
+    expect(nobody?.link).toBeNull();
+    expect(nobody?.records).toEqual([]);
     const page = await publicClub(slug, 'bg');
     expect(page?.classes.map((c) => c.occurrenceId)).toContain(occurrenceId);
     expect(page?.plans.length).toBeGreaterThanOrEqual(1);
@@ -995,8 +999,11 @@ describe.skipIf(!hasDb)('club journey (requires running database)', () => {
         accountRef: 'acct_fake_journey01',
         chargesEnabled: true,
       };
-      expect(await connectAccount(db, desk, account)).toBe(false);
-      expect(await connectAccount(db, owner, account)).toBe(true);
+      expect(await connectAccount(db, desk, account)).toBe('not_allowed');
+      expect(await connectAccount(db, owner, account)).toBe('ok');
+      // Authorising the same account again is fine; another one while
+      // nothing renews on this one is fine too (0046: a reconnect replaces).
+      expect(await connectAccount(db, owner, account)).toBe('ok');
       // A stranger cannot pay someone else's charge.
       const stranger = await user('payer');
       expect(await startChargeCheckout(db, stranger, { id: clubId, slug }, chargeId, back)).toEqual(

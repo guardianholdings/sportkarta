@@ -241,7 +241,7 @@ services:
       CLUB_WEBHOOK_SECRET: ${CLUB_WEBHOOK_SECRET:-}
       # Club broadcasts and automations per Sofia day, across every club —
       # kept under the relay's own daily quota, which sign-in codes share.
-      CLUB_BULK_MAIL_DAILY_LIMIT: ${CLUB_BULK_MAIL_DAILY_LIMIT:-200}
+      CLUB_BULK_MAIL_DAILY_LIMIT: ${CLUB_BULK_MAIL_DAILY_LIMIT:-60}
     volumes:
       - uploads:/data/uploads
     depends_on:

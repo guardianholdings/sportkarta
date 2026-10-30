@@ -31,7 +31,9 @@ export async function pairKioskAction(formData: FormData): Promise<void> {
   if (!slug) return back('bad_code');
 
   const ip = clientIpFromForwardedFor((await headers()).get('x-forwarded-for')) ?? 'unknown';
-  const clubKey = `club:${slug}`;
+  // Per club AND address: a stranger's bad codes must not lock the club's
+  // own manager out of pairing a tablet.
+  const clubKey = `club:${slug}:${ip}`;
   if (!kioskPairClubLimiter.check(clubKey).allowed) return back('rate_limited');
   if (!kioskPairIpLimiter.check(ip).allowed) {
     kioskPairClubLimiter.release(clubKey);

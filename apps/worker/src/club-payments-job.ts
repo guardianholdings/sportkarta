@@ -9,16 +9,20 @@ import {
   markPaymentEvent,
   paymentEventById,
   pendingPaymentEventIds,
+  providerPaymentKnown,
   prunePaymentEvents,
   recordProviderRefund,
+  recordUnappliedRenewal,
   setPaymentAccountState,
   stopSubscription,
+  subscriptionCancelOwed,
   type OnlineProvider,
   type PaymentEvent,
 } from '@sportkarta/db';
 import {
   createStripeClient,
   resolvePaymentProvider,
+  StripeError,
   stripeSettings,
   type StripeClient,
 } from '@sportkarta/lib/payments';
@@ -53,8 +57,28 @@ async function endSubscription(
   account: string,
 ): Promise<void> {
   if (!subscriptionRef) return;
-  await stripe.cancelSubscriptionNow(subscriptionRef, { account });
+  try {
+    await stripe.cancelSubscriptionNow(subscriptionRef, { account });
+  } catch (error: unknown) {
+    // Already ended (an earlier visit's cancel did land, or the club ended
+    // it in its dashboard): nothing left to end. Anything else propagates,
+    // so the event is retried and the cancel asked for again.
+    if (
+      error instanceof StripeError &&
+      (error.status === 404 || error.code === 'resource_missing')
+    ) {
+      return;
+    }
+    throw error;
+  }
 }
+
+/**
+ * How long a refund waits for the payment it refunds to reach the books (its
+ * own event may still be retried after a Stripe 5xx on the re-fetch). After
+ * that it is a payment POPS never took — the club's own sale at Stripe.
+ */
+const PAYMENT_WAIT_MS = 60 * 60_000;
 
 async function apply(event: PaymentEvent, stripe: StripeClient): Promise<PaymentEventOutcome> {
   const db = getDb();
@@ -84,9 +108,19 @@ async function apply(event: PaymentEvent, stripe: StripeClient): Promise<Payment
         subscriptionRef: session.subscription,
       });
       if (result.applied) return 'applied';
-      if (result.reason === 'unknown_or_done') return 'ignored';
+      if (result.reason === 'unknown_or_done') {
+        // Settled on an earlier visit. If that visit left a subscription to
+        // end — its cancel call failed after the `unapplied` commit — this
+        // retry ends it; otherwise there is nothing to do.
+        if (session.subscription && (await subscriptionCancelOwed(db, session.subscription))) {
+          await endSubscription(stripe, session.subscription, account);
+          return 'failed';
+        }
+        return 'ignored';
+      }
       // `unapplied`: listed for the office to refund; a subscription behind
-      // it must not keep billing.
+      // it must not keep billing. A cancel that fails here is asked for
+      // again on the retry (subscriptionCancelOwed, above).
       await endSubscription(stripe, result.subscriptionRef, account);
       return 'failed';
     }
@@ -110,9 +144,25 @@ async function apply(event: PaymentEvent, stripe: StripeClient): Promise<Payment
         amountCents: invoice.amount_paid,
       });
       if (result.applied) return 'applied';
-      if (result.reason === 'duplicate' || result.reason === 'no_chain') return 'ignored';
-      // The office stopped renewing, or the notice has ended, yet Stripe
-      // billed: no period is invented, and the subscription ends now.
+      if (result.reason === 'duplicate') return 'ignored';
+      if (result.reason === 'no_chain') {
+        // No chain carries this subscription: the club's own business at
+        // Stripe — unless a checkout of ours opened it and its first payment
+        // went `unapplied` (and the cancel then failed). That one is listed
+        // and ended like every renewal the books refuse.
+        if (!(await subscriptionCancelOwed(db, invoice.subscription))) return 'ignored';
+      }
+      // The office stopped renewing, the notice has ended, or the chain was
+      // never opened — yet Stripe billed: no period is invented, the money
+      // is listed for the office to refund, and the subscription ends now.
+      await recordUnappliedRenewal(db, {
+        provider: 'stripe',
+        accountRef: account,
+        subscriptionRef: invoice.subscription,
+        paymentRef: invoice.payment_intent ?? invoice.id,
+        amountCents: invoice.amount_paid,
+        chain: result.chain ?? null,
+      });
       await endSubscription(stripe, invoice.subscription, account);
       return 'failed';
     }
@@ -126,9 +176,20 @@ async function apply(event: PaymentEvent, stripe: StripeClient): Promise<Payment
       if (!account) return 'ignored';
       const charge = await stripe.retrieveCharge(ref, { account });
       if (!charge.payment_intent) return 'ignored';
+      const refunds = (charge.refunds?.data ?? []).filter((r) => r.status === 'succeeded');
+      if (refunds.length === 0) return 'ignored';
+      if (!(await providerPaymentKnown(db, 'stripe', charge.payment_intent))) {
+        // A refund of a payment not yet in the books: the payment's own
+        // event may still be retried, so this one waits (a throw keeps it
+        // pending; the sweep brings it back). After an hour it is a payment
+        // POPS never took and is dropped.
+        if (Date.now() - event.receivedAt.getTime() < PAYMENT_WAIT_MS) {
+          throw new Error('club.payment_event: refund before its payment, waiting');
+        }
+        return 'ignored';
+      }
       let any = false;
-      for (const refund of charge.refunds?.data ?? []) {
-        if (refund.status !== 'succeeded') continue;
+      for (const refund of refunds) {
         any =
           (await recordProviderRefund(
             db,
@@ -169,7 +230,18 @@ export async function runClubPaymentEvent(
   // so nothing is lost while the operator sets the keys.
   if (!stripe) throw new Error('club.payment_event: Stripe is not configured on the worker');
   // A throw propagates: pg-boss retries the job, the row stays unprocessed.
-  const outcome = await apply(event, stripe);
+  let outcome: PaymentEventOutcome;
+  try {
+    outcome = await apply(event, stripe);
+  } catch (error: unknown) {
+    // The account no longer lets the platform in (revoked at Stripe): the
+    // event can never be processed — recorded as failed, not retried every
+    // sweep for ever. An object Stripe no longer has is nothing to act on.
+    // Everything else (a 5xx, a timeout) propagates: retried, then swept.
+    if (error instanceof StripeError && error.status === 403) outcome = 'failed';
+    else if (error instanceof StripeError && error.status === 404) outcome = 'ignored';
+    else throw error;
+  }
   await markPaymentEvent(db, id, outcome);
   return { type: event.type, outcome };
 }

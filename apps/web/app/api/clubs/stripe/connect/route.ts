@@ -61,7 +61,11 @@ export async function GET(request: Request): Promise<Response> {
       accountRef: token.stripe_user_id,
       chargesEnabled: account.charges_enabled === true,
     });
-    return back(request, slug, saved ? 'connected' : 'connect_failed');
+    return back(
+      request,
+      slug,
+      saved === 'ok' ? 'connected' : saved === 'subscriptions_live' ? saved : 'connect_failed',
+    );
   } catch {
     return back(request, slug, 'connect_failed');
   }

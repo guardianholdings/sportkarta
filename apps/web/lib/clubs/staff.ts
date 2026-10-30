@@ -117,7 +117,10 @@ export async function clubInstructors(
 
 export type StaffInviteResult =
   | { ok: true; inviteId: string }
-  | { ok: false; error: 'role_not_grantable' | 'already_staff' | 'not_allowed' };
+  | {
+      ok: false;
+      error: 'role_not_grantable' | 'already_staff' | 'already_invited' | 'not_allowed';
+    };
 
 export async function inviteStaff(
   db: TransactionalDb,
@@ -135,6 +138,13 @@ export async function inviteStaff(
        WHERE s.club_id = ${actor.clubId}::uuid AND lower(u.email) = ${input.email}
     `);
     if (existing.rows.length > 0) return { ok: false, error: 'already_staff' } as const;
+    // One live invitation per address: a second click sends no second mail.
+    const pending = await tx.execute(sql`
+      SELECT 1 FROM club_staff_invites i
+       WHERE i.club_id = ${actor.clubId}::uuid AND lower(i.email) = ${input.email}
+         AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > now()
+    `);
+    if (pending.rows.length > 0) return { ok: false, error: 'already_invited' } as const;
     const created = await tx.execute(sql`
       INSERT INTO club_staff_invites (club_id, email, role, token_hash, expires_at, created_by)
       SELECT ${actor.clubId}::uuid, ${input.email}, ${input.role},

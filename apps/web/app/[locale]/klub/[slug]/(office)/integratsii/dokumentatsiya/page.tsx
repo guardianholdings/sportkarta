@@ -158,7 +158,7 @@ export default async function ClubApiDocsPage({
         </h2>
         <p className={small}>{t('doors.intro', { perMinute: CLUB_DOOR_PER_MINUTE })}</p>
         <pre className={code}>
-          {`curl -X POST ${base}/access/check \\\n  -H "Authorization: Bearer skbd_…" \\\n  -H "Content-Type: application/json" \\\n  -d '{"credential":"<the text the reader read>"}'\n\n{ "allow": true, "checkin": "recorded", "covered": true,\n  "member": { "name": "Maria Petrova", "minor": false } }\n\n{ "allow": false, "reason": "not_covered" }`}
+          {`curl -X POST ${base}/access/check \\\n  -H "Authorization: Bearer skbd_…" \\\n  -H "Content-Type: application/json" \\\n  -d '{"credential":"<the text the reader read>"}'\n\n{ "allow": true, "checkin": "recorded", "covered": true,\n  "member": { "name": "Maria Petrova" } }\n\n{ "allow": false, "reason": "not_covered" }`}
         </pre>
         <p className={small}>{t('doors.reasons')}</p>
       </section>

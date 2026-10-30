@@ -243,7 +243,13 @@ export async function publicOccurrence(
   const result = await getDb().execute(sql`
     SELECT o.id, o.class_id, k.title, k.description, k.sport, o.starts_at, o.ends_at, o.status,
            l.name AS location_name, k.trial_allowed,
-           coalesce(nullif(btrim(sto.display_name), ''), nullif(btrim(uo.display_name), ''), nullif(btrim(stk.display_name), ''), nullif(btrim(uk.display_name), '')) AS instructor_name,
+           -- A trainer is named outside the office only by their OWN choice
+           -- (club_staff.public_profile, 0045) — never from the account
+           -- behind them alone, and never the class's trainer for a date
+           -- somebody else teaches.
+           CASE WHEN sto.public_profile THEN coalesce(nullif(btrim(sto.display_name), ''), nullif(btrim(uo.display_name), ''))
+                WHEN o.instructor_user_id IS NULL AND stk.public_profile THEN coalesce(nullif(btrim(stk.display_name), ''), nullif(btrim(uk.display_name), ''))
+           END AS instructor_name,
            coalesce(o.capacity, k.capacity) AS capacity,
            o.starts_at - make_interval(hours => k.booking_opens_hours) AS opens_at,
            k.cancel_deadline_hours, k.late_cancel_fee_cents, k.no_show_fee_cents,

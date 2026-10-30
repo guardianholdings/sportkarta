@@ -211,7 +211,7 @@ export type DoorDecision =
   | {
       allow: true;
       checkin: 'recorded' | 'already';
-      member: { name: string; minor: boolean };
+      member: { name: string };
       covered: boolean;
     }
   /** A refusal names nobody: the controller's display is not the desk. */
@@ -237,7 +237,7 @@ export async function checkDoorAccess(
       return {
         allow: true,
         checkin: outcome.status,
-        member: { name: outcome.memberName ?? '', minor: outcome.isMinor === true },
+        member: { name: outcome.memberName ?? '' },
         covered: outcome.covered === true,
       };
     case 'denied':

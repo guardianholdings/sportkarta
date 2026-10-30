@@ -52,7 +52,12 @@ const nextConfig: NextConfig = {
         source: '/:path((?!api/widget).*)',
         headers: [
           { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          // base-uri and object-src cost nothing and close two injection
+          // levers; script-src stays open here (Next's inline hydration).
+          {
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
+          },
           // A facility photo or an open-data CSV is served from our own origin;
           // without nosniff a browser may re-interpret an uploaded file as
           // something executable on the strength of its bytes alone.

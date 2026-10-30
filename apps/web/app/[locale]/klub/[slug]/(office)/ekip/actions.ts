@@ -16,6 +16,7 @@ import {
   parseTimeOff,
 } from '@/lib/clubs/input';
 import { enqueueClubNotify } from '@/lib/clubs/notify';
+import { clubMemberActionLimiter } from '@/lib/clubs/rate-limit';
 import {
   addTimeOff,
   changeStaffRole,
@@ -45,6 +46,11 @@ export async function inviteStaffAction(_prev: TeamState, formData: FormData): P
   const { actor } = await requireClubStaff(slug, 'staff.manage');
   const parsed = parseStaffInvite(formData);
   if (!parsed.ok) return { error: 'invalid', errors: parsed.errors };
+  // A club invites a handful of people, ever: a burst is somebody using the
+  // POPS sender as a relay.
+  if (!clubMemberActionLimiter.check(`staff-invite:${actor.clubId}`).allowed) {
+    return { error: 'rate_limited' };
+  }
   const result = await inviteStaff(getDb(), actor, parsed.value);
   if (!result.ok) return { error: result.error === 'not_allowed' ? 'readOnly' : result.error };
   await enqueueClubNotify({ kind: 'staff_invite', inviteId: result.inviteId });
