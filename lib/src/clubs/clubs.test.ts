@@ -105,8 +105,10 @@ import {
   CLUB_API_SCOPES,
   gaScriptUrl,
   isTrackingCookie,
+  TRACKING_CONSENT_VERSION,
   decodeTrackingConsent,
   encodeTrackingConsent,
+  trackingAnswered,
   parseGaMeasurementId,
   parseMetaPixelId,
   trackingConsentKey,
@@ -1377,24 +1379,35 @@ describe('club tracking ids (0058)', () => {
     }
   });
 
-  it('remembers an answer for a year, then asks again', () => {
+  it('remembers each tool’s answer for a year, under one wording, then asks again', () => {
     const given = new Date('2026-10-30T12:00:00Z');
-    const stored = encodeTrackingConsent('granted', given);
-    expect(decodeTrackingConsent(stored, given)).toBe('granted');
-    expect(decodeTrackingConsent(stored, new Date('2027-10-29T12:00:00Z'))).toBe('granted');
+    const stored = encodeTrackingConsent({ ga: true, meta: false }, given);
+    expect(decodeTrackingConsent(stored, given)).toEqual({ ga: true, meta: false });
+    expect(decodeTrackingConsent(stored, new Date('2027-10-29T12:00:00Z'))).toEqual({
+      ga: true,
+      meta: false,
+    });
     expect(decodeTrackingConsent(stored, new Date('2027-10-30T12:00:00Z'))).toBeNull();
-    expect(decodeTrackingConsent(encodeTrackingConsent('denied', given), given)).toBe('denied');
     // Anything else is no answer: the banner asks.
     for (const raw of [
       null,
       'granted',
       '{}',
-      '{"answer":"granted"}',
-      '{"answer":"maybe","at":"2026-10-30"}',
-      '{"answer":"granted","at":"2099-01-01"}',
+      '{"answer":"granted","at":"2026-10-30"}',
+      `{"v":${TRACKING_CONSENT_VERSION + 1},"at":"2026-10-30","ga":true}`,
+      `{"v":${TRACKING_CONSENT_VERSION},"at":"2099-01-01","ga":true}`,
       'not json',
     ]) {
       expect(decodeTrackingConsent(raw, given), String(raw)).toBeNull();
     }
+  });
+
+  it('asks again for a tool the visitor never answered for', () => {
+    const gaOnly = { ga: true };
+    expect(trackingAnswered(gaOnly, ['ga'])).toBe(true);
+    // The club added Meta later: an old yes to measurement is not a yes to ads.
+    expect(trackingAnswered(gaOnly, ['ga', 'meta'])).toBe(false);
+    expect(trackingAnswered({ ga: false, meta: false }, ['ga', 'meta'])).toBe(true);
+    expect(trackingAnswered(null, ['ga'])).toBe(false);
   });
 });

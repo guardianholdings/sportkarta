@@ -69,6 +69,7 @@ describe('the privacy notice', () => {
       'cookies.body',
       'cookies.providers',
       'cookies.clubTracking',
+      'introClubTracking',
       'cookies.cache',
       'minors.body',
       'automated.body',

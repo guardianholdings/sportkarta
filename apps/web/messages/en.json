@@ -658,6 +658,7 @@
     "metaDescription": "What personal data POPS (“More than just sport”) processes, why and on what legal basis, who receives it, how long it is kept and what your rights are.",
     "updated": "Last updated: 9 October 2026",
     "intro": "POPS (“More than just sport”) is a non-profit project. This page explains what personal data we process, why and on what legal basis, who we share it with, how long we keep it and what your rights are. We collect as little data as possible and do not track users.",
+    "introClubTracking": "The one exception is statistics and advertising tools that a club may add to its own pages, which load only if you accept them there (see “Cookies and data in your browser” below).",
     "controller": {
       "title": "Who is responsible for your data",
       "body": "The controller of your personal data is the non-profit association that runs POPS:"
@@ -773,7 +774,7 @@
       "title": "Cookies and data in your browser",
       "body": "We use no analytics or advertising cookies, and the site sets no language cookie. When you sign in, your browser keeps a session cookie (up to 30 days) and a short-lived signed cookie (5 minutes) so we do not have to look the session up on every request. They are strictly necessary for signing in and are deleted when you sign out.",
       "providers": "If you sign in with {providers}, your browser also keeps a short signed cookie (up to 5 minutes) during the sign-in itself, which links your request to the service's answer. It is strictly necessary too.",
-      "clubTracking": "One exception: a club on a paid plan may add its own Google Analytics or Meta Pixel to its own public pages on POPS. They load only on that club's pages, only if you accept in the banner there, and stop as soon as you leave those pages. Google or Meta then set their own cookies (such as _ga and _fbp) and receive data about the visit, which they may also process outside the EU, including in the United States; Meta also uses it for advertising. What the club uses it for is described in the club's own privacy notice, which the banner links to. Your answer is kept in your browser only, separately for each club, for 12 months, and you can change it at any time from the same banner.",
+      "clubTracking": "One exception: a club on a paid plan may add its own Google Analytics or Meta Pixel to its own public pages on POPS. They load only on that club's pages, only if you accept them in the banner there — each separately, since statistics and advertising are different purposes — and stop as soon as you leave those pages. Google or Meta then set their own cookies (such as _ga and _fbp) and receive data about the visit, which they may also process outside the EU, including in the United States; Meta also uses it for advertising. We are responsible jointly with the club for loading these tools and for asking for your consent; what Google and Meta do with the data afterwards is the responsibility of the club and the vendor, as described in the club's privacy notice, which the banner links to. You can direct a request about this data to the club or to us. Your answer is kept in your browser only, separately for each club, for 12 months, and you can change it at any time from the same banner.",
       "cache": "So that the map works offline, your browser caches the app's files and icons, an offline page and the map tiles you viewed last. They contain no data about you and you can clear them in your browser settings."
     },
     "minors": {
@@ -3682,7 +3683,7 @@
       "privacy": "The club's privacy notice",
       "privacyHint": "Required once an id is set: the visitors' banner links to it. It must describe the tracking with Google and Meta.",
       "where": "Ids only: POPS loads Google's and Meta's scripts itself. Google Tag Manager is not supported. Clear both ids to stop tracking.",
-      "responsible": "We confirm that the club is responsible for this tracking (together with Google and Meta), describes it in the privacy notice above and has the agreements with them it needs.",
+      "responsible": "We confirm that the club is responsible for this tracking (together with Google and Meta), describes it in the privacy notice above, has the agreements with them it needs, and that its pages are not aimed mainly at children under 14.",
       "outcome": {
         "saved": "Saved.",
         "feature_off": "The club's plan does not include this.",
@@ -6550,7 +6551,7 @@
       "intro": "Connect your own AI assistant (Claude, ChatGPT or another that speaks MCP) to the club's office — to find clients, show the timetable, book and record visits. The assistant uses an API key and can do only what the key allows.",
       "endpoint": "Connector address:",
       "howTo": "In the assistant, add a connector with this address and an Authorization: Bearer header carrying an API key. The documentation has the details.",
-      "privacy": "When you connect an assistant, the client data it asks for goes to the assistant's provider. POPS sends no data to AI providers. The club is the data controller: make sure you have a processing agreement with the provider and that your clients have been told."
+      "privacy": "When you connect an assistant, the members' data it asks for goes to the assistant's provider. POPS sends no data to AI providers. The club is the controller: use a business plan under which the provider does not train its models on that data, sign a data processing agreement with it (for a provider outside the EU, also a basis for the transfer, such as standard contractual clauses) and inform your members."
     },
     "docs": {
       "back": "Integrations",
@@ -6609,8 +6610,19 @@
     "body": "{club} would like {purpose}. If you accept, these services place cookies in your browser and receive data about your visit, which they may also process outside the EU, including in the United States. Nothing loads until you accept.",
     "accept": "Accept",
     "decline": "Decline",
+    "acceptAll": "Accept all",
+    "declineAll": "Decline all",
+    "save": "Save my choice",
+    "choice": {
+      "ga": "Visit statistics (Google Analytics)",
+      "meta": "Advertising on Facebook and Instagram (Meta Pixel)"
+    },
     "policy": "The club's privacy notice",
     "granted": "You have accepted the club's tracking.",
+    "grantedOnly": {
+      "ga": "You have accepted the statistics only (Google Analytics).",
+      "meta": "You have accepted the advertising only (Meta Pixel)."
+    },
     "denied": "You have declined the club's tracking.",
     "change": "Change",
     "purpose": {

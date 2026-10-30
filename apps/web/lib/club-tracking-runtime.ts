@@ -111,6 +111,11 @@ export function clubTrackingRunning(host: TrackingHost): boolean {
   return running.has(host);
 }
 
+/** The ids running in this document, or null when nothing was started. */
+export function clubTrackingIds(host: TrackingHost): Readonly<Running> | null {
+  return running.get(host) ?? null;
+}
+
 /** Was this document loaded at the address it shows (ignoring the query)? */
 export function landedHere(host: TrackingHost): boolean {
   const entry = host.performance?.getEntriesByType('navigation')[0];

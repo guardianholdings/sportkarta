@@ -320,8 +320,12 @@ browser) in a MANUAL STEPS list at the end of the session.
   through `ClubTrackingSlot` — the class and event pages only for a visitor
   who is NOT signed in (signed in, they show family names) — never the
   office, portal or the rest of pops.bg. Nothing loads before the visitor
-  accepts; the answer lives in localStorage per club for a year (no server
-  cookie). ONE DOCUMENT, ONE ADDRESS (`lib/club-tracking-runtime.ts`): the
+  accepts, and consent is PER TOOL (statistics and advertising are separate
+  purposes; a tool the club adds later is asked about afresh); the answer
+  lives in localStorage per club for a year under a wording version
+  (`TRACKING_CONSENT_VERSION` — raise it when the banner's wording changes;
+  no server cookie). POPS is joint controller with the club for loading and
+  consent (privacy notice, legal positions in ROADMAP H2). ONE DOCUMENT, ONE ADDRESS (`lib/club-tracking-runtime.ts`): the
   vendors start only in a document loaded at the club page, and once they run
   every move elsewhere is a full load (links native, back/forward and route
   changes reload with the vendors switched off first), so a pixel can never

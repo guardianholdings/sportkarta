@@ -322,7 +322,7 @@ and, where an outside service is involved, by an env switch as well.
   worker log (the save-time check names the dates, but not for a pool room);
   two members racing for the same court get `slot_taken` even when a second
   court is free.
-- [ ] **B — shop, promotions, wallet, invoices** (waits on the accountant: Н‑18)
+- [ ] **B — shop, promotions, wallet, invoices** (waits on the accountant: Н‑18 for the till, online card payments)
   - [x] **B1 — shop and offers** (`0049`): products with an append-only stock
     ledger (deliveries, write-offs, shelf counts; on hand derived, may go
     below zero); the till («Каса») with gapless per-club sale numbers, snapshot
@@ -370,21 +370,26 @@ and, where an outside service is involved, by an env switch as well.
       is the right wording for a club without VAT registration; credit is
       invoiced when loaded, not when spent; a private-person buyer needs an
       address.
-    - [ ] **Open, decide later:** invoices for advance and instalment
-      payments — including how a charge paid PARTLY with credit is invoiced
-      for the rest (refused for now, `invoice_paid_by_credit`).
-    - [ ] **Open, decide later:** the basis a VAT-registered club prints for a
-      0 % line (today the club types its own; the invoice is refused until it
-      does).
-    - [ ] **For the accountant:** the VAT rate on a top-up's invoice — today
-      the club's default rate. If credit may buy goods at 9 % or 0 %, it is a
-      multi-purpose voucher (ЗДДС чл. 128а–128в), normally taxed when spent.
-    - [ ] **For the accountant:** credit notes taken in parts (each pay-out
-      of invoiced credit) split VAT per document, so together they can
-      differ from the invoice's split by a cent (100,00 € → 83,33 + 16,67;
-      two notes of 50,00 € → 2 × 41,67 + 2 × 8,33). Accept, or have the
-      closing note take the exact remainder (needs a one-cent tolerance on
-      credit-note lines).
+    - Accountant's answers (operator, 2026-10-30): prepaid credit is NOT a
+      multi-purpose voucher — a top-up is taxed when loaded at the club's own
+      rate, as built; the cent drift of partial credit notes is accepted; the
+      invoice content (ЗДДС чл. 114) is fine; advance and instalment invoices
+      are REFUSED (a charge paid partly with credit is not invoiced for the
+      rest — `invoice_paid_by_credit` stays); a club rings its sales on its
+      OWN fiscal device, so the till stays «Не е фискален бон».
+    - Explained, nothing to build: a 0 % line on a VAT-registered
+      club's invoice exists for EXEMPT supplies (e.g. a non-profit sports
+      club's services to people doing sport, ЗДДС чл. 41 / Directive art.
+      132(1)(m)); the club types the legal ground (чл. 114, ал. 1, т. 12) and
+      the invoice is refused until it does.
+    - [ ] **Open:** what a club issues for an ONLINE card payment through
+      Stripe (Н‑18: a fiscal receipt from its own device, or the e-shop route
+      — a sale document per Приложение 33 with monthly reporting to НАП);
+      asked again 2026-10-30.
+    - [ ] **Open:** whether a club that records desk sales in the till while
+      ringing them on its own fiscal device makes POPS «софтуер за управление
+      на продажби» (Н‑18 Глава седма „а“); `CLUB_SHOP_ENABLED` stays off
+      until answered.
 - [ ] **F — push, SMS, broadcasts, automations, inbox, leads, feedback**
   - [x] **F1 — channels, broadcasts, automations** (`0051`): every club
     message goes by e-mail, SMS or Web Push from the WORKER, through the 0044
@@ -671,16 +676,32 @@ and, where an outside service is involved, by an env switch as well.
       shifts the page once; the consent flow is tested against a stand-in
       window (`tests/club-tracking-runtime.test.ts`), not a real browser run
       in CI.
-    - [ ] **For the lawyer:** the joint-controller position with Google and
-      Meta (CJEU C-40/17 Fashion ID) — the texts no longer claim POPS is not
-      one; the banner and privacy-notice wording (purposes, US transfers);
-      consent kept only in the visitor's browser, so the club cannot produce
-      a record of it (GDPR Art. 7(1)); the one-year duration; Art. 8 and the
-      Bulgarian digital-consent age of 14 for children's clubs (minors are
-      treated as adults — nothing is gated on age without an operator
-      decision); and whether the notice's opening «не проследяваме
-      потребителите» needs a qualifier while club pixels are on.
-
+    - **Legal positions** (2026-10-30 — the operator asked Claude to answer
+      as counsel; recorded so they can be checked later):
+      - POPS IS a joint controller with the club for LOADING the tools and
+        asking for consent (it runs the page and built the feature — CJEU
+        C‑40/17 Fashion ID, C‑210/16 Wirtschaftsakademie); the club, with
+        Google or Meta, controls what happens afterwards. The privacy notice
+        says so and names where requests go; the club terms need the Art. 26
+        arrangement (the club informs and answers requests, POPS runs the
+        consent mechanism).
+      - Consent is PER PURPOSE: with both tools in use the banner offers
+        statistics and advertising separately («Приемам всички», «Отказвам
+        всички», «Запазете избора», equal weight); a tool added later is
+        asked about afresh; the stored answer carries a wording version
+        (`TRACKING_CONSENT_VERSION`), and changed wording asks again.
+      - Proof of consent (Art. 7(1)) is the mechanism itself, versioned in
+        git, with the date and wording version in the visitor's browser — no
+        per-visitor record (it would be the tracking we refuse to do).
+      - A year before asking again is proportionate.
+      - Art. 8 (digital consent at 14) applies to services offered DIRECTLY
+        to a child; a club's public page addresses the public and parents,
+        and an anonymous visitor's age cannot be known without collecting
+        more. The club confirms its pages are not aimed mainly at children
+        under 14; nothing is gated on age.
+      - The notice's «не проследяваме потребителите» gains a qualifier
+        while the switch is on (`Privacy.introClubTracking`).
+    - [ ] **Before switching on:** the club terms carry the Art. 26 clause.
 ---
 
 ## 10. Cadence & top risks

@@ -95,7 +95,10 @@ export default async function PrivacyPage({ params }: { params: PageParams }) {
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
           <p className="text-caption text-text-muted">{t('updated')}</p>
         </header>
-        <p className="text-ink-soft">{t('intro')}</p>
+        <p className="text-ink-soft">
+          {t('intro')}
+          {clubSwitchOn('pixels') && <> {t('introClubTracking')}</>}
+        </p>
 
         <Section id="controller" title={t('controller.title')}>
           <p className="text-ink-soft">{t('controller.body')}</p>
