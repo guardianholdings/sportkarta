@@ -536,7 +536,7 @@ and, where an outside service is involved, by an env switch as well.
     - [ ] **Known limits (accepted for v1):** no double elimination, Swiss or
       groups-then-knockout; no seeding by hand; a team tournament is rated
       nowhere (the Elo is individual only); no third-place match.
-- [ ] **G — waivers and documents, ranks and belts**
+- [x] **G — waivers and documents, ranks and belts**
   - [x] **G1 — waivers and documents** (`0055`): «Документи» in the office —
     a declaration, the house rules, a parent's consent, each asked of nobody,
     every client, minors or clients with a trial abonnement. The text lives in
@@ -562,6 +562,32 @@ and, where an outside service is involved, by an env switch as well.
       lawyer question, §1's 0020 note). An account that was linked to a
       record as its OWN before the desk ticked «непълнолетен» (a parent who
       claimed the child's record) signs as the client, not the guardian.
+  - [x] **G2 — ranks and belts** (`0056`): «Пояси» in the office — a club's
+    grading ladders (judo's kyu belts, BJJ's belts, taekwondo's gup — three
+    starting templates, or an empty ladder), each tied to a sport whose
+    classes count toward it (or to every check-in). A rank has a colour and an
+    optional second colour from a CLOSED belt palette (CSS tokens, never a
+    colour a club types), stripes (0–6), and what it asks before it is
+    awarded: check-ins and/or months at the rank before. Trainers and
+    management award ranks — one at a time from the member card or a ladder,
+    or the whole exam at once (each ticked client gets the rank the page
+    showed them; a client whose rank changed meanwhile is skipped) — and
+    revoke a mistake, which stays in the history. «Готови за изпит» is DERIVED
+    from attendance (`club_member_rank_progress`) and never refuses anything:
+    the coach awards what they decide. «Започнали в дисциплината» lists who
+    trained in the ladder's sport in the last 90 days without a rank, to start
+    them on the first one. A trainer sees clients by name only (the roster's
+    projection). The portal shows a client — and a parent, their child — the
+    current belt, how far the next one is and the history. Every award is in
+    the export (`ranks.csv`) and goes with the client's record when the club
+    erases it. Ranks are on every tier.
+    - [ ] **Known limits (accepted for v1):** no reminder or notice to the
+      client when they become ready or are awarded; no exam scheduling (an
+      exam is a club event, wave D, plus the awards); a ladder counts one
+      sport (a club teaching judo in two class types gives them one sport); a
+      rank's asks are counted from the CURRENT award's day, so a client
+      demoted and re-awarded starts counting again; belts never reach the
+      public passport (that would need the passport's own opt-in, Stage 5).
 - [ ] **H — club API, webhooks, MCP, door access, pixels** (pixels wait on legal)
 
 ---

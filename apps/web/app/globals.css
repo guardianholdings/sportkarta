@@ -106,6 +106,18 @@
   --color-cat-precision: var(--cat-precision);
   --color-cat-multi: var(--cat-multi);
 
+  /* ---- Belt colours (club ranks, 0056; graphics only) ---- */
+  --color-belt-white: var(--belt-white);
+  --color-belt-grey: var(--belt-grey);
+  --color-belt-yellow: var(--belt-yellow);
+  --color-belt-orange: var(--belt-orange);
+  --color-belt-red: var(--belt-red);
+  --color-belt-green: var(--belt-green);
+  --color-belt-blue: var(--belt-blue);
+  --color-belt-purple: var(--belt-purple);
+  --color-belt-brown: var(--belt-brown);
+  --color-belt-black: var(--belt-black);
+
   /* ---- Semantic status ---- */
   --color-success: var(--success);
   --color-success-bg: var(--success-bg);

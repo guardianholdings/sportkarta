@@ -1877,3 +1877,108 @@ export const clubDocumentSignatures = pgTable(
     // view club_documents_missing, declared in 0055 only.
   ],
 );
+
+/**
+ * A club's grading ladder (0056): the sport whose classes count toward it
+ * (NULL — every check-in). Its ranks live in club_ranks.
+ */
+export const clubRankLadders = pgTable(
+  'club_rank_ladders',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    nameBg: text('name_bg').notNull(),
+    nameEn: text('name_en'),
+    sport: text('sport'),
+    archivedAt: timestamptz('archived_at'),
+    /** Staff id by value (0039 rule 5). */
+    createdBy: text('created_by'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique('club_rank_ladders_club_id_unique').on(t.clubId, t.id)],
+);
+
+/**
+ * One rank of a ladder (0056): its place is numbered by the database; its
+ * colours come from the closed belt palette; what it asks before it is
+ * awarded (check-ins and/or months at the rank before).
+ */
+export const clubRanks = pgTable(
+  'club_ranks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    ladderId: uuid('ladder_id').notNull(),
+    position: integer('position').notNull(),
+    nameBg: text('name_bg').notNull(),
+    nameEn: text('name_en'),
+    /** BELT_COLOURS */
+    colour: text('colour').notNull(),
+    accent: text('accent'),
+    stripes: smallint('stripes').notNull().default(0),
+    minAttendances: integer('min_attendances'),
+    minMonths: integer('min_months'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('club_ranks_club_id_unique').on(t.clubId, t.id),
+    unique('club_ranks_ladder_unique').on(t.clubId, t.ladderId, t.id),
+    foreignKey({
+      name: 'club_ranks_ladder_fk',
+      columns: [t.clubId, t.ladderId],
+      foreignColumns: [clubRankLadders.clubId, clubRankLadders.id],
+    }),
+    // + club_ranks_position_unique (DEFERRABLE INITIALLY IMMEDIATE, which
+    // drizzle cannot declare), the CHECKs, the numbering stamp and the
+    // keep-ladder guard — 0056 only.
+  ],
+);
+
+/**
+ * A rank awarded to a client (0056): append-only — a mistake is revoked once.
+ * Goes with the client's record (CASCADE) or the club.
+ */
+export const clubMemberRanks = pgTable(
+  'club_member_ranks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    ladderId: uuid('ladder_id').notNull(),
+    rankId: uuid('rank_id').notNull(),
+    memberId: uuid('member_id').notNull(),
+    awardedOn: date('awarded_on').notNull(),
+    /** exam | promotion | prior */
+    reason: text('reason').notNull(),
+    /** The recording member of staff — by value (0039 rule 5). */
+    awardedBy: text('awarded_by'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    revokedAt: timestamptz('revoked_at'),
+    /** By value (0039 rule 5). */
+    revokedBy: text('revoked_by'),
+  },
+  (t) => [
+    unique('club_member_ranks_club_id_unique').on(t.clubId, t.id),
+    index('club_member_ranks_rank_idx').on(t.clubId, t.ladderId, t.rankId),
+    foreignKey({
+      name: 'club_member_ranks_rank_fk',
+      columns: [t.clubId, t.ladderId, t.rankId],
+      foreignColumns: [clubRanks.clubId, clubRanks.ladderId, clubRanks.id],
+    }),
+    foreignKey({
+      name: 'club_member_ranks_member_fk',
+      columns: [t.clubId, t.memberId],
+      foreignColumns: [clubMembers.clubId, clubMembers.id],
+    }).onDelete('cascade'),
+    // + club_member_ranks_current_idx (with its DESC sort keys), the partial
+    // club_member_ranks_once, the CHECKs, the stamp, the never-edited guard
+    // and the derived view club_member_rank_progress — 0056 only.
+  ],
+);

@@ -158,6 +158,8 @@ export interface ExportDataset {
  * `booked_by`, `sold_by`, `card_token_hash`, staff, invites, bookings, payments
  * and memberships — every one a club client or employee. 0051 added the
  * account's notification devices (`push_subscriptions`: `endpoint`, `p256dh`).
+ * 0056 added who recorded and revoked a club client's rank (`awarded_by`,
+ * `revoked_by`).
  * When a new table adds
  * a person-shaped column, its name belongs here.
  *
@@ -175,6 +177,7 @@ export const DENIED_IDENTIFIERS = [
   'age',
   'agent',
   'author',
+  'awarded',
   'birth',
   'birthdate',
   'booked',
@@ -225,6 +228,7 @@ export const DENIED_IDENTIFIERS = [
   'registrations',
   'reporter',
   'reversed',
+  'revoked',
   'rsvp',
   'secret',
   'session',

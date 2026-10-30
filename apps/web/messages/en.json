@@ -3197,7 +3197,8 @@
       "inbox": "Inbox",
       "feedback": "Ratings",
       "events": "Events",
-      "documents": "Documents"
+      "documents": "Documents",
+      "ranks": "Belts"
     },
     "map": "Back to the map",
     "profile": "My profile",
@@ -3510,7 +3511,26 @@
       "accept_required": "Confirm that the text was read.",
       "stale_version": "The document has changed or been archived meanwhile — read the new text and sign again.",
       "guardian_minor": "A parent or guardian signs only for a minor.",
-      "already_signed": "The client has already signed this version — this signature was not recorded again."
+      "already_signed": "The client has already signed this version — this signature was not recorded again.",
+      "ladder_name_required": "Enter the ladder's name.",
+      "ladder_name_too_long": "The name is too long (up to 80 characters).",
+      "rank_name_required": "Enter the rank's name.",
+      "rank_name_too_long": "The rank's name is too long (up to 60 characters).",
+      "colour_invalid": "Choose a colour.",
+      "accent_invalid": "The second colour must differ from the main one.",
+      "stripes_invalid": "Stripes are 0 to 6.",
+      "min_attendances_invalid": "Trainings are 1 to 1000 (empty — no requirement).",
+      "min_months_invalid": "Months are 1 to 240 (empty — no requirement).",
+      "award_date_invalid": "Invalid date.",
+      "award_date_future": "The date cannot be in the future.",
+      "award_reason_invalid": "Choose a reason.",
+      "ranks_none_selected": "Tick at least one client.",
+      "too_many_ranks": "A ladder has at most 40 ranks.",
+      "rank_in_use": "This rank has been awarded and cannot be removed — you can rename it.",
+      "already_awarded": "The client already holds this rank from that date.",
+      "template_invalid": "Choose a template from the list.",
+      "rank_invalid": "Choose a rank.",
+      "name_control": "The name contains characters that are not allowed, such as a tab or a line break."
     }
   },
   "ClubSettings": {
@@ -4035,7 +4055,15 @@
       "document_versioned": "New document version",
       "document_archived": "Document archived",
       "document_restored": "Document restored",
-      "document_signed": "Document signed"
+      "document_signed": "Document signed",
+      "ladder_saved": "Belt ladder saved",
+      "ladder_archived": "Belt ladder archived",
+      "ladder_restored": "Belt ladder restored",
+      "rank_saved": "Rank saved",
+      "rank_moved": "Rank moved",
+      "rank_removed": "Rank removed",
+      "rank_awarded": "Rank awarded",
+      "rank_revoked": "Rank revoked"
     }
   },
   "ClubSales": {
@@ -6141,5 +6169,200 @@
     },
     "hashLabel": "SHA-256",
     "noGuardian": "no parent on record"
+  },
+  "ClubRanks": {
+    "title": "Belts",
+    "intro": "The club's belt ladders, what each rank asks and which clients are ready for an exam. Readiness is worked out from attendance and only suggests — the coach decides.",
+    "empty": "No belt ladders yet.",
+    "readyTitle": "Ready for an exam",
+    "readyHint": "Clients who meet what their next rank asks.",
+    "readyEmpty": "Nobody is ready for an exam right now.",
+    "laddersTitle": "Ladders",
+    "studentsCount": "{count, plural, one {# client} other {# clients}}",
+    "ranksCount": "{count, plural, one {# rank} other {# ranks}}",
+    "readyCount": "{count, plural, one {# ready for an exam} other {# ready for an exam}}",
+    "allSports": "all trainings",
+    "archived": "Archived",
+    "new": "New ladder",
+    "form": {
+      "template": "Start from",
+      "templateNone": "an empty ladder",
+      "templateHint": "A template adds the ranks with their names — you can change them afterwards.",
+      "nameBg": "Name (Bulgarian)",
+      "nameEn": "Name in English (optional)",
+      "nameHint": "With a template you may leave the name empty — the template's is used.",
+      "sport": "Count attendance from",
+      "sportAll": "every training at the club",
+      "sportHint": "Attendance toward the next rank counts only classes of this sport.",
+      "create": "Create",
+      "save": "Save"
+    },
+    "back": "Belts",
+    "settings": "Settings",
+    "archive": "Archive",
+    "archiveConfirm": "The ladder is no longer offered for awards and leaves the exam list. Its history stays. Continue?",
+    "restore": "Restore",
+    "ranksTitle": "Ranks — from the first one up",
+    "ranksEmpty": "No ranks yet. Add the first — new clients start with it.",
+    "rank": {
+      "asks": "Asks: {what}",
+      "asksNothing": "no requirement — the coach decides",
+      "attendances": "{count, plural, one {# training} other {# trainings}}",
+      "months": "{count, plural, one {# month} other {# months}} at the previous rank",
+      "holders": "{count, plural, =0 {nobody holds it} one {# client holds it} other {# clients hold it}}",
+      "first": "The first rank — new clients start with it.",
+      "up": "Up",
+      "down": "Down",
+      "upLabel": "Move “{name}” up",
+      "downLabel": "Move “{name}” down",
+      "edit": "Edit",
+      "remove": "Remove",
+      "removeConfirm": "The rank will be removed. Continue?",
+      "awardedHint": "Already awarded — it can be renamed but not removed."
+    },
+    "rankForm": {
+      "nameBg": "Name (Bulgarian)",
+      "nameEn": "Name in English (optional)",
+      "colour": "Colour",
+      "accent": "Second colour",
+      "accentNone": "none",
+      "accentHint": "For a two-tone belt or a coloured tip.",
+      "stripes": "Stripes",
+      "stripesHint": "The belt's degrees, e.g. in Brazilian jiu-jitsu.",
+      "minAttendances": "Trainings before the exam",
+      "minAttendancesHint": "Attendance since the previous rank. Empty — no requirement.",
+      "minMonths": "Months at the previous rank",
+      "minMonthsHint": "Empty — no requirement.",
+      "add": "Add rank",
+      "save": "Save"
+    },
+    "colours": {
+      "white": "white",
+      "grey": "grey",
+      "yellow": "yellow",
+      "orange": "orange",
+      "red": "red",
+      "green": "green",
+      "blue": "blue",
+      "purple": "purple",
+      "brown": "brown",
+      "black": "black"
+    },
+    "reasons": {
+      "exam": "exam",
+      "promotion": "the coach's decision",
+      "prior": "held before"
+    },
+    "reasonHint": "“Held before” is a rank the client had before the club — attendance toward the next one counts from its date.",
+    "progress": {
+      "since": "since {date}",
+      "top": "the highest rank",
+      "attendances": "{done} of {need, plural, one {# training} other {# trainings}}",
+      "attended": "{count, plural, one {# training} other {# trainings}} since {date}",
+      "monthsMet": "time at the rank done",
+      "monthsFrom": "time at the rank — from {date}",
+      "noAsks": "no requirement — the coach decides",
+      "readyBadge": "For an exam"
+    },
+    "students": {
+      "title": "Clients ({count})",
+      "empty": "Nobody holds a rank on this ladder yet.",
+      "archived": "The ladder is archived — the clients' ranks stay in the history on their cards."
+    },
+    "award": {
+      "title": "Awards after an exam",
+      "hint": "Ticked clients get the rank shown beside their name. If their rank changed meanwhile, they are skipped.",
+      "pick": "Tick {name} for {rank}",
+      "date": "Date",
+      "reason": "Reason",
+      "submit": "Award to the ticked",
+      "other": "Another rank…",
+      "rank": "Rank",
+      "submitOne": "Award",
+      "revokeLast": "Revoke the latest",
+      "revokeConfirm": "The latest award will be revoked and stay in the history as revoked. Continue?"
+    },
+    "candidates": {
+      "title": "Started in the discipline",
+      "hint": "Trained in the last 90 days, with no rank on this ladder yet. Tick them to award the first rank — {name}.",
+      "visits": "{count, plural, one {# visit} other {# visits}}, last on {date}",
+      "empty": "No new clients in the last 90 days.",
+      "noRanks": "Add at least one rank to start.",
+      "submit": "Award the first rank"
+    },
+    "outcome": {
+      "created": "The ladder was created.",
+      "saved": "Changes saved.",
+      "archived": "The ladder was archived.",
+      "restored": "The ladder was restored.",
+      "rankSaved": "The rank was saved.",
+      "rankMoved": "The rank was moved.",
+      "rankRemoved": "The rank was removed.",
+      "awarded": "{count, plural, =0 {Nothing was awarded.} one {# rank awarded.} other {# ranks awarded.}}",
+      "skipped": "{count, plural, one {# client skipped: their rank had already changed or been awarded.} other {# clients skipped: their rank had already changed or been awarded.}}",
+      "awardedOne": "The rank was awarded.",
+      "revoked": "The award was revoked."
+    },
+    "card": {
+      "title": "Belts",
+      "empty": "The client holds no rank yet.",
+      "history": "History",
+      "revoked": "revoked",
+      "recordedBy": "recorded by {name}",
+      "archivedLadder": "archived ladder",
+      "award": "Award a rank",
+      "awardHint": "Pick a rank of any ladder — including one the client held before.",
+      "revoke": "Revoke",
+      "revokeConfirm": "This award will be revoked and stay in the history as revoked. Continue?"
+    },
+    "portal": {
+      "title": "Belts",
+      "intro": "Your belts at the club and how far the next one is. Your coach decides when you sit the exam.",
+      "empty": "You hold no rank at this club yet.",
+      "link": "Belts",
+      "ready": "What the next rank asks is met. The coach will decide when the exam is.",
+      "history": "History",
+      "next": "Next rank:"
+    },
+    "templates": {
+      "judo": {
+        "name": "Judo",
+        "ranks": {
+          "white": "White belt (6th kyu)",
+          "yellow": "Yellow belt (5th kyu)",
+          "orange": "Orange belt (4th kyu)",
+          "green": "Green belt (3rd kyu)",
+          "blue": "Blue belt (2nd kyu)",
+          "brown": "Brown belt (1st kyu)",
+          "black": "Black belt (1st dan)"
+        }
+      },
+      "bjj": {
+        "name": "Brazilian jiu-jitsu",
+        "ranks": {
+          "white": "White belt",
+          "blue": "Blue belt",
+          "purple": "Purple belt",
+          "brown": "Brown belt",
+          "black": "Black belt"
+        }
+      },
+      "taekwondo": {
+        "name": "Taekwondo",
+        "ranks": {
+          "gup10": "White belt (10th gup)",
+          "gup9": "White-yellow belt (9th gup)",
+          "gup8": "Yellow belt (8th gup)",
+          "gup7": "Yellow-green belt (7th gup)",
+          "gup6": "Green belt (6th gup)",
+          "gup5": "Green-blue belt (5th gup)",
+          "gup4": "Blue belt (4th gup)",
+          "gup3": "Blue-red belt (3rd gup)",
+          "gup2": "Red belt (2nd gup)",
+          "gup1": "Red-black belt (1st gup)",
+          "dan1": "Black belt (1st dan)"
+        }
+      }
+    }
   }
 }

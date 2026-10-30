@@ -122,6 +122,13 @@ import {
   DOCUMENT_REQUIRED_FOR,
   SIGNATURE_METHODS,
   SIGNER_KINDS,
+  BELT_COLOURS,
+  RANK_AWARD_REASONS,
+  RANK_TEMPLATES,
+  RANK_TEMPLATE_KEYS,
+  RANKS_PER_LADDER_MAX,
+  RANK_STRIPES_MAX,
+  isRankTemplateKey,
   audienceFits,
   lateCancellation,
   registrationOpen,
@@ -188,6 +195,9 @@ describe('the vocabularies equal their SQL CHECKs', () => {
     ['club_documents_required_known', DOCUMENT_REQUIRED_FOR],
     ['club_document_signatures_signer_known', SIGNER_KINDS],
     ['club_document_signatures_method_known', SIGNATURE_METHODS],
+    ['club_ranks_colour_known', BELT_COLOURS],
+    ['club_ranks_accent_known', BELT_COLOURS],
+    ['club_member_ranks_reason_known', RANK_AWARD_REASONS],
   ] as const)('%s', (constraint, values) => {
     expect(checkValues(constraint).sort()).toEqual([...values].sort());
   });
@@ -1207,5 +1217,36 @@ describe('event places (0053)', () => {
     expect(audienceFits('adults', true)).toBe(false);
     expect(audienceFits('minors', true)).toBe(true);
     expect(audienceFits('minors', false)).toBe(false);
+  });
+});
+
+describe('rank templates (0056)', () => {
+  it.each(RANK_TEMPLATE_KEYS)('%s is a ladder the database accepts', (key) => {
+    const template = RANK_TEMPLATES[key];
+    expect(isClubSport(template.sport)).toBe(true);
+    expect(template.ranks.length).toBeGreaterThan(1);
+    expect(template.ranks.length).toBeLessThanOrEqual(RANKS_PER_LADDER_MAX);
+    const keys = template.ranks.map((rank) => rank.key);
+    expect(new Set(keys).size).toBe(keys.length);
+    for (const rank of template.ranks as readonly {
+      key: string;
+      colour: string;
+      accent?: string;
+      stripes?: number;
+    }[]) {
+      expect(rank.key).toMatch(/^[a-z][a-z0-9]*$/);
+      expect(BELT_COLOURS).toContain(rank.colour);
+      if (rank.accent !== undefined) {
+        expect(BELT_COLOURS).toContain(rank.accent);
+        expect(rank.accent).not.toBe(rank.colour);
+      }
+      expect(rank.stripes ?? 0).toBeLessThanOrEqual(RANK_STRIPES_MAX);
+    }
+  });
+
+  it('knows only its own keys', () => {
+    expect(isRankTemplateKey('judo')).toBe(true);
+    expect(isRankTemplateKey('toString')).toBe(false);
+    expect(isRankTemplateKey('')).toBe(false);
   });
 });

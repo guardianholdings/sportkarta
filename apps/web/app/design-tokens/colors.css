@@ -115,6 +115,22 @@
   --pin-active: var(--coral-500);
   --pin-busy: var(--grey);
 
+  /* ---- Belt colours (club ranks, 0056) ----
+     The closed palette of club_ranks_colour_known: what a martial-arts belt
+     IS, not a brand role, so graphics-only (a belt chip always carries its
+     rank's name beside it, and a hairline --border-strong edge so the white
+     and black belts read on any surface). Never text colours. */
+  --belt-white: #fbfaf6;
+  --belt-grey: #9b9d98;
+  --belt-yellow: #f1c232;
+  --belt-orange: #ea8a2e;
+  --belt-red: #c8372d;
+  --belt-green: #2f8a4c;
+  --belt-blue: #2f62b0;
+  --belt-purple: #6a3f9e;
+  --belt-brown: #774a2b;
+  --belt-black: #1f1f1d;
+
   /* ---- Semantic status ----
      Values carried over from the Trail&Summit derivation (each hue darkened
      minimally to clear 4.5 both on its -bg and under white) and re-verified

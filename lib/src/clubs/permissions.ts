@@ -61,6 +61,9 @@ export const CLUB_PERMISSIONS = [
   'events.results',
   'documents.manage',
   'documents.sign',
+  'ranks.view',
+  'ranks.manage',
+  'ranks.award',
 ] as const;
 export type ClubPermission = (typeof CLUB_PERMISSIONS)[number];
 
@@ -136,6 +139,19 @@ const MATRIX: Readonly<Record<ClubPermission, readonly ClubRole[]>> = {
    * is members.view.
    */
   'documents.sign': FRONT_OF_HOUSE,
+  /**
+   * Ranks and belts (0056). Everybody on the staff reads the ladders and who
+   * holds what — a trainer through a projection (a display name, the rank and
+   * the attendance count; never contact details or money).
+   */
+  'ranks.view': ALL,
+  /** The ladders, their ranks, colours and what each asks: management's. */
+  'ranks.manage': MANAGEMENT,
+  /**
+   * Awarding a rank (or revoking a mistaken award): whoever grades — the
+   * trainers and management. The club's own staff only (clubStaffWriteScope).
+   */
+  'ranks.award': ['owner', 'manager', 'trainer'],
 };
 
 export function isClubRole(value: unknown): value is ClubRole {

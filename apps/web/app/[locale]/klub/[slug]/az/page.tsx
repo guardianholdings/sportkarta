@@ -16,6 +16,7 @@ import { requireUser } from '@/lib/auth-session';
 import { requireClubsEnabled } from '@/lib/clubs/club-session';
 import { memberEventPlaces, publicEvents } from '@/lib/clubs/events';
 import { portalDocumentCounts } from '@/lib/clubs/documents';
+import { portalRankCount } from '@/lib/clubs/ranks';
 import { feedbackToGive } from '@/lib/clubs/feedback';
 import { memberUnreadCount } from '@/lib/clubs/inbox';
 import { clubSportLabeler } from '@/lib/clubs/labels';
@@ -127,11 +128,13 @@ export default async function ClubPortalPage({
     link?.status === 'active' ? memberEventPlaces(user.id, club.id, locale) : Promise.resolve([]),
     publicEvents(club.id, locale, 5),
   ]);
-  const [tDocs, documentCounts] = await Promise.all([
+  const [tDocs, documentCounts, tRanks, rankCount] = await Promise.all([
     getTranslations('ClubDocuments'),
     link?.status === 'active'
       ? portalDocumentCounts(user.id, club.id)
       : Promise.resolve({ offered: 0, toSign: 0 }),
+    getTranslations('ClubRanks'),
+    link?.status === 'active' ? portalRankCount(user.id, club.id) : Promise.resolve(0),
   ]);
   const toSign = documentCounts.toSign;
   const now = Date.now();
@@ -725,6 +728,11 @@ export default async function ClubPortalPage({
                   {toSign > 0
                     ? tDocs('portal.linkToSign', { count: toSign })
                     : tDocs('portal.link')}
+                </Link>
+              )}
+              {rankCount > 0 && (
+                <Link href={`/klub/${slug}/az/poyasi`} className={pill}>
+                  {tRanks('portal.link')}
                 </Link>
               )}
             </div>

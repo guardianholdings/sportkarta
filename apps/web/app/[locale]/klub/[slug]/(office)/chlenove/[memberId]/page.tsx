@@ -6,13 +6,15 @@ import {
   THREAD_BODY_MAX,
   THREAD_SUBJECT_MAX,
   addDaysIso,
+  can,
   formatEuro,
   sofiaToday,
 } from '@sportkarta/lib/clubs';
-import { SIGNER_KINDS, SIGNER_NAME_MAX } from '@sportkarta/lib/clubs';
+import { RANK_AWARD_REASONS, SIGNER_KINDS, SIGNER_NAME_MAX } from '@sportkarta/lib/clubs';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
+import { BeltChip } from '@/components/clubs/belt-chip';
 import { ClubLog } from '@/components/clubs/club-log';
 import {
   StatusBadge,
@@ -22,6 +24,7 @@ import {
 } from '@/components/clubs/club-state-badge';
 import { LeadCardView } from '@/components/clubs/lead-card';
 import { IssueCardButton } from '@/components/clubs/member-form';
+import { RankProgressText } from '@/components/clubs/rank-progress';
 import { WalletForms } from '@/components/clubs/wallet-forms';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -39,12 +42,14 @@ import { memberThreadsForStaff } from '@/lib/clubs/inbox';
 import { isUuid } from '@/lib/clubs/input';
 import { leadOwners, memberLead } from '@/lib/clubs/leads';
 import { memberCard } from '@/lib/clubs/members';
+import { liveLadderRanks, memberRanks } from '@/lib/clubs/ranks';
 import { memberWallet } from '@/lib/clubs/wallet';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { formErrorText } from '@/lib/clubs/form-error';
 
 import { startThreadAction } from '../../vhodyashti/actions';
 import { deskSignAction } from '../../dokumenti/actions';
+import { awardOneAction, revokeAwardAction } from '../../poyasi/actions';
 import { issueCardAction, memberOpAction, pauseAction, walletAction } from '../actions';
 import { leadAction } from '../potentsialni/actions';
 
@@ -68,7 +73,7 @@ export default async function MemberCardPage({
   searchParams,
 }: {
   params: Promise<{ locale: string; slug: string; memberId: string }>;
-  searchParams: Promise<{ rezultat?: string; dokument?: string }>;
+  searchParams: Promise<{ rezultat?: string; dokument?: string; poyas?: string }>;
 }) {
   const { locale, slug, memberId } = await params;
   setRequestLocale(locale);
@@ -95,13 +100,20 @@ export default async function MemberCardPage({
       leadOwners(actor),
       canInbox ? memberThreadsForStaff(actor, memberId) : Promise.resolve([]),
     ]);
-  const { rezultat, dokument } = await searchParams;
-  const [tDocs, documents] = await Promise.all([
+  const { rezultat, dokument, poyas } = await searchParams;
+  // The club's own staff witness a signature and grade — never an NGO admin (0055, 0056).
+  // The STAFF role decides, never actorCan's NGO-admin shortcut: the SQL
+  // (clubStaffWriteScope) asks for the role.
+  const canSign = actor.role !== null && can(actor.role, 'documents.sign') && !member.archivedAt;
+  const canAwardRank = actor.role !== null && can(actor.role, 'ranks.award') && !member.archivedAt;
+  const [tDocs, documents, tRanks, ranks, awardable] = await Promise.all([
     getTranslations('ClubDocuments'),
     memberDocuments(actor, memberId, locale),
+    getTranslations('ClubRanks'),
+    memberRanks(actor, memberId, locale),
+    canAwardRank ? liveLadderRanks(actor, locale) : Promise.resolve([]),
   ]);
-  // The club's own staff witness a signature — never an NGO admin (0055).
-  const canSign = actor.role !== null && actorCan(actor, 'documents.sign') && !member.archivedAt;
+  const rankOutcomeGood = poyas === 'awardedOne' || poyas === 'revoked';
   const base = `/klub/${slug}`;
   const today = sofiaToday();
   const op = (name: string, extra?: Record<string, string>) => (
@@ -740,6 +752,174 @@ export default async function MemberCardPage({
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {(ranks.history.length > 0 || awardable.some((ladder) => ladder.ranks.length > 0)) && (
+        <section className={section} aria-labelledby="ranks-h">
+          <h2 id="ranks-h" className="text-h4 font-bold text-ink">
+            {tRanks('card.title')}
+          </h2>
+          {poyas && (
+            <p
+              role="status"
+              className={
+                rankOutcomeGood
+                  ? 'rounded-card border border-success-border bg-success-bg p-3 text-body-sm text-ink'
+                  : 'rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink'
+              }
+            >
+              {rankOutcomeGood
+                ? tRanks(`outcome.${poyas}`)
+                : poyas === 'readOnly'
+                  ? messages.readOnly
+                  : formErrorText(messages, poyas)}
+            </p>
+          )}
+          {ranks.progress.length === 0 ? (
+            <p className="text-body-sm text-text-muted">{tRanks('card.empty')}</p>
+          ) : (
+            <ul className="divide-y divide-line">
+              {ranks.progress.map((row) => (
+                <li key={row.ladderId} className="space-y-1 py-2.5">
+                  <p className="flex flex-wrap items-center gap-2 text-body-sm">
+                    <Link
+                      href={`${base}/poyasi/${row.ladderId}`}
+                      className="font-semibold text-link hover:text-link-hover"
+                    >
+                      {row.ladderName}
+                    </Link>
+                    {row.ready && <Badge tone="success">{tRanks('progress.readyBadge')}</Badge>}
+                  </p>
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-ink">
+                    <BeltChip {...row.current} />
+                    <span className="text-text-muted">
+                      {tRanks('progress.since', {
+                        date: formatDate(row.awardedOn, locale, 'medium'),
+                      })}
+                    </span>
+                    {row.next && (
+                      <>
+                        <span aria-hidden="true">→</span>
+                        <BeltChip {...row.next} />
+                      </>
+                    )}
+                  </p>
+                  <RankProgressText
+                    progress={row}
+                    locale={locale}
+                    className="block text-caption text-text-muted"
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+          {ranks.history.length > 0 && (
+            <details>
+              <summary className="cursor-pointer text-caption font-semibold text-link">
+                {tRanks('card.history')}
+              </summary>
+              <ul className="mt-2 divide-y divide-line">
+                {ranks.history.map((award) => (
+                  <li
+                    key={award.id}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-caption"
+                  >
+                    <span className="min-w-0 flex-1 space-y-0.5">
+                      <BeltChip
+                        {...award.rank}
+                        className={award.revokedAt ? 'text-text-muted line-through' : 'text-ink'}
+                      />
+                      <span className="block text-text-muted">
+                        {formatDate(award.awardedOn, locale, 'medium')} · {award.ladderName}
+                        {award.ladderArchived && ` (${tRanks('card.archivedLadder')})`} ·{' '}
+                        {tRanks(`reasons.${award.reason}`)}
+                        {award.recordedByName &&
+                          ` · ${tRanks('card.recordedBy', { name: award.recordedByName })}`}
+                      </span>
+                    </span>
+                    {award.revokedAt ? (
+                      <Badge tone="neutral">{tRanks('card.revoked')}</Badge>
+                    ) : (
+                      canAwardRank &&
+                      !award.ladderArchived && (
+                        <form action={revokeAwardAction}>
+                          <input type="hidden" name="slug" value={slug} />
+                          <input type="hidden" name="memberId" value={memberId} />
+                          <input type="hidden" name="awardId" value={award.id} />
+                          <ConfirmButton
+                            message={tRanks('card.revokeConfirm')}
+                            className="min-h-11 rounded-pill border border-line-strong px-3 text-caption font-semibold text-ink hover:bg-surface-2"
+                          >
+                            {tRanks('card.revoke')}
+                          </ConfirmButton>
+                        </form>
+                      )
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {canAwardRank && awardable.some((ladder) => ladder.ranks.length > 0) && (
+            <details className="rounded-md border border-line p-2">
+              <summary className="cursor-pointer text-caption font-semibold text-link">
+                {tRanks('card.award')}
+              </summary>
+              <form action={awardOneAction} className="mt-2 space-y-2">
+                <input type="hidden" name="slug" value={slug} />
+                <input type="hidden" name="memberId" value={memberId} />
+                <p className="text-caption text-text-muted">{tRanks('card.awardHint')}</p>
+                <label className="block text-caption text-ink-soft">
+                  {tRanks('award.rank')}
+                  <Select name="rankId" required defaultValue="" size="sm" className="mt-1">
+                    <option value="" disabled>
+                      {tRanks('award.rank')}
+                    </option>
+                    {awardable
+                      .filter((ladder) => ladder.ranks.length > 0)
+                      .map((ladder) => (
+                        <optgroup key={ladder.id} label={ladder.name}>
+                          {ladder.ranks.map((rank) => (
+                            <option key={rank.id} value={rank.id}>
+                              {rank.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                  </Select>
+                </label>
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="block text-caption text-ink-soft">
+                    {tRanks('award.date')}
+                    <Input
+                      type="date"
+                      name="awardedOn"
+                      defaultValue={today}
+                      max={today}
+                      size="sm"
+                      required
+                      className="mt-1"
+                    />
+                  </label>
+                  <label className="block text-caption text-ink-soft">
+                    {tRanks('award.reason')}
+                    <Select name="reason" defaultValue="exam" size="sm" className="mt-1">
+                      {RANK_AWARD_REASONS.map((reason) => (
+                        <option key={reason} value={reason}>
+                          {tRanks(`reasons.${reason}`)}
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
+                </div>
+                <p className="text-caption text-text-muted">{tRanks('reasonHint')}</p>
+                <Button type="submit" size="sm">
+                  {tRanks('award.submitOne')}
+                </Button>
+              </form>
+            </details>
+          )}
         </section>
       )}
 

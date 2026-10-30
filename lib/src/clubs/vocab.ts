@@ -109,6 +109,14 @@ export const CLUB_AUDIT_ACTIONS = [
   'document_archived',
   'document_restored',
   'document_signed',
+  'ladder_saved',
+  'ladder_archived',
+  'ladder_restored',
+  'rank_saved',
+  'rank_moved',
+  'rank_removed',
+  'rank_awarded',
+  'rank_revoked',
 ] as const;
 export type ClubAuditAction = (typeof CLUB_AUDIT_ACTIONS)[number];
 

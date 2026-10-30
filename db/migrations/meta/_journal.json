@@ -393,6 +393,13 @@
       "when": 1785195600000,
       "tag": "0055_club_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1785199200000,
+      "tag": "0056_club_ranks",
+      "breakpoints": true
     }
   ]
 }

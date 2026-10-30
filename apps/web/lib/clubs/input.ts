@@ -87,6 +87,17 @@ import {
   type DocumentKind,
   type DocumentRequiredFor,
   type SignerKind,
+  BELT_COLOURS,
+  LADDER_NAME_MAX,
+  RANK_ATTENDANCES_MAX,
+  RANK_AWARD_REASONS,
+  RANK_MONTHS_MAX,
+  RANK_NAME_MAX,
+  RANK_STRIPES_MAX,
+  isRankTemplateKey,
+  type BeltColour,
+  type RankAwardReason,
+  type RankTemplateKey,
 } from '@sportkarta/lib/clubs';
 import {
   SOFIA_TZ,
@@ -2197,4 +2208,133 @@ export function parseSignature(form: Reader): InputResult<SignatureInput> {
   if (!checked(form, 'accept')) errors.push('accept_required');
   if (errors.length > 0 || !signerKind) return { ok: false, errors };
   return { ok: true, value: { signerName, signerKind } };
+}
+
+/** A tab or line break the database's `!~ '[[:cntrl:]]'` name CHECKs (0056) refuse. */
+function hasControl(value: string | null): boolean {
+  return value !== null && /\p{Cc}/u.test(value);
+}
+
+export interface LadderInput {
+  /** Null only for a new ladder from a template: the template's name is taken. */
+  nameBg: string | null;
+  nameEn: string | null;
+  /** The sport whose classes count toward it; null — every check-in. */
+  sport: ClubSport | null;
+  /** A new ladder's starting ranks (0056 templates); null — none. */
+  template: RankTemplateKey | null;
+}
+
+/** A grading ladder: its names and sport, and — new — an optional template. */
+export function parseLadder(form: Reader, isNew: boolean): InputResult<LadderInput> {
+  const errors: string[] = [];
+  const rawTemplate = isNew ? text(form, 'template') : '';
+  const template = rawTemplate === '' ? null : isRankTemplateKey(rawTemplate) ? rawTemplate : null;
+  if (rawTemplate !== '' && template === null) errors.push('template_invalid');
+  const typed = text(form, 'nameBg');
+  const nameBg =
+    typed === '' && template !== null
+      ? null
+      : required(typed, LADDER_NAME_MAX, errors, 'ladder_name');
+  const nameEn = bounded(optionalText(form, 'nameEn'), LADDER_NAME_MAX, errors, 'name_too_long');
+  if (hasControl(nameBg) || hasControl(nameEn)) errors.push('name_control');
+  const rawSport = text(form, 'sport');
+  const sport = rawSport === '' ? null : isClubSport(rawSport) ? rawSport : null;
+  if (rawSport !== '' && sport === null) errors.push('sport_invalid');
+  if (errors.length > 0) return { ok: false, errors };
+  return { ok: true, value: { nameBg, nameEn, sport, template } };
+}
+
+export interface RankInput {
+  nameBg: string;
+  nameEn: string | null;
+  colour: BeltColour;
+  accent: BeltColour | null;
+  stripes: number;
+  minAttendances: number | null;
+  minMonths: number | null;
+}
+
+/** One rank: its names, its belt (closed palette) and what it asks. */
+export function parseRank(form: Reader): InputResult<RankInput> {
+  const errors: string[] = [];
+  const nameBg = required(text(form, 'nameBg'), RANK_NAME_MAX, errors, 'rank_name');
+  const nameEn = bounded(optionalText(form, 'nameEn'), RANK_NAME_MAX, errors, 'rank_name_too_long');
+  if (hasControl(nameBg) || hasControl(nameEn)) errors.push('name_control');
+  const colour = oneOf(text(form, 'colour'), BELT_COLOURS);
+  if (!colour) errors.push('colour_invalid');
+  const rawAccent = text(form, 'accent');
+  const accent = rawAccent === '' ? null : oneOf(rawAccent, BELT_COLOURS);
+  // An accent the belt already is would draw nothing (club_ranks_accent_known).
+  if (rawAccent !== '' && (accent === null || accent === colour)) errors.push('accent_invalid');
+  const rawStripes = text(form, 'stripes');
+  const stripes = rawStripes === '' ? 0 : intInRange(rawStripes, 0, RANK_STRIPES_MAX);
+  if (stripes === null) errors.push('stripes_invalid');
+  const minAttendances = optionalInt(
+    form,
+    'minAttendances',
+    1,
+    RANK_ATTENDANCES_MAX,
+    errors,
+    'min_attendances_invalid',
+  );
+  const minMonths = optionalInt(
+    form,
+    'minMonths',
+    1,
+    RANK_MONTHS_MAX,
+    errors,
+    'min_months_invalid',
+  );
+  if (errors.length > 0 || !colour || stripes === null) return { ok: false, errors };
+  return {
+    ok: true,
+    value: { nameBg, nameEn, colour, accent, stripes, minAttendances, minMonths },
+  };
+}
+
+export interface AwardInput {
+  awardedOn: IsoDate;
+  reason: RankAwardReason;
+}
+
+/** When and why a rank is awarded: a day up to today (a past one records a rank held before). */
+export function parseAward(form: Reader, today: IsoDate): InputResult<AwardInput> {
+  const errors: string[] = [];
+  const raw = text(form, 'awardedOn');
+  const awardedOn = raw === '' ? today : isIsoDate(raw) ? raw : null;
+  if (awardedOn === null || awardedOn < '1950-01-01') errors.push('award_date_invalid');
+  else if (awardedOn > today) errors.push('award_date_future');
+  const reason = oneOf(text(form, 'reason') || 'exam', RANK_AWARD_REASONS);
+  if (!reason) errors.push('award_reason_invalid');
+  if (errors.length > 0 || awardedOn === null || !reason) return { ok: false, errors };
+  return { ok: true, value: { awardedOn, reason } };
+}
+
+/** At most this many clients get their next rank in one submit (an exam day). */
+export const NEXT_AWARDS_MAX = 200;
+
+/**
+ * The exam list's ticks: each `pick` is "<member id>.<the next rank id the
+ * page showed>", so a client whose rank changed meanwhile is skipped rather
+ * than given the rank after.
+ */
+export function parseNextAwardPicks(
+  form: Reader,
+): InputResult<{ memberId: string; rankId: string }[]> {
+  const picks = new Map<string, string>();
+  for (const value of form.getAll('pick')) {
+    if (typeof value !== 'string') continue;
+    const [memberId, rankId, extra] = value.split('.');
+    if (extra !== undefined || !isUuid(memberId) || !isUuid(rankId)) {
+      return { ok: false, errors: ['invalid'] };
+    }
+    picks.set(memberId.toLowerCase(), rankId.toLowerCase());
+  }
+  if (picks.size === 0) return { ok: false, errors: ['ranks_none_selected'] };
+  if (picks.size > NEXT_AWARDS_MAX) return { ok: false, errors: ['invalid'] };
+  return {
+    ok: true,
+    value: [...picks].map(([memberId, rankId]) => ({ memberId, rankId })),
+  };
 }

@@ -285,6 +285,14 @@ browser) in a MANUAL STEPS list at the end of the session.
   portal the signer kind follows the LINK that signs, never the form; at the
   desk the witness records it. Who is missing what is the view
   `club_documents_missing`; a missing signature WARNS and never refuses.
+  Ranks (wave G2, `0056`): a client's CURRENT rank is their newest award not
+  revoked (by day, then by when it was recorded), never the highest place;
+  readiness for the next one is the view `club_member_rank_progress`
+  (check-ins since that day, in the ladder's sport) and never refuses an
+  award. An award is append-only — a mistake is revoked once — and only the
+  club's own staff grade (`clubStaffWriteScope`, no NGO admin). Belt colours
+  are a closed palette of `--belt-*` tokens. A trainer reads the ladder pages
+  through the projection in `ranks.ts` (`progressRows`, a name and counts).
   Form-error lookups go through `formErrorText` (own keys only): the
   `ClubFormMessages` catalogue must stay a PLAIN object, because it crosses
   into client components. Writes need `clubWritableSql` (active and paid or

@@ -34,6 +34,7 @@ export const CLUB_EXPORT_DATASETS = [
   'events',
   'matches',
   'signatures',
+  'ranks',
   'audit',
 ] as const;
 export type ClubExportDataset = (typeof CLUB_EXPORT_DATASETS)[number];
@@ -449,6 +450,36 @@ const DATASETS: Record<ClubExportDataset, Dataset> = {
         LEFT JOIN club_staff s ON s.club_id = dsg.club_id AND s.user_id = dsg.witnessed_by
        WHERE ${scope}
        ORDER BY dsg.signed_at, dsg.id`,
+  },
+  /**
+   * Every rank awarded (0056) — the ladder, the rank and its place, the day,
+   * why, who recorded it, and when a mistaken one was revoked. It goes with an
+   * erased client's record.
+   */
+  ranks: {
+    permission: 'data.export',
+    alias: 'ra',
+    header: [
+      'ladder',
+      'rank',
+      'position',
+      'member',
+      'awarded_on',
+      'reason',
+      'recorded_by',
+      'revoked_at',
+    ],
+    query: (scope) => sql`
+      SELECT ARRAY[rl.name_bg, rk.name_bg, rk.position::text, m.display_name,
+             ${DAY(sql`ra.awarded_on`)}, ra.reason, coalesce(s.display_name, ''),
+             coalesce(${STAMP(sql`ra.revoked_at`)}, '')]::text[] AS r
+        FROM club_member_ranks ra
+        JOIN club_rank_ladders rl ON rl.club_id = ra.club_id AND rl.id = ra.ladder_id
+        JOIN club_ranks rk ON rk.club_id = ra.club_id AND rk.id = ra.rank_id
+        JOIN club_members m ON m.club_id = ra.club_id AND m.id = ra.member_id
+        LEFT JOIN club_staff s ON s.club_id = ra.club_id AND s.user_id = ra.awarded_by
+       WHERE ${scope}
+       ORDER BY rl.name_bg, ra.awarded_on, ra.created_at, ra.id`,
   },
   classes: {
     permission: 'data.export',
