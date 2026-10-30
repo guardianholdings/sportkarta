@@ -33,6 +33,7 @@ export const CLUB_EXPORT_DATASETS = [
   'feedback',
   'events',
   'matches',
+  'signatures',
   'audit',
 ] as const;
 export type ClubExportDataset = (typeof CLUB_EXPORT_DATASETS)[number];
@@ -419,6 +420,35 @@ const DATASETS: Record<ClubExportDataset, Dataset> = {
         LEFT JOIN club_staff s ON s.club_id = tm.club_id AND s.user_id = tm.recorded_by
        WHERE ${scope}
        ORDER BY ev.starts_at, tm.event_id, tm.round, tm.slot`,
+  },
+  /**
+   * Every signature of the club's documents (0055) with the version and the
+   * hash of the text it signed; it goes with an erased client's record.
+   */
+  signatures: {
+    permission: 'data.export',
+    alias: 'dsg',
+    header: [
+      'document',
+      'version',
+      'member',
+      'signer_kind',
+      'signer_name',
+      'method',
+      'witness',
+      'signed_at',
+      'sha256',
+    ],
+    query: (scope) => sql`
+      SELECT ARRAY[dv.title_bg, dv.version::text, m.display_name, dsg.signer_kind,
+             dsg.signer_name, dsg.method, coalesce(s.display_name, ''),
+             ${STAMP(sql`dsg.signed_at`)}, dsg.body_sha256]::text[] AS r
+        FROM club_document_signatures dsg
+        JOIN club_document_versions dv ON dv.club_id = dsg.club_id AND dv.id = dsg.version_id
+        JOIN club_members m ON m.club_id = dsg.club_id AND m.id = dsg.member_id
+        LEFT JOIN club_staff s ON s.club_id = dsg.club_id AND s.user_id = dsg.witnessed_by
+       WHERE ${scope}
+       ORDER BY dsg.signed_at, dsg.id`,
   },
   classes: {
     permission: 'data.export',

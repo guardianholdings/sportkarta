@@ -275,7 +275,16 @@ browser) in a MANUAL STEPS list at the end of the session.
   is erased, `club_member_links_clear_names` when the link goes, and a consent
   can always be withdrawn (`setNamePublic` off needs no live place and no
   writable club). A recorded result is never deleted or withdrawn
-  (`club_tournament_matches_guard`, purge excepted). Writes need `clubWritableSql` (active and paid or
+  (`club_tournament_matches_guard`, purge excepted). Documents (wave G1,
+  `0055`): a document's TEXT is append-only versions numbered and hashed by
+  the database (sha256(sha256(bg) || sha256(en))); a signature names its
+  version, only the latest of a live document, once per client, and its
+  signer kind is the RECORD's (a minor's is signed by a guardian, and only a
+  guardian) — never the form's. Who is missing what is the view
+  `club_documents_missing`; a missing signature WARNS and never refuses.
+  Form-error lookups go through `formErrorText` (own keys only): the
+  `ClubFormMessages` catalogue must stay a PLAIN object, because it crosses
+  into client components. Writes need `clubWritableSql` (active and paid or
   community, 14-day grace); every public surface embeds `clubRenderableSql`.
   Check-ins never refuse (`covered=false` is recorded); only a QR/card visit of
   a consenting linked member writes `training_logs(source='club',

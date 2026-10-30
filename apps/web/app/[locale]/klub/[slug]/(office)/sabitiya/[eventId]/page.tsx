@@ -27,6 +27,7 @@ import { clubResources } from '@/lib/clubs/resources';
 import { clubLocations } from '@/lib/clubs/settings';
 import { tournamentForStaff } from '@/lib/clubs/tournaments';
 import { formatDateTime } from '@/lib/format';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import {
   archiveTicketAction,
@@ -303,7 +304,7 @@ export default async function ClubEventPage({
             ? t(`outcome.${rezultat}`)
             : rezultat === 'readOnly'
               ? messages.readOnly
-              : (messages.errors[rezultat] ?? messages.genericError)}
+              : formErrorText(messages, rezultat)}
         </p>
       )}
 

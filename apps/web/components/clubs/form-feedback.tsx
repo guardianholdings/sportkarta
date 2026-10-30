@@ -1,6 +1,7 @@
 'use client';
 
 import type { ClubFormMessages } from '@/lib/clubs/form-labels';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 /**
  * The one status region of a club form: every problem at once, as a list,
@@ -29,8 +30,8 @@ export function FormFeedback({
     state.error === 'readOnly'
       ? [messages.readOnly]
       : state.errors && state.errors.length > 0
-        ? state.errors.map((code) => messages.errors[code] ?? messages.genericError)
-        : [messages.errors[state.error] ?? messages.genericError];
+        ? state.errors.map((code) => formErrorText(messages, code))
+        : [formErrorText(messages, state.error)];
   return (
     <div
       role="status"

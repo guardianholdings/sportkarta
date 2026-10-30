@@ -6,6 +6,7 @@ import { requireClubStaff } from '@/lib/clubs/club-session';
 import { clubSwitchOn, featureOn } from '@/lib/clubs/features';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { smsOverview } from '@/lib/clubs/messages';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import { saveSmsSettingsAction } from '../actions';
 import { MessagesTabs } from '../parts';
@@ -75,7 +76,7 @@ export default async function ClubSmsPage({
             ? t(`outcome.${rezultat}`)
             : rezultat === 'readOnly'
               ? messages.readOnly
-              : (messages.errors[rezultat] ?? messages.genericError)}
+              : formErrorText(messages, rezultat)}
         </p>
       )}
 

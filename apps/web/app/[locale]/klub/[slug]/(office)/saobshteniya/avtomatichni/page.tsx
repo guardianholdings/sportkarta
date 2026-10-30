@@ -21,6 +21,7 @@ import { requireClubStaff } from '@/lib/clubs/club-session';
 import { featureOn } from '@/lib/clubs/features';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { channelsOn, listAutomations } from '@/lib/clubs/messages';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import { saveAutomationAction } from '../actions';
 import { MessagesTabs } from '../parts';
@@ -91,7 +92,7 @@ export default async function ClubAutomationsPage({
             ? t(`outcome.${rezultat}`)
             : rezultat === 'readOnly'
               ? messages.readOnly
-              : (messages.errors[rezultat] ?? messages.genericError)}
+              : formErrorText(messages, rezultat)}
         </p>
       )}
 

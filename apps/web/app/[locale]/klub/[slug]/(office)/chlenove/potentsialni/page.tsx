@@ -8,6 +8,7 @@ import { Link } from '@/i18n/navigation';
 import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { leadBoard, leadOwners } from '@/lib/clubs/leads';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import { addLeadAction } from './actions';
 
@@ -69,7 +70,7 @@ export default async function ClubLeadsPage({
             ? t(`outcome.${rezultat}`)
             : rezultat === 'readOnly'
               ? messages.readOnly
-              : (messages.errors[rezultat] ?? messages.genericError)}
+              : formErrorText(messages, rezultat)}
         </p>
       )}
 

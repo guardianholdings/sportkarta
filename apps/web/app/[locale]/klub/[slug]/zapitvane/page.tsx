@@ -22,6 +22,7 @@ import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { inquiryTarget } from '@/lib/clubs/inbox';
 import { isUuid } from '@/lib/clubs/input';
 import { signInHref } from '@/lib/sign-in-destination';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import { inquiryAction } from './actions';
 
@@ -102,7 +103,7 @@ export default async function InquiryPage({
                   ? t(`inquiry.error.${rezultat}`)
                   : rezultat === 'readOnly'
                     ? messages.readOnly
-                    : (messages.errors[rezultat] ?? messages.genericError)}
+                    : formErrorText(messages, rezultat)}
               </p>
             )}
             {rezultat === 'claim_first' && (

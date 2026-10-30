@@ -244,6 +244,7 @@ describe.skipIf(!hasDb)('club schema (requires running database)', () => {
         'club_booking_positions',
         'club_charge_balances',
         'club_charge_holds',
+        'club_documents_missing',
         'club_lead_stages',
         'club_member_status',
         'club_membership_balances',

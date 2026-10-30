@@ -14,6 +14,7 @@ import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { TIME_OFF_REASONS } from '@/lib/clubs/input';
 import { clubTeam, upcomingTimeOff } from '@/lib/clubs/staff';
 import { formatDate } from '@/lib/format';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import {
   changeRoleAction,
@@ -66,7 +67,7 @@ export default async function ClubTeamPage({
           role="status"
           className="rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink"
         >
-          {messages.errors[rezultat] ?? messages.genericError}
+          {formErrorText(messages, rezultat)}
         </p>
       )}
 

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import type { ClubFormMessages } from '@/lib/clubs/form-labels';
 import { useFormAction } from '@/lib/use-form-action';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import { FormFeedback } from './form-feedback';
 
@@ -150,9 +151,7 @@ export function TillForm({
   const current = priced?.key === priceKey ? priced.result : null;
   const shownTotal = current?.ok ? current.totalCents : total;
   const codeProblem =
-    current && !current.ok && code.trim() !== ''
-      ? (messages.errors[current.error] ?? messages.genericError)
-      : null;
+    current && !current.ok && code.trim() !== '' ? formErrorText(messages, current.error) : null;
   const onScan = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== 'Enter') return;
     event.preventDefault();

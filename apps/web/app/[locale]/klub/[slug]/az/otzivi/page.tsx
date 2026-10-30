@@ -14,6 +14,7 @@ import { feedbackToGive, googleReviewUrlOf } from '@/lib/clubs/feedback';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { portalView } from '@/lib/clubs/portal';
 import { formatDateTime } from '@/lib/format';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import { rateAction } from './actions';
 
@@ -87,7 +88,7 @@ export default async function PortalFeedbackPage({
                   ? t(`portal.error.${rezultat}`)
                   : rezultat === 'readOnly'
                     ? messages.readOnly
-                    : (messages.errors[rezultat] ?? messages.genericError)}
+                    : formErrorText(messages, rezultat)}
             </p>
             {google && (
               <p>

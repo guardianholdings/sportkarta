@@ -78,6 +78,13 @@ import {
   EVENT_TITLE_MAX,
   type EventKind,
   type EventPayment,
+  DOCUMENT_BODY_MAX,
+  DOCUMENT_KINDS,
+  DOCUMENT_REQUIRED_FOR,
+  DOCUMENT_TITLE_MAX,
+  SIGNER_NAME_MAX,
+  type DocumentKind,
+  type DocumentRequiredFor,
 } from '@sportkarta/lib/clubs';
 import {
   SOFIA_TZ,
@@ -2102,4 +2109,85 @@ export function parseEventRegistration(
   if (teamEvent && teamRaw === null) errors.push('team_name_required');
   if (errors.length > 0 || memberId === 'invalid') return { ok: false, errors };
   return { ok: true, value: { ticketId: ticketId.toLowerCase(), memberId, teamName } };
+}
+
+export interface DocumentInput {
+  kind: DocumentKind;
+  requiredFor: DocumentRequiredFor;
+}
+
+/**
+ * A document's settings: its kind and who must sign it (0055). Its title is
+ * part of each version — a rename is a new version.
+ */
+export function parseDocument(form: Reader): InputResult<DocumentInput> {
+  const errors: string[] = [];
+  const kind = oneOf(text(form, 'kind'), DOCUMENT_KINDS);
+  if (!kind) errors.push('document_kind_invalid');
+  const requiredFor = oneOf(text(form, 'requiredFor') || 'none', DOCUMENT_REQUIRED_FOR);
+  if (!requiredFor) errors.push('required_for_invalid');
+  if (errors.length > 0 || !kind || !requiredFor) return { ok: false, errors };
+  return { ok: true, value: { kind, requiredFor } };
+}
+
+export interface DocumentVersionInput {
+  titleBg: string;
+  titleEn: string | null;
+  bodyBg: string;
+  bodyEn: string | null;
+  /** Always true for a first version (the database says so too). */
+  requiresResign: boolean;
+}
+
+/** A form's line breaks as the database keeps them — the hash covers them. */
+function body(form: Reader, name: string): string {
+  return text(form, name).replace(/\r\n?/g, '\n');
+}
+
+/** A version's text. `first`: the document's first version, which everybody signs. */
+export function parseDocumentVersion(
+  form: Reader,
+  first: boolean,
+): InputResult<DocumentVersionInput> {
+  const errors: string[] = [];
+  const titleBg = required(text(form, 'titleBg'), DOCUMENT_TITLE_MAX, errors, 'title');
+  const titleEn = bounded(
+    optionalText(form, 'titleEn'),
+    DOCUMENT_TITLE_MAX,
+    errors,
+    'title_too_long',
+  );
+  const bodyBg = required(body(form, 'bodyBg'), DOCUMENT_BODY_MAX, errors, 'body');
+  const en = body(form, 'bodyEn');
+  const bodyEn = bounded(en === '' ? null : en, DOCUMENT_BODY_MAX, errors, 'body_too_long');
+  if (errors.length > 0) return { ok: false, errors };
+  return {
+    ok: true,
+    value: {
+      titleBg,
+      titleEn,
+      bodyBg,
+      bodyEn,
+      requiresResign: first || checked(form, 'requiresResign'),
+    },
+  };
+}
+
+export interface SignatureInput {
+  signerName: string;
+}
+
+/**
+ * A signature: the name the signer TYPES and the tick that they read and
+ * accept it. Who they are — the client, or a guardian for a minor — is the
+ * record's to say (0055), never the form's.
+ */
+export function parseSignature(form: Reader): InputResult<SignatureInput> {
+  const errors: string[] = [];
+  const signerName = required(text(form, 'signerName'), SIGNER_NAME_MAX, errors, 'signer_name');
+  // A name, not blank-looking characters (a zero-width space survives trim).
+  if (signerName !== '' && !/\p{L}/u.test(signerName)) errors.push('signer_name_required');
+  if (!checked(form, 'accept')) errors.push('accept_required');
+  if (errors.length > 0) return { ok: false, errors };
+  return { ok: true, value: { signerName } };
 }

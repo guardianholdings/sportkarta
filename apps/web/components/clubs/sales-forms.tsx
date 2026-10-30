@@ -8,6 +8,7 @@ import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import type { ClubFormMessages } from '@/lib/clubs/form-labels';
 import { useFormAction } from '@/lib/use-form-action';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import { FormFeedback } from './form-feedback';
 
@@ -429,9 +430,7 @@ export function SaleForm({
   // Only an answer for exactly this client, plan and code counts.
   const current = priced?.key === priceKey ? priced.result : null;
   const codeProblem =
-    current && !current.ok && code.trim() !== ''
-      ? (messages.errors[current.error] ?? messages.genericError)
-      : null;
+    current && !current.ok && code.trim() !== '' ? formErrorText(messages, current.error) : null;
   const priceText =
     plan && current?.ok && current.discountCents > 0
       ? labels.offerPrice

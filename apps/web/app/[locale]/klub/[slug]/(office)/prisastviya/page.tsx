@@ -10,6 +10,7 @@ import { Select } from '@/components/ui/select';
 import { Link } from '@/i18n/navigation';
 import { todaysCheckins } from '@/lib/clubs/checkin';
 import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { missingFor } from '@/lib/clubs/documents';
 import { isUuid } from '@/lib/clubs/input';
 import { searchMembers } from '@/lib/clubs/members';
 import { clubLocations } from '@/lib/clubs/settings';
@@ -67,6 +68,14 @@ export default async function ClubDeskPage({
     searchMembers(actor, q),
     todaysCheckins(actor),
     clubLocations(actor),
+  ]);
+  // A missing declaration warns at the desk and never refuses the visit (0055).
+  const [tDocs, unsigned] = await Promise.all([
+    getTranslations('ClubDocuments'),
+    missingFor(
+      actor,
+      results.map((row) => row.id),
+    ),
   ]);
   const active = locations.filter((location) => location.active);
   const locationId =
@@ -158,6 +167,14 @@ export default async function ClubDeskPage({
                       </Link>
                       <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
                         {member.isMinor && <Badge tone="neutral">{tClub('minor')}</Badge>}
+                        {unsigned.has(member.id) && (
+                          <Link
+                            href={`/klub/${slug}/chlenove/${member.id}#documents-h`}
+                            className="inline-flex min-h-11 items-center rounded-pill focus-visible:shadow-[var(--ring)] focus-visible:outline-none"
+                          >
+                            <Badge tone="warning">{tDocs('missingBadge')}</Badge>
+                          </Link>
+                        )}
                         <StatusBadge
                           kind={memberKind(member.status)}
                           label={tClub(`memberStatus.${member.status}`)}

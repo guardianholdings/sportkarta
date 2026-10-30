@@ -13,6 +13,7 @@ import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
 import { feedbackOverview } from '@/lib/clubs/feedback';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { formatDate } from '@/lib/format';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import { saveGoogleReviewAction } from './actions';
 
@@ -84,7 +85,7 @@ export default async function ClubFeedbackPage({
             ? t(`outcome.${rezultat}`)
             : rezultat === 'readOnly'
               ? messages.readOnly
-              : (messages.errors[rezultat] ?? messages.genericError)}
+              : formErrorText(messages, rezultat)}
         </p>
       )}
 

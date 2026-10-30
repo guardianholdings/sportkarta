@@ -17,6 +17,7 @@ import { requireClubStaff } from '@/lib/clubs/club-session';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { isUuid } from '@/lib/clubs/input';
 import { invoiceById, invoicesOwingCredit } from '@/lib/clubs/invoices';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import { creditNoteAction } from '../actions';
 
@@ -71,7 +72,7 @@ export default async function InvoicePage({
     ? null
     : good
       ? t(`outcome.${rezultat}`)
-      : (messages.errors[rezultat] ?? messages.genericError);
+      : formErrorText(messages, rezultat);
   const party = (
     title: string,
     p: {

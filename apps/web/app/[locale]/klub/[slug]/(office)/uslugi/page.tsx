@@ -18,6 +18,7 @@ import { clubResources } from '@/lib/clubs/resources';
 import { clubServices, priceRules, staffHours, type ClubService } from '@/lib/clubs/services';
 import { clubLocations } from '@/lib/clubs/settings';
 import { clubTeam } from '@/lib/clubs/staff';
+import { formErrorText, isPlainCode } from '@/lib/clubs/form-error';
 
 import {
   addPriceRuleAction,
@@ -324,9 +325,9 @@ export default async function ClubServicesPage({
           role="status"
           className="rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink"
         >
-          {t.has(`error.${rezultat}`)
+          {isPlainCode(rezultat) && t.has(`error.${rezultat}`)
             ? t(`error.${rezultat}`)
-            : (messages.errors[rezultat] ?? messages.genericError)}
+            : formErrorText(messages, rezultat)}
         </p>
       )}
 

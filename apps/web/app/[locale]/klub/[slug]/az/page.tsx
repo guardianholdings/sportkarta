@@ -15,6 +15,7 @@ import { Link } from '@/i18n/navigation';
 import { requireUser } from '@/lib/auth-session';
 import { requireClubsEnabled } from '@/lib/clubs/club-session';
 import { memberEventPlaces, publicEvents } from '@/lib/clubs/events';
+import { portalDocumentCounts } from '@/lib/clubs/documents';
 import { feedbackToGive } from '@/lib/clubs/feedback';
 import { memberUnreadCount } from '@/lib/clubs/inbox';
 import { clubSportLabeler } from '@/lib/clubs/labels';
@@ -126,6 +127,13 @@ export default async function ClubPortalPage({
     link?.status === 'active' ? memberEventPlaces(user.id, club.id, locale) : Promise.resolve([]),
     publicEvents(club.id, locale, 5),
   ]);
+  const [tDocs, documentCounts] = await Promise.all([
+    getTranslations('ClubDocuments'),
+    link?.status === 'active'
+      ? portalDocumentCounts(user.id, club.id)
+      : Promise.resolve({ offered: 0, toSign: 0 }),
+  ]);
+  const toSign = documentCounts.toSign;
   const now = Date.now();
   const booked = new Map<string, Set<string>>();
   for (const record of records) {
@@ -710,6 +718,13 @@ export default async function ClubPortalPage({
               {toRate.length > 0 && (
                 <Link href={`/klub/${slug}/az/otzivi`} className={pill}>
                   {t('rateCount', { count: toRate.length })}
+                </Link>
+              )}
+              {documentCounts.offered > 0 && (
+                <Link href={`/klub/${slug}/az/dokumenti`} className={pill}>
+                  {toSign > 0
+                    ? tDocs('portal.linkToSign', { count: toSign })
+                    : tDocs('portal.link')}
                 </Link>
               )}
             </div>

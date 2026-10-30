@@ -3196,7 +3196,8 @@
       "messages": "Messages",
       "inbox": "Inbox",
       "feedback": "Ratings",
-      "events": "Events"
+      "events": "Events",
+      "documents": "Documents"
     },
     "map": "Back to the map",
     "profile": "My profile",
@@ -3498,7 +3499,17 @@
       "result_not_allowed": "This result cannot be recorded.",
       "result_not_ready": "The match does not have two entrants yet.",
       "result_draw_not_allowed": "Single elimination has no draws.",
-      "result_next_played": "The next match already has a result — correct that one first."
+      "result_next_played": "The next match already has a result — correct that one first.",
+      "document_kind_invalid": "Choose the kind of document.",
+      "required_for_invalid": "Choose who must sign.",
+      "body_required": "Enter the text.",
+      "body_too_long": "The text is too long (20,000 characters at most).",
+      "signer_name_required": "Type the name of the signer.",
+      "signer_name_too_long": "The name is too long (120 characters at most).",
+      "accept_required": "Confirm that the text was read.",
+      "stale_version": "The document has changed or been archived meanwhile — read the new text and sign again.",
+      "guardian_minor": "For a minor a parent or guardian signs; for an adult, the client themselves.",
+      "already_signed": "The client has already signed this version — this signature was not recorded again."
     }
   },
   "ClubSettings": {
@@ -3846,7 +3857,7 @@
       "archive": "Archive",
       "restore": "Restore from archive",
       "erase": "Delete the data",
-      "eraseConfirm": "The member's record, bookings and visits are deleted for good. Payments stay in the books without a name. Continue?",
+      "eraseConfirm": "The member's record, bookings, visits and signed documents are deleted for good. Payments stay in the books without a name. Continue?",
       "erased": "The member's data has been deleted.",
       "memberships": "Memberships",
       "noMemberships": "No memberships sold.",
@@ -4018,7 +4029,12 @@
       "event_registration_cancelled": "Event place cancelled",
       "tournament_drawn": "Tournament draw made",
       "match_recorded": "Match result",
-      "name_visibility_changed": "Name in results"
+      "name_visibility_changed": "Name in results",
+      "document_saved": "Document saved",
+      "document_versioned": "New document version",
+      "document_archived": "Document archived",
+      "document_restored": "Document restored",
+      "document_signed": "Document signed"
     }
   },
   "ClubSales": {
@@ -6009,5 +6025,116 @@
       "privacy": "An entrant’s name is shown only with their consent — everybody else is “Entrant N”.",
       "derived": "Standings and ratings are worked out from the results"
     }
+  },
+  "ClubDocuments": {
+    "title": "Documents",
+    "intro": "The declarations, rules and consents the club asks its clients for: who must sign, who has signed and who has not yet. A missing signature only warns — it never stops a visit.",
+    "empty": "No documents yet.",
+    "new": "New document",
+    "archived": "Archived",
+    "version": "version {version}",
+    "versionShort": "v. {version}",
+    "signedCount": "{count, plural, one {# signature} other {# signatures}}",
+    "missingCount": "{count, plural, one {missing for # client} other {missing for # clients}}",
+    "kinds": {
+      "waiver": "Declaration",
+      "rules": "Rules",
+      "consent": "Consent",
+      "other": "Other"
+    },
+    "requiredFor": {
+      "none": "optional",
+      "all": "for every client",
+      "minors": "for minors",
+      "trial": "for a trial abonnement"
+    },
+    "form": {
+      "kind": "Kind",
+      "requiredFor": "Who must sign",
+      "requiredForHint": "For them the desk and the member card show “Declaration missing” until they sign.",
+      "titleBg": "Title",
+      "titleEn": "Title in English (optional)",
+      "bodyBg": "Text",
+      "bodyEn": "Text in English (optional)",
+      "bodyEnHint": "Shown to clients who use the site in English.",
+      "fixedHint": "A published text is never edited — a change is a new version, and earlier signatures stay with their text.",
+      "create": "Publish",
+      "requiresResign": "Needs a new signature",
+      "requiresResignHint": "Untick it for a typo fix: the signatures so far stay valid.",
+      "publish": "Publish the version",
+      "save": "Save",
+      "renameHint": "The title is part of the text: a rename is a new version, so every signature keeps the title it was signed under."
+    },
+    "back": "Documents",
+    "text": "Text — version {version}",
+    "english": "In English",
+    "published": "Published {when} by {who}",
+    "formerStaff": "a former member of staff",
+    "earlier": "{count, plural, one {# earlier version} other {# earlier versions}}",
+    "noResign": "no new signature",
+    "signatures": "Signatures ({count})",
+    "noSignatures": "No signatures yet.",
+    "signedBy": "{name} ({kind})",
+    "signerKinds": {
+      "self": "the client",
+      "guardian": "a parent or guardian"
+    },
+    "methods": {
+      "portal": "in the portal",
+      "desk": "at the desk"
+    },
+    "witness": "witness {name}",
+    "print": "Print",
+    "missingTitle": "Missing for ({count})",
+    "noneMissing": "Nobody is waiting to sign.",
+    "missingHint": "Take a signature from the client’s card, or the client signs in the portal.",
+    "newVersion": "New version of the text",
+    "settings": "Settings",
+    "restore": "Restore",
+    "archive": "Archive",
+    "archiveConfirm": "The document stops being asked for. The signatures stay. Continue?",
+    "outcome": {
+      "created": "The document is published.",
+      "saved": "The changes are saved.",
+      "versioned": "The new version is published.",
+      "archived": "The document is archived.",
+      "restored": "The document is restored.",
+      "signed": "The signature is recorded."
+    },
+    "printClient": "Client",
+    "printSigner": "Signed by",
+    "printMethod": "How",
+    "printSignedAt": "When",
+    "printHashHint": "The text’s SHA-256 was computed by the database when it was published — from the hashes of the title and the text in both languages. Anyone can compute it again.",
+    "printButton": "Print or PDF",
+    "cardTitle": "Documents",
+    "missingBadge": "Declaration missing",
+    "signedBadge": "Signed",
+    "lastSigned": "Last signature: v. {version}, {when}, {name}",
+    "deskSign": "Sign at the desk",
+    "deskSignHint": "The client reads version {version} and writes their name. You are the witness.",
+    "deskSignHintMinor": "For a minor a parent or guardian signs (on the card: {guardian}) — version {version}, their own name. You are the witness.",
+    "signerName": "Name of the signer",
+    "deskAccept": "The signer read the text and accepts it.",
+    "deskSignSubmit": "Record the signature",
+    "portal": {
+      "title": "Documents",
+      "intro": "The club’s declarations and rules for you and your children. You sign by typing your name and confirming you read the text.",
+      "signed": "Thank you — the signature is recorded.",
+      "empty": "The club has no documents to sign.",
+      "toSign": "To sign",
+      "signedAt": "Signed {when}",
+      "read": "Read the text (version {version})",
+      "yourName": "Your name",
+      "guardianName": "Your name (parent or guardian)",
+      "accept": "I read the text and accept it.",
+      "acceptGuardian": "I read the text and accept it on behalf of {name}.",
+      "sign": "Sign",
+      "parentSigns": "This document is signed by a parent or guardian.",
+      "link": "Documents",
+      "linkToSign": "{count, plural, one {# document to sign} other {# documents to sign}}"
+    },
+    "hashLabel": "SHA-256",
+    "noGuardian": "no parent on record"
   }
 }

@@ -15,6 +15,7 @@ import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { memberThreads } from '@/lib/clubs/inbox';
 import { portalView } from '@/lib/clubs/portal';
 import { formatDateTime } from '@/lib/format';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import { memberWriteAction } from './actions';
 
@@ -73,9 +74,7 @@ export default async function PortalMessagesPage({
             role="status"
             className="rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink"
           >
-            {rezultat === 'readOnly'
-              ? messages.readOnly
-              : (messages.errors[rezultat] ?? messages.genericError)}
+            {rezultat === 'readOnly' ? messages.readOnly : formErrorText(messages, rezultat)}
           </p>
         )}
 

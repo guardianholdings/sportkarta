@@ -39,6 +39,7 @@ import {
 import { siteUrl } from '@/lib/seo';
 import { cn } from '@/lib/utils';
 import { escapeHtml } from '@/lib/widget';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import {
   connectFakePaymentsAction,
@@ -258,8 +259,7 @@ export default async function ClubSettingsPage({
         <p className="text-caption text-text-muted">{t('logoHint')}</p>
         {logo && logo !== 'saved' && (
           <p role="status" className="text-body-sm text-danger">
-            {messages.errors[logo] ??
-              (logo === 'readOnly' ? messages.readOnly : messages.genericError)}
+            {logo === 'readOnly' ? messages.readOnly : formErrorText(messages, logo)}
           </p>
         )}
         <div className="flex flex-wrap items-center gap-4">
@@ -573,7 +573,7 @@ export default async function ClubSettingsPage({
                   ? t('invoices.saved')
                   : fakturi === 'read_only'
                     ? messages.readOnly
-                    : (messages.errors[fakturi] ?? messages.genericError)}
+                    : formErrorText(messages, fakturi)}
               </p>
             )}
           </div>

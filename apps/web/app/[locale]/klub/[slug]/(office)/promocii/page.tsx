@@ -21,6 +21,7 @@ import { clubPromotions } from '@/lib/clubs/promotions';
 import { listPlans } from '@/lib/clubs/sales';
 import { clubProducts } from '@/lib/clubs/shop';
 import { formatDate } from '@/lib/format';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import { archivePromotionAction, createVoucherAction, savePromotionAction } from './actions';
 
@@ -107,7 +108,7 @@ export default async function ClubPromotionsPage({
             ? t(`outcome.${rezultat}`)
             : rezultat === 'readOnly'
               ? messages.readOnly
-              : (messages.errors[rezultat] ?? messages.genericError)}
+              : formErrorText(messages, rezultat)}
         </p>
       )}
 

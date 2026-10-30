@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 
 const DIR = join(__dirname, '..', 'lib', 'clubs');
 const SCOPE =
-  /clubWriteScope\(|clubActorMay\(|memberSelfScope\(|occurrenceStaffScope\(|clubScope\(|clubWritableGuard\(/;
+  /clubWriteScope\(|clubStaffWriteScope\(|clubActorMay\(|memberSelfScope\(|occurrenceStaffScope\(|clubScope\(|clubWritableGuard\(/;
 const WRITE = /\b(?:UPDATE|DELETE FROM|INSERT INTO)\b/;
 
 /** `file:function` → why no club-staff scope belongs in it. */
@@ -155,7 +155,7 @@ describe('every scope fragment names an alias its statement declares', () => {
   // statement calls the table `p`, Postgres refuses the whole query at run
   // time (42P01) — a refund that could never work passed every other test.
   const CALL =
-    /(clubScope|clubWriteScope|occurrenceStaffScope)\(\s*[^,()]+,\s*(?:'[^']*'\s*,\s*)?'([a-z]+)'\s*\)/g;
+    /(clubScope|clubWriteScope|clubStaffWriteScope|occurrenceStaffScope)\(\s*[^,()]+,\s*(?:'[^']*'\s*,\s*)?'([a-z]+)'\s*\)/g;
   const calls: { key: string; alias: string; templates: string[] }[] = [];
   for (const file of readdirSync(DIR).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'))) {
     const source = readFileSync(join(DIR, file), 'utf8');

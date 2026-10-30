@@ -1762,3 +1762,118 @@ export const clubTournamentMatches = pgTable(
     // elimination never drawn), declared in 0054 only.
   ],
 );
+
+/**
+ * A club document — waiver, rules, consent (0055): who must sign it. Its text
+ * lives in club_document_versions.
+ */
+export const clubDocuments = pgTable(
+  'club_documents',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    /** waiver | rules | consent | other */
+    kind: text('kind').notNull(),
+    titleBg: text('title_bg').notNull(),
+    titleEn: text('title_en'),
+    /** none | all | minors | trial */
+    requiredFor: text('required_for').notNull().default('none'),
+    archivedAt: timestamptz('archived_at'),
+    /** Staff id by value (0039 rule 5). */
+    createdBy: text('created_by'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    updatedAt: timestamptz('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique('club_documents_club_id_unique').on(t.clubId, t.id)],
+);
+
+/**
+ * One version of a document's title and text (0055) — append-only; the
+ * number, the hash and the time are stamped by the database, which also
+ * makes this title the document's current one.
+ */
+export const clubDocumentVersions = pgTable(
+  'club_document_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    documentId: uuid('document_id').notNull(),
+    version: integer('version').notNull(),
+    titleBg: text('title_bg').notNull(),
+    titleEn: text('title_en'),
+    bodyBg: text('body_bg').notNull(),
+    bodyEn: text('body_en'),
+    requiresResign: boolean('requires_resign').notNull().default(true),
+    bodySha256: text('body_sha256').notNull(),
+    /** Staff id by value (0039 rule 5). */
+    publishedBy: text('published_by'),
+    publishedAt: timestamptz('published_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('club_document_versions_club_id_unique').on(t.clubId, t.id),
+    unique('club_document_versions_document_unique').on(t.clubId, t.documentId, t.id),
+    unique('club_document_versions_number_unique').on(t.clubId, t.documentId, t.version),
+    foreignKey({
+      name: 'club_document_versions_document_fk',
+      columns: [t.clubId, t.documentId],
+      foreignColumns: [clubDocuments.clubId, clubDocuments.id],
+    }),
+  ],
+);
+
+/**
+ * A client's signature of one version (0055). Never edited; goes with the
+ * client's record (CASCADE) or the club.
+ */
+export const clubDocumentSignatures = pgTable(
+  'club_document_signatures',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    documentId: uuid('document_id').notNull(),
+    versionId: uuid('version_id').notNull(),
+    memberId: uuid('member_id').notNull(),
+    /** self | guardian */
+    signerKind: text('signer_kind').notNull(),
+    signerName: text('signer_name').notNull(),
+    /** portal | desk */
+    method: text('method').notNull(),
+    /** The witnessing member of staff at the desk — by value (0039 rule 5). */
+    witnessedBy: text('witnessed_by'),
+    bodySha256: text('body_sha256').notNull(),
+    signedAt: timestamptz('signed_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('club_document_signatures_club_id_unique').on(t.clubId, t.id),
+    index('club_document_signatures_member_idx').on(t.clubId, t.memberId, t.documentId),
+    index('club_document_signatures_document_idx').on(t.clubId, t.documentId, t.signedAt),
+    uniqueIndex('club_document_signatures_once').on(
+      t.clubId,
+      t.documentId,
+      t.versionId,
+      t.memberId,
+    ),
+    foreignKey({
+      name: 'club_document_signatures_version_fk',
+      columns: [t.clubId, t.documentId, t.versionId],
+      foreignColumns: [
+        clubDocumentVersions.clubId,
+        clubDocumentVersions.documentId,
+        clubDocumentVersions.id,
+      ],
+    }),
+    foreignKey({
+      name: 'club_document_signatures_member_fk',
+      columns: [t.clubId, t.memberId],
+      foreignColumns: [clubMembers.clubId, clubMembers.id],
+    }).onDelete('cascade'),
+    // + the CHECKs, the stamp and the never-edited guard, and the derived
+    // view club_documents_missing, declared in 0055 only.
+  ],
+);

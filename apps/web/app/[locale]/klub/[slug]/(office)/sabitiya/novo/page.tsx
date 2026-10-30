@@ -8,6 +8,7 @@ import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { clubSportOptions } from '@/lib/clubs/labels';
 import { clubResources } from '@/lib/clubs/resources';
 import { clubLocations } from '@/lib/clubs/settings';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import { saveEventAction } from '../actions';
 
@@ -48,9 +49,7 @@ export default async function NewClubEventPage({
           role="status"
           className="rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink"
         >
-          {rezultat === 'readOnly'
-            ? messages.readOnly
-            : (messages.errors[rezultat] ?? messages.genericError)}
+          {rezultat === 'readOnly' ? messages.readOnly : formErrorText(messages, rezultat)}
         </p>
       )}
       {active.length === 0 ? (

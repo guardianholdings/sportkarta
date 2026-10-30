@@ -10,6 +10,7 @@ import { featureOn } from '@/lib/clubs/features';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { isUuid } from '@/lib/clubs/input';
 import { invoiceDraft } from '@/lib/clubs/invoices';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import { issueInvoiceAction } from '../actions';
 
@@ -40,7 +41,7 @@ export default async function NewInvoicePage({
   const [t, messages] = await Promise.all([getTranslations('ClubInvoices'), clubFormMessages()]);
   const doc = INVOICE_DOCUMENT;
   const label = 'block text-body-sm font-semibold text-ink';
-  const problem = rezultat ? (messages.errors[rezultat] ?? messages.genericError) : null;
+  const problem = rezultat ? formErrorText(messages, rezultat) : null;
 
   return (
     <main className="mx-auto max-w-2xl space-y-4">

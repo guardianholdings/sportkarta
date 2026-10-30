@@ -537,6 +537,23 @@ and, where an outside service is involved, by an env switch as well.
       groups-then-knockout; no seeding by hand; a team tournament is rated
       nowhere (the Elo is individual only); no third-place match.
 - [ ] **G — waivers and documents, ranks and belts**
+  - [x] **G1 — waivers and documents** (`0055`): «Документи» in the office —
+    a declaration, the house rules, a parent's consent, each asked of nobody,
+    every client, minors or clients with a trial abonnement. The text lives in
+    VERSIONS the database numbers and hashes (sha256 of the two languages'
+    own hashes, recomputable by anyone) and never edits; a new version says
+    whether it needs a new signature. Clients sign from the portal («Документи»)
+    by typing their name and ticking that they read it — a guardian signs a
+    minor's record, and only a guardian; the desk takes a witnessed signature
+    from the member card. «Липсва декларация» warns at the desk search and on
+    the member card and NEVER refuses a visit. Every signature has a
+    print-ready page (the exact text signed, who, how, when, the hash) and is in
+    the export (`signatures.csv`); it goes with the client's record when the
+    club erases it. Documents are on every tier.
+    - [ ] **Known limits (accepted for v1):** no signing on the kiosk; no
+      reminder mail to sign; a trial CLASS booking alone asks for nothing (a
+      trial abonnement does); the trainer's roster shows no warning (the
+      roster projection stays a name and a minor flag).
 - [ ] **H — club API, webhooks, MCP, door access, pixels** (pixels wait on legal)
 
 ---

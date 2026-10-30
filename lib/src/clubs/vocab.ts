@@ -104,6 +104,11 @@ export const CLUB_AUDIT_ACTIONS = [
   'tournament_drawn',
   'match_recorded',
   'name_visibility_changed',
+  'document_saved',
+  'document_versioned',
+  'document_archived',
+  'document_restored',
+  'document_signed',
 ] as const;
 export type ClubAuditAction = (typeof CLUB_AUDIT_ACTIONS)[number];
 

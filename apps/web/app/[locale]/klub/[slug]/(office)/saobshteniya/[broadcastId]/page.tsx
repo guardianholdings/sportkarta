@@ -15,6 +15,7 @@ import { listPlans } from '@/lib/clubs/sales';
 import { listClasses } from '@/lib/clubs/schedule';
 import { formatDateTime } from '@/lib/format';
 import { siteUrl } from '@/lib/seo';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import {
   cancelBroadcastAction,
@@ -144,7 +145,7 @@ export default async function ClubBroadcastPage({
             ? t(`outcome.${rezultat}`)
             : rezultat === 'readOnly'
               ? messages.readOnly
-              : (messages.errors[rezultat] ?? messages.genericError)}
+              : formErrorText(messages, rezultat)}
         </p>
       )}
 

@@ -14,6 +14,7 @@ import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { memberThread } from '@/lib/clubs/inbox';
 import { isUuid } from '@/lib/clubs/input';
 import { portalView } from '@/lib/clubs/portal';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import { memberWriteAction } from '../actions';
 
@@ -75,7 +76,7 @@ export default async function PortalThreadPage({
               ? t('portal.sent')
               : rezultat === 'readOnly'
                 ? messages.readOnly
-                : (messages.errors[rezultat] ?? messages.genericError)}
+                : formErrorText(messages, rezultat)}
           </p>
         )}
 

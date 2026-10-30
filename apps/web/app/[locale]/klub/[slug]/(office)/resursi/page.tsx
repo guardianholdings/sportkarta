@@ -17,6 +17,7 @@ import {
 } from '@/lib/clubs/resources';
 import { clubLocations } from '@/lib/clubs/settings';
 import { formatDateTime } from '@/lib/format';
+import { formErrorText, isPlainCode } from '@/lib/clubs/form-error';
 
 import {
   addBlockAction,
@@ -127,9 +128,9 @@ export default async function ClubResourcesPage({
           role="status"
           className="rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink"
         >
-          {t.has(`error.${rezultat}`)
+          {isPlainCode(rezultat) && t.has(`error.${rezultat}`)
             ? t(`error.${rezultat}`)
-            : (messages.errors[rezultat] ?? messages.genericError)}
+            : formErrorText(messages, rezultat)}
         </p>
       )}
 

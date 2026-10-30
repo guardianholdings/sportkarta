@@ -118,6 +118,10 @@ import {
   REGISTRATION_STATES,
   MATCH_STATUSES,
   TOURNAMENT_FORMATS,
+  DOCUMENT_KINDS,
+  DOCUMENT_REQUIRED_FOR,
+  SIGNATURE_METHODS,
+  SIGNER_KINDS,
   audienceFits,
   lateCancellation,
   registrationOpen,
@@ -180,6 +184,10 @@ describe('the vocabularies equal their SQL CHECKs', () => {
     ['club_event_tickets_audience_known', CLUB_PLAN_AUDIENCES],
     ['club_events_tournament_format', TOURNAMENT_FORMATS],
     ['club_tournament_matches_status_known', MATCH_STATUSES],
+    ['club_documents_kind_known', DOCUMENT_KINDS],
+    ['club_documents_required_known', DOCUMENT_REQUIRED_FOR],
+    ['club_document_signatures_signer_known', SIGNER_KINDS],
+    ['club_document_signatures_method_known', SIGNATURE_METHODS],
   ] as const)('%s', (constraint, values) => {
     expect(checkValues(constraint).sort()).toEqual([...values].sort());
   });

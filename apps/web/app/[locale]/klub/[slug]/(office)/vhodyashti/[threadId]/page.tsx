@@ -12,6 +12,7 @@ import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { threadForStaff } from '@/lib/clubs/inbox';
 import { isUuid } from '@/lib/clubs/input';
 import { formatDate } from '@/lib/format';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import { closeThreadAction, replyAction } from '../actions';
 
@@ -90,7 +91,7 @@ export default async function ClubThreadPage({
             ? t(`outcome.${rezultat}`)
             : rezultat === 'readOnly'
               ? messages.readOnly
-              : (messages.errors[rezultat] ?? messages.genericError)}
+              : formErrorText(messages, rezultat)}
         </p>
       )}
 

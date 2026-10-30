@@ -44,6 +44,7 @@ const NAV: readonly {
   { segment: 'sabitiya', key: 'events', permission: 'schedule.view' },
   { segment: 'vhodyashti', key: 'inbox', permission: 'inbox.reply' },
   { segment: 'chlenove', key: 'members', permission: 'members.view' },
+  { segment: 'dokumenti', key: 'documents', permission: 'members.view' },
   { segment: 'abonamenti', key: 'plans', permission: 'sales.manage' },
   { segment: 'uslugi', key: 'services', permission: 'schedule.manage' },
   { segment: 'plashtaniya', key: 'payments', permission: 'payments.view' },

@@ -9,6 +9,7 @@ import {
   formatEuro,
   sofiaToday,
 } from '@sportkarta/lib/clubs';
+import { SIGNER_NAME_MAX } from '@sportkarta/lib/clubs';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
@@ -30,6 +31,7 @@ import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Link } from '@/i18n/navigation';
 import { clubAuditHistory } from '@/lib/clubs/audit';
+import { memberDocuments } from '@/lib/clubs/documents';
 import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
 import { featureOn } from '@/lib/clubs/features';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
@@ -39,8 +41,10 @@ import { leadOwners, memberLead } from '@/lib/clubs/leads';
 import { memberCard } from '@/lib/clubs/members';
 import { memberWallet } from '@/lib/clubs/wallet';
 import { formatDate, formatDateTime } from '@/lib/format';
+import { formErrorText } from '@/lib/clubs/form-error';
 
 import { startThreadAction } from '../../vhodyashti/actions';
+import { deskSignAction } from '../../dokumenti/actions';
 import { issueCardAction, memberOpAction, pauseAction, walletAction } from '../actions';
 import { leadAction } from '../potentsialni/actions';
 
@@ -64,7 +68,7 @@ export default async function MemberCardPage({
   searchParams,
 }: {
   params: Promise<{ locale: string; slug: string; memberId: string }>;
-  searchParams: Promise<{ rezultat?: string }>;
+  searchParams: Promise<{ rezultat?: string; dokument?: string }>;
 }) {
   const { locale, slug, memberId } = await params;
   setRequestLocale(locale);
@@ -91,7 +95,13 @@ export default async function MemberCardPage({
       leadOwners(actor),
       canInbox ? memberThreadsForStaff(actor, memberId) : Promise.resolve([]),
     ]);
-  const { rezultat } = await searchParams;
+  const { rezultat, dokument } = await searchParams;
+  const [tDocs, documents] = await Promise.all([
+    getTranslations('ClubDocuments'),
+    memberDocuments(actor, memberId, locale),
+  ]);
+  // The club's own staff witness a signature — never an NGO admin (0055).
+  const canSign = actor.role !== null && actorCan(actor, 'documents.sign') && !member.archivedAt;
   const base = `/klub/${slug}`;
   const today = sofiaToday();
   const op = (name: string, extra?: Record<string, string>) => (
@@ -111,7 +121,7 @@ export default async function MemberCardPage({
       ? t(`card.outcome.${rezultat}`)
       : rezultat === 'readOnly'
         ? messages.readOnly
-        : (messages.errors[rezultat] ?? null)
+        : formErrorText(messages, rezultat, null)
     : null;
   const outcomeIsGood =
     rezultat === 'saved' ||
@@ -604,6 +614,107 @@ export default async function MemberCardPage({
             )}
           </section>
         </div>
+      )}
+
+      {documents.length > 0 && (
+        <section className={section} aria-labelledby="documents-h">
+          <h2 id="documents-h" className="text-h4 font-bold text-ink">
+            {tDocs('cardTitle')}
+          </h2>
+          {dokument && (
+            <p
+              role="status"
+              className={
+                dokument === 'signed'
+                  ? 'rounded-card border border-success-border bg-success-bg p-3 text-body-sm text-ink'
+                  : 'rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink'
+              }
+            >
+              {dokument === 'signed' ? tDocs('outcome.signed') : formErrorText(messages, dokument)}
+            </p>
+          )}
+          <ul className="divide-y divide-line">
+            {documents.map((doc) => (
+              <li key={doc.documentId} className="space-y-2 py-2.5">
+                <p className="flex flex-wrap items-center gap-2 text-body-sm">
+                  <Link
+                    href={`${base}/dokumenti/${doc.documentId}`}
+                    className="min-w-0 flex-1 font-semibold text-link hover:text-link-hover"
+                  >
+                    {doc.title}
+                  </Link>
+                  {doc.missing ? (
+                    <Badge tone="warning">{tDocs('missingBadge')}</Badge>
+                  ) : doc.lastSigned ? (
+                    <Badge tone="success">{tDocs('signedBadge')}</Badge>
+                  ) : null}
+                </p>
+                {doc.lastSigned && (
+                  <p className="text-caption text-text-muted">
+                    {tDocs('lastSigned', {
+                      version: doc.lastSigned.version,
+                      when: formatDateTime(doc.lastSigned.signedAt, locale),
+                      name: doc.lastSigned.signerName,
+                    })}{' '}
+                    ·{' '}
+                    <Link
+                      href={`${base}/dokumenti/podpis/${doc.lastSigned.id}`}
+                      className="font-semibold text-link hover:text-link-hover"
+                    >
+                      {tDocs('print')}
+                    </Link>
+                  </p>
+                )}
+                {canSign && (doc.missing || !doc.lastSigned) && (
+                  <details className="rounded-md border border-line p-2">
+                    <summary className="cursor-pointer text-caption font-semibold text-link">
+                      {tDocs('deskSign')}
+                    </summary>
+                    <form action={deskSignAction} className="mt-2 space-y-2">
+                      <input type="hidden" name="slug" value={slug} />
+                      <input type="hidden" name="memberId" value={memberId} />
+                      <input type="hidden" name="documentId" value={doc.documentId} />
+                      <input type="hidden" name="versionId" value={doc.versionId} />
+                      <p className="text-caption text-text-muted">
+                        {member.isMinor
+                          ? tDocs('deskSignHintMinor', {
+                              version: doc.version,
+                              guardian: member.guardianName ?? tDocs('noGuardian'),
+                            })
+                          : tDocs('deskSignHint', { version: doc.version })}
+                      </p>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <label className="block text-caption text-ink-soft">
+                          {tDocs('signerName')}
+                          <Input
+                            name="signerName"
+                            required
+                            maxLength={SIGNER_NAME_MAX}
+                            size="sm"
+                            autoComplete="off"
+                            className="mt-1"
+                          />
+                        </label>
+                      </div>
+                      <label className="flex min-h-11 items-center gap-2 text-caption text-ink">
+                        <input
+                          type="checkbox"
+                          name="accept"
+                          required
+                          className="size-4 accent-[var(--brand)]"
+                        />
+                        {tDocs('deskAccept')}
+                      </label>
+                      <Button type="submit" size="sm">
+                        {tDocs('deskSignSubmit')}
+                      </Button>
+                    </form>
+                  </details>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <section className={section} aria-labelledby="lead-h">

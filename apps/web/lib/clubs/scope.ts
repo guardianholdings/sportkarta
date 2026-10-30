@@ -77,7 +77,11 @@ export type ScopeAlias =
   | 'ev'
   | 'et'
   | 'er'
-  | 'tm';
+  | 'tm'
+  | 'doc'
+  | 'dv'
+  | 'dsg'
+  | 'dm';
 
 function staffHolds(actor: ClubActor, roles: readonly ClubRole[]): SQL {
   return sql`EXISTS (SELECT 1 FROM club_staff sc
@@ -112,6 +116,20 @@ export function clubWriteScope(
   alias: ScopeAlias,
 ): SQL {
   return sql`(${clubScope(actor, permission, alias)} AND ${clubWritableGuard(actor.clubId)})`;
+}
+
+/**
+ * clubWriteScope for an act only the club's OWN staff may do — the NGO admin
+ * branch left out: they read, and never act as the club (a desk witness on a
+ * client's waiver, 0055). Their staff role still has to hold `permission`.
+ */
+export function clubStaffWriteScope(
+  actor: ClubActor,
+  permission: ClubPermission,
+  alias: ScopeAlias,
+): SQL {
+  return sql`(${sql.raw(alias)}.club_id = ${actor.clubId}::uuid
+    AND ${staffHolds(actor, rolesWith(permission))} AND ${clubWritableGuard(actor.clubId)})`;
 }
 
 /**
