@@ -38,6 +38,25 @@ export class SlidingWindowRateLimiter {
     return { allowed: true, retryAfterMs: 0 };
   }
 
+  /** Hits still inside the window for `key` — a read, it charges nothing. */
+  count(key: string): number {
+    const windowStart = this.now() - this.windowMs;
+    return (this.hits.get(key) ?? []).filter((ts) => ts > windowStart).length;
+  }
+
+  /**
+   * Whether the next `check` would be refused — a read, it charges nothing.
+   * For limiters that count only FAILURES and must not let a burst of
+   * successful requests trip them (the club API's failed-key cap).
+   */
+  wouldRefuse(key: string): RateLimitResult {
+    const t = this.now();
+    const recent = (this.hits.get(key) ?? []).filter((ts) => ts > t - this.windowMs);
+    if (recent.length < this.limit) return { allowed: true, retryAfterMs: 0 };
+    const oldest = recent[0] ?? t;
+    return { allowed: false, retryAfterMs: Math.max(0, oldest + this.windowMs - t) };
+  }
+
   /**
    * Hand back the most recent allowed hit. For limiters that count only
    * FAILURES: take a slot before the attempt runs (so a burst of parallel

@@ -28,6 +28,12 @@ export interface ClubActor {
   role: ClubRole | null;
   /** users.role = 'admin' at the time of the request. */
   ngoAdmin: boolean;
+  /**
+   * Set when the request came through a club API key (0057): the key acts as
+   * the member of staff who created it — this actor — with their role as it
+   * is now. The audit log records it as 'api', with the key's id.
+   */
+  apiKeyId?: string;
 }
 
 /** Closed alias set, rendered with sql.raw — never caller text. */
@@ -85,7 +91,10 @@ export type ScopeAlias =
   | 'rl'
   | 'rk'
   | 'ra'
-  | 'rp';
+  | 'rp'
+  | 'ak'
+  | 'we'
+  | 'wd';
 
 function staffHolds(actor: ClubActor, roles: readonly ClubRole[]): SQL {
   return sql`EXISTS (SELECT 1 FROM club_staff sc

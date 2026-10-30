@@ -24,7 +24,9 @@ export type ClubAuditActor =
   | { kind: 'staff'; actor: ClubActor }
   | { kind: 'member'; userId: string }
   | { kind: 'system' }
-  | { kind: 'kiosk' };
+  | { kind: 'kiosk' }
+  /** A door controller (0057): no person, a device. */
+  | { kind: 'door'; deviceId: string };
 
 export interface ClubAuditEntryInput {
   clubId: string;
@@ -37,10 +39,15 @@ export interface ClubAuditEntryInput {
 function actorColumns(by: ClubAuditActor): { id: string | null; kind: string } {
   switch (by.kind) {
     case 'staff':
+      // Through an API key, the key's creator acts — recorded as 'api' (0057).
       // An NGO admin acting without a staff role is recorded as such.
       return {
         id: by.actor.userId,
-        kind: by.actor.role === null && by.actor.ngoAdmin ? 'ngo_admin' : 'staff',
+        kind: by.actor.apiKeyId
+          ? 'api'
+          : by.actor.role === null && by.actor.ngoAdmin
+            ? 'ngo_admin'
+            : 'staff',
       };
     case 'member':
       return { id: by.userId, kind: 'member' };
@@ -48,7 +55,16 @@ function actorColumns(by: ClubAuditActor): { id: string | null; kind: string } {
       return { id: null, kind: 'system' };
     case 'kiosk':
       return { id: null, kind: 'kiosk' };
+    case 'door':
+      return { id: null, kind: 'door' };
   }
+}
+
+/** Which key or which door, beside the entry's own detail — ids only. */
+function viaDetail(by: ClubAuditActor): ClubAuditDetail {
+  if (by.kind === 'staff' && by.actor.apiKeyId) return { api_key: by.actor.apiKeyId };
+  if (by.kind === 'door') return { device: by.deviceId };
+  return {};
 }
 
 export async function recordClubAudit(db: SqlRunner, entry: ClubAuditEntryInput): Promise<void> {
@@ -56,7 +72,8 @@ export async function recordClubAudit(db: SqlRunner, entry: ClubAuditEntryInput)
   await db.execute(sql`
     INSERT INTO club_audit (club_id, actor_id, actor_kind, action, subject_member_id, detail)
     VALUES (${entry.clubId}::uuid, ${actor.id}, ${actor.kind}, ${entry.action},
-            ${entry.subjectMemberId ?? null}::uuid, ${JSON.stringify(entry.detail ?? {})}::jsonb)
+            ${entry.subjectMemberId ?? null}::uuid,
+            ${JSON.stringify({ ...(entry.detail ?? {}), ...viaDetail(entry.by) })}::jsonb)
   `);
 }
 

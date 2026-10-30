@@ -33,6 +33,7 @@ import {
   CLUB_CHECKIN_METHODS,
   CLUB_NOTIFICATION_KINDS,
   CLUB_PERMISSIONS,
+  PASSPORT_CHECKIN_METHODS,
   CLUB_PLAN_AUDIENCES,
   CLUB_PLAN_KINDS,
   CLUB_ROLES,
@@ -101,6 +102,15 @@ import {
   publicRatingVisible,
   roundRating,
   BROADCAST_SHARE_OF_BULK,
+  CLUB_API_SCOPES,
+  CLUB_API_SCOPE_PERMISSION,
+  CLUB_WEBHOOK_DELIVERY_ERRORS,
+  CLUB_WEBHOOK_DELIVERY_STATES,
+  CLUB_WEBHOOK_EVENTS,
+  CLUB_WEBHOOK_EVENT_SCOPE,
+  DOOR_ACCESS_RULES,
+  WEBHOOK_MAX_ATTEMPTS,
+  webhookRetryAfterSeconds,
   BROADCAST_STATUSES,
   CLUB_CHANNELS,
   SMS_NOTIFY_KINDS,
@@ -158,7 +168,16 @@ function checkValues(constraint: string): string[] {
   expect(at, constraint).toBeGreaterThan(-1);
   const open = text.indexOf(' IN (', at);
   const close = text.indexOf(')', open + 5);
-  return [...text.slice(open + 5, close).matchAll(/'([a-z0-9_]+)'/g)].map((m) => m[1] as string);
+  return [...text.slice(open + 5, close).matchAll(/'([a-z0-9_.]+)'/g)].map((m) => m[1] as string);
+}
+
+/** The quoted values of `"<constraint>" CHECK (… <@ ARRAY[…])` — the LAST definition. */
+function arrayValues(constraint: string): string[] {
+  const text = migrationText();
+  const at = text.lastIndexOf(`"${constraint}" CHECK`);
+  expect(at, constraint).toBeGreaterThan(-1);
+  const array = /ARRAY\[([^\]]*)\]/.exec(text.slice(at));
+  return [...(array?.[1] ?? '').matchAll(/'([a-z0-9_.:]+)'/g)].map((m) => m[1] as string);
 }
 
 describe('the vocabularies equal their SQL CHECKs', () => {
@@ -198,8 +217,28 @@ describe('the vocabularies equal their SQL CHECKs', () => {
     ['club_ranks_colour_known', BELT_COLOURS],
     ['club_ranks_accent_known', BELT_COLOURS],
     ['club_member_ranks_reason_known', RANK_AWARD_REASONS],
+    ['club_webhook_deliveries_event_known', CLUB_WEBHOOK_EVENTS],
+    ['club_webhook_deliveries_state_known', CLUB_WEBHOOK_DELIVERY_STATES],
+    ['club_webhook_deliveries_error_known', CLUB_WEBHOOK_DELIVERY_ERRORS],
+    ['club_kiosk_devices_rule_for_doors', DOOR_ACCESS_RULES],
   ] as const)('%s', (constraint, values) => {
     expect(checkValues(constraint).sort()).toEqual([...values].sort());
+  });
+
+  it.each([
+    ['club_api_keys_scopes_known', CLUB_API_SCOPES],
+    ['club_webhook_endpoints_events_known', CLUB_WEBHOOK_EVENTS],
+  ] as const)('%s (an array CHECK)', (constraint, values) => {
+    expect(arrayValues(constraint).sort()).toEqual([...values].sort());
+  });
+
+  it('the passport methods equal club_checkins_only_scans_reach_the_passport', () => {
+    const text = migrationText();
+    const at = text.lastIndexOf('"club_checkins_only_scans_reach_the_passport" CHECK');
+    const list = /"method" IN \(([^)]*)\)/.exec(text.slice(at));
+    expect([...(list?.[1] ?? '').matchAll(/'([a-z_]+)'/g)].map((m) => m[1]).sort()).toEqual(
+      [...PASSPORT_CHECKIN_METHODS].sort(),
+    );
   });
 
   it('club_broadcasts_audience_known: the filters, and the audience kinds', () => {
@@ -1248,5 +1287,46 @@ describe('rank templates (0056)', () => {
     expect(isRankTemplateKey('judo')).toBe(true);
     expect(isRankTemplateKey('toString')).toBe(false);
     expect(isRankTemplateKey('')).toBe(false);
+  });
+});
+
+describe('the club API and webhooks (0057)', () => {
+  it('names a real office permission for every scope', () => {
+    for (const scope of CLUB_API_SCOPES) {
+      expect(CLUB_PERMISSIONS).toContain(CLUB_API_SCOPE_PERMISSION[scope]);
+    }
+    expect(Object.keys(CLUB_API_SCOPE_PERMISSION).sort()).toEqual([...CLUB_API_SCOPES].sort());
+  });
+
+  it('names the scope that fetches what every event points at', () => {
+    for (const event of CLUB_WEBHOOK_EVENTS) {
+      expect(CLUB_API_SCOPES).toContain(CLUB_WEBHOOK_EVENT_SCOPE[event]);
+    }
+  });
+
+  it('a read scope never stands for a write permission', () => {
+    for (const scope of CLUB_API_SCOPES.filter((s) => s.endsWith(':read'))) {
+      expect(CLUB_API_SCOPE_PERMISSION[scope]).toMatch(/\.view$/);
+    }
+  });
+
+  it('backs off over about a day and a half, then gives up', () => {
+    const waits: number[] = [];
+    for (let attempts = 1; attempts < WEBHOOK_MAX_ATTEMPTS; attempts += 1) {
+      const wait = webhookRetryAfterSeconds(attempts);
+      expect(wait).not.toBeNull();
+      waits.push(wait ?? 0);
+    }
+    expect(waits).toEqual([...waits].sort((a, b) => a - b));
+    const total = waits.reduce((sum, wait) => sum + wait, 0);
+    expect(total).toBeGreaterThan(24 * 3600);
+    expect(total).toBeLessThan(48 * 3600);
+    expect(webhookRetryAfterSeconds(WEBHOOK_MAX_ATTEMPTS)).toBeNull();
+    expect(webhookRetryAfterSeconds(WEBHOOK_MAX_ATTEMPTS + 3)).toBeNull();
+    expect(webhookRetryAfterSeconds(0)).toBe(60);
+  });
+
+  it('can never record more attempts than the CHECK admits', () => {
+    expect(WEBHOOK_MAX_ATTEMPTS).toBeLessThanOrEqual(50);
   });
 });

@@ -123,6 +123,13 @@ export type {
   StoredPushSubscription,
 } from './clubs/messaging.js';
 export { inboxNoticeOf, leadsDue } from './clubs/inbox.js';
+export {
+  claimWebhookDeliveries,
+  disableFailingEndpoints,
+  pruneClubIntegrations,
+  settleWebhookDelivery,
+} from './clubs/webhooks.js';
+export type { DueWebhookDelivery, WebhookAttempt } from './clubs/webhooks.js';
 export type { InboxNotice, LeadsDue } from './clubs/inbox.js';
 export {
   eventPlacesForMail,

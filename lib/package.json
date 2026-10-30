@@ -18,6 +18,7 @@
     "./email": "./src/email/index.ts",
     "./error-report": "./src/error-report/index.ts",
     "./ical": "./src/ical/index.ts",
+    "./net": "./src/net/index.ts",
     "./moderation": "./src/moderation/index.ts",
     "./import-municipal": "./src/import-municipal/index.ts",
     "./opendata": "./src/opendata/index.ts",

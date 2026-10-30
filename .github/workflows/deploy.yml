@@ -304,6 +304,9 @@ jobs:
           SMS_TRANSPORT=${{ vars.SMS_TRANSPORT }}
           SMS_SENDER_ID=${{ vars.SMS_SENDER_ID }}
           SMS_API_KEY=${{ secrets.SMS_API_KEY }}
+          # The club API, webhooks, MCP and door access (0057): a VARIABLE
+          # ("true" = on). The webhook signing master is derived below.
+          CLUB_API_ENABLED=${{ vars.CLUB_API_ENABLED }}
           CLUB_BULK_MAIL_DAILY_LIMIT=${{ vars.CLUB_BULK_MAIL_DAILY_LIMIT || '200' }}
           DONATION_IBAN=${{ vars.DONATION_IBAN }}
           DONATION_BENEFICIARY=${{ vars.DONATION_BENEFICIARY }}
@@ -327,6 +330,7 @@ jobs:
           AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
           CHECKIN_TOKEN_SECRET: ${{ secrets.CHECKIN_TOKEN_SECRET }}
           PUSH_VAPID_SECRET: ${{ secrets.PUSH_VAPID_SECRET }}
+          CLUB_WEBHOOK_SECRET: ${{ secrets.CLUB_WEBHOOK_SECRET }}
           ADMIN_TOOLS_PASSWORD: ${{ secrets.ADMIN_TOOLS_PASSWORD }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ vars.SMTP_PORT || '587' }}
@@ -353,6 +357,17 @@ jobs:
           vapid="${PUSH_VAPID_SECRET:-}"
           if [ -z "$vapid" ] && [ -n "${AUTH_SECRET:-}" ]; then
             vapid=$(printf '%s' 'pops/push-vapid/v1' | openssl dgst -sha256 -hmac "$AUTH_SECRET" -r | cut -d' ' -f1)
+          fi
+          # Club webhooks (0057) sign with secrets derived per endpoint from
+          # CLUB_WEBHOOK_SECRET, which receivers have stored — so it is derived
+          # from AUTH_SECRET the same way, stable across deploys, under its own
+          # label. No AUTH_SECRET: empty, and webhooks stay off. ROTATING
+          # AUTH_SECRET changes every endpoint's signing secret too: each club
+          # must then rotate its endpoints in the office and give its
+          # receivers the new secret, or their signature checks fail.
+          webhooks="${CLUB_WEBHOOK_SECRET:-}"
+          if [ -z "$webhooks" ] && [ -n "${AUTH_SECRET:-}" ]; then
+            webhooks=$(printf '%s' 'pops/club-webhooks/v1' | openssl dgst -sha256 -hmac "$AUTH_SECRET" -r | cut -d' ' -f1)
           fi
           # The Umami and GlitchTip dashboards sit behind HTTP basic auth
           # (user "admin"). With no ADMIN_TOOLS_PASSWORD secret the hash is of a
@@ -381,6 +396,7 @@ jobs:
           {
             printf "CHECKIN_TOKEN_SECRET='%s'\n" "$checkin"
             printf "PUSH_VAPID_SECRET='%s'\n" "$vapid"
+            printf "CLUB_WEBHOOK_SECRET='%s'\n" "$webhooks"
             printf "ADMIN_TOOLS_HASH='%s'\n" "$hash"
             printf "GLITCHTIP_EMAIL_URL='%s'\n" "$gt_mail"
             printf "GLITCHTIP_FROM_EMAIL='%s'\n" "${SMTP_FROM:-}"

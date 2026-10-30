@@ -64,6 +64,7 @@ export const CLUB_PERMISSIONS = [
   'ranks.view',
   'ranks.manage',
   'ranks.award',
+  'api.manage',
 ] as const;
 export type ClubPermission = (typeof CLUB_PERMISSIONS)[number];
 
@@ -152,6 +153,11 @@ const MATRIX: Readonly<Record<ClubPermission, readonly ClubRole[]>> = {
    * trainers and management. The club's own staff only (clubStaffWriteScope).
    */
   'ranks.award': ['owner', 'manager', 'trainer'],
+  /**
+   * API keys, webhooks and door controllers (0057). A key acts as the person
+   * who created it, so only management may create one — and only for itself.
+   */
+  'api.manage': MANAGEMENT,
 };
 
 export function isClubRole(value: unknown): value is ClubRole {

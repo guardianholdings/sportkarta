@@ -293,6 +293,21 @@ browser) in a MANUAL STEPS list at the end of the session.
   club's own staff grade (`clubStaffWriteScope`, no NGO admin). Belt colours
   are a closed palette of `--belt-*` tokens. A trainer reads the ladder pages
   through the projection in `ranks.ts` (`progressRows`, a name and counts).
+  Integrations (wave H1, `0057`, `CLUB_API_ENABLED` ships off): a club API
+  key (`skbk_`, SHA-256 only) ACTS AS ITS CREATOR — `verifyClubApiKey` returns
+  a `ClubActor` for that staff member with their role as of now (and
+  `apiKeyId`, which the audit log records as actor kind 'api'), so the API,
+  the MCP connector and the office run the SAME scoped functions; the key's
+  scopes only narrow it, in code, before any statement runs. Webhooks are an
+  outbox the database fills (`club_webhook_enqueue` triggers, FOR KEY SHARE so
+  a removed endpoint never fails a desk write); the worker posts them, and
+  every request to an address somebody typed goes through `safePost`
+  (`@sportkarta/lib/net`: https, public addresses checked in the socket's own
+  lookup, no redirects) — never a bare fetch. Webhook secrets are derived
+  from `CLUB_WEBHOOK_SECRET`, never stored. A door is a `club_kiosk_devices`
+  row of kind 'door' whose secret has a kiosk cookie's shape, so EVERY device
+  lookup names its kind; a door is the one check-in that may say no (the
+  club's rule), and a refused door records nothing.
   Form-error lookups go through `formErrorText` (own keys only): the
   `ClubFormMessages` catalogue must stay a PLAIN object, because it crosses
   into client components. Writes need `clubWritableSql` (active and paid or

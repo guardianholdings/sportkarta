@@ -16,6 +16,7 @@ export * from './events.js';
 export * from './features.js';
 export * from './import.js';
 export * from './inbox.js';
+export * from './integrations.js';
 export * from './invoice-document.js';
 export * from './invoices.js';
 export * from './jobs.js';

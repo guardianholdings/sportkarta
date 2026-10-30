@@ -6,7 +6,7 @@ import type { IsoDate } from './dates.js';
  * every list here equal to its constraint, so the two copies cannot drift.
  */
 
-/** club_audit_action_known (0039, widened in 0045, 0046, 0048–0054). */
+/** club_audit_action_known (0039, widened in 0045, 0046, 0048–0057). */
 export const CLUB_AUDIT_ACTIONS = [
   'club_applied',
   'settings_changed',
@@ -117,25 +117,52 @@ export const CLUB_AUDIT_ACTIONS = [
   'rank_removed',
   'rank_awarded',
   'rank_revoked',
+  'api_key_created',
+  'api_key_revoked',
+  'webhook_saved',
+  'webhook_disabled',
+  'webhook_enabled',
+  'webhook_removed',
+  'webhook_secret_rotated',
+  'door_device_created',
+  'door_device_revoked',
 ] as const;
 export type ClubAuditAction = (typeof CLUB_AUDIT_ACTIONS)[number];
 
-/** club_audit_actor_kind_known (0039). */
-export const CLUB_AUDIT_ACTOR_KINDS = ['staff', 'member', 'ngo_admin', 'system', 'kiosk'] as const;
+/** club_audit_actor_kind_known (0039, widened in 0057: a key's creator through the key, a door). */
+export const CLUB_AUDIT_ACTOR_KINDS = [
+  'staff',
+  'member',
+  'ngo_admin',
+  'system',
+  'kiosk',
+  'api',
+  'door',
+] as const;
 export type ClubAuditActorKind = (typeof CLUB_AUDIT_ACTOR_KINDS)[number];
 
-/** club_checkins_method_known (0043). */
-export const CLUB_CHECKIN_METHODS = ['qr_kiosk', 'qr_member', 'card', 'desk', 'api'] as const;
+/** club_checkins_method_known (0043, widened in 0057: a door controller's scan). */
+export const CLUB_CHECKIN_METHODS = [
+  'qr_kiosk',
+  'qr_member',
+  'card',
+  'desk',
+  'api',
+  'door',
+] as const;
 export type ClubCheckinMethod = (typeof CLUB_CHECKIN_METHODS)[number];
 
 /**
  * The methods that may write a member's training log (0043): a QR or card
- * scan at the club. A desk tick never does — only the staff member vouched.
+ * scan at the club — at the desk, or at a door controller (0057). A desk tick
+ * never does (only the staff member vouched), and neither does an API call
+ * (only an integration did).
  */
 export const PASSPORT_CHECKIN_METHODS: readonly ClubCheckinMethod[] = [
   'qr_kiosk',
   'qr_member',
   'card',
+  'door',
 ];
 
 /**

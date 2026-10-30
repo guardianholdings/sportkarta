@@ -160,6 +160,10 @@ export const clubKioskDevices = pgTable(
     revokedAt: timestamptz('revoked_at'),
     createdBy: text('created_by'),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
+    /** kiosk (a desk tablet, paired by code) | door (a controller, 0057). */
+    kind: text('kind').notNull().default('kiosk'),
+    /** A door's rule: member | covered (0057). NULL for a kiosk. */
+    accessRule: text('access_rule'),
   },
   (t) => [
     foreignKey({
@@ -1980,5 +1984,137 @@ export const clubMemberRanks = pgTable(
     // + club_member_ranks_current_idx (with its DESC sort keys), the partial
     // club_member_ranks_once, the CHECKs, the stamp, the never-edited guard
     // and the derived view club_member_rank_progress — 0056 only.
+  ],
+);
+
+/**
+ * A club's API key (0057): SHA-256 only, six characters to tell keys apart,
+ * closed scopes. Acts as the member of staff who created it, by value.
+ */
+export const clubApiKeys = pgTable(
+  'club_api_keys',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    /** SHA-256 hex of the key — never the key (CHECK-pinned to 64 hex). */
+    keyHash: text('key_hash').notNull(),
+    prefix: text('prefix').notNull(),
+    scopes: text('scopes').array().notNull(),
+    /** The creator — by value (0039 rule 5); the key acts as them. */
+    createdBy: text('created_by').notNull(),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    lastUsedAt: timestamptz('last_used_at'),
+    revokedAt: timestamptz('revoked_at'),
+    /** By value (0039 rule 5). */
+    revokedBy: text('revoked_by'),
+  },
+  (t) => [
+    unique('club_api_keys_club_id_unique').on(t.clubId, t.id),
+    uniqueIndex('club_api_keys_hash_unique').on(t.keyHash),
+    // + the partial club_api_keys_club_live_idx and the CHECKs — 0057 only.
+  ],
+);
+
+/** One row per (key, Idempotency-Key) for a day (0057): an outcome, never a body. */
+export const clubApiIdempotency = pgTable(
+  'club_api_idempotency',
+  {
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    keyId: uuid('key_id').notNull(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    requestHash: text('request_hash').notNull(),
+    /** pending | done */
+    state: text('state').notNull().default('pending'),
+    statusCode: smallint('status_code'),
+    /** member | booking | checkin */
+    resultKind: text('result_kind'),
+    resultId: text('result_id'),
+    errorCode: text('error_code'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ name: 'club_api_idempotency_pkey', columns: [t.keyId, t.idempotencyKey] }),
+    index('club_api_idempotency_key_idx').on(t.clubId, t.keyId),
+    index('club_api_idempotency_created_idx').on(t.createdAt),
+    foreignKey({
+      name: 'club_api_idempotency_key_fk',
+      columns: [t.clubId, t.keyId],
+      foreignColumns: [clubApiKeys.clubId, clubApiKeys.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * Where a club wants its events posted (0057). The signing secret is derived
+ * from CLUB_WEBHOOK_SECRET, the id and secret_version — never stored.
+ */
+export const clubWebhookEndpoints = pgTable(
+  'club_webhook_endpoints',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    url: text('url').notNull(),
+    events: text('events').array().notNull(),
+    description: text('description'),
+    secretVersion: integer('secret_version').notNull().default(1),
+    secretRotatedAt: timestamptz('secret_rotated_at'),
+    /** By value (0039 rule 5). */
+    createdBy: text('created_by').notNull(),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    disabledAt: timestamptz('disabled_at'),
+    /** manual | failing */
+    disabledReason: text('disabled_reason'),
+    failingSince: timestamptz('failing_since'),
+    lastSuccessAt: timestamptz('last_success_at'),
+  },
+  (t) => [
+    unique('club_webhook_endpoints_club_id_unique').on(t.clubId, t.id),
+    // + the partial club_webhook_endpoints_live_idx and the CHECKs — 0057 only.
+  ],
+);
+
+/**
+ * The outbox and delivery log (0057), written only by the enqueue triggers;
+ * thin — the event and the ids.
+ */
+export const clubWebhookDeliveries = pgTable(
+  'club_webhook_deliveries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    endpointId: uuid('endpoint_id').notNull(),
+    event: text('event').notNull(),
+    subjectId: text('subject_id').notNull(),
+    /** The client record, by value: member.deleted names one that is gone. */
+    memberId: uuid('member_id'),
+    occurredAt: timestamptz('occurred_at').notNull().defaultNow(),
+    /** pending | delivered | failed */
+    state: text('state').notNull().default('pending'),
+    attempts: smallint('attempts').notNull().default(0),
+    nextAttemptAt: timestamptz('next_attempt_at').notNull().defaultNow(),
+    lastAttemptAt: timestamptz('last_attempt_at'),
+    lastStatus: smallint('last_status'),
+    lastError: text('last_error'),
+    deliveredAt: timestamptz('delivered_at'),
+  },
+  (t) => [
+    index('club_webhook_deliveries_endpoint_idx').on(t.clubId, t.endpointId, t.occurredAt),
+    index('club_webhook_deliveries_occurred_idx').on(t.occurredAt),
+    foreignKey({
+      name: 'club_webhook_deliveries_endpoint_fk',
+      columns: [t.clubId, t.endpointId],
+      foreignColumns: [clubWebhookEndpoints.clubId, clubWebhookEndpoints.id],
+    }).onDelete('cascade'),
+    // + the partial club_webhook_deliveries_due_idx, the CHECKs and the
+    // enqueue triggers on five tables — 0057 only.
   ],
 );

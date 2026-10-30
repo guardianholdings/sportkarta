@@ -589,6 +589,52 @@ and, where an outside service is involved, by an env switch as well.
       demoted and re-awarded starts counting again; belts never reach the
       public passport (that would need the passport's own opt-in, Stage 5).
 - [ ] **H — club API, webhooks, MCP, door access, pixels** (pixels wait on legal)
+  - [x] **H1 — API, webhooks, MCP connector, doors** (`0057`): «Интеграции» in
+    the office (management; Pro tier; `CLUB_API_ENABLED`, ships off). API
+    keys (`skbk_…`, shown once, SHA-256 only, closed scopes) ACT AS THE STAFF
+    MEMBER WHO CREATED THEM — every request runs the office's own scoped
+    statements with that person's role as it is now, narrowed to the key's
+    scopes; a creator who leaves the club takes their keys' power with them.
+    REST under `/api/clubs/v1` (members, classes, bookings, check-ins,
+    payments; Bearer only, never CORS-open, `no-store`, 120 a minute per key,
+    a stable error envelope, optional `Idempotency-Key` that records an
+    outcome and the id it made — never a response body). Webhooks are an
+    OUTBOX the database fills by trigger in the transaction that made the
+    change (every path is covered, a rolled-back change announces nothing):
+    thin events (type, ids, `seq`), signed `POPS-Signature` with a per-endpoint
+    secret DERIVED from `CLUB_WEBHOOK_SECRET` (deploy.yml derives it from
+    `AUTH_SECRET`; shown once, rotation signs with both for a day), sent by
+    the worker every minute through `safePost` — https, PUBLIC addresses only,
+    checked at connection time (DNS rebinding), no redirects, 10 s — retried
+    8 times over a day and a half; three failing days disable an endpoint;
+    `member.deleted` is held for a disabled endpoint so an erasure reaches the
+    integration. The MCP connector (`/api/clubs/mcp`, stateless Streamable
+    HTTP, JSON only) offers the same functions as tools filtered by the key's
+    scopes, writes annotated so the assistant asks first — the club connects
+    ITS OWN assistant; POPS sends nothing to an AI provider. Door controllers
+    (`club_kiosk_devices.kind = 'door'`, `skbd_…` token) post a card or member
+    QR to `/api/clubs/v1/access/check`; the club's rule ('member' | 'covered')
+    decides, an allowed entry IS the check-in (method 'door', which reaches a
+    linked, consenting member's training log like a card at the desk), a
+    refused one records nothing. Developer documentation in the office.
+    - [ ] **Known limits (accepted for v1):** the MCP connector authenticates
+      with a key in a header (Claude Code, Claude Desktop through a bridge,
+      most agent frameworks) — not OAuth, so clients that only accept OAuth
+      connectors cannot use it yet; no vendor adapters for Salto KS or WebLock
+      (partner credentials, manual step) — any controller or bridge that can
+      make an HTTPS call works; no "send a test event" button (create a test
+      record instead); webhook delivery order is not guaranteed (`seq` orders
+      them); `member.deleted` can still be lost after 8 failures or the 30-day
+      prune, so integrators are told to reconcile against the member list;
+      a door has no anti-passback — a second scan for the same class or day
+      opens again (a screenshot of a member QR works for about two minutes);
+      a webhook endpoint outlives the manager who added it (the office shows
+      who did, and flags it once they have left); a
+      key whose creator is an NGO admin as well as club staff keeps the
+      admin's reach inside that club (it never exceeds what the admin can
+      already do in the office).
+  - [ ] **H2 — GA4 / Meta Pixel on the club's public pages** (waits on the
+    lawyer's joint-controller sign-off; `CLUB_PIXELS_ENABLED`, ships off)
 
 ---
 

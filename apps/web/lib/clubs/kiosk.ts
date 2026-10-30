@@ -22,6 +22,10 @@ import { clubActorMay, clubScope, clubWriteScope, type ClubActor } from './scope
  * request looks the device up by primary key and compares digests in constant
  * time. Revoking the device stops it on its next refresh. The tablet then
  * shows a rotating QR naming the LOCATION (v2~loc token) — no person, ever.
+ *
+ * A DOOR CONTROLLER (0057) lives in the same table with kind = 'door', and its
+ * secret has a tablet cookie's shape — so every lookup here names the kind,
+ * and apps/web/lib/clubs/doors.ts names the other one.
  */
 
 interface SqlRunner {
@@ -53,7 +57,7 @@ export async function listKioskDevices(actor: ClubActor): Promise<KioskDevice[]>
     SELECT kd.id, kd.name, l.name AS location_name, kd.paired_at, kd.revoked_at,
            (kd.pairing_expires_at > now()) AS code_live, kd.last_seen_at
       FROM club_kiosk_devices kd JOIN club_locations l ON l.id = kd.location_id
-     WHERE ${clubScope(actor, 'kiosk.manage', 'kd')}
+     WHERE ${clubScope(actor, 'kiosk.manage', 'kd')} AND kd.kind = 'kiosk'
      ORDER BY kd.revoked_at NULLS FIRST, kd.created_at DESC
   `);
   return result.rows.map((row) => ({
@@ -123,8 +127,8 @@ export async function newPairingCode(
     UPDATE club_kiosk_devices kd
        SET pairing_code_hash = ${pairingCodeHash(actor.clubId, code)},
            pairing_expires_at = now() + make_interval(mins => ${PAIRING_MINUTES}::int)
-     WHERE kd.id = ${deviceId}::uuid AND kd.paired_at IS NULL AND kd.revoked_at IS NULL
-       AND ${clubWriteScope(actor, 'kiosk.manage', 'kd')}
+     WHERE kd.id = ${deviceId}::uuid AND kd.kind = 'kiosk' AND kd.paired_at IS NULL
+       AND kd.revoked_at IS NULL AND ${clubWriteScope(actor, 'kiosk.manage', 'kd')}
      RETURNING kd.id
   `);
   return updated.rows.length > 0 ? code : null;
@@ -153,7 +157,8 @@ export async function pairKiosk(
          SET secret_hash = ${sha256Hex(secret)}, paired_at = now(), last_seen_at = now(),
              pairing_code_hash = NULL, pairing_expires_at = NULL
        WHERE club_id = ${clubId}::uuid AND pairing_code_hash = ${pairingCodeHash(clubId, code)}
-         AND pairing_expires_at > now() AND revoked_at IS NULL AND paired_at IS NULL
+         AND kind = 'kiosk' AND pairing_expires_at > now() AND revoked_at IS NULL
+         AND paired_at IS NULL
        RETURNING id
     `);
     const deviceId = text(paired.rows[0]?.id);
@@ -197,7 +202,7 @@ export async function kioskFromCookie(
       FROM club_kiosk_devices kd
       JOIN clubs c ON c.id = kd.club_id
       JOIN club_locations l ON l.id = kd.location_id
-     WHERE kd.id = ${deviceId}::uuid AND c.slug = ${clubSlug}
+     WHERE kd.id = ${deviceId}::uuid AND c.slug = ${clubSlug} AND kd.kind = 'kiosk'
        AND kd.revoked_at IS NULL AND kd.secret_hash IS NOT NULL
   `);
   const row = result.rows[0];
@@ -229,7 +234,7 @@ export async function revokeKiosk(
     const updated = await tx.execute(sql`
       UPDATE club_kiosk_devices kd
          SET revoked_at = now(), pairing_code_hash = NULL, pairing_expires_at = NULL
-       WHERE kd.id = ${deviceId}::uuid AND kd.revoked_at IS NULL
+       WHERE kd.id = ${deviceId}::uuid AND kd.kind = 'kiosk' AND kd.revoked_at IS NULL
          AND ${clubScope(actor, 'kiosk.manage', 'kd')}
          AND ${clubActorMay(actor, 'kiosk.manage', { write: false })}
        RETURNING kd.id

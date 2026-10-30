@@ -3198,7 +3198,8 @@
       "feedback": "Ratings",
       "events": "Events",
       "documents": "Documents",
-      "ranks": "Belts"
+      "ranks": "Belts",
+      "integrations": "Integrations"
     },
     "map": "Back to the map",
     "profile": "My profile",
@@ -3948,7 +3949,9 @@
       "system": "The system",
       "kiosk": "The tablet",
       "member": "The member",
-      "ngo": "The association"
+      "ngo": "The association",
+      "door": "The door",
+      "api": "{name} via the API"
     },
     "importCta": "Import CSV",
     "leadsCta": "Prospects"
@@ -4063,7 +4066,16 @@
       "rank_moved": "Rank moved",
       "rank_removed": "Rank removed",
       "rank_awarded": "Rank awarded",
-      "rank_revoked": "Rank revoked"
+      "rank_revoked": "Rank revoked",
+      "api_key_created": "API key created",
+      "api_key_revoked": "API key revoked",
+      "webhook_saved": "Webhook address added",
+      "webhook_disabled": "Webhook address stopped",
+      "webhook_enabled": "Webhook address restarted",
+      "webhook_removed": "Webhook address removed",
+      "webhook_secret_rotated": "New webhook secret",
+      "door_device_created": "Door added",
+      "door_device_revoked": "Door removed"
     }
   },
   "ClubSales": {
@@ -6362,6 +6374,212 @@
           "gup1": "Red-black belt (1st gup)",
           "dan1": "Black belt (1st dan)"
         }
+      }
+    }
+  },
+  "ClubIntegrations": {
+    "title": "Integrations",
+    "intro": "Connect the club to other systems — your own software, automations, an AI assistant, or a door or turnstile. Every key acts for the member of staff who created it, and can do only what they can do in the office today.",
+    "upsell": "The API, webhooks, the AI assistant and access control are part of the “{tier}” plan.",
+    "notEnabled": "Integrations are not switched on in POPS yet.",
+    "docsLink": "Developer documentation",
+    "never": "never",
+    "outcome": {
+      "keyRevoked": "The key was revoked.",
+      "webhookDisabled": "Sending stopped.",
+      "webhookEnabled": "Sending restarted.",
+      "webhookRemoved": "The address was removed.",
+      "doorRevoked": "The door was removed."
+    },
+    "errors": {
+      "feature_off": "The club's plan does not include this.",
+      "name_invalid": "Enter a name of up to 60 characters, with no key or secret in it.",
+      "scopes_none": "Choose at least one permission.",
+      "too_many_keys": "The club already has 10 keys. Revoke one you do not need and try again.",
+      "not_allowed": "You may not do this, or the club is not active.",
+      "not_configured": "Webhooks are not set up in POPS yet.",
+      "url_invalid": "Enter a valid address of up to 500 characters.",
+      "url_not_https": "The address must start with https://.",
+      "url_credentials": "The address may not contain a user name and password.",
+      "url_port": "Only the standard port and 8443 are allowed.",
+      "url_host": "The address must be a public server name — not an IP address, localhost or an internal network.",
+      "events_none": "Choose at least one event.",
+      "too_many_endpoints": "The club already has 5 addresses. Remove one you do not need and try again.",
+      "location_invalid": "Choose a location.",
+      "rule_invalid": "Choose when the door opens.",
+      "invalid": "Something is not right. Check the fields and try again."
+    },
+    "keys": {
+      "title": "API keys",
+      "intro": "A key for your own software or an automation. It is shown only once — keep it like a password. If the member of staff who created it leaves the club, the key stops working.",
+      "empty": "No live keys.",
+      "new": "New key",
+      "name": "Name",
+      "nameHint": "What the key is for, such as “Accounting” or “Club website”.",
+      "scopes": "Permissions",
+      "scopesHint": "Give only the permissions the integration really uses.",
+      "scope": {
+        "members_read": "Read clients (with their abonnements and balances)",
+        "members_write": "Add clients",
+        "schedule_read": "Read the timetable",
+        "bookings_write": "Book and cancel",
+        "attendance_read": "Read visits",
+        "attendance_write": "Record visits",
+        "payments_read": "Read payments"
+      },
+      "create": "Create the key",
+      "created": "The key was created. Copy it now:",
+      "copyHint": "We will not show it again. If you lose it, revoke this key and create a new one.",
+      "createdBy": "Created by {name}",
+      "creatorGone": "Its creator has left the team — the key does not work",
+      "lastUsed": "last used: {when}",
+      "revoke": "Revoke the key",
+      "revokeConfirm": "Revoke this key? Integrations that use it stop at once."
+    },
+    "webhooks": {
+      "title": "Webhooks",
+      "intro": "For every event you choose, POPS sends a short notice (its type and ids) to your address, signed with a secret. The integration fetches the details through the API.",
+      "empty": "No addresses.",
+      "new": "New address",
+      "url": "Address (https)",
+      "urlHint": "Your server's public address. Redirects are not followed.",
+      "description": "Description (optional)",
+      "events": "Events",
+      "event": {
+        "member_created": "New client",
+        "member_updated": "Client changed",
+        "member_deleted": "Client erased",
+        "booking_created": "Booking",
+        "booking_cancelled": "Cancellation",
+        "checkin_created": "Visit",
+        "membership_created": "Abonnement sold",
+        "payment_created": "Payment or refund"
+      },
+      "add": "Add the address",
+      "created": "The address was added. Copy the signing secret now:",
+      "copyHint": "We will not show it again. Your server uses it to check that a notice came from POPS.",
+      "state": {
+        "live": "Sending",
+        "manual": "Stopped",
+        "failing": "Stopped — no answer for 3 days"
+      },
+      "failingSince": "failing since {when}",
+      "lastSuccess": "last success: {when}",
+      "counts": "{pending, plural, =0 {nothing waiting} one {# waiting} other {# waiting}}, {failed, plural, =0 {no failures this week} one {# failure this week} other {# failures this week}}",
+      "disable": "Stop",
+      "enable": "Restart",
+      "remove": "Remove",
+      "removeConfirm": "Remove this address and its log?",
+      "rotate": "New secret",
+      "rotateSubmit": "Create a new secret",
+      "rotateHint": "The old secret keeps signing for 24 hours, so you can switch without hurry.",
+      "log": "Log",
+      "logEmpty": "Nothing sent yet.",
+      "delivery": {
+        "pending": "waiting",
+        "delivered": "delivered",
+        "failed": "failed"
+      },
+      "attempts": "{count, plural, one {# attempt} other {# attempts}}",
+      "error": {
+        "timeout": "no answer in time",
+        "dns": "name not found",
+        "address_blocked": "address not public",
+        "connection": "no connection",
+        "tls": "certificate problem",
+        "http_status": "refused by the server",
+        "redirect": "redirect",
+        "endpoint_disabled": "address stopped",
+        "not_configured": "not set up"
+      },
+      "createdBy": "Added by {name}",
+      "creatorGone": "Whoever added it has left the team — check whether the address is still needed.",
+      "expireNow": "Stop the old secret at once (if it leaked)"
+    },
+    "rotate": {
+      "created": "The new secret:",
+      "copyHint": "We will not show it again. The old one works for 24 more hours."
+    },
+    "doors": {
+      "title": "Doors and turnstiles",
+      "intro": "The door controller reads a client's card or QR code and asks POPS whether to open. Every entry it opens for is recorded as a visit.",
+      "empty": "No doors connected.",
+      "new": "New door",
+      "name": "Name",
+      "location": "Location",
+      "rule": "When to open",
+      "rules": {
+        "member": "For every client",
+        "covered": "Only with a valid abonnement"
+      },
+      "ruleHint": {
+        "member": "Opens for every active client. A visit no abonnement covers is recorded as unpaid.",
+        "covered": "Opens only when an abonnement covers the visit now."
+      },
+      "create": "Add the door",
+      "created": "The door was added. Copy its key now and enter it in the controller:",
+      "copyHint": "We will not show it again. If you lose it, remove the door and add it again.",
+      "lastSeen": "last request: {when}",
+      "revoke": "Remove",
+      "revokeConfirm": "Remove this door? It stops opening at once.",
+      "noLocations": "First add a location in Settings."
+    },
+    "mcp": {
+      "title": "AI assistant (MCP)",
+      "intro": "Connect your own AI assistant (Claude, ChatGPT or another that speaks MCP) to the club's office — to find clients, show the timetable, book and record visits. The assistant uses an API key and can do only what the key allows.",
+      "endpoint": "Connector address:",
+      "howTo": "In the assistant, add a connector with this address and an Authorization: Bearer header carrying an API key. The documentation has the details.",
+      "privacy": "When you connect an assistant, the client data it asks for goes to the assistant's provider. POPS sends no data to AI providers. The club is the data controller: make sure you have a processing agreement with the provider and that your clients have been told."
+    },
+    "docs": {
+      "back": "Integrations",
+      "title": "Club API",
+      "intro": "A reference for the developer connecting the club to another system.",
+      "basics": {
+        "title": "Basics",
+        "auth": "Every request carries the API key in the Authorization: Bearer header. A key in the URL or a cookie is not accepted. The API is not open to browsers on other sites: the key lives on the server.",
+        "actsAs": "A key acts for the member of staff who created it, with their role as it is today, limited to its permissions. If the role does not allow something, the answer is 403 or an empty list. A key stops when its creator leaves the club or their account is suspended. A write's answer shows the record only to a key that may read it — otherwise just its id.",
+        "errors": "Errors come as JSON with a stable code and an English message.",
+        "limits": "Up to {perMinute} requests a minute per key. Every response carries RateLimit-Limit, RateLimit-Remaining and RateLimit-Reset; over the limit the answer is 429 with Retry-After.",
+        "idempotency": "Send an Idempotency-Key with writes (POST, DELETE) to retry them safely: the same key with the same request returns the same result for 24 hours, and with a different request, 422.",
+        "shapes": "Fields are snake_case, instants ISO 8601 (UTC), dates YYYY-MM-DD in Sofia time, amounts in euro cents."
+      },
+      "endpoints": {
+        "title": "Methods",
+        "base": "Base address: {base}",
+        "club": "The key: its club and permissions.",
+        "membersList": "Clients, 50 a page; search and filter.",
+        "membersOne": "One client with their abonnements. The members:read permission includes balances and abonnement prices.",
+        "membersCreate": "A new client (display_name, email, phone, is_minor, guardian_member_id, tags, note).",
+        "classes": "Class dates in a window of up to 31 days.",
+        "book": "Book a client onto a class date (member_id, class_occurrence_id). A full class puts them on the waiting list.",
+        "bookingOne": "One booking.",
+        "bookingCancel": "Cancel, as the desk would.",
+        "checkins": "Visits in a window of up to 31 days.",
+        "checkinOne": "One visit.",
+        "checkinCreate": "Record a visit (member_id; optionally class_occurrence_id or location_id). Recorded even without an abonnement.",
+        "payments": "Payments and refunds in a window of up to 31 days.",
+        "paymentOne": "One payment."
+      },
+      "webhooks": {
+        "title": "Webhooks",
+        "intro": "The body is short: the type, the ids and a sequence number (seq). Fetch the rest through the API with the permission shown beside each event.",
+        "headers": "Headers: POPS-Event (the type), POPS-Delivery (the delivery id — process each notice once) and POPS-Signature.",
+        "signature": "POPS-Signature is t=<unix seconds>,v1=<hex>: HMAC-SHA256 with the secret over “t.body”. Check the signature against the raw body and refuse notices older than {tolerance} seconds. For 24 hours after a new secret, two v1 signatures arrive.",
+        "retries": "A 2xx answer is success. Otherwise POPS tries again after 1 minute, 5 minutes, 30 minutes, 2, 6, 12 and 12 hours — 8 attempts in all. An address with no success for 3 days is stopped. Redirects are not followed, and delivery order is not guaranteed — order by seq.",
+        "deleted": "member.deleted means the club erased a client: erase your copy too. For a stopped address the notice is kept for up to 30 days, until it is restarted. To be safe, also reconcile against the client list from time to time."
+      },
+      "doors": {
+        "title": "Doors and turnstiles",
+        "intro": "The controller asks with the door's key (skbd_…), never an API key. The answer is always 200 with allow; with allow: true the visit is already recorded. Scanning again for the same class or day opens again — the door does not track who has left. Up to {perMinute} requests a minute per door.",
+        "reasons": "Reasons for no: unknown_credential (an unknown card or QR), expired_credential (an expired QR — it changes every minute), archived (an archived client), not_covered (no abonnement, and the rule asks for one), club_closed (the club is not active)."
+      },
+      "mcp": {
+        "title": "AI assistant (MCP)",
+        "intro": "The connector is an MCP server over Streamable HTTP, stateless, with JSON answers only. Authentication: an API key in Authorization: Bearer. With Claude Code:",
+        "tools": "Tools and their permissions:",
+        "write": "changes data — the assistant asks before using it",
+        "privacy": "POPS sends no data to AI providers; the club connects its own assistant and is the controller of the data it asks for."
       }
     }
   }

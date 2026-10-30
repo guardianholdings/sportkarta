@@ -13,12 +13,14 @@ import {
   CLUB_DIGEST_QUEUE,
   CLUB_EXPIRY_QUEUE,
   CLUB_HEALTH_QUEUE,
+  CLUB_INTEGRATIONS_PRUNE_QUEUE,
   CLUB_LEADS_QUEUE,
   CLUB_MATERIALIZE_QUEUE,
   CLUB_NOTIFY_QUEUE,
   CLUB_PAYMENT_EVENT_QUEUE,
   CLUB_POLICIES_QUEUE,
   CLUB_REMINDERS_QUEUE,
+  CLUB_WEBHOOKS_QUEUE,
   CLUB_WEEKLY_QUEUE,
   type ClubMaterializeJob,
   type ClubNotifyJob,
@@ -43,6 +45,7 @@ import {
 } from './club-mail-job.js';
 import { runClubAutomations, runClubBroadcasts } from './club-messages-job.js';
 import { runClubPaymentEvent, sweepClubPaymentEvents } from './club-payments-job.js';
+import { runClubIntegrationsPrune, runClubWebhooks } from './club-webhooks-job.js';
 import { runDivisions } from './divisions-job.js';
 import { runWeeklyDigest } from './digest-job.js';
 import { runOpenDataDump } from './opendata-dump-job.js';
@@ -361,6 +364,10 @@ async function main(): Promise<void> {
   await ensureQueue(CLUB_BROADCASTS_QUEUE, { policy: 'short' });
   await ensureQueue(CLUB_AUTOMATIONS_QUEUE, WEEKLY_RETRY);
   await ensureQueue(CLUB_LEADS_QUEUE, WEEKLY_RETRY);
+  // Webhooks (0057) are a sweep — their own retry, with backoff kept on each
+  // delivery row. SHORT: a run that overlaps the next minute leaves one waiting.
+  await ensureQueue(CLUB_WEBHOOKS_QUEUE, { policy: 'short' });
+  await ensureQueue(CLUB_INTEGRATIONS_PRUNE_QUEUE, WEEKLY_RETRY);
 
   // Triggered from the admin UI (Stage 1+) via boss.send('import.osm', {dryRun}).
   // dryRun defaults TRUE — a live import must be requested explicitly, matching
@@ -928,6 +935,40 @@ async function main(): Promise<void> {
     }),
   );
   await boss.schedule(CLUB_AUTOMATIONS_QUEUE, '15 10 * * *', {}, { tz: 'Europe/Sofia' });
+
+  // Club webhooks (0057): every minute, post what the database queued. Counts
+  // only in the log — never an endpoint's URL, which may carry a token.
+  await work(
+    CLUB_WEBHOOKS_QUEUE,
+    { batchSize: 1 },
+    logged(CLUB_WEBHOOKS_QUEUE, async () => {
+      const out = await runClubWebhooks();
+      if (out.sent + out.failed + out.gaveUp + out.disabled > 0) {
+        console.log(
+          `[worker] ${CLUB_WEBHOOKS_QUEUE}: ${String(out.sent)} delivered, ` +
+            `${String(out.failed)} to retry, ${String(out.gaveUp)} given up, ` +
+            `${String(out.disabled)} endpoint(s) disabled`,
+        );
+      }
+    }),
+  );
+  await boss.schedule(CLUB_WEBHOOKS_QUEUE, '* * * * *');
+
+  // The webhook log keeps 30 days, an idempotency record one — 04:50 Sofia,
+  // after the DST hour.
+  await work(
+    CLUB_INTEGRATIONS_PRUNE_QUEUE,
+    logged(CLUB_INTEGRATIONS_PRUNE_QUEUE, async () => {
+      const out = await runClubIntegrationsPrune();
+      if (out.deliveries + out.idempotency > 0) {
+        console.log(
+          `[worker] ${CLUB_INTEGRATIONS_PRUNE_QUEUE}: ${String(out.deliveries)} deliveries, ` +
+            `${String(out.idempotency)} idempotency records`,
+        );
+      }
+    }),
+  );
+  await boss.schedule(CLUB_INTEGRATIONS_PRUNE_QUEUE, '50 4 * * *', {}, { tz: 'Europe/Sofia' });
 
   // The heartbeat goes LAST, after every other queue is registered. A worker
   // that throws halfway through booting — a bad image, a missing env var — and

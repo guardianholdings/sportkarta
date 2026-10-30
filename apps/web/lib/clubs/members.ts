@@ -443,7 +443,8 @@ export async function createMember(
   db: TransactionalDb,
   actor: ClubActor,
   input: MemberInput,
-  source: 'staff' | 'import' = 'staff',
+  /** 'api': through a club API key (0057). */
+  source: 'staff' | 'import' | 'api' = 'staff',
   /** A prospect added from the pipeline board (0052): opens the lead in the same insert. */
   lead: { source: LeadSource } | null = null,
 ): Promise<MemberWriteResult> {

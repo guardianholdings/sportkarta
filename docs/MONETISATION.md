@@ -107,7 +107,9 @@ never instead of it.** Concretely:
 - **API keys raise rate limits and never gate access** (CLAUDE.md, Stage
   6.1), and there is deliberately no request log to bill against. A "paid
   API tier" is unbuildable by design (and the data-services stream was
-  dropped by operator decision — §5).
+  dropped by operator decision — §5). The club API (wave H1, 0057) is a
+  different thing and does not bend this rule: a club's key to ITS OWN
+  private records inside the paid add-on, never to the open dataset.
 - **Sponsorship never touches facility rows.** Adopt-a-facility is an
   _adjacent_ table, not fields on `facilities` — so the merge policy,
   `facility_edits` provenance, and crowd-data protections are never in the

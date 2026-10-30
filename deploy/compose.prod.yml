@@ -128,6 +128,11 @@ services:
       # hands browsers its PUBLIC half to subscribe with. deploy.yml derives it
       # from AUTH_SECRET; changing it orphans every device's subscription.
       PUSH_VAPID_SECRET: ${PUSH_VAPID_SECRET:-}
+      # The club API, webhooks, MCP and door access (0057). Ships off. The
+      # webhook signing master (deploy.yml derives it from AUTH_SECRET): the
+      # office shows an endpoint's secret once, derived from it.
+      CLUB_API_ENABLED: ${CLUB_API_ENABLED:-}
+      CLUB_WEBHOOK_SECRET: ${CLUB_WEBHOOK_SECRET:-}
       # Bank details on /podkrepi (lib/donations.ts). All empty = the page
       # shows no transfer box rather than a half-filled one.
       DONATION_IBAN: ${DONATION_IBAN:-}
@@ -227,6 +232,10 @@ services:
       SMS_TRANSPORT: ${SMS_TRANSPORT:-}
       SMS_API_KEY: ${SMS_API_KEY:-}
       SMS_SENDER_ID: ${SMS_SENDER_ID:-}
+      # Club webhooks are POSTED from here (0057): the switch and the signing
+      # master. Unset, nothing is claimed and the queue waits.
+      CLUB_API_ENABLED: ${CLUB_API_ENABLED:-}
+      CLUB_WEBHOOK_SECRET: ${CLUB_WEBHOOK_SECRET:-}
       # Club broadcasts and automations per Sofia day, across every club —
       # kept under the relay's own daily quota, which sign-in codes share.
       CLUB_BULK_MAIL_DAILY_LIMIT: ${CLUB_BULK_MAIL_DAILY_LIMIT:-200}

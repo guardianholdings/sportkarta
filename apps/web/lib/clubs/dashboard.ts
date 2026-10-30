@@ -59,7 +59,7 @@ export async function dashboardData(actor: ClubActor): Promise<DashboardData> {
           OR EXISTS (SELECT 1 FROM club_staff_invites si WHERE si.club_id = ${clubId}::uuid)) AS has_staff,
         EXISTS (SELECT 1 FROM club_members m WHERE m.club_id = ${clubId}::uuid) AS has_members,
         EXISTS (SELECT 1 FROM club_kiosk_devices kd WHERE kd.club_id = ${clubId}::uuid
-                   AND kd.paired_at IS NOT NULL) AS has_kiosk,
+                   AND kd.kind = 'kiosk' AND kd.paired_at IS NOT NULL) AS has_kiosk,
         EXISTS (SELECT 1 FROM clubs c WHERE c.id = ${clubId}::uuid AND c.visible) AS published
        WHERE ${allowed}
     `),

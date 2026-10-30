@@ -24,12 +24,20 @@ const UNSCOPED_BY_DESIGN: Record<string, string> = {
   'admin.ts:setClubPlan': 'NGO operator path (requireRole(admin))',
   'admin.ts:setClubStatus': 'NGO operator path (requireRole(admin))',
   'admin.ts:purgeClub': 'NGO operator path (requireRole(admin)), archived clubs only',
+  'api-keys.ts:verifyClubApiKey':
+    'touches last_used_at (minute granularity) of the key whose hash was just matched — the key is the authority, and every later statement runs as its creator under scope.ts',
+  'api.ts:claimIdempotency':
+    "the verified key's own idempotency row (key_id and club_id of that key); it records an outcome, grants nothing",
+  'api.ts:settleIdempotency':
+    "the verified key's own idempotency row, after the scoped write it records (or to release it when that write threw)",
   'apply.ts:applyForClub': "the applicant's own new club; the owner row is the session account",
   'audit.ts:recordClubAudit': "append-only log, written inside the caller's scoped transaction",
   'bookings.ts:upsertBooking':
     'helper: called only after bookAtDesk/bookSelf proved scope in the same transaction',
   'club-session.ts:loadContext':
     'the ngo_admin_viewed audit row, written only after users.role = admin was read',
+  'doors.ts:doorFromToken':
+    'touches last_seen_at of the door whose secret was just proven (the kiosk cookie rule)',
   'kiosk.ts:pairKiosk':
     'the 6-digit pairing code (hashed with the club, 10 minutes) is the authority',
   'kiosk.ts:kioskFromCookie': 'touches last_seen_at of the device whose secret was just proven',

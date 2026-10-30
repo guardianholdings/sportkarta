@@ -64,6 +64,7 @@ const NAV: readonly {
   { segment: 'ekip', key: 'team', permission: 'staff.view' },
   { segment: 'resursi', key: 'resources', permission: 'settings.manage' },
   { segment: 'nastroyki', key: 'settings', permission: 'settings.manage' },
+  { segment: 'integratsii', key: 'integrations', permission: 'api.manage', feature: 'api' },
 ];
 
 export async function ClubShell({

@@ -47,6 +47,13 @@ export const CLUB_BROADCASTS_QUEUE = 'club.broadcasts';
 export const CLUB_AUTOMATIONS_QUEUE = 'club.automations';
 /** Daily: each member of staff's prospects to call today (0052). */
 export const CLUB_LEADS_QUEUE = 'club.leads';
+/**
+ * Every minute: post the clubs' due webhook deliveries (0057). The payload is
+ * always empty — the deliveries are rows the database wrote.
+ */
+export const CLUB_WEBHOOKS_QUEUE = 'club.webhooks';
+/** Daily: prune the webhook delivery log (30 days) and idempotency records (a day). */
+export const CLUB_INTEGRATIONS_PRUNE_QUEUE = 'club.integrations_prune';
 
 export interface ClubPaymentEventJob {
   eventId?: number;
