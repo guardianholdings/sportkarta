@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
 import { clubsEnabled } from '@/lib/clubs/access';
+import { publicRating } from '@/lib/clubs/feedback';
+import { clubTakesInquiries } from '@/lib/clubs/inbox';
 import { clubSportLabeler } from '@/lib/clubs/labels';
 import { MIN_ONLINE_CENTS, clubTakesPayments } from '@/lib/clubs/payments';
 import { publicOffers } from '@/lib/clubs/promotions';
@@ -55,14 +57,17 @@ export default async function PublicClubPage({ params }: { params: PageParams })
   if (!clubsEnabled()) notFound();
   const club = await publicClub(slug, locale);
   if (!club) notFound();
-  const [t, tClub, sportLabel, takesPayments, services, offers] = await Promise.all([
-    getTranslations('ClubPublic'),
-    getTranslations('Club'),
-    clubSportLabeler(),
-    clubTakesPayments(club.id),
-    publicServices(club.id, locale),
-    publicOffers(club.id, sofiaToday()),
-  ]);
+  const [t, tClub, sportLabel, takesPayments, services, offers, rating, inquiries] =
+    await Promise.all([
+      getTranslations('ClubPublic'),
+      getTranslations('Club'),
+      clubSportLabeler(),
+      clubTakesPayments(club.id),
+      publicServices(club.id, locale),
+      publicOffers(club.id, sofiaToday()),
+      publicRating(club.id),
+      clubTakesInquiries(club.id),
+    ]);
   const today = sofiaToday();
   // An automatic offer open to a new visitor, struck through (0049). Not on a
   // subscription, which renews at the price it was opened with.
@@ -111,6 +116,19 @@ export default async function PublicClubPage({ params }: { params: PageParams })
                 </Badge>
               ))}
             </p>
+            {rating && (
+              // An average only, from enough ratings that no single one shows (0052).
+              <p className="text-body-sm text-ink-soft">
+                <span aria-hidden="true">★ </span>
+                {t('rating', {
+                  average: new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'bg-BG', {
+                    minimumFractionDigits: 1,
+                    maximumFractionDigits: 1,
+                  }).format(rating.average),
+                  count: rating.count,
+                })}
+              </p>
+            )}
             <div className="flex flex-wrap gap-2">
               {trialClasses.length > 0 && (
                 <Link
@@ -126,6 +144,14 @@ export default async function PublicClubPage({ params }: { params: PageParams })
               >
                 {t('memberHere')} {t('myClub')}
               </Link>
+              {inquiries && (
+                <Link
+                  href={`/klub/${club.slug}/zapitvane`}
+                  className={buttonVariants({ variant: 'secondary' })}
+                >
+                  {t('inquiry')}
+                </Link>
+              )}
             </div>
           </div>
         </header>

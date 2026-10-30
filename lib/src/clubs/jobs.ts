@@ -45,6 +45,8 @@ export const CLUB_PAYMENT_EVENT_QUEUE = 'club.payment_event';
 export const CLUB_BROADCASTS_QUEUE = 'club.broadcasts';
 /** Daily: the clubs' automations (welcome, follow-ups, win-back), 0051. */
 export const CLUB_AUTOMATIONS_QUEUE = 'club.automations';
+/** Daily: each member of staff's prospects to call today (0052). */
+export const CLUB_LEADS_QUEUE = 'club.leads';
 
 export interface ClubPaymentEventJob {
   eventId?: number;
@@ -60,7 +62,13 @@ export type ClubNotifyJob =
   | { kind: 'booking_cancelled'; bookingId: string }
   | { kind: 'class_cancelled'; occurrenceIds: string[] }
   | { kind: 'claim_pending'; memberId: string }
-  | { kind: 'erasure_requested'; memberId: string };
+  | { kind: 'erasure_requested'; memberId: string }
+  /**
+   * A message in a club thread (0052): the member's tells the staff who
+   * answer, the club's tells the member. Enqueued only when the thread was
+   * read up to then, so a burst of messages is one notice.
+   */
+  | { kind: 'inbox_message'; messageId: string };
 
 export type ClubNotifyKind = ClubNotifyJob['kind'];
 
@@ -103,6 +111,8 @@ export function parseClubNotifyJob(data: unknown): ClubNotifyJob | null {
     case 'claim_pending':
     case 'erasure_requested':
       return uuid(job.memberId) ? { kind: job.kind, memberId: job.memberId } : null;
+    case 'inbox_message':
+      return uuid(job.messageId) ? { kind: job.kind, messageId: job.messageId } : null;
     default:
       return null;
   }

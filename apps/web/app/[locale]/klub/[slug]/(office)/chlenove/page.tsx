@@ -1,5 +1,5 @@
 import { formatEuro } from '@sportkarta/lib/clubs';
-import { Link2, Search, Upload, UserPlus } from 'lucide-react';
+import { Link2, Search, Target, Upload, UserPlus } from 'lucide-react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { StatusBadge, memberKind } from '@/components/clubs/club-state-badge';
@@ -71,6 +71,15 @@ export default async function ClubMembersPage({
         </h1>
         {(actorCan(actor, 'members.manage') || actorCan(actor, 'data.import')) && (
           <div className="flex flex-wrap gap-2">
+            {actorCan(actor, 'members.manage') && (
+              <Link
+                href={`${base}/potentsialni`}
+                className={buttonVariants({ variant: 'secondary' })}
+              >
+                <Target aria-hidden="true" />
+                {t('leadsCta')}
+              </Link>
+            )}
             {actorCan(actor, 'data.import') && (
               <Link href={`${base}/vnos`} className={buttonVariants({ variant: 'secondary' })}>
                 <Upload aria-hidden="true" />

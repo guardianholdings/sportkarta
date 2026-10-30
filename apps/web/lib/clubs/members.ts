@@ -15,6 +15,7 @@ import {
   type ClubCheckinMethod,
   type ClubMemberFilter,
   type IsoDate,
+  type LeadSource,
 } from '@sportkarta/lib/clubs';
 import { generateCardKey, sha256Hex } from '@sportkarta/lib/clubs/secrets';
 
@@ -443,14 +444,16 @@ export async function createMember(
   actor: ClubActor,
   input: MemberInput,
   source: 'staff' | 'import' = 'staff',
+  /** A prospect added from the pipeline board (0052): opens the lead in the same insert. */
+  lead: { source: LeadSource } | null = null,
 ): Promise<MemberWriteResult> {
   return db.transaction(async (tx) => {
     const created = await tx.execute(sql`
       INSERT INTO club_members (club_id, display_name, email, phone, is_minor, guardian_member_id,
-                                tags, staff_note, source)
+                                tags, staff_note, source, lead_opened_at, lead_source)
       SELECT ${actor.clubId}::uuid, ${input.displayName}, ${input.email}, ${input.phone},
              ${input.isMinor}, ${input.guardianMemberId}::uuid, ${sql.param(input.tags)}::text[],
-             ${input.staffNote}, ${source}
+             ${input.staffNote}, ${source}, ${lead ? sql`now()` : sql`NULL`}, ${lead?.source ?? null}
        WHERE ${clubActorMay(actor, 'members.manage', { write: true })}
          AND ${guardianOk(actor.clubId, input.guardianMemberId)}
       RETURNING id
@@ -469,6 +472,15 @@ export async function createMember(
       subjectMemberId: memberId,
       detail: { source },
     });
+    if (lead) {
+      await recordClubAudit(tx, {
+        clubId: actor.clubId,
+        by: { kind: 'staff', actor },
+        action: 'lead_opened',
+        subjectMemberId: memberId,
+        detail: { source: lead.source },
+      });
+    }
     return { ok: true, memberId } as const;
   });
 }

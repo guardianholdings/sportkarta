@@ -50,6 +50,8 @@ const UNSCOPED_BY_DESIGN: Record<string, string> = {
   'links.ts:setLinkPreference': "the member's own link only (user_id in the WHERE)",
   'links.ts:requestErasure': "the member's own linked record only (user_id in the EXISTS)",
   'staff.ts:acceptStaffInvite': "invite token + the account's verified email",
+  'inbox.ts:underDailyLimit':
+    "a row LOCK (FOR NO KEY UPDATE) on the writer's own record and a count, not a write — called only inside writeAsMember/sendInquiry after memberSelfScope or ensureSelfRecord proved the record",
   'staff.ts:lockOwners':
     'a row LOCK (FOR UPDATE), not a write — taken inside changeStaffRole/removeStaff, which are scoped',
   'unsubscribe.ts:unsubscribe':

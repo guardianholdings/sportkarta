@@ -1,5 +1,6 @@
 import {
   AUTOMATION_CATCH_UP_DAYS,
+  FEEDBACK_REQUEST_SPACING_DAYS,
   type Audience,
   type AudienceFilter,
   type AudienceSegment,
@@ -228,7 +229,7 @@ export async function notePushResult(
 // ─── Broadcasts ───────────────────────────────────────────────────────────
 
 /** A club may write (and so send): the SQL twin of canWrite (policies.ts). */
-function writable(today: IsoDate): SQL {
+export function clubWritableOn(today: IsoDate): SQL {
   return sql`c.status = 'active' AND (c.tier = 'community'
     OR greatest(c.paid_until, c.trial_ends_on) + 14 >= ${today}::date)`;
 }
@@ -275,7 +276,7 @@ export async function dueBroadcasts(
       FROM club_broadcasts b
       JOIN clubs c ON c.id = b.club_id
      WHERE b.status IN ('scheduled', 'sending') AND b.scheduled_for <= now()
-       AND c.tier = ANY(${sql.param([...tiers])}::text[]) AND ${writable(today)}
+       AND c.tier = ANY(${sql.param([...tiers])}::text[]) AND ${clubWritableOn(today)}
      ORDER BY sent_today, b.scheduled_for, b.id
      LIMIT 50
   `);
@@ -441,13 +442,17 @@ export async function activeAutomations(
   db: SqlRunner,
   tiers: readonly ClubTier[],
   today: IsoDate,
+  /** The tiers with ratings (0052): a request to rate runs only there. */
+  feedbackTiers: readonly ClubTier[] = tiers,
 ): Promise<ActiveAutomation[]> {
   if (tiers.length === 0) return [];
   const result = await db.execute(sql`
     SELECT a.id, a.club_id, a.trigger, a.channel, a.delay_days, a.subject, a.body
       FROM club_automations a
       JOIN clubs c ON c.id = a.club_id
-     WHERE a.active AND c.tier = ANY(${sql.param([...tiers])}::text[]) AND ${writable(today)}
+     WHERE a.active AND c.tier = ANY(${sql.param([...tiers])}::text[]) AND ${clubWritableOn(today)}
+       AND (a.trigger <> 'feedback_request'
+            OR c.tier = ANY(${sql.param([...feedbackTiers])}::text[]))
      ORDER BY a.club_id, a.trigger, a.channel
   `);
   return result.rows.map((row) => ({
@@ -511,6 +516,30 @@ export async function automationCandidates(
             FROM club_checkins ci WHERE ci.club_id = ${club} GROUP BY ci.member_id
         ) x
          WHERE ${window(sql`x.last_day`)} AND ${live}`;
+      break;
+    case 'feedback_request':
+      // A class the member came to (anchor: the occurrence), not yet rated,
+      // for a member who can open the portal to rate it — the latest such
+      // class only, and at most one request per member per
+      // FEEDBACK_REQUEST_SPACING_DAYS, so a member who trains daily is not
+      // asked daily.
+      query = sql`
+        SELECT DISTINCT ON (x.member_id) x.member_id, x.occurrence_id::text AS anchor
+          FROM club_checkins x
+         WHERE x.club_id = ${club} AND x.occurrence_id IS NOT NULL
+           AND ${window(sql`x.sofia_day`)} AND ${live}
+           AND EXISTS (SELECT 1 FROM club_member_links ml
+                        WHERE ml.member_id = x.member_id AND ml.status = 'active')
+           AND NOT EXISTS (SELECT 1 FROM club_feedback f
+                            WHERE f.club_id = x.club_id AND f.member_id = x.member_id
+                              AND f.occurrence_id = x.occurrence_id)
+           AND NOT EXISTS (
+             SELECT 1 FROM club_notifications n
+              WHERE n.club_id = x.club_id AND n.member_id = x.member_id AND n.kind = 'automation'
+                AND left(n.dedupe_key, char_length('automation:feedback_request:'))
+                    = 'automation:feedback_request:'
+                AND n.sent_at > now() - make_interval(days => ${FEEDBACK_REQUEST_SPACING_DAYS}::int))
+         ORDER BY x.member_id, x.sofia_day DESC, x.checked_in_at DESC`;
       break;
     case 'trial_follow_up':
     case 'expired_follow_up': {

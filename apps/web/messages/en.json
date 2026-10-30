@@ -844,7 +844,8 @@
       "clubCheckin": "Sign in to mark your attendance at the club. Then scan the code on the tablet again.",
       "clubPortal": "Sign in to see your membership and bookings at the club.",
       "clubOffice": "Sign in to open the club's office.",
-      "clubPurchase": "Sign in to buy the membership online."
+      "clubPurchase": "Sign in to buy the membership online.",
+      "clubInquiry": "Sign in to send the club an inquiry."
     }
   },
   "AuthEmail": {
@@ -3190,7 +3191,9 @@
       "products": "Products",
       "promotions": "Offers",
       "invoices": "Invoices",
-      "messages": "Messages"
+      "messages": "Messages",
+      "inbox": "Inbox",
+      "feedback": "Ratings"
     },
     "map": "Back to the map",
     "profile": "My profile",
@@ -3243,7 +3246,9 @@
         "kiosk": "Connect a front-desk tablet",
         "publish": "Publish the club page",
         "done": "done"
-      }
+      },
+      "inboxUnread": "{count, plural, one {# unread conversation} other {# unread conversations}}",
+      "leadsDue": "{count, plural, one {# prospect to call} other {# prospects to call}}"
     }
   },
   "ClubForm": {
@@ -3439,7 +3444,26 @@
       "delay_invalid": "That number of days is not allowed for this message.",
       "broadcast_daily_limit": "That day already has three messages. Choose another day.",
       "message_audience_invalid": "Choose who the message is for.",
-      "sms_too_long": "With the club’s name, the member’s name and (for an offer) the opt-out link, the SMS would run past 5 parts. Shorten the text."
+      "sms_too_long": "With the club’s name, the member’s name and (for an offer) the opt-out link, the SMS would run past 5 parts. Shorten the text.",
+      "thread_subject_required": "Write a subject.",
+      "thread_subject_too_long": "The subject is too long (up to 120 characters).",
+      "thread_body_required": "Write a message.",
+      "thread_body_too_long": "The message is too long (up to 2,000 characters).",
+      "inquiry_kind_invalid": "Choose what you are asking about.",
+      "inquiry_on_invalid": "Choose a date from today on.",
+      "party_size_invalid": "The number of people must be between 1 and 1,000.",
+      "next_action_invalid": "Choose a date from today on.",
+      "assignee_invalid": "Choose a member of the team.",
+      "lost_reason_invalid": "Choose a reason.",
+      "lead_source_invalid": "Choose where they came from.",
+      "rating_invalid": "Choose 1 to 5 stars.",
+      "feedback_comment_too_long": "The comment is too long (up to 500 characters).",
+      "google_review_url_invalid": "Paste a Google review link (g.page, search.google.com or maps.app.goo.gl).",
+      "not_linked": "The member has no POPS account.",
+      "already_rated": "You have already rated this.",
+      "not_attended": "You can rate only a class you came to.",
+      "too_many_messages": "You have sent many messages today. Please try again tomorrow.",
+      "minor_record": "This record is a minor’s — the club writes to the parent or guardian."
     }
   },
   "ClubSettings": {
@@ -3824,7 +3848,8 @@
         "club_closed": "The club is read-only.",
         "not_linked": "The record is not linked to an account.",
         "wallet_topped_up": "Credit topped up.",
-        "wallet_paid_out": "Paid back and taken off the credit."
+        "wallet_paid_out": "Paid back and taken off the credit.",
+        "lead_saved": "Saved."
       },
       "renews": "Renews automatically.",
       "renewed": "Renewed — the next period is already added.",
@@ -3858,7 +3883,8 @@
       "member": "The member",
       "ngo": "The association"
     },
-    "importCta": "Import CSV"
+    "importCta": "Import CSV",
+    "leadsCta": "Prospects"
   },
   "ClubAudit": {
     "action": {
@@ -3940,7 +3966,16 @@
       "broadcast_scheduled": "Message scheduled",
       "broadcast_cancelled": "Message cancelled",
       "automation_saved": "Automatic message",
-      "sms_settings_changed": "SMS settings"
+      "sms_settings_changed": "SMS settings",
+      "thread_started": "Conversation started",
+      "thread_closed": "Conversation closed",
+      "thread_reopened": "Conversation reopened",
+      "inquiry_received": "Inquiry received",
+      "lead_opened": "Prospect added",
+      "lead_updated": "Prospect updated",
+      "lead_lost": "Prospect dropped out",
+      "lead_reopened": "Prospect back on the list",
+      "feedback_settings_changed": "Google review link"
     }
   },
   "ClubSales": {
@@ -4420,7 +4455,11 @@
     "pushOn": "The club may send you notifications on your phone — reminders, cancelled classes, a freed place.",
     "pushOff": "Notifications from the club are stopped.",
     "pushEnable": "Turn on",
-    "pushDisable": "Stop"
+    "pushDisable": "Stop",
+    "talkTitle": "Messages and ratings",
+    "messages": "Messages",
+    "messagesUnread": "{count, plural, one {Messages · # new} other {Messages · # new}}",
+    "rateCount": "Rate ({count})"
   },
   "ClubApply": {
     "title": "Register a club on POPS",
@@ -4536,7 +4575,10 @@
       "owner_monthly": "{month} at the club",
       "payment_received": "Payment: {label}",
       "broadcast": "{subject}",
-      "automation": "{subject}"
+      "automation": "{subject}",
+      "inbox_message": "New message from {name}",
+      "inbox_reply": "New reply from {club}",
+      "leads_due": "Prospects to call today: {count}"
     },
     "lead": {
       "staff_invite": "{club} invites you to join its team as {role}. The invitation is valid for 14 days.",
@@ -4560,7 +4602,10 @@
       "owner_monthly": "How {month} went at {club} — the figures come straight from the club's records:",
       "payment_received": "We received your online payment for “{label}” ({name}): {amount}. The payment goes to the club through Stripe; card details never pass through POPS. This is not a fiscal document — ask the club for a receipt or invoice.",
       "broadcast": "{body}",
-      "automation": "{body}"
+      "automation": "{body}",
+      "inbox_message": "{name} wrote to you. Read and reply in the club’s inbox.",
+      "inbox_reply": "{club} replied to you. Read the reply in the club’s portal.",
+      "leads_due": "You have prospects to call today."
     },
     "action": {
       "staff_invite": "Accept the invitation",
@@ -4584,7 +4629,10 @@
       "owner_monthly": "Open the reports",
       "payment_received": "My club",
       "broadcast": "Go to the club",
-      "automation": "Go to the club"
+      "automation": "Go to the club",
+      "inbox_message": "Open the conversation",
+      "inbox_reply": "Read the reply",
+      "leads_due": "Open the list"
     },
     "rosterLine": "{time} {title}: {going} of {capacity} booked",
     "rosterLineOpen": "{time} {title}: {going} booked",
@@ -4620,12 +4668,30 @@
       "booking_promoted": "A place opened up — you are booked for {title}, {when}.",
       "class_cancelled": "Class cancelled: {title}, {when}.",
       "reminder_24h": "Reminder: {title}, {when}.",
-      "membership_expiring": "Your plan “{plan}” ends on {date}."
+      "membership_expiring": "Your plan “{plan}” ends on {date}.",
+      "inbox_reply": "The club replied to you."
     },
     "sms": {
       "reminder_24h": "Reminder — {title}, {when}.",
       "class_cancelled": "Class cancelled: {title}, {when}.",
       "booking_promoted": "A place opened up — you are booked for {title}, {when}."
+    },
+    "inbox": {
+      "kind": "Inquiry: {kind}",
+      "on": "Preferred date: {date}",
+      "party": "Number of people: {count}",
+      "kinds": {
+        "rental": "Hall or court hire",
+        "event": "Event",
+        "corporate": "Corporate group",
+        "party": "Birthday or party",
+        "camp": "Camp",
+        "other": "Other"
+      }
+    },
+    "leads": {
+      "uncalled": "New, nobody has called yet: {count}",
+      "planned": "With a next step due today or earlier: {count}"
     }
   },
   "ClubReports": {
@@ -4787,7 +4853,9 @@
     "memberPrice": "members {amount}",
     "reserve": "Book",
     "offerNewOnly": "for new clients",
-    "offerUntil": "until {date}"
+    "offerUntil": "until {date}",
+    "inquiry": "Send an inquiry",
+    "rating": "{average} out of 5 · {count, plural, one {# rating} other {# ratings}}"
   },
   "ClubPurchase": {
     "title": "Buy online",
@@ -5369,6 +5437,11 @@
           "title": "We miss you",
           "hint": "The member has not visited for a number of days",
           "delayHint": "Days without a visit — at least 14."
+        },
+        "feedback_request": {
+          "title": "Request to rate",
+          "hint": "After a class the member came to — at most once in 30 days",
+          "delayHint": "0 means on the day of the class; 7 days at most. The e-mail’s button opens the rating page."
         }
       }
     },
@@ -5405,5 +5478,200 @@
     "profileText": "The clubs you are a member of can send you notifications — reminders, cancelled classes, a freed place. Turn them on on each device separately. If the device is shared, turn them off before signing out.",
     "devices": "{count, plural, one {Notifications are on for # device.} other {Notifications are on for # devices.}}",
     "removeAll": "Turn off on all devices"
+  },
+  "ClubInbox": {
+    "title": "Inbox",
+    "intro": "Conversations with your members and the inquiries from the club’s page. Unread ones come first.",
+    "filters": {
+      "open": "Open",
+      "unread": "Unread",
+      "inquiries": "Inquiries",
+      "closed": "Closed",
+      "all": "All"
+    },
+    "empty": "No conversations here.",
+    "unread": "New",
+    "inquiry": {
+      "title": "Send an inquiry",
+      "intro": "Hiring a hall, a birthday party, a group from work or a camp — describe what you need and the club will answer.",
+      "sent": "Your inquiry was sent. The club will answer in its portal and you will get a notice.",
+      "open": "Open the conversation",
+      "error": {
+        "too_many_messages": "You have sent many messages today. Please try again tomorrow.",
+        "claim_first": "The club already keeps a record with your e-mail. Link it to your account from the club’s portal, then send the inquiry.",
+        "link_pending": "Your request to link with the club is waiting for confirmation. You can write once the club confirms it.",
+        "minor_record": "Your record at this club is a minor’s. Please ask your parent or guardian to send the inquiry."
+      },
+      "toPortal": "Go to the club’s portal",
+      "closed": "The club is not taking inquiries at the moment.",
+      "signInWhy": "Sign in to your POPS account so the club can answer you.",
+      "signIn": "Sign in",
+      "kind": "What are you asking about",
+      "choose": "Choose",
+      "on": "Preferred date",
+      "optional": "Optional",
+      "party": "Number of people",
+      "message": "Message",
+      "messageHint": "Tell the club what you need — times, children’s ages, equipment…",
+      "privacy": "The club sees the name and e-mail on your account and your message.",
+      "send": "Send the inquiry"
+    },
+    "closed": "Closed",
+    "message": "Message",
+    "kinds": {
+      "rental": "Hall or court hire",
+      "event": "Event",
+      "corporate": "Corporate group",
+      "party": "Birthday or party",
+      "camp": "Camp",
+      "other": "Other"
+    },
+    "onDate": "For {date}",
+    "party": "{count, plural, one {# person} other {# people}}",
+    "back": "← All conversations",
+    "notLinked": "This record is no longer linked to a POPS account — the member will not see the answer until they link it again.",
+    "conversation": "Conversation",
+    "formerStaff": "Former staff",
+    "replyTitle": "Reply",
+    "replyLabel": "Your reply",
+    "replyHint": "The member is told there is an answer — without its text.",
+    "send": "Send",
+    "close": "Close the conversation",
+    "reopen": "Reopen",
+    "outcome": {
+      "sent": "Reply sent.",
+      "closed": "Conversation closed.",
+      "reopened": "Conversation reopened.",
+      "started": "Message sent."
+    },
+    "memberTitle": "Messages",
+    "subject": "Subject",
+    "body": "Message",
+    "startSend": "Send a message",
+    "startNeedsLink": "You can write only to an adult member with a POPS account — they read messages in the club’s portal.",
+    "portal": {
+      "title": "Messages",
+      "intro": "Your conversations with the club. The club answers here and you get a notice.",
+      "listTitle": "Conversations",
+      "empty": "You have no conversations with the club yet.",
+      "newTitle": "New message to the club",
+      "back": "← All conversations",
+      "sent": "Message sent.",
+      "you": "You"
+    },
+    "inquiryBadge": "Inquiry"
+  },
+  "ClubLeads": {
+    "title": "Prospects",
+    "intro": "People who asked, booked a trial class or were added by you. A trial booking, a first visit and a purchase move a card by themselves; you record the call, the next step and why someone dropped out.",
+    "back": "← Members",
+    "addTitle": "Add a prospect",
+    "name": "Name",
+    "phone": "Phone",
+    "email": "E-mail",
+    "sourceLabel": "Came from",
+    "add": "Add",
+    "empty": "No prospects yet.",
+    "stage": {
+      "new": "New",
+      "contacted": "Contacted",
+      "trial_booked": "Trial booked",
+      "visited": "Visited",
+      "won": "Joined",
+      "lost": "Dropped out"
+    },
+    "stageHint": {
+      "new": "Nobody has called them yet.",
+      "contacted": "You called — a next step follows.",
+      "trial_booked": "They have a trial class or a trial membership.",
+      "visited": "They came to the club.",
+      "won": "Bought a membership — the last 30 days.",
+      "lost": "Dropped out — the last 30 days."
+    },
+    "due": "Due today",
+    "source": {
+      "inquiry": "Inquiry",
+      "trial": "Trial class",
+      "desk": "Front desk",
+      "phone": "Phone",
+      "referral": "Referral",
+      "social": "Social media",
+      "event": "Event",
+      "other": "Other"
+    },
+    "since": "Since {date}",
+    "contactedOn": "Contacted on {date}",
+    "nextOn": "Next step: {date}",
+    "owner": "Owner: {name}",
+    "lost": {
+      "price": "Price",
+      "schedule": "Schedule does not suit",
+      "location": "Location",
+      "no_answer": "Does not answer",
+      "chose_other": "Chose another club",
+      "not_interested": "Not interested",
+      "other": "Other reason"
+    },
+    "conversation": "Conversation",
+    "actions": "Actions",
+    "markContacted": "I called",
+    "nextAction": "Next step on",
+    "assignTo": "Owner",
+    "nobody": "Nobody",
+    "savePlan": "Save",
+    "lostReason": "Reason for dropping out",
+    "choose": "Choose",
+    "markLost": "Mark as dropped out",
+    "reopen": "Back on the list",
+    "remove": "Remove from the list",
+    "outcome": {
+      "lead_added": "Added.",
+      "lead_saved": "Saved."
+    },
+    "cardTitle": "Prospect",
+    "open": "Add to prospects",
+    "notInPipeline": "Not on the prospects list."
+  },
+  "ClubFeedback": {
+    "title": "Ratings",
+    "upsell": "Class ratings are included in the “{tier}” plan.",
+    "intro": "How members rate the classes they came to — over the last {months} months.",
+    "outcome": {
+      "google_saved": "Link saved."
+    },
+    "summary": "Average rating",
+    "none": "No ratings yet.",
+    "outOf": "out of 5 · {count, plural, one {# rating} other {# ratings}}",
+    "stars": "{count, plural, one {# star} other {# stars}}",
+    "publicShown": "The average is shown on the club’s page.",
+    "publicHidden": "The club’s page shows the average once there are at least {count} ratings in the last {months} months. Only the average is shown — never a single rating or comment.",
+    "publicBasis": "It counts only ratings of classes the member checked in to with a QR code or a card.",
+    "byClass": "By class",
+    "byTrainer": "By trainer",
+    "unknown": "No name",
+    "ratings": "{count, plural, one {# rating} other {# ratings}}",
+    "recent": "Latest ratings",
+    "private": "Only you see the comments — they are never shown publicly.",
+    "googleTitle": "Google reviews",
+    "googleHint": "After every rating — good or bad — we show the member a link to your Google review page. Google does not allow asking only happy customers. Paste the link from “Ask for reviews” in your Google Business Profile.",
+    "googleLabel": "Google review link",
+    "googlePlaceholder": "https://g.page/r/…/review",
+    "googleSave": "Save",
+    "portal": {
+      "title": "Rate",
+      "intro": "Your classes and bookings of the last {days} days. Each is rated once.",
+      "thanks": "Thank you for your rating!",
+      "error": {
+        "already_rated": "You have already rated this.",
+        "not_attended": "You can rate only a class you came to.",
+        "not_allowed": "This can no longer be rated."
+      },
+      "google": "Rate us on Google too",
+      "nothing": "There is nothing to rate right now.",
+      "ratingLabel": "Your rating",
+      "commentLabel": "Comment",
+      "commentHint": "Optional. Only the club sees it.",
+      "send": "Send the rating"
+    }
   }
 }

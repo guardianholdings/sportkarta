@@ -29,6 +29,8 @@ export const CLUB_EXPORT_DATASETS = [
   'sales',
   'invoices',
   'messages',
+  'conversations',
+  'feedback',
   'audit',
 ] as const;
 export type ClubExportDataset = (typeof CLUB_EXPORT_DATASETS)[number];
@@ -68,14 +70,24 @@ const DATASETS: Record<ClubExportDataset, Dataset> = {
       'note',
       'created',
       'archived',
+      'lead_stage',
+      'lead_source',
+      'lead_opened',
+      'lead_next_action',
+      'lead_lost_reason',
     ],
     query: (scope) => sql`
       SELECT ARRAY[m.id::text, m.display_name, coalesce(m.email, ''), coalesce(m.phone, ''),
              m.is_minor::text, coalesce(g.display_name, ''), array_to_string(m.tags, ';'),
              st.status, (l.status = 'active')::text, m.source, coalesce(m.staff_note, ''),
-             ${STAMP(sql`m.created_at`)}, coalesce(${STAMP(sql`m.archived_at`)}, '')]::text[] AS r
+             ${STAMP(sql`m.created_at`)}, coalesce(${STAMP(sql`m.archived_at`)}, ''),
+             coalesce(ls.stage, ''), coalesce(m.lead_source, ''),
+             coalesce(${STAMP(sql`m.lead_opened_at`)}, ''),
+             coalesce(${DAY(sql`m.lead_next_action_on`)}, ''),
+             coalesce(m.lead_lost_reason, '')]::text[] AS r
         FROM club_members m
         JOIN club_member_status st ON st.member_id = m.id
+        LEFT JOIN club_lead_stages ls ON ls.member_id = m.id
         LEFT JOIN club_members g ON g.club_id = m.club_id AND g.id = m.guardian_member_id
         LEFT JOIN club_member_links l ON l.member_id = m.id
        WHERE ${scope}
@@ -289,6 +301,55 @@ const DATASETS: Record<ClubExportDataset, Dataset> = {
         FROM club_broadcasts bc
        WHERE ${scope}
        ORDER BY bc.created_at, bc.id`,
+  },
+  // Every message of every conversation with a client (0052), oldest first.
+  conversations: {
+    permission: 'data.export',
+    alias: 'th',
+    header: [
+      'conversation',
+      'member',
+      'kind',
+      'subject',
+      'inquiry_kind',
+      'inquiry_on',
+      'party_size',
+      'author',
+      'staff',
+      'written_at',
+      'body',
+    ],
+    query: (scope) => sql`
+      SELECT ARRAY[th.id::text, m.display_name, th.kind, th.subject,
+             coalesce(th.inquiry_kind, ''), coalesce(${DAY(sql`th.inquiry_on`)}, ''),
+             coalesce(th.party_size::text, ''), tm.author,
+             coalesce(s.display_name, ''), ${STAMP(sql`tm.created_at`)}, tm.body]::text[] AS r
+        FROM club_thread_messages tm
+        JOIN club_threads th ON th.club_id = tm.club_id AND th.id = tm.thread_id
+        JOIN club_members m ON m.club_id = th.club_id AND m.id = th.member_id
+        LEFT JOIN club_staff s ON s.club_id = tm.club_id AND s.user_id = tm.staff_user_id
+       WHERE ${scope}
+       ORDER BY th.created_at, th.id, tm.created_at, tm.id`,
+  },
+  // Every rating, with its comment (0052) — the club's own data.
+  feedback: {
+    permission: 'data.export',
+    alias: 'fb',
+    header: ['member', 'class_or_service', 'starts_at', 'trainer', 'rating', 'comment', 'rated_at'],
+    query: (scope) => sql`
+      SELECT ARRAY[m.display_name, coalesce(k.title, sv.name_bg, ''),
+             coalesce(${STAMP(sql`coalesce(o.starts_at, rsv.starts_at)`)}, ''),
+             coalesce(s.display_name, ''), fb.rating::text, coalesce(fb.comment, ''),
+             ${STAMP(sql`fb.created_at`)}]::text[] AS r
+        FROM club_feedback fb
+        JOIN club_members m ON m.club_id = fb.club_id AND m.id = fb.member_id
+        LEFT JOIN club_class_occurrences o ON o.club_id = fb.club_id AND o.id = fb.occurrence_id
+        LEFT JOIN club_classes k ON k.club_id = o.club_id AND k.id = o.class_id
+        LEFT JOIN club_reservations rsv ON rsv.club_id = fb.club_id AND rsv.id = fb.reservation_id
+        LEFT JOIN club_services sv ON sv.club_id = rsv.club_id AND sv.id = rsv.service_id
+        LEFT JOIN club_staff s ON s.club_id = fb.club_id AND s.user_id = fb.instructor_user_id
+       WHERE ${scope}
+       ORDER BY fb.created_at, fb.id`,
   },
   classes: {
     permission: 'data.export',

@@ -444,7 +444,46 @@ and, where an outside service is involved, by an env switch as well.
     - [ ] **For the lawyer:** offers by e-mail go only with explicit consent
       (no "soft opt-in" for existing clients yet) — confirm, or allow the
       ZEK/ePrivacy existing-customer exemption with an opt-out at collection.
-  - [ ] **F2 — inbox and inquiries, leads pipeline, feedback** (`0052`)
+  - [x] **F2 — inbox and inquiries, leads pipeline, feedback** (`0052`):
+    «Входящи» in the office and «Съобщения» in the portal — a conversation is
+    between the club and ONE of its client records, only signed-in people
+    write, the office writes first only to an adult member with an account,
+    and the member sees the club's name, never the staff member's. «Изпратете
+    запитване» on the club's page (a hall, an event, a corporate group, a
+    party, a camp; a date and a party size) gets a stranger their own record
+    (the trial booking's path), opens the thread and puts them on the
+    pipeline. Notices go by the worker and say THAT there is something to
+    read, never what; a burst of messages is one notice (only when the other
+    side had read up to then); at most 30 messages, 5 new conversations and
+    3 inquiries a person a day per club, and 10 inquiries a day to all clubs. «Потенциални клиенти» (from Членове): the pipeline's stage
+    is DERIVED (`club_lead_stages`) — a trial booking, a first visit and a sale
+    move the card by themselves; the desk records the call, the next step and
+    its owner, and a closed-list reason for a loss; answering an inquiry marks
+    the prospect contacted; the desk's daily 09:05 list (`club.leads`, counts
+    only) is 1club's «lead not contacted». «Отзиви»: a member rates (1–5, an
+    optional private comment) a class they CAME to or a booking of theirs
+    that is over, once, within 14 days — a trigger admits nobody else and
+    records the trainer itself; the office sees averages by class and by
+    trainer and the comments; the club's page shows the average only from 5
+    ratings in 12 months, counting only classes the member scanned into (QR
+    or card — a desk tick or a booking is the club's own word); after EVERY
+    rating, never only good ones (Google forbids review gating), the club's
+    own Google review link (three Google review-link shapes, CHECK-pinned).
+    «Молба за оценка» is an automation (e-mail only, ≤ 7 days, once a month
+    per member, linked members only, marketing consent required). A minor's
+    record has no conversation (the guardian is who the club writes to); an
+    NGO admin reads the inbox and never writes as the club. Inbox and pipeline
+    on every tier; ratings standard and up. Conversations and ratings are in
+    the club export and go with the record.
+    - [ ] **For the lawyer:** the request to rate a class is sent as MARKETING
+      (only to members who consented to offers by e-mail). If it may go as a
+      service message about a class the member already had, `automationPurpose`
+      is the one line to change.
+    - [ ] **Known limits (accepted for v1):** a rating names the class's
+      trainer as the database knows them when the member rates — a substitute
+      removed from the staff, or a class's instructor changed, inside the
+      14-day window credits the class's current instructor. Staff are told of
+      a new message by e-mail only (no push to staff yet).
 - [ ] **D — events, camps, tournaments**
 - [ ] **G — waivers and documents, ranks and belts**
 - [ ] **H — club API, webhooks, MCP, door access, pixels** (pixels wait on legal)

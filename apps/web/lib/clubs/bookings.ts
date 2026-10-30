@@ -4,6 +4,7 @@ import { selfBookingBlocked } from '@sportkarta/lib/clubs';
 import { recordClubAudit } from './audit';
 import { violatedConstraint } from './errors';
 import { clubWritableGuard } from './access';
+import { openLeadIfProspect } from './leads';
 import { clubActorMay, memberSelfScope, type ClubActor } from './scope';
 
 /**
@@ -371,6 +372,9 @@ export async function bookTrial(
         subjectMemberId: memberId,
         detail: { occurrenceId, trial: true },
       });
+      // A prospect's trial puts them on the desk's pipeline (0052); the booking
+      // itself moves the card to «trial booked».
+      await openLeadIfProspect(tx, clubId, memberId, 'trial', { kind: 'member', userId });
       return { ok: true, bookingId, status: await statusOf(tx, bookingId) } as const;
     });
   } catch (error: unknown) {

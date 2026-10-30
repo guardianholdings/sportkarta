@@ -55,6 +55,8 @@ export const CLUB_PERMISSIONS = [
   'data.import',
   'audit.view',
   'messages.send',
+  'inbox.reply',
+  'feedback.view',
 ] as const;
 export type ClubPermission = (typeof CLUB_PERMISSIONS)[number];
 
@@ -101,6 +103,13 @@ const MATRIX: Readonly<Record<ClubPermission, readonly ClubRole[]>> = {
    * club's name, to many people, is management's.
    */
   'messages.send': MANAGEMENT,
+  /**
+   * The inbox and inquiries (0052): whoever answers the club's phone answers
+   * its messages. The prospects pipeline is members.manage.
+   */
+  'inbox.reply': FRONT_OF_HOUSE,
+  /** Ratings and their comments (0052): how the club is doing is management's. */
+  'feedback.view': MANAGEMENT,
 };
 
 export function isClubRole(value: unknown): value is ClubRole {

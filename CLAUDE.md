@@ -244,7 +244,19 @@ browser) in a MANUAL STEPS list at the end of the session.
   number per club per sweep, least-sent club first; automations split the
   rest in equal per-club parts, then hand on the leftover. The allowance is
   spent only after a claim succeeds, so somebody already reached never costs
-  a token. Writes need `clubWritableSql` (active and paid or
+  a token. Inbox, prospects and ratings (wave F2, `0052`): a thread is
+  between the club and ONE client record, written only by signed-in people;
+  a public inquiry first gets the person their own record (`ensureSelfRecord`,
+  the trial path). Notices are enqueued after the commit and only when the
+  other side had read up to then, and never carry what was written. The lead
+  STAGE is derived (`club_lead_stages`), never stored; the desk stores only
+  what a person decides. `club_feedback_attended` admits only somebody who
+  came and records the trainer itself; the public average needs
+  PUBLIC_RATING_MIN_COUNT ratings of classes the member SCANNED into (QR or
+  card), and the club's Google link follows EVERY rating (review gating is
+  forbidden). A minor's record has no conversation; an NGO admin reads the
+  inbox and never writes as the club. The request to rate is marketing
+  (consent) until a lawyer says otherwise. Writes need `clubWritableSql` (active and paid or
   community, 14-day grace); every public surface embeds `clubRenderableSql`.
   Check-ins never refuse (`covered=false` is recorded); only a QR/card visit of
   a consenting linked member writes `training_logs(source='club',

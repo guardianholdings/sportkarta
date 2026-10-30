@@ -1,6 +1,14 @@
 import { randomUUID } from 'node:crypto';
 
-import { CLUB_CANCEL_REASONS, addDaysIso, formatEuro, sofiaToday } from '@sportkarta/lib/clubs';
+import {
+  CLUB_CANCEL_REASONS,
+  LEAD_DESK_SOURCES,
+  THREAD_BODY_MAX,
+  THREAD_SUBJECT_MAX,
+  addDaysIso,
+  formatEuro,
+  sofiaToday,
+} from '@sportkarta/lib/clubs';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
@@ -11,6 +19,7 @@ import {
   memberKind,
   membershipKind,
 } from '@/components/clubs/club-state-badge';
+import { LeadCardView } from '@/components/clubs/lead-card';
 import { IssueCardButton } from '@/components/clubs/member-form';
 import { WalletForms } from '@/components/clubs/wallet-forms';
 import { Badge } from '@/components/ui/badge';
@@ -18,17 +27,22 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { Link } from '@/i18n/navigation';
 import { clubAuditHistory } from '@/lib/clubs/audit';
 import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
 import { featureOn } from '@/lib/clubs/features';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
+import { memberThreadsForStaff } from '@/lib/clubs/inbox';
 import { isUuid } from '@/lib/clubs/input';
+import { leadOwners, memberLead } from '@/lib/clubs/leads';
 import { memberCard } from '@/lib/clubs/members';
 import { memberWallet } from '@/lib/clubs/wallet';
 import { formatDate, formatDateTime } from '@/lib/format';
 
+import { startThreadAction } from '../../vhodyashti/actions';
 import { issueCardAction, memberOpAction, pauseAction, walletAction } from '../actions';
+import { leadAction } from '../potentsialni/actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +56,7 @@ const OUTCOMES = new Set([
   'already',
   'club_closed',
   'not_linked',
+  'lead_saved',
 ]);
 
 export default async function MemberCardPage({
@@ -59,16 +74,23 @@ export default async function MemberCardPage({
   if (!member) notFound();
   const walletOn = featureOn(club, 'wallet') && actorCan(actor, 'payments.view');
   const invoicesOn = featureOn(club, 'invoices') && actorCan(actor, 'invoices.issue');
-  const [t, tClub, messages, history, wallet] = await Promise.all([
-    getTranslations('ClubMembers'),
-    getTranslations('Club'),
-    clubFormMessages(),
-    actorCan(actor, 'audit.view')
-      ? clubAuditHistory(actor.clubId, { subjectMemberId: memberId }, 30)
-      : Promise.resolve([]),
-    // Shown wherever there is credit, even if the tier has lost the wallet.
-    actorCan(actor, 'payments.view') ? memberWallet(actor, memberId) : Promise.resolve(null),
-  ]);
+  const canInbox = actorCan(actor, 'inbox.reply');
+  const [t, tClub, tLeads, tInbox, messages, history, wallet, lead, owners, threads] =
+    await Promise.all([
+      getTranslations('ClubMembers'),
+      getTranslations('Club'),
+      getTranslations('ClubLeads'),
+      getTranslations('ClubInbox'),
+      clubFormMessages(),
+      actorCan(actor, 'audit.view')
+        ? clubAuditHistory(actor.clubId, { subjectMemberId: memberId }, 30)
+        : Promise.resolve([]),
+      // Shown wherever there is credit, even if the tier has lost the wallet.
+      actorCan(actor, 'payments.view') ? memberWallet(actor, memberId) : Promise.resolve(null),
+      memberLead(actor, memberId, sofiaToday()),
+      leadOwners(actor),
+      canInbox ? memberThreadsForStaff(actor, memberId) : Promise.resolve([]),
+    ]);
   const { rezultat } = await searchParams;
   const base = `/klub/${slug}`;
   const today = sofiaToday();
@@ -93,6 +115,7 @@ export default async function MemberCardPage({
     : null;
   const outcomeIsGood =
     rezultat === 'saved' ||
+    rezultat === 'lead_saved' ||
     rezultat === 'invited' ||
     rezultat === 'checked_in' ||
     rezultat === 'wallet_topped_up' ||
@@ -581,6 +604,100 @@ export default async function MemberCardPage({
             )}
           </section>
         </div>
+      )}
+
+      <section className={section} aria-labelledby="lead-h">
+        <h2 id="lead-h" className="text-h4 font-bold text-ink">
+          {tLeads('cardTitle')}
+        </h2>
+        {lead ? (
+          <LeadCardView
+            slug={slug}
+            card={lead}
+            owners={owners}
+            locale={locale}
+            canManage={actorCan(actor, 'members.manage')}
+            from="member"
+          />
+        ) : actorCan(actor, 'members.manage') && !member.archivedAt ? (
+          <form action={leadAction} className="flex flex-wrap items-end gap-2">
+            {op('open', { from: 'member' })}
+            <label className="block text-body-sm font-semibold text-ink">
+              {tLeads('sourceLabel')}
+              <Select name="source" defaultValue="desk" size="sm" className="mt-1">
+                {LEAD_DESK_SOURCES.map((source) => (
+                  <option key={source} value={source}>
+                    {tLeads(`source.${source}`)}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <Button type="submit" size="sm" variant="secondary">
+              {tLeads('open')}
+            </Button>
+          </form>
+        ) : (
+          <p className="text-body-sm text-text-muted">{tLeads('notInPipeline')}</p>
+        )}
+      </section>
+
+      {canInbox && (
+        <section className={section} aria-labelledby="threads-h">
+          <h2 id="threads-h" className="text-h4 font-bold text-ink">
+            {tInbox('memberTitle')}
+          </h2>
+          {threads.length > 0 && (
+            <ul className="divide-y divide-line">
+              {threads.map((thread) => (
+                <li key={thread.id} className="flex flex-wrap items-baseline gap-x-3 py-1.5">
+                  <Link
+                    href={`${base}/vhodyashti/${thread.id}`}
+                    className={`min-w-0 flex-1 text-body-sm text-ink underline-offset-2 hover:underline ${
+                      thread.unread ? 'font-bold' : 'font-semibold'
+                    }`}
+                  >
+                    {thread.subject}
+                  </Link>
+                  <span className="text-caption text-text-muted">
+                    {formatDateTime(thread.lastAt, locale)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {member.link?.status === 'active' && !member.isMinor && !member.archivedAt ? (
+            <form action={startThreadAction} className="space-y-3">
+              <input type="hidden" name="slug" value={slug} />
+              <input type="hidden" name="memberId" value={memberId} />
+              <label className="block text-body-sm font-semibold text-ink">
+                {tInbox('subject')}
+                <Input
+                  name="subject"
+                  required
+                  maxLength={THREAD_SUBJECT_MAX}
+                  size="sm"
+                  className="mt-1"
+                />
+              </label>
+              <label className="block text-body-sm font-semibold text-ink">
+                {tInbox('body')}
+                <Textarea
+                  name="body"
+                  required
+                  maxLength={THREAD_BODY_MAX}
+                  rows={4}
+                  size="sm"
+                  className="mt-1"
+                />
+              </label>
+              <Button type="submit" size="sm">
+                {tInbox('startSend')}
+              </Button>
+            </form>
+          ) : (
+            <p className="text-body-sm text-text-muted">{tInbox('startNeedsLink')}</p>
+          )}
+        </section>
       )}
 
       <section className={section}>

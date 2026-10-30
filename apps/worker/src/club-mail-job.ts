@@ -15,7 +15,9 @@ import {
   dueClubReminders,
   expiryCandidates,
   getDb,
+  inboxNoticeOf,
   inviteForMail,
+  leadsDue,
   memberChannels,
   memberForStaffMail,
   memberRecipient,
@@ -164,6 +166,8 @@ interface MemberMail {
   values?: Record<string, string | number>;
   startsAtLocal?: string;
   where?: string;
+  /** Where in the portal the link opens (0052: a thread); the portal's front page by default. */
+  portalPath?: string;
 }
 
 /**
@@ -212,7 +216,7 @@ async function sendOtherChannels(
           payload: {
             title: recipient.clubName,
             body: fillClubTemplate(pick(recipient.locale, `push.${mail.kind}`), values),
-            url: `${recipient.locale === 'en' ? '/en' : ''}/klub/${recipient.clubSlug}/az`,
+            url: `${recipient.locale === 'en' ? '/en' : ''}/klub/${recipient.clubSlug}/az${mail.portalPath ?? ''}`,
             tag: mail.key.slice(0, 64),
           },
         },
@@ -275,7 +279,7 @@ function memberMessage(recipient: ClubMemberRecipient, mail: MemberMail, options
     startsAtLocal: mail.startsAtLocal,
     where: mail.where,
     actionUrl: recipient.linked
-      ? `${base}/klub/${recipient.clubSlug}/az`
+      ? `${base}/klub/${recipient.clubSlug}/az${mail.portalPath ?? ''}`
       : `${base}/klub/${recipient.clubSlug}`,
     replyTo: recipient.replyTo,
     ...(recipient.unsubscribeToken
@@ -567,6 +571,77 @@ export async function runClubNotify(
         ),
       };
     }
+    case 'inbox_message': {
+      // Read again at send time; a message the other side has already read
+      // needs no notice. The notice says THAT there is something to read —
+      // never what was written.
+      const notice = await inboxNoticeOf(db(), job.messageId);
+      const club = notice ? await clubForMail(db(), notice.clubId) : null;
+      if (!notice || !club || notice.alreadyRead) {
+        return { kind: job.kind, report: emptyDeliveryReport() };
+      }
+      if (notice.author === 'club') {
+        return {
+          kind: job.kind,
+          report: await deliverEach(
+            [notice],
+            (n) =>
+              sendToMember(
+                {
+                  kind: 'inbox_reply',
+                  clubId: n.clubId,
+                  memberId: n.memberId,
+                  key: dedupeKey({ kind: 'inbox_reply', messageId: n.messageId }),
+                  values: { subject: n.subject },
+                  portalPath: `/saobshteniya/${n.threadId}`,
+                },
+                options,
+              ),
+            run,
+          ),
+        };
+      }
+      // The prospect's owner when they still answer the inbox; else everybody who does.
+      const staff = await staffOf(club.clubId, rolesWith('inbox.reply'));
+      const owner = staff.find((s) => s.userId === notice.assignedTo);
+      const line = (path: string, values: Record<string, string | number>) =>
+        fillClubTemplate(pick(club.locale, `inbox.${path}`), values);
+      const details =
+        notice.threadKind === 'inquiry' && notice.inquiryKind
+          ? [
+              line('kind', { kind: pick(club.locale, `inbox.kinds.${notice.inquiryKind}`) }),
+              ...(notice.inquiryOn
+                ? [line('on', { date: formatCivilDate(notice.inquiryOn, club.locale) })]
+                : []),
+              ...(notice.partySize !== null ? [line('party', { count: notice.partySize })] : []),
+            ]
+          : [];
+      return {
+        kind: job.kind,
+        report: await deliverEach(
+          owner ? [owner] : staff,
+          (recipient) =>
+            sendToStaff(
+              {
+                kind: 'inbox_message',
+                club,
+                recipient,
+                key: dedupeKey({
+                  kind: 'inbox_message',
+                  messageId: notice.messageId,
+                  userId: recipient.userId,
+                }),
+                ledgerUserId: recipient.userId,
+                actionUrl: `${base(club)}/vhodyashti/${notice.threadId}`,
+                values: { name: notice.memberName, subject: notice.subject },
+                details,
+              },
+              options,
+            ),
+          run,
+        ),
+      };
+    }
     case 'claim_pending':
     case 'erasure_requested': {
       const member = await memberForStaffMail(db(), job.memberId);
@@ -704,6 +779,45 @@ export async function runClubRosterDigest(
     },
     { job: 'club.digest' },
   );
+}
+
+/**
+ * Daily 09:05 (0052, «lead not contacted»): each member of staff's prospects
+ * to call — new ones nobody called for a day, and next steps due today or
+ * late. Counts only; the link opens the board.
+ */
+export async function runClubLeadsDue(
+  options: ClubMailOptions,
+  today = sofiaToday(),
+): Promise<DeliveryReport> {
+  const roles = rolesWith('members.manage');
+  const rows = await leadsDue(db(), roles, today);
+  const clubs = new Map<string, Awaited<ReturnType<typeof clubForMail>>>();
+  const staff = new Map<string, StaffRecipient[]>();
+  const mails: StaffMail[] = [];
+  for (const row of rows) {
+    if (!clubs.has(row.clubId)) clubs.set(row.clubId, await clubForMail(db(), row.clubId));
+    if (!staff.has(row.clubId)) staff.set(row.clubId, await staffOf(row.clubId, roles));
+    const club = clubs.get(row.clubId);
+    const recipient = staff.get(row.clubId)?.find((s) => s.userId === row.userId);
+    if (!club || !recipient) continue;
+    const line = (path: string, count: number) =>
+      fillClubTemplate(pick(club.locale, `leads.${path}`), { count });
+    mails.push({
+      kind: 'leads_due',
+      club,
+      recipient,
+      key: dedupeKey({ kind: 'leads_due', userId: row.userId, day: today }),
+      ledgerUserId: row.userId,
+      actionUrl: `${siteBase(options, club.locale)}/klub/${club.clubSlug}/chlenove/potentsialni`,
+      values: { count: row.due },
+      details: [
+        ...(row.uncalled > 0 ? [line('uncalled', row.uncalled)] : []),
+        ...(row.planned > 0 ? [line('planned', row.planned)] : []),
+      ],
+    });
+  }
+  return deliverEach(mails, (mail) => sendToStaff(mail, options), { job: 'club.leads' });
 }
 
 /** Monday 08:30: the owner's numbers for the week that just closed. */

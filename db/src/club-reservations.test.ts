@@ -448,7 +448,9 @@ describe.skipIf(!hasDb)('club reservations (requires running database)', () => {
       client.query(`DELETE FROM club_calendar_claims WHERE resource_id = $1`, [court]),
     );
     expect(direct.message).toMatch(/written only by the calendar triggers/);
-    const truncate = await failure(client.query(`TRUNCATE club_reservations`));
+    // Ratings reference reservations (0052): truncating with them gets past the
+    // foreign-key check, so the refusal is the guard's own.
+    const truncate = await failure(client.query(`TRUNCATE club_reservations, club_feedback`));
     expect(truncate.message).toMatch(/cannot be truncated/);
   });
 

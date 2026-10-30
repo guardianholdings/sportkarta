@@ -243,6 +243,7 @@ describe.skipIf(!hasDb)('club schema (requires running database)', () => {
       expect(views.rows.map((r) => r.relname).sort()).toEqual([
         'club_booking_positions',
         'club_charge_balances',
+        'club_lead_stages',
         'club_member_status',
         'club_membership_balances',
         'club_product_stock',

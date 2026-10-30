@@ -45,7 +45,21 @@ import {
   BROADCAST_SUBJECT_MAX,
   SMS_BODY_MAX,
   SMS_NOTIFY_KINDS,
+  automationChannels,
+  automationMaxDelay,
   automationMinDelay,
+  FEEDBACK_COMMENT_MAX,
+  INQUIRY_HORIZON_DAYS,
+  INQUIRY_KINDS,
+  INQUIRY_PARTY_MAX,
+  LEAD_DESK_SOURCES,
+  LEAD_LOST_REASONS,
+  THREAD_BODY_MAX,
+  THREAD_SUBJECT_MAX,
+  isGoogleReviewUrl,
+  type InquiryKind,
+  type LeadDeskSource,
+  type LeadLostReason,
   type Audience,
   type AutomationChannel,
   type AutomationTrigger,
@@ -1698,8 +1712,14 @@ export function parseAutomation(form: Reader): InputResult<AutomationInput> {
   const errors: string[] = [];
   const trigger = oneOf(text(form, 'trigger'), AUTOMATION_TRIGGERS);
   const channel = oneOf(text(form, 'channel'), AUTOMATION_CHANNELS);
-  if (trigger === null || channel === null) return { ok: false, errors: ['invalid'] };
-  const delayDays = intInRange(text(form, 'delayDays'), automationMinDelay(trigger), 365);
+  if (trigger === null || channel === null || !automationChannels(trigger).includes(channel)) {
+    return { ok: false, errors: ['invalid'] };
+  }
+  const delayDays = intInRange(
+    text(form, 'delayDays'),
+    automationMinDelay(trigger),
+    automationMaxDelay(trigger),
+  );
   if (delayDays === null) errors.push('delay_invalid');
   let subject: string | null = null;
   let body: string;
@@ -1719,4 +1739,136 @@ export function parseAutomation(form: Reader): InputResult<AutomationInput> {
 /** Which automatic notices also go by SMS (clubs.sms_notify). */
 export function parseSmsNotify(form: Reader): SmsNotifyKind[] {
   return SMS_NOTIFY_KINDS.filter((kind) => form.getAll('smsNotify').some((v) => v === kind));
+}
+
+// ─── Inbox, prospects and ratings (0052) ──────────────────────────────────
+
+/** A new thread: a subject and the first message. */
+export function parseNewThread(form: Reader): InputResult<{ subject: string; body: string }> {
+  const errors: string[] = [];
+  const subject = required(text(form, 'subject'), THREAD_SUBJECT_MAX, errors, 'thread_subject');
+  const body = required(text(form, 'body'), THREAD_BODY_MAX, errors, 'thread_body');
+  return errors.length > 0 ? { ok: false, errors } : { ok: true, value: { subject, body } };
+}
+
+/** An answer in a thread. */
+export function parseReply(form: Reader): InputResult<string> {
+  const errors: string[] = [];
+  const body = required(text(form, 'body'), THREAD_BODY_MAX, errors, 'thread_body');
+  return errors.length > 0 ? { ok: false, errors } : { ok: true, value: body };
+}
+
+/** An inquiry from the club's page: what about, perhaps when and for how many. */
+export function parseInquiry(
+  form: Reader,
+  today: IsoDate,
+): InputResult<{ kind: InquiryKind; on: IsoDate | null; partySize: number | null; body: string }> {
+  const errors: string[] = [];
+  const kind = oneOf(text(form, 'kind'), INQUIRY_KINDS);
+  if (kind === null) errors.push('inquiry_kind_invalid');
+  const onRaw = text(form, 'on');
+  let on: IsoDate | null = null;
+  if (onRaw !== '') {
+    if (isIsoDate(onRaw) && onRaw >= today && onRaw <= addDaysIso(today, INQUIRY_HORIZON_DAYS)) {
+      on = onRaw;
+    } else errors.push('inquiry_on_invalid');
+  }
+  const partySize = optionalInt(
+    form,
+    'partySize',
+    1,
+    INQUIRY_PARTY_MAX,
+    errors,
+    'party_size_invalid',
+  );
+  const body = required(text(form, 'body'), THREAD_BODY_MAX, errors, 'thread_body');
+  if (errors.length > 0 || kind === null) return { ok: false, errors };
+  return { ok: true, value: { kind, on, partySize, body } };
+}
+
+/** A staff account id as better-auth writes it — checked against club_staff in SQL. */
+const USER_ID = /^[A-Za-z0-9_-]{1,100}$/;
+
+/** A prospect's next step and its owner; empty fields clear them. */
+export function parseLeadPlan(
+  form: Reader,
+  today: IsoDate,
+): InputResult<{ nextActionOn: IsoDate | null; assignedTo: string | null }> {
+  const errors: string[] = [];
+  const onRaw = text(form, 'nextActionOn');
+  let nextActionOn: IsoDate | null = null;
+  if (onRaw !== '') {
+    if (isIsoDate(onRaw) && onRaw >= today && onRaw <= addDaysIso(today, 400)) {
+      nextActionOn = onRaw;
+    } else errors.push('next_action_invalid');
+  }
+  const assignedRaw = text(form, 'assignedTo');
+  let assignedTo: string | null = null;
+  if (assignedRaw !== '') {
+    if (USER_ID.test(assignedRaw)) assignedTo = assignedRaw;
+    else errors.push('assignee_invalid');
+  }
+  return errors.length > 0
+    ? { ok: false, errors }
+    : { ok: true, value: { nextActionOn, assignedTo } };
+}
+
+export function parseLeadLost(form: Reader): InputResult<LeadLostReason> {
+  const reason = oneOf(text(form, 'reason'), LEAD_LOST_REASONS);
+  return reason === null
+    ? { ok: false, errors: ['lost_reason_invalid'] }
+    : { ok: true, value: reason };
+}
+
+export function parseLeadSource(form: Reader): InputResult<LeadDeskSource> {
+  const source = oneOf(text(form, 'source'), LEAD_DESK_SOURCES);
+  return source === null
+    ? { ok: false, errors: ['lead_source_invalid'] }
+    : { ok: true, value: source };
+}
+
+/** A rating: what (a class or a booking), 1–5 stars, an optional comment. */
+export function parseFeedback(form: Reader): InputResult<{
+  subject: { kind: 'class'; occurrenceId: string } | { kind: 'booking'; reservationId: string };
+  rating: number;
+  comment: string | null;
+}> {
+  const errors: string[] = [];
+  const kind = oneOf(text(form, 'kind'), ['class', 'booking'] as const);
+  const id = text(form, 'id');
+  if (kind === null || !isUuid(id)) return { ok: false, errors: ['not_found'] };
+  const rating = intInRange(text(form, 'rating'), 1, 5);
+  if (rating === null) errors.push('rating_invalid');
+  const comment = bounded(
+    optionalText(form, 'comment'),
+    FEEDBACK_COMMENT_MAX,
+    errors,
+    'feedback_comment_too_long',
+  );
+  if (errors.length > 0 || rating === null) return { ok: false, errors };
+  return {
+    ok: true,
+    value: {
+      subject:
+        kind === 'class'
+          ? { kind, occurrenceId: id.toLowerCase() }
+          : { kind, reservationId: id.toLowerCase() },
+      rating,
+      comment,
+    },
+  };
+}
+
+/** The club's Google review link, or null to remove it. */
+export function parseGoogleReviewUrl(form: Reader): InputResult<string | null> {
+  // A Maps share link copied from the phone carries a tracking query
+  // (`?g_st=…`); the link works without it, and the CHECK admits it without.
+  const raw = text(form, 'googleReviewUrl').replace(
+    /^(https:\/\/maps\.app\.goo\.gl\/[A-Za-z0-9]+)\?.*$/,
+    '$1',
+  );
+  if (raw === '') return { ok: true, value: null };
+  return isGoogleReviewUrl(raw)
+    ? { ok: true, value: raw }
+    : { ok: false, errors: ['google_review_url_invalid'] };
 }

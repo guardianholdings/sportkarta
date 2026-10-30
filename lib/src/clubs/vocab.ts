@@ -87,6 +87,15 @@ export const CLUB_AUDIT_ACTIONS = [
   'broadcast_cancelled',
   'automation_saved',
   'sms_settings_changed',
+  'thread_started',
+  'thread_closed',
+  'thread_reopened',
+  'inquiry_received',
+  'lead_opened',
+  'lead_updated',
+  'lead_lost',
+  'lead_reopened',
+  'feedback_settings_changed',
 ] as const;
 export type ClubAuditAction = (typeof CLUB_AUDIT_ACTIONS)[number];
 
@@ -143,7 +152,7 @@ export type ClubPlanAudience = (typeof CLUB_PLAN_AUDIENCES)[number];
 export const CLUB_CANCEL_REASONS = ['member_request', 'non_payment', 'mistake', 'other'] as const;
 export type ClubCancelReason = (typeof CLUB_CANCEL_REASONS)[number];
 
-/** club_notifications_kind_known (0044, widened in 0045, 0046 and 0051). */
+/** club_notifications_kind_known (0044, widened in 0045, 0046, 0051 and 0052). */
 export const CLUB_NOTIFICATION_KINDS = [
   'member_invite',
   'staff_invite',
@@ -167,6 +176,9 @@ export const CLUB_NOTIFICATION_KINDS = [
   'payment_received',
   'broadcast',
   'automation',
+  'inbox_message',
+  'inbox_reply',
+  'leads_due',
 ] as const;
 export type ClubNotificationKind = (typeof CLUB_NOTIFICATION_KINDS)[number];
 
@@ -218,7 +230,13 @@ export type DedupeInput =
    * membership, a first visit's day, a last visit's day) — editing or
    * re-creating an automation never re-sends it.
    */
-  | { kind: 'automation'; trigger: string; memberId: string; anchor: string };
+  | { kind: 'automation'; trigger: string; memberId: string; anchor: string }
+  /** A member's message, to each member of staff told about it (0052). */
+  | { kind: 'inbox_message'; messageId: string; userId: string }
+  /** The club's answer, to the member (0052). */
+  | { kind: 'inbox_reply'; messageId: string }
+  /** The prospects to call today, per member of staff and Sofia day (0052). */
+  | { kind: 'leads_due'; userId: string; day: IsoDate };
 
 export function dedupeKey(input: DedupeInput): string {
   switch (input.kind) {
@@ -257,5 +275,11 @@ export function dedupeKey(input: DedupeInput): string {
       return `${input.kind}:${input.broadcastId}:${input.recipientMemberId}`;
     case 'automation':
       return `${input.kind}:${input.trigger}:${input.memberId}:${input.anchor}`;
+    case 'inbox_message':
+      return `${input.kind}:${input.messageId}:${input.userId}`;
+    case 'inbox_reply':
+      return `${input.kind}:${input.messageId}`;
+    case 'leads_due':
+      return `${input.kind}:${input.userId}:${input.day}`;
   }
 }

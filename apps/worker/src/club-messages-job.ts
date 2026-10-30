@@ -99,6 +99,7 @@ const CANCEL_CHECK_EVERY = 10;
 
 const BROADCAST_TIERS = CLUB_TIERS.filter((tier) => clubHasFeature(tier, 'broadcasts'));
 const AUTOMATION_TIERS = CLUB_TIERS.filter((tier) => clubHasFeature(tier, 'automations'));
+const FEEDBACK_TIERS = CLUB_TIERS.filter((tier) => clubHasFeature(tier, 'feedback'));
 
 /**
  * Broadcasts whose SMS and push have nobody left to reach (this process's
@@ -180,6 +181,8 @@ interface OwnMessage {
   ledgerMemberId: string;
   subject: string;
   body: string;
+  /** Where in the portal the button opens (a request to rate: the rating page). */
+  portalPath?: string;
 }
 
 async function sendOwnEmail(
@@ -211,7 +214,7 @@ async function sendOwnEmail(
           recipientName: recipient.recipientName,
           values: { subject: message.subject, body: message.body },
           actionUrl: recipient.linked
-            ? `${base}/klub/${recipient.clubSlug}/az`
+            ? `${base}/klub/${recipient.clubSlug}/az${message.portalPath ?? ''}`
             : `${base}/klub/${recipient.clubSlug}`,
           replyTo: recipient.replyTo,
           ...(way ? { unsubscribePageUrl: way.pageUrl, unsubscribePostUrl: way.postUrl } : {}),
@@ -491,6 +494,7 @@ async function runAutomation(
             ledgerMemberId: candidate.memberId,
             subject: personalise(automation.subject ?? '', values),
             body: personalise(automation.body, values),
+            ...(automation.trigger === 'feedback_request' ? { portalPath: '/otzivi' } : {}),
           },
           options,
           budget,
@@ -524,7 +528,7 @@ export async function runClubAutomations(
   options: ClubMessageOptions,
   today: IsoDate = sofiaToday(),
 ): Promise<{ automations: number; held: boolean; report: DeliveryReport }> {
-  const automations = await activeAutomations(db(), AUTOMATION_TIERS, today);
+  const automations = await activeAutomations(db(), AUTOMATION_TIERS, today, FEEDBACK_TIERS);
   const sentToday = await automationMailToday(db());
   const work: { automation: ActiveAutomation; candidates: AutomationCandidate[] }[] = [];
   for (const automation of automations) {

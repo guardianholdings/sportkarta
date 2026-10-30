@@ -34,7 +34,13 @@ export async function clubFormMessages(): Promise<ClubFormMessages> {
     saved: t('saved'),
     genericError: t('genericError'),
     readOnly: t('readOnly'),
-    errors: Object.fromEntries(Object.keys(catalogue).map((code) => [code, t(`error.${code}`)])),
+    // No prototype: pages look codes up straight from `?rezultat=`, and
+    // `__proto__` or `constructor` must miss like any unknown code, not
+    // return a function or an object for React to choke on.
+    errors: Object.assign(
+      Object.create(null) as Record<string, string>,
+      Object.fromEntries(Object.keys(catalogue).map((code) => [code, t(`error.${code}`)])),
+    ),
   };
 }
 

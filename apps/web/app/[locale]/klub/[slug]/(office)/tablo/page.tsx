@@ -7,6 +7,8 @@ import { Stat } from '@/components/ui/stat';
 import { Link } from '@/i18n/navigation';
 import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
 import { dashboardData } from '@/lib/clubs/dashboard';
+import { inboxUnreadCount } from '@/lib/clubs/inbox';
+import { leadsSummary } from '@/lib/clubs/leads';
 import { pendingClaims } from '@/lib/clubs/links';
 import { openCharges } from '@/lib/clubs/sales';
 import { weekOccurrences } from '@/lib/clubs/schedule';
@@ -38,13 +40,17 @@ export default async function ClubDashboardPage({
   const today = sofiaToday();
   const canPay = actorCan(actor, 'payments.view');
   const canMembers = actorCan(actor, 'members.manage');
-  const [t, data, classes, owing, claims] = await Promise.all([
+  const canInbox = actorCan(actor, 'inbox.reply');
+  const [t, data, classes, owing, claims, unread, leads] = await Promise.all([
     getTranslations('ClubOffice.dashboard'),
     dashboardData(actor),
     weekOccurrences(actor, today, null, 1),
     canPay ? openCharges(actor, { limit: 8 }) : Promise.resolve([]),
     canMembers ? pendingClaims(actor) : Promise.resolve([]),
+    canInbox ? inboxUnreadCount(actor) : Promise.resolve(0),
+    canMembers ? leadsSummary(actor, today) : Promise.resolve(null),
   ]);
+  const leadsDue = leads?.due ?? 0;
   const base = `/klub/${slug}`;
   const doneCount = Object.values(data.checklist).filter(Boolean).length;
   const showChecklist = doneCount < CHECKLIST.length && actorCan(actor, 'settings.manage');
@@ -81,6 +87,27 @@ export default async function ClubDashboardPage({
         />
         {canPay && <Stat value={data.unpaidCount} label={t('unpaid')} />}
       </section>
+
+      {(unread > 0 || leadsDue > 0) && (
+        <section className="flex flex-wrap gap-2 rounded-card border border-line bg-surface p-4 shadow-sm">
+          {unread > 0 && (
+            <Link
+              href={`${base}/vhodyashti?f=unread`}
+              className={buttonVariants({ variant: 'secondary' })}
+            >
+              {t('inboxUnread', { count: unread })}
+            </Link>
+          )}
+          {leadsDue > 0 && (
+            <Link
+              href={`${base}/chlenove/potentsialni`}
+              className={buttonVariants({ variant: 'secondary' })}
+            >
+              {t('leadsDue', { count: leadsDue })}
+            </Link>
+          )}
+        </section>
+      )}
 
       {showChecklist && (
         <section className="space-y-3 rounded-card border border-brand-border bg-brand-subtle p-4">

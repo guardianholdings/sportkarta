@@ -3,7 +3,9 @@ import {
   BROADCAST_BODY_MAX,
   BROADCAST_SUBJECT_MAX,
   SMS_BODY_MAX,
+  automationChannels,
   automationDefaultDelay,
+  automationMaxDelay,
   automationMinDelay,
   automationPurpose,
   clubHasFeature,
@@ -27,9 +29,11 @@ export const dynamic = 'force-dynamic';
 
 /**
  * Messages that go by themselves (0051): a welcome after the first visit,
- * follow-ups after a trial or an abonnement that ended, and a "we miss you"
- * after a gap. Each runs daily at 10:15 and answers each event once; all but
- * the welcome are offers, so they reach only members who agreed to offers.
+ * follow-ups after a trial or an abonnement that ended, a "we miss you"
+ * after a gap, and (0052, where the tier has ratings) a request to rate a
+ * class the member came to. Each runs daily at 10:15 and answers each event
+ * once; the follow-ups and the "we miss you" are offers, so they reach only
+ * members who agreed to offers.
  */
 export default async function ClubAutomationsPage({
   params,
@@ -91,7 +95,9 @@ export default async function ClubAutomationsPage({
         </p>
       )}
 
-      {AUTOMATION_TRIGGERS.map((trigger) => (
+      {AUTOMATION_TRIGGERS.filter(
+        (trigger) => trigger !== 'feedback_request' || featureOn(club, 'feedback'),
+      ).map((trigger) => (
         <section key={trigger} className={section} aria-labelledby={`au-${trigger}`}>
           <div>
             <h2 id={`au-${trigger}`} className="text-h4 font-bold text-ink">
@@ -103,92 +109,96 @@ export default async function ClubAutomationsPage({
               {t(automationPurpose(trigger) === 'service' ? 'auto.service' : 'auto.marketing')}
             </p>
           </div>
-          {channels.map((channel) => {
-            const current = automations.find((a) => a.trigger === trigger && a.channel === channel);
-            const set = current?.id !== null && current?.id !== undefined;
-            return (
-              <details key={channel} className="rounded-card border border-line p-3" open={set}>
-                <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-body-sm font-semibold text-ink">
-                  <span>{t(`channels.${channel}`)}</span>
-                  <span className="text-caption font-semibold text-ink-soft">
-                    {set ? t(current?.active ? 'auto.on' : 'auto.off') : t('auto.notSet')}
-                  </span>
-                </summary>
-                <form action={saveAutomationAction} className="mt-3 space-y-3">
-                  <input type="hidden" name="slug" value={slug} />
-                  <input type="hidden" name="trigger" value={trigger} />
-                  <input type="hidden" name="channel" value={channel} />
-                  <label className={field}>
-                    {t('auto.delay')}
-                    <Input
-                      name="delayDays"
-                      type="number"
-                      inputMode="numeric"
-                      required
-                      min={automationMinDelay(trigger)}
-                      max={365}
-                      defaultValue={current?.delayDays ?? automationDefaultDelay(trigger)}
-                      size="sm"
-                      className="mt-1 w-28"
-                    />
-                    <span className={hint}>{t(`auto.trigger.${trigger}.delayHint`)}</span>
-                  </label>
-                  {channel === 'email' ? (
-                    <>
+          {channels
+            .filter((channel) => automationChannels(trigger).includes(channel))
+            .map((channel) => {
+              const current = automations.find(
+                (a) => a.trigger === trigger && a.channel === channel,
+              );
+              const set = current?.id !== null && current?.id !== undefined;
+              return (
+                <details key={channel} className="rounded-card border border-line p-3" open={set}>
+                  <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-body-sm font-semibold text-ink">
+                    <span>{t(`channels.${channel}`)}</span>
+                    <span className="text-caption font-semibold text-ink-soft">
+                      {set ? t(current?.active ? 'auto.on' : 'auto.off') : t('auto.notSet')}
+                    </span>
+                  </summary>
+                  <form action={saveAutomationAction} className="mt-3 space-y-3">
+                    <input type="hidden" name="slug" value={slug} />
+                    <input type="hidden" name="trigger" value={trigger} />
+                    <input type="hidden" name="channel" value={channel} />
+                    <label className={field}>
+                      {t('auto.delay')}
+                      <Input
+                        name="delayDays"
+                        type="number"
+                        inputMode="numeric"
+                        required
+                        min={automationMinDelay(trigger)}
+                        max={automationMaxDelay(trigger)}
+                        defaultValue={current?.delayDays ?? automationDefaultDelay(trigger)}
+                        size="sm"
+                        className="mt-1 w-28"
+                      />
+                      <span className={hint}>{t(`auto.trigger.${trigger}.delayHint`)}</span>
+                    </label>
+                    {channel === 'email' ? (
+                      <>
+                        <label className={field}>
+                          {t('subject')}
+                          <Input
+                            name="subject"
+                            required
+                            maxLength={BROADCAST_SUBJECT_MAX}
+                            defaultValue={current?.subject ?? ''}
+                            size="sm"
+                            className="mt-1"
+                          />
+                        </label>
+                        <label className={field}>
+                          {t('body')}
+                          <Textarea
+                            name="body"
+                            required
+                            maxLength={BROADCAST_BODY_MAX}
+                            rows={6}
+                            size="sm"
+                            defaultValue={current?.body ?? ''}
+                            className="mt-1"
+                          />
+                          <span className={hint}>{t('placeholders')}</span>
+                        </label>
+                      </>
+                    ) : (
                       <label className={field}>
-                        {t('subject')}
-                        <Input
-                          name="subject"
-                          required
-                          maxLength={BROADCAST_SUBJECT_MAX}
-                          defaultValue={current?.subject ?? ''}
-                          size="sm"
-                          className="mt-1"
-                        />
-                      </label>
-                      <label className={field}>
-                        {t('body')}
-                        <Textarea
+                        {t('smsBody')}
+                        <SmsTextarea
                           name="body"
                           required
-                          maxLength={BROADCAST_BODY_MAX}
-                          rows={6}
-                          size="sm"
+                          maxLength={SMS_BODY_MAX}
                           defaultValue={current?.body ?? ''}
-                          className="mt-1"
+                          counter={t.raw('smsCounter') as string}
                         />
                         <span className={hint}>{t('placeholders')}</span>
                       </label>
-                    </>
-                  ) : (
-                    <label className={field}>
-                      {t('smsBody')}
-                      <SmsTextarea
-                        name="body"
-                        required
-                        maxLength={SMS_BODY_MAX}
-                        defaultValue={current?.body ?? ''}
-                        counter={t.raw('smsCounter') as string}
+                    )}
+                    <label className="flex min-h-11 items-center gap-3 text-body-sm text-ink">
+                      <input
+                        type="checkbox"
+                        name="active"
+                        defaultChecked={set ? current?.active : true}
+                        className="size-4 accent-[var(--brand)]"
                       />
-                      <span className={hint}>{t('placeholders')}</span>
+                      {t('auto.active')}
                     </label>
-                  )}
-                  <label className="flex min-h-11 items-center gap-3 text-body-sm text-ink">
-                    <input
-                      type="checkbox"
-                      name="active"
-                      defaultChecked={set ? current?.active : true}
-                      className="size-4 accent-[var(--brand)]"
-                    />
-                    {t('auto.active')}
-                  </label>
-                  <Button type="submit" size="sm">
-                    {t('auto.save')}
-                  </Button>
-                </form>
-              </details>
-            );
-          })}
+                    <Button type="submit" size="sm">
+                      {t('auto.save')}
+                    </Button>
+                  </form>
+                </details>
+              );
+            })}
         </section>
       ))}
     </main>

@@ -13,6 +13,7 @@ export * from './dates.js';
 export * from './engagement.js';
 export * from './features.js';
 export * from './import.js';
+export * from './inbox.js';
 export * from './invoice-document.js';
 export * from './invoices.js';
 export * from './jobs.js';

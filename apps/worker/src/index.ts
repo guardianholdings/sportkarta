@@ -13,6 +13,7 @@ import {
   CLUB_DIGEST_QUEUE,
   CLUB_EXPIRY_QUEUE,
   CLUB_HEALTH_QUEUE,
+  CLUB_LEADS_QUEUE,
   CLUB_MATERIALIZE_QUEUE,
   CLUB_NOTIFY_QUEUE,
   CLUB_PAYMENT_EVENT_QUEUE,
@@ -31,6 +32,7 @@ import {
   runClubActivity,
   runClubExpiry,
   runClubHealth,
+  runClubLeadsDue,
   runClubNotify,
   runClubOwnerWeekly,
   runClubPolicies,
@@ -357,6 +359,7 @@ async function main(): Promise<void> {
   // leaves one waiting run (it reads the whole table anyway).
   await ensureQueue(CLUB_BROADCASTS_QUEUE, { policy: 'short' });
   await ensureQueue(CLUB_AUTOMATIONS_QUEUE, WEEKLY_RETRY);
+  await ensureQueue(CLUB_LEADS_QUEUE, WEEKLY_RETRY);
 
   // Triggered from the admin UI (Stage 1+) via boss.send('import.osm', {dryRun}).
   // dryRun defaults TRUE — a live import must be requested explicitly, matching
@@ -773,6 +776,21 @@ async function main(): Promise<void> {
     }),
   );
   await boss.schedule(CLUB_DIGEST_QUEUE, '30 6 * * *', {}, { tz: 'Europe/Sofia' });
+
+  // Each member of staff's prospects to call today (0052), counts only.
+  await work(
+    CLUB_LEADS_QUEUE,
+    logged(CLUB_LEADS_QUEUE, async () => {
+      const report = await runClubLeadsDue(clubMail);
+      console.log(
+        `[worker] ${CLUB_LEADS_QUEUE}: ${String(report.sent)} sent, ` +
+          `${String(report.skipped)} skipped, ${String(report.failed)} failed`,
+      );
+      await reportMailFailures(CLUB_LEADS_QUEUE, report);
+      assertDelivered(CLUB_LEADS_QUEUE, report);
+    }),
+  );
+  await boss.schedule(CLUB_LEADS_QUEUE, '5 9 * * *', {}, { tz: 'Europe/Sofia' });
 
   // The owner's Monday numbers for the week that just closed.
   await work(

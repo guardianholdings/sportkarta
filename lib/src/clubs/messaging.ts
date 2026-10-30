@@ -72,13 +72,20 @@ export const AUTOMATION_TRIGGERS = [
   'trial_follow_up',
   'expired_follow_up',
   'win_back',
+  'feedback_request',
 ] as const;
 export type AutomationTrigger = (typeof AUTOMATION_TRIGGERS)[number];
 
 export const AUTOMATION_CHANNELS = ['email', 'sms'] as const;
 export type AutomationChannel = (typeof AUTOMATION_CHANNELS)[number];
 
-/** A welcome is service; everything that asks the member to buy again is marketing. */
+/**
+ * A welcome is service — about something the member already has. Everything
+ * else is marketing and goes only with the member's consent, the request to
+ * rate a class (0052) included: it promotes the club (its public average, its
+ * Google page) more than it serves the member, so it waits for a lawyer to
+ * say otherwise rather than the other way round.
+ */
 export function automationPurpose(trigger: AutomationTrigger): BroadcastPurpose {
   return trigger === 'welcome' ? 'service' : 'marketing';
 }
@@ -86,6 +93,23 @@ export function automationPurpose(trigger: AutomationTrigger): BroadcastPurpose 
 /** The smallest delay each trigger allows, in days (0051's CHECK for win_back). */
 export function automationMinDelay(trigger: AutomationTrigger): number {
   return trigger === 'win_back' ? 14 : 0;
+}
+
+/**
+ * The largest delay each trigger allows (club_automations_delay_sane, 0052):
+ * a request to rate a class goes within a week of it — the portal takes
+ * ratings for FEEDBACK_WINDOW_DAYS.
+ */
+export function automationMaxDelay(trigger: AutomationTrigger): number {
+  return trigger === 'feedback_request' ? 7 : 365;
+}
+
+/**
+ * The channels a trigger may use (club_automations_feedback_by_email, 0052):
+ * a request to rate goes by e-mail, whose button opens the rating page.
+ */
+export function automationChannels(trigger: AutomationTrigger): readonly AutomationChannel[] {
+  return trigger === 'feedback_request' ? ['email'] : AUTOMATION_CHANNELS;
 }
 
 /** A sensible starting delay when a club first switches a trigger on. */
@@ -99,6 +123,8 @@ export function automationDefaultDelay(trigger: AutomationTrigger): number {
       return 3;
     case 'win_back':
       return 21;
+    case 'feedback_request':
+      return 1;
   }
 }
 
@@ -116,13 +142,15 @@ export type SmsNotifyKind = (typeof SMS_NOTIFY_KINDS)[number];
 /**
  * The automatic notices that also go by push to a member who installed the
  * app: the ones that are about time — a freed place, a cancelled class, a
- * class tomorrow, an abonnement about to end.
+ * class tomorrow, an abonnement about to end — and the club's answer to the
+ * member's message (0052).
  */
 export const PUSH_NOTIFY_KINDS: readonly ClubNotificationKind[] = [
   'booking_promoted',
   'class_cancelled',
   'reminder_24h',
   'membership_expiring',
+  'inbox_reply',
 ];
 
 export const BROADCAST_SUBJECT_MAX = 150;

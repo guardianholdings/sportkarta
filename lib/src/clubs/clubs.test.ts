@@ -91,11 +91,22 @@ import {
   AUTOMATION_TRIGGERS,
   BROADCAST_HOURS,
   BROADCAST_PURPOSES,
+  INQUIRY_KINDS,
+  LEAD_DESK_SOURCES,
+  LEAD_LOST_REASONS,
+  LEAD_SOURCES,
+  LEAD_STAGES,
+  THREAD_KINDS,
+  isGoogleReviewUrl,
+  publicRatingVisible,
+  roundRating,
   BROADCAST_SHARE_OF_BULK,
   BROADCAST_STATUSES,
   CLUB_CHANNELS,
   SMS_NOTIFY_KINDS,
+  automationChannels,
   automationDefaultDelay,
+  automationMaxDelay,
   automationMinDelay,
   automationPurpose,
   composeSms,
@@ -148,6 +159,10 @@ describe('the vocabularies equal their SQL CHECKs', () => {
     ['club_broadcasts_audience_known', AUDIENCE_SEGMENTS],
     ['club_automations_trigger_known', AUTOMATION_TRIGGERS],
     ['club_automations_channel_known', AUTOMATION_CHANNELS],
+    ['club_threads_kind_known', THREAD_KINDS],
+    ['club_threads_inquiry_kind_known', INQUIRY_KINDS],
+    ['club_members_lead_source_known', LEAD_SOURCES],
+    ['club_members_lead_lost_reason_known', LEAD_LOST_REASONS],
   ] as const)('%s', (constraint, values) => {
     expect(checkValues(constraint).sort()).toEqual([...values].sort());
   });
@@ -166,6 +181,14 @@ describe('the vocabularies equal their SQL CHECKs', () => {
     expect([...new Set(kinds)].sort()).toEqual([...AUDIENCE_KINDS].sort());
   });
 
+  it('club_lead_stages derives exactly LEAD_STAGES', () => {
+    const text = migrationText();
+    const at = text.lastIndexOf('CREATE VIEW "club_lead_stages"');
+    const block = text.slice(at, text.indexOf('END AS stage', at));
+    const stages = [...block.matchAll(/(?:THEN|ELSE) '([a-z_]+)'/g)].map((m) => m[1]);
+    expect(stages.sort()).toEqual([...LEAD_STAGES].sort());
+  });
+
   it('clubs_sms_notify_known equals SMS_NOTIFY_KINDS', () => {
     const text = migrationText();
     const at = text.lastIndexOf('"clubs_sms_notify_known" CHECK');
@@ -181,12 +204,29 @@ describe('club messages (0051)', () => {
     expect(AUTOMATION_TRIGGERS.filter((t) => automationPurpose(t) === 'service')).toEqual([
       'welcome',
     ]);
+    // The request to rate is marketing: it waits for the member's consent.
+    expect(automationPurpose('feedback_request')).toBe('marketing');
   });
 
   it('defaults every trigger to a delay its CHECK admits', () => {
     for (const trigger of AUTOMATION_TRIGGERS) {
       expect(automationDefaultDelay(trigger)).toBeGreaterThanOrEqual(automationMinDelay(trigger));
+      expect(automationDefaultDelay(trigger)).toBeLessThanOrEqual(automationMaxDelay(trigger));
     }
+  });
+
+  it('holds the per-trigger delay and channel rules equal to their CHECKs (0052)', () => {
+    const text = migrationText();
+    const delay = text.slice(text.lastIndexOf('"club_automations_delay_sane" CHECK'));
+    expect(delay).toMatch(/'win_back' OR "club_automations"\."delay_days" >= 14/);
+    expect(delay).toMatch(/'feedback_request' OR "club_automations"\."delay_days" <= 7/);
+    expect(automationMinDelay('win_back')).toBe(14);
+    expect(automationMaxDelay('feedback_request')).toBe(7);
+    expect(text).toContain(
+      `"club_automations_feedback_by_email" CHECK ("club_automations"."trigger" <> 'feedback_request' OR "club_automations"."channel" = 'email')`,
+    );
+    expect(automationChannels('feedback_request')).toEqual(['email']);
+    expect(automationChannels('welcome')).toEqual(AUTOMATION_CHANNELS);
   });
 
   it('keys a broadcast by the receiving record, an automation by the event', () => {
@@ -1053,5 +1093,46 @@ describe('invoices (0050)', () => {
     expect(documentDate('2026-10-25')).toBe('25.10.2026 г.');
     expect(documentRate(2000)).toBe('20 %');
     expect(documentRate(900)).toBe('9 %');
+  });
+});
+
+describe('inbox, prospects and ratings (0052)', () => {
+  it('lets the desk pick every source but the two the system writes', () => {
+    expect(LEAD_DESK_SOURCES.every((source) => LEAD_SOURCES.includes(source))).toBe(true);
+    expect(LEAD_SOURCES.filter((source) => !LEAD_DESK_SOURCES.includes(source as never))).toEqual([
+      'inquiry',
+      'trial',
+    ]);
+  });
+
+  it('admits only the review-link shapes Google hands a business', () => {
+    for (const ok of [
+      'https://g.page/r/CbX1abc_-9/review',
+      'https://maps.app.goo.gl/AbCdEf123',
+      'https://search.google.com/local/writereview?placeid=ChIJ123abc',
+    ]) {
+      expect(isGoogleReviewUrl(ok), ok).toBe(true);
+    }
+    for (const bad of [
+      'http://g.page/r/CbX1abc/review',
+      'https://g.page/r/CbX1abc/review?x=1',
+      'https://g.page.evil.example/r/CbX1abc/review',
+      'https://www.google.com/amp/s/evil.example',
+      'https://www.google.com/url?q=https://evil.example',
+      'https://www.google.com/maps/place/x',
+      'https://search.google.com/local/writereview?placeid=ChIJ1&next=https://evil.example',
+      'https://maps.app.goo.gl/AbC/../x',
+      'javascript:alert(1)',
+      `https://g.page/r/${'x'.repeat(121)}/review`,
+    ]) {
+      expect(isGoogleReviewUrl(bad), bad).toBe(false);
+    }
+  });
+
+  it('shows a public average only from five ratings, to one decimal', () => {
+    expect(publicRatingVisible(4)).toBe(false);
+    expect(publicRatingVisible(5)).toBe(true);
+    expect(roundRating(4.449)).toBe(4.4);
+    expect(roundRating(4.45)).toBe(4.5);
   });
 });

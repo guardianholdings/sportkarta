@@ -90,6 +90,8 @@ export const clubs = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'`),
+    /** The club's own Google review page — Google's hosts over https only (0052). */
+    googleReviewUrl: text('google_review_url'),
     trialEndsOn: date('trial_ends_on'),
     /** Set by hand when the operator's invoice is paid. */
     paidUntil: date('paid_until'),
@@ -264,6 +266,20 @@ export const clubMembers = pgTable(
     marketingSmsAt: timestamptz('marketing_sms_at'),
     smsOptOutAt: timestamptz('sms_opt_out_at'),
     cardTokenHash: text('card_token_hash'),
+    /**
+     * The prospects pipeline (0052): only the facts a person decides; the
+     * stage is derived (club_lead_stages).
+     */
+    leadOpenedAt: timestamptz('lead_opened_at'),
+    /** inquiry | trial | desk | phone | referral | social | event | other */
+    leadSource: text('lead_source'),
+    leadContactedAt: timestamptz('lead_contacted_at'),
+    leadNextActionOn: date('lead_next_action_on'),
+    /** Staff id by value. */
+    leadAssignedTo: text('lead_assigned_to'),
+    leadLostAt: timestamptz('lead_lost_at'),
+    /** price | schedule | location | no_answer | chose_other | not_interested | other */
+    leadLostReason: text('lead_lost_reason'),
     erasureRequestedAt: timestamptz('erasure_requested_at'),
     archivedAt: timestamptz('archived_at'),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
@@ -277,6 +293,9 @@ export const clubMembers = pgTable(
       foreignColumns: [t.clubId, t.id],
     }),
     index('club_members_club_name_idx').on(t.clubId, t.displayName),
+    index('club_members_leads_idx')
+      .on(t.clubId, t.leadOpenedAt)
+      .where(sql`${t.leadOpenedAt} IS NOT NULL`),
     check(
       'club_members_guardian_only_for_minors',
       sql`${t.guardianMemberId} IS NULL OR ${t.isMinor}`,
@@ -1401,7 +1420,7 @@ export const clubAutomations = pgTable(
     clubId: uuid('club_id')
       .notNull()
       .references(() => clubs.id, { onDelete: 'cascade' }),
-    /** welcome | trial_follow_up | expired_follow_up | win_back */
+    /** welcome | trial_follow_up | expired_follow_up | win_back | feedback_request (0052) */
     trigger: text('trigger').notNull(),
     /** email | sms */
     channel: text('channel').notNull(),
@@ -1418,5 +1437,126 @@ export const clubAutomations = pgTable(
   (t) => [
     unique('club_automations_club_id_unique').on(t.clubId, t.id),
     unique('club_automations_one_per_trigger').on(t.clubId, t.trigger, t.channel),
+  ],
+);
+
+/**
+ * A conversation between a club and one of its client records (0052): a
+ * portal message, an office message to a linked member, or an inquiry from
+ * the public page. Erased with the record.
+ */
+export const clubThreads = pgTable(
+  'club_threads',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    memberId: uuid('member_id').notNull(),
+    /** message | inquiry */
+    kind: text('kind').notNull(),
+    /** member | club */
+    startedBy: text('started_by').notNull(),
+    subject: text('subject').notNull(),
+    /** rental | event | corporate | party | camp | other — inquiries only. */
+    inquiryKind: text('inquiry_kind'),
+    inquiryOn: date('inquiry_on'),
+    partySize: smallint('party_size'),
+    /** Kept by the club_thread_messages_touch trigger. */
+    lastMemberAt: timestamptz('last_member_at'),
+    lastClubAt: timestamptz('last_club_at'),
+    memberReadAt: timestamptz('member_read_at'),
+    clubReadAt: timestamptz('club_read_at'),
+    closedAt: timestamptz('closed_at'),
+    /** Staff id by value. */
+    closedBy: text('closed_by'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('club_threads_club_id_unique').on(t.clubId, t.id),
+    foreignKey({
+      name: 'club_threads_member_fk',
+      columns: [t.clubId, t.memberId],
+      foreignColumns: [clubMembers.clubId, clubMembers.id],
+    }).onDelete('cascade'),
+    index('club_threads_member_idx').on(t.clubId, t.memberId),
+    index('club_threads_club_idx').on(t.clubId, t.createdAt),
+  ],
+);
+
+/** What was written in a thread (0052). Never edited; goes with its thread. */
+export const clubThreadMessages = pgTable(
+  'club_thread_messages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    threadId: uuid('thread_id').notNull(),
+    /** member | club */
+    author: text('author').notNull(),
+    /** Who answered for the club — staff id by value; null on the member's side. */
+    staffUserId: text('staff_user_id'),
+    body: text('body').notNull(),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('club_thread_messages_club_id_unique').on(t.clubId, t.id),
+    foreignKey({
+      name: 'club_thread_messages_thread_fk',
+      columns: [t.clubId, t.threadId],
+      foreignColumns: [clubThreads.clubId, clubThreads.id],
+    }).onDelete('cascade'),
+    index('club_thread_messages_thread_idx').on(t.clubId, t.threadId, t.createdAt),
+  ],
+);
+
+/**
+ * A client's 1–5 rating of a class they came to or a past reservation of
+ * theirs (0052). Only somebody who came may rate (club_feedback_attended);
+ * comments are private to the club.
+ */
+export const clubFeedback = pgTable(
+  'club_feedback',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    clubId: uuid('club_id')
+      .notNull()
+      .references(() => clubs.id, { onDelete: 'cascade' }),
+    memberId: uuid('member_id').notNull(),
+    occurrenceId: uuid('occurrence_id'),
+    reservationId: uuid('reservation_id'),
+    /** The trainer of that class on that day — by value, set by the attended trigger. */
+    instructorUserId: text('instructor_user_id'),
+    rating: smallint('rating').notNull(),
+    comment: text('comment'),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('club_feedback_club_id_unique').on(t.clubId, t.id),
+    foreignKey({
+      name: 'club_feedback_member_fk',
+      columns: [t.clubId, t.memberId],
+      foreignColumns: [clubMembers.clubId, clubMembers.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'club_feedback_occurrence_fk',
+      columns: [t.clubId, t.occurrenceId],
+      foreignColumns: [clubClassOccurrences.clubId, clubClassOccurrences.id],
+    }),
+    foreignKey({
+      name: 'club_feedback_reservation_fk',
+      columns: [t.clubId, t.reservationId],
+      foreignColumns: [clubReservations.clubId, clubReservations.id],
+    }),
+    uniqueIndex('club_feedback_occurrence_unique')
+      .on(t.clubId, t.occurrenceId, t.memberId)
+      .where(sql`${t.occurrenceId} IS NOT NULL`),
+    uniqueIndex('club_feedback_reservation_unique')
+      .on(t.clubId, t.reservationId, t.memberId)
+      .where(sql`${t.reservationId} IS NOT NULL`),
+    index('club_feedback_member_idx').on(t.clubId, t.memberId),
+    index('club_feedback_club_idx').on(t.clubId, t.createdAt),
+    check('club_feedback_rating_sane', sql`${t.rating} BETWEEN 1 AND 5`),
   ],
 );

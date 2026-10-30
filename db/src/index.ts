@@ -122,6 +122,8 @@ export type {
   MemberChannels,
   StoredPushSubscription,
 } from './clubs/messaging.js';
+export { inboxNoticeOf, leadsDue } from './clubs/inbox.js';
+export type { InboxNotice, LeadsDue } from './clubs/inbox.js';
 export {
   claimDigestSend,
   digestRecipients,

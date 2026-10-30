@@ -1,0 +1,190 @@
+import {
+  INQUIRY_HORIZON_DAYS,
+  INQUIRY_KINDS,
+  INQUIRY_PARTY_MAX,
+  THREAD_BODY_MAX,
+  addDaysIso,
+  sofiaToday,
+} from '@sportkarta/lib/clubs';
+import type { Metadata } from 'next';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
+import { notFound } from 'next/navigation';
+
+import { AppShell } from '@/components/shell/app-shell';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Link } from '@/i18n/navigation';
+import { getCurrentUser } from '@/lib/auth-session';
+import { clubsEnabled } from '@/lib/clubs/access';
+import { clubFormMessages } from '@/lib/clubs/form-labels';
+import { inquiryTarget } from '@/lib/clubs/inbox';
+import { isUuid } from '@/lib/clubs/input';
+import { signInHref } from '@/lib/sign-in-destination';
+
+import { inquiryAction } from './actions';
+
+export const dynamic = 'force-dynamic';
+
+type PageParams = Promise<{ locale: string; slug: string }>;
+
+export async function generateMetadata({ params }: { params: PageParams }): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'ClubInbox' });
+  return { title: t('inquiry.title'), robots: { index: false, follow: true } };
+}
+
+/**
+ * «Изпратете запитване» (0052, anolla's quote requests): a hall, an event,
+ * a group, a party or a camp — what, perhaps when and for how many.
+ * Signed in, so the club can answer, and the conversation continues in the
+ * person's own portal at the club.
+ */
+export default async function InquiryPage({
+  params,
+  searchParams,
+}: {
+  params: PageParams;
+  searchParams: Promise<{ rezultat?: string; razgovor?: string }>;
+}) {
+  const { locale, slug } = await params;
+  setRequestLocale(locale);
+  if (!clubsEnabled()) notFound();
+  const club = await inquiryTarget(slug, locale);
+  if (!club) notFound();
+  const [t, messages, user] = await Promise.all([
+    getTranslations('ClubInbox'),
+    clubFormMessages(),
+    getCurrentUser(),
+  ]);
+  const { rezultat, razgovor } = await searchParams;
+  const today = sofiaToday();
+  const field = 'block text-body-sm font-semibold text-ink';
+  const hint = 'mt-1 block text-caption font-normal text-text-muted';
+
+  return (
+    <AppShell active={null}>
+      <main className="mx-auto max-w-2xl space-y-5 p-4">
+        <header className="space-y-1 border-b border-line pb-3">
+          <Link
+            href={`/klub/${slug}`}
+            className="text-body-sm font-semibold text-link hover:text-link-hover"
+          >
+            {club.name}
+          </Link>
+          <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('inquiry.title')}</h1>
+          <p className="text-body-sm text-ink-soft">{t('inquiry.intro')}</p>
+        </header>
+
+        {rezultat === 'sent' ? (
+          <section className="space-y-3 rounded-card border border-success-border bg-success-bg p-4">
+            <p role="status" className="text-body text-ink">
+              {t('inquiry.sent')}
+            </p>
+            {isUuid(razgovor) && (
+              <Link
+                href={`/klub/${slug}/az/saobshteniya/${razgovor}`}
+                className={buttonVariants({ variant: 'secondary' })}
+              >
+                {t('inquiry.open')}
+              </Link>
+            )}
+          </section>
+        ) : (
+          <>
+            {rezultat && (
+              <p
+                role="status"
+                className="rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink"
+              >
+                {t.has(`inquiry.error.${rezultat}`)
+                  ? t(`inquiry.error.${rezultat}`)
+                  : rezultat === 'readOnly'
+                    ? messages.readOnly
+                    : (messages.errors[rezultat] ?? messages.genericError)}
+              </p>
+            )}
+            {rezultat === 'claim_first' && (
+              <Link href={`/klub/${slug}/az`} className={buttonVariants({ variant: 'secondary' })}>
+                {t('inquiry.toPortal')}
+              </Link>
+            )}
+
+            {!club.open ? (
+              <p className="text-body-sm text-ink-soft">{t('inquiry.closed')}</p>
+            ) : !user ? (
+              <section className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm">
+                <p className="text-body-sm text-ink">{t('inquiry.signInWhy')}</p>
+                <Link
+                  href={signInHref(`/klub/${slug}/zapitvane`)}
+                  className={buttonVariants({ variant: 'primary' })}
+                >
+                  {t('inquiry.signIn')}
+                </Link>
+              </section>
+            ) : (
+              <form
+                action={inquiryAction}
+                className="space-y-4 rounded-card border border-line bg-surface p-4 shadow-sm"
+              >
+                <input type="hidden" name="slug" value={slug} />
+                <label className={field}>
+                  {t('inquiry.kind')}
+                  <Select name="kind" required defaultValue="" className="mt-1">
+                    <option value="" disabled>
+                      {t('inquiry.choose')}
+                    </option>
+                    {INQUIRY_KINDS.map((kind) => (
+                      <option key={kind} value={kind}>
+                        {t(`kinds.${kind}`)}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className={field}>
+                    {t('inquiry.on')}
+                    <Input
+                      name="on"
+                      type="date"
+                      min={today}
+                      max={addDaysIso(today, INQUIRY_HORIZON_DAYS)}
+                      className="mt-1"
+                    />
+                    <span className={hint}>{t('inquiry.optional')}</span>
+                  </label>
+                  <label className={field}>
+                    {t('inquiry.party')}
+                    <Input
+                      name="partySize"
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={INQUIRY_PARTY_MAX}
+                      className="mt-1"
+                    />
+                    <span className={hint}>{t('inquiry.optional')}</span>
+                  </label>
+                </div>
+                <label className={field}>
+                  {t('inquiry.message')}
+                  <Textarea
+                    name="body"
+                    required
+                    maxLength={THREAD_BODY_MAX}
+                    rows={6}
+                    className="mt-1"
+                  />
+                  <span className={hint}>{t('inquiry.messageHint')}</span>
+                </label>
+                <p className="text-caption text-text-muted">{t('inquiry.privacy')}</p>
+                <Button type="submit">{t('inquiry.send')}</Button>
+              </form>
+            )}
+          </>
+        )}
+      </main>
+    </AppShell>
+  );
+}

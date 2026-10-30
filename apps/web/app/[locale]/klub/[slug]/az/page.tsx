@@ -14,6 +14,8 @@ import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Link } from '@/i18n/navigation';
 import { requireUser } from '@/lib/auth-session';
 import { requireClubsEnabled } from '@/lib/clubs/club-session';
+import { feedbackToGive } from '@/lib/clubs/feedback';
+import { memberUnreadCount } from '@/lib/clubs/inbox';
 import { clubSportLabeler } from '@/lib/clubs/labels';
 import { clubTakesPayments } from '@/lib/clubs/payments';
 import { memberReservations, publicServices } from '@/lib/clubs/reservations';
@@ -98,16 +100,21 @@ export default async function ClubPortalPage({
   // Push on this device (0051): offered only while POPS runs push.
   const pushKey = pushPublicKey();
   const { club, link, records, classes } = view;
-  const [contact, takesPayments, reservations, services, walletOn, credit] = await Promise.all([
-    link?.status === 'active' ? ownContact(getDb(), user.id, club.id) : Promise.resolve(null),
-    club.live ? clubTakesPayments(club.id) : Promise.resolve(false),
-    link?.status === 'active' ? memberReservations(user.id, club.id, locale) : Promise.resolve([]),
-    publicServices(club.id, locale),
-    clubTakesWallet(club.id),
-    link?.status === 'active'
-      ? portalWalletBalances(user.id, club.id)
-      : Promise.resolve<Record<string, number>>({}),
-  ]);
+  const [contact, takesPayments, reservations, services, walletOn, credit, unread, toRate] =
+    await Promise.all([
+      link?.status === 'active' ? ownContact(getDb(), user.id, club.id) : Promise.resolve(null),
+      club.live ? clubTakesPayments(club.id) : Promise.resolve(false),
+      link?.status === 'active'
+        ? memberReservations(user.id, club.id, locale)
+        : Promise.resolve([]),
+      publicServices(club.id, locale),
+      clubTakesWallet(club.id),
+      link?.status === 'active'
+        ? portalWalletBalances(user.id, club.id)
+        : Promise.resolve<Record<string, number>>({}),
+      link?.status === 'active' ? memberUnreadCount(user.id, club.id) : Promise.resolve(0),
+      link?.status === 'active' ? feedbackToGive(user.id, club.id, locale) : Promise.resolve([]),
+    ]);
   const now = Date.now();
   const booked = new Map<string, Set<string>>();
   for (const record of records) {
@@ -609,6 +616,24 @@ export default async function ClubPortalPage({
                 })}
               </ul>
             )}
+          </section>
+        )}
+
+        {link?.status === 'active' && (
+          <section className={section} aria-labelledby="talk-h">
+            <h2 id="talk-h" className="text-h4 font-bold text-ink">
+              {t('talkTitle')}
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              <Link href={`/klub/${slug}/az/saobshteniya`} className={pill}>
+                {unread > 0 ? t('messagesUnread', { count: unread }) : t('messages')}
+              </Link>
+              {toRate.length > 0 && (
+                <Link href={`/klub/${slug}/az/otzivi`} className={pill}>
+                  {t('rateCount', { count: toRate.length })}
+                </Link>
+              )}
+            </div>
           </section>
         )}
 

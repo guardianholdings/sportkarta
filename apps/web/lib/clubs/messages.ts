@@ -514,6 +514,7 @@ export async function saveAutomation(
        WHERE ${clubActorMay(actor, 'messages.send', { write: true })}
          AND ${clubFeatureSql(actor.clubId, 'automations')}
          AND ${input.channel === 'sms' ? clubFeatureSql(actor.clubId, 'sms') : sql`true`}
+         AND ${input.trigger === 'feedback_request' ? clubFeatureSql(actor.clubId, 'feedback') : sql`true`}
       ON CONFLICT (club_id, trigger, channel) DO UPDATE
         SET delay_days = EXCLUDED.delay_days, subject = EXCLUDED.subject, body = EXCLUDED.body,
             active = EXCLUDED.active, updated_by = EXCLUDED.updated_by, updated_at = now()
