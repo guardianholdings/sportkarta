@@ -540,20 +540,28 @@ and, where an outside service is involved, by an env switch as well.
   - [x] **G1 — waivers and documents** (`0055`): «Документи» in the office —
     a declaration, the house rules, a parent's consent, each asked of nobody,
     every client, minors or clients with a trial abonnement. The text lives in
-    VERSIONS the database numbers and hashes (sha256 of the two languages'
-    own hashes, recomputable by anyone) and never edits; a new version says
-    whether it needs a new signature. Clients sign from the portal («Документи»)
-    by typing their name and ticking that they read it — a guardian signs a
-    minor's record, and only a guardian; the desk takes a witnessed signature
-    from the member card. «Липсва декларация» warns at the desk search and on
-    the member card and NEVER refuses a visit. Every signature has a
+    VERSIONS the database numbers and hashes (sha256 over the hashes of the
+    title and text in both languages, recomputable by anyone) and never edits;
+    a new version says whether it needs a new signature. Clients sign from the
+    portal («Документи») by typing their name and ticking that they read it —
+    a minor signs their own record (operator decision 2026-10-30), and a
+    parent or guardian may sign for a child; the desk takes a witnessed
+    signature from the member card and records who signed. «Липсва
+    декларация» warns at the desk search and on the member card and NEVER
+    refuses a visit. Every signature has a
     print-ready page (the exact text signed, who, how, when, the hash) and is in
     the export (`signatures.csv`); it goes with the client's record when the
     club erases it. Documents are on every tier.
     - [ ] **Known limits (accepted for v1):** no signing on the kiosk; no
       reminder mail to sign; a trial CLASS booking alone asks for nothing (a
       trial abonnement does); the trainer's roster shows no warning (the
-      roster projection stays a name and a minor flag).
+      roster projection stays a name and a minor flag). Since a minor signs
+      their own record, a minors' document — a parent's consent too — is
+      answered by the minor's own signature; a per-document «parent must
+      sign» option is the fix if a club needs one (child consent stays a
+      lawyer question, §1's 0020 note). An account that was linked to a
+      record as its OWN before the desk ticked «непълнолетен» (a parent who
+      claimed the child's record) signs as the client, not the guardian.
 - [ ] **H — club API, webhooks, MCP, door access, pixels** (pixels wait on legal)
 
 ---

@@ -9,7 +9,7 @@ import {
   formatEuro,
   sofiaToday,
 } from '@sportkarta/lib/clubs';
-import { SIGNER_NAME_MAX } from '@sportkarta/lib/clubs';
+import { SIGNER_KINDS, SIGNER_NAME_MAX } from '@sportkarta/lib/clubs';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
@@ -683,6 +683,32 @@ export default async function MemberCardPage({
                             })
                           : tDocs('deskSignHint', { version: doc.version })}
                       </p>
+                      {member.isMinor && (
+                        <fieldset>
+                          <legend className="text-caption text-ink-soft">
+                            {tDocs('deskSigner')}
+                          </legend>
+                          <div className="flex flex-wrap gap-x-4">
+                            {SIGNER_KINDS.map((kind) => (
+                              <label
+                                key={kind}
+                                className="flex min-h-11 items-center gap-2 text-caption text-ink"
+                              >
+                                {/* No default: the witness says who signs, or a
+                                    parent's name is filed as the child's own. */}
+                                <input
+                                  type="radio"
+                                  name="signer"
+                                  value={kind}
+                                  required
+                                  className="size-4 accent-[var(--brand)]"
+                                />
+                                {tDocs(`deskSigners.${kind}`)}
+                              </label>
+                            ))}
+                          </div>
+                        </fieldset>
+                      )}
                       <div className="flex flex-wrap items-end gap-2">
                         <label className="block text-caption text-ink-soft">
                           {tDocs('signerName')}

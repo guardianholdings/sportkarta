@@ -3506,9 +3506,10 @@
       "body_too_long": "The text is too long (20,000 characters at most).",
       "signer_name_required": "Type the name of the signer.",
       "signer_name_too_long": "The name is too long (120 characters at most).",
+      "signer_kind_invalid": "Choose who signs.",
       "accept_required": "Confirm that the text was read.",
       "stale_version": "The document has changed or been archived meanwhile — read the new text and sign again.",
-      "guardian_minor": "For a minor a parent or guardian signs; for an adult, the client themselves.",
+      "guardian_minor": "A parent or guardian signs only for a minor.",
       "already_signed": "The client has already signed this version — this signature was not recorded again."
     }
   },
@@ -6113,7 +6114,12 @@
     "lastSigned": "Last signature: v. {version}, {when}, {name}",
     "deskSign": "Sign at the desk",
     "deskSignHint": "The client reads version {version} and writes their name. You are the witness.",
-    "deskSignHintMinor": "For a minor a parent or guardian signs (on the card: {guardian}) — version {version}, their own name. You are the witness.",
+    "deskSignHintMinor": "The client is a minor: they may sign themselves, or a parent or guardian may (on the card: {guardian}). The signer reads version {version} and writes their own name. You are the witness.",
+    "deskSigner": "Who signs",
+    "deskSigners": {
+      "self": "The client",
+      "guardian": "A parent or guardian"
+    },
     "signerName": "Name of the signer",
     "deskAccept": "The signer read the text and accepts it.",
     "deskSignSubmit": "Record the signature",
@@ -6130,7 +6136,6 @@
       "accept": "I read the text and accept it.",
       "acceptGuardian": "I read the text and accept it on behalf of {name}.",
       "sign": "Sign",
-      "parentSigns": "This document is signed by a parent or guardian.",
       "link": "Documents",
       "linkToSign": "{count, plural, one {# document to sign} other {# documents to sign}}"
     },

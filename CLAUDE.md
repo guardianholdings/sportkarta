@@ -276,11 +276,14 @@ browser) in a MANUAL STEPS list at the end of the session.
   can always be withdrawn (`setNamePublic` off needs no live place and no
   writable club). A recorded result is never deleted or withdrawn
   (`club_tournament_matches_guard`, purge excepted). Documents (wave G1,
-  `0055`): a document's TEXT is append-only versions numbered and hashed by
-  the database (sha256(sha256(bg) || sha256(en))); a signature names its
-  version, only the latest of a live document, once per client, and its
-  signer kind is the RECORD's (a minor's is signed by a guardian, and only a
-  guardian) — never the form's. Who is missing what is the view
+  `0055`): a document's title and text are append-only versions numbered and
+  hashed by the database (sha256 over the raw sha256 digests of the title and
+  body in both languages); a signature names its version, only the latest of
+  a live document, once per client. A minor signs their own record like
+  anyone (operator decision 2026-10-30, in line with 0020); a guardian may
+  sign only a minor's (`club_document_signatures_guardian_minor`). In the
+  portal the signer kind follows the LINK that signs, never the form; at the
+  desk the witness records it. Who is missing what is the view
   `club_documents_missing`; a missing signature WARNS and never refuses.
   Form-error lookups go through `formErrorText` (own keys only): the
   `ClubFormMessages` catalogue must stay a PLAIN object, because it crosses

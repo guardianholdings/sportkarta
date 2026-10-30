@@ -8,6 +8,7 @@ import {
   listDocuments,
   memberDocuments,
   missingFor,
+  portalDocumentCounts,
   portalDocuments,
   publishVersion,
   saveDocument,
@@ -228,9 +229,12 @@ describe.skipIf(!hasDb)('club documents journey (requires running database)', ()
 
     // The desk witnesses Boris's; a trainer may not.
     expect(
-      await signAtDesk(db, trainer, boris.memberId, documentId, v1.id, { signerName: 'Борис' }),
+      await signAtDesk(db, trainer, boris.memberId, documentId, v1.id, {
+        signerName: 'Борис',
+        signerKind: 'self',
+      }),
     ).toEqual({ ok: false, error: 'not_allowed' });
-    // A guardian signs a minor's record, and only a minor's — whoever writes.
+    // A guardian signs only a minor's record — whoever writes, the desk too.
     const signRaw = (memberId: string, kind: string) =>
       refusal(
         `INSERT INTO club_document_signatures (club_id, document_id, version_id, member_id,
@@ -241,11 +245,22 @@ describe.skipIf(!hasDb)('club documents journey (requires running database)', ()
     expect((await signRaw(boris.memberId, 'guardian')).constraint).toBe(
       'club_document_signatures_guardian_minor',
     );
+    expect(
+      await signAtDesk(db, desk, boris.memberId, documentId, v1.id, {
+        signerName: 'Родител на Борис',
+        signerKind: 'guardian',
+      }),
+    ).toEqual({ ok: false, error: 'guardian_minor' });
+    // A minor signs their own record like anyone: only the child's signature
+    // already on file stands in the way, not the signer.
     expect((await signRaw(child.memberId, 'self')).constraint).toBe(
-      'club_document_signatures_guardian_minor',
+      'club_document_signatures_once',
     );
     expect(
-      await signAtDesk(db, desk, boris.memberId, documentId, v1.id, { signerName: 'Борис Петров' }),
+      await signAtDesk(db, desk, boris.memberId, documentId, v1.id, {
+        signerName: 'Борис Петров',
+        signerKind: 'self',
+      }),
     ).toEqual({ ok: true });
     expect(await missingFor(owner, [anna.memberId, boris.memberId, child.memberId])).toEqual(
       new Set(),
@@ -262,7 +277,10 @@ describe.skipIf(!hasDb)('club documents journey (requires running database)', ()
     expect(await missingFor(owner, [boris.memberId])).toEqual(new Set());
     // ... and only the latest version is signed.
     expect(
-      await signAtDesk(db, desk, boris.memberId, documentId, v1.id, { signerName: 'Борис Петров' }),
+      await signAtDesk(db, desk, boris.memberId, documentId, v1.id, {
+        signerName: 'Борис Петров',
+        signerKind: 'self',
+      }),
     ).toEqual({ ok: false, error: 'stale_version' });
     expect(
       await publishVersion(db, owner, documentId, {
@@ -320,6 +338,7 @@ describe.skipIf(!hasDb)('club documents journey (requires running database)', ()
     expect(
       await signAtDesk(db, desk, boris.memberId, documentId, String(v3?.id), {
         signerName: 'Борис Петров',
+        signerKind: 'self',
       }),
     ).toEqual({ ok: false, error: 'stale_version' });
     expect(await setDocumentArchived(db, owner, documentId, false)).toBe(true);
@@ -360,15 +379,25 @@ describe.skipIf(!hasDb)('club documents journey (requires running database)', ()
         `)
       ).rows;
 
-    // A minor's own account reads the document and never signs it.
+    // A minor's own account signs their record, as the client (operator
+    // decision 2026-10-30 — 0020: minors are treated as adults).
     const teenView = (await portalDocuments(teenUser, clubId, 'bg')).find(
       (d) => d.documentId === documentId && d.memberId === teen.memberId,
     );
-    expect(teenView).toMatchObject({ own: true, canSign: false, missing: true });
+    expect(teenView).toMatchObject({ own: true, missing: true });
+    const teenBefore = await portalDocumentCounts(teenUser, clubId);
     expect(
       await signInPortal(db, teenUser, clubId, teen.memberId, documentId, v1.id, 'Тийнейджър'),
-    ).toEqual({ ok: false, error: 'not_allowed' });
-    expect(await signaturesOf(teen.memberId)).toEqual([]);
+    ).toEqual({ ok: true });
+    expect(await signaturesOf(teen.memberId)).toEqual([{ signer_kind: 'self', method: 'portal' }]);
+    expect((await portalDocumentCounts(teenUser, clubId)).toSign).toBe(teenBefore.toSign - 1);
+    // ...and nobody else's: not a sibling's, not the parent's.
+    for (const other of [child.memberId, parent.memberId]) {
+      expect(
+        await signInPortal(db, teenUser, clubId, other, documentId, v1.id, 'Тийнейджър'),
+      ).toEqual({ ok: false, error: 'not_allowed' });
+      expect(await signaturesOf(other)).toEqual([]);
+    }
     // Another family's parent signs nobody's child but their own.
     expect(
       await signInPortal(
@@ -382,20 +411,40 @@ describe.skipIf(!hasDb)('club documents journey (requires running database)', ()
       ),
     ).toEqual({ ok: false, error: 'not_allowed' });
 
-    // The guardian signs the child's; the desk witnesses the teenager's — as a
-    // guardian's, whatever the form said.
+    // The guardian signs the child's from the portal, as the guardian; at the
+    // desk the witness records who signs a minor's — the child or a parent.
     expect(
       await signInPortal(db, parentUser, clubId, child.memberId, documentId, v1.id, 'Родител'),
     ).toEqual({ ok: true });
+    expect(await signaturesOf(child.memberId)).toEqual([
+      { signer_kind: 'guardian', method: 'portal' },
+    ]);
+    const younger = await client('po_malko', { guardian: parent.memberId });
+    const youngest = await client('nay_malko', { guardian: parent.memberId });
     expect(
-      await signAtDesk(db, desk, teen.memberId, documentId, v1.id, { signerName: 'Родител' }),
+      await signAtDesk(db, desk, younger.memberId, documentId, v1.id, {
+        signerName: 'Родител',
+        signerKind: 'guardian',
+      }),
     ).toEqual({ ok: true });
-    expect(await signaturesOf(teen.memberId)).toEqual([
+    expect(
+      await signAtDesk(db, desk, youngest.memberId, documentId, v1.id, {
+        signerName: 'Дете',
+        signerKind: 'self',
+      }),
+    ).toEqual({ ok: true });
+    expect(await signaturesOf(younger.memberId)).toEqual([
       { signer_kind: 'guardian', method: 'desk' },
+    ]);
+    expect(await signaturesOf(youngest.memberId)).toEqual([
+      { signer_kind: 'self', method: 'desk' },
     ]);
     // Signed again: the desk is told so (its witness was not recorded).
     expect(
-      await signAtDesk(db, desk, teen.memberId, documentId, v1.id, { signerName: 'Родител' }),
+      await signAtDesk(db, desk, younger.memberId, documentId, v1.id, {
+        signerName: 'Родител',
+        signerKind: 'guardian',
+      }),
     ).toEqual({ ok: false, error: 'already_signed' });
 
     // An NGO admin reads a club and never witnesses for it.
@@ -403,7 +452,10 @@ describe.skipIf(!hasDb)('club documents journey (requires running database)', ()
     await db.execute(sql`UPDATE users SET role = 'admin' WHERE id = ${ngoId}`);
     const ngo: ClubActor = { userId: ngoId, clubId, role: null, ngoAdmin: true };
     expect(
-      await signAtDesk(db, ngo, parent.memberId, documentId, v1.id, { signerName: 'Родител' }),
+      await signAtDesk(db, ngo, parent.memberId, documentId, v1.id, {
+        signerName: 'Родител',
+        signerKind: 'self',
+      }),
     ).toEqual({ ok: false, error: 'not_allowed' });
 
     // The portal signs only the latest version.
@@ -423,7 +475,10 @@ describe.skipIf(!hasDb)('club documents journey (requires running database)', ()
         await signInPortal(db, parentUser, clubId, parent.memberId, documentId, v2.id, 'Родител'),
       ).toEqual({ ok: false, error: 'not_allowed' });
       expect(
-        await signAtDesk(db, desk, parent.memberId, documentId, v2.id, { signerName: 'Родител' }),
+        await signAtDesk(db, desk, parent.memberId, documentId, v2.id, {
+          signerName: 'Родител',
+          signerKind: 'self',
+        }),
       ).toEqual({ ok: false, error: 'not_allowed' });
     } finally {
       await db.execute(
@@ -443,7 +498,9 @@ describe.skipIf(!hasDb)('club documents journey (requires running database)', ()
     const offered = (await portalDocuments(parentUser, clubId, 'bg')).filter(
       (d) => d.documentId === consent.documentId,
     );
-    expect(offered.map((d) => d.memberId).sort()).toEqual([child.memberId, teen.memberId].sort());
+    expect(offered.map((d) => d.memberId).sort()).toEqual(
+      [child.memberId, teen.memberId, younger.memberId, youngest.memberId].sort(),
+    );
 
     // Erasing the guardian's record keeps what they signed for the child.
     expect(
@@ -530,6 +587,7 @@ describe.skipIf(!hasDb)('club documents journey (requires running database)', ()
     expect(
       await signAtDesk(db, stranger, someone.memberId, ours.id, String(version?.id), {
         signerName: 'Някой',
+        signerKind: 'self',
       }),
     ).toEqual({ ok: false, error: 'not_allowed' });
   });

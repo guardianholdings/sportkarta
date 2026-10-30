@@ -31,11 +31,14 @@ import {
  *
  * Who: management writes documents (documents.manage); the front of house
  * takes a signature at the desk and is its witness (documents.sign); reading
- * them is members.view. A client signs for themselves, or a guardian for a
- * minor, from the portal (memberSelfScope) — the signer kind is the RECORD's
- * (a minor's is signed by a guardian, and only by one: 0055), never sent; a
- * second submit of the same version is the same signature. An NGO admin
- * reads, and never signs or writes as the club.
+ * them is members.view. A client signs for themselves — a minor too
+ * (operator decision 2026-10-30, 0020) — or a guardian for a minor, from the
+ * portal (memberSelfScope), where the signer kind is the LINK's (the record's
+ * own account signs as the client, the guardian's as the guardian), never
+ * sent. At the desk the witness says who signs a minor's record; the database
+ * refuses a guardian's signature on an adult's (0055). A second submit of the
+ * same version is the same signature. An NGO admin reads, and never signs or
+ * writes as the club.
  */
 
 interface SqlRunner {
@@ -466,9 +469,6 @@ export type SignResult =
   | { ok: true }
   | { ok: false; error: 'not_allowed' | 'stale_version' | 'guardian_minor' | 'already_signed' };
 
-/** Who signs a record, by the record: a guardian for a minor, else the client. */
-const SIGNER_KIND = sql`CASE WHEN m.is_minor THEN 'guardian' ELSE 'self' END`;
-
 function signRefusal(error: unknown): SignResult | null {
   const constraint = violatedConstraint(error);
   // The same version is already signed for this client — in the portal, a
@@ -487,7 +487,9 @@ function signRefusal(error: unknown): SignResult | null {
  * A signature taken at the desk (documents.sign): the member of staff is its
  * witness — the club's own staff only (clubStaffWriteScope: an NGO admin
  * never witnesses for a club). `versionId` is the version the signer was
- * shown — refused if a newer one was published meanwhile.
+ * shown — refused if a newer one was published meanwhile. The witness says
+ * who signs: the client (a minor too), or a guardian — for a minor only
+ * (refused by the database on an adult's record).
  */
 export async function signAtDesk(
   db: TransactionalDb,
@@ -503,7 +505,7 @@ export async function signAtDesk(
         INSERT INTO club_document_signatures (club_id, document_id, version_id, member_id,
                                               signer_kind, signer_name, method, witnessed_by,
                                               body_sha256)
-        SELECT m.club_id, ${documentId}::uuid, ${versionId}::uuid, m.id, ${SIGNER_KIND},
+        SELECT m.club_id, ${documentId}::uuid, ${versionId}::uuid, m.id, ${input.signerKind},
                ${input.signerName}, 'desk', ${actor.userId}, ${STAMPED_HASH}
           FROM club_members m
          WHERE m.id = ${memberId}::uuid AND m.archived_at IS NULL
@@ -528,17 +530,14 @@ export async function signAtDesk(
 }
 
 /**
- * The account may sign `m` from the portal: an adult's own record, or a
- * minor's as the guardian on the record.
+ * The account is `m`'s own — it signs as the client, whatever their age.
+ * Every other record memberSelfScope admits is a child it is the guardian of
+ * (0040 keeps a guardian on a minor's record only), signed as the guardian.
  */
-function portalSigner(userId: string): SQL {
-  return sql`CASE WHEN m.is_minor
-    THEN EXISTS (SELECT 1 FROM club_member_links gl
-                  WHERE gl.member_id = m.guardian_member_id AND gl.user_id = ${userId}
-                    AND gl.status = 'active')
-    ELSE EXISTS (SELECT 1 FROM club_member_links sl
-                  WHERE sl.member_id = m.id AND sl.user_id = ${userId}
-                    AND sl.status = 'active') END`;
+function ownLink(userId: string): SQL {
+  return sql`EXISTS (SELECT 1 FROM club_member_links ol
+                      WHERE ol.member_id = m.id AND ol.user_id = ${userId}
+                        AND ol.status = 'active')`;
 }
 
 export interface PortalDocument {
@@ -555,8 +554,6 @@ export interface PortalDocument {
   body: string;
   missing: boolean;
   signedAt: string | null;
-  /** This account signs it (else a guardian does — a minor's own account). */
-  canSign: boolean;
 }
 
 /** The club's live documents for the account's own record and its children's — the portal. */
@@ -566,10 +563,7 @@ export async function portalDocuments(
   locale: string,
 ): Promise<PortalDocument[]> {
   const result = await getDb().execute(sql`
-    SELECT m.id AS member_id, m.display_name,
-           EXISTS (SELECT 1 FROM club_member_links ol
-                    WHERE ol.member_id = m.id AND ol.user_id = ${userId}
-                      AND ol.status = 'active') AS own,
+    SELECT m.id AS member_id, m.display_name, ${ownLink(userId)} AS own,
            doc.id, ${titleIn(locale)} AS title, doc.kind, doc.required_for,
            lv.id AS version_id, lv.version,
            CASE WHEN ${locale} = 'en' THEN coalesce(lv.body_en, lv.body_bg) ELSE lv.body_bg END
@@ -579,8 +573,7 @@ export async function portalDocuments(
                       AND dm.member_id = m.id) AS missing,
            (SELECT max(s.signed_at) FROM club_document_signatures s
              WHERE s.club_id = doc.club_id AND s.document_id = doc.id AND s.member_id = m.id)
-             AS signed_at,
-           ${portalSigner(userId)} AS can_sign
+             AS signed_at
       FROM club_members m
       JOIN club_documents doc ON doc.club_id = m.club_id AND doc.archived_at IS NULL
       JOIN LATERAL (SELECT v.id, v.version, v.body_bg, v.body_en FROM club_document_versions v
@@ -604,7 +597,6 @@ export async function portalDocuments(
     body: String(row.body),
     missing: row.missing === true,
     signedAt: isoOrNull(row.signed_at),
-    canSign: row.can_sign === true,
   }));
 }
 
@@ -622,7 +614,7 @@ export async function portalDocumentCounts(
              count(*) FILTER (WHERE EXISTS (
                SELECT 1 FROM club_documents_missing dm
                 WHERE dm.club_id = doc.club_id AND dm.document_id = doc.id
-                  AND dm.member_id = m.id) AND ${portalSigner(userId)})::int AS to_sign
+                  AND dm.member_id = m.id))::int AS to_sign
         FROM club_members m
         JOIN club_documents doc ON doc.club_id = m.club_id AND doc.archived_at IS NULL
        WHERE ${memberSelfScope(userId, clubId, 'm')} AND m.archived_at IS NULL
@@ -633,9 +625,9 @@ export async function portalDocumentCounts(
 }
 
 /**
- * The client signs from the portal — their own record, or a child's as its
- * guardian. A minor's own account does not sign their record: a guardian does
- * (portalSigner). The club must be writable.
+ * The client signs from the portal — their own record (a minor's own account
+ * too, as the client), or a child's as its guardian; the signer kind follows
+ * the link that signs (ownLink). The club must be writable.
  */
 export async function signInPortal(
   db: TransactionalDb,
@@ -651,11 +643,12 @@ export async function signInPortal(
       const created = await tx.execute(sql`
         INSERT INTO club_document_signatures (club_id, document_id, version_id, member_id,
                                               signer_kind, signer_name, method, body_sha256)
-        SELECT m.club_id, ${documentId}::uuid, ${versionId}::uuid, m.id, ${SIGNER_KIND},
+        SELECT m.club_id, ${documentId}::uuid, ${versionId}::uuid, m.id,
+               CASE WHEN ${ownLink(userId)} THEN 'self' ELSE 'guardian' END,
                ${signerName}, 'portal', ${STAMPED_HASH}
           FROM club_members m
          WHERE m.id = ${memberId}::uuid AND m.archived_at IS NULL
-           AND ${memberSelfScope(userId, clubId, 'm')} AND ${portalSigner(userId)}
+           AND ${memberSelfScope(userId, clubId, 'm')}
            AND ${clubWritableGuard(clubId)}
         RETURNING id
       `);

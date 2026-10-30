@@ -31,8 +31,9 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
 /**
  * «Документи» in the portal (0055): the club's documents for the account's
  * own record and its children's, each with its full text, and a signature —
- * the name the signer types and a tick. A minor's record is signed by a
- * parent; the minor's own account reads it only.
+ * the name the signer types and a tick. Every record shown is one the account
+ * may sign: its own (a minor's too, as the client) or a child's, as the
+ * guardian (0055, operator decision 2026-10-30).
  */
 export default async function PortalDocumentsPage({
   params,
@@ -117,39 +118,36 @@ export default async function PortalDocumentsPage({
                           {doc.body}
                         </div>
                       </details>
-                      {(doc.missing || !doc.signedAt) &&
-                        (doc.canSign ? (
-                          <form action={signDocumentAction} className="space-y-2">
-                            <input type="hidden" name="slug" value={slug} />
-                            <input type="hidden" name="memberId" value={doc.memberId} />
-                            <input type="hidden" name="documentId" value={doc.documentId} />
-                            <input type="hidden" name="versionId" value={doc.versionId} />
-                            <label className="block text-body-sm font-semibold text-ink">
-                              {doc.own ? t('portal.yourName') : t('portal.guardianName')}
-                              <Input
-                                name="signerName"
-                                required
-                                maxLength={SIGNER_NAME_MAX}
-                                autoComplete="name"
-                                className="mt-1"
-                              />
-                            </label>
-                            <label className="flex min-h-11 items-start gap-2 text-body-sm text-ink">
-                              <input
-                                type="checkbox"
-                                name="accept"
-                                required
-                                className="mt-1 size-4 accent-[var(--brand)]"
-                              />
-                              {doc.own
-                                ? t('portal.accept')
-                                : t('portal.acceptGuardian', { name: doc.memberName })}
-                            </label>
-                            <Button type="submit">{t('portal.sign')}</Button>
-                          </form>
-                        ) : (
-                          <p className="text-caption text-text-muted">{t('portal.parentSigns')}</p>
-                        ))}
+                      {(doc.missing || !doc.signedAt) && (
+                        <form action={signDocumentAction} className="space-y-2">
+                          <input type="hidden" name="slug" value={slug} />
+                          <input type="hidden" name="memberId" value={doc.memberId} />
+                          <input type="hidden" name="documentId" value={doc.documentId} />
+                          <input type="hidden" name="versionId" value={doc.versionId} />
+                          <label className="block text-body-sm font-semibold text-ink">
+                            {doc.own ? t('portal.yourName') : t('portal.guardianName')}
+                            <Input
+                              name="signerName"
+                              required
+                              maxLength={SIGNER_NAME_MAX}
+                              autoComplete="name"
+                              className="mt-1"
+                            />
+                          </label>
+                          <label className="flex min-h-11 items-start gap-2 text-body-sm text-ink">
+                            <input
+                              type="checkbox"
+                              name="accept"
+                              required
+                              className="mt-1 size-4 accent-[var(--brand)]"
+                            />
+                            {doc.own
+                              ? t('portal.accept')
+                              : t('portal.acceptGuardian', { name: doc.memberName })}
+                          </label>
+                          <Button type="submit">{t('portal.sign')}</Button>
+                        </form>
+                      )}
                     </li>
                   ))}
               </ul>

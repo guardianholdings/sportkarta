@@ -39,18 +39,18 @@
 --                          every writer must store what it does.
 --   club_document_signatures
 --                          one signature: the client, the version, who signed
---                          (self, or a guardian for a minor), the name they
---                          TYPED, how (the portal, or the desk — then the
+--                          (the client, or a guardian for a minor), the name
+--                          they TYPED, how (the portal, or the desk — then the
 --                          member of staff who witnessed it, by value, 0039
 --                          rule 5) and when (the database's clock). The
 --                          version's hash is copied in by trigger. Only the
 --                          LATEST version of a live document can be signed,
 --                          once per client (a second submit is the same
---                          signature). A MINOR's record is signed by a
---                          guardian only, an adult's by the client only: a
---                          waiver or a consent for a child is the parent's to
---                          give (refused as 'self' — a legal default the
---                          operator's lawyer confirms). A
+--                          signature). A MINOR signs their own record like
+--                          anyone else (operator decision 2026-10-30, in line
+--                          with 0020: minors are treated as adults); a
+--                          guardian MAY sign for a minor (e.g. a child without
+--                          an account) and never for an adult (refused). A
 --                          signature is never edited; it goes with the
 --                          client's record when the club erases it (CASCADE —
 --                          the inbox's rule, 0052; the erase screen says so),
@@ -288,7 +288,8 @@ CREATE UNIQUE INDEX "club_document_signatures_once" ON "club_document_signatures
 -- What a signature says, the database decides: the document is live, the
 -- version is its latest (under the document's row lock — the version stamp's
 -- lock, so the two serialise), the hash is that version's, a guardian signs
--- a minor's record and only a minor's, and the time is read after the lock.
+-- only a minor's record (the client signs their own, whatever their age), and
+-- the time is read after the lock.
 CREATE FUNCTION club_document_signatures_stamp() RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = pg_catalog, public
@@ -312,11 +313,11 @@ BEGIN
     RAISE EXCEPTION 'club_document_signatures: only the latest version is signed'
       USING ERRCODE = 'check_violation', CONSTRAINT = 'club_document_signatures_current';
   END IF;
-  IF NEW.signer_kind IS NOT NULL AND (NEW.signer_kind = 'guardian') IS DISTINCT FROM EXISTS (
+  IF NEW.signer_kind = 'guardian' AND NOT EXISTS (
     SELECT 1 FROM public.club_members m
      WHERE m.club_id = NEW.club_id AND m.id = NEW.member_id AND m.is_minor
   ) THEN
-    RAISE EXCEPTION 'club_document_signatures: a guardian signs a minor''s record, and only a minor''s'
+    RAISE EXCEPTION 'club_document_signatures: a guardian signs only a minor''s record'
       USING ERRCODE = 'check_violation', CONSTRAINT = 'club_document_signatures_guardian_minor';
   END IF;
   NEW.body_sha256 := this.body_sha256;
@@ -348,7 +349,8 @@ CREATE TRIGGER "club_document_signatures_no_truncate" BEFORE TRUNCATE ON "club_d
 -- A live document asks: every client (all), minors, or clients who ever held a
 -- trial abonnement — archived records never. A signature counts when its
 -- version is at or after the document's latest version that needs a new
--- signature (version 1 always does).
+-- signature (version 1 always does). Whoever signed counts — a minor's own
+-- signature answers a minors' document as a guardian's does (2026-10-30).
 CREATE VIEW "club_documents_missing" WITH (security_invoker = true) AS
 SELECT d.club_id, m.id AS member_id, d.id AS document_id
   FROM club_documents d
@@ -409,6 +411,6 @@ ALTER TABLE "club_audit" VALIDATE CONSTRAINT "club_audit_action_known";--> state
 COMMENT ON TABLE "club_documents" IS 'A club document — waiver, rules, consent, other (0055): who must sign it (nobody, every client, minors, trial abonnements) and its current title, copied from its latest version by club_document_versions_retitle. Its text lives in club_document_versions.';--> statement-breakpoint
 COMMENT ON TABLE "club_document_versions" IS 'One version of a club document''s title and text (0055), append-only. The number, the time and body_sha256 are stamped by the database: lowercase hex of sha256 over the four RAW 32-byte digests H(title_bg) || H(title_en or '''') || H(body_bg) || H(body_en or ''''), H = sha256 of the UTF-8 bytes.';--> statement-breakpoint
 COMMENT ON VIEW "club_documents_missing" IS 'Derived (0055): every client a live document asks for who has not signed a version at or after its latest version that needs a new signature. The «Липсва декларация» warning reads it.';--> statement-breakpoint
-COMMENT ON TABLE "club_document_signatures" IS 'A client''s signature of one version of a club document (0055): who signed (self or a guardian), the typed name, portal or desk (staff witness by value), the version''s sha256, the time. Never edited; goes with the client''s record or the club.';--> statement-breakpoint
+COMMENT ON TABLE "club_document_signatures" IS 'A client''s signature of one version of a club document (0055): who signed (the client — a minor too — or a guardian for a minor), the typed name, portal or desk (staff witness by value), the version''s sha256, the time. Never edited; goes with the client''s record or the club.';--> statement-breakpoint
 SET LOCAL lock_timeout = DEFAULT;--> statement-breakpoint
 SET LOCAL statement_timeout = DEFAULT;

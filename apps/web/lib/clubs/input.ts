@@ -82,9 +82,11 @@ import {
   DOCUMENT_KINDS,
   DOCUMENT_REQUIRED_FOR,
   DOCUMENT_TITLE_MAX,
+  SIGNER_KINDS,
   SIGNER_NAME_MAX,
   type DocumentKind,
   type DocumentRequiredFor,
+  type SignerKind,
 } from '@sportkarta/lib/clubs';
 import {
   SOFIA_TZ,
@@ -2175,6 +2177,8 @@ export function parseDocumentVersion(
 
 export interface SignatureInput {
   signerName: string;
+  /** Who signs — the desk's choice for a minor's record; absent means the client. */
+  signerKind: SignerKind;
 }
 
 /**
@@ -2187,7 +2191,10 @@ export function parseSignature(form: Reader): InputResult<SignatureInput> {
   const signerName = required(text(form, 'signerName'), SIGNER_NAME_MAX, errors, 'signer_name');
   // A name, not blank-looking characters (a zero-width space survives trim).
   if (signerName !== '' && !/\p{L}/u.test(signerName)) errors.push('signer_name_required');
+  const signerRaw = text(form, 'signer');
+  const signerKind = signerRaw === '' ? 'self' : oneOf(signerRaw, SIGNER_KINDS);
+  if (!signerKind) errors.push('signer_kind_invalid');
   if (!checked(form, 'accept')) errors.push('accept_required');
-  if (errors.length > 0) return { ok: false, errors };
-  return { ok: true, value: { signerName } };
+  if (errors.length > 0 || !signerKind) return { ok: false, errors };
+  return { ok: true, value: { signerName, signerKind } };
 }
