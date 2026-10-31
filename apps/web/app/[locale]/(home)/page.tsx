@@ -6,8 +6,12 @@ import { ClubsSection } from '@/components/home/clubs-section';
 import { ContributeSection } from '@/components/home/contribute-section';
 import { GamesSection } from '@/components/home/games-section';
 import { Hero, type HeroDots } from '@/components/home/hero';
-import { MarketingHeader } from '@/components/marketing/marketing-header';
 import { PersonalStrip, PersonalStripSkeleton } from '@/components/home/personal-strip';
+import { HowItWorks } from '@/components/marketing/how-it-works';
+import { MarketingHeader } from '@/components/marketing/marketing-header';
+import { NumbersBand } from '@/components/marketing/numbers-band';
+import { PassportSection } from '@/components/marketing/passport-section';
+import { PrinciplesBand } from '@/components/marketing/principles-band';
 import { AppShell } from '@/components/shell/app-shell';
 import { getCurrentUser } from '@/lib/auth-session';
 import { clubsEnabled } from '@/lib/clubs/access';
@@ -15,9 +19,9 @@ import { dotLayer, dotMask, gamePulses } from '@/lib/home/dots';
 import { orNull } from '@/lib/home/memo';
 import { dotPlaces, topPlaces } from '@/lib/home/places';
 import {
-  clubTeaser,
   contributionPulse,
   heroSports,
+  nationalNumbers,
   runningCampaign,
   upcomingGames,
 } from '@/lib/home/sections';
@@ -50,7 +54,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   const { locale } = await params;
   setRequestLocale(locale);
 
-  const [user, mask, layer, pulses, sports, games, pulse, campaign, clubs] = await Promise.all([
+  const [user, mask, layer, pulses, sports, games, pulse, campaign, numbers] = await Promise.all([
     orNull('user', getCurrentUser),
     orNull('dot mask', dotMask),
     orNull('dot layer', () => dotLayer(null)),
@@ -59,8 +63,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     orNull('games', upcomingGames),
     orNull('contributions', contributionPulse),
     orNull('campaign', runningCampaign),
-    orNull('clubs', () => clubTeaser(locale)),
+    orNull('national numbers', nationalNumbers),
   ]);
+  const clubs = clubsEnabled();
 
   let dots: HeroDots | null = null;
   if (mask && layer) {
@@ -74,20 +79,26 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   }
 
   return (
-    <AppShell
-      active={null}
-      topbar={<MarketingHeader signedIn={user !== null} clubs={clubsEnabled()} />}
-    >
+    <AppShell active={null} topbar={<MarketingHeader signedIn={user !== null} clubs={clubs} />}>
       <main>
         {user && (
           <Suspense fallback={<PersonalStripSkeleton />}>
             <PersonalStrip user={user} locale={locale} />
           </Suspense>
         )}
-        <Hero locale={locale} dots={dots} sports={sports ?? []} />
+        <Hero locale={locale} dots={dots} sports={sports ?? []} numbers={numbers} />
+        <HowItWorks />
         <GamesSection games={games ?? []} locale={locale} />
+        <NumbersBand
+          numbers={numbers}
+          gamesThisWeek={pulses?.total ?? null}
+          contributions={pulse?.last30Days ?? null}
+          locale={locale}
+        />
         <ContributeSection pulse={pulse} campaign={campaign} locale={locale} />
-        {clubs && <ClubsSection teaser={clubs} locale={locale} />}
+        <PassportSection signedIn={user !== null} />
+        {clubs && <ClubsSection />}
+        <PrinciplesBand />
       </main>
     </AppShell>
   );

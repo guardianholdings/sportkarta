@@ -6696,7 +6696,24 @@
       "searchPlaceholder": "Town, neighbourhood or sport",
       "searchSubmit": "Search",
       "nearMe": "Near me",
-      "openMap": "Open the map"
+      "openMap": "Open the map",
+      "trust": "{places, plural, one {# free place for sport} other {# free places for sport}} · {municipalities, plural, one {# municipality} other {# municipalities}} · {sports, plural, one {# sport} other {# sports}} · open data.",
+      "trustLink": "See the statistics"
+    },
+    "how": {
+      "title": "How it works",
+      "find": {
+        "title": "Find a place",
+        "body": "Pitches, outdoor gyms and courts on the map — filtered by sport, or «Near me»."
+      },
+      "join": {
+        "title": "Join a session",
+        "body": "Open sessions in public places. You sign up, come along and check in with a QR code."
+      },
+      "collect": {
+        "title": "Collect your passport",
+        "body": "Points, streaks and badges for every attendance and every contribution to the map."
+      }
     },
     "dots": {
       "statAll": "{count, plural, one {free place for sport} other {free places for sport}}",
@@ -6747,9 +6764,20 @@
       "all": "All sessions",
       "weekly": "The week by town",
       "emptyTitle": "No sessions scheduled this week yet",
-      "emptyBody": "Subscribe to your town's weekly digest and be the first to know.",
+      "emptyBody": "Open sessions are scheduled by the association — first in Sofia, Plovdiv and Varna. Subscribe to your city's weekly digest and you will hear first.",
       "prev": "Back",
       "next": "Forward"
+    },
+    "numbers": {
+      "overline": "The living map",
+      "title": "The map in numbers",
+      "lead": "The data is open — every figure can be checked on the statistics page and downloaded under a free licence.",
+      "places": "free places for sport",
+      "municipalities": "municipalities with data",
+      "games": "sessions this week",
+      "contributions": "contributions in 30 days",
+      "stats": "Statistics",
+      "openData": "Open data"
     },
     "contribute": {
       "overline": "Contribute",
@@ -6764,35 +6792,64 @@
       "reportBody": "A torn net or new floodlights? Tell the next person heading there.",
       "howTo": "Open a place on the map and choose what to do.",
       "recent": "{count, plural, =0 {No contributions in the last 30 days yet — be the first.} one {# contribution in the last 30 days} other {# contributions in the last 30 days}}",
+      "campaign": "Campaign",
+      "campaignLeft": "{count, plural, =0 {last day} one {# day left} other {# days left}}",
+      "campaignCta": "Go to the campaign"
+    },
+    "passport": {
+      "overline": "Sports passport",
+      "title": "Your sports passport",
+      "lead": "Everything you do on POPS gathers in one place — and is public only if you decide so.",
       "badgesTitle": "{count} badges to collect",
       "badgesHint": "Flip a coin to see how it is earned.",
       "flip": "{name}: how it is earned",
-      "leaderboardTitle": "Leaderboards and divisions",
-      "leaderboardBody": "Weekly divisions by points, plus boards by town and by sport. You take part if your passport is public.",
-      "campaign": "Campaign",
-      "campaignLeft": "{count, plural, =0 {last day} one {# day left} other {# days left}}",
-      "campaignCta": "Go to the campaign",
-      "passportTitle": "Your sports passport",
-      "passportBody": "Points, streaks and badges in one place — public only if you choose."
+      "points": {
+        "title": "Points",
+        "body": "For an added place, a verification, a condition report and every attendance with a QR code."
+      },
+      "streaks": {
+        "title": "Streaks",
+        "body": "Week after week — the streak grows with every session you checked in at."
+      },
+      "divisions": {
+        "title": "Divisions",
+        "body": "Weekly divisions from Rodopi to Rila: you climb with points and drop if you stop."
+      },
+      "leaderboardTitle": "Leaderboards",
+      "leaderboardBody": "By city, by sport and by contribution to the map. You take part only if your passport is public.",
+      "consent": "The passport is personal. A name on a board or a public page belongs only to a member who asked for it.",
+      "open": "My passport",
+      "start": "Start your passport"
     },
     "clubs": {
-      "overline": "New",
-      "title": "Clubs, gyms and studios",
-      "lead": "Trial classes, timetables and memberships at the clubs near you.",
-      "all": "{count, plural, one {See the club} other {See all # clubs}}",
-      "empty": "The first clubs are joining right now.",
-      "ownerOverline": "For owners and coaches",
-      "ownerTitle": "Run your club on POPS",
-      "ownerPoints": {
-        "schedule": "Timetable, bookings and a waiting list",
-        "money": "Memberships, visits and payments in one place",
-        "kiosk": "QR attendance at the front desk",
-        "passport": "Visits count in members' sports passports — with their consent",
-        "page": "A club page and a place on the map"
+      "overline": "For gyms, studios, clubs and trainers",
+      "title": "Run your club on POPS",
+      "lead": "Members, timetable, payments and attendance — and a page people find on the map. Free for clubs at public facilities.",
+      "cta": "Everything for clubs"
+    },
+    "principles": {
+      "overline": "Why POPS",
+      "title": "A platform you can trust",
+      "ngo": {
+        "title": "An association, not a company",
+        "body": "POPS is funded by donations, partners and the clubs that use its tools. Nobody sells your data.",
+        "link": "How we are funded"
       },
-      "ownerFree": "Free for clubs at public facilities.",
-      "apply": "Apply for your club",
-      "learnMore": "Learn more"
+      "tracking": {
+        "title": "No tracking",
+        "body": "No advertising trackers and no cookie banner. If a club turns on its own tools on its page, they run only with your consent.",
+        "link": "Privacy policy"
+      },
+      "openData": {
+        "title": "Open data",
+        "body": "The map is under a free licence (ODbL): anyone can download it, check it and use it.",
+        "link": "To the open data"
+      },
+      "yourData": {
+        "title": "Your data is yours",
+        "body": "No date of birth, no IP addresses in the logs. Export and deletion of the profile — in one step.",
+        "link": "To your profile"
+      }
     }
   }
 }

@@ -2,9 +2,8 @@ import { getDb, listCampaigns, publicFacilityVisible, sql, type CampaignRow } fr
 import { campaignPhase, daysRemaining } from '@sportkarta/lib/campaigns';
 import { CANONICAL_SPORTS, type CanonicalSport } from '@sportkarta/lib/sports';
 
-import { clubsEnabled } from '@/lib/clubs/access';
-import { publicClubDirectory, type PublicClubCard } from '@/lib/clubs/public';
 import { listUpcomingSessions, type SessionSummary } from '@/lib/sessions/occurrence';
+import { getNationalStats, type NationalStats } from '@/lib/stats-data';
 
 import { homeCached } from './memo';
 
@@ -86,28 +85,11 @@ export async function runningCampaign(): Promise<CampaignRow | null> {
   return running[0] ?? null;
 }
 
-export interface ClubTeaser {
-  clubs: PublicClubCard[];
-  total: number;
-}
-
 /**
- * A few clubs from the /klubove directory, or null while the module is off.
- *
- * The directory's rule holds here too: a paid tier buys tools, never a higher
- * place. Clubs with a class this week come first — something a visitor can
- * actually try — and the directory's name order decides the rest.
- *
- * NOT memoised: CLUB_RENDERABLE is the rule that hides a suspended or lapsed
- * club everywhere at once (lib/clubs/surfaces.ts), and a per-process copy would
- * keep it on the most visited page — with a dead link and a logo that 404s —
- * for as long as the copy lived.
+ * The national figures /statistika publishes (mv_national_stats, refreshed by
+ * the worker every fifteen minutes) — the hero's trust line and the numbers
+ * band read them. One view read, no facilities statement of its own.
  */
-export async function clubTeaser(locale: string): Promise<ClubTeaser | null> {
-  if (!clubsEnabled()) return null;
-  const all = await publicClubDirectory(locale);
-  const ordered = [...all].sort(
-    (a, b) => Number(b.classesThisWeek > 0) - Number(a.classesThisWeek > 0),
-  );
-  return { clubs: ordered.slice(0, 4), total: all.length };
+export function nationalNumbers(): Promise<NationalStats | null> {
+  return homeCached('national', 10 * 60_000, getNationalStats);
 }

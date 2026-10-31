@@ -11,6 +11,7 @@ import type { DotLayer, GamePulses, MaskCell } from '@/lib/home/dots';
 import type { NamedPlace, TopPlace } from '@/lib/home/places';
 import { MIN_LISTING_FACILITIES } from '@/lib/places';
 import type { SportCount } from '@/lib/home/sections';
+import type { NationalStats } from '@/lib/stats-data';
 
 import type { DotMapData } from './dot-map';
 import { HeroMap, type HeroChip } from './hero-map';
@@ -71,10 +72,13 @@ export async function Hero({
   locale,
   dots,
   sports,
+  numbers,
 }: {
   locale: string;
   dots: HeroDots | null;
   sports: SportCount[];
+  /** The national figures for the trust line; null leaves the line out. */
+  numbers: NationalStats | null;
 }) {
   const [t, tSport] = await Promise.all([getTranslations('Home'), getTranslations('Sport')]);
   const searchAction = getPathname({ href: '/karta', locale });
@@ -146,6 +150,19 @@ export async function Hero({
               <ArrowRight size={18} aria-hidden="true" />
             </Link>
           </div>
+
+          {numbers && (
+            <p className="text-body-sm text-ink-soft">
+              {t('hero.trust', {
+                places: numbers.free,
+                municipalities: numbers.municipalitiesCovered,
+                sports: numbers.sportsCount,
+              })}{' '}
+              <Link href="/statistika" className="font-semibold text-link hover:text-link-hover">
+                {t('hero.trustLink')}
+              </Link>
+            </p>
+          )}
         </div>
 
         {dots && (

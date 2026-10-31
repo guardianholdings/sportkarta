@@ -111,12 +111,15 @@ describe('the discovery pages address the reader formally', () => {
     return Object.entries(value).flatMap(([key, child]) => strings(child, `${path}.${key}`));
   }
 
-  it.each(['Map', 'Places', 'Stats', 'Accountability', 'OpenData'] as const)('%s', (ns) => {
-    const informal = strings(bg[ns], ns).filter(
-      ([, text]) => PRONOUN.test(text) || SENTENCE_IMPERATIVE.test(text),
-    );
-    expect(informal).toEqual([]);
-  });
+  it.each(['Map', 'Places', 'Stats', 'Accountability', 'OpenData', 'Home', 'Marketing'] as const)(
+    '%s',
+    (ns) => {
+      const informal = strings(bg[ns], ns).filter(
+        ([, text]) => PRONOUN.test(text) || SENTENCE_IMPERATIVE.test(text),
+      );
+      expect(informal).toEqual([]);
+    },
+  );
 });
 
 describe('the front page names a city the same way', () => {
