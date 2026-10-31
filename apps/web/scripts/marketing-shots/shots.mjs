@@ -9,7 +9,10 @@
 // with CLUBS_ENABLED and every CLUB_*_ENABLED switch on (so no area is hidden),
 // MAIL_TRANSPORT=file (the sign-in code is read from the outbox, exactly as the
 // e2e suite does — the app has no backdoor), and a club whose owner's address
-// is SHOTS_OWNER_EMAIL (default the parity QA club). A page that answers
+// is SHOTS_OWNER_EMAIL. The
+// default is the local parity club, whose fixtures read as placeholders —
+// «Твоята зала», «Твоето име», «Твоят клиент» — so a visitor sees their own
+// club in the picture rather than someone else's. A page that answers
 // anything but 200 (the portal needs the owner to be a linked member) is
 // skipped and reported, never written. Re-run after UI changes; the output is
 // committed. Not part of any test suite.
@@ -20,12 +23,16 @@ import { chromium } from '@playwright/test';
 import sharp from 'sharp';
 
 const BASE = (process.env.SHOTS_BASE_URL ?? 'http://localhost:3040').replace(/\/+$/, '');
-const SLUG = process.env.SHOTS_CLUB_SLUG ?? 'qa-zala-sila';
-const OWNER = process.env.SHOTS_OWNER_EMAIL ?? 'qa-owner@example.org';
+const SLUG = process.env.SHOTS_CLUB_SLUG ?? 'tvoyata-zala';
+const OWNER = process.env.SHOTS_OWNER_EMAIL ?? 'tvoeto.ime@example.org';
 const OUTBOX = process.env.MAIL_OUTBOX_DIR?.trim() || './var/mail';
 const OUT_DIR = 'public/marketing';
 const MANIFEST = 'lib/marketing-shots.json';
 const WIDTH = 1200;
+// The address a visitor knows. Screens that print the club's own links (the
+// settings page, the embeds) print the dev server's origin; the picture shows
+// this one in its place.
+const PUBLIC_ORIGIN = (process.env.SHOTS_PUBLIC_ORIGIN ?? 'https://pops.bg').replace(/\/+$/, '');
 
 /** Catalogue area → the office screen that shows it (lib/src/clubs/catalogue.ts keys). */
 const SHOTS = [
@@ -110,6 +117,20 @@ async function capture(page, shot) {
     return { skipped: `${shot.path} answered ${status} at ${page.url()}` };
   }
   await page.addStyleTag({ content: HIDE_DEV_UI });
+  await page.evaluate((origin) => {
+    const local = /(https?:\/\/)?(?:localhost|127\.0\.0\.1)(?::\d+)?/g;
+    const host = origin.replace(/^https?:\/\//, '');
+    const swap = (text) => text.replace(local, (_, scheme) => (scheme ? origin : host));
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (local.test(node.nodeValue)) node.nodeValue = swap(node.nodeValue);
+      local.lastIndex = 0;
+    }
+    for (const field of document.querySelectorAll('input, textarea')) {
+      if (local.test(field.value)) field.value = swap(field.value);
+      local.lastIndex = 0;
+    }
+  }, PUBLIC_ORIGIN);
   // A club with its own pixels opens its public page with the consent card
   // (wave H2); the picture is of the page, not of the question — decline it.
   const decline = page.getByRole('button', { name: /отказвам всички|reject all/i });
