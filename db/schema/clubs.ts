@@ -23,7 +23,7 @@ import { users } from './auth.js';
 import { businesses, facilities, municipalities, trainingLogs } from './index.js';
 
 /**
- * The «Клубове» add-on (migrations 0039–0058; docs/ROADMAP.md Stage 9).
+ * The «Клубове» add-on (migrations 0039–0061; docs/ROADMAP.md Stage 9).
  *
  * THE MIGRATIONS ARE THE SOURCE OF TRUTH. They were hand-written (the snapshot
  * chain stops at 0029), and they carry what drizzle cannot express or
@@ -101,6 +101,15 @@ export const clubs = pgTable(
     trialEndsOn: date('trial_ends_on'),
     /** Set by hand when the operator's invoice is paid. */
     paidUntil: date('paid_until'),
+    /**
+     * The club's contract with the association (0061): first day, invoicing
+     * choice, the day notice was received. Terms derived by clubContractTerm
+     * (lib/src/clubs/contract.ts); gates nothing.
+     */
+    contractStartsOn: date('contract_starts_on'),
+    /** monthly | yearly — set together with contractStartsOn. */
+    contractBilling: text('contract_billing'),
+    contractNoticeOn: date('contract_notice_on'),
     businessId: bigint('business_id', { mode: 'number' }).references(() => businesses.id, {
       onDelete: 'set null',
     }),
@@ -121,6 +130,15 @@ export const clubs = pgTable(
     check('clubs_tier_known', sql`${t.tier} IN ('community', 'standard', 'pro')`),
     check('clubs_status_known', sql`${t.status} IN ('pending', 'active', 'suspended', 'archived')`),
     check('clubs_currency_supported', sql`${t.currency} = 'EUR'`),
+    check('clubs_contract_billing_known', sql`${t.contractBilling} IN ('monthly', 'yearly')`),
+    check(
+      'clubs_contract_complete',
+      sql`(${t.contractStartsOn} IS NULL) = (${t.contractBilling} IS NULL)`,
+    ),
+    check(
+      'clubs_contract_notice_needs_contract',
+      sql`${t.contractNoticeOn} IS NULL OR ${t.contractStartsOn} IS NOT NULL`,
+    ),
   ],
 );
 

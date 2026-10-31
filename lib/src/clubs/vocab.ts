@@ -201,7 +201,7 @@ export type ClubPlanAudience = (typeof CLUB_PLAN_AUDIENCES)[number];
 export const CLUB_CANCEL_REASONS = ['member_request', 'non_payment', 'mistake', 'other'] as const;
 export type ClubCancelReason = (typeof CLUB_CANCEL_REASONS)[number];
 
-/** club_notifications_kind_known (0044, widened in 0045, 0046, 0051, 0052, 0053 and 0059). */
+/** club_notifications_kind_known (0044, widened in 0045, 0046, 0051, 0052, 0053, 0059 and 0061). */
 export const CLUB_NOTIFICATION_KINDS = [
   'member_invite',
   'staff_invite',
@@ -236,6 +236,7 @@ export const CLUB_NOTIFICATION_KINDS = [
   'club_past_due',
   'club_lapsed',
   'club_suspended',
+  'club_contract_renewing',
 ] as const;
 export type ClubNotificationKind = (typeof CLUB_NOTIFICATION_KINDS)[number];
 
@@ -283,10 +284,16 @@ export type DedupeInput =
    * The club's own standing (0059), to each owner once per milestone — the
    * day a trial ends, the day coverage ran out, the day the grace was over,
    * the day it was suspended — so a club that pays and lapses again a year
-   * later is told again.
+   * later is told again. The contract's renewal (0061) is anchored on the
+   * renewal day, so each renewal is announced once.
    */
   | {
-      kind: 'club_trial_ending' | 'club_past_due' | 'club_lapsed' | 'club_suspended';
+      kind:
+        | 'club_trial_ending'
+        | 'club_past_due'
+        | 'club_lapsed'
+        | 'club_suspended'
+        | 'club_contract_renewing';
       clubId: string;
       userId: string;
       anchor: string;
@@ -348,6 +355,7 @@ export function dedupeKey(input: DedupeInput): string {
     case 'club_past_due':
     case 'club_lapsed':
     case 'club_suspended':
+    case 'club_contract_renewing':
       return `${input.kind}:${input.clubId}:${input.userId}:${input.anchor}`;
     case 'claim_pending':
     case 'erasure_requested':

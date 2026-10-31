@@ -1,7 +1,11 @@
 import {
+  CLUB_CONTRACT_BILLING,
+  CLUB_CONTRACT_MONTHS,
+  CLUB_CONTRACT_NOTICE_MONTHS,
   CLUB_TIERS,
   CLUB_TRIAL_DAYS,
   COMMUNITY_MEMBER_CAP,
+  clubContractTerm,
   formatEuro,
   sofiaToday,
   tierFeatures,
@@ -38,6 +42,9 @@ const ERRORS = new Set([
   'cap_invalid',
   'sms_cap_invalid',
   'tier_invalid',
+  'contract_incomplete',
+  'notice_needs_contract',
+  'notice_future',
   'invalid',
   'provider_error',
 ]);
@@ -63,6 +70,11 @@ export default async function AdminClubPage({
     adminActionHistory({ clubId: club.id, actions: CLUB_ACTIONS }, 50),
   ]);
   const today = sofiaToday();
+  const contract = clubContractTerm(
+    { startsOn: club.contractStartsOn, noticeOn: club.contractNoticeOn },
+    today,
+  );
+  const day = (date: string) => formatDate(date, locale);
   const hidden = (
     <>
       <input type="hidden" name="clubId" value={club.id} />
@@ -218,6 +230,67 @@ export default async function AdminClubPage({
               type="date"
               defaultValue={club.trialEndsOn ?? ''}
             />
+          </div>
+          <div className="grid gap-4 border-t border-line pt-4 sm:col-span-2 sm:grid-cols-3">
+            <div className="space-y-1 sm:col-span-3">
+              <h3 className="text-body font-bold text-ink">{t('contractTitle')}</h3>
+              <p className="text-caption text-text-muted">
+                {t('contractNote', {
+                  months: CLUB_CONTRACT_MONTHS,
+                  notice: CLUB_CONTRACT_NOTICE_MONTHS,
+                })}
+              </p>
+              <p className="text-body-sm font-semibold text-ink" data-testid="contract-state">
+                {contract.state === 'running'
+                  ? t('contractState.running', {
+                      boundUntil: day(contract.boundUntil),
+                      noticeBy: day(contract.noticeBy),
+                      renewsOn: day(contract.renewsOn),
+                    })
+                  : contract.state === 'none'
+                    ? t('contractState.none')
+                    : t(`contractState.${contract.state}`, { endsOn: day(contract.endsOn) })}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <label className={label} htmlFor="c-contract-start">
+                {t('fieldContractStartsOn')}
+              </label>
+              <Input
+                id="c-contract-start"
+                name="contractStartsOn"
+                type="date"
+                defaultValue={club.contractStartsOn ?? ''}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className={label} htmlFor="c-contract-billing">
+                {t('fieldContractBilling')}
+              </label>
+              <Select
+                id="c-contract-billing"
+                name="contractBilling"
+                defaultValue={club.contractBilling ?? ''}
+              >
+                <option value="">{t('billing.none')}</option>
+                {CLUB_CONTRACT_BILLING.map((billing) => (
+                  <option key={billing} value={billing}>
+                    {t(`billing.${billing}`)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className={label} htmlFor="c-contract-notice">
+                {t('fieldContractNoticeOn')}
+              </label>
+              <Input
+                id="c-contract-notice"
+                name="contractNoticeOn"
+                type="date"
+                defaultValue={club.contractNoticeOn ?? ''}
+              />
+            </div>
           </div>
           <div className="sm:col-span-2">
             <Button type="submit">{t('save')}</Button>

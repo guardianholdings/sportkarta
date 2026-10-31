@@ -63,6 +63,10 @@ export type AdminActionRecord =
         paidUntil: string | null;
         trialEndsOn: string | null;
         memberCap: number | null;
+        smsMonthlyCap: number;
+        contractStartsOn: string | null;
+        contractBilling: 'monthly' | 'yearly' | null;
+        contractNoticeOn: string | null;
       };
     }
   | {

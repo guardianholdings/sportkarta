@@ -10,6 +10,7 @@
 export * from './access.js';
 export * from './activities.js';
 export * from './catalogue.js';
+export * from './contract.js';
 export * from './dates.js';
 export * from './documents.js';
 export * from './engagement.js';

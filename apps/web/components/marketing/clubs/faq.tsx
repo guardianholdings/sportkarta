@@ -2,7 +2,12 @@ import { ChevronDown } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 
 import { SectionHead } from '@/components/home/section-head';
-import { CLUB_TRIAL_DAYS, COMMUNITY_MEMBER_CAP } from '@sportkarta/lib/clubs';
+import {
+  CLUB_CONTRACT_MONTHS,
+  CLUB_CONTRACT_NOTICE_MONTHS,
+  CLUB_TRIAL_DAYS,
+  COMMUNITY_MEMBER_CAP,
+} from '@sportkarta/lib/clubs';
 
 export const FAQ_KEYS = [
   'trial',
@@ -46,6 +51,8 @@ export async function Faq({ paymentsOn, smsOn }: { paymentsOn: boolean; smsOn: b
                 {t(key === 'money' && !paymentsOn ? 'money.aSoon' : `${key}.a`, {
                   days: CLUB_TRIAL_DAYS,
                   cap: COMMUNITY_MEMBER_CAP,
+                  months: CLUB_CONTRACT_MONTHS,
+                  notice: CLUB_CONTRACT_NOTICE_MONTHS,
                 })}
               </p>
             </details>

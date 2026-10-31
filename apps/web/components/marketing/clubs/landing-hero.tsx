@@ -5,7 +5,11 @@ import { Reveal } from '@/components/motion/reveal';
 import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
-import { CLUB_TRIAL_DAYS } from '@sportkarta/lib/clubs';
+import {
+  CLUB_CONTRACT_MONTHS,
+  CLUB_CONTRACT_NOTICE_MONTHS,
+  CLUB_TRIAL_DAYS,
+} from '@sportkarta/lib/clubs';
 
 import { DeviceFrame } from './device-frame';
 import { HeroToasts } from './hero-toasts';
@@ -18,8 +22,9 @@ const TOASTS = ['checkin', 'lead', 'renewal', 'reminder'] as const;
 
 /**
  * The first screen of the clubs page: the promise, the one call to action,
- * the four assurances that remove the risk of trying, and the platform as it
- * looks. The «без комисиона» line renders only while the platform fee is
+ * the four terms an owner weighs before applying (a free trial, then a
+ * contract — lib/src/clubs/contract.ts — and their data), and the platform
+ * as it looks. The «без комисиона» line renders only while the platform fee is
  * zero AND online payments are switched on (lib/clubs/landing.ts).
  */
 export async function LandingHero({
@@ -72,7 +77,11 @@ export async function LandingHero({
                 <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-brand-subtle text-brand">
                   <Check size={13} strokeWidth={3} aria-hidden="true" />
                 </span>
-                {t(`assurances.${key}`, { days: CLUB_TRIAL_DAYS })}
+                {t(`assurances.${key}`, {
+                  days: CLUB_TRIAL_DAYS,
+                  months: CLUB_CONTRACT_MONTHS,
+                  notice: CLUB_CONTRACT_NOTICE_MONTHS,
+                })}
               </li>
             ))}
           </ul>

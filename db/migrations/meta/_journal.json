@@ -428,6 +428,13 @@
       "when": 1785213600000,
       "tag": "0060_clubs_every_tier_paid",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1785217200000,
+      "tag": "0061_club_contracts",
+      "breakpoints": true
     }
   ]
 }

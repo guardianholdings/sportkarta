@@ -76,6 +76,11 @@ export async function AdminActionLog({
           club: entry.clubName ?? t('unknown'),
           tier: typeof detail.tier === 'string' ? detail.tier : 'other',
           paidUntil: typeof detail.paidUntil === 'string' ? detail.paidUntil : '—',
+          // The contract's facts (0061): what a dispute about notice needs to see.
+          contractStartsOn:
+            typeof detail.contractStartsOn === 'string' ? detail.contractStartsOn : '—',
+          contractNoticeOn:
+            typeof detail.contractNoticeOn === 'string' ? detail.contractNoticeOn : '—',
         });
       case 'club_staff_granted':
         return t('action.club_staff_granted', {

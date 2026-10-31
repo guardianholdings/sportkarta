@@ -1,4 +1,5 @@
 import {
+  CLUB_CONTRACT_MONTHS,
   CLUB_KINDS,
   CLUB_TIER_PRICE_CENTS,
   CLUB_TIERS,
@@ -65,6 +66,7 @@ export default async function ClubApplicationPage({ params }: { params: PagePara
                   price: formatEuro(CLUB_TIER_PRICE_CENTS[tier], locale),
                   days: CLUB_TRIAL_DAYS,
                   cap: COMMUNITY_MEMBER_CAP,
+                  months: CLUB_CONTRACT_MONTHS,
                 }),
               })),
               city: t('city'),
@@ -84,7 +86,9 @@ export default async function ClubApplicationPage({ params }: { params: PagePara
         </section>
         <section className="space-y-1">
           <h2 className="text-body font-bold text-ink">{t('afterTitle')}</h2>
-          <p className="text-body-sm text-ink-soft">{t('after', { days: CLUB_TRIAL_DAYS })}</p>
+          <p className="text-body-sm text-ink-soft">
+            {t('after', { days: CLUB_TRIAL_DAYS, months: CLUB_CONTRACT_MONTHS })}
+          </p>
         </section>
       </main>
     </AppShell>

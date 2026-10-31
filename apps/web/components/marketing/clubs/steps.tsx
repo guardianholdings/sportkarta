@@ -2,7 +2,7 @@ import { getTranslations } from 'next-intl/server';
 
 import { SectionHead } from '@/components/home/section-head';
 import { Reveal } from '@/components/motion/reveal';
-import { CLUB_TRIAL_DAYS } from '@sportkarta/lib/clubs';
+import { CLUB_CONTRACT_MONTHS, CLUB_TRIAL_DAYS } from '@sportkarta/lib/clubs';
 
 const STEPS = ['apply', 'review', 'trial', 'invoice'] as const;
 const TRANSFER = ['import', 'team', 'publish'] as const;
@@ -32,7 +32,7 @@ export async function Steps() {
               </span>
               <span className="text-body font-bold text-ink">{t(`${key}.title`)}</span>
               <span className="text-body-sm text-ink-soft">
-                {t(`${key}.body`, { days: CLUB_TRIAL_DAYS })}
+                {t(`${key}.body`, { days: CLUB_TRIAL_DAYS, months: CLUB_CONTRACT_MONTHS })}
               </span>
             </li>
           ))}

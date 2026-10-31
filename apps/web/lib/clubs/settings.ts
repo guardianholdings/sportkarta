@@ -1,4 +1,5 @@
 import { getDb, sql, type SQL } from '@sportkarta/db';
+import type { ClubContractBilling, IsoDate } from '@sportkarta/lib/clubs';
 
 import { recordClubAudit } from './audit';
 import type { ClubSettingsInput, FaqInput, InvoiceDetailsInput, LocationInput } from './input';
@@ -29,6 +30,12 @@ export interface ClubSettings extends ClubSettingsInput {
   termsUrl: string | null;
   /** What an invoice prints about the club (0050), beside legalName and eik. */
   invoiceDetails: InvoiceDetailsInput;
+  /** The contract with the association (0061), read-only here: the operator records it. */
+  contract: {
+    startsOn: IsoDate | null;
+    billing: ClubContractBilling | null;
+    noticeOn: IsoDate | null;
+  };
 }
 
 export async function clubSettings(clubId: string): Promise<ClubSettings | null> {
@@ -37,7 +44,9 @@ export async function clubSettings(clubId: string): Promise<ClubSettings | null>
            website_url, public_email, public_phone, legal_name, eik, locale,
            booking_opens_hours, cancel_deadline_hours, mail_unlinked_members, visible, logo_path,
            accent, terms_url, ist.legal_address, ist.vat_number, ist.iban, ist.invoice_vat_bp,
-           ist.zero_vat_basis
+           ist.zero_vat_basis, contract_billing,
+           to_char(contract_starts_on, 'YYYY-MM-DD') AS contract_starts_on,
+           to_char(contract_notice_on, 'YYYY-MM-DD') AS contract_notice_on
       FROM clubs
       LEFT JOIN club_invoice_settings ist ON ist.club_id = clubs.id
      WHERE clubs.id = ${clubId}::uuid
@@ -74,6 +83,11 @@ export async function clubSettings(clubId: string): Promise<ClubSettings | null>
         ? (Number(row.invoice_vat_bp) as InvoiceDetailsInput['invoiceVatBp'])
         : 2000,
       zeroVatBasis: text(row.zero_vat_basis),
+    },
+    contract: {
+      startsOn: text(row.contract_starts_on),
+      billing: text(row.contract_billing) as ClubContractBilling | null,
+      noticeOn: text(row.contract_notice_on),
     },
   };
 }

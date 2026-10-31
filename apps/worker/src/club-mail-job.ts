@@ -36,6 +36,7 @@ import {
 } from '@sportkarta/db';
 import {
   addDaysIso,
+  CLUB_CONTRACT_MONTHS,
   CLUB_GRACE_DAYS,
   CLUB_ROLES,
   composeSms,
@@ -857,7 +858,8 @@ export async function runClubExpiry(
 
 /**
  * Daily, with the expiry run: a paying club's own standing, to its owners —
- * the trial ending, coverage run out, the grace over, a suspension (0059).
+ * the trial ending, coverage run out, the grace over, a suspension (0059),
+ * the contract about to renew (0061).
  * Each owner once per milestone (the ledger key carries its date).
  */
 export async function runClubLifecycle(
@@ -880,11 +882,18 @@ export async function runClubLifecycle(
           anchor: candidate.anchor,
         }),
         ledgerUserId: recipient.userId,
-        actionUrl: `${siteBase(options, club.locale)}/klub/${club.clubSlug}/tablo`,
+        // The contract's terms are on the settings page; everything else starts at the dashboard.
+        actionUrl: `${siteBase(options, club.locale)}/klub/${club.clubSlug}/${
+          candidate.kind === 'club_contract_renewing' ? 'nastroyki#dogovor' : 'tablo'
+        }`,
         values: {
           date: formatCivilDate(candidate.date, club.locale),
+          noticeBy: formatCivilDate(candidate.noticeBy ?? candidate.date, club.locale),
           grace: CLUB_GRACE_DAYS,
-          contact: options.contactEmail ?? '',
+          months: CLUB_CONTRACT_MONTHS,
+          // «Пишете ни на {contact}» needs somewhere to write: the contact page
+          // when no address is configured.
+          contact: options.contactEmail ?? `${siteBase(options, club.locale)}/kontakt`,
         },
       });
     }

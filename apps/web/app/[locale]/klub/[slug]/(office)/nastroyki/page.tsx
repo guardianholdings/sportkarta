@@ -1,4 +1,11 @@
-import { CLUB_KINDS, lowestTierWith } from '@sportkarta/lib/clubs';
+import {
+  CLUB_CONTRACT_MONTHS,
+  CLUB_CONTRACT_NOTICE_MONTHS,
+  CLUB_KINDS,
+  clubContractTerm,
+  lowestTierWith,
+  sofiaToday,
+} from '@sportkarta/lib/clubs';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
@@ -30,7 +37,7 @@ import {
   facilitiesInMunicipality,
   municipalityChoices,
 } from '@/lib/clubs/settings';
-import { formatDateTime } from '@/lib/format';
+import { formatDate, formatDateTime } from '@/lib/format';
 import {
   clubPaymentAccount,
   connectStartUrl,
@@ -208,6 +215,25 @@ export default async function ClubSettingsPage({
     submit: t('save'),
   };
   const section = 'space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm';
+  // The contract is the operator's record (0061); the owner reads its terms here.
+  const contract = clubContractTerm(
+    { startsOn: settings.contract.startsOn, noticeOn: settings.contract.noticeOn },
+    sofiaToday(),
+  );
+  const day = (date: string) => formatDate(date, locale);
+  const contractText =
+    contract.state === 'running' && settings.contract.startsOn
+      ? t('contract.running', {
+          start: day(settings.contract.startsOn),
+          billing: settings.contract.billing ?? 'monthly',
+          boundUntil: day(contract.boundUntil),
+          noticeBy: day(contract.noticeBy),
+          renewsOn: day(contract.renewsOn),
+          months: CLUB_CONTRACT_MONTHS,
+        })
+      : contract.state === 'ending' || contract.state === 'ended'
+        ? t(`contract.${contract.state}`, { endsOn: day(contract.endsOn) })
+        : t('contract.none', { months: CLUB_CONTRACT_MONTHS });
 
   return (
     <main className="space-y-6">
@@ -783,9 +809,18 @@ export default async function ClubSettingsPage({
         )}
       </section>
 
+      <section id="dogovor" className={section}>
+        <h2 className="text-h4 font-bold text-ink">{t('contractTitle')}</h2>
+        <p className="text-body-sm text-ink-soft">{contractText}</p>
+      </section>
+
       <section className={section}>
         <h2 className="text-h4 font-bold text-ink">{t('closeTitle')}</h2>
-        <p className="text-body-sm text-ink-soft">{t('closeHint')}</p>
+        <p className="text-body-sm text-ink-soft">
+          {contract.state === 'none'
+            ? t('closeHint')
+            : t('closeHintContract', { notice: CLUB_CONTRACT_NOTICE_MONTHS })}
+        </p>
       </section>
     </main>
   );

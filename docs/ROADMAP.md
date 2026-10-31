@@ -807,6 +807,20 @@ and, where an outside service is involved, by an env switch as well.
     or suspended club with neither date the trial it would get today, and
     `apps/web/tests/journeys/clubs-access.test.ts` holds the TS and SQL rules
     equal over every tier, status and date (and NULL-free).
+  - [x] **Contract, not «без обвързващ срок» (operator correction
+    2026-10-31):** after the free trial a club signs a contract for at least
+    `CLUB_CONTRACT_MONTHS` (12), invoiced monthly or yearly as it chooses,
+    renewing yearly unless noticed `CLUB_CONTRACT_NOTICE_MONTHS` (1) before
+    the term ends (`lib/src/clubs/contract.ts`, derived like the access
+    state, gates nothing). Migration 0061 adds the three facts the operator
+    records in the plan form of `/admin/klubove/<slug>` (start, invoicing,
+    notice received) and the `club_contract_renewing` owner mail, sent
+    `CLUB_CONTRACT_REMINDER_DAYS` (30) before the notice deadline. The owner
+    reads the terms in «Настройки → Договор». The clubs page, the
+    application form, the Terms, the trial-ending mail and the close hint
+    state the contract with `{months}` / `{notice}`, and
+    `apps/web/tests/clubs-landing.test.ts` refuses a typed term or a
+    returning «без обвързващ срок».
   - [ ] **Operator decisions:** whether the prices are shown «без ДДС» (the
     VAT line is deliberately neutral);
     flat per month or per `members_active` (MONETISATION S7 names the

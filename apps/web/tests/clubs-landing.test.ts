@@ -11,6 +11,7 @@ import {
 import { serviceFor } from '../lib/clubs/features';
 import { PRICING_INCLUDED, platformFeeFree, rowState } from '../lib/clubs/landing';
 import bg from '../messages/bg.json';
+import en from '../messages/en.json';
 
 /**
  * The clubs page (/za-klubove) must not sell what is not there: a row behind
@@ -131,5 +132,47 @@ describe('the trial length is never typed into the copy', () => {
 
   it.each(sources)('%s', (at, node) => {
     expect(strings(node, at).filter(([, text]) => TYPED.test(text))).toEqual([]);
+  });
+});
+
+describe('the contract term is never typed into the copy', () => {
+  // CLUB_CONTRACT_MONTHS and CLUB_CONTRACT_NOTICE_MONTHS (lib/src/clubs/contract.ts)
+  // are the contract's numbers (operator, 2026-10-31): every string that states
+  // them says {months} / {notice}, so the page, the settings and the mails agree.
+  // \b sees only ASCII word characters, so Cyrillic words are bounded by \p{L}.
+  const TYPED =
+    /(?<![\p{L}\d])12[- ]?(месец|month)|(?<![\p{L}\d])(една|1) година|\b(one|1)[- ]year|едногодиш/iu;
+  const sources: [string, unknown][] = [
+    ['ClubsLanding', bg.ClubsLanding],
+    ['ClubApply', bg.ClubApply],
+    ['ClubSettings.contract', bg.ClubSettings.contract],
+    ['ClubSettings.closeHint', bg.ClubSettings.closeHint],
+    ['AdminClubs.contractNote', bg.AdminClubs.contractNote],
+    ['ClubEmail.lead', bg.ClubEmail.lead],
+    ['Terms.service', bg.Terms.service],
+    ['en.ClubsLanding', en.ClubsLanding],
+    ['en.Terms.service', en.Terms.service],
+  ];
+  function strings(node: unknown, at: string): [string, string][] {
+    if (typeof node === 'string') return [[at, node]];
+    if (node === null || typeof node !== 'object') return [];
+    return Object.entries(node).flatMap(([key, child]) => strings(child, `${at}.${key}`));
+  }
+
+  it.each(sources)('%s', (at, node) => {
+    expect(strings(node, at).filter(([, text]) => TYPED.test(text))).toEqual([]);
+  });
+
+  it('catches the typed forms it is meant to', () => {
+    for (const text of ['договор за една година', 'за 12 месеца', 'a 12-month term', 'one year']) {
+      expect(TYPED.test(text), text).toBe(true);
+    }
+  });
+
+  it('states the contract wherever the page used to promise no lock-in', () => {
+    const landing = JSON.stringify(bg.ClubsLanding);
+    expect(landing).not.toMatch(/обвързващ|без предизвестие|без договор|по всяко време\?/);
+    expect(bg.ClubsLanding.assurances.contract).toContain('{months}');
+    expect(bg.ClubsLanding.faq.cancel.a).toContain('{notice');
   });
 });

@@ -2168,9 +2168,9 @@
       }
     },
     "assurances": {
-      "trial": "{days} days free on every plan, no card needed",
-      "contract": "No lock-in — a monthly invoice by bank transfer",
-      "cancel": "Stop with one email, no notice period",
+      "trial": "{days} days free on every plan, no card and no commitment",
+      "contract": "Then a contract for at least {months} months, invoiced monthly or once a year",
+      "cancel": "Renews every year; end it with an email at least {notice, plural, one {a month} other {# months}} before the term ends",
       "export": "Export of all your data at any time"
     },
     "audiences": {
@@ -2908,8 +2908,8 @@
       "lead": "Every plan includes the whole base platform. The higher ones add tools — not a higher place in the directory.",
       "popular": "Recommended",
       "perMonth": "per month",
-      "trialNote": "{days} days free, then an invoice by bank transfer.",
-      "vatNote": "Prices are per month, invoiced by bank transfer. Every plan starts with a free {days}-day trial; stop whenever you decide.",
+      "trialNote": "{days} days free, then a contract for at least {months} months.",
+      "vatNote": "Prices are per month. Every plan starts with a free {days}-day trial. After it, the contract runs for at least {months} months and renews every year; invoices are paid by bank transfer — monthly or once a year, as you choose.",
       "gridTitle": "What each plan includes",
       "yes": "included",
       "no": "not included",
@@ -2959,8 +2959,8 @@
         "body": "{days} days free on every plan, no card needed."
       },
       "invoice": {
-        "title": "Invoice",
-        "body": "Monthly, by bank transfer. No lock-in."
+        "title": "Contract",
+        "body": "For at least {months} months. Invoiced by bank transfer — monthly or once a year."
       },
       "transferTitle": "Move in a day",
       "transferLead": "If you already use another system, the move is three steps.",
@@ -3000,8 +3000,8 @@
         "a": "With an import from another system or a spreadsheet: you see what will be written before it is written; a repeated import does not duplicate."
       },
       "cancel": {
-        "q": "Can I stop at any time?",
-        "a": "Yes — with one email to the association, no notice period. Data downloads at any time; after closing you have 90 days to export, then we delete it."
+        "q": "Can I end the contract?",
+        "a": "Yes, at the end of a term. The contract runs for at least {months} months and renews every year unless you write to us at least {notice, plural, one {a month} other {# months}} before the current term ends. The trial commits you to nothing. Data downloads at any time; after closing you have 90 days to export, then we delete it."
       },
       "sms": {
         "q": "What do SMS messages cost?",
@@ -3013,7 +3013,7 @@
       },
       "trial": {
         "q": "How does the trial work?",
-        "a": "You choose a plan and use it free for {days} days, with everything it includes, no card and no contract. Before it ends we write to you; you continue with an invoice by bank transfer, or stop and owe nothing."
+        "a": "You choose a plan and use it free for {days} days, with everything it includes, no card and no commitment. Before it ends we write to you. To continue, we sign a contract for at least {months} months, invoiced by bank transfer — monthly or once a year. If you do not continue, you owe nothing."
       },
       "lapse": {
         "q": "What happens if I pay late?",
@@ -3712,7 +3712,7 @@
         "club_created": "Club created: {club}",
         "club_updated": "Club details changed: {club}",
         "club_status_changed": "{club}: {status, select, pending {awaiting approval} active {active} suspended {suspended} archived {archived} other {new status}}",
-        "club_plan_changed": "{club}: plan {tier, select, community {Basic} standard {Start} pro {Pro} other {—}}, paid until {paidUntil}",
+        "club_plan_changed": "{club}: plan {tier, select, community {Basic} standard {Start} pro {Pro} other {—}}, paid until {paidUntil}; contract from {contractStartsOn}, notice: {contractNoticeOn}",
         "club_staff_granted": "{club}: role granted — {role, select, owner {owner} manager {manager} trainer {trainer} desk {front desk} other {—}}",
         "club_staff_revoked": "{club}: removed from the team",
         "club_purged": "Club permanently deleted: {club}"
@@ -3723,7 +3723,7 @@
     "back": "← Home",
     "title": "Terms of use",
     "metaDescription": "The terms for using POPS (“More than just sport”): accounts, content, the licence for your contributions, moderation, notices and liability.",
-    "updated": "In force from 2 October 2026",
+    "updated": "In force from 31 October 2026",
     "intro": "These terms govern the use of POPS (“More than just sport”). Browsing the map needs no account; by signing in you accept these terms. How we process your personal data is described separately under <privacy>Privacy</privacy>.",
     "who": {
       "title": "Who we are",
@@ -3731,7 +3731,7 @@
     },
     "service": {
       "title": "The service",
-      "body": "POPS is a free map of the publicly accessible sports facilities in Bulgaria, with group sessions, a sports passport, leaderboards and open data. There are no paid features for people who play. The «Clubs» module is a service for gyms, studios and sports clubs: a club uses it under the terms accepted when applying and pays for it by invoice. We may change, temporarily suspend or discontinue parts of the service, including for maintenance."
+      "body": "POPS is a free map of the publicly accessible sports facilities in Bulgaria, with group sessions, a sports passport, leaderboards and open data. There are no paid features for people who play. The «Clubs» module is a service for gyms, studios and sports clubs: a club uses it under the terms accepted when applying and, after the free trial, under a contract for at least {months} months that renews every year unless the club ends it with at least {notice, plural, one {one month’s} other {# months’}} notice before the term ends. The service is paid for by invoice. We may change, temporarily suspend or discontinue parts of the service, including for maintenance."
     },
     "account": {
       "title": "Your account",
@@ -4146,12 +4146,31 @@
       "tier_invalid": "Invalid plan.",
       "not_changed": "Nothing changed.",
       "provider_error": "Stripe did not respond while ending the club's subscriptions. Nothing has changed — please try again.",
-      "sms_cap_invalid": "The SMS allowance must be a whole number up to 100,000."
+      "sms_cap_invalid": "The SMS allowance must be a whole number up to 100,000.",
+      "contract_incomplete": "Record both the contract start and the invoicing choice — or clear both.",
+      "notice_needs_contract": "Notice can only be recorded against a recorded contract.",
+      "notice_future": "The notice date cannot be in the future."
     },
     "tierFeatures": "The “{tier}” plan also includes:",
     "tierFeaturesNone": "the core features only.",
     "fieldSmsCap": "SMS parts per month",
-    "smsCapHint": "0 means the club sends no SMS. The parts are invoiced to the club."
+    "smsCapHint": "0 means the club sends no SMS. The parts are invoiced to the club.",
+    "contractTitle": "Contract",
+    "contractNote": "After the trial a club signs a contract for at least {months} months, which renews every year unless the club gives at least {notice, plural, one {one month’s} other {# months’}} notice before the term ends. When the contract is signed, record its start and the invoicing choice; when notice arrives, record its date.",
+    "fieldContractStartsOn": "Contract from",
+    "fieldContractBilling": "Invoicing",
+    "fieldContractNoticeOn": "Notice received on",
+    "billing": {
+      "none": "— no contract —",
+      "monthly": "monthly",
+      "yearly": "once a year"
+    },
+    "contractState": {
+      "none": "No contract recorded.",
+      "running": "Bound until {boundUntil}. Notice by {noticeBy}; otherwise it renews on {renewsOn}.",
+      "ending": "Notice received. The contract ends on {endsOn}.",
+      "ended": "The contract ended on {endsOn}."
+    }
   },
   "ClubOffice": {
     "metaTitle": "{club} — management",
@@ -4672,7 +4691,15 @@
         "privacy_needed": "Add a link to the club's privacy notice.",
         "confirm_needed": "Confirm that the club is responsible for the tracking."
       }
-    }
+    },
+    "contractTitle": "Contract",
+    "contract": {
+      "none": "After the trial, to continue, we sign a contract for at least {months} months, invoiced monthly or once a year — as you choose.",
+      "running": "The contract is in force from {start} and binds the club until {boundUntil}, invoiced {billing, select, yearly {yearly} other {monthly}}. Unless you write to us by {noticeBy}, it renews on {renewsOn} for another {months} months.",
+      "ending": "We have received your notice: the contract ends on {endsOn}.",
+      "ended": "The contract ended on {endsOn}."
+    },
+    "closeHintContract": "To end the contract, write to us at least {notice, plural, one {a month} other {# months}} before its term ends. After closing you have 90 days to download your data."
   },
   "ClubTeam": {
     "title": "Team",
@@ -5584,9 +5611,9 @@
     "kind": "Type",
     "tier": "Plan",
     "tierHint": {
-      "community": "{price} a month. For trainers and small clubs, up to {cap} active members. {days} days free trial, then by invoice.",
-      "standard": "{price} a month. For gyms and studios with a desk and a till. {days} days free trial, then by invoice.",
-      "pro": "{price} a month. For chains, large clubs and anyone connecting their own systems. {days} days free trial, then by invoice."
+      "community": "{price} a month. For trainers and small clubs, up to {cap} active members. {days} days free trial, then a contract for at least {months} months.",
+      "standard": "{price} a month. For gyms and studios with a desk and a till. {days} days free trial, then a contract for at least {months} months.",
+      "pro": "{price} a month. For chains, large clubs and anyone connecting their own systems. {days} days free trial, then a contract for at least {months} months."
     },
     "city": "Municipality",
     "cityNone": "— choose —",
@@ -5598,7 +5625,7 @@
     "already_pending": "You already have an application under review.",
     "too_many": "You have reached the maximum number of clubs for one account.",
     "afterTitle": "What happens next",
-    "after": "We review applications within two working days. Until then the platform is open for viewing only — you can look around the dashboard, timetable and settings. Editing opens once the club is approved, and the {days}-day trial starts then."
+    "after": "We review applications within two working days. Until then the platform is open for viewing only — you can look around the dashboard, timetable and settings. Editing opens once the club is approved, and the {days}-day trial starts then. If you continue after it, we sign a contract for at least {months} months."
   },
   "ClubHub": {
     "title": "Clubs",
@@ -5702,7 +5729,8 @@
       "leads_due": "Prospects to call today: {count}",
       "event_registered": "Registered for “{title}”",
       "event_promoted": "A place freed up — “{title}”",
-      "event_cancelled": "Event cancelled: “{title}”"
+      "event_cancelled": "Event cancelled: “{title}”",
+      "club_contract_renewing": "Your contract renews on {date}"
     },
     "lead": {
       "staff_invite": "{club} invites you to join its team as {role}. The invitation is valid for 14 days.",
@@ -5717,7 +5745,7 @@
       "application_received": "We received the application for {club}. We review applications within two working days and will write when the club is active. Until then the platform is open for viewing only.",
       "application_approved": "The application is approved and {club} is active on POPS. Start with a location, a membership and a first class.",
       "application_rejected": "The application for {club} on POPS was not approved. If you think this is a mistake, or want to add information, write to us at {contact}.",
-      "club_trial_ending": "The trial of {club} on POPS ends on {date}. To continue, pay the plan's fee by bank transfer — we record the payment and access continues without a break. Without a payment the platform becomes read-only {grace} days after the end, and the public page is hidden.",
+      "club_trial_ending": "The trial of {club} on POPS ends on {date}. To continue, we sign a contract for at least {months} months, invoiced monthly or once a year — as you choose. Once we record the payment of the first invoice, access continues without a break. If you do not continue, you owe nothing: the platform becomes read-only {grace} days after the end, and the public page is hidden.",
       "club_past_due": "The trial or paid period of {club} on POPS ended on {date}. You have {grace} days in which everything works as before. Pay the fee by bank transfer to continue; after that the platform becomes read-only and the public page is hidden.",
       "club_lapsed": "The grace period of {club} ended on {date}. The platform is read-only and the public page is hidden; your data is there and nothing was deleted. Pay the fee, or write to us at {contact}, to continue.",
       "club_suspended": "The association suspended the access of {club} to POPS on {date}. The data is kept. Write to us at {contact} to clear this up.",
@@ -5737,7 +5765,8 @@
       "leads_due": "You have prospects to call today.",
       "event_registered": "{name} is registered for “{title}” ({ticket}).",
       "event_promoted": "A place freed up for {name} at “{title}” ({ticket}).",
-      "event_cancelled": "The club cancelled “{title}”. {name}’s place ({ticket}) is cancelled."
+      "event_cancelled": "The club cancelled “{title}”. {name}’s place ({ticket}) is cancelled.",
+      "club_contract_renewing": "The contract of {club} with POPS renews on {date} for another {months} months. If you do not want it to renew, write to us by {noticeBy} at {contact}; the contract then ends at the end of the current term. If you are continuing, you need to do nothing."
     },
     "action": {
       "staff_invite": "Accept the invitation",
@@ -5772,7 +5801,8 @@
       "leads_due": "Open the list",
       "event_registered": "To the event",
       "event_promoted": "To the event",
-      "event_cancelled": "My club"
+      "event_cancelled": "My club",
+      "club_contract_renewing": "Open the settings"
     },
     "rosterLine": "{time} {title}: {going} of {capacity} booked",
     "rosterLineOpen": "{time} {title}: {going} booked",

@@ -1,3 +1,4 @@
+import { addDaysIso, CLUB_CONTRACT_REMINDER_DAYS, clubContractTerm } from '@sportkarta/lib/clubs';
 import pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -209,6 +210,86 @@ describe.skipIf(!hasDb)('club mail recipients (requires running database)', () =
     // Every tier is paid (2026-10-31): the community tier lapses like the rest.
     await set(`tier = 'community', status = 'active', suspended_at = NULL`);
     expect((await mine()).map((c) => c.kind)).toEqual(['club_lapsed']);
+  });
+
+  it('reminds a club of its contract renewal a month before the notice deadline, once', async () => {
+    const paying = await makeClub(client, 'contract', { tier: 'standard' });
+    // The run's day is a parameter, so the dates are fixed: a contract from
+    // 1 December 2026 renews on 1 December 2027, notice due 1 November 2027.
+    const startsOn = '2026-12-01';
+    const term = clubContractTerm({ startsOn, noticeOn: null }, '2027-10-01');
+    expect(term).toMatchObject({ renewsOn: '2027-12-01', noticeBy: '2027-11-01' });
+    const remindOn = addDaysIso('2027-11-01', -CLUB_CONTRACT_REMINDER_DAYS);
+    const renewing = async (day: string) =>
+      (await clubLifecycleCandidates(getDb(), day)).filter(
+        (c) => c.clubId === paying.clubId && c.kind === 'club_contract_renewing',
+      );
+    // Paid far ahead, so no other milestone is listed for this club.
+    await client.query(
+      `UPDATE clubs SET paid_until = DATE '2029-01-01', trial_ends_on = DATE '2026-11-30',
+              contract_billing = 'yearly', contract_starts_on = $2::date
+        WHERE id = $1`,
+      [paying.clubId, startsOn],
+    );
+    expect(await renewing(remindOn)).toEqual([
+      {
+        kind: 'club_contract_renewing',
+        clubId: paying.clubId,
+        date: '2027-12-01',
+        anchor: '2027-12-01',
+        noticeBy: '2027-11-01',
+      },
+    ]);
+    // Two days late is still caught up; a day earlier or a third day late is not.
+    expect(await renewing(addDaysIso(remindOn, 2))).toHaveLength(1);
+    expect(await renewing(addDaysIso(remindOn, 3))).toEqual([]);
+    expect(await renewing(addDaysIso(remindOn, -1))).toEqual([]);
+    // Notice received: nothing to remind of.
+    await client.query(`UPDATE clubs SET contract_notice_on = DATE '2027-01-15' WHERE id = $1`, [
+      paying.clubId,
+    ]);
+    expect(await renewing(remindOn)).toEqual([]);
+  });
+
+  it('does not tell a club that has signed that its trial is ending', async () => {
+    const paying = await makeClub(client, 'signed', { tier: 'standard' });
+    const dbToday = String(
+      (await client.query<{ d: string }>(`SELECT current_date::text AS d`)).rows[0]?.d,
+    );
+    const trialMail = async () =>
+      (await clubLifecycleCandidates(getDb(), dbToday)).filter(
+        (c) => c.clubId === paying.clubId && c.kind === 'club_trial_ending',
+      );
+    await client.query(
+      `UPDATE clubs SET trial_ends_on = current_date + 7, paid_until = NULL WHERE id = $1`,
+      [paying.clubId],
+    );
+    expect(await trialMail()).toHaveLength(1);
+    await client.query(
+      `UPDATE clubs SET contract_starts_on = current_date + 8, contract_billing = 'monthly'
+        WHERE id = $1`,
+      [paying.clubId],
+    );
+    expect(await trialMail()).toEqual([]);
+  });
+
+  it('refuses a contract without an invoicing choice, and notice without a contract', async () => {
+    await expect(
+      client.query(`UPDATE clubs SET contract_starts_on = current_date WHERE id = $1`, [
+        club.clubId,
+      ]),
+    ).rejects.toThrow(/clubs_contract_complete/);
+    await expect(
+      client.query(`UPDATE clubs SET contract_notice_on = current_date WHERE id = $1`, [
+        club.clubId,
+      ]),
+    ).rejects.toThrow(/clubs_contract_notice_needs_contract/);
+    await expect(
+      client.query(
+        `UPDATE clubs SET contract_starts_on = current_date, contract_billing = 'weekly' WHERE id = $1`,
+        [club.clubId],
+      ),
+    ).rejects.toThrow(/clubs_contract_billing_known/);
   });
 
   it('freezes a month of activity once', async () => {

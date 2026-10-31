@@ -8,6 +8,14 @@ import { Link } from '@/i18n/navigation';
 import { TERMS_SECTIONS } from '@/lib/legal-pages';
 import { organisation } from '@/lib/organisation';
 import { buildAlternates } from '@/lib/seo';
+import { CLUB_CONTRACT_MONTHS, CLUB_CONTRACT_NOTICE_MONTHS } from '@sportkarta/lib/clubs';
+
+/** The links, and the club contract's terms (lib/src/clubs/contract.ts) for «Услугата». */
+const TERMS_VALUES = {
+  ...legalLinks,
+  months: CLUB_CONTRACT_MONTHS,
+  notice: CLUB_CONTRACT_NOTICE_MONTHS,
+};
 
 /**
  * «Общи условия» — the terms of use (pre-launch audit: there were none).
@@ -65,7 +73,7 @@ export default async function TermsPage({ params }: { params: PageParams }) {
             </h2>
             {section.paragraphs.map((paragraph) => (
               <p key={paragraph} className="text-ink-soft">
-                {t.rich(`${section.key}.${paragraph}`, legalLinks)}
+                {t.rich(`${section.key}.${paragraph}`, TERMS_VALUES)}
               </p>
             ))}
             {section.items && (

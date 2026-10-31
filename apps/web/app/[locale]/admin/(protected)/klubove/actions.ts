@@ -1,7 +1,14 @@
 'use server';
 
 import { getDb } from '@sportkarta/db';
-import { CLUB_TIERS, isIsoDate, type ClubTier } from '@sportkarta/lib/clubs';
+import {
+  CLUB_CONTRACT_BILLING,
+  CLUB_TIERS,
+  isIsoDate,
+  sofiaToday,
+  type ClubContractBilling,
+  type ClubTier,
+} from '@sportkarta/lib/clubs';
 import { getLocale } from 'next-intl/server';
 import { revalidatePath } from 'next/cache';
 
@@ -101,12 +108,38 @@ export async function setClubPlanAction(formData: FormData): Promise<void> {
   if (!/^\d{1,6}$/.test(smsRaw) || Number(smsRaw) > 100_000) {
     return backTo(slug, 'sms_cap_invalid');
   }
+  // The contract, as signed offline (0061): a start and an invoicing choice
+  // together, notice only against a recorded contract — the CHECKs' rules,
+  // answered here with a message rather than a constraint error.
+  const contractStartsOn = field(formData, 'contractStartsOn') || null;
+  const contractNoticeOn = field(formData, 'contractNoticeOn') || null;
+  if (
+    (contractStartsOn && !isIsoDate(contractStartsOn)) ||
+    (contractNoticeOn && !isIsoDate(contractNoticeOn))
+  ) {
+    return backTo(slug, 'date_invalid');
+  }
+  const billingRaw = field(formData, 'contractBilling');
+  const contractBilling = (CLUB_CONTRACT_BILLING as readonly string[]).includes(billingRaw)
+    ? (billingRaw as ClubContractBilling)
+    : null;
+  if (billingRaw !== '' && contractBilling === null) return backTo(slug, 'invalid');
+  if ((contractStartsOn === null) !== (contractBilling === null)) {
+    return backTo(slug, 'contract_incomplete');
+  }
+  if (contractNoticeOn && !contractStartsOn) return backTo(slug, 'notice_needs_contract');
+  // Notice is a fact that has happened: a future date is a typo that would
+  // silence the renewal reminder.
+  if (contractNoticeOn && contractNoticeOn > sofiaToday()) return backTo(slug, 'notice_future');
   const changed = await setClubPlan(getDb(), adminId, clubId, {
     tier: tierRaw as ClubTier,
     paidUntil,
     trialEndsOn,
     memberCap,
     smsMonthlyCap: Number(smsRaw),
+    contractStartsOn,
+    contractBilling,
+    contractNoticeOn,
   });
   refresh(slug);
   return backTo(slug, changed ? 'saved' : 'not_changed');

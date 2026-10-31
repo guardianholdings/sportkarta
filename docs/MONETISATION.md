@@ -319,7 +319,13 @@ gyms, studios and clubs run members, abonnements, payments (as records),
 timetable, bookings, QR attendance and reports in their own office on POPS, and
 get a public club page and a block on the facility pages where they train.
 Every tier is paid (operator decision 2026-10-31 — the free community tier
-was withdrawn); each starts with a 30-day trial. This is
+was withdrawn); each starts with a 30-day trial that binds nobody. To
+continue after it, the club signs a CONTRACT (operator decision 2026-10-31):
+at least 12 months, invoiced monthly or yearly as the club chooses, renewing
+for another 12 months unless the club gives notice at least one month before
+the term ends. The contract is signed offline; the operator records its start,
+the invoicing choice and the day notice arrives (migration 0061), and the
+terms are derived by `clubContractTerm` (`lib/src/clubs/contract.ts`). This is
 consistent with §5's rejection of "premium member features": the member
 product stays free and unchanged; a club pays for its tools.
 

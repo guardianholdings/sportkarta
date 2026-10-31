@@ -44,6 +44,29 @@ describe.each([
     expect(at(mail, 'smsOptOut')).toBeTruthy();
   });
 
+  it('fills every placeholder of the club-standing mails (0059, 0061)', () => {
+    // fillClubTemplate leaves an unknown {x} in the text, so a placeholder the
+    // worker does not pass (runClubLifecycle's values, plus {club}) would be
+    // mailed literally.
+    const filled = new Set(['club', 'date', 'noticeBy', 'grace', 'months', 'contact']);
+    const kinds = [
+      'club_trial_ending',
+      'club_past_due',
+      'club_lapsed',
+      'club_suspended',
+      'club_contract_renewing',
+    ];
+    for (const kind of kinds) {
+      for (const group of ['subject', 'lead']) {
+        const text = String(at(mail, `${group}.${kind}`));
+        const unknown = [...text.matchAll(/\{(\w+)\}/g)]
+          .map((m) => m[1] as string)
+          .filter((name) => !filled.has(name));
+        expect(unknown, `${group}.${kind}`).toEqual([]);
+      }
+    }
+  });
+
   it('names every staff role', () => {
     for (const role of CLUB_ROLES) expect(at(mail, `roleName.${role}`)).toBeTruthy();
   });

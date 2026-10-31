@@ -1,4 +1,9 @@
-import { CLUB_GRACE_DAYS } from '@sportkarta/lib/clubs';
+import {
+  CLUB_CONTRACT_REMINDER_DAYS,
+  CLUB_GRACE_DAYS,
+  clubContractTerm,
+  daysBetween,
+} from '@sportkarta/lib/clubs';
 import type { ClubChannel, ClubNotificationKind, ClubRole, IsoDate } from '@sportkarta/lib/clubs';
 import { sql, type SQL } from 'drizzle-orm';
 
@@ -426,7 +431,11 @@ export async function expiryCandidates(
 // ─── The club's own standing (0059) ─────────────────────────────────────────
 
 export type ClubLifecycleKind =
-  'club_trial_ending' | 'club_past_due' | 'club_lapsed' | 'club_suspended';
+  | 'club_trial_ending'
+  | 'club_past_due'
+  | 'club_lapsed'
+  | 'club_suspended'
+  | 'club_contract_renewing';
 
 export interface ClubLifecycleCandidate {
   kind: ClubLifecycleKind;
@@ -435,6 +444,8 @@ export interface ClubLifecycleCandidate {
   date: IsoDate;
   /** What the ledger key carries, so the same milestone is told once. */
   anchor: string;
+  /** club_contract_renewing only: the last day notice still stops the renewal. */
+  noticeBy?: IsoDate;
 }
 
 /**
@@ -444,7 +455,14 @@ export interface ClubLifecycleCandidate {
  * that ended in the last three days (read-only, public page hidden), a
  * suspension in the last three days. Three days is the catch-up window for
  * a worker that was down; the ledger key (kind, owner, milestone) keeps
- * each mail to one. Every tier pays (2026-10-31), so every tier is listed.
+ * each mail to one. The trial-ending mail asks the club to sign, so a club
+ * with a recorded contract does not get it. Every tier pays (2026-10-31), so every tier is listed.
+ *
+ * And a contract that renews (0061): CLUB_CONTRACT_REMINDER_DAYS before its
+ * notice deadline (with the same three-day catch-up), unless notice was
+ * already received. The terms are computed by clubContractTerm — the same
+ * function the owner's settings page and the admin read — so the mail can
+ * never name a different date; it is anchored on the renewal day.
  */
 export async function clubLifecycleCandidates(
   db: SqlRunner,
@@ -452,7 +470,7 @@ export async function clubLifecycleCandidates(
 ): Promise<ClubLifecycleCandidate[]> {
   const result = await db.execute(sql`
     WITH paying AS (
-      SELECT c.id, c.status, c.trial_ends_on, c.paid_until, c.suspended_at,
+      SELECT c.id, c.status, c.trial_ends_on, c.paid_until, c.suspended_at, c.contract_starts_on,
              greatest(c.paid_until, c.trial_ends_on) AS coverage
         FROM clubs c
        WHERE c.status IN ('active', 'suspended')
@@ -462,6 +480,9 @@ export async function clubLifecycleCandidates(
            to_char(trial_ends_on, 'YYYY-MM-DD') || ':' || (trial_ends_on - ${today}::date)::text AS anchor
       FROM paying
      WHERE status = 'active' AND (paid_until IS NULL OR paid_until <= trial_ends_on)
+       -- A club that has signed is past deciding: the mail's «ако не продължите,
+       -- не дължите нищо» would be false for it (0061).
+       AND contract_starts_on IS NULL
        AND trial_ends_on IN (${today}::date + 7, ${today}::date + 1)
     UNION ALL
     SELECT 'club_past_due', id, to_char(coverage, 'YYYY-MM-DD'), to_char(coverage, 'YYYY-MM-DD')
@@ -482,12 +503,34 @@ export async function clubLifecycleCandidates(
      WHERE status = 'suspended' AND suspended_at > now() - interval '3 days'
      ORDER BY 2, 1
   `);
-  return result.rows.map((row) => ({
-    kind: String(row.kind) as ClubLifecycleKind,
-    clubId: String(row.club_id),
-    date: String(row.date),
-    anchor: String(row.anchor),
-  }));
+  const contracts = await db.execute(sql`
+    SELECT id AS club_id, to_char(contract_starts_on, 'YYYY-MM-DD') AS starts_on
+      FROM clubs
+     WHERE status = 'active' AND contract_starts_on IS NOT NULL AND contract_notice_on IS NULL
+  `);
+  const renewing: ClubLifecycleCandidate[] = [];
+  for (const row of contracts.rows) {
+    const term = clubContractTerm({ startsOn: String(row.starts_on), noticeOn: null }, today);
+    if (term.state !== 'running') continue;
+    const ahead = daysBetween(today, term.noticeBy);
+    if (ahead < CLUB_CONTRACT_REMINDER_DAYS - 2 || ahead > CLUB_CONTRACT_REMINDER_DAYS) continue;
+    renewing.push({
+      kind: 'club_contract_renewing',
+      clubId: String(row.club_id),
+      date: term.renewsOn,
+      anchor: term.renewsOn,
+      noticeBy: term.noticeBy,
+    });
+  }
+  return [
+    ...result.rows.map((row) => ({
+      kind: String(row.kind) as ClubLifecycleKind,
+      clubId: String(row.club_id),
+      date: String(row.date),
+      anchor: String(row.anchor),
+    })),
+    ...renewing,
+  ];
 }
 
 // ─── Digests (staff) ────────────────────────────────────────────────────────
