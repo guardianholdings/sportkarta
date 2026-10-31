@@ -81,6 +81,28 @@ describe('campaign hook', () => {
     expect(hook('event', { url: '/' }).url).toBe('https://pops.bg/?utm_campaign=launch');
   });
 
+  it('rewrites tokenised path segments in the url and the referrer of every send', () => {
+    const hook = hookFor('');
+    const token = 'abcdef0123456789abcdef0123456789abcdef01';
+    expect(hook('event', { url: `https://pops.bg/klubove/pokana/${token}` }).url).toBe(
+      'https://pops.bg/klubove/pokana/[token]',
+    );
+    expect(
+      hook('event', { url: `/otmetka/${token}`, referrer: `https://pops.bg/pasport/ivan` }),
+    ).toEqual({
+      url: '/otmetka/[token]',
+      referrer: 'https://pops.bg/pasport/[token]',
+    });
+    expect(hook('event', { url: `/en/klub/zala/skan/${token}`, name: 'scan' }).url).toBe(
+      '/en/klub/zala/skan/[token]',
+    );
+    // Ordinary pages and the public calendar downloads are untouched.
+    expect(hook('event', { url: '/kalendar/igra/x.ics', referrer: '/statistika' })).toEqual({
+      url: '/kalendar/igra/x.ics',
+      referrer: '/statistika',
+    });
+  });
+
   it('caps a tag at 200 characters', () => {
     const hook = hookFor(`?utm_content=${'a'.repeat(500)}`);
     const url = new URL(String(hook('event', { url: 'https://pops.bg/' }).url));
