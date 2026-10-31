@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
 
 import { CampaignSponsor } from '@/components/campaigns/campaign-sponsor';
+import { Reveal } from '@/components/motion/reveal';
 import { Link } from '@/i18n/navigation';
 import { localizedText } from '@/lib/campaigns';
 import type { ContributionPulse } from '@/lib/home/sections';
@@ -23,7 +24,7 @@ function Action({
   body: string;
 }) {
   return (
-    <li>
+    <li data-reveal>
       <Link
         href={href}
         className="group flex h-full flex-col gap-3 rounded-card border border-line bg-paper p-5 transition-[border-color,box-shadow] duration-150 ease-standard hover:border-brand-border hover:shadow-sm focus-visible:shadow-[var(--ring)]"
@@ -66,7 +67,7 @@ export async function ContributeSection({
 
   return (
     <section aria-labelledby="home-contribute" className="border-y border-line bg-surface">
-      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
+      <Reveal className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
         <SectionHead
           id="home-contribute"
           overline={t('overline')}
@@ -128,7 +129,7 @@ export async function ContributeSection({
             </Link>
           </div>
         )}
-      </div>
+      </Reveal>
     </section>
   );
 }

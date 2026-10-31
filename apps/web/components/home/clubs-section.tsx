@@ -1,6 +1,7 @@
 import { ArrowRight } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 
+import { Reveal } from '@/components/motion/reveal';
 import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
 
@@ -17,14 +18,14 @@ export async function ClubsSection() {
   const t = await getTranslations('Home.clubs');
   return (
     <section aria-labelledby="home-clubs" className="border-y border-line bg-surface">
-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8 lg:py-14">
+      <Reveal className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8 lg:py-14">
         <SectionHead id="home-clubs" overline={t('overline')} title={t('title')} lead={t('lead')}>
           <Link href="/za-klubove" className={buttonVariants({ variant: 'accent' })}>
             {t('cta')}
             <ArrowRight size={18} aria-hidden="true" />
           </Link>
         </SectionHead>
-      </div>
+      </Reveal>
     </section>
   );
 }

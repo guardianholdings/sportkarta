@@ -2,6 +2,7 @@ import { Check, Minus } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 
 import { SectionHead } from '@/components/home/section-head';
+import { Reveal } from '@/components/motion/reveal';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
@@ -50,48 +51,51 @@ export async function Pricing({ locale }: { locale: string }) {
           title={t('pricing.title')}
           lead={t('pricing.lead')}
         />
-        <ul className="mt-8 grid gap-4 lg:grid-cols-3">
-          {CLUB_TIERS.map((tier) => {
-            const featured = tier === 'standard';
-            return (
-              <li
-                key={tier}
-                className={cn(
-                  'flex flex-col gap-4 rounded-card border bg-paper p-6',
-                  featured ? 'border-accent-border shadow-md' : 'border-line',
-                )}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-h3 font-extrabold tracking-tight text-ink">
-                    {tClub(`tier.${tier}`)}
-                  </h3>
-                  {featured && <Badge tone="accent">{t('pricing.popular')}</Badge>}
-                </div>
-                <p className="text-body-sm text-ink-soft">{t(`pricing.tiers.${tier}.for`)}</p>
-                <p className="flex items-baseline gap-2">
-                  <span className="font-mono text-display-lg font-bold tabular-nums leading-none text-ink">
-                    {money.format(CLUB_TIER_PRICE_EUR[tier])}
-                  </span>
-                  <span className="text-body-sm text-text-muted">{t('pricing.perMonth')}</span>
-                </p>
-                <p className="text-body-sm font-medium text-ink-soft">
-                  {tier === 'community'
-                    ? t('pricing.tiers.community.note', { cap: COMMUNITY_MEMBER_CAP })
-                    : t('pricing.paidNote', { days: CLUB_TRIAL_DAYS })}
-                </p>
-                <Link
-                  href="/klubove/zayavka"
+        <Reveal stagger={0.12}>
+          <ul className="mt-8 grid gap-4 lg:grid-cols-3">
+            {CLUB_TIERS.map((tier) => {
+              const featured = tier === 'standard';
+              return (
+                <li
+                  key={tier}
+                  data-reveal
                   className={cn(
-                    buttonVariants({ variant: featured ? 'accent' : 'secondary' }),
-                    'mt-auto',
+                    'flex flex-col gap-4 rounded-card border bg-paper p-6',
+                    featured ? 'border-accent-border shadow-md' : 'border-line',
                   )}
                 >
-                  {t('cta')}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-h3 font-extrabold tracking-tight text-ink">
+                      {tClub(`tier.${tier}`)}
+                    </h3>
+                    {featured && <Badge tone="accent">{t('pricing.popular')}</Badge>}
+                  </div>
+                  <p className="text-body-sm text-ink-soft">{t(`pricing.tiers.${tier}.for`)}</p>
+                  <p className="flex items-baseline gap-2">
+                    <span className="font-mono text-display-lg font-bold tabular-nums leading-none text-ink">
+                      {money.format(CLUB_TIER_PRICE_EUR[tier])}
+                    </span>
+                    <span className="text-body-sm text-text-muted">{t('pricing.perMonth')}</span>
+                  </p>
+                  <p className="text-body-sm font-medium text-ink-soft">
+                    {tier === 'community'
+                      ? t('pricing.tiers.community.note', { cap: COMMUNITY_MEMBER_CAP })
+                      : t('pricing.paidNote', { days: CLUB_TRIAL_DAYS })}
+                  </p>
+                  <Link
+                    href="/klubove/zayavka"
+                    className={cn(
+                      buttonVariants({ variant: featured ? 'accent' : 'secondary' }),
+                      'mt-auto',
+                    )}
+                  >
+                    {t('cta')}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </Reveal>
         <p className="mt-4 text-caption text-text-muted">{t('pricing.vatNote')}</p>
 
         <div

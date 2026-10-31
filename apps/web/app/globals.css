@@ -588,6 +588,31 @@
     );
 }
 
+/* The three small films of «Как работи»: a soft stage behind each SVG. */
+.sk-vignette {
+  background:
+    radial-gradient(
+      70% 80% at 50% 100%,
+      color-mix(in srgb, var(--green-100) 55%, transparent),
+      transparent 70%
+    ),
+    var(--paper);
+}
+.sk-vignette svg {
+  overflow: visible;
+}
+
+/* The sample passport: a faint coral sheen in the corner, so it reads as a card. */
+.sk-passport-card {
+  background:
+    radial-gradient(
+      50% 50% at 100% 0%,
+      color-mix(in srgb, var(--coral-100) 60%, transparent),
+      transparent 70%
+    ),
+    var(--surface);
+}
+
 /* The marketing pages' top bar: the page shows through, slightly frosted, so
    the bar reads as chrome and not as a band of content. */
 .sk-marketing-header {

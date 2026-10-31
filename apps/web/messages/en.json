@@ -2157,7 +2157,26 @@
       "leadPayments": "Payments go through your own Stripe.",
       "prices": "See the prices",
       "fee": "POPS takes no commission on your members’ payments.",
-      "shotAlt": "The club dashboard: today’s sessions and check-ins, expiring memberships and unpaid charges."
+      "shotAlt": "The club dashboard: today’s sessions and check-ins, expiring memberships and unpaid charges.",
+      "toasts": {
+        "checkin": {
+          "title": "Checked in at the door",
+          "body": "Member · kiosk QR code · 06:45"
+        },
+        "lead": {
+          "title": "New lead",
+          "body": "Trial session · from the club page"
+        },
+        "renewal": {
+          "title": "Membership renewed",
+          "body": "Monthly · online, by card",
+          "bodyDesk": "Monthly · at the desk"
+        },
+        "reminder": {
+          "title": "Reminder sent",
+          "body": "Membership expires in 7 days"
+        }
+      }
     },
     "assurances": {
       "free": "A free plan forever for clubs at public facilities",
@@ -2202,7 +2221,6 @@
       "overline": "Every function",
       "title": "What the club office can do",
       "lead": "Everything the module does — function by function, nothing left out. The label says from which plan it is included; “soon” means the service is not switched on for everybody yet.",
-      "jumpLabel": "Areas",
       "legend": "No label: included in every plan, the free one too.",
       "soon": "soon",
       "dashboard": {
@@ -3023,6 +3041,61 @@
       "lead": "The application takes two minutes. Free for clubs at public facilities; a trial for the rest.",
       "cta": "Start for free",
       "contact": "Have a question? Write to us"
+    },
+    "day": {
+      "overline": "A day at the club",
+      "title": "From opening to the report",
+      "lead": "What the office does while you run sessions — hour by hour. Every label opens the area that does it.",
+      "openLabel": "Open the area",
+      "moments": {
+        "open": {
+          "time": "06:45",
+          "title": "The door",
+          "body": "The first member scans the kiosk QR code with their phone. The check-in is in the office — and, with consent, in their sports passport."
+        },
+        "trial": {
+          "time": "08:10",
+          "title": "Someone new",
+          "body": "Somebody books a trial session from the club page. They appear as a lead, with a reminder of when to call."
+        },
+        "buy": {
+          "time": "09:30",
+          "title": "Membership online",
+          "body": "A member renews by card on a Stripe page. The money is in your account; the office already knows."
+        },
+        "desk": {
+          "time": "12:00",
+          "title": "The desk",
+          "body": "A one-form sale: member, plan, start, payment. The card is complete, and anything owed shows at once."
+        },
+        "roster": {
+          "time": "17:30",
+          "title": "The trainer",
+          "body": "The roster is on their phone; attendance takes one tap. One did not come — the no-show fee follows your rules."
+        },
+        "auto": {
+          "time": "19:00",
+          "title": "Automatically",
+          "body": "Three memberships expire in a week. The club emails them by a rule you set once; nobody picked up a phone."
+        },
+        "report": {
+          "time": "21:30",
+          "title": "The owner",
+          "body": "The day is on the dashboard: attendance, revenue, who has not been in for a while. On Monday the week is in your inbox too."
+        }
+      }
+    },
+    "explorer": {
+      "areas": "Areas of the office",
+      "searchLabel": "Search for a function",
+      "searchPlaceholder": "E.g. QR, invoice, waitlist…",
+      "noResults": "No function with that word. Try another.",
+      "matchesOne": "{count} function",
+      "matchesOther": "{count} functions",
+      "total": "{count} functions in {areas} areas",
+      "pause": "Stop the automatic tour",
+      "resume": "Tour automatically",
+      "clear": "Clear"
     }
   },
   "LocaleSwitcher": {
@@ -7599,7 +7672,8 @@
       "collect": {
         "title": "Collect your passport",
         "body": "Points, streaks and badges for every attendance and every contribution to the map."
-      }
+      },
+      "points": "points"
     },
     "dots": {
       "statAll": "{count, plural, one {free place for sport} other {free places for sport}}",
@@ -7705,7 +7779,17 @@
       "leaderboardBody": "By city, by sport and by contribution to the map. You take part only if your passport is public.",
       "consent": "The passport is personal. A name on a board or a public page belongs only to a member who asked for it.",
       "open": "My passport",
-      "start": "Start your passport"
+      "start": "Start your passport",
+      "sample": {
+        "label": "Sample passport",
+        "initials": "YN",
+        "name": "Your name",
+        "city": "Your city",
+        "points": "points",
+        "streak": "weeks in a row",
+        "badges": "badges",
+        "note": "This is what the passport looks like — with your numbers, once you start."
+      }
     },
     "clubs": {
       "overline": "For gyms, studios, clubs and trainers",

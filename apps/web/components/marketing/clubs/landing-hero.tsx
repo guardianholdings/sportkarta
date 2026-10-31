@@ -5,12 +5,16 @@ import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
 
+import { Reveal } from '@/components/motion/reveal';
+
 import { DeviceFrame } from './device-frame';
+import { HeroToasts } from './hero-toasts';
 import { SHOTS } from './shots';
 
 export const CLUBS_HERO_ID = 'za-klubove-hero';
 
 const ASSURANCES = ['free', 'trial', 'contract', 'cancel', 'export'] as const;
+const TOASTS = ['checkin', 'lead', 'renewal', 'reminder'] as const;
 
 /**
  * The first screen of the clubs page: the promise, the one call to action,
@@ -73,7 +77,24 @@ export async function LandingHero({
             ))}
           </ul>
         </div>
-        {shot && <DeviceFrame shot={shot} alt={t('hero.shotAlt')} eager />}
+        {shot && (
+          <Reveal y={40}>
+            {/* Clipped: the notices slide in from outside the frame. */}
+            <div className="relative overflow-hidden rounded-card">
+              <DeviceFrame shot={shot} alt={t('hero.shotAlt')} eager />
+              <HeroToasts
+                toasts={TOASTS.map((key) => ({
+                  title: t(`hero.toasts.${key}.title`),
+                  body: t(
+                    key === 'renewal' && !paymentsOn
+                      ? 'hero.toasts.renewal.bodyDesk'
+                      : `hero.toasts.${key}.body`,
+                  ),
+                }))}
+              />
+            </div>
+          </Reveal>
+        )}
       </div>
     </section>
   );

@@ -3,10 +3,13 @@ import { getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
 
 import { BadgeCoins, type Coin } from '@/components/home/badge-coins';
+import { Reveal } from '@/components/motion/reveal';
 import { SectionHead } from '@/components/home/section-head';
 import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
 import { badgeArt } from '@/lib/design/badge-art';
+
+import { PassportCard } from './passport-card';
 import { LAUNCH_BADGES } from '@sportkarta/lib/badges';
 
 const FACTS = [
@@ -61,8 +64,8 @@ export async function PassportSection({ signedIn }: { signedIn: boolean }) {
       aria-labelledby="home-passport"
       className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20"
     >
-      <div className="grid gap-x-14 gap-y-10 lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]">
-        <div className="min-w-0">
+      <Reveal className="grid gap-x-14 gap-y-10 lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]">
+        <div className="min-w-0" data-reveal>
           <SectionHead
             id="home-passport"
             overline={t('overline')}
@@ -78,7 +81,20 @@ export async function PassportSection({ signedIn }: { signedIn: boolean }) {
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-6 lg:pt-14">
+        <div className="flex min-w-0 flex-col gap-6 lg:pt-14" data-reveal>
+          <PassportCard
+            labels={{
+              sample: t('sample.label'),
+              initials: t('sample.initials'),
+              name: t('sample.name'),
+              city: t('sample.city'),
+              points: t('sample.points'),
+              streak: t('sample.streak'),
+              badges: t('sample.badges'),
+              note: t('sample.note'),
+            }}
+            coins={coins.slice(0, 3).map((coin) => ({ src: coin.art, name: coin.name }))}
+          />
           <ul className="flex flex-col gap-4">
             {FACTS.map((fact) => (
               <Fact
@@ -111,7 +127,7 @@ export async function PassportSection({ signedIn }: { signedIn: boolean }) {
             </Link>
           </div>
         </div>
-      </div>
+      </Reveal>
     </section>
   );
 }

@@ -5,6 +5,7 @@ import { MarketingHeader } from '@/components/marketing/marketing-header';
 import { AudienceBand } from '@/components/marketing/clubs/audience-band';
 import { Audiences } from '@/components/marketing/clubs/audiences';
 import { Catalogue } from '@/components/marketing/clubs/catalogue';
+import { DaySection } from '@/components/marketing/clubs/day-section';
 import { Edges } from '@/components/marketing/clubs/edges';
 import { Faq } from '@/components/marketing/clubs/faq';
 import { FinalCta } from '@/components/marketing/clubs/final-cta';
@@ -74,6 +75,7 @@ export default async function ClubsLandingPage({ params }: { params: PageParams 
       <main>
         <LandingHero feeFree={feeFree} paymentsOn={paymentsOn} />
         <Audiences />
+        <DaySection paymentsOn={paymentsOn} />
         <AudienceBand
           places={layer?.total ?? numbers?.free ?? null}
           numbers={numbers}

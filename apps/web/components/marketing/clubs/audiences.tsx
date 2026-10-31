@@ -2,6 +2,7 @@ import { Dumbbell, Flower2, Trophy, UserRound } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 
 import { SectionHead } from '@/components/home/section-head';
+import { Reveal } from '@/components/motion/reveal';
 import { CLUB_KINDS, type ClubKind } from '@sportkarta/lib/clubs';
 
 const ICONS: Record<ClubKind, typeof Dumbbell> = {
@@ -31,23 +32,26 @@ export async function Audiences() {
         title={t('audiences.title')}
         lead={t('audiences.lead')}
       />
-      <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {kinds.map((kind) => {
-          const Icon = ICONS[kind];
-          return (
-            <li
-              key={kind}
-              className="flex flex-col gap-3 rounded-card border border-line bg-surface p-5"
-            >
-              <span className="grid size-11 place-items-center rounded-full bg-brand-subtle text-brand">
-                <Icon size={22} aria-hidden="true" />
-              </span>
-              <span className="text-body font-bold text-ink">{tClub(`kind.${kind}`)}</span>
-              <span className="text-body-sm text-ink-soft">{t(`audiences.${kind}`)}</span>
-            </li>
-          );
-        })}
-      </ul>
+      <Reveal>
+        <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {kinds.map((kind) => {
+            const Icon = ICONS[kind];
+            return (
+              <li
+                key={kind}
+                data-reveal
+                className="flex flex-col gap-3 rounded-card border border-line bg-surface p-5"
+              >
+                <span className="grid size-11 place-items-center rounded-full bg-brand-subtle text-brand">
+                  <Icon size={22} aria-hidden="true" />
+                </span>
+                <span className="text-body font-bold text-ink">{tClub(`kind.${kind}`)}</span>
+                <span className="text-body-sm text-ink-soft">{t(`audiences.${kind}`)}</span>
+              </li>
+            );
+          })}
+        </ul>
+      </Reveal>
     </section>
   );
 }

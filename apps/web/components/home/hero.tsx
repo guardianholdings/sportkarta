@@ -1,6 +1,7 @@
 import { ArrowRight, LocateFixed, Search } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 
+import { PointerParallax } from '@/components/motion/pointer-parallax';
 import { PopsMark } from '@/components/shell/pops-mark';
 import { buttonVariants } from '@/components/ui/button';
 import { getPathname, Link } from '@/i18n/navigation';
@@ -167,42 +168,46 @@ export async function Hero({
         </div>
 
         {dots && (
-          <HeroMap
-            locale={locale}
-            data={dotMapData(dots, (city) => t('dots.openCity', { city, cityVav: takesVav(city) }))}
-            title={t('dots.mapTitle', { count: dots.layer.total })}
-            chips={chips}
-            initialTop={dots.top}
-            cityPageMin={MIN_LISTING_FACILITIES}
-            labels={{
-              filter: t('dots.filterLabel'),
-              showOnMap: t('dots.showOnMap'),
-              topLabel: t('dots.topLabel'),
-              placesOne: t('dots.placesOne'),
-              placesOther: t('dots.placesOther'),
-              openHere: t('dots.openHere'),
-              close: t('dots.close'),
-              hint: t('dots.hint'),
-              loadError: t('dots.loadError'),
-              attribution: t('dots.attribution'),
-            }}
-            legend={
-              // Keyed: an element built as a PROP arrives in the client
-              // unvalidated, and HeroMap renders it beside a sibling.
-              <ul key="legend" className="flex flex-col gap-1.5 text-caption text-ink-soft">
-                <li key="places" className="flex items-center gap-2">
-                  <span aria-hidden="true" className="sk-legend-dot" />
-                  {t('dots.placesLegend')}
-                </li>
-                {dots.pulses.total > 0 && (
-                  <li key="games" className="flex items-center gap-2">
-                    <span aria-hidden="true" className="sk-legend-dot sk-legend-dot--game" />
-                    {t('dots.gamesLegend', { count: dots.pulses.total })}
+          <PointerParallax strength={8}>
+            <HeroMap
+              locale={locale}
+              data={dotMapData(dots, (city) =>
+                t('dots.openCity', { city, cityVav: takesVav(city) }),
+              )}
+              title={t('dots.mapTitle', { count: dots.layer.total })}
+              chips={chips}
+              initialTop={dots.top}
+              cityPageMin={MIN_LISTING_FACILITIES}
+              labels={{
+                filter: t('dots.filterLabel'),
+                showOnMap: t('dots.showOnMap'),
+                topLabel: t('dots.topLabel'),
+                placesOne: t('dots.placesOne'),
+                placesOther: t('dots.placesOther'),
+                openHere: t('dots.openHere'),
+                close: t('dots.close'),
+                hint: t('dots.hint'),
+                loadError: t('dots.loadError'),
+                attribution: t('dots.attribution'),
+              }}
+              legend={
+                // Keyed: an element built as a PROP arrives in the client
+                // unvalidated, and HeroMap renders it beside a sibling.
+                <ul key="legend" className="flex flex-col gap-1.5 text-caption text-ink-soft">
+                  <li key="places" className="flex items-center gap-2">
+                    <span aria-hidden="true" className="sk-legend-dot" />
+                    {t('dots.placesLegend')}
                   </li>
-                )}
-              </ul>
-            }
-          />
+                  {dots.pulses.total > 0 && (
+                    <li key="games" className="flex items-center gap-2">
+                      <span aria-hidden="true" className="sk-legend-dot sk-legend-dot--game" />
+                      {t('dots.gamesLegend', { count: dots.pulses.total })}
+                    </li>
+                  )}
+                </ul>
+              }
+            />
+          </PointerParallax>
         )}
       </div>
     </section>
