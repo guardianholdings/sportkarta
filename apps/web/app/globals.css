@@ -1094,24 +1094,9 @@
   box-shadow: var(--shadow-sm);
 }
 .sk-rec-tab:focus-visible,
-.sk-rec-play:focus-visible,
 .sk-rec-step:focus-visible {
   box-shadow: var(--ring);
 }
-.sk-rec-play {
-  display: grid;
-  place-items: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: 999px;
-  border: 1px solid var(--line-strong);
-  background: var(--surface);
-  color: var(--ink);
-}
-.sk-rec-play:disabled {
-  opacity: 0.4;
-}
-
 .sk-rec-steps {
   display: flex;
   flex-direction: column;
@@ -1179,6 +1164,94 @@
   background: var(--accent);
   transform: scaleX(0);
   transform-origin: left;
+}
+
+/* On a wide screen the phone and the steps are the two columns of the
+   player's grid; on a phone they stack. */
+.sk-rec-room {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .sk-rec-film {
+    display: contents;
+  }
+}
+
+/* The film follows the scroll (components/guide/screen-recording.tsx): a
+   step gets page height in proportion to its part of the film (--rec-s, in
+   seconds). CSS rather than script, so the page has its final height from
+   the first paint. Under reduced motion none of this applies: the steps are
+   a short list of still frames. */
+@media (prefers-reduced-motion: no-preference) {
+  .sk-rec-step {
+    transition:
+      opacity var(--dur-base) var(--ease-standard),
+      background-color var(--dur-fast) var(--ease-standard),
+      border-color var(--dur-fast) var(--ease-standard);
+  }
+
+  /* Beside the phone: each step is a stretch of the column whose text holds
+     at one reading height while its part plays, until the next pushes it
+     up. The room after the last lets it finish just as the phone lets go
+     (screen minus the phone's foot, the reading height and a step). */
+  @media (min-width: 1024px) {
+    .sk-rec-steps {
+      gap: 0;
+      padding-bottom: calc(65svh - 12rem);
+    }
+    .sk-rec-steps > li {
+      min-height: clamp(17rem, calc(var(--rec-s) * 3rem), 34rem);
+    }
+    .sk-rec-step {
+      position: sticky;
+      top: 35svh;
+    }
+    .sk-rec-step:not([aria-current='step']) {
+      opacity: 0.5;
+    }
+    .sk-rec-step:hover {
+      opacity: 1;
+    }
+  }
+
+  /* On a phone the phone and the step being read hold together under the
+     chapter bar, the steps taking turns in one place, while empty room
+     below — a block per step — is what the scrolling passes through. */
+  @media (max-width: 1023.98px) {
+    .sk-rec-film {
+      position: sticky;
+      top: 3.5rem;
+      z-index: 10;
+    }
+    .sk-rec-film .sk-rec-stage {
+      padding: 0.5rem 0 0.25rem;
+    }
+    .sk-rec-film .sk-phone {
+      width: min(100%, 14rem, calc((100svh - 22rem) * 0.441));
+      min-width: 9.5rem;
+    }
+    /* The step's own number is right under the phone. */
+    .sk-rec-media__count {
+      display: none;
+    }
+    .sk-rec-film .sk-rec-steps {
+      display: grid;
+      margin-top: 0.5rem;
+    }
+    .sk-rec-film .sk-rec-steps > li {
+      grid-area: 1 / 1;
+    }
+    .sk-rec-film .sk-rec-step:not([aria-current='step']) {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .sk-rec-room {
+      display: block;
+    }
+    .sk-rec-room > div {
+      height: clamp(12rem, calc(var(--rec-s) * 2.25rem), 24rem);
+    }
+  }
 }
 
 /* The guide's contents: five stops on a dotted route (the hero's dots, run

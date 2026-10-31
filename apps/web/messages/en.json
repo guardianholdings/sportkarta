@@ -7894,8 +7894,6 @@
       },
       "player": {
         "label": "Screen recording: {title}",
-        "play": "Play the recording",
-        "pause": "Pause the recording",
         "step": "Step {current} of {total}",
         "steps": "Steps in the recording"
       },

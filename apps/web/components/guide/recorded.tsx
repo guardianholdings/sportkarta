@@ -46,8 +46,6 @@ export async function Recorded({
       tracks={tracks}
       note={note}
       labels={{
-        play: t('player.play'),
-        pause: t('player.pause'),
         stepOf: t.raw('player.step') as string,
         steps: t('player.steps'),
         tabs: t('contribute.tabs.label'),
