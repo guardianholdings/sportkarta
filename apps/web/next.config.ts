@@ -116,6 +116,14 @@ const nextConfig: NextConfig = {
           { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
         ],
       },
+      {
+        // The front page's screen recordings (scripts/marketing-shots/guide.mjs):
+        // the same contract — re-recorded under the same names after UI changes.
+        source: '/guide/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
+        ],
+      },
     ];
   },
   webpack: (config: { resolve: { extensionAlias?: Record<string, string[]> } }) => {

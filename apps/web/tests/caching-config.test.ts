@@ -179,6 +179,12 @@ describe('static asset cache headers', () => {
     expect(shot.get('cache-control')).toContain('stale-while-revalidate');
   });
 
+  it('caches the front page recordings for a day, with a background refresh', async () => {
+    const frame = await headersFor('/guide/find-bg-1.webp');
+    expect(maxAge(frame.get('cache-control'))).toBe(86400);
+    expect(frame.get('cache-control')).toContain('stale-while-revalidate');
+  });
+
   it('leaves the service worker script and pages uncached', async () => {
     // A cached sw.js would keep a stale worker in charge of every visitor.
     expect((await headersFor('/sw.js')).get('cache-control')).toBeUndefined();

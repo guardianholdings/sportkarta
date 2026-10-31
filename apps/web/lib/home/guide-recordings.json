@@ -1,0 +1,1078 @@
+{
+  "find": {
+    "bg": {
+      "bar": {
+        "src": "/guide/find-bg-bar.webp",
+        "w": 390,
+        "h": 87,
+        "top": 757
+      },
+      "steps": [
+        {
+          "src": "/guide/find-bg-1.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 16,
+              "y": 476,
+              "w": 163,
+              "h": 44
+            }
+          ]
+        },
+        {
+          "src": "/guide/find-bg-2.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 128,
+              "y": 572,
+              "w": 126,
+              "h": 36
+            }
+          ]
+        },
+        {
+          "src": "/guide/find-bg-3.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 16,
+              "y": 626,
+              "w": 358,
+              "h": 70
+            }
+          ]
+        },
+        {
+          "src": "/guide/find-bg-4.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 12,
+              "y": 712,
+              "w": 366,
+              "h": 44
+            }
+          ]
+        },
+        {
+          "src": "/guide/find-bg-5.webp",
+          "w": 390,
+          "h": 1595,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 12,
+              "y": 273,
+              "w": 366,
+              "h": 435
+            },
+            {
+              "type": "scroll",
+              "to": 304
+            },
+            {
+              "type": "mark",
+              "x": 12,
+              "y": 716,
+              "w": 366,
+              "h": 60
+            },
+            {
+              "type": "scroll",
+              "to": 1135
+            },
+            {
+              "type": "mark",
+              "x": 12,
+              "y": 1283,
+              "w": 366,
+              "h": 140
+            }
+          ]
+        }
+      ]
+    },
+    "en": {
+      "bar": {
+        "src": "/guide/find-en-bar.webp",
+        "w": 390,
+        "h": 87,
+        "top": 757
+      },
+      "steps": [
+        {
+          "src": "/guide/find-en-1.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 16,
+              "y": 381,
+              "w": 126,
+              "h": 44
+            }
+          ]
+        },
+        {
+          "src": "/guide/find-en-2.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 131,
+              "y": 576,
+              "w": 125,
+              "h": 36
+            }
+          ]
+        },
+        {
+          "src": "/guide/find-en-3.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 16,
+              "y": 626,
+              "w": 358,
+              "h": 70
+            }
+          ]
+        },
+        {
+          "src": "/guide/find-en-4.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 12,
+              "y": 712,
+              "w": 366,
+              "h": 44
+            }
+          ]
+        },
+        {
+          "src": "/guide/find-en-5.webp",
+          "w": 390,
+          "h": 1554,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 12,
+              "y": 273,
+              "w": 366,
+              "h": 394
+            },
+            {
+              "type": "scroll",
+              "to": 263
+            },
+            {
+              "type": "mark",
+              "x": 12,
+              "y": 675,
+              "w": 366,
+              "h": 60
+            },
+            {
+              "type": "scroll",
+              "to": 1095
+            },
+            {
+              "type": "mark",
+              "x": 12,
+              "y": 1243,
+              "w": 366,
+              "h": 140
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "add": {
+    "bg": {
+      "bar": {
+        "src": "/guide/add-bg-bar.webp",
+        "w": 390,
+        "h": 87,
+        "top": 757
+      },
+      "steps": [
+        {
+          "src": "/guide/add-bg-1.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "bar",
+              "x": 168,
+              "y": 9,
+              "w": 54,
+              "h": 54
+            }
+          ]
+        },
+        {
+          "src": "/guide/add-bg-2.webp",
+          "w": 390,
+          "h": 844,
+          "bar": false,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 12,
+              "y": 637,
+              "w": 366,
+              "h": 61
+            }
+          ]
+        },
+        {
+          "src": "/guide/add-bg-3.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 34,
+              "y": 653,
+              "w": 201,
+              "h": 44
+            }
+          ]
+        },
+        {
+          "src": "/guide/add-bg-4.webp",
+          "w": 390,
+          "h": 2211,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 34,
+              "y": 357,
+              "w": 322,
+              "h": 288
+            },
+            {
+              "type": "scroll",
+              "to": 1159
+            },
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 190,
+              "y": 1459,
+              "w": 154,
+              "h": 36
+            },
+            {
+              "type": "scroll",
+              "to": 1459
+            },
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 33,
+              "y": 2019,
+              "w": 324,
+              "h": 52
+            }
+          ]
+        },
+        {
+          "src": "/guide/add-bg-5.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 16,
+              "y": 20,
+              "w": 358,
+              "h": 196
+            }
+          ]
+        }
+      ]
+    },
+    "en": {
+      "bar": {
+        "src": "/guide/add-en-bar.webp",
+        "w": 390,
+        "h": 87,
+        "top": 757
+      },
+      "steps": [
+        {
+          "src": "/guide/add-en-1.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "bar",
+              "x": 168,
+              "y": 9,
+              "w": 54,
+              "h": 54
+            }
+          ]
+        },
+        {
+          "src": "/guide/add-en-2.webp",
+          "w": 390,
+          "h": 844,
+          "bar": false,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 12,
+              "y": 637,
+              "w": 366,
+              "h": 61
+            }
+          ]
+        },
+        {
+          "src": "/guide/add-en-3.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 34,
+              "y": 611,
+              "w": 113,
+              "h": 44
+            }
+          ]
+        },
+        {
+          "src": "/guide/add-en-4.webp",
+          "w": 390,
+          "h": 2105,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 34,
+              "y": 315,
+              "w": 322,
+              "h": 288
+            },
+            {
+              "type": "scroll",
+              "to": 809
+            },
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 33,
+              "y": 1109,
+              "w": 134,
+              "h": 36
+            },
+            {
+              "type": "scroll",
+              "to": 1353
+            },
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 33,
+              "y": 1913,
+              "w": 324,
+              "h": 52
+            }
+          ]
+        },
+        {
+          "src": "/guide/add-en-5.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 16,
+              "y": 20,
+              "w": 358,
+              "h": 196
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "verify": {
+    "bg": {
+      "bar": {
+        "src": "/guide/verify-bg-bar.webp",
+        "w": 390,
+        "h": 87,
+        "top": 757
+      },
+      "steps": [
+        {
+          "src": "/guide/verify-bg-1.webp",
+          "w": 390,
+          "h": 2946,
+          "bar": true,
+          "actions": [
+            {
+              "type": "scroll",
+              "to": 1195
+            },
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 33,
+              "y": 1492,
+              "w": 324,
+              "h": 22
+            },
+            {
+              "type": "scroll",
+              "to": 2182
+            },
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 33,
+              "y": 2742,
+              "w": 324,
+              "h": 44
+            }
+          ]
+        },
+        {
+          "src": "/guide/verify-bg-2.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 33,
+              "y": 300,
+              "w": 324,
+              "h": 22
+            }
+          ]
+        },
+        {
+          "src": "/guide/verify-bg-3.webp",
+          "w": 390,
+          "h": 4091,
+          "bar": true,
+          "actions": [
+            {
+              "type": "scroll",
+              "to": 3082
+            },
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 137,
+              "y": 3359,
+              "w": 70,
+              "h": 22
+            },
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 33,
+              "y": 3453,
+              "w": 324,
+              "h": 22
+            },
+            {
+              "type": "scroll",
+              "to": 3327
+            },
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 33,
+              "y": 3887,
+              "w": 324,
+              "h": 44
+            }
+          ]
+        },
+        {
+          "src": "/guide/verify-bg-4.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 33,
+              "y": 542,
+              "w": 324,
+              "h": 22
+            }
+          ]
+        }
+      ]
+    },
+    "en": {
+      "bar": {
+        "src": "/guide/verify-en-bar.webp",
+        "w": 390,
+        "h": 87,
+        "top": 757
+      },
+      "steps": [
+        {
+          "src": "/guide/verify-en-1.webp",
+          "w": 390,
+          "h": 2886,
+          "bar": true,
+          "actions": [
+            {
+              "type": "scroll",
+              "to": 1155
+            },
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 33,
+              "y": 1432,
+              "w": 324,
+              "h": 22
+            },
+            {
+              "type": "scroll",
+              "to": 2122
+            },
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 33,
+              "y": 2682,
+              "w": 324,
+              "h": 44
+            }
+          ]
+        },
+        {
+          "src": "/guide/verify-en-2.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 33,
+              "y": 300,
+              "w": 324,
+              "h": 22
+            }
+          ]
+        },
+        {
+          "src": "/guide/verify-en-3.webp",
+          "w": 390,
+          "h": 4003,
+          "bar": true,
+          "actions": [
+            {
+              "type": "scroll",
+              "to": 3034
+            },
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 143,
+              "y": 3291,
+              "w": 62,
+              "h": 22
+            },
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 33,
+              "y": 3385,
+              "w": 324,
+              "h": 22
+            },
+            {
+              "type": "scroll",
+              "to": 3239
+            },
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 33,
+              "y": 3799,
+              "w": 324,
+              "h": 44
+            }
+          ]
+        },
+        {
+          "src": "/guide/verify-en-4.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 33,
+              "y": 542,
+              "w": 324,
+              "h": 22
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "play": {
+    "bg": {
+      "bar": {
+        "src": "/guide/play-bg-bar.webp",
+        "w": 390,
+        "h": 87,
+        "top": 757
+      },
+      "steps": [
+        {
+          "src": "/guide/play-bg-1.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 16,
+              "y": 202,
+              "w": 358,
+              "h": 74
+            }
+          ]
+        },
+        {
+          "src": "/guide/play-bg-2.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 16,
+              "y": 467,
+              "w": 128,
+              "h": 44
+            }
+          ]
+        },
+        {
+          "src": "/guide/play-bg-3.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 16,
+              "y": 467,
+              "w": 358,
+              "h": 22
+            }
+          ]
+        },
+        {
+          "src": "/guide/play-bg-4.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 217,
+              "y": 373,
+              "w": 144,
+              "h": 44
+            }
+          ]
+        },
+        {
+          "src": "/guide/play-bg-5.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 16,
+              "y": 192,
+              "w": 358,
+              "h": 358
+            }
+          ]
+        },
+        {
+          "src": "/guide/play-bg-6.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 16,
+              "y": 72,
+              "w": 209,
+              "h": 44
+            }
+          ]
+        },
+        {
+          "src": "/guide/play-bg-7.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 16,
+              "y": 72,
+              "w": 358,
+              "h": 84
+            }
+          ]
+        }
+      ]
+    },
+    "en": {
+      "bar": {
+        "src": "/guide/play-en-bar.webp",
+        "w": 390,
+        "h": 87,
+        "top": 757
+      },
+      "steps": [
+        {
+          "src": "/guide/play-en-1.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 16,
+              "y": 180,
+              "w": 358,
+              "h": 74
+            }
+          ]
+        },
+        {
+          "src": "/guide/play-en-2.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 16,
+              "y": 467,
+              "w": 76,
+              "h": 44
+            }
+          ]
+        },
+        {
+          "src": "/guide/play-en-3.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 16,
+              "y": 467,
+              "w": 358,
+              "h": 22
+            }
+          ]
+        },
+        {
+          "src": "/guide/play-en-4.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 225,
+              "y": 352,
+              "w": 136,
+              "h": 44
+            }
+          ]
+        },
+        {
+          "src": "/guide/play-en-5.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 16,
+              "y": 192,
+              "w": 358,
+              "h": 358
+            }
+          ]
+        },
+        {
+          "src": "/guide/play-en-6.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 16,
+              "y": 72,
+              "w": 122,
+              "h": 44
+            }
+          ]
+        },
+        {
+          "src": "/guide/play-en-7.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 16,
+              "y": 72,
+              "w": 358,
+              "h": 84
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "passport": {
+    "bg": {
+      "bar": {
+        "src": "/guide/passport-bg-bar.webp",
+        "w": 390,
+        "h": 87,
+        "top": 757
+      },
+      "steps": [
+        {
+          "src": "/guide/passport-bg-1.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 12,
+              "y": 170,
+              "w": 366,
+              "h": 250
+            }
+          ]
+        },
+        {
+          "src": "/guide/passport-bg-2.webp",
+          "w": 390,
+          "h": 2401,
+          "bar": true,
+          "actions": [
+            {
+              "type": "scroll",
+              "to": 744
+            },
+            {
+              "type": "scroll",
+              "to": 1521
+            },
+            {
+              "type": "mark",
+              "x": 12,
+              "y": 1671,
+              "w": 366,
+              "h": 210
+            }
+          ]
+        },
+        {
+          "src": "/guide/passport-bg-3.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 33,
+              "y": 300,
+              "w": 170,
+              "h": 44
+            }
+          ]
+        },
+        {
+          "src": "/guide/passport-bg-4.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 12,
+              "y": 288,
+              "w": 366,
+              "h": 230
+            }
+          ]
+        }
+      ]
+    },
+    "en": {
+      "bar": {
+        "src": "/guide/passport-en-bar.webp",
+        "w": 390,
+        "h": 87,
+        "top": 757
+      },
+      "steps": [
+        {
+          "src": "/guide/passport-en-1.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 12,
+              "y": 129,
+              "w": 366,
+              "h": 250
+            }
+          ]
+        },
+        {
+          "src": "/guide/passport-en-2.webp",
+          "w": 390,
+          "h": 2298,
+          "bar": true,
+          "actions": [
+            {
+              "type": "scroll",
+              "to": 661
+            },
+            {
+              "type": "scroll",
+              "to": 1418
+            },
+            {
+              "type": "mark",
+              "x": 12,
+              "y": 1568,
+              "w": 366,
+              "h": 210
+            }
+          ]
+        },
+        {
+          "src": "/guide/passport-en-3.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "tap",
+              "on": "screen",
+              "x": 33,
+              "y": 300,
+              "w": 135,
+              "h": 44
+            }
+          ]
+        },
+        {
+          "src": "/guide/passport-en-4.webp",
+          "w": 390,
+          "h": 844,
+          "bar": true,
+          "actions": [
+            {
+              "type": "mark",
+              "x": 12,
+              "y": 288,
+              "w": 366,
+              "h": 230
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

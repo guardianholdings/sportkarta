@@ -18,13 +18,22 @@ export interface Coin {
  * locked/earned state lives on /pasport, where the brand rule (locked until
  * complete) applies.
  */
-export function BadgeCoins({ coins, flipLabel }: { coins: Coin[]; flipLabel: string }) {
+export function BadgeCoins({
+  coins,
+  flipLabel,
+  columns = 'grid-cols-5 sm:grid-cols-7',
+}: {
+  coins: Coin[];
+  flipLabel: string;
+  /** The grid's column classes, for a row sized to its own group. */
+  columns?: string;
+}) {
   const [selected, setSelected] = useState(coins[0]?.slug ?? null);
   const current = coins.find((coin) => coin.slug === selected) ?? coins[0];
 
   return (
     <div>
-      <ul className="grid grid-cols-5 gap-2 sm:grid-cols-7 sm:gap-3">
+      <ul className={cn('grid gap-2 sm:gap-3', columns)}>
         {coins.map((coin) => (
           <li key={coin.slug}>
             <button

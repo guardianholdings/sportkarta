@@ -7758,22 +7758,6 @@
       "trust": "{places, plural, one {# free place for sport} other {# free places for sport}} · {municipalities, plural, one {# municipality} other {# municipalities}} · {sports, plural, one {# sport} other {# sports}} · open data.",
       "trustLink": "See the statistics"
     },
-    "how": {
-      "title": "How it works",
-      "find": {
-        "title": "Find a place",
-        "body": "Pitches, outdoor gyms and courts on the map — filtered by sport, or «Near me»."
-      },
-      "join": {
-        "title": "Join a session",
-        "body": "Open sessions in public places. You sign up, come along and check in with a QR code."
-      },
-      "collect": {
-        "title": "Collect your passport",
-        "body": "Points, streaks and badges for every attendance and every contribution to the map."
-      },
-      "points": "points"
-    },
     "dots": {
       "statAll": "{count, plural, one {free place for sport} other {free places for sport}}",
       "statSport": "{count, plural, one {free place for {sport}} other {free places for {sport}}}",
@@ -7858,41 +7842,6 @@
       "campaignLeft": "{count, plural, =0 {last day} one {# day left} other {# days left}}",
       "campaignCta": "Go to the campaign"
     },
-    "passport": {
-      "overline": "Sports passport",
-      "title": "Your sports passport",
-      "lead": "Everything you do on POPS gathers in one place — and is public only if you decide so.",
-      "badgesTitle": "{count} badges to collect",
-      "badgesHint": "Flip a coin to see how it is earned.",
-      "flip": "{name}: how it is earned",
-      "points": {
-        "title": "Points",
-        "body": "For an added place, a verification, a condition report and every attendance with a QR code."
-      },
-      "streaks": {
-        "title": "Streaks",
-        "body": "Week after week — the streak grows with every session you checked in at."
-      },
-      "divisions": {
-        "title": "Divisions",
-        "body": "Weekly divisions from Rodopi to Rila: you climb with points and drop if you stop."
-      },
-      "leaderboardTitle": "Leaderboards",
-      "leaderboardBody": "By city, by sport and by contribution to the map. You take part only if your passport is public.",
-      "consent": "The passport is personal. A name on a board or a public page belongs only to a member who asked for it.",
-      "open": "My passport",
-      "start": "Start your passport",
-      "sample": {
-        "label": "Sample passport",
-        "initials": "YN",
-        "name": "Your name",
-        "city": "Your city",
-        "points": "points",
-        "streak": "weeks in a row",
-        "badges": "badges",
-        "note": "This is what the passport looks like — with your numbers, once you start."
-      }
-    },
     "clubs": {
       "overline": "For gyms, studios, clubs and trainers",
       "title": "Run your club on POPS",
@@ -7921,6 +7870,478 @@
         "title": "Your data is yours",
         "body": "Your date of birth is never stored and IP addresses never enter the logs. Export and deletion of the profile — in one step.",
         "link": "To your profile"
+      }
+    },
+    "guide": {
+      "nav": {
+        "label": "Guide: how POPS works",
+        "find": "Find",
+        "contribute": "Contribute",
+        "play": "Play",
+        "passport": "Passport",
+        "ranking": "Rankings",
+        "more": "More"
+      },
+      "intro": {
+        "overline": "How it works",
+        "title": "Five things you do on POPS",
+        "lead": "They are shown with real phone screens, step by step, and the rules with pictures. Tap a step to see it, or let the recording play on its own.",
+        "find": "Find somewhere to play — near you or in another town.",
+        "contribute": "Add a missing place, confirm one, or update its condition.",
+        "play": "Sign up for an open session and check in with a QR code.",
+        "passport": "Collect points, badges and streaks in your sports passport.",
+        "ranking": "Compare yourself on the leaderboards and in the weekly divisions — only if you want to."
+      },
+      "player": {
+        "label": "Screen recording: {title}",
+        "play": "Play the recording",
+        "pause": "Pause the recording",
+        "step": "Step {current} of {total}",
+        "steps": "Steps in the recording"
+      },
+      "recordings": {
+        "find": {
+          "title": "how to find a place",
+          "s1": {
+            "title": "Tap “Near me”",
+            "body": "The map opens around you. Your location stays in your browser — we do not keep it."
+          },
+          "s2": {
+            "title": "Pick a sport",
+            "body": "The buttons above the list filter by sport. “Filters” has more: access, surface and lit places only."
+          },
+          "s3": {
+            "title": "The nearest come first",
+            "body": "The list is sorted by distance. Tap a place — or a point on the map."
+          },
+          "s4": {
+            "title": "Directions in one tap",
+            "body": "Waze and Google Maps take you there, and the details button opens its page."
+          },
+          "s5": {
+            "title": "Everything about the place",
+            "body": "Sports, access, surface, lighting, when it was last checked and which sessions are held there. Below — how to help with the data."
+          }
+        },
+        "add": {
+          "title": "how to add a place",
+          "s1": {
+            "title": "Tap “+”",
+            "body": "The button sits in the middle of the bottom bar — on every page."
+          },
+          "s2": {
+            "title": "“Add a facility”",
+            "body": "The same menu logs a training in your training log and scans a check-in QR code."
+          },
+          "s3": {
+            "title": "Show where it is",
+            "body": "“My location” drops the pin where you are. You can move it with your finger."
+          },
+          "s4": {
+            "title": "Photo, sport, access",
+            "body": "A photo is required — of the place, not of people. A name is optional."
+          },
+          "s5": {
+            "title": "It is on the map",
+            "body": "The place appears straight away, marked “Awaiting verification”. Added while you are there, it earns 10 points."
+          }
+        },
+        "verify": {
+          "title": "how to confirm a place and report its condition",
+          "s1": {
+            "title": "“Yes, it is there”",
+            "body": "On a place’s page, confirm that it exists and correct the details if you need to."
+          },
+          "s2": {
+            "title": "+3 points",
+            "body": "Confirming on site verifies the place and earns 3 points — once per place."
+          },
+          "s3": {
+            "title": "Report the condition",
+            "body": "Excellent, good, poor or unusable — and what is wrong: broken equipment, a missing net, no lighting."
+          },
+          "s4": {
+            "title": "+2 points",
+            "body": "The next person heading there knows what to expect. A report earns points once a day per place."
+          }
+        },
+        "play": {
+          "title": "how to sign up for a session and check in",
+          "s1": {
+            "title": "Pick a session",
+            "body": "“Sessions” in the bottom bar lists everything coming up — the soonest first."
+          },
+          "s2": {
+            "title": "“I’m in”",
+            "body": "You see when and where it is, what level it is for and how many places are left."
+          },
+          "s3": {
+            "title": "The place is yours",
+            "body": "You get a confirmation and a reminder by email. If you drop out, your place goes to the first person waiting."
+          },
+          "s4": {
+            "title": "At the court — “Scan the code”",
+            "body": "When the session is about to start, a check-in button appears on your home page."
+          },
+          "s5": {
+            "title": "Point the camera at the code",
+            "body": "The organiser shows a QR code. The camera only reads the code — nothing is recorded or sent."
+          },
+          "s6": {
+            "title": "“Check me in”",
+            "body": "Your location is used once, to see that you are at the court. We do not keep it."
+          },
+          "s7": {
+            "title": "+2 points",
+            "body": "The session goes into your passport, and the first one earns the “First session” badge."
+          }
+        },
+        "passport": {
+          "title": "what is in the sports passport",
+          "s1": {
+            "title": "Points and contributions",
+            "body": "These 17 points come from the recordings above: a place, a confirmation, a report and one session."
+          },
+          "s2": {
+            "title": "Badges",
+            "body": "Earned ones are in colour, and every locked one says how far you have to go."
+          },
+          "s3": {
+            "title": "“Make it public”",
+            "body": "Your passport stays private until you tap here. You already wrote your name when you first signed in."
+          },
+          "s4": {
+            "title": "An address to share",
+            "body": "A public passport shows badges, totals and streaks — never when or where you played."
+          }
+        }
+      },
+      "find": {
+        "overline": "Find",
+        "title": "Find somewhere to play",
+        "lead": "{count, plural, one {# free place} other {# free places}} for sport — pitches, outdoor gyms, tracks and courts. Here is how you get from “where can I play?” to the place itself.",
+        "leadNoCount": "Free places for sport — pitches, outdoor gyms, tracks and courts. Here is how you get from “where can I play?” to the place itself.",
+        "moreTitle": "More ways to search",
+        "search": {
+          "title": "Search by name or sport",
+          "body": "Type “tennis”, “skate” or the name of the park — in the search on the home page or above the list on the map."
+        },
+        "cities": {
+          "title": "Places by town",
+          "body": "Every place in a town, sorted by neighbourhood — handy, and no map needed.",
+          "link": "For example, Sofia"
+        },
+        "municipality": {
+          "title": "The municipality’s page",
+          "body": "How many places the municipality has, how many are verified and what condition they are in.",
+          "link": "For example, Sofia"
+        },
+        "layers": {
+          "title": "Map layers",
+          "body": "Besides our own map there are other layers — the CyclOSM cycling map, for one — from the layers button."
+        },
+        "cta": "Open the map"
+      },
+      "contribute": {
+        "overline": "Contribute",
+        "title": "The map is kept up by the people who play there",
+        "lead": "A pitch missing? A hoop without a net? Anyone with an account can add a place, confirm it or update its condition — and earns points for it.",
+        "tabs": {
+          "label": "Choose a recording",
+          "add": "Adding a place",
+          "verify": "Confirming and condition"
+        },
+        "lifecycle": {
+          "title": "The life of a new place",
+          "s1": {
+            "title": "You add it",
+            "body": "A point on the map, a photo and a sport. A name is optional."
+          },
+          "s2": {
+            "title": "It is on the map at once",
+            "body": "Marked “Awaiting verification” — and already part of the open data."
+          },
+          "s3": {
+            "title": "Another member confirms it",
+            "body": "On site, within 250 metres of it. You cannot confirm a place you added yourself."
+          },
+          "s4": {
+            "title": "Verified",
+            "body": "The mark goes, and every later report shows when it was last checked."
+          },
+          "gone": {
+            "title": "And if it is gone?",
+            "body": "Answering “No, it is gone” goes to a moderator. Nothing disappears from the map by itself."
+          },
+          "waiting": "{count, plural, one {# place is waiting to be confirmed} other {# places are waiting to be confirmed}} — perhaps one is near you."
+        },
+        "onsite": {
+          "title": "Points — on site only",
+          "body": "When you send a contribution, your phone says where you are — once. Within 250 metres of the place, the contribution earns points. From further away it is still recorded, but earns nothing.",
+          "near": "within 250 m — points",
+          "far": "further — no points",
+          "privacy": "Your location is not kept. We record only the distance to the place.",
+          "radius": "250 m"
+        },
+        "layers": {
+          "title": "Whose correction wins",
+          "body": "The data comes from three places. Every field remembers where it came from, so the map gets more accurate with every import without losing your corrections.",
+          "people": {
+            "title": "People on site",
+            "body": "A member’s correction is never overwritten by an import."
+          },
+          "municipal": {
+            "title": "Municipal registers",
+            "body": "They correct out-of-date OpenStreetMap data."
+          },
+          "osm": {
+            "title": "OpenStreetMap",
+            "body": "The foundation: places mapped by volunteers."
+          },
+          "strongest": "stronger"
+        },
+        "rules": {
+          "title": "Photos and data",
+          "people": "Photograph the place, not people.",
+          "metadata": "The photo’s metadata, GPS included, is removed.",
+          "review": "Photos are shown once a moderator has reviewed them.",
+          "license": "The data is open under the ODbL licence."
+        },
+        "cta": "Add a place"
+      },
+      "play": {
+        "overline": "Play",
+        "title": "Open sessions at public places",
+        "lead": "Free group sessions — basketball, football, outdoor fitness and more. You sign up with one tap and check in with the organiser’s QR code.",
+        "note": "The sessions in the recording are examples.",
+        "proof": {
+          "title": "How the QR code shows you were there",
+          "rotate": {
+            "title": "The code changes every minute",
+            "body": "A photo of the code stops working within two minutes, and only a check-in on site earns points."
+          },
+          "place": {
+            "title": "You are at the place",
+            "body": "Your phone says where you are — once. Within 250 metres of the place, the check-in earns points."
+          },
+          "time": {
+            "title": "At the time of the session",
+            "body": "Check-in is open from 30 minutes before the start until 2 hours after the end."
+          },
+          "result": "+2 points and the session in your passport",
+          "without": "Without a location the check-in is still recorded — it just earns no points. Up to 3 sessions a day earn points.",
+          "ticks": {
+            "before": "30 min before",
+            "start": "start",
+            "end": "end",
+            "after": "2 h after"
+          },
+          "seconds": "{count} s"
+        },
+        "upcoming": "Coming up",
+        "weekly": {
+          "title": "The week in your town",
+          "body": "Every Monday — the town’s sessions for the week: on a page, and by email if you subscribe.",
+          "link": "The week in Sofia"
+        },
+        "log": {
+          "title": "Training log",
+          "body": "Training on your own? Log it in your training log through “+”. The log is private; if your passport is public, your number of sessions counts on the “Who is training” board.",
+          "link": "To the training log"
+        },
+        "organise": {
+          "title": "Want to run a group?",
+          "body": "For now the association schedules the sessions — Sofia, Plovdiv and Varna first. If you would like to run a group, write to us.",
+          "link": "Write to us"
+        }
+      },
+      "passport": {
+        "overline": "Passport",
+        "title": "Your sports passport",
+        "lead": "Everything you do on POPS gathers here: points, badges and streaks. The passport is private until you decide otherwise.",
+        "note": "The passport in the recording is an example. Its points come from the steps in the recordings above.",
+        "ledger": {
+          "title": "How many points each action earns",
+          "facility_added": {
+            "label": "Place added",
+            "rule": "once per place — for whoever added it"
+          },
+          "facility_verified": {
+            "label": "Confirmed on site",
+            "rule": "once per member and place"
+          },
+          "condition_reported": {
+            "label": "Condition report",
+            "rule": "once a day per place"
+          },
+          "session_attended": {
+            "label": "Session attended",
+            "rule": "with the QR code, up to 3 a day"
+          },
+          "points": "+{count}",
+          "pointsLabel": "{count, plural, one {# point} other {# points}}",
+          "note": "Points are only collected — never spent and never bought. And only actions taken on site earn them."
+        },
+        "badges": {
+          "title": "{count} badges",
+          "hint": "Tap a coin to see how it is earned.",
+          "flip": "{name}: how it is earned",
+          "contribution": "For contributing to the map",
+          "participation": "For playing in sessions"
+        },
+        "streaks": {
+          "title": "Two streaks",
+          "days": {
+            "title": "Days in a row",
+            "body": "Every day with an on-site contribution or a checked-in session. Seven in a row earn the “Seven in a row” badge."
+          },
+          "weeks": {
+            "title": "Weeks in a row",
+            "body": "Every week with at least one checked-in session. Four in a row earn “A month in motion”."
+          },
+          "freeze": {
+            "title": "A missed week",
+            "body": "Up to twice a year your week streak is kept by itself — you do not have to do anything."
+          },
+          "clock": "Days and weeks are counted on Sofia time.",
+          "stripLabel": "Eight weeks: a session every week; one missed week is kept and the streak goes on.",
+          "trained": "session",
+          "frozen": "kept week"
+        },
+        "privacy": {
+          "title": "Who sees the passport",
+          "private": {
+            "title": "Private",
+            "body": "Every passport starts this way. Only you can see it."
+          },
+          "public": {
+            "title": "Public",
+            "body": "It gets an address you can share, and shows you on the leaderboards under the name and town you wrote yourself."
+          },
+          "shows": "It shows: your name and town, badges, totals and streaks; if you wish, your number of contributions and sessions by month.",
+          "never": "Never: when or where you played.",
+          "back": "You can make it private again at any time."
+        },
+        "open": "My passport",
+        "start": "Start your passport"
+      },
+      "ranking": {
+        "overline": "Rankings",
+        "title": "Rankings where everyone has a chance",
+        "lead": "Only members with a public passport appear on the leaderboards — under the name they chose. Here is what there is and how it is ordered.",
+        "boards": {
+          "title": "Two leaderboards",
+          "filters": "Both can be filtered by town and by sport.",
+          "contributions": {
+            "title": "Who is building the map",
+            "body": "All points — for places, confirmations, reports and attended sessions. Of all time or this month only."
+          },
+          "participation": {
+            "title": "Who is training",
+            "body": "Number of sessions in each member’s training log over the last 90 days. Turning up counts, not the score."
+          }
+        },
+        "divisions": {
+          "title": "Weekly divisions",
+          "lead": "One national leaderboard tells almost everyone the same thing: that they are far behind. Divisions split it into groups of up to 30, where every week there is something to win.",
+          "up": "The top 7 climb to the division above.",
+          "stay": "Everyone else keeps their division.",
+          "down": "The bottom 5 go down — but only if they scored. A week without points never drops you.",
+          "week": "Points count from Monday to Sunday, Sofia time.",
+          "start": "Divisions start once at least 10 members with a public passport have points from the last 4 weeks.",
+          "peaks": {
+            "rodopi": "Golyam Perelik",
+            "vitosha": "Cherni Vrah",
+            "stara_planina": "Botev",
+            "pirin": "Vihren",
+            "rila": "Musala"
+          },
+          "height": "{height} m",
+          "order": "The mountains are ordered by their highest summit — you can check it on a map.",
+          "ladderLabel": "The five divisions, lowest to highest: Rodopi (Golyam Perelik, 2,191 m), Vitosha (Cherni Vrah, 2,290 m), Stara planina (Botev, 2,376 m), Pirin (Vihren, 2,914 m) and Rila (Musala, 2,925 m).",
+          "groupLabel": "A group of 30 members: the top 7 climb, the next 18 stay, the bottom 5 go down.",
+          "upShort": "climb",
+          "stayShort": "stay",
+          "downShort": "go down"
+        },
+        "legend": {
+          "title": "Master of the court",
+          "body": "At every place the title goes to the member who came on the most different days in the last 90 — at least 3. The place’s page shows how many days, without a name. Only the holder sees that the title is theirs."
+        },
+        "campaigns": {
+          "title": "Campaigns",
+          "body": "Short initiatives with a deadline and a prize — such as checking every place in one neighbourhood. A campaign can cap the points per day. Everyone’s points count, but only public passports are shown by name.",
+          "link": "See the campaigns"
+        },
+        "cta": "See the leaderboard"
+      },
+      "more": {
+        "overline": "More",
+        "title": "More on POPS",
+        "stats": {
+          "title": "Statistics",
+          "body": "How many places each municipality has, for which sports and how many are verified — with a definition for every number."
+        },
+        "openData": {
+          "title": "Open data",
+          "body": "Download the map as a file every night or use it through the API — under the ODbL licence."
+        },
+        "municipality": {
+          "title": "The municipality’s page",
+          "body": "Every municipality has its own page with its places and their condition — and a block with its figures to embed in its own website."
+        },
+        "report": {
+          "title": "Report",
+          "body": "Seen an improper photo, text or data? Write to us — we review every report."
+        },
+        "install": {
+          "title": "As an app",
+          "body": "In Safari: “Share” → “Add to Home Screen”. In Chrome: the ⋮ menu → “Add to Home screen”."
+        },
+        "support": {
+          "title": "Support POPS",
+          "body": "A non-profit association: donations, partners and clubs keep the map free."
+        },
+        "language": {
+          "title": "На български",
+          "body": "The whole platform is also in Bulgarian."
+        }
+      },
+      "faq": {
+        "overline": "Questions",
+        "title": "Frequently asked questions",
+        "free": {
+          "q": "Is it free?",
+          "a": "Yes. The map, the sessions, the passport and the leaderboards are free. POPS is a non-profit association, funded by donations, partners and the clubs that use its tools."
+        },
+        "account": {
+          "q": "Do I need an account?",
+          "a": "To browse the map and the sessions — no. To add, confirm, sign up and collect points — yes. You sign in with a code by email, no password."
+        },
+        "who": {
+          "q": "Who sees where and when I play?",
+          "a": "The session’s organiser sees who has signed up — that is why we ask for a name when you first sign in. Nobody else: a session’s page only shows how many have signed up, and a public passport shows badges and totals — never places or dates."
+        },
+        "location": {
+          "q": "What happens to my location?",
+          "a": "It is used at the moment you share it: for the map around you and to check that you are on site. We do not keep it — for a confirmation, a report or a check-in we record only the distance to the place. When you add a place, we record the point of the place itself together with your contribution."
+        },
+        "gone": {
+          "q": "A place is no longer there. What do I do?",
+          "a": "Open it and answer “No, it is gone”. The report goes to a moderator — nothing disappears from the map by itself."
+        },
+        "organise": {
+          "q": "Can I organise a session?",
+          "a": "For now the association schedules the sessions — Sofia, Plovdiv and Varna first. If you would like to run a group, write to us."
+        },
+        "delete": {
+          "q": "Can I delete my account?",
+          "a": "Yes, from your profile, in one step. Your contributions to the map stay, but without a name — as “former user”."
+        },
+        "data": {
+          "q": "Who owns the data?",
+          "a": "Everyone: the map is under the free ODbL licence. You can download it, check it and use it, as long as you credit the source."
+        }
       }
     }
   }
