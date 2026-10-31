@@ -6,6 +6,7 @@ import {
   addDaysIso,
   sofiaToday,
 } from '@sportkarta/lib/clubs';
+import { Check } from 'lucide-react';
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
@@ -157,8 +158,14 @@ export default async function InquiryPage({
                     {INQUIRY_KINDS.map((kind) => (
                       <label
                         key={kind}
-                        className="inline-flex min-h-11 cursor-pointer items-center rounded-pill border border-line-strong bg-surface px-4 text-body-sm font-semibold text-ink-soft has-[:checked]:border-brand has-[:checked]:bg-brand-subtle has-[:checked]:text-brand has-[:focus-visible]:shadow-[var(--ring)]"
+                        className="group inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-pill border border-line-strong bg-surface px-4 text-body-sm font-semibold text-ink-soft has-[:checked]:border-brand has-[:checked]:bg-brand-subtle has-[:checked]:text-brand has-[:focus-visible]:shadow-[var(--ring)]"
                       >
+                        {/* The choice is shown by a mark, not by colour alone. */}
+                        <Check
+                          size={16}
+                          aria-hidden="true"
+                          className="hidden group-has-[:checked]:block"
+                        />
                         <input
                           type="radio"
                           name="kind"

@@ -19,7 +19,7 @@ export async function FacilitySessionsBlock({ facilityId }: { facilityId: string
     return null;
   }
   if (sessions.length === 0) return null;
-  const [t, locale] = await Promise.all([getTranslations('Facility'), getLocale()]);
+  const [t, locale] = await Promise.all([getTranslations('Session'), getLocale()]);
 
   return (
     <section
@@ -28,7 +28,7 @@ export async function FacilitySessionsBlock({ facilityId }: { facilityId: string
     >
       <h2 id="facility-sessions-h" className="flex items-center gap-2 text-h4 font-bold text-ink">
         <CalendarDays size={18} className="text-brand" aria-hidden />
-        {t('sessionsHere.title')}
+        {t('here.title')}
       </h2>
       <ul className="mt-2 divide-y divide-line">
         {sessions.map((s) => (
@@ -45,7 +45,7 @@ export async function FacilitySessionsBlock({ facilityId }: { facilityId: string
               </span>
               {s.capacity !== null && (
                 <span className="shrink-0 font-mono text-caption tabular-nums text-text-muted">
-                  {t('sessionsHere.places', { going: s.going, capacity: s.capacity })}
+                  {t('here.places', { going: s.going, capacity: s.capacity })}
                 </span>
               )}
             </Link>

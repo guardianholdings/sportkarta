@@ -59,6 +59,7 @@ export default async function NewClassPage({
             labels={labels}
             messages={messages}
             sports={sports}
+            clubSports={settings?.sports ?? []}
             locations={active.map((location) => ({ id: location.id, name: location.name }))}
             instructors={instructors}
             rooms={(await clubResources(actor)).map((r) => ({

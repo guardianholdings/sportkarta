@@ -86,6 +86,16 @@ export function QrScanner({ siteOrigin }: { siteOrigin: string }) {
   // Set once a code is being opened: neither the live loop nor a photo may
   // open a second one, and nothing opens after the page is left.
   const doneRef = useRef(false);
+  // Leaving the page counts as done: a photo still decoding must not pull
+  // the member back to a check-in they walked away from.
+  // (Reset on mount as well: development's double effect run must not leave a
+  // fresh scanner thinking it is finished.)
+  useEffect(() => {
+    doneRef.current = false;
+    return () => {
+      doneRef.current = true;
+    };
+  }, []);
   const [phase, setPhase] = useState<Phase>('starting');
   const [problem, setProblem] = useState<Problem>(null);
   const [attempt, setAttempt] = useState(0);

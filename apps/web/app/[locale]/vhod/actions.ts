@@ -207,6 +207,12 @@ export async function providerSignInAction(formData: FormData): Promise<void> {
     body: {
       provider,
       callbackURL: getPathname({ href: destination, locale }),
+      // A NEW account goes by the name step, as an email-code one does; the
+      // step passes straight through when the provider supplied a name.
+      newUserCallbackURL: getPathname({
+        href: { pathname: WELCOME_PATH, query: { next: destination } },
+        locale,
+      }),
       errorCallbackURL: getPathname({
         href: oauthErrorHref(provider, formData.get('next')),
         locale,

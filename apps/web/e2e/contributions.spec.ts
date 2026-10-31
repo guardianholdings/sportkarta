@@ -297,7 +297,7 @@ test.describe('authenticated contributions', () => {
     expect(awards.length).toBe(1);
   });
 
-  test('points show up on the profile', async ({ page }, testInfo) => {
+  test('points show up on the passport', async ({ page }, testInfo) => {
     const email = contributorEmail(testInfo);
     await signIn(page, email, /\/profil/);
 
@@ -317,9 +317,13 @@ test.describe('authenticated contributions', () => {
     await page.getByRole('button', { name: /^(потвърди|confirm)$/i }).click();
     await expect(page.getByRole('status')).toBeVisible();
 
-    await page.goto('/profil');
-    // 3 points for a verification (lib/src/points.ts).
-    await expect(page.getByText(/^3 (точки|points)$/)).toBeVisible();
+    // The passport carries the points (the profile's points panel is gone,
+    // 2026-10-31). 3 for a verification (lib/src/points.ts).
+    await page.goto('/pasport');
+    const total = page.locator('dl > div', {
+      has: page.locator('dt', { hasText: /^(точки|points)$/i }),
+    });
+    await expect(total.locator('dd')).toHaveText('3');
   });
 });
 

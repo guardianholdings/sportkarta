@@ -109,6 +109,8 @@ export async function saleFormLabels(
   return {
     member: t('member'),
     memberPick: t('memberPick'),
+    memberSearch: t('memberSearch'),
+    memberNone: t('memberNone'),
     plan: t('plan'),
     startsOn: t('startsOn'),
     payNow: t('payNow'),
@@ -172,6 +174,7 @@ export async function classFormLabels(): Promise<ClassFormLabels> {
     coverageSelected: t('coverageSelected'),
     trialAllowed: t('trialAllowed'),
     public: t('public'),
+    more: t('more'),
     save: t('save'),
   };
 }

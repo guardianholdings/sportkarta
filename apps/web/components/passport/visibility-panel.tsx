@@ -61,6 +61,7 @@ export async function VisibilityPanel({
           text: t('publishNeedsName'),
           label: t('publishNameLabel'),
           tooLong: t('publishNameTooLong'),
+          missing: t('publishNameMissing'),
         }}
       />
 

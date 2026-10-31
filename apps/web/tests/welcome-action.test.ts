@@ -12,7 +12,7 @@ const h = vi.hoisted(() => {
       super('NEXT_REDIRECT');
     }
   }
-  return { Redirected, statements: [] as { sql: string; params: unknown[] }[] };
+  return { Redirected, statements: [] as { sql: string; params: unknown[] }[], name: '' };
 });
 
 vi.mock('next/cache', () => ({ revalidatePath: () => undefined }));
@@ -22,7 +22,7 @@ vi.mock('@/i18n/navigation', () => ({
   },
 }));
 vi.mock('@/lib/auth-session', () => ({
-  requireUser: () => Promise.resolve({ id: 'u-1', displayName: '', homeCity: null }),
+  requireUser: () => Promise.resolve({ id: 'u-1', displayName: h.name, homeCity: null }),
 }));
 vi.mock('@sportkarta/db', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@sportkarta/db')>();
@@ -57,6 +57,7 @@ async function target(promise: Promise<unknown>): Promise<unknown> {
 
 beforeEach(() => {
   h.statements.length = 0;
+  h.name = '';
 });
 
 describe('welcomeAction', () => {
@@ -87,6 +88,14 @@ describe('welcomeAction', () => {
       },
       locale: 'bg',
     });
+    expect(h.statements).toHaveLength(0);
+  });
+
+  it('writes nothing for an account that already has a name', async () => {
+    h.name = 'Мария';
+    expect(
+      await target(welcomeAction(form({ displayName: 'Друго', next: '/dobavi', locale: 'bg' }))),
+    ).toEqual({ href: '/dobavi', locale: 'bg' });
     expect(h.statements).toHaveLength(0);
   });
 

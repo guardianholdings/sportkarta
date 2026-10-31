@@ -1,5 +1,6 @@
 'use client';
 
+import { transliterateBg } from '@sportkarta/lib/slug';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -323,6 +324,9 @@ export function PlanForm({
 export interface SaleFormLabels {
   member: string;
   memberPick: string;
+  /** The filter above the member list. */
+  memberSearch: string;
+  memberNone: string;
   plan: string;
   startsOn: string;
   payNow: string;
@@ -398,7 +402,36 @@ export function SaleForm({
   const [planId, setPlanId] = useState(defaultPlanId ?? plans[0]?.id ?? '');
   const [payNow, setPayNow] = useState(true);
   const [code, setCode] = useState('');
+  const [filter, setFilter] = useState('');
   const [priced, setPriced] = useState<{ key: string; result: SalePreviewState } | null>(null);
+  /**
+   * The member list, narrowed by what the desk types (UX audit, «Office: sell
+   * a plan»: a plain select of every member does not scale). The select stays
+   * the control — it works before hydration and with every assistive
+   * technology — and the filter only shortens it. Cyrillic or Latin both find
+   * «Иван».
+   */
+  const shown = useMemo(() => {
+    const needle = filter.trim().toLocaleLowerCase(locale);
+    if (!needle) return members;
+    const latin = transliterateBg(needle);
+    return members.filter((m) => {
+      const hay = m.label.toLocaleLowerCase(locale);
+      return hay.includes(needle) || transliterateBg(hay).includes(latin);
+    });
+  }, [members, filter, locale]);
+  function onFilter(next: string) {
+    setFilter(next);
+    const needle = next.trim().toLocaleLowerCase(locale);
+    if (!needle) return;
+    const latin = transliterateBg(needle);
+    const matches = members.filter((m) => {
+      const hay = m.label.toLocaleLowerCase(locale);
+      return hay.includes(needle) || transliterateBg(hay).includes(latin);
+    });
+    // The first match is chosen as you type, unless the chosen one still matches.
+    if (!matches.some((m) => m.id === memberId)) setMemberId(matches[0]?.id ?? '');
+  }
   const plan = plans.find((p) => p.id === planId);
   const member = members.find((m) => m.id === memberId);
   const euro = useMemo(
@@ -449,10 +482,21 @@ export function SaleForm({
     <form {...formProps} className="space-y-4">
       <input type="hidden" name="slug" value={slug} />
       <FormFeedback state={state} messages={messages} />
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         <label className={label} htmlFor="sale-member">
           {labels.member}
         </label>
+        {members.length > 8 && (
+          <Input
+            type="search"
+            value={filter}
+            onChange={(event) => onFilter(event.currentTarget.value)}
+            placeholder={labels.memberSearch}
+            aria-label={labels.memberSearch}
+            aria-controls="sale-member"
+            autoComplete="off"
+          />
+        )}
         <Select
           id="sale-member"
           name="memberId"
@@ -460,8 +504,8 @@ export function SaleForm({
           value={memberId}
           onChange={(event) => setMemberId(event.currentTarget.value)}
         >
-          <option value="">{labels.memberPick}</option>
-          {members.map((m) => (
+          <option value="">{shown.length === 0 ? labels.memberNone : labels.memberPick}</option>
+          {shown.map((m) => (
             <option key={m.id} value={m.id}>
               {m.label}
             </option>

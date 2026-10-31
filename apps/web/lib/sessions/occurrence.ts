@@ -1,4 +1,4 @@
-import { getDb, sql, waitlistPlaceSql } from '@sportkarta/db';
+import { getDb, sql, type SQL, waitlistPlaceSql } from '@sportkarta/db';
 
 /**
  * The read behind the public session page (docs/ROADMAP.md §6, Stage 4.2).
@@ -106,6 +106,11 @@ export async function listUpcomingSessions(limit = 40): Promise<SessionSummary[]
   });
 }
 
+/** A handle that runs a statement — the pool, or a journey test's transaction. */
+interface Runner {
+  execute(query: SQL): Promise<{ rows: Record<string, unknown>[] }>;
+}
+
 /** An upcoming public тренировка at one facility, for the block on its page. */
 export interface FacilitySession {
   occurrenceId: string;
@@ -121,8 +126,12 @@ export interface FacilitySession {
  * said nothing about what is played there). The rule of the /sesii index —
  * public series, not cancelled, still to start — narrowed to the facility.
  */
-export async function facilitySessions(facilityId: string, limit = 5): Promise<FacilitySession[]> {
-  const result = await getDb().execute(sql`
+export async function facilitySessions(
+  facilityId: string,
+  limit = 5,
+  db: Runner = getDb(),
+): Promise<FacilitySession[]> {
+  const result = await db.execute(sql`
     SELECT o.id AS occurrence_id, o.starts_at, s.title, s.capacity::int AS capacity,
            (SELECT count(*)::int FROM play_session_rsvp_positions p
              WHERE p.occurrence_id = o.id AND p.rsvp_status = 'going') AS going
@@ -148,7 +157,6 @@ export async function facilitySessions(facilityId: string, limit = 5): Promise<F
 }
 
 /** One of the member's own upcoming RSVPs, for «Моите записвания» on /sesii. */
-
 export interface MySession {
   occurrenceId: string;
   title: string;
@@ -166,8 +174,12 @@ export interface MySession {
  * occurrence, because its window runs over the whole occurrence and an
  * account filter could not reach inside it (lib/home/personal.ts says why).
  */
-export async function myUpcomingSessions(userId: string, limit = 5): Promise<MySession[]> {
-  const result = await getDb().execute(sql`
+export async function myUpcomingSessions(
+  userId: string,
+  limit = 5,
+  db: Runner = getDb(),
+): Promise<MySession[]> {
+  const result = await db.execute(sql`
     SELECT o.id AS occurrence_id,
            to_char(o.starts_at_local, 'YYYY-MM-DD"T"HH24:MI:SS') AS starts_at_local,
            s.title, s.sport, f.name AS facility_name, p.rsvp_status

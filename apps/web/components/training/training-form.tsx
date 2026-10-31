@@ -7,6 +7,7 @@ import { logTrainingAction, type TrainingFormState } from '@/app/[locale]/trenir
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { defaultTrainingStart } from '@/lib/training-defaults';
 import { useFormAction } from '@/lib/use-form-action';
 
 const EMPTY: TrainingFormState = { problems: [] };
@@ -82,8 +83,12 @@ export function TrainingForm({
   return (
     <form
       {...formProps}
-      onReset={() => {
+      onReset={(event) => {
         setSport(DEFAULT_SPORT);
+        // The next training ends NOW, not when the page was opened: the reset
+        // restores defaultValue, so that is what is moved on.
+        const start = event.currentTarget.elements.namedItem('startedAt');
+        if (start instanceof HTMLInputElement) start.defaultValue = defaultTrainingStart();
       }}
       className="space-y-3"
     >

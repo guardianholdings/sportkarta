@@ -302,6 +302,16 @@
   }
 }
 
+/* A row that scrolls sideways on a phone (the office hubs, the settings jump
+   menu) without a desktop scrollbar track under it; the row still scrolls by
+   touch, wheel and keyboard focus. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @utility animate-marker-drop {
   animation: marker-drop var(--dur-base) var(--ease-trail) both;
 }

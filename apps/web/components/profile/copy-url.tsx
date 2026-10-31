@@ -1,7 +1,7 @@
 'use client';
 
 import { Check, Copy } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 
@@ -11,6 +11,9 @@ import { Button } from '@/components/ui/button';
  * no clipboard API the press selects the text for the OS's own copy, so the
  * button is never a dead control. Strings arrive resolved — this reads no
  * message namespace in the browser.
+ *
+ * The button keeps one name; «Копирано» is said by a status region beside it,
+ * so a screen reader hears the result without the control being renamed.
  */
 export function CopyUrl({
   value,
@@ -21,19 +24,26 @@ export function CopyUrl({
 }) {
   const [copied, setCopied] = useState(false);
   const textRef = useRef<HTMLParagraphElement>(null);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  function select(): void {
+    if (textRef.current) window.getSelection()?.selectAllChildren(textRef.current);
+  }
 
   async function copy(): Promise<void> {
     const nav: Navigator | null = typeof navigator === 'undefined' ? null : navigator;
     if (typeof nav?.clipboard?.writeText !== 'function') {
-      if (textRef.current) window.getSelection()?.selectAllChildren(textRef.current);
+      select();
       return;
     }
     try {
       await nav.clipboard.writeText(value);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 2400);
+      window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => setCopied(false), 2400);
     } catch {
-      if (textRef.current) window.getSelection()?.selectAllChildren(textRef.current);
+      select();
     }
   }
 
@@ -48,16 +58,18 @@ export function CopyUrl({
       >
         {value}
       </p>
-      <div>
+      <div className="flex items-center gap-3">
         <Button
           type="button"
           variant="secondary"
-          size="sm"
           onClick={() => void copy()}
           iconLeft={copied ? <Check size={16} /> : <Copy size={16} />}
         >
-          <span aria-live="polite">{copied ? labels.copied : labels.copy}</span>
+          {labels.copy}
         </Button>
+        <span role="status" className="text-caption text-text-muted">
+          {copied ? labels.copied : ''}
+        </span>
       </div>
     </div>
   );

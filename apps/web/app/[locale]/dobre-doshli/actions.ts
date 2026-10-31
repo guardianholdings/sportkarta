@@ -19,6 +19,9 @@ export async function welcomeAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   const locale = routing.locales.find((l) => l === formData.get('locale')) ?? routing.defaultLocale;
   const next = signInDestination(formData.get('next'));
+  // Only a nameless account is asked; a stale tab of a named one changes
+  // nothing here — the profile form is where a name is changed.
+  if (user.displayName.trim() !== '') return redirect({ href: next, locale });
 
   try {
     const update = buildProfileUpdate({
@@ -34,6 +37,9 @@ export async function welcomeAction(formData: FormData): Promise<void> {
     });
   }
 
-  revalidatePath('/', 'layout');
+  // The profile alone: every page that shows a member's own name renders per
+  // request, and flushing the root layout would throw away the cached place
+  // listings for every visitor.
+  revalidatePath('/profil');
   return redirect({ href: next, locale });
 }

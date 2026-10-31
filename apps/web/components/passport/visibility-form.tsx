@@ -40,10 +40,16 @@ export function VisibilityForm({
    * «Publish passport»: it used to send them to /profil and back). The same
    * field answers a publish the server refused (a stale page).
    */
-  nameHelp?: { required: boolean; text: string; label: string; tooLong: string };
+  nameHelp?: { required: boolean; text: string; label: string; tooLong: string; missing: string };
 }) {
   const [state, formProps, pending] = useFormAction(setPassportVisibilityAction, INITIAL);
   const askName = Boolean(nameHelp && (nameHelp.required || state.error !== null));
+  const errorText =
+    state.error === 'name_too_long'
+      ? nameHelp?.tooLong
+      : state.error === 'name_required'
+        ? nameHelp?.missing
+        : undefined;
 
   return (
     <form {...formProps} className="flex flex-col gap-3">
@@ -51,12 +57,7 @@ export function VisibilityForm({
       <input type="hidden" name="showActivity" value={showActivity ? 'true' : 'false'} />
       {askName && nameHelp && (
         <>
-          {/* An alert only when it answers a press; on a plain page load it is
-              just the explanation. */}
-          <p
-            role={state.error === 'name_required' ? 'alert' : undefined}
-            className="text-body-sm text-ink"
-          >
+          <p id="passport-name-help" className="text-body-sm text-ink">
             {nameHelp.text}
           </p>
           <label className="flex flex-col gap-1.5">
@@ -67,12 +68,16 @@ export function VisibilityForm({
               required
               maxLength={60}
               autoComplete="nickname"
-              aria-invalid={state.error !== null}
+              aria-invalid={errorText !== undefined}
+              aria-describedby={
+                errorText ? 'passport-name-help passport-name-error' : 'passport-name-help'
+              }
             />
           </label>
-          {state.error === 'name_too_long' && (
-            <p role="alert" className="text-body-sm text-danger">
-              {nameHelp.tooLong}
+          {/* Inserted only when a press is answered, so it is announced. */}
+          {errorText && (
+            <p id="passport-name-error" role="alert" className="text-body-sm text-danger">
+              {errorText}
             </p>
           )}
         </>

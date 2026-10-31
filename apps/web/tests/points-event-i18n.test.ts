@@ -10,7 +10,7 @@ import en from '../messages/en.json';
  * print ledger rows.
  *
  * WHY THIS EXISTS. The passport history (components/passport/history-list.tsx)
- * and the profile's points panel (components/profile/points-panel.tsx) render
+ * and the admin account page's ledger render
  * `t(`event_${kind}`)` straight from `points_ledger.event`. Stage 5.4 added
  * `session_attended` to the enum and wrote it for every QR check-in, but no
  * `event_session_attended` message — so every member who checked in saw the

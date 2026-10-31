@@ -1,4 +1,4 @@
-import { renderSql, type SQL } from '@sportkarta/db';
+import type { SQL } from '@sportkarta/db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**

@@ -53,6 +53,9 @@ export default async function WelcomePage({
   const sp = await searchParams;
   const next = signInDestination(sp.next);
   if (user.displayName.trim() !== '') redirect({ href: next, locale });
+  // An account whose name an admin reset may still have its city: offered
+  // back, so «Продължи» does not erase it.
+  const city = user.homeCity ?? '';
 
   const t = await getTranslations('Welcome');
   const error = ERRORS.find((code) => code === sp.greshka) ?? null;
@@ -64,9 +67,14 @@ export default async function WelcomePage({
       <form action={welcomeAction} className="mt-6 flex flex-col gap-4">
         <input type="hidden" name="next" value={next} />
         <input type="hidden" name="locale" value={locale} />
-        <label className="flex flex-col gap-1.5">
-          <span className="text-caption font-medium text-ink-soft">{t('nameLabel')}</span>
+        {/* The hint is OUTSIDE the label, joined by aria-describedby: inside,
+            it became part of the field's name and was read twice. */}
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="welcome-name" className="text-caption font-medium text-ink-soft">
+            {t('nameLabel')}
+          </label>
           <Input
+            id="welcome-name"
             type="text"
             name="displayName"
             required
@@ -74,18 +82,27 @@ export default async function WelcomePage({
             autoComplete="nickname"
             autoFocus
             aria-invalid={error === 'display_name_required' || error === 'display_name_too_long'}
-            aria-describedby="welcome-name-hint"
+            aria-describedby={error ? 'welcome-name-hint welcome-error' : 'welcome-name-hint'}
           />
           <span id="welcome-name-hint" className="text-caption text-text-muted">
             {t('nameHint')}
           </span>
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-caption font-medium text-ink-soft">{t('cityLabel')}</span>
-          <Input type="text" name="homeCity" maxLength={80} autoComplete="address-level2" />
-        </label>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="welcome-city" className="text-caption font-medium text-ink-soft">
+            {t('cityLabel')}
+          </label>
+          <Input
+            id="welcome-city"
+            type="text"
+            name="homeCity"
+            maxLength={80}
+            autoComplete="address-level2"
+            defaultValue={city}
+          />
+        </div>
         {error && (
-          <p role="alert" className="text-body-sm text-danger">
+          <p id="welcome-error" role="alert" className="text-body-sm text-danger">
             {t(`errors.${error}`)}
           </p>
         )}

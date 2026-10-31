@@ -214,7 +214,8 @@ export default async function ClubSettingsPage({
     facilities: facilities.map((f) => ({ id: f.id, name: f.name })),
     submit: t('save'),
   };
-  const section = 'space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm';
+  // scroll-mt: the jump menu's targets clear the office's sticky hub row on a phone.
+  const section = 'scroll-mt-16 space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm';
   // The contract is the operator's record (0061); the owner reads its terms here.
   const contract = clubContractTerm(
     { startsOn: settings.contract.startsOn, noticeOn: settings.contract.noticeOn },
@@ -235,11 +236,39 @@ export default async function ClubSettingsPage({
         ? t(`contract.${contract.state}`, { endsOn: day(contract.endsOn) })
         : t('contract.none', { months: CLUB_CONTRACT_MONTHS });
 
+  // In page order; tracking only where the operator switched pixels on.
+  const jumps: [id: string, key: string][] = [
+    ['stranitsa', 'page'],
+    ['klub', 'club'],
+    ['lokatsii', 'locations'],
+    ['danni', 'data'],
+    ['plashtaniya', 'payments'],
+    ...(pixelsSwitch ? ([['prosledyavane', 'tracking']] as [string, string][]) : []),
+    ['dogovor', 'contract'],
+  ];
+
   return (
     <main className="space-y-6">
       <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
 
-      <section className={section}>
+      {/* One page of ~ten forms (UX audit N9): a jump menu instead of a scroll
+          hunt. Anchors only — no form moved. */}
+      <nav
+        aria-label={t('jump.label')}
+        className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4"
+      >
+        {jumps.map(([id, key]) => (
+          <a
+            key={id}
+            href={`#${id}`}
+            className="inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-pill border border-line-strong bg-surface px-3.5 text-body-sm font-semibold text-ink-soft hover:bg-surface-2"
+          >
+            {t(`jump.${key}`)}
+          </a>
+        ))}
+      </nav>
+
+      <section id="stranitsa" className={section}>
         <h2 className="text-h4 font-bold text-ink">{t('publishTitle')}</h2>
         <p className="text-body-sm text-ink-soft">
           {settings.visible ? t('publishedOn', { url: publicUrl }) : t('publishedOff')}
@@ -254,7 +283,7 @@ export default async function ClubSettingsPage({
         </form>
       </section>
 
-      <section className={section}>
+      <section id="klub" className={section}>
         <h2 className="text-h4 font-bold text-ink">{t('identityTitle')}</h2>
         <SettingsForm
           action={saveSettingsAction}
@@ -337,7 +366,7 @@ export default async function ClubSettingsPage({
         </div>
       </section>
 
-      <section className={section}>
+      <section id="lokatsii" className={section}>
         <h2 className="text-h4 font-bold text-ink">{t('locationsTitle')}</h2>
         <p className="text-caption text-text-muted">{t('locationsHint')}</p>
         {locations.length === 0 && <p className="text-body-sm text-ink-soft">{t('noLocations')}</p>}
@@ -438,7 +467,7 @@ export default async function ClubSettingsPage({
         />
       </section>
 
-      <section className={section}>
+      <section id="danni" className={section}>
         <h2 className="text-h4 font-bold text-ink">{t('dataTitle')}</h2>
         <p className="text-caption text-text-muted">{t('dataHint')}</p>
         <ul className="flex flex-wrap gap-2">
