@@ -45,6 +45,7 @@ env:
 jobs:
   gate:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
     outputs:
@@ -101,6 +102,10 @@ jobs:
 
   build-push:
     needs: gate
+    # Four image builds; a healthy run is well under fifteen minutes. A hung
+    # build must end as a failed run, not an hours-long one holding the
+    # `deploy` concurrency group.
+    timeout-minutes: 30
     if: needs.gate.outputs.deploy == 'true' && needs.gate.outputs.build == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -183,6 +188,8 @@ jobs:
           cache-from: type=gha
 
   deploy:
+    # ssh, pull, migrate, seed, health gate: minutes, not hours.
+    timeout-minutes: 30
     needs: [gate, build-push]
     # Skipped until the VPS exists: set the repository variable DEPLOY_ENABLED
     # to 'true' (gh variable set DEPLOY_ENABLED --body true) to activate.
@@ -334,6 +341,21 @@ jobs:
           # VARIABLE ("true" = on), only after the lawyer's sign-off.
           CLUB_PIXELS_ENABLED=${{ vars.CLUB_PIXELS_ENABLED }}
           CLUB_BULK_MAIL_DAILY_LIMIT=${{ vars.CLUB_BULK_MAIL_DAILY_LIMIT || '60' }}
+          # Sign-in code caps (apps/web/lib/auth-rate-limit.ts; the web service
+          # alone sends codes). The site-wide HOURLY cap is sized against the
+          # relay's DAILY quota: Migadu Mini allows 100 sends a day, shared with
+          # reminders, digests and club mail, and the code's own default of 200
+          # an hour would let one address flood burn the whole day in minutes —
+          # after which nobody can sign in and every worker mail fails (audit
+          # 2026-10-31, B-05). 24 an hour is a code every 2.5 minutes, far
+          # above launch traffic; raise the variable with the relay plan. The
+          # other four are passed through for the same reason; an empty value
+          # keeps the code's default (an unparsable value does too).
+          OTP_SEND_LIMIT_PER_HOUR=${{ vars.OTP_SEND_LIMIT_PER_HOUR || '24' }}
+          OTP_RATE_LIMIT_IP=${{ vars.OTP_RATE_LIMIT_IP }}
+          OTP_RATE_LIMIT_EMAIL=${{ vars.OTP_RATE_LIMIT_EMAIL }}
+          OTP_VERIFY_LIMIT_EMAIL=${{ vars.OTP_VERIFY_LIMIT_EMAIL }}
+          OTP_VERIFY_LIMIT_IP=${{ vars.OTP_VERIFY_LIMIT_IP }}
           DONATION_IBAN=${{ vars.DONATION_IBAN }}
           DONATION_BENEFICIARY=${{ vars.DONATION_BENEFICIARY }}
           DONATION_BIC=${{ vars.DONATION_BIC }}
@@ -447,6 +469,7 @@ jobs:
           ssh vps 'cd /opt/sportkarta \
             && docker compose -f compose.prod.yml pull -q \
             && docker compose -f compose.prod.yml up -d --wait db \
+            && docker compose -f compose.prod.yml run --rm --no-deps --entrypoint sh backup -c "set -eu; f=/backups/pg/premigrate-sportkarta-\$(date -u +%Y%m%dT%H%M%SZ).dump; pg_dump --format=custom --dbname=sportkarta --file=\$f && pg_restore --list \$f >/dev/null && echo pre-migration dump \$f" \
             && docker compose -f compose.prod.yml --profile ops run --rm init-storage \
             && docker compose -f compose.prod.yml --profile ops run --rm migrate \
             && docker compose -f compose.prod.yml --profile ops run --rm migrate pnpm db:seed --production \
@@ -454,6 +477,14 @@ jobs:
             && { docker compose -f compose.prod.yml exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile \
                  || docker compose -f compose.prod.yml restart caddy; } \
             && docker image prune -af'
+          # Before `migrate` runs, the backup image (pg_dump 16, the backups
+          # volume, the db credentials) writes a checked custom-format dump of
+          # the app database next to the nightly ones. Until 2026-10-31 a bad
+          # migration could only be undone from the 03:30 nightly, i.e. with
+          # up to a day of members' data lost. The `premigrate-` prefix keeps
+          # it out of the restore rehearsal's `sportkarta-*` pick; backup.sh's
+          # nightly prune retires it with the other dumps (3 days once off-box
+          # copies run, 14 otherwise). Restore: deploy/RESTORE.md §3.
           # Every deploy pulls four fresh images and strands the previous four.
           # Nothing was reclaiming them: 27 images / 19 GB had accumulated on
           # the same filesystem as pgdata, and a `--filter until=…` prune is no

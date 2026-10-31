@@ -80,6 +80,16 @@ services:
       # Caddy sits in front on the compose network; trusting it lets the rate
       # limiter resolve the real client IP (used in memory only, never stored).
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32}
+      # Sign-in code caps (lib/auth-rate-limit.ts). They were not passed
+      # through, so production ran the code's defaults — 200 codes an hour
+      # against a relay that allows 100 sends a DAY. deploy.yml renders them
+      # from repository variables with a production default for the hourly
+      # cap; an empty value keeps the code's default.
+      OTP_SEND_LIMIT_PER_HOUR: ${OTP_SEND_LIMIT_PER_HOUR:-}
+      OTP_RATE_LIMIT_IP: ${OTP_RATE_LIMIT_IP:-}
+      OTP_RATE_LIMIT_EMAIL: ${OTP_RATE_LIMIT_EMAIL:-}
+      OTP_VERIFY_LIMIT_EMAIL: ${OTP_VERIFY_LIMIT_EMAIL:-}
+      OTP_VERIFY_LIMIT_IP: ${OTP_VERIFY_LIMIT_IP:-}
       # The controller's contact address (GDPR Art. 13, DSA Arts. 11-12), shown
       # on /kontakt, /privacy, /usloviya, /podkrepi and /partnyori. Empty = each
       # page says no address is published yet and offers the notice form.
