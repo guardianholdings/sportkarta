@@ -13,10 +13,17 @@ import { type ActiveHref, BottomNav, NavRail } from './app-nav';
  */
 export async function AppShell({
   active = null,
+  topbar = null,
   children,
 }: {
   /** Which primary tab this page belongs to; null highlights nothing. */
   active?: ActiveHref | null;
+  /**
+   * A bar across the top of the content column — the marketing pages' header
+   * (components/marketing/marketing-header.tsx). Inside the column, so it
+   * never overlaps the desktop rail and never replaces the mobile tab bar.
+   */
+  topbar?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const t = await getTranslations('Nav');
@@ -36,6 +43,7 @@ export async function AppShell({
         className="sticky top-0 hidden h-dvh lg:flex"
       />
       <div className="flex min-w-0 flex-1 flex-col">
+        {topbar}
         {/*
           `pb-9` on mobile: the bottom bar's add-facility FAB is 54px and sits at
           `top-[-22px]`, so it protrudes 22px ABOVE the bar and over whatever the

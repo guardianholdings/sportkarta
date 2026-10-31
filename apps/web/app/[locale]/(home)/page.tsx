@@ -6,9 +6,11 @@ import { ClubsSection } from '@/components/home/clubs-section';
 import { ContributeSection } from '@/components/home/contribute-section';
 import { GamesSection } from '@/components/home/games-section';
 import { Hero, type HeroDots } from '@/components/home/hero';
+import { MarketingHeader } from '@/components/marketing/marketing-header';
 import { PersonalStrip, PersonalStripSkeleton } from '@/components/home/personal-strip';
 import { AppShell } from '@/components/shell/app-shell';
 import { getCurrentUser } from '@/lib/auth-session';
+import { clubsEnabled } from '@/lib/clubs/access';
 import { dotLayer, dotMask, gamePulses } from '@/lib/home/dots';
 import { orNull } from '@/lib/home/memo';
 import { dotPlaces, topPlaces } from '@/lib/home/places';
@@ -72,7 +74,10 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   }
 
   return (
-    <AppShell active={null}>
+    <AppShell
+      active={null}
+      topbar={<MarketingHeader signedIn={user !== null} clubs={clubsEnabled()} />}
+    >
       <main>
         {user && (
           <Suspense fallback={<PersonalStripSkeleton />}>

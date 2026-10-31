@@ -2108,7 +2108,6 @@
   },
   "Footer": {
     "wordmark": "POPS",
-    "navLabel": "More about the project",
     "stats": "Statistics",
     "openData": "Open data",
     "privacy": "Privacy",
@@ -2118,7 +2117,33 @@
     "campaigns": "Campaigns",
     "terms": "Terms of use",
     "contact": "Contact",
-    "notice": "Report content"
+    "notice": "Report content",
+    "tagline": "Bulgaria's map of free sport. A non-profit association.",
+    "columns": {
+      "platform": "Platform",
+      "clubs": "Clubs",
+      "data": "Data",
+      "org": "About the project"
+    },
+    "map": "Map",
+    "sessions": "Sessions",
+    "leaderboards": "Leaderboards",
+    "clubsDirectory": "Club directory",
+    "clubsApply": "Apply for a club",
+    "dataLicense": "Data licence"
+  },
+  "Marketing": {
+    "wordmark": "POPS",
+    "brandLabel": "POPS — home",
+    "navLabel": "Page navigation",
+    "nav": {
+      "map": "Map",
+      "sessions": "Sessions",
+      "data": "Open data",
+      "clubs": "For clubs"
+    },
+    "signIn": "Sign in",
+    "profile": "My profile"
   },
   "LocaleSwitcher": {
     "switchTo": "Български"
@@ -2189,7 +2214,7 @@
     "metaDescription": "Donations that keep the national map of free public sports facilities running — bank transfer, donor tax relief and donation contracts.",
     "back": "← Back to the map",
     "title": "Support us",
-    "intro": "POPS is a non-profit association. The platform is free for everybody and stays that way — there are no paid features and there will not be. Your donation pays for the server, the map data and the work of verifying facilities.",
+    "intro": "POPS is a non-profit association. The map, the sessions and the sports passport are free for everybody who plays, and stay that way — there are no paid features for people. Gyms and clubs that run on the «Clubs» module pay for it by invoice, and so help fund the project too. Your donation pays for the server, the map data and the work of verifying facilities.",
     "fundsTitle": "What a donation pays for",
     "fundsBody": "Hosting on our own server in the European Union, map layers and backups; on-the-ground verification and work with municipalities; maintaining the open data anybody can download for free.",
     "bankTitle": "Bank transfer",
@@ -2760,7 +2785,7 @@
     },
     "service": {
       "title": "The service",
-      "body": "POPS is a free map of the publicly accessible sports facilities in Bulgaria, with group sessions, a sports passport, leaderboards and open data. There are no paid features. We may change, temporarily suspend or discontinue parts of the service, including for maintenance."
+      "body": "POPS is a free map of the publicly accessible sports facilities in Bulgaria, with group sessions, a sports passport, leaderboards and open data. There are no paid features for people who play. The «Clubs» module is a service for gyms, studios and sports clubs: a club uses it under the terms accepted when applying and pays for it by invoice. We may change, temporarily suspend or discontinue parts of the service, including for maintenance."
     },
     "account": {
       "title": "Your account",
