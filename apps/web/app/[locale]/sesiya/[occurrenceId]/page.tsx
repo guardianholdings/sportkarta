@@ -4,9 +4,12 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
 import { ReportContentLink } from '@/components/legal/report-content-link';
+import { facilityTitle } from '@/components/map/facility-label';
 import { ShareSheet } from '@/components/share/share-sheet';
 import { Link } from '@/i18n/navigation';
+import { municipalityDisplayName } from '@/lib/area-name';
 import { getCurrentUser } from '@/lib/auth-session';
+import { placeLabel } from '@/lib/geo';
 import { takesVav } from '@/lib/grammar';
 import { signInHref } from '@/lib/sign-in-destination';
 import { occurrenceView } from '@/lib/sessions/occurrence';
@@ -95,13 +98,36 @@ export default async function SessionPage({ params }: { params: PageParams }) {
   const view = await occurrenceView(occurrenceId, user?.id ?? null);
   if (!view) notFound();
 
-  const [t, tSport, tSkill, tCheckin, tShareSheet] = await Promise.all([
+  const [t, tSport, tSkill, tCheckin, tShareSheet, tFacility, municipality] = await Promise.all([
     getTranslations('Session'),
     getTranslations('Sport'),
     getTranslations('SessionSkill'),
     getTranslations('Checkin'),
     getTranslations('ShareSheet'),
+    getTranslations('Facility'),
+    // The area is a nicety: if its name cannot be resolved, the row's own
+    // Bulgarian name stands in rather than the page failing.
+    view.facilityMunicipality
+      ? municipalityDisplayName(view.facilityMunicipality, locale).catch(
+          () => view.facilityMunicipality,
+        )
+      : Promise.resolve(null),
   ]);
+  // Named the way the map names it: its own name, or «Баскетбол — Лозенец,
+  // София» from its sport and area when it has none (most places have none).
+  const placeName = facilityTitle(
+    {
+      name: view.facilityName,
+      sports: view.facilitySports,
+      place: placeLabel(view.facilityQuarter, municipality),
+    },
+    {
+      locale,
+      unnamed: tFacility('unnamed'),
+      sport: (sport) => tSport(sport),
+      unnamedAt: (what, place) => tFacility('unnamedAt', { what, place }),
+    },
+  );
 
   const dayFormat = new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'bg-BG', {
     weekday: 'long',
@@ -162,15 +188,15 @@ export default async function SessionPage({ params }: { params: PageParams }) {
             {timeOf(view.startsAtLocal)} ({t('durationMinutes', { minutes: view.durationMinutes })})
           </Row>
           <Row label={t('labelWhere')}>
-            {view.facilitySlug && view.facilityName ? (
+            {view.facilitySlug && view.facilityPublic ? (
               <Link
                 href={`/obekt/${view.facilitySlug}`}
                 className="font-medium text-link hover:text-link-hover"
               >
-                {view.facilityName}
+                {placeName}
               </Link>
             ) : (
-              (view.facilityName ?? '—')
+              placeName
             )}
           </Row>
           <Row label={t('labelSport')}>

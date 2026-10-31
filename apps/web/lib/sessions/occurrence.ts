@@ -1,4 +1,4 @@
-import { getDb, sql, type SQL, waitlistPlaceSql } from '@sportkarta/db';
+import { getDb, publicFacilityVisible, sql, type SQL, waitlistPlaceSql } from '@sportkarta/db';
 
 /**
  * The read behind the public session page (docs/ROADMAP.md §6, Stage 4.2).
@@ -38,6 +38,17 @@ export interface OccurrenceView {
   ended: boolean;
   facilityName: string | null;
   facilitySlug: string | null;
+  /**
+   * What an UNNAMED place is called by (components/map/facility-label.ts):
+   * its sports and its area. 91% of the corpus has no name, and the page used
+   * to print «—» where the place should be.
+   */
+  facilitySports: string[];
+  facilityQuarter: string | null;
+  /** The municipality's Bulgarian name, as the facility row carries it. */
+  facilityMunicipality: string | null;
+  /** Whether the public site shows the place — only then is it a link. */
+  facilityPublic: boolean;
   organizerName: string | null;
   capacity: number | null;
   going: number;
@@ -227,6 +238,9 @@ export async function occurrenceView(
       s.title, s.description, s.sport, s.skill_level, s.duration_minutes,
       s.capacity::int AS capacity,
       f.name AS facility_name, f.slug AS facility_slug,
+      f.sport_types AS facility_sports, f.quarter AS facility_quarter,
+      m.name_bg AS facility_municipality,
+      (${publicFacilityVisible}) AS facility_public,
       -- The organiser's display name, or NULL if they erased their account —
       -- in which case a trigger has already cancelled the series (0008), so the
       -- page shows a cancelled session with nobody named, which is the truth.
@@ -243,6 +257,7 @@ export async function occurrenceView(
     FROM play_session_occurrences o
     JOIN play_sessions s ON s.id = o.session_id
     JOIN facilities f ON f.id = s.facility_id
+    LEFT JOIN municipalities m ON m.id = f.municipality_id
     LEFT JOIN users u ON u.id = s.organizer_id
     WHERE o.id = ${occurrenceId}::uuid
       -- By-id read: the id IS the capability. 'unlisted' means reachable by
@@ -268,6 +283,10 @@ export async function occurrenceView(
     ended: row.ended === true,
     facilityName: (row.facility_name as string | null) ?? null,
     facilitySlug: (row.facility_slug as string | null) ?? null,
+    facilitySports: Array.isArray(row.facility_sports) ? row.facility_sports.map(String) : [],
+    facilityQuarter: (row.facility_quarter as string | null) ?? null,
+    facilityMunicipality: (row.facility_municipality as string | null) ?? null,
+    facilityPublic: row.facility_public === true,
     organizerName: (row.organizer_name as string | null) ?? null,
     capacity: row.capacity === null || row.capacity === undefined ? null : Number(row.capacity),
     going: Number(row.going ?? 0),
