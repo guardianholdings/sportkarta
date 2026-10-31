@@ -4,7 +4,7 @@
  * code is a URL to be checked, never a place to go.
  *
  * The two check-in pages print `${siteUrl()}/otmetka/<token>` (a public
- * тренировка, the organiser's screen) and `${siteUrl()}/klubove/otmetka/<token>`
+ * игра, the organiser's screen) and `${siteUrl()}/klubove/otmetka/<token>`
  * (a club's tablet). A code is accepted when its origin is one of `origins` —
  * the page's own and the configured site's, which differ in development — and
  * its path is exactly one of those two, with or without a locale prefix. What

@@ -7,7 +7,7 @@
 //
 // One member per language walks the whole product, so every number in the
 // pictures is earned in front of the camera: they add a place (+10), confirm
-// another (+3), report a third's condition (+2) and check in to a тренировка
+// another (+3), report a third's condition (+2) and check in to an игра
 // with the organiser's live QR code (+2) — and the passport at the end shows
 // the 17 points those four steps paid. Nothing is typed into a counter.
 //
@@ -19,7 +19,7 @@
 //  - MAIL_TRANSPORT=file, so the sign-in codes are read from the outbox
 //    exactly as the e2e suite reads them (the app has no backdoor);
 //  - an admin account (SHOTS_ORGANISER_EMAIL) — the association organises the
-//    open тренировки, and guide-fixtures.mts names it «POPS»;
+//    open игри, and guide-fixtures.mts names it «POPS»;
 //  - ffmpeg, which turns the organiser's QR screen into the fake camera feed
 //    the in-app scanner reads.
 // The basemap is read from the public tiles archive (SHOTS_TILES_URL), range
@@ -625,16 +625,16 @@ async function play(page, locale, organiser) {
   const rec = new Recording('play', locale);
   await page.context().setGeolocation(PLACES.checkin.at);
 
-  await page.goto(`${BASE}${prefix}/sesii`, { waitUntil: 'networkidle' });
+  await page.goto(`${BASE}${prefix}/igri`, { waitUntil: 'networkidle' });
   await prepare(page);
   await rec.useBar(page);
   const card = page.getByRole('link', { name: /Баскетбол 3×3/ });
   await rec.step(await capture(page), [tap(await box(page, card))]);
 
   await card.first().click();
-  await page.waitForURL(/\/sesiya\//);
+  await page.waitForURL(/\/igra\//);
   await page.waitForLoadState('networkidle');
-  const occurrence = /\/sesiya\/([0-9a-f-]{36})/.exec(page.url())[1];
+  const occurrence = /\/igra\/([0-9a-f-]{36})/.exec(page.url())[1];
   const join = page.getByRole('button', { name: exact(m.Session.join) }).first();
   await rec.step(await capture(page), [tap(await box(page, join))]);
 
@@ -645,7 +645,7 @@ async function play(page, locale, organiser) {
   await rec.step(await capture(page), (await going.count()) ? [mark(await box(page, going))] : []);
 
   // The organiser's screen at the court.
-  await organiser.goto(`${BASE}${prefix}/sesiya/${occurrence}/qr`, { waitUntil: 'networkidle' });
+  await organiser.goto(`${BASE}${prefix}/igra/${occurrence}/qr`, { waitUntil: 'networkidle' });
   await prepare(organiser);
   const area = await organiser.evaluate(() => {
     const h1 = document.querySelector('h1');
@@ -688,7 +688,7 @@ async function play(page, locale, organiser) {
         held = route;
       },
     );
-    // A member with a тренировка on now finds the check-in card on their home.
+    // A member with an игра on now finds the check-in card on their home.
     await scanner.goto(`${BASE}${prefix}/`, { waitUntil: 'networkidle' });
     await prepare(scanner);
     const scanCard = scanner.getByRole('link', { name: exact(m.Home.personal.checkinCta) });

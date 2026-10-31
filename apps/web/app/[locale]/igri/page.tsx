@@ -21,7 +21,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'Session' });
-  return { title: t('indexTitle'), alternates: buildAlternates('/sesii', locale) };
+  return { title: t('indexTitle'), alternates: buildAlternates('/igri', locale) };
 }
 
 /** wall-clock 'YYYY-MM-DDTHH:MM:SS' → [localized date, HH:MM] */
@@ -54,7 +54,7 @@ export default async function SessionsIndexPage({
   const mine = user ? await myUpcomingSessions(user.id) : [];
 
   return (
-    <AppShell active="/sesii">
+    <AppShell active="/igri">
       <main className="mx-auto max-w-2xl px-4 py-5">
         <SessionsSegments current="upcoming" />
         <header className="mb-5">
@@ -62,9 +62,9 @@ export default async function SessionsIndexPage({
             <h1 className="flex-1 text-h2 font-extrabold tracking-tight text-ink">
               {t('indexTitle')}
             </h1>
-            {/* COVERAGE-MATRIX §3: link «Тази седмица» from the /sesii header so
+            {/* COVERAGE-MATRIX §3: link «Тази седмица» from the /igri header so
               the weekly digest is reachable without the email. Points at the
-              index rather than a city, because /sesii has no city in scope. */}
+              index rather than a city, because /igri has no city in scope. */}
             <Link
               href="/sedmitsata"
               className="shrink-0 text-body-sm font-semibold text-link hover:text-link-hover"
@@ -86,7 +86,7 @@ export default async function SessionsIndexPage({
                 return (
                   <li key={s.occurrenceId}>
                     <Link
-                      href={`/sesiya/${s.occurrenceId}`}
+                      href={`/igra/${s.occurrenceId}`}
                       className="flex min-h-14 items-center gap-3 rounded-card border border-brand-border bg-brand-subtle px-3 py-2 focus-visible:shadow-[var(--ring)]"
                     >
                       <span className="min-w-0 flex-1">
@@ -158,7 +158,7 @@ export default async function SessionsIndexPage({
               return (
                 <li key={s.occurrenceId}>
                   <Link
-                    href={`/sesiya/${s.occurrenceId}`}
+                    href={`/igra/${s.occurrenceId}`}
                     // `focus-visible:shadow-[var(--ring)]`: the shadow
                     // utilities live in a later layer than the global
                     // :focus-visible ring and erased it (D-5).

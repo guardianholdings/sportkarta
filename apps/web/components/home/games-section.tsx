@@ -14,7 +14,7 @@ import { GamesRail } from './games-rail';
 import { SectionHead } from './section-head';
 
 /**
- * «Включете се в игра» — the next public sessions, the list /sesii opens with,
+ * «Включете се в игра» — the next public sessions, the list /igri opens with,
  * as a rail of cards. A session names its title, place, time and how full it
  * is; never who is going (the roster is the organiser's, not the public's).
  */
@@ -28,7 +28,7 @@ export async function GamesSection({ games, locale }: { games: SessionSummary[];
     >
       <SectionHead id="home-games" overline={t('overline')} title={t('title')} lead={t('lead')}>
         <div className="flex flex-wrap gap-2">
-          <Link href="/sesii" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+          <Link href="/igri" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
             {t('all')}
           </Link>
           <Link
@@ -50,7 +50,7 @@ export async function GamesSection({ games, locale }: { games: SessionSummary[];
 
 /**
  * The rail itself, or its honest empty state — also shown inside the front
- * page's «Тренирайте» chapter, under the recording of how to join one.
+ * page's «Играйте» chapter, under the recording of how to join one.
  */
 export async function GamesList({ games, locale }: { games: SessionSummary[]; locale: string }) {
   const [t, tSport] = await Promise.all([getTranslations('Home.games'), getTranslations('Sport')]);
@@ -88,7 +88,7 @@ export async function GamesList({ games, locale }: { games: SessionSummary[]; lo
             return (
               <li key={game.occurrenceId} className="w-72 shrink-0 snap-start">
                 <Link
-                  href={`/sesiya/${game.occurrenceId}`}
+                  href={`/igra/${game.occurrenceId}`}
                   className="group flex h-full flex-col rounded-card border border-line bg-surface p-4 shadow-sm transition-[box-shadow,transform,border-color] duration-200 ease-standard hover:-translate-y-0.5 hover:border-brand-border hover:shadow-md focus-visible:shadow-[var(--ring)]"
                 >
                   <span className="flex items-start justify-between gap-3">

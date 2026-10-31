@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  *
  * A session id reaches SQL as `::uuid`, and Postgres answers a malformed one
  * with a cast ERROR rather than an empty result — so before the guard,
- * `/og/bg/sesiya/not-a-uuid/card.png` was a 500 and an error-log line that any
+ * `/og/bg/igra/not-a-uuid/card.png` was a 500 and an error-log line that any
  * scanner could mint by the thousand, burying the real errors the operator
  * reads the log for. occurrenceView is mocked to throw exactly as Postgres
  * would, and the guard must keep it from being called at all.
@@ -46,7 +46,7 @@ describe('session link-preview card', () => {
   it.each(JUNK)('404s %j without querying', async (slug) => {
     const { GET } = await import('../app/og/[locale]/[kind]/[slug]/card.png/route');
     const res = await GET(new Request('http://localhost/og'), {
-      params: Promise.resolve({ locale: 'bg', kind: 'sesiya', slug }),
+      params: Promise.resolve({ locale: 'bg', kind: 'igra', slug }),
     });
     expect(res.status).toBe(404);
     expect(occurrenceView).not.toHaveBeenCalled();
@@ -57,7 +57,7 @@ describe('session link-preview card', () => {
     occurrenceView.mockResolvedValue(null);
     const { GET } = await import('../app/og/[locale]/[kind]/[slug]/card.png/route');
     const res = await GET(new Request('http://localhost/og'), {
-      params: Promise.resolve({ locale: 'bg', kind: 'sesiya', slug: VALID }),
+      params: Promise.resolve({ locale: 'bg', kind: 'igra', slug: VALID }),
     });
     expect(res.status).toBe(404);
     expect(occurrenceView).toHaveBeenCalledWith(VALID, null);

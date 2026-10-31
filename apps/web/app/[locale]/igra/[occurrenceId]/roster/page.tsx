@@ -82,7 +82,7 @@ export default async function RosterPage({ params }: { params: PageParams }) {
       <meta httpEquiv="refresh" content={String(REFRESH_SECONDS)} />
 
       <Link
-        href={`/sesiya/${roster.occurrenceId}`}
+        href={`/igra/${roster.occurrenceId}`}
         className="text-body-sm font-medium text-link hover:text-link-hover"
       >
         {t('backToSession')}
@@ -187,7 +187,7 @@ export default async function RosterPage({ params }: { params: PageParams }) {
 
       <p className="text-center">
         <Link
-          href={`/sesiya/${roster.occurrenceId}/qr`}
+          href={`/igra/${roster.occurrenceId}/qr`}
           className="text-body-sm font-medium text-link hover:text-link-hover"
         >
           {t('showQr')}

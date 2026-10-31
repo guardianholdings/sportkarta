@@ -28,7 +28,7 @@ async function openMenu(page: Page): Promise<{ plus: Locator; dialog: Locator }>
 }
 
 test('the «+» opens three actions and closes on Escape', async ({ page }) => {
-  await page.goto('/sesii');
+  await page.goto('/igri');
   const { plus, dialog } = await openMenu(page);
   await expect(dialog.getByRole('link')).toHaveCount(3);
   await expect(

@@ -9,11 +9,11 @@ export type LabelTranslator = (key: string, values?: Record<string, string | num
 /**
  * ICU formatting over a flat label bag.
  *
- * The CSV wizards (/admin/sesii, /admin/rezultati) get their copy from the
+ * The CSV wizards (/admin/igri, /admin/rezultati) get their copy from the
  * server page as raw templates: their namespaces are not sent to the browser
  * (i18n/client-messages.ts), and the numbers they print — rows created,
  * facilities ticked — exist only on the client. A `.replace('{count}', …)`
- * cannot choose between «1 тренировка» and «5 тренировки», so this runs the
+ * cannot choose between «1 игра» and «5 игри», so this runs the
  * same ICU engine as useTranslations over the bag: `{count, plural, …}` works,
  * and so does every other argument.
  *

@@ -237,7 +237,7 @@ export default async function FacilityPage({
             same JSON-LD reason, and nothing at all while the add-on is off. */}
           <FacilityClubBlock facilityId={facility.id} />
 
-          {/* The next public тренировки here, so the page says what is played
+          {/* The next public игри here, so the page says what is played
             at the place (UX audit N7). Nothing when there is none. */}
           <FacilitySessionsBlock facilityId={facility.id} />
 

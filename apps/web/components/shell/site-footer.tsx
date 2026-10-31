@@ -16,7 +16,7 @@ const LINK = 'inline-flex min-h-11 items-center font-medium text-ink-soft hover:
 
 type FooterHref =
   | '/karta'
-  | '/sesii'
+  | '/igri'
   | '/klasirane'
   | '/kampanii'
   | '/statistika'
@@ -59,7 +59,7 @@ const PLATFORM: Column = {
   key: 'platform',
   links: [
     ['/karta', 'map'],
-    ['/sesii', 'sessions'],
+    ['/igri', 'sessions'],
     ['/klasirane', 'leaderboards'],
     // Кампании lives here for the reason this footer exists: it was BURIED with
     // zero inbound links anywhere in the product. A campaign STRIP cannot fix

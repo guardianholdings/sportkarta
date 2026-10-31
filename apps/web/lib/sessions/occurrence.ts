@@ -79,7 +79,7 @@ export interface SessionSummary {
 
 /**
  * Upcoming PUBLIC session occurrences, soonest first — the read behind the
- * `/sesii` index (the discovery surface the audit found missing). Same
+ * `/igri` index (the discovery surface the audit found missing). Same
  * visibility + cancellation rules as the single-occurrence page: `public`
  * sessions only, non-cancelled occurrences, in the future. No attendee names —
  * a count only, exactly as the occurrence view is careful to.
@@ -122,7 +122,7 @@ interface Runner {
   execute(query: SQL): Promise<{ rows: Record<string, unknown>[] }>;
 }
 
-/** An upcoming public тренировка at one facility, for the block on its page. */
+/** An upcoming public игра at one facility, for the block on its page. */
 export interface FacilitySession {
   occurrenceId: string;
   title: string;
@@ -133,8 +133,8 @@ export interface FacilitySession {
 }
 
 /**
- * The next public тренировки AT this facility (UX audit N7: a facility page
- * said nothing about what is played there). The rule of the /sesii index —
+ * The next public игри AT this facility (UX audit N7: a facility page
+ * said nothing about what is played there). The rule of the /igri index —
  * public series, not cancelled, still to start — narrowed to the facility.
  */
 export async function facilitySessions(
@@ -167,7 +167,7 @@ export async function facilitySessions(
   });
 }
 
-/** One of the member's own upcoming RSVPs, for «Моите записвания» on /sesii. */
+/** One of the member's own upcoming RSVPs, for «Моите записвания» on /igri. */
 export interface MySession {
   occurrenceId: string;
   title: string;
@@ -179,7 +179,7 @@ export interface MySession {
 }
 
 /**
- * The member's upcoming тренировки, going or waitlisted (UX audit N7: nothing
+ * The member's upcoming игри, going or waitlisted (UX audit N7: nothing
  * listed what a member had signed up for except the home strip's «Следва»).
  * Their own RSVPs only, keyed by the account; the positions view is asked per
  * occurrence, because its window runs over the whole occurrence and an

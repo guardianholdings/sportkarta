@@ -193,8 +193,8 @@ test.describe('QR check-in', () => {
     // 200 — see e2e/responses.ts), so the comparison is with a session that
     // does not exist at all: same status, same not-found render, no title.
     await signIn(page, MEMBER_EMAIL, /\/profil/);
-    const missing = await page.request.get(`/sesiya/${randomUUID()}/qr`);
-    const asMember = await page.request.get(`/sesiya/${occurrenceId}/qr`);
+    const missing = await page.request.get(`/igra/${randomUUID()}/qr`);
+    const asMember = await page.request.get(`/igra/${occurrenceId}/qr`);
     const body = await asMember.text();
 
     expect(rendersNotFound(missing.status(), await missing.text())).toBe(true);

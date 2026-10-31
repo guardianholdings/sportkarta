@@ -9,6 +9,15 @@ config({ path: '../../.env' });
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 
+/** Old addresses → new ones; `localised` pages also live under /en. */
+export const RENAMED_PATHS = [
+  { from: '/sesii', to: '/igri', localised: true },
+  { from: '/sesiya', to: '/igra', localised: true },
+  { from: '/admin/sesii', to: '/admin/igri', localised: true },
+  { from: '/kalendar/sesiya', to: '/kalendar/igra', localised: false },
+  { from: '/og/:locale/sesiya', to: '/og/:locale/igra', localised: false },
+] as const;
+
 const nextConfig: NextConfig = {
   output: 'standalone',
   transpilePackages: ['@sportkarta/lib', '@sportkarta/db'],
@@ -33,6 +42,17 @@ const nextConfig: NextConfig = {
     // LRU bounds and a directory does not. The cache does not survive a restart,
     // and a deploy is exactly when it should not.
     isrFlushToDisk: false,
+  },
+  // «Тренировки» became «Игри» (operator, 2026-10-31), and their addresses
+  // with them. Permanent, so a link in an old e-mail, a calendar, a share or a
+  // search result still lands; `:path*` also matches the bare list page.
+  async redirects() {
+    return RENAMED_PATHS.flatMap(({ from, to, localised }) => [
+      { source: `${from}/:path*`, destination: `${to}/:path*`, permanent: true },
+      ...(localised
+        ? [{ source: `/en${from}/:path*`, destination: `/en${to}/:path*`, permanent: true }]
+        : []),
+    ]);
   },
   // Framing policy (Stage 3.4). The municipality widget under /api/widget is
   // the ONE surface meant to be embedded on other people's sites, and it sets

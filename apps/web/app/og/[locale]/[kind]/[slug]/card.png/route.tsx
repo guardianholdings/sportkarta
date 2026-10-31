@@ -47,7 +47,7 @@ import { isUuid } from '@/lib/uuid';
 
 export const runtime = 'nodejs';
 
-const KINDS = ['obekt', 'sesiya', 'kampaniya'] as const;
+const KINDS = ['obekt', 'igra', 'kampaniya'] as const;
 type Kind = (typeof KINDS)[number];
 
 function isKind(value: string): value is Kind {
@@ -86,7 +86,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     });
   }
 
-  if (kind === 'sesiya') {
+  if (kind === 'igra') {
     // No viewer: a link-preview card is fetched by a crawler with no session,
     // and it must contain nothing that depends on who is looking.
     // A session id is a UUID; anything else is a 404 here, not a Postgres

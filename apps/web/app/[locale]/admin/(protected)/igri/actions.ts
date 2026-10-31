@@ -147,7 +147,7 @@ async function commit(rows: BulkRowInput[], organizerId: string): Promise<BulkSt
     }
   }
 
-  revalidatePath('/admin/sesii');
+  revalidatePath('/admin/igri');
   return {
     step: 'done',
     error: null,

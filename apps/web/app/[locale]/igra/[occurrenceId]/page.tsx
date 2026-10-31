@@ -55,7 +55,7 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   // C6: the session invite is the one share with an ACTION attached, and the
   // only one that recruits rather than brags. The page stays noindex — shareable
   // is not indexable — but a link pasted into Viber still deserves a preview.
-  const card = `/og/${locale}/sesiya/${occurrenceId}/card.png`;
+  const card = `/og/${locale}/igra/${occurrenceId}/card.png`;
   return {
     title: t('metaTitle', { title: view.title }),
     // Without a facility the {facility} template would render a dangling
@@ -146,10 +146,10 @@ export default async function SessionPage({ params }: { params: PageParams }) {
   // Closed once it has started or been cancelled — the database refuses the
   // RSVP either way, so this only decides what the page offers.
   const open = !view.cancelled && !view.started;
-  const icsUrl = `${siteUrl()}/kalendar/sesiya/${view.occurrenceId}.ics`;
+  const icsUrl = `${siteUrl()}/kalendar/igra/${view.occurrenceId}.ics`;
 
   return (
-    <AppShell active="/sesii">
+    <AppShell active="/igri">
       <main className="mx-auto max-w-2xl space-y-6 p-4">
         {view.facilitySlug && (
           <Link
@@ -264,7 +264,7 @@ export default async function SessionPage({ params }: { params: PageParams }) {
                     often a stranger's first visit, and /profil is not where
                     they were going. */}
                 <Link
-                  href={signInHref(`/sesiya/${occurrenceId}`)}
+                  href={signInHref(`/igra/${occurrenceId}`)}
                   className="font-medium text-link hover:text-link-hover"
                 >
                   {t('signInToJoin')}
@@ -287,13 +287,13 @@ export default async function SessionPage({ params }: { params: PageParams }) {
               against the database. */}
             <div className="flex flex-col gap-2">
               <Link
-                href={`/sesiya/${view.occurrenceId}/roster`}
+                href={`/igra/${view.occurrenceId}/roster`}
                 className="text-body-sm font-medium text-link hover:text-link-hover"
               >
                 {t('organizerRoster')}
               </Link>
               <Link
-                href={`/sesiya/${view.occurrenceId}/qr`}
+                href={`/igra/${view.occurrenceId}/qr`}
                 className="text-body-sm font-medium text-link hover:text-link-hover"
               >
                 {tCheckin('organizerLink')}
@@ -332,7 +332,7 @@ export default async function SessionPage({ params }: { params: PageParams }) {
               kind: 'session',
               locale,
               origin: siteUrl(),
-              page: `/sesiya/${view.occurrenceId}`,
+              page: `/igra/${view.occurrenceId}`,
               ref: view.occurrenceId,
               text: tShareSheet('textSession', { title: view.title, day }),
             })}
@@ -365,7 +365,7 @@ export default async function SessionPage({ params }: { params: PageParams }) {
         )}
 
         {/* The title and the organiser's name are members' words (DSA Art. 16). */}
-        <ReportContentLink path={`/sesiya/${view.occurrenceId}`} />
+        <ReportContentLink path={`/igra/${view.occurrenceId}`} />
       </main>
     </AppShell>
   );

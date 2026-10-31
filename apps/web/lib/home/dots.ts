@@ -121,7 +121,7 @@ export function dotLayer(sport: string | null): Promise<DotLayer> {
 /**
  * Where something is on this week: the facilities of public, uncancelled
  * sessions in the next seven days, as cells. The same visibility rule as
- * /sesii plus the public-map predicate, so a pulse never marks a place the map
+ * /igri plus the public-map predicate, so a pulse never marks a place the map
  * would not show.
  */
 export function gamePulses(): Promise<GamePulses> {

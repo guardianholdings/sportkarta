@@ -994,8 +994,8 @@ export const moderationFlags = pgTable(
  *
  * NAMING: `sessions` is already better-auth's table (schema/auth.ts), so every
  * table below is prefixed `play_session*`. The Bulgarian product word is
- * "тренировка"; slugs stay English like every other identifier and the UI labels
- * come from i18n.
+ * "игра" (it was "тренировка" until 2026-10-31); slugs stay English like every
+ * other identifier and the UI labels come from i18n.
  *
  * THE TIME MODEL, which everything else follows from: a session is scheduled in
  * WALL CLOCK time. `starts_at_local` is a `timestamp` WITHOUT time zone — a

@@ -36,7 +36,7 @@ export interface FacilityOption {
 /**
  * Flat label bags passed from the server component — the page owns i18n, this
  * file owns interaction. `labels` are ICU templates (useLabels, so a count can
- * be «1 тренировка» or «5 тренировки»); `fieldLabels` are plain option names.
+ * be «1 игра» or «5 игри»); `fieldLabels` are plain option names.
  * Either way an unknown key renders as itself, so a missing translation is
  * visible, not silent.
  */
@@ -586,7 +586,7 @@ function DonePanel({
       )}
       <div className="flex flex-wrap gap-3">
         {created > 0 && (
-          <Link href="/sesii" className={buttonVariants({ variant: 'secondary' })}>
+          <Link href="/igri" className={buttonVariants({ variant: 'secondary' })}>
             {t('viewCreated')}
           </Link>
         )}

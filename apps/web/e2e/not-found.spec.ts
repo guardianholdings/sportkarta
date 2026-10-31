@@ -17,8 +17,8 @@ import en from '../messages/en.json';
 // Every kind of URL that resolves an entity, plus plain unmatched paths.
 const MISSING = [
   '/obekt/nyama-takav-obekt-e2e',
-  '/sesiya/00000000-0000-4000-8000-000000000000',
-  '/sesiya/not-a-uuid',
+  '/igra/00000000-0000-4000-8000-000000000000',
+  '/igra/not-a-uuid',
   '/kampanii/nyama-takava-kampaniya-e2e',
   '/kampanii/nyama-takava-kampaniya-e2e/rezultati',
   '/pasport/nyama-takav-profil-e2e',
@@ -75,7 +75,7 @@ test('pages without a card of their own still share with one', async ({ request 
   for (const [path, card] of [
     ['/', '/og/bg/site/card.png'],
     ['/statistika', '/og/bg/site/card.png'],
-    ['/en/sesii', '/og/en/site/card.png'],
+    ['/en/igri', '/og/en/site/card.png'],
   ] as const) {
     const html = await (await request.get(path)).text();
     expect(html, path).toMatch(new RegExp(`<meta property="og:image" content="[^"]*${card}"`));
@@ -88,7 +88,7 @@ test('pages without a card of their own still share with one', async ({ request 
 
 test('the static sitemap lists the transparency pages', async ({ request }) => {
   const xml = await (await request.get('/sitemaps/static.xml')).text();
-  for (const path of ['/statistika', '/danni', '/sesii']) {
+  for (const path of ['/statistika', '/danni', '/igri']) {
     expect(xml, path).toContain(`${path}</loc>`);
   }
   expect(xml).not.toContain('/design-system');

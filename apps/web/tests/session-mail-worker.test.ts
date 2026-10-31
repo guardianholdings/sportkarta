@@ -19,7 +19,7 @@ const index = source('../../worker/src/index.ts');
 const sessionJob = source('../../worker/src/session-mail-job.ts');
 const notifications = source('../../../db/src/sessions/notifications.ts');
 const occurrence = source('../lib/sessions/occurrence.ts');
-const sessionPage = source('../app/[locale]/sesiya/[occurrenceId]/page.tsx');
+const sessionPage = source('../app/[locale]/igra/[occurrenceId]/page.tsx');
 
 describe('failed session mail is retried', () => {
   it('session.notify throws when anybody was not reached', () => {

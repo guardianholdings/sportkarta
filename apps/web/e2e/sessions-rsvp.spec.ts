@@ -87,7 +87,7 @@ test.describe('session page and RSVP', () => {
   test('shows the session to a signed-out visitor without offering to sign them up', async ({
     page,
   }) => {
-    await page.goto(`/sesiya/${occurrenceId}`);
+    await page.goto(`/igra/${occurrenceId}`);
     await expect(page.getByRole('heading', { level: 1 })).toContainText('E2E тренировка');
     await expect(page.getByText(bg.Session.signInToJoin)).toBeVisible();
     // The organiser IS named — organising a session strangers are invited to is
@@ -101,7 +101,7 @@ test.describe('session page and RSVP', () => {
 
   test('a member joins, sees their place, and can withdraw', async ({ page }) => {
     await signIn(page, MEMBER_EMAIL, /\/profil/);
-    await page.goto(`/sesiya/${occurrenceId}`);
+    await page.goto(`/igra/${occurrenceId}`);
 
     await page.getByRole('button', { name: bg.Session.join }).click();
     await expect(page.getByText(bg.Session.youAreGoing)).toBeVisible();
@@ -120,7 +120,7 @@ test.describe('session page and RSVP', () => {
 
 test.describe('calendar endpoints', () => {
   test('the per-session .ics is a well-formed download', async ({ request }) => {
-    const response = await request.get(`/kalendar/sesiya/${occurrenceId}.ics`);
+    const response = await request.get(`/kalendar/igra/${occurrenceId}.ics`);
     expect(response.status()).toBe(200);
     expect(response.headers()['content-type']).toContain('text/calendar');
     expect(response.headers()['content-disposition']).toContain('attachment');

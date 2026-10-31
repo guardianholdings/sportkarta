@@ -13,7 +13,7 @@ function source(relative: string): string {
 describe('routes that had no title of their own (D-4)', () => {
   it.each([
     ['../app/[locale]/otmetka/[token]/page.tsx', "t('invalidHeading')"],
-    ['../app/[locale]/sesiya/[occurrenceId]/roster/page.tsx', "t('signedUp')"],
+    ['../app/[locale]/igra/[occurrenceId]/roster/page.tsx', "t('signedUp')"],
     ['../app/[locale]/sedmitsata/otpisvane/[token]/page.tsx', "t('unsubscribeConfirmTitle')"],
   ])('%s sets a title, and stays noindex', (relative, titleKey) => {
     const page = source(relative);
@@ -26,7 +26,7 @@ describe('routes that had no title of their own (D-4)', () => {
 });
 
 describe('list rows keep a visible focus ring (D-5)', () => {
-  it.each(['../app/[locale]/sesii/page.tsx', '../app/[locale]/sedmitsata/page.tsx'])(
+  it.each(['../app/[locale]/igri/page.tsx', '../app/[locale]/sedmitsata/page.tsx'])(
     '%s restates the ring its shadow utility would erase',
     (relative) => {
       const page = source(relative);

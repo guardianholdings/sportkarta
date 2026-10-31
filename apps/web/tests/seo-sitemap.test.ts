@@ -70,7 +70,7 @@ describe('static.xml', () => {
   }
 
   it('lists the transparency and discovery pages, not only the four it started with', () => {
-    for (const p of ['/statistika', '/danni', '/danni/litsenz', '/sesii', '/sedmitsata']) {
+    for (const p of ['/statistika', '/danni', '/danni/litsenz', '/igri', '/sedmitsata']) {
       expect(STATIC_SITEMAP_PATHS).toContain(p);
     }
   });

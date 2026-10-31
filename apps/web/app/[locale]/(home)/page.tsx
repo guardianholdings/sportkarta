@@ -71,7 +71,7 @@ export async function generateMetadata({
  * a first visit asks, and the principles.
  *
  * A MEMBER gets «today first»: their strip (next up, streak, badges — and the
- * check-in card while one is open), the search, the week's тренировки,
+ * check-in card while one is open), the search, the week's игри,
  * contributing, and the principles as the trust block. The pitch sections are
  * a visitor's; a member was scrolling past them to reach anything of theirs.
  * Their aggregates are not even loaded for a member.

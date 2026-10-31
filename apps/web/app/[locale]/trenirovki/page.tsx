@@ -108,11 +108,11 @@ export default async function TrainingPage({
     ] as const
   ).filter(([, at]) => integrations || at !== null);
 
-  // Under the Тренировки tab, a segment beside the public list (operator,
+  // Under the Игри tab, a segment beside the public list (operator,
   // 2026-10-31), and still linked from /profil and from the participation
   // board on /klasirane — the reachability gate in e2e/crawl.spec.ts.
   return (
-    <AppShell active="/sesii">
+    <AppShell active="/igri">
       <main className="mx-auto max-w-2xl space-y-8 p-4">
         <SessionsSegments current="log" />
 

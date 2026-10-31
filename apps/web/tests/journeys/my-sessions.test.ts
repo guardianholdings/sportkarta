@@ -15,7 +15,7 @@ import {
 } from './db';
 
 /**
- * «Моите записвания» on /sesii and «Предстоящи тренировки тук» on a facility
+ * «Моите записвания» on /igri and «Предстоящи тренировки тук» on a facility
  * page (UX audit N7). The first is somebody's own calendar: it must hold
  * their RSVPs and nobody else's, and nothing withdrawn, cancelled or past. The
  * second is on an indexed page: public series only, still to come.

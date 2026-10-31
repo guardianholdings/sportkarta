@@ -175,7 +175,7 @@ describe.skipIf(!hasDb)("the front page's «Следва» (requires running dat
       expect(strip.next).toMatchObject({
         kind: 'session',
         title: 'Моята',
-        href: `/sesiya/${mine}`,
+        href: `/igra/${mine}`,
       });
 
       // And the other account sees its own, not mine.

@@ -14,7 +14,7 @@ const read = (...parts: string[]) => readFileSync(path.join(ADMIN, ...parts), 'u
 
 describe('admin pickers are in reading order', () => {
   it.each([
-    ['sesii', 'page.tsx'],
+    ['igri', 'page.tsx'],
     ['kampanii', 'nova', 'page.tsx'],
     ['kampanii', '[slug]', 'page.tsx'],
     ['facilities', '[id]', 'page.tsx'],

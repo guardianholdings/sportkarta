@@ -6,12 +6,12 @@ import { siteUrl } from '@/lib/seo';
 /**
  * One session as a downloadable `.ics` (docs/ROADMAP.md §6, Stage 4.2).
  *
- * `/kalendar/sesiya/<occurrenceId>.ics` — the "add to calendar" link on the
+ * `/kalendar/igra/<occurrenceId>.ics` — the "add to calendar" link on the
  * session page and in every notification email. Public, because the session
  * page it hangs off is public, and it carries nothing the page does not:
  * title, time, place, coordinates. No attendee, no count, no organiser address.
  *
- * The static `sesiya` segment sits alongside the dynamic `[token]` route one
+ * The static `igra` segment sits alongside the dynamic `[token]` route one
  * level up; Next resolves the more specific path first, and a feed token is at
  * least 22 characters, so the two cannot collide.
  *
@@ -57,7 +57,7 @@ export async function GET(
           endsAt: new Date(occurrence.endsAt),
           summary: occurrence.title,
           location: occurrence.facilityName ?? undefined,
-          url: `${base}/sesiya/${occurrence.occurrenceId}`,
+          url: `${base}/igra/${occurrence.occurrenceId}`,
           lat: occurrence.lat ?? undefined,
           lon: occurrence.lon ?? undefined,
           cancelled: occurrence.cancelled,

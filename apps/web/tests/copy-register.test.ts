@@ -95,7 +95,7 @@ describe('formal address', () => {
 });
 
 describe('terminology', () => {
-  it('calls a group session «тренировка», never «сесия» (a login session)', () => {
+  it('never calls a game «сесия» (a login session)', () => {
     const offenders = [
       'Session',
       'Digest',
@@ -116,6 +116,41 @@ describe('terminology', () => {
       strings((bg as unknown as Tree)[ns] as Tree, ns).filter(([, text]) => /сеси[яи]/u.test(text)),
     );
     expect(offenders).toEqual([]);
+  });
+
+  it('calls an open game «игра», not «тренировка» (operator, 2026-10-31)', () => {
+    // «Тренировка» stays for what really is one: the member's own training log
+    // (Training, Participation) and a club's classes (the Club* namespaces).
+    const pickup = [
+      'Session',
+      'Digest',
+      'DigestEmail',
+      'SessionEmail',
+      'Checkin',
+      'Roster',
+      'Badge',
+      'Campaign',
+      'Passport',
+      'Leaderboard',
+      'Division',
+      'AdminBulkSessions',
+      'AdminResults',
+      'Home.games',
+      'Home.dots',
+      'Home.numbers',
+      'Home.personal',
+      'Home.guide.play.proof',
+      'Home.guide.passport',
+    ].flatMap((ns) => {
+      const tree = ns
+        .split('.')
+        .reduce<Tree>((node, key) => node[key] as Tree, bg as unknown as Tree);
+      return strings(tree, ns).filter(([, text]) => /тренир/iu.test(text));
+    });
+    expect(pickup).toEqual([]);
+    expect(value('Nav.navSessions')).toBe('Игри');
+    expect(value('Footer.sessions')).toBe('Игри');
+    expect(value('Home.guide.nav.play')).toBe('Играйте');
   });
 
   it('says «мин.» with the full stop, like the rest of the product', () => {

@@ -75,7 +75,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
             SETTINGS, not a second hub (UX audit N8): the passport is a tab and
             carries the points, so its pill and the «Моите точки» panel are gone.
             What stays here is what has no tab — the log (also a segment of
-            Тренировки), the clubs, the admin.
+            Игри), the clubs, the admin.
           */}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Link href="/trenirovki" className={pillLink}>
@@ -106,7 +106,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
           />
         </section>
 
-        {/* Ids for deep links: /sesii and the weekly city page point at the
+        {/* Ids for deep links: /igri and the weekly city page point at the
             digest; the calendar and erasure can be linked the same way. */}
         <div id="sedmichna" className="scroll-mt-4">
           <DigestPanel locale={locale} cities={digestCityList} subscribedIds={subscribedIds} />

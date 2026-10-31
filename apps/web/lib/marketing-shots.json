@@ -17,7 +17,7 @@
   "plans": {
     "src": "/marketing/abonamenti.webp",
     "width": 1200,
-    "height": 529
+    "height": 564
   },
   "schedule": {
     "src": "/marketing/grafik.webp",
@@ -27,17 +27,17 @@
   "attendance": {
     "src": "/marketing/prisastviya.webp",
     "width": 1200,
-    "height": 737
+    "height": 718
   },
   "courts": {
     "src": "/marketing/kalendar.webp",
     "width": 1200,
-    "height": 705
+    "height": 740
   },
   "events": {
     "src": "/marketing/sabitiya.webp",
     "width": 1200,
-    "height": 501
+    "height": 536
   },
   "payments": {
     "src": "/marketing/plashtaniya.webp",
@@ -47,12 +47,12 @@
   "shop": {
     "src": "/marketing/prodazhbi.webp",
     "width": 1200,
-    "height": 482
+    "height": 518
   },
   "invoices": {
     "src": "/marketing/fakturi.webp",
     "width": 1200,
-    "height": 650
+    "height": 686
   },
   "messaging": {
     "src": "/marketing/saobshteniya.webp",
@@ -62,7 +62,7 @@
   "inbox": {
     "src": "/marketing/vhodyashti.webp",
     "width": 1200,
-    "height": 561
+    "height": 596
   },
   "documents": {
     "src": "/marketing/dokumenti.webp",

@@ -16,7 +16,7 @@ export function dayWord(startsAtLocal: string, now: Date = new Date()): DayWord 
   return null;
 }
 
-/** [short date, HH:MM] — en-GB for English, as on /sesii. */
+/** [short date, HH:MM] — en-GB for English, as on /igri. */
 export function whenParts(startsAtLocal: string, locale: string): [string, string] {
   const [date, time] = startsAtLocal.split('T');
   const label = new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'bg-BG', {

@@ -19,7 +19,7 @@
     "logout": "Sign out",
     "ambassadors": "Ambassadors",
     "private": "Private",
-    "bulkSessions": "Sessions",
+    "bulkSessions": "Games",
     "results": "Results",
     "campaigns": "Campaigns",
     "reports": "Reports",
@@ -339,9 +339,9 @@
       "importOsm": "OSM import",
       "statsRefresh": "Statistics refresh",
       "authCleanup": "Expired codes and sessions cleanup",
-      "sessionMaterialize": "Scheduled sessions",
+      "sessionMaterialize": "Scheduled games",
       "sessionNotify": "Sign-up and cancellation mail",
-      "sessionReminders": "Session reminders",
+      "sessionReminders": "Game reminders",
       "moderationNotify": "Moderation decision mail",
       "digestWeekly": "Weekly digest",
       "opendataDump": "Nightly open-data export",
@@ -422,7 +422,7 @@
   },
   "Nav": {
     "navMap": "Map",
-    "navSessions": "Sessions",
+    "navSessions": "Games",
     "navPassport": "Passport",
     "navProfile": "Profile",
     "navSignIn": "Sign in",
@@ -456,7 +456,7 @@
     "title": "This page doesn't exist",
     "body": "The link may be out of date, or the place may have been taken off the map. Start again from the map, or see what's being played this week.",
     "toMap": "Back to the map",
-    "toSessions": "Upcoming sessions"
+    "toSessions": "Upcoming games"
   },
   "ErrorPage": {
     "code": "Something went wrong",
@@ -699,7 +699,7 @@
       },
       "analytics": {
         "title": "Visit statistics and errors",
-        "body": "We use self-hosted, cookieless analytics (Umami). It records the page visited (without the parameters in its address, except the campaign tags utm_source, utm_medium, utm_campaign, utm_content and utm_term on the first page of a visit that starts from a link carrying them, which tell us which post or campaign a visit came from), the referring site, the type of browser, operating system and device, the language, and an approximate country and city derived from the IP address, which is not stored. We also record the kind of some actions — for example that someone asked for directions, sent a contribution or opened a share sheet — without who did it or which facility, training, check-in or network it concerned. If an error occurs in your browser, our self-hosted GlitchTip receives the error message, the page address (which, on the map, includes the map's centre) and the browser type, with no data from your profile. We build no profiles and do not track people across sites.",
+        "body": "We use self-hosted, cookieless analytics (Umami). It records the page visited (without the parameters in its address, except the campaign tags utm_source, utm_medium, utm_campaign, utm_content and utm_term on the first page of a visit that starts from a link carrying them, which tell us which post or campaign a visit came from), the referring site, the type of browser, operating system and device, the language, and an approximate country and city derived from the IP address, which is not stored. We also record the kind of some actions — for example that someone asked for directions, sent a contribution or opened a share sheet — without who did it or which facility, game, training, check-in or network it concerned. If an error occurs in your browser, our self-hosted GlitchTip receives the error message, the page address (which, on the map, includes the map's centre) and the browser type, with no data from your profile. We build no profiles and do not track people across sites.",
         "basis": "Basis: legitimate interest in knowing what is used and what is broken (Art. 6(1)(f))."
       },
       "account": {
@@ -719,7 +719,7 @@
       },
       "location": {
         "title": "Location",
-        "body": "If you allow it, your browser uses your location to show the map and the nearest facilities around you; this happens in the browser itself and the coordinates are not sent to the server. When you contribute, report a problem or check in at a session, the coordinates arrive with the form; the server works out the distance to the facility and stores only that, never the coordinates themselves.",
+        "body": "If you allow it, your browser uses your location to show the map and the nearest facilities around you; this happens in the browser itself and the coordinates are not sent to the server. When you contribute, report a problem or check in at a game, the coordinates arrive with the form; the server works out the distance to the facility and stores only that, never the coordinates themselves.",
         "basis": "Basis: contract and legitimate interest in protecting points and data from abuse (Art. 6(1)(b) and (f))."
       },
       "passport": {
@@ -728,8 +728,8 @@
         "basis": "Basis: consent (Art. 6(1)(a)), which you withdraw by making your passport private."
       },
       "sessions": {
-        "title": "Group sessions",
-        "body": "Signing up for a session, your place on the waiting list and your check-ins are stored with your account. The session organiser sees the display names of those signed up; the public page shows only how many. If you organise a session, your display name is shown on its public page.",
+        "title": "Games",
+        "body": "Signing up for a game, your place on the waiting list and your check-ins are stored with your account. The game organiser sees the display names of those signed up; the public page shows only how many. If you organise a game, your display name is shown on its public page.",
         "basis": "Basis: contract (Art. 6(1)(b))."
       },
       "training": {
@@ -739,7 +739,7 @@
       },
       "mail": {
         "title": "Emails",
-        "body": "We send the sign-in code, session confirmations and reminders and notices if a session is cancelled, emails about moderation decisions and — only if you subscribe — a weekly digest for your city.",
+        "body": "We send the sign-in code, game confirmations and reminders and notices if a game is cancelled, emails about moderation decisions and — only if you subscribe — a weekly digest for your city.",
         "basis": "Basis: contract (Art. 6(1)(b)); for the digest — consent, which you withdraw with the unsubscribe link in every email."
       },
       "reports": {
@@ -759,7 +759,7 @@
       },
       "tokens": {
         "title": "Calendar and open-data keys",
-        "body": "If you create them: a personal address through which your calendar follows the sessions you signed up for, and an open-data API key, of which we keep only a fingerprint (hash) — the key itself is not stored.",
+        "body": "If you create them: a personal address through which your calendar follows the games you signed up for, and an open-data API key, of which we keep only a fingerprint (hash) — the key itself is not stored.",
         "basis": "Basis: contract (Art. 6(1)(b))."
       }
     },
@@ -768,8 +768,8 @@
       "intro": "We do not sell data and do not use it for advertising. We share it only with the following recipients, and only as far as needed:",
       "hosting": "Hetzner Online GmbH (Germany) — hosting and backups. The server and the database are in a data centre in Finland (EU); once off-server backups are switched on, encrypted copies of the database and the uploaded photos are kept in a separate Hetzner data centre in Germany (EU).",
       "network": "Cloudflare, Inc. (USA) — network protection and delivery. Every visit to the site passes through Cloudflare’s network on its way to our server, so Cloudflare processes your IP address and the requests themselves (including which pages you open) to deliver the site and protect it from attacks, and keeps technical logs of this for a limited time under its own terms. It keeps copies only of the site’s design files, fonts and icons, which are the same for everyone — never of pages, photos or anything about you.",
-      "mail": "Migadu-Mail GmbH (Switzerland) — our email. The site’s messages to you (sign-in codes, session confirmations and reminders, decisions on your contributions) are sent through Migadu, so your address and their content pass through it; messages you write to us are kept in our mailbox there until we delete them — write to us if you want yours deleted.",
-      "people": "People at POPS: a session organiser sees the display names of those signed up; ambassadors (volunteer moderators for their municipality) see the contributions and facility reports there; administrators can use the admin panel, and every time they open an account it is recorded.",
+      "mail": "Migadu-Mail GmbH (Switzerland) — our email. The site’s messages to you (sign-in codes, game confirmations and reminders, decisions on your contributions) are sent through Migadu, so your address and their content pass through it; messages you write to us are kept in our mailbox there until we delete them — write to us if you want yours deleted.",
+      "people": "People at POPS: a game organiser sees the display names of those signed up; ambassadors (volunteer moderators for their municipality) see the contributions and facility reports there; administrators can use the admin panel, and every time they open an account it is recorded.",
       "external": "External services you choose. The default map is served entirely from our own server, but if you pick an external map layer (CyclOSM, Thunderforest Transport, Tracestrack Topo), your browser loads tiles directly from that provider, and the “Directions” button opens Waze or Google Maps at the facility. They see your IP address, as they would if you visited their site.",
       "signInProviders": "{providers}, if you choose to sign in with them. The service learns that you are signing in to POPS and handles that under its own privacy policy; we send it no data about you.",
       "noSale": "Ads and partner logos on the site receive no data about you: they are shown the same to everyone, and we count neither their views nor their clicks."
@@ -823,7 +823,7 @@
   "Welcome": {
     "metaTitle": "Welcome",
     "title": "Welcome to POPS",
-    "intro": "What should we call you? Your name is seen by the organisers of the sessions you sign up for. It appears on the leaderboard and in your passport only if you decide so.",
+    "intro": "What should we call you? Your name is seen by the organisers of the games you sign up for. It appears on the leaderboard and in your passport only if you decide so.",
     "nameLabel": "Name",
     "nameHint": "Your first name or a nickname is enough.",
     "cityLabel": "City (optional)",
@@ -878,7 +878,7 @@
       "passport": "Sign in to see your sports passport.",
       "training": "Sign in to open your training log.",
       "contribute": "Sign in to confirm the details or report the condition of the facility.",
-      "session": "Sign in to sign up for the training session.",
+      "session": "Sign in to sign up for the game.",
       "checkin": "Sign in to check in. After signing in, scan the code again.",
       "scan": "Sign in to scan the check-in code.",
       "clubs": "Sign in to see your clubs.",
@@ -1101,10 +1101,10 @@
   },
   "Digest": {
     "h1": "This week in {city}",
-    "intro": "{count, plural, one {# session} other {# sessions}} this week — Monday to Sunday.",
-    "metaTitle": "This week's sessions in {city}",
-    "metaDescription": "What is being played in {city} this week: free sessions and places, by day.",
-    "empty": "No sessions are scheduled in {city} this week.",
+    "intro": "{count, plural, one {# game} other {# games}} this week — Monday to Sunday.",
+    "metaTitle": "This week’s games in {city}",
+    "metaDescription": "What is being played in {city} this week: free games and places, by day.",
+    "empty": "No games are scheduled in {city} this week.",
     "emptyHint": "See all facilities on the map.",
     "spots": "{going} of {capacity} places",
     "spotsUnlimited": "{going} going",
@@ -1127,16 +1127,16 @@
     "indexTitle": "This week",
     "indexIntro": "Pick a city to see what is being played this week.",
     "indexEmptyTitle": "Nothing is scheduled this week",
-    "indexEmptyBody": "No one has announced a session for this week yet. See everything coming up.",
-    "indexAllSessions": "All sessions",
-    "indexSessions": "{count, plural, one {# session} other {# sessions}}"
+    "indexEmptyBody": "No one has announced a game for this week yet. See everything coming up.",
+    "indexAllSessions": "All games",
+    "indexSessions": "{count, plural, one {# game} other {# games}}"
   },
   "DigestEmail": {
     "subject": "This week in {city}",
     "greeting": "Hi {name}! Here is what is being played in {city} this week.",
     "greetingNoName": "Hi! Here is what is being played in {city} this week.",
-    "introOne": "{count} session this week.",
-    "introOther": "{count} sessions this week.",
+    "introOne": "{count} game this week.",
+    "introOther": "{count} games this week.",
     "monday": "Monday",
     "tuesday": "Tuesday",
     "wednesday": "Wednesday",
@@ -1174,8 +1174,8 @@
     "selectAll": "Select all",
     "clearAll": "Clear",
     "create": "Create",
-    "createConfirm": "This creates {count} weekly series with no end date: the sessions repeat every week until the series is cancelled. Continue?",
-    "createConfirmOnce": "This creates {count, plural, one {# one-off session} other {# one-off sessions}}. Continue?",
+    "createConfirm": "This creates {count} weekly series with no end date: the games repeat every week until the series is cancelled. Continue?",
+    "createConfirmOnce": "This creates {count, plural, one {# one-off game} other {# one-off games}}. Continue?",
     "csvPaste": "Paste CSV content",
     "csvUpload": "Or upload a file",
     "csvParse": "Check",
@@ -1189,11 +1189,11 @@
     "reason": "Reason",
     "rowOk": "Ready",
     "rowError": "Skipped",
-    "confirmImport": "{count, plural, one {Create # session} other {Create # sessions}}",
-    "createdCount": "{count, plural, one {# session created.} other {# sessions created.}}",
+    "confirmImport": "{count, plural, one {Create # game} other {Create # games}}",
+    "createdCount": "{count, plural, one {# game created.} other {# games created.}}",
     "skippedCount": "{count, plural, one {# row skipped.} other {# rows skipped.}}",
     "createdHint": "Their dates are scheduled in the background and appear in the schedule within a minute.",
-    "viewCreated": "Open the session schedule",
+    "viewCreated": "Open the game schedule",
     "createMore": "Create more",
     "noRows": "The file has no rows.",
     "nothingSelected": "No facilities selected.",
@@ -1245,17 +1245,17 @@
     "error_rrule_wkst_unsupported": "The week starts on Monday.",
     "error_rrule_empty": "Empty rule.",
     "error_rrule_too_many_occurrences": "The rule produces too many dates.",
-    "title": "Bulk-create sessions",
+    "title": "Bulk-create games",
     "error_csv_truncated": "The file has an unclosed quote — the rows after it cannot be read. Fix the file and try again.",
     "error_too_many_rows": "The file has too many rows (2000 maximum)."
   },
   "AdminResults": {
     "title": "Results",
-    "intro": "Enter results for finished sessions. There is no timing-hardware integration — results are typed by hand.",
+    "intro": "Enter results for finished games. There is no timing-hardware integration — results are typed by hand.",
     "pending": "Awaiting results",
     "recorded": "With results",
-    "noOccurrences": "No finished sessions to record.",
-    "occurrence": "Session",
+    "noOccurrences": "No finished games to record.",
+    "occurrence": "Game",
     "when": "When",
     "facility": "Facility",
     "enter": "Enter",
@@ -1290,8 +1290,8 @@
     "error_empty_result": "This row has no position, score or note.",
     "error_unknown_member": "No member with that email.",
     "error_duplicate_member": "That member is already listed.",
-    "error_occurrence_not_found": "Session not found.",
-    "error_occurrence_not_started": "That session has not happened yet.",
+    "error_occurrence_not_found": "Game not found.",
+    "error_occurrence_not_started": "That game has not happened yet.",
     "error_no_rows": "No rows.",
     "anonymisedPreserved": "{count, plural, one {# anonymised row (an erased account) is preserved and not shown here.} other {# anonymised rows (erased accounts) are preserved and not shown here.}}",
     "error_csv_truncated": "The file has an unclosed quote — the rows after it cannot be read. Fix the file and try again.",
@@ -1306,7 +1306,7 @@
     "total_facilitiesAdded": "Facilities added",
     "total_facilitiesVerified": "Facilities verified",
     "total_conditionsReported": "Condition reports",
-    "total_checkins": "Sessions attended",
+    "total_checkins": "Games played",
     "total_contributions": "Contributions",
     "streaksTitle": "Streaks",
     "streak_currentDays": "Current day streak",
@@ -1320,11 +1320,11 @@
     "event_facility_added": "facility added",
     "event_facility_verified": "facility verified",
     "event_condition_reported": "condition reported",
-    "event_session_checkin": "attended a session",
+    "event_session_checkin": "attended a game",
     "event_session_attended": "attendance confirmed",
     "activityTitle": "Activity by month",
     "monthlyContributions": "{count, plural, one {# contribution} other {# contributions}}",
-    "monthlyCheckins": "{count, plural, one {# session} other {# sessions}}",
+    "monthlyCheckins": "{count, plural, one {# game} other {# games}}",
     "visibilityTitle": "Who can see my passport",
     "visibilityPrivateExplainer": "Your passport is private. Nobody else can see it.",
     "visibilityPublicExplainer": "Your passport is public at this address. It shows only badges, totals and streaks — never when or where you played. Your name and city will also appear on the leaderboards, in campaigns and in divisions.",
@@ -1335,7 +1335,7 @@
     "publishNameLabel": "Name",
     "publishNameTooLong": "The name is too long (up to 60 characters).",
     "publishNameMissing": "Enter a name to publish the passport.",
-    "activityExplainer": "Optionally show your activity by month too — counts of contributions and sessions only, with no places or dates.",
+    "activityExplainer": "Optionally show your activity by month too — counts of contributions and games only, with no places or dates.",
     "showActivity": "Show activity by month",
     "hideActivity": "Hide activity by month",
     "publicMetaTitle": "{name}’s sports passport",
@@ -1376,12 +1376,12 @@
       "description": "You contributed to places for 5 different sports."
     },
     "first_game": {
-      "name": "First session",
-      "description": "You attended your first session."
+      "name": "First game",
+      "description": "You played your first game."
     },
     "regular_10": {
       "name": "Regular",
-      "description": "You attended 10 sessions."
+      "description": "You attended 10 games."
     },
     "streak_days_7": {
       "name": "Seven in a row",
@@ -1389,23 +1389,23 @@
     },
     "streak_weeks_4": {
       "name": "A month in motion",
-      "description": "You trained every week for 4 weeks running."
+      "description": "You played every week for 4 weeks running."
     },
     "regular_25": {
       "name": "Steady",
-      "description": "You have taken part in 25 sessions."
+      "description": "You have taken part in 25 games."
     },
     "regular_50": {
       "name": "Fifty",
-      "description": "You have taken part in 50 sessions."
+      "description": "You have taken part in 50 games."
     },
     "regular_100": {
       "name": "Hundred",
-      "description": "You have taken part in 100 sessions."
+      "description": "You have taken part in 100 games."
     },
     "regular_250": {
       "name": "Two hundred and fifty",
-      "description": "You have taken part in 250 sessions."
+      "description": "You have taken part in 250 games."
     }
   },
   "Leaderboard": {
@@ -1461,7 +1461,7 @@
     "event_facility_added": "facility added",
     "event_facility_verified": "facility verified",
     "event_condition_reported": "condition reported",
-    "event_session_checkin": "attended a session",
+    "event_session_checkin": "attended a game",
     "standings": "Standings",
     "cityStandings": "Standings by town",
     "columnRank": "Rank",
@@ -1535,7 +1535,7 @@
     "event_facility_added": "facility added",
     "event_facility_verified": "facility verified",
     "event_condition_reported": "condition reported",
-    "event_session_checkin": "attended a session",
+    "event_session_checkin": "attended a game",
     "perDayCapLabel": "Daily cap",
     "perDayCapHint": "Optional. Limits how many points one member can bank in a day — the main defence against bulk farming.",
     "sportsLabel": "Only these sports",
@@ -1682,13 +1682,13 @@
     "photo": "Photograph the code"
   },
   "Session": {
-    "metaTitle": "{title} — session",
+    "metaTitle": "{title} — game",
     "metaDescription": "{title} at {facility}. See when it is, how many places are left, and sign up.",
-    "metaDescriptionNoPlace": "{title} — a free group training session. See when it is, how many places are left, and sign up.",
+    "metaDescriptionNoPlace": "{title} — a free open game. See when it is, how many places are left, and sign up.",
     "backToFacility": "← Back to the facility",
-    "cancelledNotice": "This session has been cancelled.",
-    "startedNotice": "This session has already started.",
-    "endedNotice": "This session has ended.",
+    "cancelledNotice": "This game has been cancelled.",
+    "startedNotice": "This game has already started.",
+    "endedNotice": "This game has ended.",
     "labelWhen": "When",
     "labelWhere": "Where",
     "labelSport": "Sport",
@@ -1702,18 +1702,18 @@
     "join": "I'm in",
     "joinFull": "Join the waitlist",
     "leave": "Withdraw",
-    "leaveConfirm": "Withdraw from this session? Your place will go to somebody else.",
+    "leaveConfirm": "Withdraw from this game? Your place will go to somebody else.",
     "leaveConfirmWaitlisted": "Leave the waitlist? If you sign up again, you will go to the back of it.",
     "pending": "One moment…",
-    "youAreGoing": "You are signed up for this session.",
+    "youAreGoing": "You are signed up for this game.",
     "youAreWaitlisted": "You are number {position} on the waitlist.",
-    "fullHint": "This session is full — signing up puts you on the waitlist. If somebody drops out, you will get an email.",
+    "fullHint": "This game is full — signing up puts you on the waitlist. If somebody drops out, you will get an email.",
     "signInToJoin": "Sign in to join →",
     "calendarHeading": "Calendar",
     "addToCalendar": "Add to calendar (.ics)",
-    "subscribeAll": "Subscribe your calendar to all your sessions →",
-    "feedHeading": "A calendar of your sessions",
-    "feedIntro": "Subscribe your calendar to this address and all your sessions appear there automatically.",
+    "subscribeAll": "Subscribe your calendar to all your games →",
+    "feedHeading": "A calendar of your games",
+    "feedIntro": "Subscribe your calendar to this address and all your games appear there automatically.",
     "feedCopy": "Copy the link",
     "feedSecretWarning": "This address works like a password: anyone who has it can see when and where you play. Do not share or publish it.",
     "feedCreate": "Create a calendar address",
@@ -1722,14 +1722,14 @@
     "error": {
       "generic": "Something went wrong. Please try again.",
       "rate_limited": "Too many requests. Please wait a moment.",
-      "not_attending": "You are not signed up for this session.",
-      "occurrence_cancelled": "This session has been cancelled.",
-      "occurrence_started": "This session has already started.",
-      "occurrence_not_found": "Session not found."
+      "not_attending": "You are not signed up for this game.",
+      "occurrence_cancelled": "This game has been cancelled.",
+      "occurrence_started": "This game has already started.",
+      "occurrence_not_found": "Game not found."
     },
-    "indexTitle": "Sessions",
-    "indexIntro": "Upcoming public sessions. Sign up and show up.",
-    "indexEmptyTitle": "No upcoming sessions",
+    "indexTitle": "Games",
+    "indexIntro": "Upcoming public games. Sign up and show up.",
+    "indexEmptyTitle": "No upcoming games",
     "indexEmptyBody": "Check back soon, or explore facilities on the map.",
     "indexViewMap": "View the map",
     "indexWeekByCity": "This week by city",
@@ -1739,20 +1739,20 @@
       "waitlisted": "On the waiting list"
     },
     "here": {
-      "title": "Upcoming sessions here",
+      "title": "Upcoming games here",
       "places": "{going}/{capacity}"
     },
     "organizerRoster": "Roster & check-ins →",
-    "cancelOccurrence": "Cancel this session",
-    "cancelOccurrenceConfirm": "Cancel this session? Everyone signed up will be notified. This cannot be undone.",
+    "cancelOccurrence": "Cancel this game",
+    "cancelOccurrenceConfirm": "Cancel this game? Everyone signed up will be notified. This cannot be undone.",
     "cancelSeries": "Cancel the whole series",
-    "cancelSeriesConfirm": "Cancel the WHOLE series? All future sessions will be cancelled and attendees notified. This cannot be undone.",
+    "cancelSeriesConfirm": "Cancel the WHOLE series? All future games will be cancelled and attendees notified. This cannot be undone.",
     "weeklyLink": "This week →",
     "campaignsCardTitle": "Campaigns",
     "campaignsCardBody": "Short initiatives with a clear deadline — add, verify and play together.",
     "campaignsCardLink": "See the campaigns →",
     "segments": {
-      "label": "Sessions",
+      "label": "Games",
       "upcoming": "Upcoming",
       "log": "My log"
     }
@@ -1782,10 +1782,10 @@
     "spots": "{going} of {capacity}",
     "spotsUnlimitedOne": "{going} signed up",
     "spotsUnlimitedOther": "{going} signed up",
-    "viewSession": "Session page",
+    "viewSession": "Game page",
     "addToCalendar": "Add to calendar",
     "withdraw": "Cannot make it? Withdraw here",
-    "calendarFeed": "Subscribe your calendar to all your sessions",
+    "calendarFeed": "Subscribe your calendar to all your games",
     "footer": "POPS — More than just sport"
   },
   "Checkin": {
@@ -1803,7 +1803,7 @@
     "locationUnsupported": "This browser cannot share a location, so your attendance will be recorded without points.",
     "locationInsecure": "Your browser will not share your location because this site is not on a secure (https) connection yet. Your attendance is recorded, but it does not earn points.",
     "locationHint": "We use your location only to check you are at the facility. We do not store it.",
-    "viewSession": "Go to the session",
+    "viewSession": "Go to the game",
     "attendance": "{checkedIn} checked in of {going} signed up",
     "scanHint": "Scan this code to record your attendance.",
     "rotates": "The code changes every {seconds} seconds.",
@@ -1816,15 +1816,15 @@
       "unscored_method": "Attendance recorded.",
       "unscored_no_location": "Attendance recorded. Without location access there are no points.",
       "unscored_out_of_range": "Attendance recorded, but you are too far from the facility to earn points.",
-      "unscored_daily_cap": "Attendance recorded. You have already earned the daily maximum for sessions.",
-      "unscored_already": "You are already checked in for this session."
+      "unscored_daily_cap": "Attendance recorded. You have already earned the daily maximum for games.",
+      "unscored_already": "You are already checked in for this game."
     },
     "error": {
       "generic": "Something went wrong. Please try again.",
       "rate_limited": "Too many requests. Please wait a moment.",
       "invalid_checkin_token": "This code is no longer valid. Ask the organiser to show it again.",
-      "occurrence_cancelled": "This session has been cancelled.",
-      "occurrence_not_found": "Session not found.",
+      "occurrence_cancelled": "This game has been cancelled.",
+      "occurrence_not_found": "Game not found.",
       "checkin_window_closed": "Check-in is open from half an hour before the start until two hours after the end.",
       "not_organizer": "You are not allowed to check this person in."
     },
@@ -2188,7 +2188,7 @@
       "org": "About the project"
     },
     "map": "Map",
-    "sessions": "Sessions",
+    "sessions": "Games",
     "leaderboards": "Leaderboards",
     "clubsLanding": "For clubs",
     "clubsDirectory": "Club directory",
@@ -2248,7 +2248,7 @@
       "lead": "POPS is the national sports map. Your club is on it — not on a separate site nobody visits.",
       "places": "places for sport on the map",
       "municipalities": "municipalities with data",
-      "games": "sessions this week",
+      "games": "games this week",
       "surfaces": {
         "directory": {
           "title": "The club directory",
@@ -3171,9 +3171,9 @@
     "refreshNote": "Statistics reflect the change at their next refresh."
   },
   "Roster": {
-    "backToSession": "← Back to the session",
+    "backToSession": "← Back to the game",
     "attendance": "{checkedIn} checked in · {going} signed up",
-    "cancelledNotice": "This session is cancelled.",
+    "cancelledNotice": "This game is cancelled.",
     "signedUp": "Signed up",
     "waitlisted": "Waitlisted",
     "unnamedMember": "No name",
@@ -3194,7 +3194,7 @@
     "metaDescription": "The organisations that make free outdoor sport possible — and how we partner with them.",
     "back": "← Back to the map",
     "title": "Partners & sponsors",
-    "intro": "POPS is a non-profit project. The map, the sessions and the sports passport stay free for everyone — thanks to the organisations listed here. We publish every partnership and exactly how we partner.",
+    "intro": "POPS is a non-profit project. The map, the games and the sports passport stay free for everyone — thanks to the organisations listed here. We publish every partnership and exactly how we partner.",
     "empty": "We will introduce our first partners here soon. Want to be one of them? Write to us — the way is below.",
     "tierTitle_headline": "Headline partners",
     "tierIntro_headline": "Long-term partners who support the whole platform and its mission.",
@@ -3215,7 +3215,7 @@
     "metaDescription": "Donations that keep the national sports map running — bank transfer, donor tax relief and donation contracts.",
     "back": "← Back to the map",
     "title": "Support us",
-    "intro": "POPS is a non-profit association. The map, the sessions and the sports passport are free for everybody who plays, and stay that way — there are no paid features for people. Gyms and clubs that run on the «Clubs» module pay for it by invoice, and so help fund the project too. Your donation pays for the server, the map data and the work of verifying facilities.",
+    "intro": "POPS is a non-profit association. The map, the games and the sports passport are free for everybody who plays, and stay that way — there are no paid features for people. Gyms and clubs that run on the «Clubs» module pay for it by invoice, and so help fund the project too. Your donation pays for the server, the map data and the work of verifying facilities.",
     "fundsTitle": "What a donation pays for",
     "fundsBody": "Hosting on our own server in the European Union, map layers and backups; on-the-ground verification and work with municipalities; maintaining the open data anybody can download for free.",
     "bankTitle": "Bank transfer",
@@ -3361,7 +3361,7 @@
     "passport": {
       "since": "Member since {month}",
       "points": "{count, plural, one {point} other {points}}",
-      "checkins": "{count, plural, one {session} other {sessions}}",
+      "checkins": "{count, plural, one {game} other {games}}",
       "badges": "{count, plural, one {badge} other {badges}}"
     },
     "site": {
@@ -3395,7 +3395,7 @@
   "Training": {
     "metaTitle": "Training log",
     "title": "Training log",
-    "intro": "Log a training session even when it was not an organised group session. The log is private. If your passport is public, your number of training sessions and minutes appear on the “Who is training” board.",
+    "intro": "Log a training session even when it was not an organised game. The log is private. If your passport is public, your number of training sessions and minutes appear on the “Who is training” board.",
     "statSessions": "{count, plural, one {training session} other {training sessions}} (30 days)",
     "statMinutes": "{count, plural, one {minute} other {minutes}}",
     "statSports": "{count, plural, one {sport} other {sports}}",
@@ -3660,7 +3660,7 @@
       "verified": "verified",
       "gone": "marked as gone"
     },
-    "playTitle": "Play sessions",
+    "playTitle": "Games",
     "playSeries": "Series organised",
     "playSeriesNote": "A series is “every Tuesday”, not a single evening.",
     "playRsvpActive": "Active RSVPs",
@@ -3682,7 +3682,7 @@
     "commsTitle": "Messages",
     "commsDigestCities": "Weekly digest subscriptions",
     "commsDigestSends": "Weekly digests sent",
-    "commsSessionMail": "Session emails",
+    "commsSessionMail": "Game emails",
     "commsNote": "We keep only that we wrote — never what we wrote.",
     "credentialsTitle": "Access and devices",
     "credentialsNote": "Keys and addresses are not shown — they are live credentials. IP addresses are never stored at all.",
@@ -3791,7 +3791,7 @@
     },
     "service": {
       "title": "The service",
-      "body": "POPS is a free map of the publicly accessible sports facilities in Bulgaria, with group sessions, a sports passport, leaderboards and open data. There are no paid features for people who play. The «Clubs» module is a service for gyms, studios and sports clubs: a club uses it under the terms accepted when applying and, after the free trial, under a contract for at least {months} months that renews every year unless the club ends it with at least {notice, plural, one {one month’s} other {# months’}} notice before the term ends. The service is paid for by invoice. We may change, temporarily suspend or discontinue parts of the service, including for maintenance."
+      "body": "POPS is a free map of the publicly accessible sports facilities in Bulgaria, with open games, a sports passport, leaderboards and open data. There are no paid features for people who play. The «Clubs» module is a service for gyms, studios and sports clubs: a club uses it under the terms accepted when applying and, after the free trial, under a contract for at least {months} months that renews every year unless the club ends it with at least {notice, plural, one {one month’s} other {# months’}} notice before the term ends. The service is paid for by invoice. We may change, temporarily suspend or discontinue parts of the service, including for maintenance."
     },
     "account": {
       "title": "Your account",
@@ -3800,7 +3800,7 @@
     },
     "content": {
       "title": "What may be published",
-      "body": "You are responsible for what you add: facility data, photos, the name and city in your profile, session titles and descriptions. Do not publish:",
+      "body": "You are responsible for what you add: facility data, photos, the name and city in your profile, game titles and descriptions. Do not publish:",
       "items": {
         "illegal": "illegal content;",
         "personalData": "other people's personal data;",
@@ -3873,7 +3873,7 @@
     "back": "← Home",
     "title": "Content notice",
     "metaDescription": "Tell us about illegal content or a breach of the Terms of use on POPS.",
-    "intro": "Do you think something on POPS is illegal or breaks the Terms of use — a photo, a facility name, a name or city on a leaderboard, a public passport, a session? Tell us. An administrator reviews every notice.",
+    "intro": "Do you think something on POPS is illegal or breaks the Terms of use — a photo, a facility name, a name or city on a leaderboard, a public passport, a game? Tell us. An administrator reviews every notice.",
     "otherChannels": "For broken equipment or missing lighting, use <report>Report a problem</report> on the facility page. Other ways to reach us are on the <contact>Contact</contact> page.",
     "urlLabel": "Address of the content",
     "urlHint": "Copy the address of the page (it starts with https://). If the page shows many things, describe below which one you mean.",
@@ -7765,7 +7765,7 @@
       "filterLabel": "Choose a sport",
       "all": "All",
       "placesLegend": "places for sport",
-      "gamesLegend": "{count, plural, =0 {no sessions this week yet} one {# session this week} other {# sessions this week}}",
+      "gamesLegend": "{count, plural, =0 {no games this week yet} one {# game this week} other {# games this week}}",
       "showOnMap": "Show on the map",
       "topLabel": "Most places:",
       "placesOne": "# place",
@@ -7785,11 +7785,11 @@
       "nextToday": "Today, {time}",
       "nextTomorrow": "Tomorrow, {time}",
       "nextOn": "{date}, {time}",
-      "nextEmpty": "You have not signed up for a session.",
+      "nextEmpty": "You have not signed up for a game.",
       "nextEmptyCta": "See what is coming up",
       "streak": "Streak",
       "streakWeeks": "{count, plural, =0 {Start a streak this week} one {# week in a row} other {# weeks in a row}}",
-      "streakAtRisk": "No attendance marked this week yet — your streak continues if you come to a session by Sunday.",
+      "streakAtRisk": "No attendance marked this week yet — your streak continues if you come to a game by Sunday.",
       "streakKeep": "Keep it up.",
       "badges": "Badges",
       "badgesCount": "{earned} of {total}",
@@ -7799,18 +7799,18 @@
       "checkinCta": "Scan the code"
     },
     "games": {
-      "overline": "Sessions",
+      "overline": "Games",
       "title": "Join a game",
-      "lead": "Open sessions at public places around the country. They are free — sign up and come along.",
+      "lead": "Open games at public places around the country. They are free — sign up and come along.",
       "today": "today",
       "tomorrow": "tomorrow",
       "going": "{count, plural, one {# going} other {# going}}",
       "spots": "{going} of {capacity} spots",
       "full": "No spots left",
-      "all": "All sessions",
+      "all": "All games",
       "weekly": "The week by town",
-      "emptyTitle": "No sessions scheduled this week yet",
-      "emptyBody": "Open sessions are scheduled by the association — first in Sofia, Plovdiv and Varna. Subscribe to your city's weekly digest and you will hear first.",
+      "emptyTitle": "No games scheduled this week yet",
+      "emptyBody": "Open games are scheduled by the association — first in Sofia, Plovdiv and Varna. Subscribe to your city's weekly digest and you will hear first.",
       "prev": "Back",
       "next": "Forward"
     },
@@ -7820,7 +7820,7 @@
       "lead": "The data is open — every figure can be checked on the statistics page and downloaded under a free licence.",
       "places": "free places for sport",
       "municipalities": "municipalities with data",
-      "games": "sessions this week",
+      "games": "games this week",
       "contributions": "contributions in 30 days",
       "stats": "Statistics",
       "openData": "Open data"
@@ -7888,7 +7888,7 @@
         "lead": "They are shown with real phone screens, step by step, and the rules with pictures. Tap a step to see it, or let the recording play on its own.",
         "find": "Find somewhere to play — near you or in another town.",
         "contribute": "Add a missing place, confirm one, or update its condition.",
-        "play": "Sign up for an open session and check in with a QR code.",
+        "play": "Sign up for an open game and check in with a QR code.",
         "passport": "Collect points, badges and streaks in your sports passport.",
         "ranking": "Compare yourself on the leaderboards and in the weekly divisions — only if you want to."
       },
@@ -7920,7 +7920,7 @@
           },
           "s5": {
             "title": "Everything about the place",
-            "body": "Sports, access, surface, lighting, when it was last checked and which sessions are held there. Below — how to help with the data."
+            "body": "Sports, access, surface, lighting, when it was last checked and which games are held there. Below — how to help with the data."
           }
         },
         "add": {
@@ -7966,10 +7966,10 @@
           }
         },
         "play": {
-          "title": "how to sign up for a session and check in",
+          "title": "how to sign up for a game and check in",
           "s1": {
-            "title": "Pick a session",
-            "body": "“Sessions” in the bottom bar lists everything coming up — the soonest first."
+            "title": "Pick a game",
+            "body": "“Games” in the bottom bar lists everything coming up — the soonest first."
           },
           "s2": {
             "title": "“I’m in”",
@@ -7981,7 +7981,7 @@
           },
           "s4": {
             "title": "At the court — “Scan the code”",
-            "body": "When the session is about to start, a check-in button appears on your home page."
+            "body": "When the game is about to start, a check-in button appears on your home page."
           },
           "s5": {
             "title": "Point the camera at the code",
@@ -7993,14 +7993,14 @@
           },
           "s7": {
             "title": "+2 points",
-            "body": "The session goes into your passport, and the first one earns the “First session” badge."
+            "body": "The check-in goes into your passport, and the first one earns the “First game” badge."
           }
         },
         "passport": {
           "title": "what is in the sports passport",
           "s1": {
             "title": "Points and contributions",
-            "body": "These 17 points come from the recordings above: a place, a confirmation, a report and one session."
+            "body": "These 17 points come from the recordings above: a place, a confirmation, a report and one game."
           },
           "s2": {
             "title": "Badges",
@@ -8111,9 +8111,9 @@
       },
       "play": {
         "overline": "Play",
-        "title": "Open sessions at public places",
-        "lead": "Free group sessions — basketball, football, outdoor fitness and more. You sign up with one tap and check in with the organiser’s QR code.",
-        "note": "The sessions in the recording are examples.",
+        "title": "Open games at public places",
+        "lead": "Free games — basketball, football, table tennis and more. You sign up with one tap and check in with the organiser’s QR code.",
+        "note": "The games in the recording are examples.",
         "proof": {
           "title": "How the QR code shows you were there",
           "rotate": {
@@ -8125,11 +8125,11 @@
             "body": "Your phone says where you are — once. Within 250 metres of the place, the check-in earns points."
           },
           "time": {
-            "title": "At the time of the session",
+            "title": "At the time of the game",
             "body": "Check-in is open from 30 minutes before the start until 2 hours after the end."
           },
-          "result": "+2 points and the session in your passport",
-          "without": "Without a location the check-in is still recorded — it just earns no points. Up to 3 sessions a day earn points.",
+          "result": "+2 points and the check-in in your passport",
+          "without": "Without a location the check-in is still recorded — it just earns no points. Up to 3 games a day earn points.",
           "ticks": {
             "before": "30 min before",
             "start": "start",
@@ -8141,17 +8141,17 @@
         "upcoming": "Coming up",
         "weekly": {
           "title": "The week in your town",
-          "body": "Every Monday — the town’s sessions for the week: on a page, and by email if you subscribe.",
+          "body": "Every Monday — the town’s games for the week: on a page, and by email if you subscribe.",
           "link": "The week in Sofia"
         },
         "log": {
           "title": "Training log",
-          "body": "Training on your own? Log it in your training log through “+”. The log is private; if your passport is public, your number of sessions counts on the “Who is training” board.",
+          "body": "Training on your own? Log it in your training log through “+”. The log is private; if your passport is public, your number of trainings counts on the “Who is training” board.",
           "link": "To the training log"
         },
         "organise": {
           "title": "Want to run a group?",
-          "body": "For now the association schedules the sessions — Sofia, Plovdiv and Varna first. If you would like to run a group, write to us.",
+          "body": "For now the association schedules the games — Sofia, Plovdiv and Varna first. If you would like to run a group, write to us.",
           "link": "Write to us"
         }
       },
@@ -8175,7 +8175,7 @@
             "rule": "once a day per place"
           },
           "session_attended": {
-            "label": "Session attended",
+            "label": "Game attended",
             "rule": "with the QR code, up to 3 a day"
           },
           "points": "+{count}",
@@ -8187,25 +8187,25 @@
           "hint": "Tap a coin to see how it is earned.",
           "flip": "{name}: how it is earned",
           "contribution": "For contributing to the map",
-          "participation": "For playing in sessions"
+          "participation": "For playing in games"
         },
         "streaks": {
           "title": "Two streaks",
           "days": {
             "title": "Days in a row",
-            "body": "Every day with an on-site contribution or a checked-in session. Seven in a row earn the “Seven in a row” badge."
+            "body": "Every day with an on-site contribution or a game you checked in to. Seven in a row earn the “Seven in a row” badge."
           },
           "weeks": {
             "title": "Weeks in a row",
-            "body": "Every week with at least one checked-in session. Four in a row earn “A month in motion”."
+            "body": "Every week with at least one game you checked in to. Four in a row earn “A month in motion”."
           },
           "freeze": {
             "title": "A missed week",
             "body": "Up to twice a year your week streak is kept by itself — you do not have to do anything."
           },
           "clock": "Days and weeks are counted on Sofia time.",
-          "stripLabel": "Eight weeks: a session every week; one missed week is kept and the streak goes on.",
-          "trained": "session",
+          "stripLabel": "Eight weeks: a game every week; one missed week is kept and the streak goes on.",
+          "trained": "game",
           "frozen": "kept week"
         },
         "privacy": {
@@ -8218,7 +8218,7 @@
             "title": "Public",
             "body": "It gets an address you can share, and shows you on the leaderboards under the name and town you wrote yourself."
           },
-          "shows": "It shows: your name and town, badges, totals and streaks; if you wish, your number of contributions and sessions by month.",
+          "shows": "It shows: your name and town, badges, totals and streaks; if you wish, your number of contributions and games by month.",
           "never": "Never: when or where you played.",
           "back": "You can make it private again at any time."
         },
@@ -8234,11 +8234,11 @@
           "filters": "Both can be filtered by town and by sport.",
           "contributions": {
             "title": "Who is building the map",
-            "body": "All points — for places, confirmations, reports and attended sessions. Of all time or this month only."
+            "body": "All points — for places, confirmations, reports and attended games. Of all time or this month only."
           },
           "participation": {
             "title": "Who is training",
-            "body": "Number of sessions in each member’s training log over the last 90 days. Turning up counts, not the score."
+            "body": "Number of trainings in each member’s training log over the last 90 days. Turning up counts, not the score."
           }
         },
         "divisions": {
@@ -8312,15 +8312,15 @@
         "title": "Frequently asked questions",
         "free": {
           "q": "Is it free?",
-          "a": "Yes. The map, the sessions, the passport and the leaderboards are free. POPS is a non-profit association, funded by donations, partners and the clubs that use its tools."
+          "a": "Yes. The map, the games, the passport and the leaderboards are free. POPS is a non-profit association, funded by donations, partners and the clubs that use its tools."
         },
         "account": {
           "q": "Do I need an account?",
-          "a": "To browse the map and the sessions — no. To add, confirm, sign up and collect points — yes. You sign in with a code by email, no password."
+          "a": "To browse the map and the games — no. To add, confirm, sign up and collect points — yes. You sign in with a code by email, no password."
         },
         "who": {
           "q": "Who sees where and when I play?",
-          "a": "The session’s organiser sees who has signed up — that is why we ask for a name when you first sign in. Nobody else: a session’s page only shows how many have signed up, and a public passport shows badges and totals — never places or dates."
+          "a": "The game’s organiser sees who has signed up — that is why we ask for a name when you first sign in. Nobody else: a game’s page only shows how many have signed up, and a public passport shows badges and totals — never places or dates."
         },
         "location": {
           "q": "What happens to my location?",
@@ -8331,8 +8331,8 @@
           "a": "Open it and answer “No, it is gone”. The report goes to a moderator — nothing disappears from the map by itself."
         },
         "organise": {
-          "q": "Can I organise a session?",
-          "a": "For now the association schedules the sessions — Sofia, Plovdiv and Varna first. If you would like to run a group, write to us."
+          "q": "Can I organise a game?",
+          "a": "For now the association schedules the games — Sofia, Plovdiv and Varna first. If you would like to run a group, write to us."
         },
         "delete": {
           "q": "Can I delete my account?",

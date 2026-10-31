@@ -50,8 +50,8 @@ export async function markPresentAction(occurrenceId: string, memberId: string):
     if (error instanceof SessionError) return;
     throw error;
   } finally {
-    revalidatePath(`/sesiya/${occurrenceId}/roster`);
-    revalidatePath(`/sesiya/${occurrenceId}`);
+    revalidatePath(`/igra/${occurrenceId}/roster`);
+    revalidatePath(`/igra/${occurrenceId}`);
   }
 
   // The MEMBER whose attendance was recorded, not the organiser who recorded

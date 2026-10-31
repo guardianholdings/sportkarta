@@ -49,7 +49,7 @@ export default async function LocaleNotFound() {
             {t('toMap')}
           </Link>
           <Link
-            href="/sesii"
+            href="/igri"
             className="inline-flex min-h-11 items-center rounded-pill border border-line-strong bg-surface px-5 text-body-sm font-semibold text-ink shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-surface-2"
           >
             {t('toSessions')}

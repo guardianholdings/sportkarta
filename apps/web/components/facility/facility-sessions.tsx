@@ -6,7 +6,7 @@ import { formatDateTime } from '@/lib/format';
 import { facilitySessions, type FacilitySession } from '@/lib/sessions/occurrence';
 
 /**
- * The next public тренировки held at this facility (UX audit N7). A sibling of
+ * The next public игри held at this facility (UX audit N7). A sibling of
  * the club block, never inside FacilityDetailView (whose props feed the
  * JSON-LD). Renders nothing when there is none, or when the query fails — a
  * facility page must not wear a sessions outage. Names nobody: indexed page.
@@ -34,7 +34,7 @@ export async function FacilitySessionsBlock({ facilityId }: { facilityId: string
         {sessions.map((s) => (
           <li key={s.occurrenceId}>
             <Link
-              href={`/sesiya/${s.occurrenceId}`}
+              href={`/igra/${s.occurrenceId}`}
               className="flex min-h-11 items-center justify-between gap-3 py-2 text-body-sm hover:text-brand"
             >
               <span className="min-w-0">

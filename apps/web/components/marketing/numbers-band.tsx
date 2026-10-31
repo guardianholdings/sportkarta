@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
  * «Живата карта в числа» — the figures the platform already publishes on
  * /statistika (mv_national_stats) and the two pulses the hero computes, as
  * four rolling counters. Nothing here is person-derived: places, municipalities
- * with data, public тренировки in the next seven days, awarded contributions
+ * with data, public игри in the next seven days, awarded contributions
  * in the last thirty days. A figure that failed to load is left out rather
  * than shown as zero.
  */

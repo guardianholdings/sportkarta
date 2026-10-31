@@ -108,9 +108,7 @@ describe('cardPath', () => {
     expect(cardPath({ kind: 'facility', locale: 'bg', ref: 'park' })).toBe(
       '/og/bg/obekt/park/card.png',
     );
-    expect(cardPath({ kind: 'session', locale: 'bg', ref: 's1' })).toBe(
-      '/og/bg/sesiya/s1/card.png',
-    );
+    expect(cardPath({ kind: 'session', locale: 'bg', ref: 's1' })).toBe('/og/bg/igra/s1/card.png');
   });
 });
 
@@ -216,20 +214,20 @@ describe('buildShare', () => {
       kind: 'session',
       locale: 'en',
       origin: ORIGIN,
-      page: '/sesiya/s1',
+      page: '/igra/s1',
       text: 'x',
       ref: 's1',
     });
-    expect(en.url).toBe(`${ORIGIN}/en/sesiya/s1`);
+    expect(en.url).toBe(`${ORIGIN}/en/igra/s1`);
     const bg = buildShare({
       kind: 'session',
       locale: 'bg',
       origin: ORIGIN,
-      page: '/sesiya/s1',
+      page: '/igra/s1',
       text: 'x',
       ref: 's1',
     });
-    expect(bg.url).toBe(`${ORIGIN}/sesiya/s1`);
+    expect(bg.url).toBe(`${ORIGIN}/igra/s1`);
   });
 
   it('prefixes only English, and the home page without a trailing slash', () => {

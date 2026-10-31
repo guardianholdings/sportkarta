@@ -22,14 +22,14 @@ import { cn } from '@/lib/utils';
  * client island (QuickActions), which reads `Nav` itself because a function
  * cannot cross from the server shell into it.
  *
- * The tabs (operator, 2026-10-31): Карта · Тренировки · Паспорт · Профил.
+ * The tabs (operator, 2026-10-31): Карта · Игри · Паспорт · Профил.
  * Класиране lives inside the passport and the private training log inside
- * Тренировки, so `tabFor` lights the tab a page belongs to.
+ * Игри, so `tabFor` lights the tab a page belongs to.
  */
 
 export const NAV = [
   { key: 'navMap', href: '/karta', icon: MapIcon },
-  { key: 'navSessions', href: '/sesii', icon: CalendarDays },
+  { key: 'navSessions', href: '/igri', icon: CalendarDays },
   { key: 'navPassport', href: '/pasport', icon: Award },
   { key: 'navProfile', href: '/profil', icon: User },
 ] as const;

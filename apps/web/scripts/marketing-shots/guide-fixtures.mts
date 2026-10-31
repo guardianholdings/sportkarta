@@ -1,5 +1,5 @@
-// The тренировки the front page's recordings show (guide.mjs): an organiser
-// named «POPS» — the association schedules the open тренировки — and four
+// The игри the front page's recordings show (guide.mjs): an organiser
+// named «POPS» — the association schedules the open игри — and four
 // public series at real places around Южен парк in Sofia, one of them a
 // one-off starting in a few minutes so its QR check-in window is open while
 // the recording runs. Run by guide.mjs before it captures; never against
@@ -84,8 +84,7 @@ async function facilityId(slug: string): Promise<string> {
 const [organiser] = await rows(
   sql`SELECT id FROM users WHERE email = ${ORGANISER_EMAIL} AND role = 'admin'`,
 );
-if (!organiser)
-  throw new Error(`no admin test account ${ORGANISER_EMAIL} to organise the тренировки`);
+if (!organiser) throw new Error(`no admin test account ${ORGANISER_EMAIL} to organise the игри`);
 const organiserId = String(organiser.id);
 await db.execute(
   sql`UPDATE users SET display_name = ${ORGANISER_NAME} WHERE id = ${organiserId} AND coalesce(display_name, '') = ''`,

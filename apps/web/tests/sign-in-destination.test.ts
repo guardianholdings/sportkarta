@@ -20,7 +20,7 @@ describe('signInReason — /vhod says why the visitor is there', () => {
     expect(signInReason('/skenirai')).toBe('scan');
 
     expect(signInReason('/obekt/borisova-gradina')).toBe('contribute');
-    expect(signInReason('/sesiya/123')).toBe('session');
+    expect(signInReason('/igra/123')).toBe('session');
     expect(signInReason('/otmetka/abc')).toBe('checkin');
   });
 
@@ -87,8 +87,8 @@ describe('signInDestination', () => {
     // lands in the language they signed in with either way.
     expect(signInDestination('/en/dobavi')).toBe('/dobavi');
     expect(signInDestination('/obekt/way-103530116')).toBe('/obekt/way-103530116');
-    expect(signInDestination('/en/sesiya/0f8c3a52-6b1e-4c1a-9d59-1f0b7b6b2d10')).toBe(
-      '/sesiya/0f8c3a52-6b1e-4c1a-9d59-1f0b7b6b2d10',
+    expect(signInDestination('/en/igra/0f8c3a52-6b1e-4c1a-9d59-1f0b7b6b2d10')).toBe(
+      '/igra/0f8c3a52-6b1e-4c1a-9d59-1f0b7b6b2d10',
     );
   });
 
@@ -116,9 +116,9 @@ describe('signInDestination', () => {
 
 describe('signInHref', () => {
   it('carries the page to come back to', () => {
-    expect(signInHref('/sesiya/abc')).toEqual({
+    expect(signInHref('/igra/abc')).toEqual({
       pathname: '/vhod',
-      query: { next: '/sesiya/abc' },
+      query: { next: '/igra/abc' },
     });
     // The header middleware sets is the prefixed external path.
     expect(signInHref('/en/trenirovki')).toEqual({

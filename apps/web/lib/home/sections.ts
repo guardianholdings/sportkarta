@@ -42,7 +42,7 @@ export function heroSports(limit = 8): Promise<SportCount[]> {
   });
 }
 
-/** The same list /sesii opens with. */
+/** The same list /igri opens with. */
 export function upcomingGames(): Promise<SessionSummary[]> {
   return homeCached('games', 2 * 60_000, () => listUpcomingSessions(12));
 }

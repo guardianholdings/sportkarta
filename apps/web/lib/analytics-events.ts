@@ -66,7 +66,7 @@ export const ANALYTICS_EVENTS = {
    * The buried-page counter. Until A6 (2026-07-26) `/sedmitsata` had no index
    * route and its only inbound link sat on `/profil`, behind requireUser() — so
    * a page built to be forwarded was reachable only by people already signed in.
-   * It now has an index and a link from `/sesii`; this event is what makes
+   * It now has an index and a link from `/igri`; this event is what makes
    * "unburying worked" falsifiable rather than an assertion.
    */
   weeklyOpen: 'weekly_open',

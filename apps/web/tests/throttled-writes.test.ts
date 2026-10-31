@@ -49,7 +49,7 @@ afterEach(() => {
 });
 
 async function markPresent() {
-  const mod = await import('@/app/[locale]/sesiya/[occurrenceId]/roster/actions');
+  const mod = await import('@/app/[locale]/igra/[occurrenceId]/roster/actions');
   return mod.markPresentAction;
 }
 

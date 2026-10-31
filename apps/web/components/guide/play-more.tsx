@@ -11,7 +11,7 @@ const MORE = [
   { key: 'organise', icon: Users, href: '/kontakt' },
 ] as const;
 
-/** «Тренирайте», after the recording: what is on this week, and three more ways in. */
+/** «Играйте», after the recording: what is on this week, and three more ways in. */
 export async function PlayMore({ games, locale }: { games: SessionSummary[]; locale: string }) {
   const [t, tGames] = await Promise.all([
     getTranslations('Home.guide.play'),
@@ -23,7 +23,7 @@ export async function PlayMore({ games, locale }: { games: SessionSummary[]; loc
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h3 className="text-h3 font-extrabold tracking-tight text-ink">{t('upcoming')}</h3>
           <Link
-            href="/sesii"
+            href="/igri"
             className="inline-flex items-center gap-1 text-body-sm font-semibold text-link hover:text-link-hover"
           >
             {tGames('all')}

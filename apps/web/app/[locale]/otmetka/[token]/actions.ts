@@ -74,7 +74,7 @@ export async function redeemCheckinAction(
       lat: coordinate(formData.get('lat'), 90),
       lon: coordinate(formData.get('lon'), 180),
     });
-    revalidatePath(`/sesiya/${occurrenceId}`);
+    revalidatePath(`/igra/${occurrenceId}`);
     // Enqueued for EVERY outcome, including the unscored ones: participation
     // badges count the attendance FACT, not the payment, so a check-in that
     // earned no points can still complete a badge.

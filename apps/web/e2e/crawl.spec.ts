@@ -36,7 +36,7 @@ const PUBLIC_ROUTES = [
   '/privacy',
   '/partnyori',
   '/podkrepi',
-  '/sesii',
+  '/igri',
   `/obshtina/${CITY}`,
   '/sedmitsata',
   `/sedmitsata/${CITY}`,
@@ -59,7 +59,7 @@ const ADMIN_ONLY = [
   '/admin/verify',
   '/admin/moderation',
   '/admin/akaunti',
-  '/admin/sesii',
+  '/admin/igri',
   '/admin/rezultati',
   '/admin/kampanii',
   '/admin/partnyori',
@@ -282,7 +282,7 @@ test.describe('link crawler', () => {
    *
    * This asserts the property the audit actually cares about: an ANONYMOUS
    * visitor can FIND these pages by following links. Delete the footer entry or
-   * the /sesii card and this goes red — the crawl would not.
+   * the /igri card and this goes red — the crawl would not.
    *
    * Deliberately checks entry points that render UNCONDITIONALLY. A live
    * campaign strip would satisfy a weaker version of this test today and fail
@@ -297,12 +297,12 @@ test.describe('link crawler', () => {
       return hrefs.map((h) => (h.split('#')[0] ?? '').replace(/^\/en(?=\/|$)/, ''));
     }
 
-    // /sesii is where COVERAGE-MATRIX puts both entry points.
-    const fromSesii = await internalLinksOn('/sesii');
-    expect(fromSesii, '/kampanii must be linked from /sesii (COVERAGE-MATRIX §1)').toContain(
+    // /igri is where COVERAGE-MATRIX puts both entry points.
+    const fromSesii = await internalLinksOn('/igri');
+    expect(fromSesii, '/kampanii must be linked from /igri (COVERAGE-MATRIX §1)').toContain(
       '/kampanii',
     );
-    expect(fromSesii, '/sedmitsata must be linked from /sesii (COVERAGE-MATRIX §3)').toContain(
+    expect(fromSesii, '/sedmitsata must be linked from /igri (COVERAGE-MATRIX §3)').toContain(
       '/sedmitsata',
     );
 
@@ -314,7 +314,7 @@ test.describe('link crawler', () => {
     // The index must actually lead somewhere: at least one city, or an explicit
     // empty state that offers the way on rather than a blank list.
     const fromWeekly = await internalLinksOn('/sedmitsata');
-    const leadsOn = fromWeekly.some((h) => h.startsWith('/sedmitsata/') || h === '/sesii');
+    const leadsOn = fromWeekly.some((h) => h.startsWith('/sedmitsata/') || h === '/igri');
     expect(leadsOn, '/sedmitsata must link to a city page or offer a way on').toBe(true);
   });
 
@@ -328,7 +328,7 @@ test.describe('link crawler', () => {
   /**
    * The member-side counterpart of the anonymous reachability test above.
    *
-   * /trenirovki is a segment of the Тренировки tab (2026-10-31), not a tab of
+   * /trenirovki is a segment of the Игри tab (2026-10-31), not a tab of
    * its own, so it is reachable only by the links this asserts. Crawling it in
    * MEMBER_ROUTES proves it RENDERS; this proves a member can FIND it, which is
    * the distinction A6 was written about after /kampanii sat link-less behind a
@@ -345,7 +345,7 @@ test.describe('link crawler', () => {
       return hrefs.map((h) => (h.split('#')[0] ?? '').replace(/^\/en(?=\/|$)/, ''));
     };
 
-    expect(await linksOn('/sesii'), '/trenirovki must be a segment of /sesii').toContain(
+    expect(await linksOn('/igri'), '/trenirovki must be a segment of /igri').toContain(
       '/trenirovki',
     );
     expect(await linksOn('/profil'), '/trenirovki must be linked from /profil').toContain(

@@ -144,7 +144,7 @@ const REASONS: readonly [path: string | RegExp, reason: SignInReason][] = [
   ['/pasport', 'passport'],
   ['/trenirovki', 'training'],
   ['/obekt/', 'contribute'],
-  ['/sesiya/', 'session'],
+  ['/igra/', 'session'],
   ['/otmetka/', 'checkin'],
   ['/skenirai', 'scan'],
   ['/klub', 'clubs'],

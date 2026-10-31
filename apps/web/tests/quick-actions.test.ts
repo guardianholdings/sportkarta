@@ -7,7 +7,7 @@ import bg from '../messages/bg.json';
 
 /**
  * The navigation shell after the 2026-10-31 operator decisions (UX audit
- * N1–N3, N5): four tabs — Карта · Тренировки · Паспорт · Профил — and a «+»
+ * N1–N3, N5): four tabs — Карта · Игри · Паспорт · Профил — and a «+»
  * that opens three actions. The vitest environment has no DOM, so the menu's
  * behaviour is pinned at the source; e2e/quick-actions.spec.ts drives it.
  */
@@ -18,15 +18,15 @@ const nav = read('components', 'shell', 'app-nav.tsx');
 const explorer = read('components', 'map', 'map-explorer.tsx');
 
 describe('the tab bar', () => {
-  it('is Карта · Тренировки · Паспорт · Профил', () => {
+  it('is Карта · Игри · Паспорт · Профил', () => {
     // From the source: app-nav imports the locale-aware Link, which needs Next.
     const block = /export const NAV = \[([\s\S]*?)\] as const;/.exec(nav)?.[1] ?? '';
     const tabs = [...block.matchAll(/key: '(\w+)', href: '([^']+)'/g)].map((m) => ({
       key: m[1] as keyof typeof bg.Nav,
       href: m[2],
     }));
-    expect(tabs.map((n) => n.href)).toEqual(['/karta', '/sesii', '/pasport', '/profil']);
-    expect(tabs.map((n) => bg.Nav[n.key])).toEqual(['Карта', 'Тренировки', 'Паспорт', 'Профил']);
+    expect(tabs.map((n) => n.href)).toEqual(['/karta', '/igri', '/pasport', '/profil']);
+    expect(tabs.map((n) => bg.Nav[n.key])).toEqual(['Карта', 'Игри', 'Паспорт', 'Профил']);
   });
 
   it('says «Вход», not «Профил», to a visitor without a session', () => {

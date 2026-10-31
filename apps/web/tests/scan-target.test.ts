@@ -13,7 +13,7 @@ const ORIGINS = ['https://pops.bg', 'http://localhost:3040'];
 const TOKEN = 'b3JpZ2luYWx0b2tlbg~12345~abc_DEF-9';
 
 describe('scanTarget', () => {
-  it('opens a public тренировка code and a club tablet code, locale prefix or not', () => {
+  it('opens a public игра code and a club tablet code, locale prefix or not', () => {
     expect(scanTarget(`https://pops.bg/otmetka/${TOKEN}`, ORIGINS)).toBe(`/otmetka/${TOKEN}`);
     expect(scanTarget(`https://pops.bg/en/otmetka/${TOKEN}`, ORIGINS)).toBe(`/otmetka/${TOKEN}`);
     expect(scanTarget(`https://pops.bg/klubove/otmetka/${TOKEN}/`, ORIGINS)).toBe(

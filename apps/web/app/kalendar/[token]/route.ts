@@ -59,7 +59,7 @@ export async function GET(
     endsAt: new Date(occurrence.endsAt),
     summary: occurrence.title,
     location: occurrence.facilityName ?? undefined,
-    url: `${base}/sesiya/${occurrence.occurrenceId}`,
+    url: `${base}/igra/${occurrence.occurrenceId}`,
     lat: occurrence.lat ?? undefined,
     lon: occurrence.lon ?? undefined,
     cancelled: occurrence.cancelled,

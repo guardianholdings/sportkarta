@@ -37,7 +37,7 @@ function Shell({
  * hero below does not jump when it lands; a failed load renders nothing rather
  * than taking the front page down with it.
  *
- * While a тренировка they signed up for is open for check-in, a card under
+ * While an игра they signed up for is open for check-in, a card under
  * the strip says so and opens the scanner: the one thing to do right now (UX
  * audit N4, «today-first»).
  */
@@ -94,7 +94,7 @@ export async function PersonalStrip({ user, locale }: { user: CurrentUser; local
         {name ? t('greeting', { name }) : t('greetingNoName')}
       </p>
 
-      <Link href={next?.href ?? '/sesii'} className={TILE}>
+      <Link href={next?.href ?? '/igri'} className={TILE}>
         <span className="grid size-10 shrink-0 place-items-center rounded-md bg-brand-subtle text-brand">
           <CalendarClock size={20} aria-hidden="true" />
         </span>

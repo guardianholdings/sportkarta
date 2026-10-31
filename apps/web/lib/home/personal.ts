@@ -44,7 +44,7 @@ export type NextUp =
       place: string;
     };
 
-/** A тренировка the member signed up for whose check-in is open right now. */
+/** An игра the member signed up for whose check-in is open right now. */
 export interface OpenCheckin {
   title: string;
   place: string | null;
@@ -53,7 +53,7 @@ export interface OpenCheckin {
 export interface HomePersonal {
   next: NextUp | null;
   /**
-   * Set while a тренировка they signed up for is inside its check-in window
+   * Set while an игра they signed up for is inside its check-in window
    * and they have not checked in: the home's one call to action then is
    * «Сканирай кода» (UX audit N4, «today-first»).
    */
@@ -98,7 +98,7 @@ async function nextSession(db: SqlRunner, userId: string): Promise<Candidate | n
   return {
     item: {
       kind: 'session',
-      href: `/sesiya/${String(row.id)}`,
+      href: `/igra/${String(row.id)}`,
       title: String(row.title),
       sport: String(row.sport),
       startsAtLocal: String(row.starts_at_local),

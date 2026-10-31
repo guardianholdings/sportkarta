@@ -4,9 +4,9 @@ import { Link } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
 
 /**
- * «Предстоящи | Моят дневник» at the top of /sesii and /trenirovki (operator,
- * 2026-10-31; UX audit N2). «Тренировки» meant two pages that did not know
- * about each other: a member who came to log a run tapped the Тренировки tab
+ * «Предстоящи | Моят дневник» at the top of /igri and /trenirovki (operator,
+ * 2026-10-31; UX audit N2). «Игри» (then «Тренировки») meant two pages that did
+ * not know about each other: a member who came to log a run tapped that tab
  * and found the public list, while the private log hid behind a profile pill.
  * Now both live under the one tab, a segment apart.
  *
@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 export async function SessionsSegments({ current }: { current: 'upcoming' | 'log' }) {
   const t = await getTranslations('Session.segments');
   const items = [
-    { key: 'upcoming', href: '/sesii' },
+    { key: 'upcoming', href: '/igri' },
     { key: 'log', href: '/trenirovki' },
   ] as const;
   return (

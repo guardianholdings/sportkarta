@@ -47,7 +47,7 @@ export default async function AdminLayout({
     // undo, and whether the worker, the queues and the mail are running.
     { href: '/admin/redakcii', label: t('crowdEdits'), minRole: 'admin' },
     { href: '/admin/zdrave', label: t('health'), minRole: 'admin' },
-    { href: '/admin/sesii', label: t('bulkSessions'), minRole: 'admin' },
+    { href: '/admin/igri', label: t('bulkSessions'), minRole: 'admin' },
     { href: '/admin/rezultati', label: t('results'), minRole: 'admin' },
     { href: '/admin/kampanii', label: t('campaigns'), minRole: 'admin' },
     { href: '/admin/partnyori', label: t('partners'), minRole: 'admin' },

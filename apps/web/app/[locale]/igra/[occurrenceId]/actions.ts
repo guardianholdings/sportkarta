@@ -47,7 +47,7 @@ async function notify(payload: Record<string, unknown>): Promise<void> {
     await boss.send(SESSION_NOTIFY_QUEUE, payload);
   } catch (error: unknown) {
     console.error(
-      '[sesiya] could not enqueue session notification:',
+      '[igra] could not enqueue session notification:',
       error instanceof Error ? error.message : 'unknown',
     );
   }
@@ -71,7 +71,7 @@ export async function rsvpAction(_prev: RsvpState, formData: FormData): Promise<
         userIds: [user.id],
       });
     }
-    revalidatePath(`/sesiya/${occurrenceId}`);
+    revalidatePath(`/igra/${occurrenceId}`);
     return { status: 'ok', rsvpStatus: result.status, position: result.position };
   } catch (error: unknown) {
     if (error instanceof SessionError) return { status: 'error', error: error.code };
@@ -101,9 +101,9 @@ export async function cancelOccurrenceAction(occurrenceId: string): Promise<void
     if (error instanceof SessionError) return;
     throw error;
   }
-  revalidatePath(`/sesiya/${occurrenceId}`);
-  revalidatePath(`/sesiya/${occurrenceId}/roster`);
-  revalidatePath('/sesii');
+  revalidatePath(`/igra/${occurrenceId}`);
+  revalidatePath(`/igra/${occurrenceId}/roster`);
+  revalidatePath('/igri');
 }
 
 export async function cancelSeriesAction(sessionId: string, occurrenceId: string): Promise<void> {
@@ -119,9 +119,9 @@ export async function cancelSeriesAction(sessionId: string, occurrenceId: string
     if (error instanceof SessionError) return;
     throw error;
   }
-  revalidatePath(`/sesiya/${occurrenceId}`);
-  revalidatePath(`/sesiya/${occurrenceId}/roster`);
-  revalidatePath('/sesii');
+  revalidatePath(`/igra/${occurrenceId}`);
+  revalidatePath(`/igra/${occurrenceId}/roster`);
+  revalidatePath('/igri');
 }
 
 export async function withdrawAction(_prev: RsvpState, formData: FormData): Promise<RsvpState> {
@@ -137,7 +137,7 @@ export async function withdrawAction(_prev: RsvpState, formData: FormData): Prom
       // by refreshing the page, which they have no reason to do.
       await notify({ reason: 'promoted', occurrenceId, userIds: promoted });
     }
-    revalidatePath(`/sesiya/${occurrenceId}`);
+    revalidatePath(`/igra/${occurrenceId}`);
     return { status: 'ok' };
   } catch (error: unknown) {
     if (error instanceof SessionError) return { status: 'error', error: error.code };
