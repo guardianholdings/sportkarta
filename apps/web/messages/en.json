@@ -7790,7 +7790,10 @@
       "streakKeep": "Keep it up.",
       "badges": "Badges",
       "badgesCount": "{earned} of {total}",
-      "points": "{count, plural, one {# point} other {# points}}"
+      "points": "{count, plural, one {# point} other {# points}}",
+      "checkinTitle": "Check in: {title}",
+      "checkinBody": "Scan the organiser's QR code.",
+      "checkinCta": "Scan the code"
     },
     "games": {
       "overline": "Sessions",

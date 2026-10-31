@@ -219,11 +219,48 @@ describe.skipIf(!hasDb)("the front page's «Следва» (requires running dat
     });
   });
 
+  it('offers a check-in only for its own тренировка inside the window, until it is done', async () => {
+    await journey(async (tx) => {
+      const me = await makeUser(tx, 'home_checkin');
+      const other = await makeUser(tx, 'home_checkin_other');
+      const { id: facility } = await aFacility(tx);
+
+      // An RSVP needs an occurrence still to come, so each is signed up for
+      // first and then moved: mine started ten minutes ago (inside the
+      // window), another account's likewise, and one of mine opens in two hours.
+      const started = async (title: string, who: string): Promise<string> => {
+        const id = await session(tx, other, facility, title, '3 hours', null);
+        await rsvp(tx, id, who);
+        await tx.execute(sql`
+          UPDATE play_session_occurrences
+             SET starts_at = now() - interval '10 minutes',
+                 ends_at = now() + interval '50 minutes',
+                 starts_at_local = ((now() - interval '10 minutes') AT TIME ZONE 'Europe/Sofia')
+           WHERE id = ${id}::uuid
+        `);
+        return id;
+      };
+      const now = await started('Сега', me);
+      await started('Чужда', other);
+      const later = await session(tx, other, facility, 'По-късно', '2 hours', null);
+      await rsvp(tx, later, me);
+
+      expect((await homePersonal(tx, me, 'bg')).checkin).toMatchObject({ title: 'Сега' });
+
+      await tx.execute(sql`
+        INSERT INTO play_session_checkins (occurrence_id, user_id, method)
+        VALUES (${now}::uuid, ${me}, 'self')
+      `);
+      expect((await homePersonal(tx, me, 'bg')).checkin).toBeNull();
+    });
+  });
+
   it('is empty, not an error, for an account with nothing booked', async () => {
     await journey(async (tx) => {
       const me = await makeUser(tx, 'home_empty');
       const strip = await homePersonal(tx, me, 'bg');
       expect(strip.next).toBeNull();
+      expect(strip.checkin).toBeNull();
       expect(strip.earned).toBe(0);
       expect(strip.total).toBeGreaterThan(0);
       expect(strip.points).toBe(0);

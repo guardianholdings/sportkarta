@@ -1,7 +1,8 @@
 import { getDb } from '@sportkarta/db';
-import { CalendarClock, Flame, Medal } from 'lucide-react';
+import { CalendarClock, Flame, Medal, QrCode } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 
+import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
 import type { CurrentUser } from '@/lib/auth-session';
 import { badgeArt } from '@/lib/design/badge-art';
@@ -11,12 +12,21 @@ import { dayWord, whenParts } from '@/lib/home/when';
 const TILE =
   'flex min-h-16 min-w-0 items-center gap-3 rounded-md px-3 py-2.5 transition-colors duration-150 ease-standard hover:bg-surface-2 focus-visible:shadow-[var(--ring)]';
 
-function Shell({ label, children }: { label: string; children: React.ReactNode }) {
+function Shell({
+  label,
+  children,
+  after,
+}: {
+  label: string;
+  children: React.ReactNode;
+  after?: React.ReactNode;
+}) {
   return (
     <section aria-label={label} className="mx-auto max-w-6xl px-4 pt-4 sm:px-6 lg:px-8">
       <div className="grid gap-1 rounded-card border border-line bg-surface p-1.5 shadow-sm sm:grid-cols-3 sm:items-stretch lg:grid-cols-[minmax(0,0.8fr)_repeat(3,minmax(0,1fr))]">
         {children}
       </div>
+      {after}
     </section>
   );
 }
@@ -26,6 +36,10 @@ function Shell({ label, children }: { label: string; children: React.ReactNode }
  * (lib/home/personal.ts). Streamed behind a skeleton of the same size, so the
  * hero below does not jump when it lands; a failed load renders nothing rather
  * than taking the front page down with it.
+ *
+ * While a тренировка they signed up for is open for check-in, a card under
+ * the strip says so and opens the scanner: the one thing to do right now (UX
+ * audit N4, «today-first»).
  */
 export async function PersonalStrip({ user, locale }: { user: CurrentUser; locale: string }) {
   const t = await getTranslations('Home.personal');
@@ -54,8 +68,28 @@ export async function PersonalStrip({ user, locale }: { user: CurrentUser; local
           : t('nextOn', { date, time });
   }
 
+  const checkin = data.checkin && (
+    <div className="mt-2 flex flex-wrap items-center gap-3 rounded-card border border-accent-border bg-accent-subtle p-3">
+      <span className="grid size-10 shrink-0 place-items-center rounded-md bg-surface text-accent-active">
+        <QrCode size={20} aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-body-sm font-bold text-ink">
+          {t('checkinTitle', { title: data.checkin.title })}
+        </span>
+        <span className="block text-caption text-ink-soft">
+          {data.checkin.place ? `${data.checkin.place} · ` : ''}
+          {t('checkinBody')}
+        </span>
+      </span>
+      <Link href="/skenirai" className={buttonVariants({ variant: 'accent' })}>
+        {t('checkinCta')}
+      </Link>
+    </div>
+  );
+
   return (
-    <Shell label={t('label')}>
+    <Shell label={t('label')} after={checkin}>
       <p className="flex items-center px-3 py-2.5 text-body font-bold text-ink sm:col-span-3 lg:col-span-1">
         {name ? t('greeting', { name }) : t('greetingNoName')}
       </p>

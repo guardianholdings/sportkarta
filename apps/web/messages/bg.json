@@ -7790,7 +7790,10 @@
       "streakKeep": "Продължавайте в същия дух.",
       "badges": "Отличия",
       "badgesCount": "{earned} от {total}",
-      "points": "{count, plural, one {# точка} other {# точки}}"
+      "points": "{count, plural, one {# точка} other {# точки}}",
+      "checkinTitle": "Отбележете присъствие: {title}",
+      "checkinBody": "Сканирайте QR кода на организатора.",
+      "checkinCta": "Сканирай кода"
     },
     "games": {
       "overline": "Тренировки",

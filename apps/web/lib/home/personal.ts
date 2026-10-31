@@ -2,6 +2,7 @@ import { frozenStreakWeeks, passportEvents, passportTotals, sql, type SQL } from
 import { evaluateBadges, LAUNCH_BADGES, passportStreaks } from '@sportkarta/lib/badges';
 
 import { clubsEnabled } from '@/lib/clubs/access';
+import { checkinWindowSql } from '@/lib/sessions/checkin';
 
 /**
  * The signed-in member's strip at the top of the front page: what is next in
@@ -43,8 +44,20 @@ export type NextUp =
       place: string;
     };
 
+/** A тренировка the member signed up for whose check-in is open right now. */
+export interface OpenCheckin {
+  title: string;
+  place: string | null;
+}
+
 export interface HomePersonal {
   next: NextUp | null;
+  /**
+   * Set while a тренировка they signed up for is inside its check-in window
+   * and they have not checked in: the home's one call to action then is
+   * «Сканирай кода» (UX audit N4, «today-first»).
+   */
+  checkin: OpenCheckin | null;
   streakWeeks: number;
   /** The week streak is alive but this week is still empty. */
   weeksAtRisk: boolean;
@@ -92,6 +105,36 @@ async function nextSession(db: SqlRunner, userId: string): Promise<Candidate | n
       place: row.facility_name === null ? null : String(row.facility_name),
     },
     startsAt: new Date(row.starts_at as string | number | Date).getTime(),
+  };
+}
+
+/**
+ * An RSVP of this account whose occurrence is inside the check-in window now
+ * (the same fragment the check-in page and the roster ask — checkinWindowSql)
+ * and that has no check-in yet. Waitlisted RSVPs count too: attendance is
+ * always recorded, whoever turns up (CLAUDE.md, Stage 5.4).
+ */
+async function openCheckin(db: SqlRunner, userId: string): Promise<OpenCheckin | null> {
+  const result = await db.execute(sql`
+    SELECT s.title, f.name AS facility_name
+      FROM play_session_rsvps r
+      JOIN play_session_occurrences o ON o.id = r.occurrence_id
+      JOIN play_sessions s ON s.id = o.session_id
+      JOIN facilities f ON f.id = s.facility_id
+     WHERE r.user_id = ${userId}
+       AND r.state = 'active'
+       AND o.status <> 'cancelled'
+       AND ${checkinWindowSql()}
+       AND NOT EXISTS (SELECT 1 FROM play_session_checkins c
+                        WHERE c.occurrence_id = o.id AND c.user_id = ${userId})
+     ORDER BY o.starts_at
+     LIMIT 1
+  `);
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    title: String(row.title),
+    place: row.facility_name === null ? null : String(row.facility_name),
   };
 }
 
@@ -152,12 +195,13 @@ export async function homePersonal(
   locale: string,
   now: Date = new Date(),
 ): Promise<HomePersonal> {
-  const [events, frozen, totals, session, club] = await Promise.all([
+  const [events, frozen, totals, session, club, checkin] = await Promise.all([
     passportEvents(db, userId),
     frozenStreakWeeks(db, userId),
     passportTotals(db, userId),
     nextSession(db, userId),
     nextClubClass(db, userId, locale),
+    openCheckin(db, userId),
   ]);
 
   // One set of forgiven weeks for the badges and the streak, as on /pasport.
@@ -173,6 +217,7 @@ export async function homePersonal(
 
   return {
     next: sooner?.item ?? null,
+    checkin,
     streakWeeks: streaks.weeks.current,
     weeksAtRisk: streaks.weeks.atRisk,
     earned: earned.length,

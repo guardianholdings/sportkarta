@@ -1,12 +1,9 @@
-import { ArrowRight, LocateFixed, Search } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 
 import { PointerParallax } from '@/components/motion/pointer-parallax';
 import { PopsMark } from '@/components/shell/pops-mark';
-import { buttonVariants } from '@/components/ui/button';
-import { getPathname, Link } from '@/i18n/navigation';
+import { Link } from '@/i18n/navigation';
 import { takesVav } from '@/lib/grammar';
-import { cn } from '@/lib/utils';
 import { cellKey, dotPosition } from '@/lib/home/dot-grid';
 import type { DotLayer, GamePulses, MaskCell } from '@/lib/home/dots';
 import type { NamedPlace, TopPlace } from '@/lib/home/places';
@@ -16,6 +13,7 @@ import type { NationalStats } from '@/lib/stats-data';
 
 import type { DotMapData } from './dot-map';
 import { HeroMap, type HeroChip } from './hero-map';
+import { PlaceSearch } from './place-search';
 
 export interface HeroDots {
   mask: MaskCell[];
@@ -59,15 +57,9 @@ function dotMapData(dots: HeroDots, cityLabel: (city: string) => string): DotMap
 }
 
 /**
- * The first screen: what POPS is, the two ways in (a search, «Близо до мен»)
- * and the country itself as live data.
- *
- * Both ways in are plain links and a GET form to /karta, so they work before —
- * and without — any JavaScript; the map reads `?q=` and `?blizo=1` once and
- * drops them (map-explorer.tsx). «Близо до мен» deliberately does NOT locate
- * here: the map asks for the position itself, so the hand-off carries a flag,
- * never a coordinate. (Once located, the map writes the camera it flies to into
- * its own address bar, as its «Около мен» always has.)
+ * The first screen for a visitor: what POPS is, the two ways in (PlaceSearch:
+ * a search and «Близо до мен») and the country itself as live data. A
+ * signed-in member's home shows the search alone (app/[locale]/(home)).
  */
 export async function Hero({
   locale,
@@ -82,7 +74,6 @@ export async function Hero({
   numbers: NationalStats | null;
 }) {
   const [t, tSport] = await Promise.all([getTranslations('Home'), getTranslations('Sport')]);
-  const searchAction = getPathname({ href: '/karta', locale });
 
   const chips: HeroChip[] = dots
     ? [
@@ -117,40 +108,7 @@ export async function Hero({
           </h1>
           <p className="max-w-xl text-body-lg text-ink-soft">{t('hero.lead')}</p>
 
-          <form action={searchAction} method="get" role="search" className="flex flex-col gap-2">
-            <label htmlFor="home-q" className="text-body-sm font-semibold text-ink">
-              {t('hero.searchLabel')}
-            </label>
-            <div className="sk-home-search flex items-center gap-2 rounded-pill border border-line-strong bg-surface p-1.5 pl-4 shadow-sm">
-              <Search size={20} aria-hidden="true" className="shrink-0 text-text-muted" />
-              <input
-                id="home-q"
-                name="q"
-                type="search"
-                autoComplete="off"
-                enterKeyHint="search"
-                placeholder={t('hero.searchPlaceholder')}
-                className="h-11 min-w-0 flex-1 bg-transparent text-body text-ink placeholder:text-text-faint focus:outline-none"
-              />
-              <button type="submit" className={buttonVariants({ variant: 'primary' })}>
-                {t('hero.searchSubmit')}
-              </button>
-            </div>
-          </form>
-
-          <div className="flex flex-wrap gap-2">
-            <Link href="/karta?blizo=1" className={buttonVariants({ variant: 'secondary' })}>
-              <LocateFixed size={18} aria-hidden="true" />
-              {t('hero.nearMe')}
-            </Link>
-            <Link
-              href="/karta"
-              className={cn(buttonVariants({ variant: 'ghost' }), 'max-sm:px-1.5')}
-            >
-              {t('hero.openMap')}
-              <ArrowRight size={18} aria-hidden="true" />
-            </Link>
-          </div>
+          <PlaceSearch locale={locale} />
 
           {numbers && (
             <p className="text-body-sm text-ink-soft">
