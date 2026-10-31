@@ -4,6 +4,7 @@ import path from 'node:path';
 import { POINTS_BY_EVENT } from '@sportkarta/lib/points';
 import { expect, test, type Page } from '@playwright/test';
 import { config } from 'dotenv';
+import { createTranslator } from 'next-intl';
 import pg from 'pg';
 
 import bg from '../messages/bg.json';
@@ -144,10 +145,11 @@ test.describe('authenticated contributions', () => {
 
     // …and the member is actually told, rather than being redirected with a
     // number nothing reads. This is the whole point of A2.
+    // Formatted as the app formats it: the message is an ICU plural now, so
+    // a plain «{points}» replace no longer produces what the page says.
+    const tContribute = createTranslator({ locale: 'bg', messages: bg, namespace: 'Contribute' });
     await expect(
-      page.getByText(
-        bg.Contribute.thanksWithPoints.replace('{points}', String(POINTS_BY_EVENT.facility_added)),
-      ),
+      page.getByText(tContribute('thanksWithPoints', { points: POINTS_BY_EVENT.facility_added })),
     ).toBeVisible();
 
     const rows = await query<{ status: string; source: string; id: string }>(

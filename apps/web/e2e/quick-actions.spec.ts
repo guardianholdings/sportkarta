@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import bg from '../messages/bg.json';
 
@@ -10,13 +10,26 @@ import bg from '../messages/bg.json';
 
 test.use({ viewport: { width: 390, height: 844 } });
 
+/**
+ * The «+» is a client island: a tap before the page hydrates does nothing,
+ * and a production build hands Playwright the page before that. Wait for the
+ * network to settle, then press until the menu is there (one press opens it;
+ * the retry only covers a press that landed before hydration).
+ */
+async function openMenu(page: Page): Promise<{ plus: Locator; dialog: Locator }> {
+  await page.waitForLoadState('networkidle');
+  const plus = page.getByRole('button', { name: bg.Nav.quick.title }).last();
+  const dialog = page.getByRole('dialog', { name: bg.Nav.quick.title });
+  await expect(async () => {
+    if (!(await dialog.isVisible())) await plus.click();
+    await expect(dialog).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
+  return { plus, dialog };
+}
+
 test('the «+» opens three actions and closes on Escape', async ({ page }) => {
   await page.goto('/sesii');
-  const plus = page.getByRole('button', { name: bg.Nav.quick.title }).last();
-  await plus.click();
-
-  const dialog = page.getByRole('dialog', { name: bg.Nav.quick.title });
-  await expect(dialog).toBeVisible();
+  const { plus, dialog } = await openMenu(page);
   await expect(dialog.getByRole('link')).toHaveCount(3);
   await expect(
     dialog.getByRole('link', { name: new RegExp(bg.Nav.quick.addFacility.title) }),
@@ -43,9 +56,7 @@ test('over the map at street zoom, «Добави съоръжение» starts 
   page,
 }) => {
   await page.goto('/karta?z=15&lat=42.69770&lng=23.32190');
-  await page.getByRole('button', { name: bg.Nav.quick.title }).last().click();
-  const add = page
-    .getByRole('dialog', { name: bg.Nav.quick.title })
-    .getByRole('link', { name: new RegExp(bg.Nav.quick.addFacility.title) });
+  const { dialog } = await openMenu(page);
+  const add = dialog.getByRole('link', { name: new RegExp(bg.Nav.quick.addFacility.title) });
   await expect(add).toHaveAttribute('href', /^\/dobavi\?lon=23\.32\d+&lat=42\.69\d+&izgled=1$/);
 });
