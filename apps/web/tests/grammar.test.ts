@@ -118,3 +118,27 @@ describe('the discovery pages address the reader formally', () => {
     expect(informal).toEqual([]);
   });
 });
+
+describe('the front page names a city the same way', () => {
+  const tHome = createTranslator({ locale: 'bg', messages: bg, namespace: 'Home.dots' });
+
+  it('says «във Варна» and «в София» on a pinned map card', () => {
+    expect(tHome('openCity', { city: 'Варна', cityVav: takesVav('Варна') })).toBe(
+      'Всички места във Варна',
+    );
+    expect(tHome('openCity', { city: 'София', cityVav: takesVav('София') })).toBe(
+      'Всички места в София',
+    );
+  });
+
+  it('no Bulgarian Home string hard-codes „в" in front of a place name', () => {
+    const flat = (node: unknown, prefix: string): [string, string][] =>
+      typeof node === 'string'
+        ? [[prefix, node]]
+        : Object.entries(node as Record<string, unknown>).flatMap(([key, child]) =>
+            flat(child, `${prefix}.${key}`),
+          );
+    const bare = flat(bg.Home, 'Home').filter(([, value]) => /(^|\s)[вВ] \{city\}/.test(value));
+    expect(bare.map(([key]) => key)).toEqual([]);
+  });
+});

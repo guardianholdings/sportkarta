@@ -236,7 +236,9 @@ export function MapExplorer({
   const [offline, setOffline] = useState(false);
   const [nearMeOn, setNearMeOn] = useState(false);
   const [radiusKm, setRadiusKm] = useState(8);
-  const [query, setQuery] = useState('');
+  // The front page's search form submits here as `?q=` (it works without
+  // JavaScript). The search itself stays client state, as it always was.
+  const [query, setQuery] = useState(() => searchParams.get('q') ?? '');
   const [snap, setSnap] = useState<Snap>('half');
   /** Phone only: the pin preview expanded from its half height to full. */
   const [previewFull, setPreviewFull] = useState(false);
@@ -470,6 +472,35 @@ export function MapExplorer({
     setNearMeOn(true);
     if (!userLocation) locate();
   }
+
+  /**
+   * The front page's «Близо до мен» lands here as `?blizo=1`. The position is
+   * asked for by THIS page, so no coordinate ever travels in a URL. One-shot:
+   * both hand-offs (`blizo`, `q`) leave the address bar once read, so a reload
+   * neither asks again nor brings back a search that has since been cleared.
+   */
+  const handOffRef = useRef(() => {
+    const sp = new URLSearchParams(window.location.search);
+    if (!sp.has('blizo') && !sp.has('q')) return;
+    if (sp.get('blizo') === '1') {
+      setNearMeOn(true);
+      locate();
+    }
+    // A task later, not now: effects run child-first, so the App Router's own
+    // hydration effect — which writes the URL it rendered back into the
+    // address bar — would otherwise run after this one and restore both.
+    window.setTimeout(() => {
+      const now = new URLSearchParams(window.location.search);
+      now.delete('blizo');
+      now.delete('q');
+      const qs = now.toString();
+      const { pathname } = window.location;
+      window.history.replaceState(null, '', qs ? `${pathname}?${qs}` : pathname);
+    }, 0);
+  });
+  useEffect(() => {
+    handOffRef.current();
+  }, []);
 
   // The notice sits over the sheet on a phone: it clears itself, and its close
   // button clears it sooner. It used to stay for the rest of the visit.
@@ -879,7 +910,7 @@ export function MapExplorer({
         {/* The add-facility FAB lives on the map itself here (bottom-left of
             the visible map, below), so the rail's copy is off. */}
         <NavRail
-          active="/"
+          active="/karta"
           labelFor={(k) => tNav(k)}
           className="pointer-events-auto"
           showAdd={false}
@@ -1074,7 +1105,7 @@ export function MapExplorer({
         )}
 
         <BottomNav
-          active="/"
+          active="/karta"
           labelFor={(k) => tNav(k)}
           className="absolute inset-x-0 bottom-0 z-40"
         />

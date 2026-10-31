@@ -41,7 +41,7 @@ export default async function RootNotFound() {
             <p className="text-ink-soft">{t('body')}</p>
           </div>
           <Link
-            href="/"
+            href="/karta"
             className="inline-flex min-h-11 items-center rounded-pill bg-brand px-5 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover"
           >
             {t('toMap')}

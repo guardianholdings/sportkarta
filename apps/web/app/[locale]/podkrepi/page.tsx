@@ -54,7 +54,7 @@ export default async function SupportPage({ params }: { params: PageParams }) {
   return (
     <AppShell>
       <main className="mx-auto max-w-2xl space-y-6 p-4">
-        <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
+        <Link href="/karta" className="text-body-sm font-medium text-link hover:text-link-hover">
           {t('back')}
         </Link>
         <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>

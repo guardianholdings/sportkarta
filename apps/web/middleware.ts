@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 import { routing } from './i18n/routing';
 import { clubPageCsp, isClubPublicPage } from './lib/club-page-csp';
+import { legacyMapHref } from './lib/home/legacy-map-link';
 import { isProtectedPath, REQUEST_PATH_HEADER } from './lib/sign-in-destination';
 
 const intlMiddleware = createMiddleware(routing);
@@ -22,6 +23,27 @@ export default function middleware(request: NextRequest) {
     target.pathname = `${short[1] ?? ''}/klub/${short[2] ?? ''}`;
     target.search = '';
     return NextResponse.redirect(target, 308);
+  }
+
+  // Until the front page existed the map WAS "/", so a link carrying a map
+  // parameter (`/?sport=…`, `/en?selected=…`) is a visitor who came for the
+  // map: a permanent redirect to /karta, query intact. Here and not in the
+  // page, because the page streams behind a loading boundary and a redirect
+  // from inside a stream is a 200 with a meta refresh — which link unfurlers,
+  // crawlers and anything reading the status never follow.
+  if (pathname === '/' || pathname === '/en') {
+    const params: Record<string, string[]> = {};
+    for (const key of new Set(request.nextUrl.searchParams.keys())) {
+      params[key] = request.nextUrl.searchParams.getAll(key);
+    }
+    const legacy = legacyMapHref(params);
+    if (legacy) {
+      const target = request.nextUrl.clone();
+      const [path = '/karta', query = ''] = legacy.split('?');
+      target.pathname = pathname === '/en' ? `/en${path}` : path;
+      target.search = query ? `?${query}` : '';
+      return NextResponse.redirect(target, 308);
+    }
   }
 
   // First gate only, and an optimistic one: it checks that a session cookie

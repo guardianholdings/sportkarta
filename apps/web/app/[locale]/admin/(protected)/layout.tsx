@@ -75,7 +75,7 @@ export default async function AdminLayout({
           <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1">
             <span className="text-caption text-text-muted">{t('signedInAs', { actor })}</span>
             <Link
-              href="/"
+              href="/karta"
               className="inline-flex items-center gap-1.5 rounded-pill border border-line-strong bg-surface px-3 py-1.5 text-caption font-semibold text-ink-soft hover:bg-surface-2"
             >
               <MapIcon size={15} />

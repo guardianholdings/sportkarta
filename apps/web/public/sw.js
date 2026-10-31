@@ -8,8 +8,11 @@
  * from a rebuilt basemap.
  * v4: club notifications (0051) — `push` shows what the worker sent (a
  * title, a line, a same-site path; the payload was encrypted to this device),
- * `notificationclick` opens that path. Nothing cached changed shape; the bump
- * makes installed clients take the new handlers at once. */
+ * `notificationclick` opens that path — and the map moved to /karta while "/"
+ * became the front page: the precached offline page's «Опитайте отново» now
+ * returns to the map. Nothing cached changed shape; only a new cache name
+ * makes installed clients fetch the offline page and take the new handlers
+ * at once. */
 const VERSION = 'v4';
 const APP_CACHE = `sk-app-${VERSION}`;
 const STATIC_CACHE = `sk-static-${VERSION}`;

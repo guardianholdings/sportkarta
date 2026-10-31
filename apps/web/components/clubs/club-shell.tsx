@@ -155,7 +155,7 @@ export async function ClubShell({
               </details>
             )}
             <Link
-              href="/"
+              href="/karta"
               className="inline-flex min-h-11 items-center gap-1.5 rounded-pill border border-line-strong bg-surface px-3 text-caption font-semibold text-ink-soft hover:bg-surface-2"
             >
               <MapIcon size={15} aria-hidden="true" />

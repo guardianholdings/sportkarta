@@ -17,12 +17,15 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  return { alternates: buildAlternates('/', locale) };
+  // The map used to BE the home page and so inherited the site title; at
+  // /karta it names itself, and the front page (`(home)`) owns the default.
+  const t = await getTranslations({ locale, namespace: 'Map' });
+  return { title: t('title'), alternates: buildAlternates('/karta', locale) };
 }
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-export default async function HomePage({
+export default async function MapPage({
   params,
   searchParams,
 }: {

@@ -16,6 +16,9 @@ import {
   scopedFacilityCount,
   scopedMapPoints,
 } from '../lib/places';
+import { dotLayer, gamePulses } from '../lib/home/dots';
+import { clearHomeCache } from '../lib/home/memo';
+import { contributionPulse, heroSports } from '../lib/home/sections';
 import { getFacilityBySlug, VERIFICATION_EVIDENCE } from '../lib/public-data';
 
 /**
@@ -75,6 +78,8 @@ describe('public facility readers ask the shared visibility question', () => {
     'lib/places.ts',
     'app/[locale]/obekt/[slug]/contribution-actions.ts',
     'app/[locale]/obekt/[slug]/report-actions.ts',
+    'lib/home/dots.ts',
+    'lib/home/sections.ts',
   ];
 
   it.each(READERS)('%s never hand-rolls the predicate', (file) => {
@@ -84,6 +89,36 @@ describe('public facility readers ask the shared visibility question', () => {
       `${file} builds its own visibility literal. Use publicFacilityVisible from @sportkarta/db — a copy drifts the first time the rule changes (it already did once: the paid gate).`,
     ).toBe(false);
     expect(source).toContain('publicFacilityVisible');
+  });
+});
+
+describe('the front page counts what the map shows', () => {
+  // Its readers are memoised per process; each test asks the database afresh.
+  beforeEach(() => {
+    clearHomeCache();
+  });
+
+  it('every dot-map and hero statement over facilities carries the public predicate', async () => {
+    await dotLayer(null);
+    await dotLayer('tennis');
+    await gamePulses();
+    await heroSports();
+    await contributionPulse();
+    const overFacilities = recorded.statements.filter((s) => /\bfacilities f\b/.test(s.sql));
+    expect(overFacilities).toHaveLength(7);
+    for (const statement of overFacilities) {
+      expect(statement.sql).toContain(PUBLIC_FACILITY_PREDICATE);
+    }
+  });
+
+  it("narrows to a sport the way the map's sport chip does", async () => {
+    await dotLayer('tennis');
+    const [cells, municipalities] = recorded.statements;
+    for (const statement of [cells, municipalities]) {
+      expect(statement?.sql).toMatch(/f\.sport_types && ARRAY\[\$\d+\]::text\[\]/);
+      expect(statement?.params).toContain('tennis');
+      expect(statement?.sql).toContain("f.access = 'free'");
+    }
   });
 });
 

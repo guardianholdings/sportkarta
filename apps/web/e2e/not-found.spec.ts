@@ -43,7 +43,7 @@ test.describe('missing pages are real 404s', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'bg');
     await expect(page.getByRole('heading', { level: 1, name: bg.NotFound.title })).toBeVisible();
     await page.getByRole('link', { name: bg.NotFound.toMap }).click();
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/karta$/);
   });
 
   test('an unmatched English path renders in English', async ({ page }) => {

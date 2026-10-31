@@ -67,7 +67,7 @@ function headingOf(facility: FacilityDetail, labels: LabelStrings): string {
 
 /** The map, opened on this facility with its card — not the country view. */
 function mapHref(facility: FacilityDetail): string {
-  return `/?selected=${encodeURIComponent(facility.slug)}&z=16&lat=${facility.lat.toFixed(5)}&lng=${facility.lon.toFixed(5)}`;
+  return `/karta?selected=${encodeURIComponent(facility.slug)}&z=16&lat=${facility.lat.toFixed(5)}&lng=${facility.lon.toFixed(5)}`;
 }
 
 export async function generateMetadata({ params }: { params: PageParams }): Promise<Metadata> {
