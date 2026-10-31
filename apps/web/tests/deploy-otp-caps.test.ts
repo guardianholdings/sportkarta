@@ -114,7 +114,7 @@ describe('deploy jobs cannot hang for hours', () => {
     const named = jobs.filter(([, name]) => ['gate', 'build-push', 'deploy'].includes(name));
     expect(named.map(([, name]) => name).sort()).toEqual(['build-push', 'deploy', 'gate']);
     for (const [, name, body] of named) {
-      expect(body, `${name} needs timeout-minutes`).toMatch(/^\s+timeout-minutes: \d+$/m);
+      expect(body ?? '', `${name} needs timeout-minutes`).toMatch(/^\s+timeout-minutes: \d+$/m);
     }
   });
 });
