@@ -767,6 +767,45 @@ and, where an outside service is involved, by an env switch as well.
     e2e.yml is not a gate yet); the weekday in dates; a member-facing
     invoice; `club_notifications.user_id` counted in `account_deletions`;
     the account export's later club datasets; the SMS adapter.
+- [x] **Front page v2 and the clubs page (2026-10-31, `feat/front-page-v2`
+  on top of `feat/clubs-parity` + `feat/front-page`)** — the operator's brief:
+  the front page is the players' page and mentions the club module in ONE
+  light section, which opens a dedicated page that shows EVERY function and
+  is built to convert. Front page: a marketing header (brand, four quiet
+  links, «Вход»/«Моят профил», locale) rendered inside the AppShell column
+  through a `topbar` prop, the dot-map hero with a trust line from
+  `mv_national_stats`, «Как работи», the тренировки rail, a dark numbers
+  band (the dot map's count, municipalities, this week's тренировки, 30 days
+  of contributions), contribute, the passport (the fourteen coins, points,
+  streaks, divisions — catalogue and counts, never a name), the one clubs
+  band, four principles, a four-column footer. `/za-klubove`: the complete
+  catalogue (`lib/src/clubs/catalogue.ts`, 19 areas; `catalogue.test.ts`
+  proves every tier-gated feature has a row, the web test that every row
+  has its words), the audience band, six «само в POPS» tiles, three price
+  cards from ONE constant (`lib/src/clubs/pricing-public.ts`; the
+  application form and the admin hint read the same numbers) with a grid
+  whose ticks come from the tier matrix, four steps, ten questions, one
+  call to action throughout plus a floating one. The page never sells what
+  is not there: a row behind a switched-off service reads «скоро»
+  (`apps/web/lib/clubs/landing.ts` rowState), the Stripe sentence and the
+  «без комисиона» line exist only while `CLUB_PAYMENTS_ENABLED` is on and
+  `STRIPE_APPLICATION_FEE_BP` is zero. Product screenshots come from
+  `apps/web/scripts/marketing-shots/shots.mjs` (signs in like the e2e suite,
+  one picture per area of the demo club, WebP + manifest; fixture names
+  only). Podkrepi and the Terms no longer say «няма платени функции».
+  - [ ] **Operator decisions:** the three prices (€0 / €49 / €119) and
+    whether they are shown «без ДДС» (the VAT line is deliberately neutral);
+    flat per month or per `members_active` (MONETISATION S7 names the
+    latter as the invoice basis; the cards say the former — the step copy
+    now names neither); the «до два работни дни» review promise (nothing
+    enforces it); a demo club in production for «Разгледайте примерен
+    клуб»; `CLUBS_ENABLED=true` in production before launch, or neither the
+    band nor the page exists.
+  - [ ] **Later:** a richer seeded demo club for the screenshots (today
+    they are the QA club's five members); an owner-side «Закрийте клуба»
+    action (the page says «с едно писмо» because only the operator can
+    archive); the sticky call to action on phones sits above the tab bar's
+    FAB — check on a real device.
 ---
 
 ## 10. Cadence & top risks
