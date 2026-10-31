@@ -9,9 +9,9 @@ import { formatDateTime } from '@/lib/format';
 /**
  * Clubs that hold classes AT this facility (Stage 9, plan §6.5). A sibling of
  * the sponsor block, never inside FacilityDetailView — whose props feed the
- * JSON-LD and the provenance line — and LABELLED: a paid club is a «Платено
- * представяне», a community club a «Клуб на този обект» (the AdCreative
- * precedent: commercial content beside our own, never mistaken for it).
+ * JSON-LD and the provenance line — and LABELLED «Платено представяне»: every
+ * tier is paid (2026-10-31), so every club block is commercial content beside
+ * our own, never mistaken for it (the AdCreative precedent).
  *
  * Renders nothing when the add-on is off, when no renderable club is here, or
  * when the query fails — a facility page must never wear a club's outage.
@@ -37,7 +37,7 @@ export async function FacilityClubBlock({ facilityId }: { facilityId: string }) 
           aria-labelledby={`club-${club.id}`}
         >
           <p className="text-caption font-semibold uppercase tracking-wide text-text-muted">
-            {club.tier === 'community' ? t('block.community') : t('block.paid')}
+            {t('block.paid')}
           </p>
           <div className="mt-2 flex items-center gap-3">
             {club.hasLogo && (

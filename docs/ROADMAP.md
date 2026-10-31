@@ -216,9 +216,10 @@ facility data, moderation or scoring. Migrations `0019`–`0023`.
 
 ## 9b. Stage 9 — «Клубове» (club-management add-on, 2026-10-24)
 
-A paid add-on for private gyms, studios and sports clubs (free community tier
-for clubs at public facilities), sold by invoice and switched on by the
-operator. Plan: the approved plan of 2026-10-24; commercial record:
+A paid add-on for private gyms, studios and sports clubs (the free community
+tier for clubs at public facilities was withdrawn 2026-10-31 — every tier is
+paid, with a one-month trial; migration 0060), sold by invoice and switched on
+by the operator. Plan: the approved plan of 2026-10-24; commercial record:
 `docs/MONETISATION.md` S7. **Behind `CLUBS_ENABLED`, which ships off**: every
 club route 404s, the worker's club jobs find nothing, the map feed carries no
 club flag. Migrations `0038`–`0044`.
@@ -771,9 +772,7 @@ and, where an outside service is involved, by an env switch as well.
   on top of `feat/clubs-parity` + `feat/front-page`)** — the operator's brief:
   the front page is the players' page and mentions the club module in ONE
   light section, which opens a dedicated page that shows EVERY function and
-  is built to convert. Front page: a marketing header (brand, four quiet
-  links, «Вход»/«Моят профил», locale) rendered inside the AppShell column
-  through a `topbar` prop, the dot-map hero with a trust line from
+  is built to convert. Front page: the dot-map hero with a trust line from
   `mv_national_stats`, «Как работи», the тренировки rail, a dark numbers
   band (the dot map's count, municipalities, this week's тренировки, 30 days
   of contributions), contribute, the passport (the fourteen coins, points,
@@ -783,7 +782,7 @@ and, where an outside service is involved, by an env switch as well.
   proves every tier-gated feature has a row, the web test that every row
   has its words), the audience band, six «само в POPS» tiles, three price
   cards from ONE constant (`lib/src/clubs/pricing-public.ts`; the
-  application form and the admin hint read the same numbers) with a grid
+  application form reads the same prices, the admin hint the same cap) with a grid
   whose ticks come from the tier matrix, four steps, ten questions, one
   call to action throughout plus a floating one. The page never sells what
   is not there: a row behind a switched-off service reads «скоро»
@@ -793,8 +792,22 @@ and, where an outside service is involved, by an env switch as well.
   `apps/web/scripts/marketing-shots/shots.mjs` (signs in like the e2e suite,
   one picture per area of the demo club, WebP + manifest; fixture names
   only). Podkrepi and the Terms no longer say «няма платени функции».
-  - [ ] **Operator decisions:** the three prices (€0 / €49 / €119) and
-    whether they are shown «без ДДС» (the VAT line is deliberately neutral);
+  - [x] **Operator corrections (2026-10-31):** no second menu — the
+    marketing header is gone and «Данни» + «За клубове» (the latter only
+    while `CLUBS_ENABLED`) sit at the foot of the side rail (`NAV_MORE`,
+    `apps/web/components/shell/app-nav.tsx`); prices €49.99 / €99.99 /
+    €149.99 with a one-month trial on EVERY tier — the free community tier
+    is withdrawn in the logic too (`clubAccessState`, `clubWritableSql` and
+    its six inline twins, `approveClub` grants the trial on any tier, the
+    lifecycle mails cover every tier, every facility block reads «Платено
+    представяне», every club website link is `sponsored`); no competitor is
+    named on any page; the club «офис» is now «платформата за управление
+    (на бизнеса)» in every string, bg and en. Migration 0060 gives any active
+    or suspended club with neither date the trial it would get today, and
+    `apps/web/tests/journeys/clubs-access.test.ts` holds the TS and SQL rules
+    equal over every tier, status and date (and NULL-free).
+  - [ ] **Operator decisions:** whether the prices are shown «без ДДС» (the
+    VAT line is deliberately neutral);
     flat per month or per `members_active` (MONETISATION S7 names the
     latter as the invoice basis; the cards say the former — the step copy
     now names neither); the «до два работни дни» review promise (nothing

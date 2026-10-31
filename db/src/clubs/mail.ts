@@ -438,13 +438,13 @@ export interface ClubLifecycleCandidate {
 }
 
 /**
- * Paying clubs at a milestone of their own standing, for the owners' mail:
+ * Clubs at a milestone of their own standing, for the owners' mail:
  * a trial that ends in a week or tomorrow (and is not already paid past),
  * coverage that ran out in the last three days (the grace begins), a grace
  * that ended in the last three days (read-only, public page hidden), a
  * suspension in the last three days. Three days is the catch-up window for
  * a worker that was down; the ledger key (kind, owner, milestone) keeps
- * each mail to one. The community tier pays nothing and is never listed.
+ * each mail to one. Every tier pays (2026-10-31), so every tier is listed.
  */
 export async function clubLifecycleCandidates(
   db: SqlRunner,
@@ -455,7 +455,7 @@ export async function clubLifecycleCandidates(
       SELECT c.id, c.status, c.trial_ends_on, c.paid_until, c.suspended_at,
              greatest(c.paid_until, c.trial_ends_on) AS coverage
         FROM clubs c
-       WHERE c.tier <> 'community' AND c.status IN ('active', 'suspended')
+       WHERE c.status IN ('active', 'suspended')
     )
     SELECT 'club_trial_ending' AS kind, id AS club_id,
            to_char(trial_ends_on, 'YYYY-MM-DD') AS date,

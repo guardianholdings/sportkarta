@@ -69,7 +69,7 @@ describe('formal address', () => {
     expect(value(key)).not.toMatch(INFORMAL);
   });
 
-  it.each(['Home', 'Marketing', 'Footer', 'ClubsLanding'])(
+  it.each(['Home', 'Footer', 'ClubsLanding'])(
     'addresses the reader as Вие across the whole %s namespace',
     (ns) => {
       const offenders = strings((bg as unknown as Tree)[ns] as Tree, ns).filter(([, text]) =>

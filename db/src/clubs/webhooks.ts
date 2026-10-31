@@ -1,3 +1,4 @@
+import { CLUB_GRACE_DAYS } from '@sportkarta/lib/clubs';
 import { sql, type SQL } from 'drizzle-orm';
 
 /**
@@ -64,8 +65,8 @@ export async function claimWebhookDeliveries(
          AND e.disabled_at IS NULL
          AND c.tier = ANY(${sql.param([...options.tiers])}::text[])
          AND c.status = 'active'
-         AND (c.tier = 'community'
-              OR greatest(c.paid_until, c.trial_ends_on) + 14 >= (now() AT TIME ZONE 'Europe/Sofia')::date)
+         AND greatest(c.paid_until, c.trial_ends_on) + ${CLUB_GRACE_DAYS}::int
+             >= (now() AT TIME ZONE 'Europe/Sofia')::date
     ), due AS (
       SELECT d.id
         FROM club_webhook_deliveries d

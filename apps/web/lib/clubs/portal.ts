@@ -1,7 +1,7 @@
 import { getDb, sql } from '@sportkarta/db';
 import type { ClubSport, IsoDate } from '@sportkarta/lib/clubs';
 
-import { clubRenderableSql } from './access';
+import { clubRenderableSql, clubWritableSql } from './access';
 import { memberSelfScope } from './scope';
 
 /**
@@ -167,9 +167,7 @@ export async function portalView(
     await db.execute(sql`
       SELECT c.id, c.slug, c.public_email, c.public_phone, c.terms_url,
              CASE WHEN ${locale} = 'en' THEN coalesce(c.name_en, c.name_bg) ELSE c.name_bg END AS name,
-             (c.status = 'active' AND (c.tier = 'community'
-               OR greatest(c.paid_until, c.trial_ends_on) + 14 >= (now() AT TIME ZONE 'Europe/Sofia')::date))
-               AS live
+             ${clubWritableSql('c')} AS live
         FROM clubs c
        WHERE c.slug = ${slug} AND c.status <> 'archived'
          -- A club that is not on the public site (hidden, pending, suspended)

@@ -8,6 +8,7 @@ import {
 } from '@sportkarta/lib/clubs';
 import { sha256Hex } from '@sportkarta/lib/clubs/secrets';
 
+import { clubWritableSql } from './access';
 import { recordClubAudit } from './audit';
 import { clubActorMay, clubScope, type ClubActor } from './scope';
 
@@ -135,9 +136,7 @@ export async function clubCheckIn(
     // record nothing (writes are an entitlement, 0039).
     const club = await tx.execute(sql`
       SELECT c.id, c.sports FROM clubs c
-       WHERE c.id = ${clubId}::uuid AND c.status = 'active'
-         AND (c.tier = 'community'
-              OR greatest(c.paid_until, c.trial_ends_on) + 14 >= (now() AT TIME ZONE 'Europe/Sofia')::date)
+       WHERE c.id = ${clubId}::uuid AND ${clubWritableSql('c')}
     `);
     if (club.rows.length === 0) return { status: 'club_closed' };
 

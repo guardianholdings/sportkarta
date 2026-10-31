@@ -368,7 +368,7 @@ export async function handleMcpMessage(
           capabilities: { tools: { listChanged: false } },
           serverInfo: { name: 'pops-club', title: `POPS — ${key.clubSlug}`, version: '1.0.0' },
           instructions:
-            "Tools for one sports club's office on POPS: its clients, timetable, bookings, visits and payments. Ask the person to confirm before any tool that changes something.",
+            "Tools for one sports club's management platform on POPS: its clients, timetable, bookings, visits and payments. Ask the person to confirm before any tool that changes something.",
         },
       };
     }

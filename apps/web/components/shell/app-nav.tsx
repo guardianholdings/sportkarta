@@ -1,4 +1,12 @@
-import { CalendarDays, Map as MapIcon, Plus, Trophy, User } from 'lucide-react';
+import {
+  Building2,
+  CalendarDays,
+  Database,
+  Map as MapIcon,
+  Plus,
+  Trophy,
+  User,
+} from 'lucide-react';
 
 import { LocaleSwitcher } from '@/components/shell/locale-switcher';
 import { PopsMark } from '@/components/shell/pops-mark';
@@ -19,9 +27,22 @@ export const NAV = [
   { key: 'navProfile', href: '/profil', icon: User },
 ] as const;
 
+/**
+ * The rail's foot, under the primary tabs: the open data and, while the
+ * «Клубове» add-on is on, the page for clubs — the links the marketing pages'
+ * own header used to carry (operator, 2026-10-31: one menu, not two).
+ * Desktop only: the bottom bar keeps its four tabs, and on a phone both pages
+ * are a tap away from the front page and the footer.
+ */
+export const NAV_MORE = [
+  { key: 'navData', href: '/danni', icon: Database },
+  { key: 'navClubs', href: '/za-klubove', icon: Building2 },
+] as const;
+
 export type NavItem = (typeof NAV)[number];
-export type NavKey = NavItem['key'] | 'navAdd' | 'navBrand' | 'navPrimary' | 'skipToContent';
-export type ActiveHref = NavItem['href'];
+type RailItem = NavItem | (typeof NAV_MORE)[number];
+export type NavKey = RailItem['key'] | 'navAdd' | 'navBrand' | 'navPrimary' | 'skipToContent';
+export type ActiveHref = RailItem['href'];
 
 /**
  * The brand mark („Усмивката") in raw coral — the mark's own colour, never a
@@ -41,18 +62,27 @@ export function NavRail({
   labelFor,
   className,
   showAdd = true,
+  clubs = false,
 }: {
   active?: ActiveHref | null;
   labelFor: (key: NavKey) => string;
   className?: string;
   /** The map screen renders its own add-facility FAB over the map instead. */
   showAdd?: boolean;
+  /**
+   * Whether the «Клубове» add-on is on (clubsEnabled()): every club route
+   * 404s while it is off, so the rail links /za-klubove only with this set.
+   */
+  clubs?: boolean;
 }) {
   return (
     <nav
       aria-label={labelFor('navPrimary')}
       className={cn(
-        'flex w-[76px] shrink-0 flex-col items-center gap-1 border-r border-line bg-surface py-4',
+        // overflow-y-auto: six items, the add button and the locale switch
+        // stand ~560px tall; a shorter desktop window scrolls the rail
+        // instead of clipping its foot.
+        'flex w-[76px] shrink-0 flex-col items-center gap-1 overflow-y-auto border-r border-line bg-surface py-4',
         className,
       )}
     >
@@ -73,6 +103,11 @@ export function NavRail({
           </Link>
         )}
       </div>
+      <div className="mb-2 flex flex-col gap-1 border-t border-line pt-2">
+        {NAV_MORE.filter((n) => clubs || n.href !== '/za-klubove').map((n) => (
+          <NavRailItem key={n.key} item={n} active={n.href === active} label={labelFor(n.key)} />
+        ))}
+      </div>
       {/* Pinned to the rail's foot. A client component, so the rail itself
           stays hook-free and still renders in server and client trees alike. */}
       <LocaleSwitcher variant="rail" />
@@ -80,13 +115,13 @@ export function NavRail({
   );
 }
 
-function NavRailItem({ item, active, label }: { item: NavItem; active: boolean; label: string }) {
+function NavRailItem({ item, active, label }: { item: RailItem; active: boolean; label: string }) {
   const Icon = item.icon;
   return (
     <Link
       href={item.href}
       aria-current={active ? 'page' : undefined}
-      className={`flex flex-col items-center gap-1 rounded-md px-2 py-2 text-overline font-semibold ${
+      className={`flex flex-col items-center gap-1 rounded-md px-2 py-2 text-center text-overline font-semibold leading-tight ${
         active ? 'bg-brand-subtle text-brand' : 'text-ink-soft hover:bg-surface-2'
       }`}
     >

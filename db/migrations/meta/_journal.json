@@ -421,6 +421,13 @@
       "when": 1785210000000,
       "tag": "0059_club_lifecycle_mail",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1785213600000,
+      "tag": "0060_clubs_every_tier_paid",
+      "breakpoints": true
     }
   ]
 }

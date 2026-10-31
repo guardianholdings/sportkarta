@@ -69,7 +69,7 @@ describe.skipIf(!hasDb)('club online payments (requires running database)', () =
 
   beforeEach(async () => {
     await cleanupClubFixtures(client);
-    club = await makeClub(client, 'payments', { tier: 'community' });
+    club = await makeClub(client, 'payments', { tier: 'community', paid: true });
     memberId = await makeMember(client, club.clubId, 'Мария');
     planId = await makePlan(client, club.clubId, { priceCents: 4500 });
   });

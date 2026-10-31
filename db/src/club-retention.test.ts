@@ -40,7 +40,7 @@ describe.skipIf(!hasDb)('club retention prune (requires running database)', () =
 
   beforeEach(async () => {
     await cleanupClubFixtures(client);
-    club = await makeClub(client, 'retention', { tier: 'community' });
+    club = await makeClub(client, 'retention', { tier: 'community', paid: true });
     memberId = await makeMember(client, club.clubId, 'Мария');
   });
 

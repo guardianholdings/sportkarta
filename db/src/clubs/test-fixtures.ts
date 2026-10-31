@@ -35,18 +35,23 @@ export interface ClubFixture {
 export async function makeClub(
   client: pg.Client,
   slug: string,
-  options: { tier?: string; status?: string } = {},
+  /**
+   * `paid`: paid a year ahead, so the club may write — every tier is paid
+   * (2026-10-31), and a club with neither a trial nor a payment is lapsed.
+   */
+  options: { tier?: string; status?: string; paid?: boolean } = {},
 ): Promise<ClubFixture> {
   const ownerId = await ensureUser(client, `${slug}_owner`);
   const status = options.status ?? 'active';
   const club = await client.query<{ id: string }>(
-    `INSERT INTO clubs (slug, name_bg, tier, status, approved_at, suspended_at, archived_at)
+    `INSERT INTO clubs (slug, name_bg, tier, status, approved_at, suspended_at, archived_at, paid_until)
      VALUES ($1, $2, $3, $4,
              CASE WHEN $4 = 'pending' THEN NULL ELSE now() END,
              CASE WHEN $4 = 'suspended' THEN now() END,
-             CASE WHEN $4 = 'archived' THEN now() END)
+             CASE WHEN $4 = 'archived' THEN now() END,
+             CASE WHEN $5 THEN current_date + 365 END)
      RETURNING id`,
-    [`e2e-${slug}`, `Клуб ${slug}`, options.tier ?? 'standard', status],
+    [`e2e-${slug}`, `Клуб ${slug}`, options.tier ?? 'standard', status, options.paid === true],
   );
   const clubId = club.rows[0]?.id ?? '';
   await client.query(`INSERT INTO club_staff (club_id, user_id, role) VALUES ($1, $2, 'owner')`, [

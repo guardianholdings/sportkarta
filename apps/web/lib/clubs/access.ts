@@ -31,14 +31,18 @@ export const SOFIA_TODAY_SQL: SQL = sql`(now() AT TIME ZONE 'Europe/Sofia')::dat
 export type ClubAlias = 'c' | 'club' | 'wc';
 
 /**
- * status = active AND (community OR the later of paid_until / trial_ends_on
- * plus the grace is today or later). greatest() ignores a NULL argument, so a
- * club with only a trial, or only a payment, is judged by the one it has.
+ * status = active AND the later of paid_until / trial_ends_on plus the grace
+ * is today or later — on every tier, since none is free (2026-10-31, 0060).
+ * greatest() ignores a NULL argument, so a club with only a trial, or only a
+ * payment, is judged by the one it has. With neither, the comparison is NULL:
+ * coalesce makes that a plain false, so `NOT clubWritableSql()` (the admin's
+ * «Изтекли» tab) and a selected `live` column see a lapsed club, not a gap.
  */
 export function clubWritableSql(alias: ClubAlias = 'c'): SQL {
   const a = sql.raw(alias);
-  return sql`(${a}.status = 'active' AND (${a}.tier = 'community'
-    OR greatest(${a}.paid_until, ${a}.trial_ends_on) + ${CLUB_GRACE_DAYS}::int >= ${SOFIA_TODAY_SQL}))`;
+  return sql`(${a}.status = 'active' AND coalesce(
+    greatest(${a}.paid_until, ${a}.trial_ends_on) + ${CLUB_GRACE_DAYS}::int >= ${SOFIA_TODAY_SQL},
+    false))`;
 }
 
 /**

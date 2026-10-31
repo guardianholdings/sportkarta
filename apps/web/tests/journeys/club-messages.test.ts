@@ -494,7 +494,7 @@ describe.skipIf(!hasDb)('club messages journey (requires running database)', () 
     `);
     expect(still.rows[0]).toEqual({ status: 'draft', subject: 'Само за собственика' });
 
-    // The free tier has no messages, no automations and no SMS.
+    // The community tier has no messages, no automations and no SMS.
     const community = await otherClub('community');
     expect(await saveBroadcastDraft(db, community, null, input)).toEqual({
       ok: false,

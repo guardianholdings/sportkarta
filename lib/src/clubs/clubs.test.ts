@@ -42,6 +42,7 @@ import {
   can,
   canWrite,
   clubAccessState,
+  daysUntilReadOnly,
   clubSlugFrom,
   daysBetween,
   dedupeKey,
@@ -406,8 +407,13 @@ describe('access state', () => {
     ...over,
   });
 
-  it('never lapses a community club', () => {
-    expect(clubAccessState(paid({ tier: 'community' }), today)).toBe('active');
+  it('treats the community tier like every other: paid, with a trial (2026-10-31)', () => {
+    for (const tier of CLUB_TIERS) {
+      expect(clubAccessState(paid({ tier }), today), tier).toBe('lapsed');
+      expect(clubAccessState(paid({ tier, trialEndsOn: '2026-11-23' }), today), tier).toBe('trial');
+      expect(clubAccessState(paid({ tier, paidUntil: '2026-10-31' }), today), tier).toBe('active');
+      expect(daysUntilReadOnly(paid({ tier, trialEndsOn: '2026-10-30' }), today), tier).toBe(20);
+    }
   });
 
   it('walks trial → past_due → lapsed with a 14-day grace', () => {

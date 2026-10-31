@@ -1,4 +1,5 @@
 import {
+  CLUB_GRACE_DAYS,
   addDaysIso,
   membershipEndsOn,
   renewsInto,
@@ -33,8 +34,8 @@ interface TransactionalDb extends SqlRunner {
 }
 
 function writable(today: IsoDate): SQL {
-  return sql`c.status = 'active' AND (c.tier = 'community'
-    OR greatest(c.paid_until, c.trial_ends_on) + 14 >= ${today}::date)`;
+  return sql`c.status = 'active'
+    AND greatest(c.paid_until, c.trial_ends_on) + ${CLUB_GRACE_DAYS}::int >= ${today}::date`;
 }
 
 function text(value: unknown): string | null {

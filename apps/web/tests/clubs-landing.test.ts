@@ -15,7 +15,7 @@ import bg from '../messages/bg.json';
 /**
  * The clubs page (/za-klubove) must not sell what is not there: a row behind
  * an outside service the operator has not switched on says «скоро», a row
- * above the free tier names its tier, the fee line exists only while the fee
+ * above the entry tier names its tier, the fee line exists only while the fee
  * is zero — and every row in the catalogue has its words.
  */
 const OFF = () => false;

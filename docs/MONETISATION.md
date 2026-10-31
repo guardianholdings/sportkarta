@@ -36,7 +36,7 @@ items are in MANUAL STEPS.
 | S4  | Donations page («Подкрепи ни»)                    | Nothing — asks for support; explains donor tax relief                                                                                                                                                               | Дарение                                                     | Low but zero marginal cost                                                                             | XS (part of M1)                            | M1      |
 | S5  | Display advertising in key spots                  | Direct-sold, flat-rate, labelled slots (first-party served, untracked): facility pages, city pages, weekly pages, map panel                                                                                         | Реклама (invoiced)                                          | Medium — one direct-sold slot beats Bulgarian network RPMs by orders of magnitude; scales with traffic | S (1 session)                              | M4      |
 | S6  | Grants                                            | —                                                                                                                                                                                                                   | Грант                                                       | Erasmus+ Sport small partnerships are lump-sum €30k/€60k; ММС + corporate grants                       | None (reports engine is the evidence base) | ongoing |
-| S7  | «Клубове» — club-management add-on                | Software for private gyms, studios and clubs (members, plans, payments as records, timetable, bookings, QR attendance, reports) + a labelled public page and facility-page block; free community tier               | Invoiced service (стопанска дейност — confirm the устав)    | Medium, recurring; scales per club                                                                     | L (Stage 9, shipped behind CLUBS_ENABLED)  | Stage 9 |
+| S7  | «Клубове» — club-management add-on                | Software for private gyms, studios and clubs (members, plans, payments as records, timetable, bookings, QR attendance, reports) + a labelled public page and facility-page block; three paid tiers, trial month    | Invoiced service (стопанска дейност — confirm the устав)    | Medium, recurring; scales per club                                                                     | L (Stage 9, shipped behind CLUBS_ENABLED)  | Stage 9 |
 
 **Explicitly rejected** (see §5): behaviourally-targeted/personalised ads
 and tracking pixels (never, under any setting), betting/gambling
@@ -318,13 +318,14 @@ grant application cites is SQL-traceable.
 gyms, studios and clubs run members, abonnements, payments (as records),
 timetable, bookings, QR attendance and reports in their own office on POPS, and
 get a public club page and a block on the facility pages where they train.
-Clubs and trainers at public facilities use it free (community tier). This is
+Every tier is paid (operator decision 2026-10-31 — the free community tier
+was withdrawn); each starts with a one-month (30-day) trial. This is
 consistent with §5's rejection of "premium member features": the member
 product stays free and unchanged; a club pays for its tools.
 
 **How it is paid:** the operator invoices by bank transfer and activates by
-hand in `/admin/klubove` (tier, `paid_until`); a new paid club starts with a
-30-day trial; the invoice basis is `club_monthly_activity.members_active`
+hand in `/admin/klubove` (tier, `paid_until`); every newly approved club starts
+with a 30-day trial, on any tier; the invoice basis is `club_monthly_activity.members_active`
 (a valid abonnement on any day of the month, or 3+ visits). No card billing
 code exists for the add-on itself. Online payments for a club's OWN clients
 are built (v2 wave E, 2026-10-25, behind `CLUB_PAYMENTS_ENABLED`): each club
@@ -336,9 +337,9 @@ operator decision. Court, room and trainer bookings (wave C) sell through the
 same path: a service that requires online payment holds the slot for 35
 minutes while the member pays the club on Stripe.
 
-**Labelling and surfaces (the S3/S5 rules, applied):** a paid club's block on a
-facility page is labelled «Платено представяне», a community club's «Клуб на
-този обект»; a paid club's own website link is `rel="sponsored noopener"`; the
+**Labelling and surfaces (the S3/S5 rules, applied):** a club's block on a
+facility page is labelled «Платено представяне» (every tier is paid); the
+club's own website link is `rel="sponsored noopener"`; the
 map CANVAS gets no mark — only a chip in the preview panel beside it; the
 `/klubove` directory is in name order, so a paid tier buys tools, never rank.
 Hiding, suspending or a lapsed payment withdraws a club from every public
@@ -350,8 +351,10 @@ coordinates, no tracking; every club table is off the open-data
 `ALLOWED_RELATIONS`; the club's own audit log records exports and any NGO
 admin who opened its office.
 
-**Anchors (operator decision pending):** Общност €0 (≤50 active members, 1
-location); Старт ~€49/mo; Про ~€119/mo — against 1club.ai's €79/€179.
+**Prices (operator decision 2026-10-31):** Общност €49.99/mo (≤50 active
+members, 1 location); Старт €99.99/mo; Про €149.99/mo — each with a one-month
+trial. The numbers live once, in `lib/src/clubs/pricing-public.ts`. The public
+pages name no competitor (operator, 2026-10-31).
 
 ## 3. Implementation phases
 

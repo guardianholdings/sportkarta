@@ -1,4 +1,11 @@
-import { BadgePercent, Database, EyeOff, FileInput, MapPinned, Medal } from 'lucide-react';
+import {
+  BadgePercent,
+  EyeOff,
+  FileInput,
+  HeartHandshake,
+  MapPinned,
+  Medal,
+} from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 
 import { SectionHead } from '@/components/home/section-head';
@@ -7,7 +14,7 @@ import { Reveal } from '@/components/motion/reveal';
 const EDGES = [
   { key: 'found', icon: MapPinned },
   { key: 'passport', icon: Medal },
-  { key: 'free', icon: Database },
+  { key: 'ngo', icon: HeartHandshake },
   { key: 'fee', icon: BadgePercent },
   { key: 'privacy', icon: EyeOff },
   { key: 'migrate', icon: FileInput },

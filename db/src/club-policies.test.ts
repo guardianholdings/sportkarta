@@ -60,8 +60,8 @@ describe.skipIf(!hasDb)('club policies (requires running database)', () => {
 
   beforeEach(async () => {
     await cleanupClubFixtures(client);
-    // Community tier: always writable (a paid tier needs paid_until or a trial).
-    club = await makeClub(client, 'policies', { tier: 'community' });
+    // Paid a year ahead, so the club may write (every tier needs a payment or a trial).
+    club = await makeClub(client, 'policies', { tier: 'community', paid: true });
     memberId = await makeMember(client, club.clubId, 'Мария');
     planId = await makePlan(client, club.clubId, { priceCents: 4500 });
     await client.query(`UPDATE club_plans SET auto_renew = true WHERE id = $1`, [planId]);

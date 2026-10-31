@@ -58,7 +58,7 @@ export default async function ApiKeysPage({ params }: { params: PageParams }) {
   const keys = await listApiKeys(user.id);
 
   return (
-    <AppShell>
+    <AppShell active="/danni">
       <main className="mx-auto max-w-2xl space-y-6 p-4">
         <Link href="/danni" className="text-body-sm font-medium text-link hover:text-link-hover">
           {t('back')}

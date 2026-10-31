@@ -14,7 +14,7 @@ export interface ExplorerRow {
   key: string;
   title: string;
   body: string;
-  /** The tier's label when the row is above the free tier, else null. */
+  /** The tier's label when the row is above the entry tier, else null. */
   tier: string | null;
   /** Behind a service the operator has not switched on. */
   soon: boolean;

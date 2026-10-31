@@ -7,6 +7,7 @@ import {
   sha256Hex,
 } from '@sportkarta/lib/clubs/secrets';
 
+import { clubWritableSql } from './access';
 import { recordClubAudit } from './audit';
 import { violatedConstraint } from './errors';
 import { clubActorMay, clubScope, clubWriteScope, type ClubActor } from './scope';
@@ -196,9 +197,7 @@ export async function kioskFromCookie(
   const result = await getDb().execute(sql`
     SELECT kd.id, kd.secret_hash, kd.last_seen_at, c.id AS club_id, c.slug, c.name_bg, c.logo_path,
            l.id AS location_id, l.name AS location_name,
-           (c.status = 'active' AND (c.tier = 'community'
-              OR greatest(c.paid_until, c.trial_ends_on) + 14 >= (now() AT TIME ZONE 'Europe/Sofia')::date))
-             AS live
+           ${clubWritableSql('c')} AS live
       FROM club_kiosk_devices kd
       JOIN clubs c ON c.id = kd.club_id
       JOIN club_locations l ON l.id = kd.location_id

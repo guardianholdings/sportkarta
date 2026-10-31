@@ -11,7 +11,7 @@ import { SHOTS } from './shots';
 /**
  * «Всички функции» — the whole catalogue (lib/src/clubs/catalogue.ts) as
  * the office explorer: every area with its real screen and every function
- * with its title and one line, searchable. A row above the free tier
+ * with its title and one line, searchable. A row above the entry tier
  * carries its tier; a row behind a service the operator has not switched on
  * carries «скоро» (lib/clubs/landing.ts) — the page never sells what is not
  * there today. The words are resolved here, on the server; the explorer

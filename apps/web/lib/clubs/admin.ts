@@ -19,7 +19,7 @@ import { clubWritableSql } from './access';
  * every page and action).
  *
  * THE OPERATOR SELLS THE ADD-ON BY INVOICE (decision 2026-10-24): approving an
- * application starts a 30-day trial on a paid tier; when the bank transfer
+ * application starts a 30-day trial on any tier (all are paid); when the bank transfer
  * arrives the operator records `paid_until`; nothing here charges a card.
  * Every change lands in admin_actions IN THE SAME TRANSACTION (0033's rule),
  * and every state change is written as "set the TARGET state WHERE it differs"
@@ -262,7 +262,7 @@ export async function adminClubDetail(slug: string): Promise<AdminClubDetail | n
 
 // ─── Changes ───────────────────────────────────────────────────────────────
 
-/** Approve a pending application: active, and a trial on a paid tier. */
+/** Approve a pending application: active, and the trial (every tier is paid, 2026-10-31). */
 export async function approveClub(
   db: TransactionalDb,
   adminId: string,
@@ -272,10 +272,8 @@ export async function approveClub(
     const updated = await tx.execute(sql`
       UPDATE clubs
          SET status = 'active', approved_at = now(),
-             trial_ends_on = CASE
-               WHEN tier <> 'community' AND trial_ends_on IS NULL
-               THEN (now() AT TIME ZONE 'Europe/Sofia')::date + ${CLUB_TRIAL_DAYS}::int
-               ELSE trial_ends_on END
+             trial_ends_on = coalesce(trial_ends_on,
+               (now() AT TIME ZONE 'Europe/Sofia')::date + ${CLUB_TRIAL_DAYS}::int)
        WHERE id = ${clubId}::uuid AND status = 'pending'
        RETURNING id
     `);

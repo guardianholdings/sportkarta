@@ -11,11 +11,11 @@ import { PRICING_INCLUDED, rowState } from '@/lib/clubs/landing';
 import { cn } from '@/lib/utils';
 import {
   CLUB_FEATURES,
-  CLUB_TIER_PRICE_EUR,
+  CLUB_TIER_PRICE_CENTS,
   CLUB_TIERS,
-  CLUB_TRIAL_DAYS,
   COMMUNITY_MEMBER_CAP,
   clubHasFeature,
+  formatEuro,
 } from '@sportkarta/lib/clubs';
 
 /** `Club.feature.*` labels are written for the middle of a sentence; a grid row starts one. */
@@ -32,12 +32,6 @@ function sentenceCase(label: string, locale: string): string {
  */
 export async function Pricing({ locale }: { locale: string }) {
   const [t, tClub] = await Promise.all([getTranslations('ClubsLanding'), getTranslations('Club')]);
-  const money = new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'bg-BG', {
-    style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: 0,
-  });
-
   return (
     <section
       id="ceni"
@@ -70,18 +64,22 @@ export async function Pricing({ locale }: { locale: string }) {
                     </h3>
                     {featured && <Badge tone="accent">{t('pricing.popular')}</Badge>}
                   </div>
-                  <p className="text-body-sm text-ink-soft">{t(`pricing.tiers.${tier}.for`)}</p>
+                  {/* Two lines on desktop, so the three prices sit on one line. */}
+                  <p className="text-body-sm text-ink-soft lg:min-h-[2lh]">
+                    {t(`pricing.tiers.${tier}.for`)}
+                  </p>
                   <p className="flex items-baseline gap-2">
                     <span className="font-mono text-display-lg font-bold tabular-nums leading-none text-ink">
-                      {money.format(CLUB_TIER_PRICE_EUR[tier])}
+                      {formatEuro(CLUB_TIER_PRICE_CENTS[tier], locale)}
                     </span>
                     <span className="text-body-sm text-text-muted">{t('pricing.perMonth')}</span>
                   </p>
-                  <p className="text-body-sm font-medium text-ink-soft">
-                    {tier === 'community'
-                      ? t('pricing.tiers.community.note', { cap: COMMUNITY_MEMBER_CAP })
-                      : t('pricing.paidNote', { days: CLUB_TRIAL_DAYS })}
-                  </p>
+                  <p className="text-body-sm font-medium text-ink-soft">{t('pricing.trialNote')}</p>
+                  {tier === 'community' && (
+                    <p className="text-body-sm text-ink-soft">
+                      {t('pricing.tiers.community.note', { cap: COMMUNITY_MEMBER_CAP })}
+                    </p>
+                  )}
                   <Link
                     href="/klubove/zayavka"
                     className={cn(

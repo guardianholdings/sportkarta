@@ -8,7 +8,6 @@ import { GamesSection } from '@/components/home/games-section';
 import { Hero, type HeroDots } from '@/components/home/hero';
 import { PersonalStrip, PersonalStripSkeleton } from '@/components/home/personal-strip';
 import { HowItWorks } from '@/components/marketing/how-it-works';
-import { MarketingHeader } from '@/components/marketing/marketing-header';
 import { NumbersBand } from '@/components/marketing/numbers-band';
 import { PassportSection } from '@/components/marketing/passport-section';
 import { PrinciplesBand } from '@/components/marketing/principles-band';
@@ -79,7 +78,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   }
 
   return (
-    <AppShell active={null} topbar={<MarketingHeader signedIn={user !== null} clubs={clubs} />}>
+    <AppShell active={null}>
       <main>
         {user && (
           <Suspense fallback={<PersonalStripSkeleton />}>

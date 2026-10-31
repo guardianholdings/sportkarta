@@ -51,7 +51,7 @@ export const clubs = pgTable(
     nameEn: text('name_en'),
     /** gym | studio | club | trainer | other */
     kind: text('kind').notNull().default('gym'),
-    /** community (free) | standard | pro */
+    /** community | standard | pro — every tier is paid (2026-10-31, 0060) */
     tier: text('tier').notNull().default('community'),
     /** pending | active | suspended | archived */
     status: text('status').notNull().default('pending'),

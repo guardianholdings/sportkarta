@@ -50,8 +50,9 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
 /**
  * A club's public page. RENDERABLE clubs only (public.ts) — a hidden, lapsed
  * or suspended club 404s here exactly as it vanishes from /klubove and from
- * facility pages. A paid club's own website link is `sponsored`: it is a
- * commercial listing on a platform whose links are otherwise editorial.
+ * facility pages. The club's own website link is `sponsored`: every tier is
+ * paid (2026-10-31), so it is a commercial listing on a platform whose links
+ * are otherwise editorial.
  */
 export default async function PublicClubPage({ params }: { params: PageParams }) {
   const { locale, slug } = await params;
@@ -95,7 +96,6 @@ export default async function PublicClubPage({ params }: { params: PageParams })
         );
   const section = 'space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm';
   const trialClasses = club.classes.filter((c) => c.trialAllowed);
-  const paid = club.tier !== 'community';
   // The club's accent (0045): one of the design system's scales, never a value
   // the club typed — a band over the header, nothing that carries meaning.
   const accentBand = {
@@ -428,7 +428,7 @@ export default async function PublicClubPage({ params }: { params: PageParams })
                   <a
                     href={club.websiteUrl}
                     target="_blank"
-                    rel={paid ? 'sponsored noopener' : 'noopener'}
+                    rel="sponsored noopener"
                     className="inline-flex items-center gap-1 font-semibold text-link"
                   >
                     {t('website')}

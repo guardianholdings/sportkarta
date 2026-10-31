@@ -50,7 +50,7 @@ describe.skipIf(!hasDb)('club reservations (requires running database)', () => {
 
   beforeEach(async () => {
     await cleanupClubFixtures(client);
-    club = await makeClub(client, 'courts', { tier: 'community' });
+    club = await makeClub(client, 'courts', { tier: 'community', paid: true });
     memberId = await makeMember(client, club.clubId, 'Мария');
     const service = await client.query<{ id: string }>(
       `INSERT INTO club_services (club_id, location_id, kind, name_bg, duration_min, duration_max,

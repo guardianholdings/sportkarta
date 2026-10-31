@@ -1,5 +1,6 @@
 import {
   AUTOMATION_CATCH_UP_DAYS,
+  CLUB_GRACE_DAYS,
   FEEDBACK_REQUEST_SPACING_DAYS,
   type Audience,
   type AudienceFilter,
@@ -230,8 +231,8 @@ export async function notePushResult(
 
 /** A club may write (and so send): the SQL twin of canWrite (policies.ts). */
 export function clubWritableOn(today: IsoDate): SQL {
-  return sql`c.status = 'active' AND (c.tier = 'community'
-    OR greatest(c.paid_until, c.trial_ends_on) + 14 >= ${today}::date)`;
+  return sql`c.status = 'active'
+    AND greatest(c.paid_until, c.trial_ends_on) + ${CLUB_GRACE_DAYS}::int >= ${today}::date`;
 }
 
 /**

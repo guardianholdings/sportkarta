@@ -13,12 +13,12 @@ import { SHOTS } from './shots';
 
 export const CLUBS_HERO_ID = 'za-klubove-hero';
 
-const ASSURANCES = ['free', 'trial', 'contract', 'cancel', 'export'] as const;
+const ASSURANCES = ['trial', 'contract', 'cancel', 'export'] as const;
 const TOASTS = ['checkin', 'lead', 'renewal', 'reminder'] as const;
 
 /**
  * The first screen of the clubs page: the promise, the one call to action,
- * the five assurances that remove the risk of trying, and the office as it
+ * the four assurances that remove the risk of trying, and the platform as it
  * looks. The «без комисиона» line renders only while the platform fee is
  * zero AND online payments are switched on (lib/clubs/landing.ts).
  */

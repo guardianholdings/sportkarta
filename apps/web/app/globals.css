@@ -613,14 +613,6 @@
     var(--surface);
 }
 
-/* The marketing pages' top bar: the page shows through, slightly frosted, so
-   the bar reads as chrome and not as a band of content. */
-.sk-marketing-header {
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
 /* A screenshot in a drawn window: a bar of three dots over the picture, the
    frame's own border and shadow, nothing to download but the picture. */
 .sk-device-frame {

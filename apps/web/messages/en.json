@@ -425,6 +425,8 @@
     "navSessions": "Sessions",
     "navLeaderboards": "Leaderboard",
     "navProfile": "Profile",
+    "navData": "Data",
+    "navClubs": "For clubs",
     "navAdd": "Add",
     "navBrand": "POPS — home",
     "navPrimary": "Primary navigation",
@@ -780,7 +782,7 @@
       "title": "Cookies and data in your browser",
       "body": "We use no analytics or advertising cookies, and the site sets no language cookie. When you sign in, your browser keeps a session cookie (up to 30 days) and a short-lived signed cookie (5 minutes) so we do not have to look the session up on every request. They are strictly necessary for signing in and are deleted when you sign out.",
       "providers": "If you sign in with {providers}, your browser also keeps a short signed cookie (up to 5 minutes) during the sign-in itself, which links your request to the service's answer. It is strictly necessary too.",
-      "clubTracking": "One exception: a club on a paid plan may add its own Google Analytics or Meta Pixel to its own public pages on POPS. They load only on that club's pages, only if you accept them in the banner there — each separately, since statistics and advertising are different purposes — and stop as soon as you leave those pages. Google or Meta then set their own cookies (such as _ga and _fbp) and receive data about the visit, which they may also process outside the EU, including in the United States; Meta also uses it for advertising. We are responsible jointly with the club for loading these tools and for asking for your consent; what Google and Meta do with the data afterwards is the responsibility of the club and the vendor, as described in the club's privacy notice, which the banner links to. You can direct a request about this data to the club or to us. Your answer is kept in your browser only, separately for each club, for 12 months, and you can change it at any time from the same banner.",
+      "clubTracking": "One exception: a club on the Start or Pro plan may add its own Google Analytics or Meta Pixel to its own public pages on POPS. They load only on that club's pages, only if you accept them in the banner there — each separately, since statistics and advertising are different purposes — and stop as soon as you leave those pages. Google or Meta then set their own cookies (such as _ga and _fbp) and receive data about the visit, which they may also process outside the EU, including in the United States; Meta also uses it for advertising. We are responsible jointly with the club for loading these tools and for asking for your consent; what Google and Meta do with the data afterwards is the responsibility of the club and the vendor, as described in the club's privacy notice, which the banner links to. You can direct a request about this data to the club or to us. Your answer is kept in your browser only, separately for each club, for 12 months, and you can change it at any time from the same banner.",
       "cache": "So that the map works offline, your browser caches the app's files and icons, an offline page and the map tiles you viewed last. They contain no data about you and you can clear them in your browser settings."
     },
     "minors": {
@@ -851,7 +853,7 @@
       "clubInvite": "Sign in with the email address the invitation was sent to.",
       "clubCheckin": "Sign in to mark your attendance at the club. Then scan the code on the tablet again.",
       "clubPortal": "Sign in to see your membership and bookings at the club.",
-      "clubOffice": "Sign in to open the club's office.",
+      "clubOffice": "Sign in to open the club's management platform.",
       "clubPurchase": "Sign in to buy the membership online.",
       "clubInquiry": "Sign in to send the club an inquiry.",
       "clubEvent": "Sign in to register for the event."
@@ -2133,27 +2135,14 @@
     "clubsApply": "Apply for a club",
     "dataLicense": "Data licence"
   },
-  "Marketing": {
-    "wordmark": "POPS",
-    "brandLabel": "POPS — home",
-    "navLabel": "Page navigation",
-    "nav": {
-      "map": "Map",
-      "sessions": "Sessions",
-      "data": "Open data",
-      "clubs": "For clubs"
-    },
-    "signIn": "Sign in",
-    "profile": "My profile"
-  },
   "ClubsLanding": {
     "metaTitle": "For clubs — run your gym, studio or club",
-    "metaDescription": "Members, memberships, timetable, bookings, QR attendance, payments, events, messaging and a page on the national map. Free for clubs at public facilities.",
+    "metaDescription": "Members, memberships, timetable, bookings, QR attendance, payments, events, messaging and a page on the national map. The first month is free.",
     "cta": "Start for free",
     "hero": {
       "overline": "For gyms, studios, clubs and trainers",
       "title": "Run your club on POPS",
-      "lead": "Members, memberships, timetable and attendance in one office. The club page sits on the national map — where people already look for somewhere to play.",
+      "lead": "Members, memberships, timetable and attendance in one business management platform. The club page sits on the national map — where people already look for somewhere to play.",
       "leadPayments": "Payments go through your own Stripe.",
       "prices": "See the prices",
       "fee": "POPS takes no commission on your members’ payments.",
@@ -2179,15 +2168,14 @@
       }
     },
     "assurances": {
-      "free": "A free plan forever for clubs at public facilities",
-      "trial": "A trial on the paid plans, no card needed",
+      "trial": "One month free on every plan, no card needed",
       "contract": "No lock-in — a monthly invoice by bank transfer",
       "cancel": "Stop with one email, no notice period",
       "export": "Export of all your data at any time"
     },
     "audiences": {
       "overline": "Who it is for",
-      "title": "One office for every kind of club",
+      "title": "One platform for every kind of club",
       "lead": "The same tools, arranged around what does the work for you.",
       "gym": "Auto-renewing memberships, attendance at the desk and by QR code, retention reports.",
       "studio": "A weekly timetable, bookings and waitlists, session packs, a trial session for newcomers.",
@@ -2204,7 +2192,7 @@
       "surfaces": {
         "directory": {
           "title": "The club directory",
-          "body": "Every published club is in the directory, filtered by sport and city. The order is by name — a paid plan buys tools, not a higher place."
+          "body": "Every published club is in the directory, filtered by sport and city. The order is by name — a higher plan buys tools, not a higher place."
         },
         "facility": {
           "title": "The facility page",
@@ -2219,9 +2207,9 @@
     },
     "catalogue": {
       "overline": "Every function",
-      "title": "What the club office can do",
+      "title": "What the business management platform can do",
       "lead": "Everything the module does — function by function, nothing left out. The label says from which plan it is included; “soon” means the service is not switched on for everybody yet.",
-      "legend": "No label: included in every plan, the free one too.",
+      "legend": "No label: included in every plan.",
       "soon": "soon",
       "dashboard": {
         "title": "Dashboard",
@@ -2285,7 +2273,7 @@
           },
           "import": {
             "title": "Import",
-            "body": "From vedro, 1club or a spreadsheet: a preview, then one commit; a repeated import does not duplicate."
+            "body": "From another system or a spreadsheet: a preview, then one commit; a repeated import does not duplicate."
           },
           "export": {
             "title": "CSV export",
@@ -2476,7 +2464,7 @@
           },
           "brackets": {
             "title": "Brackets and tables",
-            "body": "Draw, knock-out or round robin — the tables are kept in the office."
+            "body": "Draw, knock-out or round robin — the tables are kept in the platform."
           },
           "elo": {
             "title": "Rating per sport",
@@ -2552,7 +2540,7 @@
       },
       "invoices": {
         "title": "Invoices",
-        "lead": "Invoices and credit notes from the office.",
+        "lead": "Invoices and credit notes from the platform.",
         "shotAlt": "An invoice with issuer and buyer details.",
         "rows": {
           "documents": {
@@ -2849,7 +2837,7 @@
           },
           "docs": {
             "title": "Documentation",
-            "body": "A description of everything in the office."
+            "body": "A description of everything in the platform."
           }
         }
       },
@@ -2864,7 +2852,7 @@
           },
           "audit": {
             "title": "Action log",
-            "body": "Everything the team does — including whether anyone from POPS opened your office."
+            "body": "Everything the team does — including whether anyone from POPS entered your club's platform."
           },
           "noDob": {
             "title": "No date of birth",
@@ -2888,7 +2876,7 @@
     "edges": {
       "overline": "Only on POPS",
       "title": "What you will not find elsewhere",
-      "lead": "Other systems are an office. POPS is an office plus the map people are already on.",
+      "lead": "A business management platform — plus the map where people already look for somewhere to play.",
       "found": {
         "title": "People find you",
         "body": "A directory, a block on the facility page and a chip in the map panel — no paid ranking."
@@ -2897,9 +2885,9 @@
         "title": "The sports passport",
         "body": "Visits to you go into the member’s passport, with consent — a reason to come back."
       },
-      "free": {
-        "title": "A free plan",
-        "body": "For clubs and trainers at public facilities — forever, not for a trial."
+      "ngo": {
+        "title": "You pay an association",
+        "body": "POPS is a non-profit association: your fee keeps up the free sports map your clients come from too."
       },
       "fee": {
         "title": "No commission",
@@ -2911,23 +2899,23 @@
       },
       "migrate": {
         "title": "Bring your data",
-        "body": "From vedro, 1club or a spreadsheet, with a preview before the commit."
+        "body": "From another system or a spreadsheet, with a preview before the commit."
       }
     },
     "pricing": {
       "overline": "Prices",
-      "title": "Three plans, one office",
-      "lead": "Every plan includes the whole base office. The paid ones add tools — not a higher place in the directory.",
+      "title": "Three plans, one platform",
+      "lead": "Every plan includes the whole base platform. The higher ones add tools — not a higher place in the directory.",
       "popular": "Recommended",
       "perMonth": "per month",
-      "paidNote": "{days}-day trial, then an invoice by bank transfer.",
-      "vatNote": "Prices are per month, invoiced by bank transfer. The paid plans start with a trial; stop whenever you decide.",
+      "trialNote": "The first month is free, then an invoice by bank transfer.",
+      "vatNote": "Prices are per month, invoiced by bank transfer. Every plan starts with a free trial month; stop whenever you decide.",
       "gridTitle": "What each plan includes",
       "yes": "included",
       "no": "not included",
       "tiers": {
         "community": {
-          "for": "For clubs and trainers at public facilities.",
+          "for": "For trainers and small clubs.",
           "note": "Up to {cap} active members."
         },
         "standard": {
@@ -2957,18 +2945,18 @@
     "steps": {
       "overline": "How it works",
       "title": "From the application to the first invoice",
-      "lead": "No salesperson, no demo call. You fill in an application, we review it, the office is yours.",
+      "lead": "No salesperson, no sales call. You fill in an application, we review it, the platform is yours.",
       "apply": {
         "title": "Application",
         "body": "Two minutes with a POPS account: name, kind, plan, municipality, sports."
       },
       "review": {
         "title": "Review",
-        "body": "Up to two working days. Meanwhile the office is open to look around."
+        "body": "Up to two working days. Meanwhile the platform is open to look around."
       },
       "trial": {
-        "title": "Trial",
-        "body": "{days} days on the paid plans. The free one has no end."
+        "title": "Trial month",
+        "body": "{days} days free on every plan, no card needed."
       },
       "invoice": {
         "title": "Invoice",
@@ -2979,7 +2967,7 @@
       "transfer": {
         "import": {
           "title": "Import",
-          "body": "Upload the members from vedro, 1club or a spreadsheet; review and commit."
+          "body": "Upload the members from another system or a spreadsheet; review and commit."
         },
         "team": {
           "title": "Team",
@@ -2997,11 +2985,11 @@
       "money": {
         "q": "Who holds the money from payments?",
         "a": "You do. Members pay into your own Stripe account; POPS sees no cards and holds no funds.",
-        "aSoon": "You do. Payments at the desk are recorded in your office. Online payments — once switched on — go through your own Stripe account; POPS sees no cards and holds no funds."
+        "aSoon": "You do. Payments at the desk are recorded in your platform. Online payments — once switched on — go through your own Stripe account; POPS sees no cards and holds no funds."
       },
       "account": {
         "q": "Do my members need a POPS account?",
-        "a": "No. The record lives in your office. Linking to a POPS account is the member’s choice — then they get a portal, a QR code and a passport."
+        "a": "No. The member’s record lives in your platform. Linking to a POPS account is the member’s choice — then they get a portal, a QR code and a passport."
       },
       "minors": {
         "q": "How are children handled?",
@@ -3009,7 +2997,7 @@
       },
       "switching": {
         "q": "I use another system. How do I move my data?",
-        "a": "With an import from vedro, 1club or a spreadsheet: you see what will be written before it is written; a repeated import does not duplicate."
+        "a": "With an import from another system or a spreadsheet: you see what will be written before it is written; a repeated import does not duplicate."
       },
       "cancel": {
         "q": "Can I stop at any time?",
@@ -3023,35 +3011,35 @@
         "q": "Do I need a fiscal device?",
         "a": "Yes, your own. The till in POPS issues a receipt that is not a fiscal one; the fiscal receipt comes from your device."
       },
-      "free": {
-        "q": "What does the free plan include?",
-        "a": "The whole base office — members, timetable, attendance, portal, payments at the desk, events, documents — for clubs at public facilities, up to {cap} active members."
+      "trial": {
+        "q": "How does the trial month work?",
+        "a": "You choose a plan and use it free for {days} days, with everything it includes, no card and no contract. Before it ends we write to you; you continue with an invoice by bank transfer, or stop and owe nothing."
       },
       "lapse": {
         "q": "What happens if I pay late?",
-        "a": "For two weeks everything works with a warning. Then the office becomes read-only and the page is hidden until you pay — nothing is deleted."
+        "a": "For two weeks everything works with a warning. Then the platform becomes read-only and the page is hidden until you pay — nothing is deleted."
       },
       "trainer": {
         "q": "I am a trainer without a hall. Is this for me?",
-        "a": "Yes. Hourly bookings at your prices, a client portal, online payment and a page on the map — free if you train at a public facility."
+        "a": "Yes. Hourly bookings at your prices, a client portal and a page on the map — from the Community plan up."
       }
     },
     "final": {
-      "title": "Your club office is ready",
-      "lead": "The application takes two minutes. Free for clubs at public facilities; a trial for the rest.",
+      "title": "Your club's management platform is ready",
+      "lead": "The application takes two minutes. The first month is free on every plan.",
       "cta": "Start for free",
       "contact": "Have a question? Write to us"
     },
     "day": {
       "overline": "A day at the club",
       "title": "From opening to the report",
-      "lead": "What the office does while you run sessions — hour by hour. Every label opens the area that does it.",
+      "lead": "What the platform does while you run sessions — hour by hour. Every label opens the area that does it.",
       "openLabel": "Open the area",
       "moments": {
         "open": {
           "time": "06:45",
           "title": "The door",
-          "body": "The first member scans the kiosk QR code with their phone. The check-in is in the office — and, with consent, in their sports passport."
+          "body": "The first member scans the kiosk QR code with their phone. The check-in is in the platform — and, with consent, in their sports passport."
         },
         "trial": {
           "time": "08:10",
@@ -3061,7 +3049,7 @@
         "buy": {
           "time": "09:30",
           "title": "Membership online",
-          "body": "A member renews by card on a Stripe page. The money is in your account; the office already knows."
+          "body": "A member renews by card on a Stripe page. The money is in your account; the platform already knows."
         },
         "desk": {
           "time": "12:00",
@@ -3086,7 +3074,7 @@
       }
     },
     "explorer": {
-      "areas": "Areas of the office",
+      "areas": "Areas of the platform",
       "searchLabel": "Search for a function",
       "searchPlaceholder": "E.g. QR, invoice, waitlist…",
       "noResults": "No function with that word. Try another.",
@@ -4086,7 +4074,7 @@
     "title": "Clubs",
     "intro": "The gyms, studios and clubs using the Clubs add-on. Approve applications, record the paid period, and suspend or archive a club here. Every change is logged.",
     "invoiceNote": "The add-on fee is invoiced by the association and paid by bank transfer. When the payment arrives, set “Paid until”.",
-    "disabledNote": "The add-on is switched off (CLUBS_ENABLED). Clubs and their offices stay hidden until it is switched on.",
+    "disabledNote": "The add-on is switched off (CLUBS_ENABLED). Clubs and their management platform stay hidden until it is switched on.",
     "tab": {
       "pending": "Applications",
       "live": "Active",
@@ -4108,7 +4096,7 @@
     "ownerless": "no owner",
     "back": "All clubs",
     "approve": "Approve",
-    "approveConfirm": "Approve this club? A paid plan starts a 30-day trial.",
+    "approveConfirm": "Approve this club? Its 30-day trial starts.",
     "reject": "Turn the application down",
     "rejectConfirm": "Turn this application down? The club is archived and its data is deleted after 90 days.",
     "planTitle": "Plan and payment",
@@ -4121,7 +4109,7 @@
     "saved": "Saved.",
     "statusTitle": "State",
     "suspend": "Suspend the club",
-    "suspendConfirm": "Suspend this club? The office becomes read-only and the public page and tablet stop.",
+    "suspendConfirm": "Suspend this club? Its platform becomes read-only and the public page and tablet stop.",
     "reinstate": "Reinstate",
     "archive": "Archive",
     "archiveConfirm": "Archive this club? The owner can download their data for 90 days, then the club is deleted for good.",
@@ -4144,7 +4132,7 @@
     "colActive": "Active members",
     "colCheckins": "Check-ins",
     "colRevenue": "Recorded payments",
-    "openOffice": "Club office",
+    "openOffice": "Club platform",
     "publicPage": "Public page",
     "historyTitle": "Admin actions",
     "contactTitle": "Club details",
@@ -4166,7 +4154,7 @@
     "smsCapHint": "0 means the club sends no SMS. The parts are invoiced to the club."
   },
   "ClubOffice": {
-    "metaTitle": "{club} — office",
+    "metaTitle": "{club} — management",
     "nav": {
       "dashboard": "Dashboard",
       "desk": "Check-in",
@@ -4197,11 +4185,11 @@
     "switchClub": "Another club",
     "ngoAdmin": "Association (admin)",
     "banner": {
-      "pending": "Your application is under review. The office is view-only until it is approved.",
+      "pending": "Your application is under review. The platform is view-only until it is approved.",
       "trial": "Trial until {date}",
-      "past_due": "The paid period has ended. In {days, plural, one {# day} other {# days}} the office becomes read-only.",
-      "lapsed": "The paid period has ended. The office is read-only and the public page is hidden. Contact us to renew.",
-      "suspended": "The club is suspended. The office is read-only.",
+      "past_due": "The trial or paid period has ended. In {days, plural, one {# day} other {# days}} the platform becomes read-only.",
+      "lapsed": "The trial or paid period has ended. The platform is read-only and the public page is hidden. Contact us to renew.",
+      "suspended": "The club is suspended. The platform is read-only.",
       "archived": "The club is archived. You can download your data under “Settings”.",
       "readOnly": "Read-only"
     },
@@ -4668,7 +4656,7 @@
     "tracking": {
       "title": "Google Analytics and Meta Pixel",
       "upsell": "The club's own Google Analytics and Meta Pixel on its pages are part of the “{tier}” plan.",
-      "hint": "Add your ids to measure visits to the club's public pages. Visitors are asked first, and nothing loads without their consent. On class and event pages, tracking applies only to visitors who are not signed in. The office, the members' portal and the rest of POPS never load it.",
+      "hint": "Add your ids to measure visits to the club's public pages. Visitors are asked first, and nothing loads without their consent. On class and event pages, tracking applies only to visitors who are not signed in. The management platform, the members' portal and the rest of POPS never load it.",
       "ga": "Google Analytics 4 — measurement id (G-…)",
       "meta": "Meta Pixel — id (digits only)",
       "privacy": "The club's privacy notice",
@@ -4752,7 +4740,7 @@
     "newMember": "New member",
     "import": {
       "title": "Import members",
-      "intro": "Bring your list over from another system or a spreadsheet — vedro, 1club, Excel. You first check how the file was read, and nothing is saved until you confirm. A date of birth is never brought over: for children a “child” column with “yes” is enough.",
+      "intro": "Bring your list over from another system or a spreadsheet, such as Excel. You first check how the file was read, and nothing is saved until you confirm. A date of birth is never brought over: for children a “child” column with “yes” is enough.",
       "upload": "File (CSV)",
       "paste": "Or paste the contents",
       "templateHint": "Example file",
@@ -5591,14 +5579,14 @@
   },
   "ClubApply": {
     "title": "Register a club on POPS",
-    "intro": "Your gym, studio or club gets an office for members, memberships, a timetable and attendance, a page on the POPS map and a kiosk for the front desk. The account you are signed in with becomes the owner's account.",
+    "intro": "Your gym, studio or club gets a management platform for members, memberships, a timetable and attendance, a page on the POPS map and a kiosk for the front desk. The account you are signed in with becomes the owner's account.",
     "name": "Club name",
     "kind": "Type",
     "tier": "Plan",
     "tierHint": {
-      "community": "Free for clubs and trainers at public facilities. Up to {cap} active members.",
-      "standard": "For small gyms and studios. {days} days free trial, then by invoice.",
-      "pro": "For chains and large clubs. {days} days free trial, then by invoice."
+      "community": "{price} a month. For trainers and small clubs, up to {cap} active members. {days} days free trial, then by invoice.",
+      "standard": "{price} a month. For gyms and studios with a desk and a till. {days} days free trial, then by invoice.",
+      "pro": "{price} a month. For chains, large clubs and anyone connecting their own systems. {days} days free trial, then by invoice."
     },
     "city": "Municipality",
     "cityNone": "— choose —",
@@ -5610,13 +5598,13 @@
     "already_pending": "You already have an application under review.",
     "too_many": "You have reached the maximum number of clubs for one account.",
     "afterTitle": "What happens next",
-    "after": "We review applications within two working days. Until then the office is open for viewing only — you can look around the dashboard, timetable and settings. Editing opens once the club is approved, and the 30-day trial starts then."
+    "after": "We review applications within two working days. Until then the platform is open for viewing only — you can look around the dashboard, timetable and settings. Editing opens once the club is approved, and the 30-day trial starts then."
   },
   "ClubHub": {
     "title": "Clubs",
     "intro": "The clubs you work at or are a member of.",
     "officesTitle": "I manage",
-    "officeOpen": "Open the office",
+    "officeOpen": "Open the management platform",
     "membershipsTitle": "I am a member",
     "portalOpen": "My club",
     "pendingLink": "waiting for confirmation",
@@ -5696,7 +5684,7 @@
       "application_rejected": "Your application was not approved",
       "club_trial_ending": "Your trial ends on {date}",
       "club_past_due": "Your POPS fee is due",
-      "club_lapsed": "Your office is read-only",
+      "club_lapsed": "Your club's management platform is read-only",
       "club_suspended": "Your club is suspended",
       "operator_new_application": "A new club application",
       "claim_pending": "A request to link a record",
@@ -5726,12 +5714,12 @@
       "reminder_24h": "A reminder that “{title}” starts within 24 hours ({name}).",
       "membership_expiring": "The membership “{plan}” ({name}) ends on {date}. Renew it at the front desk.",
       "membership_expired": "The membership “{plan}” ({name}) ended on {date}. Renew it at the front desk to continue.",
-      "application_received": "We received the application for {club}. We review applications within two working days and will write when the club is active. Until then the office is open for viewing only.",
+      "application_received": "We received the application for {club}. We review applications within two working days and will write when the club is active. Until then the platform is open for viewing only.",
       "application_approved": "The application is approved and {club} is active on POPS. Start with a location, a membership and a first class.",
       "application_rejected": "The application for {club} on POPS was not approved. If you think this is a mistake, or want to add information, write to us at {contact}.",
-      "club_trial_ending": "The trial of {club} on POPS ends on {date}. To continue on a paid plan, pay the fee by bank transfer — we record the payment and access continues without a break. Without a payment the office becomes read-only {grace} days after the end, and the public page is hidden.",
-      "club_past_due": "The paid period of {club} on POPS ended on {date}. You have {grace} days in which everything works as before. Pay the fee by bank transfer to continue; after that the office becomes read-only and the public page is hidden.",
-      "club_lapsed": "The grace period of {club} ended on {date}. The office is read-only and the public page is hidden; your data is there and nothing was deleted. Pay the fee, or write to us at {contact}, to continue.",
+      "club_trial_ending": "The trial of {club} on POPS ends on {date}. To continue, pay the plan's fee by bank transfer — we record the payment and access continues without a break. Without a payment the platform becomes read-only {grace} days after the end, and the public page is hidden.",
+      "club_past_due": "The trial or paid period of {club} on POPS ended on {date}. You have {grace} days in which everything works as before. Pay the fee by bank transfer to continue; after that the platform becomes read-only and the public page is hidden.",
+      "club_lapsed": "The grace period of {club} ended on {date}. The platform is read-only and the public page is hidden; your data is there and nothing was deleted. Pay the fee, or write to us at {contact}, to continue.",
       "club_suspended": "The association suspended the access of {club} to POPS on {date}. The data is kept. Write to us at {contact} to clear this up.",
       "operator_new_application": "A new club application has arrived: {club}.",
       "claim_pending": "“{name}” asked to link their record to a POPS account. Confirm or refuse it on the member's record.",
@@ -5761,13 +5749,13 @@
       "reminder_24h": "My club",
       "membership_expiring": "My club",
       "membership_expired": "My club",
-      "application_received": "Open the office",
-      "application_approved": "Open the office",
+      "application_received": "Open the management platform",
+      "application_approved": "Open the management platform",
       "application_rejected": "Go to POPS",
-      "club_trial_ending": "Open the office",
-      "club_past_due": "Open the office",
-      "club_lapsed": "Open the office",
-      "club_suspended": "Open the office",
+      "club_trial_ending": "Open the management platform",
+      "club_past_due": "Open the management platform",
+      "club_lapsed": "Open the management platform",
+      "club_suspended": "Open the management platform",
       "operator_new_application": "Open the applications",
       "claim_pending": "Open the record",
       "erasure_requested": "Open the record",
@@ -5944,7 +5932,7 @@
     "classesThisWeek": "{count, plural, =0 {no classes this week} one {# class this week} other {# classes this week}}",
     "open": "Open the club",
     "applyTitle": "Do you run a gym, studio or club?",
-    "applyBody": "Members, memberships, a timetable, QR attendance and a page on the map, in one place. Free for clubs at public facilities.",
+    "applyBody": "Members, memberships, a timetable, QR attendance and a page on the map, in one place. The first month is free.",
     "apply": "Register a club",
     "metaTitle": "{name} — {sports}",
     "metaDescription": "{name}: timetable, memberships and class booking on POPS.",
@@ -5998,7 +5986,6 @@
     },
     "block": {
       "paid": "Paid listing",
-      "community": "A club at this facility",
       "next": "Next classes",
       "page": "Club page"
     },
@@ -7061,7 +7048,7 @@
     "ratings": {
       "back": "Events",
       "title": "Ratings",
-      "intro": "The club’s rating per sport — from the results of its individual tournaments, worked out afresh on every visit (Elo, starting at 1500). The office sees it only.",
+      "intro": "The club’s rating per sport — from the results of its individual tournaments, worked out afresh on every visit (Elo, starting at 1500). Only the club's team sees it.",
       "empty": "No match of an individual tournament has been played yet.",
       "played": "{count, plural, one {# match} other {# matches}}"
     },
@@ -7416,7 +7403,7 @@
   },
   "ClubIntegrations": {
     "title": "Integrations",
-    "intro": "Connect the club to other systems — your own software, automations, an AI assistant, or a door or turnstile. Every key acts for the member of staff who created it, and can do only what they can do in the office today.",
+    "intro": "Connect the club to other systems — your own software, automations, an AI assistant, or a door or turnstile. Every key acts for the member of staff who created it, and can do only what they can do in the platform today.",
     "upsell": "The API, webhooks, the AI assistant and access control are part of the “{tier}” plan.",
     "notEnabled": "Integrations are not switched on in POPS yet.",
     "docsLink": "Developer documentation",
@@ -7563,7 +7550,7 @@
     },
     "mcp": {
       "title": "AI assistant (MCP)",
-      "intro": "Connect your own AI assistant (Claude, ChatGPT or another that speaks MCP) to the club's office — to find clients, show the timetable, book and record visits. The assistant uses an API key and can do only what the key allows.",
+      "intro": "Connect your own AI assistant (Claude, ChatGPT or another that speaks MCP) to the club's platform — to find clients, show the timetable, book and record visits. The assistant uses an API key and can do only what the key allows.",
       "endpoint": "Connector address:",
       "howTo": "In the assistant, add a connector with this address and an Authorization: Bearer header carrying an API key. The documentation has the details.",
       "privacy": "When you connect an assistant, the members' data it asks for goes to the assistant's provider. POPS sends no data to AI providers. The club is the controller: use a business plan under which the provider does not train its models on that data, sign a data processing agreement with it (for a provider outside the EU, also a basis for the transfer, such as standard contractual clauses) and inform your members."
@@ -7794,7 +7781,7 @@
     "clubs": {
       "overline": "For gyms, studios, clubs and trainers",
       "title": "Run your club on POPS",
-      "lead": "Members, timetable, payments and attendance — and a page people find on the map. Free for clubs at public facilities.",
+      "lead": "Members, timetable, payments and attendance — and a page people find on the map. The first month is free.",
       "cta": "Everything for clubs"
     },
     "principles": {

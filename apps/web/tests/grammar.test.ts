@@ -118,7 +118,6 @@ describe('the discovery pages address the reader formally', () => {
     'Accountability',
     'OpenData',
     'Home',
-    'Marketing',
     'ClubsLanding',
   ] as const)('%s', (ns) => {
     const informal = strings(bg[ns], ns).filter(

@@ -155,6 +155,8 @@ interface MapExplorerProps {
    * client bundle. Null/absent = unsold = nothing rendered.
    */
   ad?: { id: number; url: string; alt: string } | null;
+  /** Whether the «Клубове» add-on is on, so the rail may link /za-klubove. */
+  clubs?: boolean;
 }
 
 function toggle(list: string[], value: string): string[] {
@@ -172,6 +174,7 @@ export function MapExplorer({
   initialFacilities,
   externalLayers = [],
   ad = null,
+  clubs = false,
 }: MapExplorerProps) {
   const t = useTranslations('Map');
   const tAds = useTranslations('Ads');
@@ -914,6 +917,7 @@ export function MapExplorer({
           labelFor={(k) => tNav(k)}
           className="pointer-events-auto"
           showAdd={false}
+          clubs={clubs}
         />
 
         {/*

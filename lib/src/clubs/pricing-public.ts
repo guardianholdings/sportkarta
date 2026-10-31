@@ -2,18 +2,18 @@ import type { ClubTier } from './access.js';
 
 /**
  * The published price of each tier of the «Клубове» add-on — the ONE place a
- * number lives: the clubs page, the application form's hints and the admin's
- * member-cap hint all read these, so a change here changes every surface.
+ * number lives: the clubs page and the application form's hints read these,
+ * so a change here changes every surface.
  *
- * Anchors of 2026-10-25 (docs/MONETISATION.md S7), to be confirmed by the
- * operator before launch. Euro per month, invoiced by bank transfer; the
- * paid tiers start with CLUB_TRIAL_DAYS (access.ts) of trial.
+ * Operator decision 2026-10-31: no free plan; three paid plans, each starting
+ * with CLUB_TRIAL_DAYS (access.ts) of free trial. Euro cents per month,
+ * invoiced by bank transfer.
  */
-export const CLUB_TIER_PRICE_EUR: Readonly<Record<ClubTier, number>> = {
-  community: 0,
-  standard: 49,
-  pro: 119,
+export const CLUB_TIER_PRICE_CENTS: Readonly<Record<ClubTier, number>> = {
+  community: 4999,
+  standard: 9999,
+  pro: 14999,
 };
 
-/** The free tier's ceiling on active members (set per club by the operator). */
+/** The entry plan's ceiling on active members (set per club by the operator). */
 export const COMMUNITY_MEMBER_CAP = 50;

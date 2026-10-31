@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { CLUB_TIERS } from './access.js';
+import { CLUB_TIERS, CLUB_TRIAL_DAYS } from './access.js';
 import { CLUB_CATALOGUE, CLUB_SERVICES } from './catalogue.js';
 import { CLUB_FEATURES, isClubFeature } from './features.js';
-import { CLUB_TIER_PRICE_EUR } from './pricing-public.js';
+import { CLUB_TIER_PRICE_CENTS } from './pricing-public.js';
 
 /**
  * The catalogue the clubs page renders is complete by construction: a feature
@@ -38,9 +38,18 @@ describe('the clubs catalogue', () => {
     }
   });
 
-  it('prices every tier, the free one at zero', () => {
-    for (const tier of CLUB_TIERS) expect(CLUB_TIER_PRICE_EUR[tier]).toBeGreaterThanOrEqual(0);
-    expect(CLUB_TIER_PRICE_EUR.community).toBe(0);
-    expect(CLUB_TIER_PRICE_EUR.standard).toBeLessThan(CLUB_TIER_PRICE_EUR.pro);
+  it('prices every tier, none of them free', () => {
+    // Every tier is paid (operator decision 2026-10-31), in whole cents.
+    for (const tier of CLUB_TIERS) {
+      expect(Number.isInteger(CLUB_TIER_PRICE_CENTS[tier])).toBe(true);
+      expect(CLUB_TIER_PRICE_CENTS[tier]).toBeGreaterThan(0);
+    }
+    expect(CLUB_TIER_PRICE_CENTS).toEqual({ community: 4999, standard: 9999, pro: 14999 });
+  });
+
+  it('keeps the trial a month long, as the clubs page says «1 месец»', () => {
+    // ClubsLanding (assurances, trialNote, vatNote, final) and Home.clubs say
+    // «1 месец» / «Първият месец» in words; change those strings with this.
+    expect(CLUB_TRIAL_DAYS).toBe(30);
   });
 });

@@ -9,7 +9,7 @@ import { portalClasses, type PortalClass } from './portal';
  * class page and the block on a facility page.
  *
  * ONE RULE FOR "MAY THIS CLUB BE SHOWN": clubRenderableSql — active, published
- * by the club itself (`visible`), and paid up or community — embedded in every
+ * by the club itself (`visible`), and paid up or in its trial — embedded in every
  * statement here, so a hidden, lapsed or suspended club disappears from every
  * surface at once and its page 404s. A facility is linked only when it is
  * itself public (publicFacilityVisible), so the paid-venue switches are obeyed

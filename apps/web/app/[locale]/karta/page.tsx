@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { adSlotProps } from '@/components/ads/ad-slot';
 import { MapExplorer } from '@/components/map/map-explorer';
+import { clubsEnabled } from '@/lib/clubs/access';
 import { parsePublicFilters } from '@/lib/filters';
 import { externalMapLayers } from '@/lib/map/external-layers';
 import { listPublicFacilities } from '@/lib/public-data';
@@ -57,6 +58,7 @@ export default async function MapPage({
       <MapExplorer
         externalLayers={externalMapLayers()}
         ad={ad}
+        clubs={clubsEnabled()}
         initialFacilities={facilities.map((f) => ({
           slug: f.slug,
           name: f.name,

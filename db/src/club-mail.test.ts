@@ -179,7 +179,7 @@ describe.skipIf(!hasDb)('club mail recipients (requires running database)', () =
     expect(renewed.map((c) => c.membershipId)).not.toContain(first.membershipId);
   });
 
-  it('lists a paying club’s milestones once each, and a community club never', async () => {
+  it('lists a club’s milestones once each, on every tier', async () => {
     const paying = await makeClub(client, 'standing', { tier: 'standard' });
     const dbToday = String(
       (await client.query<{ d: string }>(`SELECT current_date::text AS d`)).rows[0]?.d,
@@ -206,8 +206,9 @@ describe.skipIf(!hasDb)('club mail recipients (requires running database)', () =
     expect((await mine()).map((c) => c.kind)).toEqual(['club_lapsed']);
     await set(`status = 'suspended', suspended_at = now()`);
     expect((await mine()).map((c) => c.kind)).toEqual(['club_suspended']);
+    // Every tier is paid (2026-10-31): the community tier lapses like the rest.
     await set(`tier = 'community', status = 'active', suspended_at = NULL`);
-    expect(await mine()).toEqual([]);
+    expect((await mine()).map((c) => c.kind)).toEqual(['club_lapsed']);
   });
 
   it('freezes a month of activity once', async () => {

@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
-import { MarketingHeader } from '@/components/marketing/marketing-header';
 import { AudienceBand } from '@/components/marketing/clubs/audience-band';
 import { Audiences } from '@/components/marketing/clubs/audiences';
 import { Catalogue } from '@/components/marketing/clubs/catalogue';
@@ -14,7 +13,6 @@ import { Pricing } from '@/components/marketing/clubs/pricing';
 import { Steps } from '@/components/marketing/clubs/steps';
 import { StickyCta } from '@/components/marketing/clubs/sticky-cta';
 import { AppShell } from '@/components/shell/app-shell';
-import { getCurrentUser } from '@/lib/auth-session';
 import { requireClubsEnabled } from '@/lib/clubs/club-session';
 import { clubSwitchOn } from '@/lib/clubs/features';
 import { platformFeeFree } from '@/lib/clubs/landing';
@@ -23,8 +21,8 @@ import { orNull } from '@/lib/home/memo';
 import { nationalNumbers } from '@/lib/home/sections';
 import { buildAlternates, siteSocialMetadata } from '@/lib/seo';
 
-// The header greets a signed-in member, and the «скоро» chips read the env
-// switches at request time (a compose change, no rebuild).
+// The «скоро» chips read the env switches at request time (a compose change,
+// no rebuild).
 export const dynamic = 'force-dynamic';
 
 type PageParams = Promise<{ locale: string }>;
@@ -60,8 +58,7 @@ export default async function ClubsLandingPage({ params }: { params: PageParams 
   const { locale } = await params;
   setRequestLocale(locale);
   requireClubsEnabled();
-  const [user, numbers, layer, pulses, t] = await Promise.all([
-    orNull('user', getCurrentUser),
+  const [numbers, layer, pulses, t] = await Promise.all([
     orNull('national numbers', nationalNumbers),
     orNull('dot layer', () => dotLayer(null)),
     orNull('game pulses', gamePulses),
@@ -69,9 +66,10 @@ export default async function ClubsLandingPage({ params }: { params: PageParams 
   ]);
   const feeFree = platformFeeFree();
   const paymentsOn = clubSwitchOn('payments');
+  const smsOn = clubSwitchOn('sms');
 
   return (
-    <AppShell active={null} topbar={<MarketingHeader signedIn={user !== null} clubs />}>
+    <AppShell active="/za-klubove">
       <main>
         <LandingHero feeFree={feeFree} paymentsOn={paymentsOn} />
         <Audiences />
@@ -86,7 +84,7 @@ export default async function ClubsLandingPage({ params }: { params: PageParams 
         <Edges feeFree={feeFree} paymentsOn={paymentsOn} />
         <Pricing locale={locale} />
         <Steps />
-        <Faq paymentsOn={paymentsOn} />
+        <Faq paymentsOn={paymentsOn} smsOn={smsOn} />
         <FinalCta />
         <StickyCta watchId={CLUBS_HERO_ID} href="/klubove/zayavka" label={t('cta')} />
       </main>
