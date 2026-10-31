@@ -348,11 +348,12 @@ describe('the pre-hijack case', () => {
     const retry = await providerSignIn(auth, 'facebook');
     expect(retry.location).toContain('error=account_not_linked');
     expect(await sessionUser(auth, retry.cookie)).toBeNull();
-    // The owner's own session survives, and the log names no one.
+    // The owner's own session survives, and the log names no one. (Since
+    // better-auth 1.7.7 the library strips the link itself before our
+    // backstop hook runs, so whether the hook logs a count is not the point.)
     const ownerCookie = cookiesFrom(owner.headers);
     expect((await sessionUser(auth, ownerCookie))?.id).toBe(planted.id);
     const logged = JSON.stringify(log.mock.calls);
-    expect(logged).toContain('dropped 1 unproven provider link');
     expect(logged).not.toContain('victim@example.org');
   });
 
