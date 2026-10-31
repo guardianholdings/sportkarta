@@ -338,8 +338,22 @@ browser) in a MANUAL STEPS list at the end of the session.
   there, so its `frame-ancestors 'none'` is load-bearing).
   Form-error lookups go through `formErrorText` (own keys only): the
   `ClubFormMessages` catalogue must stay a PLAIN object, because it crosses
-  into client components. Writes need `clubWritableSql` (active and paid or
-  community, 14-day grace); every public surface embeds `clubRenderableSql`.
+  into client components. Writes need `clubWritableSql`: active AND a trial
+  or a payment within the 14-day grace, on EVERY tier — there is no free
+  tier (operator decision 2026-10-31, migration 0060; `approveClub` starts
+  the trial on any tier). It is NULL-safe (a club with neither date is a
+  plain false), `tests/journeys/clubs-access.test.ts` holds it equal to
+  `clubAccessState` over every tier, status and date and refuses any
+  `tier = 'community'` clause, and every copy embeds it or reads
+  `CLUB_GRACE_DAYS`. Every public surface embeds `clubRenderableSql`.
+  Club copy rules (operator, 2026-10-31): prices live only in
+  `lib/src/clubs/pricing-public.ts` (cents, `formatEuro`), and the plans
+  read «Базов» / «Старт» / «Про» (the stored key of the first is still
+  `community`); the trial is stated as `{days}` from `CLUB_TRIAL_DAYS`, never
+  typed (`tests/clubs-landing.test.ts`); no competitor is named in any
+  user-facing string; the staff area is «платформата за управление (на
+  бизнеса)» in copy — "office" survives only as a code word (the `(office)`
+  route group).
   Check-ins never refuse (`covered=false` is recorded); only a QR/card visit of
   a consenting linked member writes `training_logs(source='club',
 evidence='qr_verified')`, enforced by trigger + CHECK, never points.

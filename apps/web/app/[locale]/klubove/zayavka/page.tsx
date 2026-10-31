@@ -84,7 +84,7 @@ export default async function ClubApplicationPage({ params }: { params: PagePara
         </section>
         <section className="space-y-1">
           <h2 className="text-body font-bold text-ink">{t('afterTitle')}</h2>
-          <p className="text-body-sm text-ink-soft">{t('after')}</p>
+          <p className="text-body-sm text-ink-soft">{t('after', { days: CLUB_TRIAL_DAYS })}</p>
         </section>
       </main>
     </AppShell>

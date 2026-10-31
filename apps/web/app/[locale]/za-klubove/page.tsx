@@ -1,3 +1,4 @@
+import { CLUB_TRIAL_DAYS } from '@sportkarta/lib/clubs';
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
@@ -35,7 +36,7 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   ]);
   return {
     title: t('metaTitle'),
-    description: t('metaDescription'),
+    description: t('metaDescription', { days: CLUB_TRIAL_DAYS }),
     alternates: buildAlternates('/za-klubove', locale),
     ...siteSocialMetadata(
       locale,

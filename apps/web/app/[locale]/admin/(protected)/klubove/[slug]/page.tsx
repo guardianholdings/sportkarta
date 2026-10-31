@@ -1,5 +1,6 @@
 import {
   CLUB_TIERS,
+  CLUB_TRIAL_DAYS,
   COMMUNITY_MEMBER_CAP,
   formatEuro,
   sofiaToday,
@@ -127,7 +128,7 @@ export default async function AdminClubPage({
             {hidden}
             <ConfirmButton
               className={buttonVariants({ variant: 'primary' })}
-              message={t('approveConfirm')}
+              message={t('approveConfirm', { days: CLUB_TRIAL_DAYS })}
             >
               {t('approve')}
             </ConfirmButton>

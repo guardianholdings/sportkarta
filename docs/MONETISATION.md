@@ -319,7 +319,7 @@ gyms, studios and clubs run members, abonnements, payments (as records),
 timetable, bookings, QR attendance and reports in their own office on POPS, and
 get a public club page and a block on the facility pages where they train.
 Every tier is paid (operator decision 2026-10-31 — the free community tier
-was withdrawn); each starts with a one-month (30-day) trial. This is
+was withdrawn); each starts with a 30-day trial. This is
 consistent with §5's rejection of "premium member features": the member
 product stays free and unchanged; a club pays for its tools.
 
@@ -351,8 +351,9 @@ coordinates, no tracking; every club table is off the open-data
 `ALLOWED_RELATIONS`; the club's own audit log records exports and any NGO
 admin who opened its office.
 
-**Prices (operator decision 2026-10-31):** Общност €49.99/mo (≤50 active
-members, 1 location); Старт €99.99/mo; Про €149.99/mo — each with a one-month
+**Prices (operator decision 2026-10-31):** Базов €49.99/mo (≤50 active
+members, 1 location; stored tier key `community`, formerly «Общност»); Старт
+€99.99/mo; Про €149.99/mo — each with a 30-day
 trial. The numbers live once, in `lib/src/clubs/pricing-public.ts`. The public
 pages name no competitor (operator, 2026-10-31).
 

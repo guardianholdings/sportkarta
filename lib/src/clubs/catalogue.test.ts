@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { CLUB_TIERS, CLUB_TRIAL_DAYS } from './access.js';
+import { CLUB_TIERS } from './access.js';
 import { CLUB_CATALOGUE, CLUB_SERVICES } from './catalogue.js';
 import { CLUB_FEATURES, isClubFeature } from './features.js';
 import { CLUB_TIER_PRICE_CENTS } from './pricing-public.js';
@@ -45,11 +45,5 @@ describe('the clubs catalogue', () => {
       expect(CLUB_TIER_PRICE_CENTS[tier]).toBeGreaterThan(0);
     }
     expect(CLUB_TIER_PRICE_CENTS).toEqual({ community: 4999, standard: 9999, pro: 14999 });
-  });
-
-  it('keeps the trial a month long, as the clubs page says «1 месец»', () => {
-    // ClubsLanding (assurances, trialNote, vatNote, final) and Home.clubs say
-    // «1 месец» / «Първият месец» in words; change those strings with this.
-    expect(CLUB_TRIAL_DAYS).toBe(30);
   });
 });

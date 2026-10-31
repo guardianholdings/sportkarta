@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
+import { CLUB_TRIAL_DAYS } from '@sportkarta/lib/clubs';
 
 /** The last screen: the promise once more, the one call to action, and a way to ask. */
 export async function FinalCta() {
@@ -16,7 +17,7 @@ export async function FinalCta() {
         >
           {t('title')}
         </h2>
-        <p className="max-w-2xl text-body text-paper/75">{t('lead')}</p>
+        <p className="max-w-2xl text-body text-paper/75">{t('lead', { days: CLUB_TRIAL_DAYS })}</p>
         <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/klubove/zayavka"

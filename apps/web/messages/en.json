@@ -2137,7 +2137,7 @@
   },
   "ClubsLanding": {
     "metaTitle": "For clubs — run your gym, studio or club",
-    "metaDescription": "Members, memberships, timetable, bookings, QR attendance, payments, events, messaging and a page on the national map. The first month is free.",
+    "metaDescription": "Members, memberships, timetable, bookings, QR attendance, payments, events, messaging and a page on the national map. {days} days free.",
     "cta": "Start for free",
     "hero": {
       "overline": "For gyms, studios, clubs and trainers",
@@ -2168,7 +2168,7 @@
       }
     },
     "assurances": {
-      "trial": "One month free on every plan, no card needed",
+      "trial": "{days} days free on every plan, no card needed",
       "contract": "No lock-in — a monthly invoice by bank transfer",
       "cancel": "Stop with one email, no notice period",
       "export": "Export of all your data at any time"
@@ -2908,8 +2908,8 @@
       "lead": "Every plan includes the whole base platform. The higher ones add tools — not a higher place in the directory.",
       "popular": "Recommended",
       "perMonth": "per month",
-      "trialNote": "The first month is free, then an invoice by bank transfer.",
-      "vatNote": "Prices are per month, invoiced by bank transfer. Every plan starts with a free trial month; stop whenever you decide.",
+      "trialNote": "{days} days free, then an invoice by bank transfer.",
+      "vatNote": "Prices are per month, invoiced by bank transfer. Every plan starts with a free {days}-day trial; stop whenever you decide.",
       "gridTitle": "What each plan includes",
       "yes": "included",
       "no": "not included",
@@ -2955,7 +2955,7 @@
         "body": "Up to two working days. Meanwhile the platform is open to look around."
       },
       "trial": {
-        "title": "Trial month",
+        "title": "Trial",
         "body": "{days} days free on every plan, no card needed."
       },
       "invoice": {
@@ -3012,7 +3012,7 @@
         "a": "Yes, your own. The till in POPS issues a receipt that is not a fiscal one; the fiscal receipt comes from your device."
       },
       "trial": {
-        "q": "How does the trial month work?",
+        "q": "How does the trial work?",
         "a": "You choose a plan and use it free for {days} days, with everything it includes, no card and no contract. Before it ends we write to you; you continue with an invoice by bank transfer, or stop and owe nothing."
       },
       "lapse": {
@@ -3021,12 +3021,12 @@
       },
       "trainer": {
         "q": "I am a trainer without a hall. Is this for me?",
-        "a": "Yes. Hourly bookings at your prices, a client portal and a page on the map — from the Community plan up."
+        "a": "Yes. Hourly bookings at your prices, a client portal and a page on the map — from the Basic plan up."
       }
     },
     "final": {
       "title": "Your club's management platform is ready",
-      "lead": "The application takes two minutes. The first month is free on every plan.",
+      "lead": "The application takes two minutes. {days} days free on every plan.",
       "cta": "Start for free",
       "contact": "Have a question? Write to us"
     },
@@ -3712,7 +3712,7 @@
         "club_created": "Club created: {club}",
         "club_updated": "Club details changed: {club}",
         "club_status_changed": "{club}: {status, select, pending {awaiting approval} active {active} suspended {suspended} archived {archived} other {new status}}",
-        "club_plan_changed": "{club}: plan {tier, select, community {Community} standard {Start} pro {Pro} other {—}}, paid until {paidUntil}",
+        "club_plan_changed": "{club}: plan {tier, select, community {Basic} standard {Start} pro {Pro} other {—}}, paid until {paidUntil}",
         "club_staff_granted": "{club}: role granted — {role, select, owner {owner} manager {manager} trainer {trainer} desk {front desk} other {—}}",
         "club_staff_revoked": "{club}: removed from the team",
         "club_purged": "Club permanently deleted: {club}"
@@ -3903,7 +3903,7 @@
   "Club": {
     "moduleName": "Clubs",
     "tier": {
-      "community": "Community",
+      "community": "Basic",
       "standard": "Start",
       "pro": "Pro"
     },
@@ -4096,7 +4096,7 @@
     "ownerless": "no owner",
     "back": "All clubs",
     "approve": "Approve",
-    "approveConfirm": "Approve this club? Its 30-day trial starts.",
+    "approveConfirm": "Approve this club? Its {days}-day trial starts.",
     "reject": "Turn the application down",
     "rejectConfirm": "Turn this application down? The club is archived and its data is deleted after 90 days.",
     "planTitle": "Plan and payment",
@@ -4104,7 +4104,7 @@
     "fieldPaidUntil": "Paid until",
     "fieldTrialEndsOn": "Trial until",
     "fieldMemberCap": "Active member limit",
-    "memberCapHint": "Empty = no limit. The Community plan is up to {cap} active members.",
+    "memberCapHint": "Empty = no limit. The Basic plan is up to {cap} active members.",
     "save": "Save",
     "saved": "Saved.",
     "statusTitle": "State",
@@ -5598,7 +5598,7 @@
     "already_pending": "You already have an application under review.",
     "too_many": "You have reached the maximum number of clubs for one account.",
     "afterTitle": "What happens next",
-    "after": "We review applications within two working days. Until then the platform is open for viewing only — you can look around the dashboard, timetable and settings. Editing opens once the club is approved, and the 30-day trial starts then."
+    "after": "We review applications within two working days. Until then the platform is open for viewing only — you can look around the dashboard, timetable and settings. Editing opens once the club is approved, and the {days}-day trial starts then."
   },
   "ClubHub": {
     "title": "Clubs",
@@ -5932,7 +5932,7 @@
     "classesThisWeek": "{count, plural, =0 {no classes this week} one {# class this week} other {# classes this week}}",
     "open": "Open the club",
     "applyTitle": "Do you run a gym, studio or club?",
-    "applyBody": "Members, memberships, a timetable, QR attendance and a page on the map, in one place. The first month is free.",
+    "applyBody": "Members, memberships, a timetable, QR attendance and a page on the map, in one place. {days} days free.",
     "apply": "Register a club",
     "metaTitle": "{name} — {sports}",
     "metaDescription": "{name}: timetable, memberships and class booking on POPS.",
@@ -7781,7 +7781,7 @@
     "clubs": {
       "overline": "For gyms, studios, clubs and trainers",
       "title": "Run your club on POPS",
-      "lead": "Members, timetable, payments and attendance — and a page people find on the map. The first month is free.",
+      "lead": "Members, timetable, payments and attendance — and a page people find on the map. {days} days free.",
       "cta": "Everything for clubs"
     },
     "principles": {

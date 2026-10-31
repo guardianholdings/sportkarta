@@ -1,11 +1,11 @@
 import { Check } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 
+import { Reveal } from '@/components/motion/reveal';
 import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
-
-import { Reveal } from '@/components/motion/reveal';
+import { CLUB_TRIAL_DAYS } from '@sportkarta/lib/clubs';
 
 import { DeviceFrame } from './device-frame';
 import { HeroToasts } from './hero-toasts';
@@ -72,7 +72,7 @@ export async function LandingHero({
                 <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-brand-subtle text-brand">
                   <Check size={13} strokeWidth={3} aria-hidden="true" />
                 </span>
-                {t(`assurances.${key}`)}
+                {t(`assurances.${key}`, { days: CLUB_TRIAL_DAYS })}
               </li>
             ))}
           </ul>

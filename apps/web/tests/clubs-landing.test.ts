@@ -111,3 +111,25 @@ describe('the catalogue has its words', () => {
     expect(CLUB_FEATURES.filter((f) => typeof feature[f] !== 'string')).toEqual([]);
   });
 });
+
+describe('the trial length is never typed into the copy', () => {
+  // CLUB_TRIAL_DAYS is the one number (operator, 2026-10-31: «30 дни»); every
+  // string that states it says {days}, so the copy cannot drift from the system.
+  const TYPED = /\b30[- ]?(дни|дневн)|месец е безплатен|\b1 месец|пробен месец|пробният месец/i;
+  const sources: [string, unknown][] = [
+    ['ClubsLanding', bg.ClubsLanding],
+    ['Home.clubs', bg.Home.clubs],
+    ['ClubPublic.applyBody', bg.ClubPublic.applyBody],
+    ['ClubApply', bg.ClubApply],
+    ['AdminClubs.approveConfirm', bg.AdminClubs.approveConfirm],
+  ];
+  function strings(node: unknown, at: string): [string, string][] {
+    if (typeof node === 'string') return [[at, node]];
+    if (node === null || typeof node !== 'object') return [];
+    return Object.entries(node).flatMap(([key, child]) => strings(child, `${at}.${key}`));
+  }
+
+  it.each(sources)('%s', (at, node) => {
+    expect(strings(node, at).filter(([, text]) => TYPED.test(text))).toEqual([]);
+  });
+});

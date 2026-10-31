@@ -218,7 +218,7 @@ facility data, moderation or scoring. Migrations `0019`–`0023`.
 
 A paid add-on for private gyms, studios and sports clubs (the free community
 tier for clubs at public facilities was withdrawn 2026-10-31 — every tier is
-paid, with a one-month trial; migration 0060), sold by invoice and switched on
+paid, with a 30-day trial; migration 0060), sold by invoice and switched on
 by the operator. Plan: the approved plan of 2026-10-24; commercial record:
 `docs/MONETISATION.md` S7. **Behind `CLUBS_ENABLED`, which ships off**: every
 club route 404s, the worker's club jobs find nothing, the map feed carries no
@@ -796,7 +796,8 @@ and, where an outside service is involved, by an env switch as well.
     marketing header is gone and «Данни» + «За клубове» (the latter only
     while `CLUBS_ENABLED`) sit at the foot of the side rail (`NAV_MORE`,
     `apps/web/components/shell/app-nav.tsx`); prices €49.99 / €99.99 /
-    €149.99 with a one-month trial on EVERY tier — the free community tier
+    €149.99 with a 30-day trial on EVERY tier (the entry plan renamed
+    «Базов», copy says `{days}` from `CLUB_TRIAL_DAYS`) — the free community tier
     is withdrawn in the logic too (`clubAccessState`, `clubWritableSql` and
     its six inline twins, `approveClub` grants the trial on any tier, the
     lifecycle mails cover every tier, every facility block reads «Платено
