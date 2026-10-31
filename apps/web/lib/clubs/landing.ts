@@ -33,6 +33,29 @@ export function rowState(
 }
 
 /**
+ * The rows every tier has in the pricing grid (/za-klubove) — copy rows above
+ * the tier matrix, in this order. A row that depends on an outside service
+ * names it, so the grid marks it «скоро» while the switch is off exactly as
+ * the catalogue does (rowState).
+ */
+export const PRICING_INCLUDED: readonly { key: string; service?: ClubService }[] = [
+  { key: 'members' },
+  { key: 'timetable' },
+  { key: 'attendance' },
+  { key: 'portal' },
+  { key: 'email' },
+  { key: 'push', service: 'push' },
+  { key: 'reports' },
+  { key: 'documents' },
+  { key: 'ranks' },
+  { key: 'events' },
+  { key: 'courts' },
+  { key: 'payments', service: 'payments' },
+  { key: 'inbox' },
+  { key: 'page' },
+];
+
+/**
  * Whether POPS takes no share of a club's online payments — true while
  * STRIPE_APPLICATION_FEE_BP is unset, zero or not a number (which the payment
  * provider also reads as zero, lib/src/payments/provider.ts). The page shows

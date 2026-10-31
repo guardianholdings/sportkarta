@@ -19,20 +19,21 @@ const SURFACES = [
  * figures (nothing person-derived), and the three surfaces it appears on.
  */
 export async function AudienceBand({
+  places,
   numbers,
   gamesThisWeek,
   locale,
 }: {
+  /** The free places the front page counts (the dot map's figure), told the same way here. */
+  places: number | null;
   numbers: NationalStats | null;
   gamesThisWeek: number | null;
   locale: string;
 }) {
   const t = await getTranslations('ClubsLanding.audience');
   const figures: { key: string; value: number }[] = [];
-  if (numbers) {
-    figures.push({ key: 'places', value: numbers.free });
-    figures.push({ key: 'municipalities', value: numbers.municipalitiesCovered });
-  }
+  if (places !== null) figures.push({ key: 'places', value: places });
+  if (numbers) figures.push({ key: 'municipalities', value: numbers.municipalitiesCovered });
   if (gamesThisWeek !== null) figures.push({ key: 'games', value: gamesThisWeek });
 
   return (

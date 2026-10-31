@@ -17,6 +17,3 @@ export const CLUB_TIER_PRICE_EUR: Readonly<Record<ClubTier, number>> = {
 
 /** The free tier's ceiling on active members (set per club by the operator). */
 export const COMMUNITY_MEMBER_CAP = 50;
-
-/** The free tier's ceiling on locations. */
-export const COMMUNITY_LOCATIONS = 1;

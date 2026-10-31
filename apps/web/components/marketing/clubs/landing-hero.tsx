@@ -16,9 +16,16 @@ const ASSURANCES = ['free', 'trial', 'contract', 'cancel', 'export'] as const;
  * The first screen of the clubs page: the promise, the one call to action,
  * the five assurances that remove the risk of trying, and the office as it
  * looks. The «без комисиона» line renders only while the platform fee is
- * zero (lib/clubs/landing.ts).
+ * zero AND online payments are switched on (lib/clubs/landing.ts).
  */
-export async function LandingHero({ feeFree }: { feeFree: boolean }) {
+export async function LandingHero({
+  feeFree,
+  paymentsOn,
+}: {
+  feeFree: boolean;
+  /** CLUB_PAYMENTS_ENABLED: the Stripe sentence and the fee line exist only then. */
+  paymentsOn: boolean;
+}) {
   const t = await getTranslations('ClubsLanding');
   const shot = SHOTS.hero;
   return (
@@ -37,7 +44,10 @@ export async function LandingHero({ feeFree }: { feeFree: boolean }) {
           >
             {t('hero.title')}
           </h1>
-          <p className="max-w-xl text-body-lg text-ink-soft">{t('hero.lead')}</p>
+          <p className="max-w-xl text-body-lg text-ink-soft">
+            {t('hero.lead')}
+            {paymentsOn && <> {t('hero.leadPayments')}</>}
+          </p>
           <div className="flex flex-wrap gap-2">
             <Link
               href="/klubove/zayavka"
@@ -49,7 +59,9 @@ export async function LandingHero({ feeFree }: { feeFree: boolean }) {
               {t('hero.prices')}
             </a>
           </div>
-          {feeFree && <p className="text-body-sm font-semibold text-brand">{t('hero.fee')}</p>}
+          {feeFree && paymentsOn && (
+            <p className="text-body-sm font-semibold text-brand">{t('hero.fee')}</p>
+          )}
           <ul className="grid gap-2 text-body-sm text-ink-soft sm:grid-cols-2">
             {ASSURANCES.map((key) => (
               <li key={key} className="flex items-start gap-2">

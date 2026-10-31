@@ -8,7 +8,8 @@ import {
   lowestTierWith,
 } from '@sportkarta/lib/clubs';
 
-import { platformFeeFree, rowState } from '../lib/clubs/landing';
+import { serviceFor } from '../lib/clubs/features';
+import { PRICING_INCLUDED, platformFeeFree, rowState } from '../lib/clubs/landing';
 import bg from '../messages/bg.json';
 
 /**
@@ -26,11 +27,7 @@ describe('catalogue row state', () => {
     for (const r of rows) {
       const state = rowState(r, OFF);
       const dependsOnService =
-        r.service !== undefined ||
-        (r.feature !== undefined &&
-          ['shop', 'invoices', 'sms', 'pixels', 'api', 'webhooks', 'mcp', 'door_access'].includes(
-            r.feature,
-          ));
+        r.service !== undefined || (r.feature !== undefined && serviceFor(r.feature) !== undefined);
       expect(state.soon, `${r.area}.${r.key}`).toBe(dependsOnService);
       expect(rowState(r, ON).soon, `${r.area}.${r.key}`).toBe(false);
     }
@@ -48,6 +45,23 @@ describe('catalogue row state', () => {
     const asked = new Set<ClubService>();
     for (const r of rows) rowState(r, (s) => (asked.add(s), true));
     for (const s of asked) expect(CLUB_SERVICES).toContain(s);
+  });
+});
+
+describe('the pricing grid base rows', () => {
+  it('marks «скоро» the base rows behind a switched-off service, and only those', () => {
+    const soon = PRICING_INCLUDED.filter((row) => rowState(row, OFF).soon).map((r) => r.key);
+    expect(soon).toEqual(['push', 'payments']);
+    expect(PRICING_INCLUDED.filter((row) => rowState(row, ON).soon)).toEqual([]);
+  });
+
+  it('has words for every base row', () => {
+    const included = (bg.ClubsLanding as { pricing: { included: Record<string, string> } }).pricing
+      .included;
+    expect(PRICING_INCLUDED.filter((row) => typeof included[row.key] !== 'string')).toEqual([]);
+    expect(Object.keys(included).filter((k) => !PRICING_INCLUDED.some((r) => r.key === k))).toEqual(
+      [],
+    );
   });
 });
 

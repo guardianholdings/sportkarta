@@ -13,9 +13,9 @@ const EDGES = [
 ] as const;
 
 /** «Само в POPS» — what no club software built for its own sake can offer. */
-export async function Edges({ feeFree }: { feeFree: boolean }) {
+export async function Edges({ feeFree, paymentsOn }: { feeFree: boolean; paymentsOn: boolean }) {
   const t = await getTranslations('ClubsLanding.edges');
-  const edges = EDGES.filter((edge) => edge.key !== 'fee' || feeFree);
+  const edges = EDGES.filter((edge) => edge.key !== 'fee' || (feeFree && paymentsOn));
   return (
     <section
       aria-labelledby="clubs-edges"

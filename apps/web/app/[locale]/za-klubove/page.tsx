@@ -15,8 +15,9 @@ import { StickyCta } from '@/components/marketing/clubs/sticky-cta';
 import { AppShell } from '@/components/shell/app-shell';
 import { getCurrentUser } from '@/lib/auth-session';
 import { requireClubsEnabled } from '@/lib/clubs/club-session';
+import { clubSwitchOn } from '@/lib/clubs/features';
 import { platformFeeFree } from '@/lib/clubs/landing';
-import { gamePulses } from '@/lib/home/dots';
+import { dotLayer, gamePulses } from '@/lib/home/dots';
 import { orNull } from '@/lib/home/memo';
 import { nationalNumbers } from '@/lib/home/sections';
 import { buildAlternates, siteSocialMetadata } from '@/lib/seo';
@@ -58,25 +59,32 @@ export default async function ClubsLandingPage({ params }: { params: PageParams 
   const { locale } = await params;
   setRequestLocale(locale);
   requireClubsEnabled();
-  const [user, numbers, pulses, t] = await Promise.all([
+  const [user, numbers, layer, pulses, t] = await Promise.all([
     orNull('user', getCurrentUser),
     orNull('national numbers', nationalNumbers),
+    orNull('dot layer', () => dotLayer(null)),
     orNull('game pulses', gamePulses),
     getTranslations('ClubsLanding'),
   ]);
   const feeFree = platformFeeFree();
+  const paymentsOn = clubSwitchOn('payments');
 
   return (
     <AppShell active={null} topbar={<MarketingHeader signedIn={user !== null} clubs />}>
       <main>
-        <LandingHero feeFree={feeFree} />
+        <LandingHero feeFree={feeFree} paymentsOn={paymentsOn} />
         <Audiences />
-        <AudienceBand numbers={numbers} gamesThisWeek={pulses?.total ?? null} locale={locale} />
+        <AudienceBand
+          places={layer?.total ?? numbers?.free ?? null}
+          numbers={numbers}
+          gamesThisWeek={pulses?.total ?? null}
+          locale={locale}
+        />
         <Catalogue />
-        <Edges feeFree={feeFree} />
+        <Edges feeFree={feeFree} paymentsOn={paymentsOn} />
         <Pricing locale={locale} />
         <Steps />
-        <Faq />
+        <Faq paymentsOn={paymentsOn} />
         <FinalCta />
         <StickyCta watchId={CLUBS_HERO_ID} href="/klubove/zayavka" label={t('cta')} />
       </main>

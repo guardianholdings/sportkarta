@@ -22,7 +22,7 @@ export const FAQ_KEYS = [
  * answered where they arise. Native <details>, so the page needs no script
  * for them and every answer is in the HTML for a crawler.
  */
-export async function Faq() {
+export async function Faq({ paymentsOn }: { paymentsOn: boolean }) {
   const t = await getTranslations('ClubsLanding.faq');
   return (
     <section aria-labelledby="clubs-faq" className="border-t border-line bg-surface">
@@ -40,7 +40,10 @@ export async function Faq() {
                 />
               </summary>
               <p className="mt-3 text-body-sm text-ink-soft">
-                {t(`${key}.a`, { days: CLUB_TRIAL_DAYS, cap: COMMUNITY_MEMBER_CAP })}
+                {t(key === 'money' && !paymentsOn ? 'money.aSoon' : `${key}.a`, {
+                  days: CLUB_TRIAL_DAYS,
+                  cap: COMMUNITY_MEMBER_CAP,
+                })}
               </p>
             </details>
           ))}

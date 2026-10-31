@@ -5,14 +5,14 @@ import { SectionHead } from '@/components/home/section-head';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
-import { serviceFor, clubSwitchOn } from '@/lib/clubs/features';
+import { clubSwitchOn, serviceFor } from '@/lib/clubs/features';
+import { PRICING_INCLUDED, rowState } from '@/lib/clubs/landing';
 import { cn } from '@/lib/utils';
 import {
   CLUB_FEATURES,
   CLUB_TIER_PRICE_EUR,
   CLUB_TIERS,
   CLUB_TRIAL_DAYS,
-  COMMUNITY_LOCATIONS,
   COMMUNITY_MEMBER_CAP,
   clubHasFeature,
 } from '@sportkarta/lib/clubs';
@@ -21,23 +21,6 @@ import {
 function sentenceCase(label: string, locale: string): string {
   return label.charAt(0).toLocaleUpperCase(locale === 'en' ? 'en-GB' : 'bg-BG') + label.slice(1);
 }
-
-/** What every tier has — copy rows above the matrix, not gated by anything. */
-const INCLUDED = [
-  'members',
-  'timetable',
-  'attendance',
-  'portal',
-  'email',
-  'reports',
-  'documents',
-  'ranks',
-  'events',
-  'courts',
-  'payments',
-  'inbox',
-  'page',
-] as const;
 
 /**
  * «Цени» — three cards from ONE price table (lib/src/clubs/pricing-public.ts)
@@ -93,10 +76,7 @@ export async function Pricing({ locale }: { locale: string }) {
                 </p>
                 <p className="text-body-sm font-medium text-ink-soft">
                   {tier === 'community'
-                    ? t('pricing.tiers.community.note', {
-                        cap: COMMUNITY_MEMBER_CAP,
-                        locations: COMMUNITY_LOCATIONS,
-                      })
+                    ? t('pricing.tiers.community.note', { cap: COMMUNITY_MEMBER_CAP })
                     : t('pricing.paidNote', { days: CLUB_TRIAL_DAYS })}
                 </p>
                 <Link
@@ -114,7 +94,12 @@ export async function Pricing({ locale }: { locale: string }) {
         </ul>
         <p className="mt-4 text-caption text-text-muted">{t('pricing.vatNote')}</p>
 
-        <div className="mt-10 overflow-x-auto">
+        <div
+          className="mt-10 overflow-x-auto"
+          tabIndex={0}
+          role="region"
+          aria-labelledby="clubs-pricing"
+        >
           <table className="w-full border-collapse text-body-sm">
             <caption className="sr-only">{t('pricing.gridTitle')}</caption>
             <thead>
@@ -134,10 +119,17 @@ export async function Pricing({ locale }: { locale: string }) {
               </tr>
             </thead>
             <tbody>
-              {INCLUDED.map((key) => (
-                <tr key={key} className="border-b border-line">
+              {PRICING_INCLUDED.map((row) => (
+                <tr key={row.key} className="border-b border-line">
                   <th scope="row" className="py-2.5 pr-4 text-left font-medium text-ink">
-                    {t(`pricing.included.${key}`)}
+                    <span className="inline-flex flex-wrap items-center gap-2">
+                      {t(`pricing.included.${row.key}`)}
+                      {rowState(row).soon && (
+                        <Badge tone="info" variant="soft">
+                          {t('catalogue.soon')}
+                        </Badge>
+                      )}
+                    </span>
                   </th>
                   {CLUB_TIERS.map((tier) => (
                     <td key={tier} className="px-3 py-2.5 text-center text-brand">

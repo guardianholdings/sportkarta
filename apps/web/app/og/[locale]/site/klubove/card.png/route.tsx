@@ -1,5 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 
+import { clubsEnabled } from '@/lib/clubs/access';
 import { cachedOgCard } from '@/lib/og/card';
 import { OG_PALETTE } from '@/lib/og/palette';
 
@@ -16,6 +17,8 @@ export const runtime = 'nodejs';
 type Params = Promise<{ locale: string }>;
 
 export async function GET(_request: Request, { params }: { params: Params }) {
+  // A card advertising the add-on while every club route 404s would be a lie.
+  if (!clubsEnabled()) return new Response('Not found', { status: 404 });
   const { locale } = await params;
   const lang = locale === 'en' ? 'en' : 'bg';
   const tOg = await getTranslations({ locale: lang, namespace: 'Og' });
