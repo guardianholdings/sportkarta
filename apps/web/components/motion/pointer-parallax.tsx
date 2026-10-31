@@ -2,6 +2,8 @@
 
 import { useRef, type ReactNode } from 'react';
 
+import { cn } from '@/lib/utils';
+
 import { gsap, MOTION_OK, useGSAP } from './gsap';
 
 /**
@@ -49,7 +51,9 @@ export function PointerParallax({
     { scope: ref },
   );
   return (
-    <div ref={ref} className={className}>
+    // min-w-0: a wrapper in a grid must not let its child's intrinsic width
+    // widen the track (the dot map's SVG would push a phone viewport wide).
+    <div ref={ref} className={cn('min-w-0', className)}>
       {children}
     </div>
   );
