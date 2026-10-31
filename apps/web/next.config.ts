@@ -106,6 +106,16 @@ const nextConfig: NextConfig = {
           { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
         ],
       },
+      {
+        // The product screenshots on the clubs page (scripts/marketing-shots):
+        // re-rendered after UI changes under the SAME names, so a day plus a
+        // background refresh, like the icons — never a year that would pin a
+        // retired screen.
+        source: '/marketing/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
+        ],
+      },
     ];
   },
   webpack: (config: { resolve: { extensionAlias?: Record<string, string[]> } }) => {

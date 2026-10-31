@@ -173,6 +173,12 @@ describe('static asset cache headers', () => {
     expect(icon.get('cache-control')).toContain('stale-while-revalidate');
   });
 
+  it('caches the clubs page screenshots for a day, with a background refresh', async () => {
+    const shot = await headersFor('/marketing/tablo.webp');
+    expect(maxAge(shot.get('cache-control'))).toBe(86400);
+    expect(shot.get('cache-control')).toContain('stale-while-revalidate');
+  });
+
   it('leaves the service worker script and pages uncached', async () => {
     // A cached sw.js would keep a stale worker in charge of every visitor.
     expect((await headersFor('/sw.js')).get('cache-control')).toBeUndefined();
