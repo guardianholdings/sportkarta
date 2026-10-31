@@ -42,8 +42,11 @@ const productionServer = {
     // to outlive the suite.
     AUTH_SECRET: randomBytes(32).toString('hex'),
     MAIL_TRANSPORT: 'smtp',
-    // The club module's envelope is part of the smoke run (club-smoke.spec.ts).
+    // The club module's envelope is part of the smoke run (club-smoke.spec.ts);
+    // the API answers 404 rather than 401 while its own switch is off, so the
+    // Bearer-only check needs it on.
     CLUBS_ENABLED: 'true',
+    CLUB_API_ENABLED: 'true',
     // The loopback ADDRESS rather than "localhost", which may resolve to ::1
     // first; the sink's certificate names 127.0.0.1, so TLS still verifies.
     SMTP_HOST: process.env.E2E_SMTP_HOST ?? '127.0.0.1',
@@ -71,6 +74,7 @@ const devServer = {
     // configured would otherwise send a dozen live emails per run.
     MAIL_TRANSPORT: 'file',
     CLUBS_ENABLED: 'true',
+    CLUB_API_ENABLED: 'true',
     MAIL_OUTBOX_DIR: process.env.MAIL_OUTBOX_DIR ?? './var/mail',
     ...RATE_LIMITS,
   },

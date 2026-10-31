@@ -2148,12 +2148,13 @@
   },
   "ClubsLanding": {
     "metaTitle": "For clubs — run your gym, studio or club",
-    "metaDescription": "Members, memberships, timetable, bookings, QR attendance, payments through your own Stripe, events, messaging and a page on the national map. Free for clubs at public facilities.",
+    "metaDescription": "Members, memberships, timetable, bookings, QR attendance, payments, events, messaging and a page on the national map. Free for clubs at public facilities.",
     "cta": "Start for free",
     "hero": {
       "overline": "For gyms, studios, clubs and trainers",
       "title": "Run your club on POPS",
-      "lead": "Members, memberships, timetable and attendance in one office. Payments go through your own Stripe. The club page sits on the national map — where people already look for somewhere to play.",
+      "lead": "Members, memberships, timetable and attendance in one office. The club page sits on the national map — where people already look for somewhere to play.",
+      "leadPayments": "Payments go through your own Stripe.",
       "prices": "See the prices",
       "fee": "POPS takes no commission on your members’ payments.",
       "shotAlt": "The club dashboard: today’s sessions and check-ins, expiring memberships and unpaid charges."
@@ -2161,18 +2162,18 @@
     "assurances": {
       "free": "A free plan forever for clubs at public facilities",
       "trial": "A trial on the paid plans, no card needed",
-      "contract": "No contract — a monthly invoice by bank transfer",
-      "cancel": "Stop in one step, whenever you decide",
+      "contract": "No lock-in — a monthly invoice by bank transfer",
+      "cancel": "Stop with one email, no notice period",
       "export": "Export of all your data at any time"
     },
     "audiences": {
       "overline": "Who it is for",
       "title": "One office for every kind of club",
       "lead": "The same tools, arranged around what does the work for you.",
-      "gym": "Auto-renewing memberships, attendance at the desk and by QR code, a till and invoices.",
+      "gym": "Auto-renewing memberships, attendance at the desk and by QR code, retention reports.",
       "studio": "A weekly timetable, bookings and waitlists, session packs, a trial session for newcomers.",
       "club": "Children and parents on one card, belts and exams, tournaments with tables and ratings, camps.",
-      "trainer": "Hourly bookings at your prices, a client portal, online payment without a website of your own."
+      "trainer": "Hourly bookings at your prices, a client portal, a page on the map without a website of your own."
     },
     "audience": {
       "overline": "Where people find you",
@@ -2290,7 +2291,7 @@
           },
           "consents": {
             "title": "Contact consents",
-            "body": "Email, SMS and push — per member, with date and source."
+            "body": "Email, SMS and push — per member, with a date."
           }
         }
       },
@@ -2360,7 +2361,7 @@
           },
           "cancel": {
             "title": "Cancel with notice",
-            "body": "A cancelled session notifies everyone booked by email and push."
+            "body": "A cancelled session notifies everyone booked by email (and push, where switched on)."
           },
           "feed": {
             "title": "Trainer calendar",
@@ -2457,7 +2458,7 @@
           },
           "brackets": {
             "title": "Brackets and tables",
-            "body": "Draw, knock-out or groups — the tables are kept in the office."
+            "body": "Draw, knock-out or round robin — the tables are kept in the office."
           },
           "elo": {
             "title": "Rating per sport",
@@ -2872,7 +2873,7 @@
       "lead": "Other systems are an office. POPS is an office plus the map people are already on.",
       "found": {
         "title": "People find you",
-        "body": "A directory, a block on the facility page and a chip in the map panel — without advertising."
+        "body": "A directory, a block on the facility page and a chip in the map panel — no paid ranking."
       },
       "passport": {
         "title": "The sports passport",
@@ -2899,7 +2900,7 @@
       "overline": "Prices",
       "title": "Three plans, one office",
       "lead": "Every plan includes the whole base office. The paid ones add tools — not a higher place in the directory.",
-      "popular": "Most chosen",
+      "popular": "Recommended",
       "perMonth": "per month",
       "paidNote": "{days}-day trial, then an invoice by bank transfer.",
       "vatNote": "Prices are per month, invoiced by bank transfer. The paid plans start with a trial; stop whenever you decide.",
@@ -2909,7 +2910,7 @@
       "tiers": {
         "community": {
           "for": "For clubs and trainers at public facilities.",
-          "note": "Up to {cap} active members, {locations, plural, one {# location} other {# locations}}."
+          "note": "Up to {cap} active members."
         },
         "standard": {
           "for": "For gyms and studios with a desk and a till."
@@ -2923,7 +2924,8 @@
         "timetable": "Timetable, bookings and waitlist",
         "attendance": "Attendance: desk, card, QR code, kiosk",
         "portal": "Member portal",
-        "email": "Email and push notifications",
+        "email": "Email notifications",
+        "push": "Push notifications",
         "reports": "Basic reports and CSV",
         "documents": "Documents and signatures",
         "ranks": "Belts and ladders",
@@ -2940,11 +2942,11 @@
       "lead": "No salesperson, no demo call. You fill in an application, we review it, the office is yours.",
       "apply": {
         "title": "Application",
-        "body": "Two minutes with a POPS account: name, kind, plan, city, sports."
+        "body": "Two minutes with a POPS account: name, kind, plan, municipality, sports."
       },
       "review": {
         "title": "Review",
-        "body": "Up to two working days. Meanwhile the office is open for setting up."
+        "body": "Up to two working days. Meanwhile the office is open to look around."
       },
       "trial": {
         "title": "Trial",
@@ -2952,7 +2954,7 @@
       },
       "invoice": {
         "title": "Invoice",
-        "body": "Monthly, by bank transfer, by active members. No contract."
+        "body": "Monthly, by bank transfer. No lock-in."
       },
       "transferTitle": "Move in a day",
       "transferLead": "If you already use another system, the move is three steps.",
@@ -2976,7 +2978,8 @@
       "title": "What owners ask",
       "money": {
         "q": "Who holds the money from payments?",
-        "a": "You do. Members pay into your own Stripe account; POPS sees no cards and holds no funds."
+        "a": "You do. Members pay into your own Stripe account; POPS sees no cards and holds no funds.",
+        "aSoon": "You do. Payments at the desk are recorded in your office. Online payments — once switched on — go through your own Stripe account; POPS sees no cards and holds no funds."
       },
       "account": {
         "q": "Do my members need a POPS account?",
@@ -2992,11 +2995,11 @@
       },
       "cancel": {
         "q": "Can I stop at any time?",
-        "a": "Yes, in one step. Data downloads at any time; after closing you have 90 days to export, then we delete it."
+        "a": "Yes — with one email to the association, no notice period. Data downloads at any time; after closing you have 90 days to export, then we delete it."
       },
       "sms": {
         "q": "What do SMS messages cost?",
-        "a": "What they cost at the provider — the cost is accounted to the club, with a monthly cap you set. Email and push are unlimited."
+        "a": "What they cost at the provider — the cost is accounted to the club, within a monthly cap the association agrees with you. Email and push cost nothing extra."
       },
       "fiscal": {
         "q": "Do I need a fiscal device?",
@@ -3004,7 +3007,7 @@
       },
       "free": {
         "q": "What does the free plan include?",
-        "a": "The whole base office — members, timetable, attendance, portal, payments, events, documents — for clubs at public facilities, up to {cap} active members."
+        "a": "The whole base office — members, timetable, attendance, portal, payments at the desk, events, documents — for clubs at public facilities, up to {cap} active members."
       },
       "lapse": {
         "q": "What happens if I pay late?",

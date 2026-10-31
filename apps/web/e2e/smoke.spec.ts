@@ -11,7 +11,8 @@ test('front page renders in Bulgarian', async ({ page }) => {
   await expect(page).toHaveTitle(bg.Metadata.title);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(bg.Home.hero.title);
   // Both ways in work without JavaScript: a link and a GET form to the map.
-  await expect(page.getByRole('link', { name: bg.Home.hero.nearMe })).toHaveAttribute(
+  // `exact`: the «Как работи» card also mentions «Близо до мен» in its text.
+  await expect(page.getByRole('link', { name: bg.Home.hero.nearMe, exact: true })).toHaveAttribute(
     'href',
     '/karta?blizo=1',
   );
