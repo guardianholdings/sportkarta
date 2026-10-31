@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ADD_FROM_VIEW_MIN_ZOOM, addFacilityHref } from '@/lib/map/add-from-view';
+import { ADD_FROM_VIEW_MIN_ZOOM, addFacilityHref, logTrainingHref } from '@/lib/map/add-from-view';
 
 /**
  * «Добави съоръжение» opened over the map starts the pin picker where the map
@@ -25,5 +25,18 @@ describe('addFacilityHref', () => {
 
   it('ignores a view outside Bulgaria', () => {
     expect(addFacilityHref('?z=15&lat=44.79&lng=20.45')).toBe('/dobavi');
+  });
+});
+
+describe('logTrainingHref', () => {
+  it('opens the form with the places around a street-zoom view', () => {
+    expect(logTrainingHref('?z=15&lat=42.69770&lng=23.32190')).toBe(
+      '/trenirovki?nova=1&lon=23.32190&lat=42.69770',
+    );
+  });
+
+  it('opens the bare form otherwise', () => {
+    expect(logTrainingHref('?z=8&lat=42.7&lng=25.3')).toBe('/trenirovki?nova=1');
+    expect(logTrainingHref('')).toBe('/trenirovki?nova=1');
   });
 });

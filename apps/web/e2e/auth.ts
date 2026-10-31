@@ -159,5 +159,12 @@ export async function signIn(page: Page, email: string, expectUrl: RegExp): Prom
   const code = await readOtp(email, since, seen);
   await page.getByLabel(/код|code/i).fill(code);
   await page.getByRole('button', { name: /^(влез|sign in)$/i }).click();
+  // A new account is asked for its name once, before its destination
+  // (app/[locale]/dobre-doshli). A fixture name, then on to `expectUrl`.
+  await page.waitForURL((url) => /\/dobre-doshli/.test(url.pathname) || expectUrl.test(url.href));
+  if (/\/dobre-doshli/.test(new URL(page.url()).pathname)) {
+    await page.getByLabel(/^(име|name)$/i).fill('Тестов член');
+    await page.getByRole('button', { name: /^(продължи|continue)$/i }).click();
+  }
   await page.waitForURL(expectUrl);
 }

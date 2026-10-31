@@ -106,6 +106,99 @@ export async function listUpcomingSessions(limit = 40): Promise<SessionSummary[]
   });
 }
 
+/** An upcoming public тренировка at one facility, for the block on its page. */
+export interface FacilitySession {
+  occurrenceId: string;
+  title: string;
+  /** The instant, for formatDateTime in the reader's locale. */
+  startsAt: string;
+  capacity: number | null;
+  going: number;
+}
+
+/**
+ * The next public тренировки AT this facility (UX audit N7: a facility page
+ * said nothing about what is played there). The rule of the /sesii index —
+ * public series, not cancelled, still to start — narrowed to the facility.
+ */
+export async function facilitySessions(facilityId: string, limit = 5): Promise<FacilitySession[]> {
+  const result = await getDb().execute(sql`
+    SELECT o.id AS occurrence_id, o.starts_at, s.title, s.capacity::int AS capacity,
+           (SELECT count(*)::int FROM play_session_rsvp_positions p
+             WHERE p.occurrence_id = o.id AND p.rsvp_status = 'going') AS going
+      FROM play_session_occurrences o
+      JOIN play_sessions s ON s.id = o.session_id
+     WHERE s.facility_id = ${facilityId}::uuid
+       AND s.visibility = 'public'
+       AND o.status <> 'cancelled'
+       AND o.starts_at > now()
+     ORDER BY o.starts_at
+     LIMIT ${limit}
+  `);
+  return result.rows.map((r) => {
+    const row = r as Record<string, unknown>;
+    return {
+      occurrenceId: String(row.occurrence_id),
+      title: String(row.title),
+      startsAt: new Date(row.starts_at as string | number | Date).toISOString(),
+      capacity: row.capacity === null || row.capacity === undefined ? null : Number(row.capacity),
+      going: Number(row.going ?? 0),
+    };
+  });
+}
+
+/** One of the member's own upcoming RSVPs, for «Моите записвания» on /sesii. */
+
+export interface MySession {
+  occurrenceId: string;
+  title: string;
+  sport: string;
+  startsAtLocal: string;
+  facilityName: string | null;
+  /** Going, or queued behind the capacity (0008's arrival order). */
+  status: 'going' | 'waitlisted';
+}
+
+/**
+ * The member's upcoming тренировки, going or waitlisted (UX audit N7: nothing
+ * listed what a member had signed up for except the home strip's «Следва»).
+ * Their own RSVPs only, keyed by the account; the positions view is asked per
+ * occurrence, because its window runs over the whole occurrence and an
+ * account filter could not reach inside it (lib/home/personal.ts says why).
+ */
+export async function myUpcomingSessions(userId: string, limit = 5): Promise<MySession[]> {
+  const result = await getDb().execute(sql`
+    SELECT o.id AS occurrence_id,
+           to_char(o.starts_at_local, 'YYYY-MM-DD"T"HH24:MI:SS') AS starts_at_local,
+           s.title, s.sport, f.name AS facility_name, p.rsvp_status
+      FROM play_session_rsvps r
+      JOIN play_session_occurrences o ON o.id = r.occurrence_id
+      JOIN play_sessions s ON s.id = o.session_id
+      JOIN facilities f ON f.id = s.facility_id
+      JOIN LATERAL (
+        SELECT q.rsvp_status FROM play_session_rsvp_positions q
+         WHERE q.occurrence_id = o.id AND q.user_id = ${userId}
+      ) p ON true
+     WHERE r.user_id = ${userId}
+       AND r.state = 'active'
+       AND o.status <> 'cancelled'
+       AND o.starts_at > now()
+     ORDER BY o.starts_at
+     LIMIT ${limit}
+  `);
+  return result.rows.map((r) => {
+    const row = r as Record<string, unknown>;
+    return {
+      occurrenceId: String(row.occurrence_id),
+      title: String(row.title),
+      sport: String(row.sport),
+      startsAtLocal: String(row.starts_at_local),
+      facilityName: (row.facility_name as string | null) ?? null,
+      status: row.rsvp_status === 'waitlisted' ? 'waitlisted' : 'going',
+    };
+  });
+}
+
 export async function occurrenceView(
   occurrenceId: string,
   viewerId: string | null,

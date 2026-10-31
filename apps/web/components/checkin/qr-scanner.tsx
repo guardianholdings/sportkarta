@@ -26,8 +26,13 @@ type Problem = 'notOurs' | 'unreadable' | null;
 
 /** Frames are read four times a second; a phone does not need more. */
 const SCAN_EVERY_MS = 250;
-/** jsQR's cost grows with the pixel count; the code fills the frame anyway. */
-const MAX_DECODE_WIDTH = 640;
+/**
+ * jsQR's cost grows with the pixel count. A live frame is aimed, so the code
+ * fills it; a photo may hold a small code in twelve megapixels, so it keeps
+ * more of them.
+ */
+const LIVE_DECODE_WIDTH = 640;
+const PHOTO_DECODE_WIDTH = 1600;
 
 interface Detector {
   detect(source: CanvasImageSource): Promise<{ rawValue: string }[]>;
@@ -55,12 +60,13 @@ async function decode(
   height: number,
   canvas: HTMLCanvasElement,
   detector: Detector | null,
+  maxWidth: number,
 ): Promise<string | null> {
   if (detector) {
     const found = await detector.detect(source);
     return found[0]?.rawValue ?? null;
   }
-  const scale = Math.min(1, MAX_DECODE_WIDTH / width);
+  const scale = Math.min(1, maxWidth / width);
   canvas.width = Math.max(1, Math.round(width * scale));
   canvas.height = Math.max(1, Math.round(height * scale));
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -77,6 +83,9 @@ export function QrScanner({ siteOrigin }: { siteOrigin: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Set once a code is being opened: neither the live loop nor a photo may
+  // open a second one, and nothing opens after the page is left.
+  const doneRef = useRef(false);
   const [phase, setPhase] = useState<Phase>('starting');
   const [problem, setProblem] = useState<Problem>(null);
   const [attempt, setAttempt] = useState(0);
@@ -91,6 +100,7 @@ export function QrScanner({ siteOrigin }: { siteOrigin: string }) {
   /** A decoded string: open it when it is ours, say so when it is not. */
   const handle = useCallback(
     (raw: string | null, from: 'live' | 'photo') => {
+      if (doneRef.current) return true;
       if (raw === null) {
         if (from === 'photo') setProblem('unreadable');
         return false;
@@ -100,6 +110,7 @@ export function QrScanner({ siteOrigin }: { siteOrigin: string }) {
         setProblem('notOurs');
         return false;
       }
+      doneRef.current = true;
       stop();
       setPhase('opening');
       router.push(path);
@@ -136,15 +147,21 @@ export function QrScanner({ siteOrigin }: { siteOrigin: string }) {
         return;
       }
       streamRef.current = stream;
+      // Always mounted (hidden while there is no picture), so a retry finds it.
       const video = videoRef.current;
-      if (!video) return;
+      if (!video) {
+        stop();
+        setPhase('unavailable');
+        return;
+      }
       video.srcObject = stream;
       await video.play().catch(() => undefined);
       const detector = await nativeDetector();
+      if (cancelled) return;
       setPhase('scanning');
 
       const tick = async () => {
-        if (cancelled) return;
+        if (cancelled || doneRef.current) return;
         if (video.readyState >= 2 && video.videoWidth > 0) {
           try {
             const raw = await decode(
@@ -153,7 +170,10 @@ export function QrScanner({ siteOrigin }: { siteOrigin: string }) {
               video.videoHeight,
               canvas(),
               detector,
+              LIVE_DECODE_WIDTH,
             );
+            // Left while the frame was being read: open nothing.
+            if (cancelled) return;
             if (handle(raw, 'live')) return;
           } catch {
             // One unreadable frame is not an error; the next one may read.
@@ -175,15 +195,24 @@ export function QrScanner({ siteOrigin }: { siteOrigin: string }) {
   async function onPhoto(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (!file) return;
+    if (!file || doneRef.current) return;
     setProblem(null);
+    let bitmap: ImageBitmap | null = null;
     try {
-      const bitmap = await createImageBitmap(file);
-      const raw = await decode(bitmap, bitmap.width, bitmap.height, canvas(), await nativeDetector());
-      bitmap.close();
+      bitmap = await createImageBitmap(file);
+      const raw = await decode(
+        bitmap,
+        bitmap.width,
+        bitmap.height,
+        canvas(),
+        await nativeDetector(),
+        PHOTO_DECODE_WIDTH,
+      );
       handle(raw, 'photo');
     } catch {
       setProblem('unreadable');
+    } finally {
+      bitmap?.close();
     }
   }
 
@@ -191,28 +220,33 @@ export function QrScanner({ siteOrigin }: { siteOrigin: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {live ? (
-        <div className="relative aspect-square w-full overflow-hidden rounded-card bg-ink">
-          <video
-            ref={videoRef}
-            playsInline
-            muted
-            className="size-full object-cover"
-            aria-hidden
-          />
-          {/* The aiming frame: decoration, the whole picture is read. */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-[18%] rounded-card border-[3px] border-on-accent/90 shadow-[0_0_0_9999px_var(--overlay-scrim)]"
-          />
-        </div>
-      ) : (
-        <div role="alert" className="rounded-card border border-line bg-surface p-4 text-body-sm text-ink">
+      {/* The video stays mounted whatever the phase, so «Опитай отново» has
+          somewhere to put the stream. */}
+      <div
+        hidden={!live}
+        className="relative aspect-square w-full overflow-hidden rounded-card bg-ink"
+      >
+        <video ref={videoRef} playsInline muted className="size-full object-cover" aria-hidden />
+        {/* The aiming frame: decoration, the whole picture is read. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-[18%] rounded-card border-[3px] border-on-accent/90 shadow-[0_0_0_9999px_var(--overlay-scrim)]"
+        />
+      </div>
+      {!live && (
+        <div
+          role="alert"
+          className="rounded-card border border-line bg-surface p-4 text-body-sm text-ink"
+        >
           {t(phase === 'denied' ? 'denied' : 'unavailable')}
         </div>
       )}
 
-      <p role="status" aria-live="polite" className="min-h-6 text-body-sm font-medium text-ink-soft">
+      <p
+        role="status"
+        aria-live="polite"
+        className="min-h-6 text-body-sm font-medium text-ink-soft"
+      >
         {problem
           ? t(problem)
           : phase === 'starting'
@@ -226,7 +260,11 @@ export function QrScanner({ siteOrigin }: { siteOrigin: string }) {
 
       <div className="flex flex-wrap gap-2.5">
         {!live && (
-          <Button variant="secondary" iconLeft={<RotateCcw size={18} />} onClick={() => setAttempt((n) => n + 1)}>
+          <Button
+            variant="secondary"
+            iconLeft={<RotateCcw size={18} />}
+            onClick={() => setAttempt((n) => n + 1)}
+          >
             {t('retry')}
           </Button>
         )}

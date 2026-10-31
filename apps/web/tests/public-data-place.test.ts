@@ -149,7 +149,6 @@ describe('facilitiesGeoJSON — the club link', () => {
 });
 
 describe('listPublicFacilities (the first-paint seed)', () => {
-
   it('carries the same place as the feed it is replaced by', async () => {
     rows = ROWS;
     const { listPublicFacilities } = await subject();

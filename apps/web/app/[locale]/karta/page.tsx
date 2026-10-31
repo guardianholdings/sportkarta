@@ -65,7 +65,6 @@ export default async function MapPage({
         // The cookie's presence, as AppShell reads it: «Вход» or «Профил».
         signedIn={getSessionCookie(requestHeaders) !== null}
         initialFacilities={facilities.map((f) => ({
-
           slug: f.slug,
           name: f.name,
           sports: f.sportTypes,

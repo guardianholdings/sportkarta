@@ -540,7 +540,8 @@
       "cooperativeMac": "Use ⌘ + scroll to zoom the map",
       "cooperativeMobile": "Use two fingers to move the map"
     },
-    "clubChip": "A club at this facility"
+    "clubChip": "A club at this facility",
+    "clubChipMany": "Clubs at this facility"
   },
   "Facility": {
     "directions": "Directions",
@@ -573,7 +574,11 @@
     "condition": "Condition",
     "conditionUnknown": "not reported",
     "sponsorTitle": "Supported by",
-    "sponsorUntil": "Support agreed until {date} inclusive."
+    "sponsorUntil": "Support agreed until {date} inclusive.",
+    "sessionsHere": {
+      "title": "Upcoming sessions here",
+      "places": "{going}/{capacity}"
+    }
   },
   "Report": {
     "open": "Report a problem / suggest a correction",
@@ -819,6 +824,20 @@
       "body": "When we change this page, we update the date at its top."
     }
   },
+  "Welcome": {
+    "metaTitle": "Welcome",
+    "title": "Welcome to POPS",
+    "intro": "What should we call you? Your name is seen by the organisers of the sessions you sign up for. It appears on the leaderboard and in your passport only if you decide so.",
+    "nameLabel": "Name",
+    "nameHint": "Your first name or a nickname is enough.",
+    "cityLabel": "City (optional)",
+    "submit": "Continue",
+    "errors": {
+      "display_name_required": "Enter a name.",
+      "display_name_too_long": "The name is too long (up to 60 characters).",
+      "home_city_too_long": "The city name is too long (up to 80 characters)."
+    }
+  },
   "SignIn": {
     "title": "Sign in to POPS",
     "intro": "Enter your email — we send a one-time sign-in code. No password.",
@@ -907,7 +926,6 @@
     "saved": "Changes saved.",
     "signOut": "Sign out",
     "adminLink": "Admin panel",
-    "passportLink": "Sports passport",
     "privacyLink": "How we handle your data",
     "deleteTitle": "Delete account",
     "deleteExplainer": "Deletion is permanent and immediate.",
@@ -1322,8 +1340,9 @@
     "visibilityPublishConsequences": "If you make it public, anyone with the link will see your badges, totals and streaks — never when or where you played. Your name and city will also appear on the leaderboards, in campaigns and in divisions.",
     "makePublic": "Make it public",
     "makePrivate": "Make it private",
-    "publishNeedsName": "To publish your passport, first add a name in your profile — it is the name the leaderboards will show.",
-    "publishNeedsNameLink": "Add a name in your profile",
+    "publishNeedsName": "A public passport shows a name — the one the leaderboards will show too. Enter it here.",
+    "publishNameLabel": "Name",
+    "publishNameTooLong": "The name is too long (up to 60 characters).",
     "activityExplainer": "Optionally show your activity by month too — counts of contributions and sessions only, with no places or dates.",
     "showActivity": "Show activity by month",
     "hideActivity": "Hide activity by month",
@@ -1703,6 +1722,7 @@
     "subscribeAll": "Subscribe your calendar to all your sessions →",
     "feedHeading": "A calendar of your sessions",
     "feedIntro": "Subscribe your calendar to this address and all your sessions appear there automatically.",
+    "feedCopy": "Copy the link",
     "feedSecretWarning": "This address works like a password: anyone who has it can see when and where you play. Do not share or publish it.",
     "feedCreate": "Create a calendar address",
     "feedRotate": "Change the address",
@@ -1720,6 +1740,12 @@
     "indexEmptyTitle": "No upcoming sessions",
     "indexEmptyBody": "Check back soon, or explore facilities on the map.",
     "indexViewMap": "View the map",
+    "indexWeekByCity": "This week by city",
+    "indexDigest": "Get the programme by email",
+    "mine": {
+      "title": "My sign-ups",
+      "waitlisted": "On the waiting list"
+    },
     "organizerRoster": "Roster & check-ins →",
     "cancelOccurrence": "Cancel this session",
     "cancelOccurrenceConfirm": "Cancel this session? Everyone signed up will be notified. This cannot be undone.",
@@ -6729,7 +6755,6 @@
       "signInWhy": "Sign in to your POPS account so the club can answer you.",
       "signIn": "Sign in",
       "kind": "What are you asking about",
-      "choose": "Choose",
       "on": "Preferred date",
       "optional": "Optional",
       "party": "Number of people",

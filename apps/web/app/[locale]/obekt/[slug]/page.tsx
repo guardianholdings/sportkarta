@@ -15,6 +15,8 @@ import { facilitySharePlace } from '@/lib/share/facility-place';
 import { siteUrl } from '@/lib/seo';
 import { shareSheetStrings } from '@/lib/share/sheet-strings';
 import { FacilityClubBlock } from '@/components/clubs/facility-club-block';
+import { FacilitySessionsBlock } from '@/components/facility/facility-sessions';
+
 import { FacilitySponsorBlock } from '@/components/facility/facility-sponsor';
 import { ReportForm } from '@/components/facility/report-form';
 import { MiniMapLoader } from '@/components/map/mini-map-loader';
@@ -234,6 +236,10 @@ export default async function FacilityPage({
           {/* Stage 9: clubs that hold classes here — labelled, a sibling for the
             same JSON-LD reason, and nothing at all while the add-on is off. */}
           <FacilityClubBlock facilityId={facility.id} />
+
+          {/* The next public тренировки here, so the page says what is played
+            at the place (UX audit N7). Nothing when there is none. */}
+          <FacilitySessionsBlock facilityId={facility.id} />
 
           {/* B1. A sibling, never inside FacilityDetailView — that component's
             prop shape is read by the JSON-LD block and the provenance line,

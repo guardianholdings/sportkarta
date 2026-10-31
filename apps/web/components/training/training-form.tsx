@@ -42,6 +42,8 @@ export function TrainingForm({
   strings,
   sports,
   facilities,
+  defaults,
+  autoFocus = false,
 }: {
   strings: {
     sport: string;
@@ -61,6 +63,14 @@ export function TrainingForm({
   /** Every canonical sport, labelled and already in the reader's order. */
   sports: { value: string; label: string }[];
   facilities: { id: string; name: string }[];
+  /**
+   * A training that ends now (lib/training-defaults.ts), so a member who has
+   * just finished presses one button. Real values, not placeholders: a save
+   * resets the form to them.
+   */
+  defaults: { startedAt: string; minutes: number };
+  /** Opened from the «+»: focus the first field, which scrolls the form in. */
+  autoFocus?: boolean;
 }) {
   const [state, formProps, pending] = useFormAction(logTrainingAction, EMPTY, {
     resetWhen: (result) => result.saved === true,
@@ -88,6 +98,7 @@ export function TrainingForm({
             id="sport"
             name="sport"
             required
+            autoFocus={autoFocus}
             defaultValue={DEFAULT_SPORT}
             onChange={(event) => {
               setSport(event.target.value);
@@ -105,7 +116,13 @@ export function TrainingForm({
           <label className={label} htmlFor="startedAt">
             {strings.startedAt}
           </label>
-          <Input id="startedAt" name="startedAt" type="datetime-local" required />
+          <Input
+            id="startedAt"
+            name="startedAt"
+            type="datetime-local"
+            required
+            defaultValue={defaults.startedAt}
+          />
         </div>
 
         <div className="space-y-1">
@@ -118,7 +135,7 @@ export function TrainingForm({
             type="text"
             inputMode="numeric"
             required
-            placeholder="45"
+            defaultValue={String(defaults.minutes)}
             aria-describedby="duration-hint"
           />
           <p id="duration-hint" className="text-caption text-ink-soft">

@@ -133,4 +133,3 @@ describe('the desktop «+» shows keyboard focus (D-5)', () => {
     expect(fab).toContain('focus-visible:shadow-[var(--ring-accent)]');
   });
 });
-

@@ -10,7 +10,6 @@ import {
   Navigation,
   ChevronRight,
   Search,
-
   SlidersHorizontal,
   WifiOff,
   X,
@@ -760,6 +759,7 @@ export function MapExplorer({
           viewDetails: t('viewDetails'),
           close: t('close'),
           club: t('clubChip'),
+          clubMany: t('clubChipMany'),
         }}
       />
     );
@@ -1309,6 +1309,7 @@ function FacilityPreview({
     viewDetails: string;
     close: string;
     club: string;
+    clubMany: string;
   };
 }) {
   const v = primaryVisual(point.sports);
@@ -1352,7 +1353,7 @@ function FacilityPreview({
                 href={point.clubSlug ? `/klub/${point.clubSlug}` : `/obekt/${point.slug}#klubove`}
                 className="inline-flex min-h-11 items-center gap-1 rounded-pill border border-line-strong px-3.5 text-body-sm font-semibold text-ink-soft hover:border-brand-border hover:text-brand focus-visible:shadow-[var(--ring)]"
               >
-                {labels.club}
+                {point.clubSlug ? labels.club : labels.clubMany}
                 <ChevronRight size={14} aria-hidden />
               </Link>
             </p>

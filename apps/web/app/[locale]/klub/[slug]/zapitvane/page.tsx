@@ -14,7 +14,6 @@ import { ClubTrackingSlot } from '@/components/clubs/club-tracking-slot';
 import { AppShell } from '@/components/shell/app-shell';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Link } from '@/i18n/navigation';
 import { getCurrentUser } from '@/lib/auth-session';
@@ -148,19 +147,32 @@ export default async function InquiryPage({
                 className="space-y-4 rounded-card border border-line bg-surface p-4 shadow-sm"
               >
                 <input type="hidden" name="slug" value={slug} />
-                <label className={field}>
-                  {t('inquiry.kind')}
-                  <Select name="kind" required defaultValue="" className="mt-1">
-                    <option value="" disabled>
-                      {t('inquiry.choose')}
-                    </option>
+                {/* Every choice in sight, one already made (UX audit: a select
+                    with no default was a required tap before anything else).
+                    «Друго» is the honest default — a wrong guess would file
+                    the inquiry under the wrong kind in the club's inbox. */}
+                <fieldset className={field}>
+                  <legend>{t('inquiry.kind')}</legend>
+                  <div className="mt-1 flex flex-wrap gap-2">
                     {INQUIRY_KINDS.map((kind) => (
-                      <option key={kind} value={kind}>
+                      <label
+                        key={kind}
+                        className="inline-flex min-h-11 cursor-pointer items-center rounded-pill border border-line-strong bg-surface px-4 text-body-sm font-semibold text-ink-soft has-[:checked]:border-brand has-[:checked]:bg-brand-subtle has-[:checked]:text-brand has-[:focus-visible]:shadow-[var(--ring)]"
+                      >
+                        <input
+                          type="radio"
+                          name="kind"
+                          value={kind}
+                          defaultChecked={kind === 'other'}
+                          required
+                          className="sr-only"
+                        />
                         {t(`kinds.${kind}`)}
-                      </option>
+                      </label>
                     ))}
-                  </Select>
-                </label>
+                  </div>
+                </fieldset>
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className={field}>
                     {t('inquiry.on')}

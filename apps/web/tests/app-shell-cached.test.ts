@@ -41,6 +41,20 @@ describe('AppShell on a cached page', () => {
     expect(missing.map((f) => path.relative(APP, f))).toEqual([]);
   });
 
+  it('never reads the request in a loading screen, which renders with its segment', () => {
+    const loading = readFileSync(
+      path.join(__dirname, '..', 'components', 'shell', 'route-loading.tsx'),
+      'utf8',
+    );
+    expect(loading).toMatch(/<AppShell cached>/);
+    // Every loading.tsx is that one component, re-exported.
+    for (const file of walk(APP).filter((f) => f.endsWith('loading.tsx'))) {
+      expect(readFileSync(file, 'utf8'), path.relative(APP, file)).toMatch(
+        /from '@\/components\/shell\/route-loading'/,
+      );
+    }
+  });
+
   it('knows the cached pages by name', () => {
     const cached = shells
       .filter((f) => /<AppShell[^>]*\bcached\b/.test(readFileSync(f, 'utf8')))

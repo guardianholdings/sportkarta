@@ -1,4 +1,5 @@
 import { getDb, memberParticipation, memberTrainings, trainingConsents } from '@sportkarta/db';
+import { insideBulgaria } from '@sportkarta/lib/geo';
 import { buildShare, formatKm, formatMinutes } from '@sportkarta/lib/share';
 import { CANONICAL_SPORTS } from '@sportkarta/lib/sports';
 import type { Metadata } from 'next';
@@ -15,7 +16,8 @@ import { formatDate, formatDateTime, inReadingOrder } from '@/lib/format';
 import { capitalizeFirst } from '@/lib/grammar';
 import { siteUrl } from '@/lib/seo';
 import { shareSheetStrings } from '@/lib/share/sheet-strings';
-import { memberFacilities } from '@/lib/training-facilities';
+import { defaultTrainingStart, DEFAULT_TRAINING_MINUTES } from '@/lib/training-defaults';
+import { memberFacilities, nearbyFacilities } from '@/lib/training-facilities';
 import { trainingIntegrationsEnabled } from '@/lib/training-integrations';
 import { deleteTrainingAction, setTrainingConsentAction } from './actions';
 
@@ -42,10 +44,27 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   return { title: t('metaTitle'), robots: { index: false, follow: false } };
 }
 
-export default async function TrainingPage({ params }: { params: PageParams }) {
+/** `?lat=&lon=` from the map's «+» (lib/map/add-from-view.ts), when inside Bulgaria. */
+function pointFrom(sp: Record<string, string | string[] | undefined>) {
+  const lon = Number(sp.lon);
+  const lat = Number(sp.lat);
+  return Number.isFinite(lon) && Number.isFinite(lat) && insideBulgaria({ lon, lat })
+    ? { lon, lat }
+    : null;
+}
+
+export default async function TrainingPage({
+  params,
+  searchParams,
+}: {
+  params: PageParams;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { locale } = await params;
   setRequestLocale(locale);
   const user = await requireUser();
+  const sp = await searchParams;
+  const point = pointFrom(sp);
 
   const [t, tShare, sportName, sheetWeek, sheetTraining] = await Promise.all([
     getTranslations('Training'),
@@ -56,13 +75,19 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
   ]);
   const origin = siteUrl();
 
-  const [rows, totals, consents, facilities] = await Promise.all([
+  const [rows, totals, consents, ownFacilities, nearby] = await Promise.all([
     memberTrainings(getDb(), user.id),
     memberParticipation(getDb(), user.id, { days: 30 }),
     trainingConsents(getDb(), user.id),
     // The member's own places, recent first — see lib/training-facilities.ts.
     memberFacilities(getDb(), user.id),
+    point ? nearbyFacilities(getDb(), point) : Promise.resolve([]),
   ]);
+  // Opened from the map: the places around what they were looking at lead,
+  // then their own (UX audit, «Log a training»: the picker offered only the
+  // places used before).
+  const nearbyIds = new Set(nearby.map((f) => f.id));
+  const facilities = [...nearby, ...ownFacilities.filter((f) => !nearbyIds.has(f.id))];
 
   // Resolved server-side from the canonical list, so a sport can never appear
   // in the picker without a label — and the labels come from the existing
@@ -92,7 +117,6 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
         <SessionsSegments current="log" />
 
         <header className="space-y-2 border-b border-line pb-3">
-
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
           <p className="text-body-sm text-ink-soft">{t('intro')}</p>
         </header>
@@ -138,6 +162,10 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
           <TrainingForm
             sports={sports}
             facilities={facilities}
+            defaults={{ startedAt: defaultTrainingStart(), minutes: DEFAULT_TRAINING_MINUTES }}
+            // From the «+» (`?nova=1`): straight to the first field.
+            autoFocus={sp.nova === '1'}
+
             strings={{
               sport: t('fieldSport'),
               startedAt: t('fieldStartedAt'),

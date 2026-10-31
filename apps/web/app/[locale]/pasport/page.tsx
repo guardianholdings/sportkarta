@@ -100,6 +100,10 @@ export default async function PassportPage({ params }: { params: Promise<{ local
           </dl>
         </section>
 
+        {/* Under the totals, not at the foot: who sees the passport is the
+            one decision on this page (UX audit, «Publish passport»). */}
+        <VisibilityPanel visibility={passport.visibility} publicUrl={publicUrl} />
+
         <section aria-labelledby="streaks-h" className="space-y-3">
           <h2 id="streaks-h" className="text-h4 font-bold text-ink">
             {t('streaksTitle')}
@@ -172,8 +176,6 @@ export default async function PassportPage({ params }: { params: Promise<{ local
           </h2>
           <HistoryList entries={passport.history} />
         </section>
-
-        <VisibilityPanel visibility={passport.visibility} publicUrl={publicUrl} />
       </main>
     </AppShell>
   );

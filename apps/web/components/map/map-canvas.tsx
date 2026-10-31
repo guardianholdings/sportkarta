@@ -37,7 +37,6 @@ export interface MapPoint {
   club?: boolean;
   /** …and when it is the only one, its slug: the preview links its page. */
   clubSlug?: string;
-
 }
 
 export interface MapView {

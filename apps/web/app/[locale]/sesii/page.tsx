@@ -4,7 +4,8 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { FAMILY_COLOR, SPORT_FAMILY } from '@/lib/design/families';
 import { SPORT_VISUALS } from '@/lib/design/sport-visuals';
-import { listUpcomingSessions } from '@/lib/sessions/occurrence';
+import { getCurrentUser } from '@/lib/auth-session';
+import { listUpcomingSessions, myUpcomingSessions } from '@/lib/sessions/occurrence';
 import { buildAlternates } from '@/lib/seo';
 import { Link } from '@/i18n/navigation';
 import type { CanonicalSport } from '@sportkarta/lib/sports';
@@ -43,18 +44,20 @@ export default async function SessionsIndexPage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const [t, tSport, sessions] = await Promise.all([
+  const [t, tSport, sessions, user] = await Promise.all([
     getTranslations('Session'),
     getTranslations('Sport'),
     listUpcomingSessions(40),
+    getCurrentUser(),
   ]);
+  // What the member signed up for, above everything else (UX audit N7).
+  const mine = user ? await myUpcomingSessions(user.id) : [];
 
   return (
     <AppShell active="/sesii">
       <main className="mx-auto max-w-2xl px-4 py-5">
         <SessionsSegments current="upcoming" />
         <header className="mb-5">
-
           <div className="flex items-baseline gap-3">
             <h1 className="flex-1 text-h2 font-extrabold tracking-tight text-ink">
               {t('indexTitle')}
@@ -72,6 +75,42 @@ export default async function SessionsIndexPage({
           <p className="mt-1.5 text-body-sm text-ink-soft">{t('indexIntro')}</p>
         </header>
 
+        {mine.length > 0 && (
+          <section aria-labelledby="mine-h" className="mb-6">
+            <h2 id="mine-h" className="mb-2 text-h4 font-bold text-ink">
+              {t('mine.title')}
+            </h2>
+            <ul className="flex flex-col gap-2">
+              {mine.map((s) => {
+                const [date, time] = whenParts(s.startsAtLocal, locale);
+                return (
+                  <li key={s.occurrenceId}>
+                    <Link
+                      href={`/sesiya/${s.occurrenceId}`}
+                      className="flex min-h-14 items-center gap-3 rounded-card border border-brand-border bg-brand-subtle px-3 py-2 focus-visible:shadow-[var(--ring)]"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-body-sm font-bold text-ink">
+                          {s.title}
+                        </span>
+                        <span className="block truncate text-caption text-text-muted">
+                          {s.status === 'waitlisted'
+                            ? t('mine.waitlisted')
+                            : (s.facilityName ?? tSport(s.sport))}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right font-mono text-caption">
+                        <span className="block font-medium text-ink">{date}</span>
+                        <span className="block tabular-nums text-brand">{time}</span>
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
         {sessions.length === 0 ? (
           <div className="flex flex-col items-center gap-3 rounded-card border border-line bg-surface px-6 py-14 text-center shadow-sm">
             <span className="grid size-12 place-items-center rounded-full bg-paper-sunk text-text-muted">
@@ -83,11 +122,27 @@ export default async function SessionsIndexPage({
                 {t('indexEmptyBody')}
               </p>
             </div>
+            {/* The useful next steps, not only the map (UX audit): this week
+                city by city, and the Monday mail when there is something. */}
+            <div className="flex flex-wrap justify-center gap-2">
+              <Link
+                href="/sedmitsata"
+                className="inline-flex min-h-11 items-center rounded-pill border border-line-strong bg-surface px-4 text-body-sm font-semibold text-ink-soft hover:bg-surface-2"
+              >
+                {t('indexWeekByCity')}
+              </Link>
+              <Link
+                href="/karta"
+                className="inline-flex min-h-11 items-center rounded-pill border border-line-strong bg-surface px-4 text-body-sm font-semibold text-ink-soft hover:bg-surface-2"
+              >
+                {t('indexViewMap')}
+              </Link>
+            </div>
             <Link
-              href="/karta"
-              className="inline-flex h-9 items-center rounded-pill border border-line-strong bg-surface px-4 text-body-sm font-semibold text-ink-soft hover:bg-surface-2"
+              href="/profil#sedmichna"
+              className="text-body-sm font-semibold text-link hover:text-link-hover"
             >
-              {t('indexViewMap')}
+              {t('indexDigest')}
             </Link>
           </div>
         ) : (

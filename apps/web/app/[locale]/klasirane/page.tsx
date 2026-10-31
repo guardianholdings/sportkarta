@@ -383,7 +383,10 @@ export default async function LeaderboardPage({
             {user && !standing && !visibility?.isPublic && (
               <p className="text-ink-soft">
                 {t('standingNotPublic')}{' '}
-                <Link href="/pasport" className="font-medium text-link hover:text-link-hover">
+                <Link
+                  href="/pasport#vidimost"
+                  className="font-medium text-link hover:text-link-hover"
+                >
                   {t('standingPassportLink')}
                 </Link>
               </p>

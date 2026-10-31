@@ -1,4 +1,12 @@
-import { Award, Building2, CalendarDays, Database, LogIn, Map as MapIcon, User } from 'lucide-react';
+import {
+  Award,
+  Building2,
+  CalendarDays,
+  Database,
+  LogIn,
+  Map as MapIcon,
+  User,
+} from 'lucide-react';
 
 import { LocaleSwitcher } from '@/components/shell/locale-switcher';
 import { PopsMark } from '@/components/shell/pops-mark';
@@ -188,7 +196,6 @@ export function BottomNav({
 }
 
 function TabLink({ item, active, label }: { item: TabItem; active: boolean; label: string }) {
-
   const Icon = item.icon;
   return (
     <Link

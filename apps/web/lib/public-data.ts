@@ -157,7 +157,6 @@ export async function facilitiesGeoJSON(
           ...(typeof row.club_here === 'string' && row.club_here !== ''
             ? { clubSlug: row.club_here }
             : {}),
-
         },
       };
     }),

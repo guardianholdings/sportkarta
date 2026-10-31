@@ -25,6 +25,12 @@ export const SIGN_IN_PATH = '/vhod';
 export const PROFILE_PATH = '/profil';
 
 /**
+ * The first-run step that asks a new account for its name, once, between the
+ * code and the page the member came for (app/[locale]/dobre-doshli).
+ */
+export const WELCOME_PATH = '/dobre-doshli';
+
+/**
  * Request header middleware sets to the page's pathname, so server code that
  * decides "you must sign in first" (requireUser) can send the member back to
  * the page they asked for. Next exposes no pathname to server components.

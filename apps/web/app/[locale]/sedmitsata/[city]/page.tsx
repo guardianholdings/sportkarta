@@ -194,7 +194,7 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
         )}
 
         <p className="border-t border-line pt-4 text-body-sm text-ink-soft">
-          <Link href="/profil" className="font-medium text-link hover:text-link-hover">
+          <Link href="/profil#sedmichna" className="font-medium text-link hover:text-link-hover">
             {t('subscribe')}
           </Link>
         </p>

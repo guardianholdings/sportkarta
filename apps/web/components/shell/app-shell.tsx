@@ -69,7 +69,6 @@ export async function AppShell({
           className="sticky bottom-0 z-40 lg:hidden"
           signedIn={signedIn}
         />
-
       </div>
     </div>
   );

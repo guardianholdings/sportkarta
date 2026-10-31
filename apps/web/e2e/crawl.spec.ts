@@ -45,7 +45,7 @@ const PUBLIC_ROUTES = [
   '/za-klubove',
 ];
 
-const MEMBER_ONLY = ['/profil', '/pasport', '/dobavi', '/trenirovki'];
+const MEMBER_ONLY = ['/profil', '/pasport', '/dobavi', '/trenirovki', '/skenirai'];
 const MEMBER_ROUTES = [...PUBLIC_ROUTES, ...MEMBER_ONLY];
 
 // Every screen in the admin nav (admin/(protected)/layout.tsx). Account
@@ -328,8 +328,8 @@ test.describe('link crawler', () => {
   /**
    * The member-side counterpart of the anonymous reachability test above.
    *
-   * /trenirovki has no nav tab — the bar is already four items plus the add FAB
-   * — so it is reachable only by the links this asserts. Crawling it in
+   * /trenirovki is a segment of the Тренировки tab (2026-10-31), not a tab of
+   * its own, so it is reachable only by the links this asserts. Crawling it in
    * MEMBER_ROUTES proves it RENDERS; this proves a member can FIND it, which is
    * the distinction A6 was written about after /kampanii sat link-less behind a
    * green crawl.
@@ -345,9 +345,13 @@ test.describe('link crawler', () => {
       return hrefs.map((h) => (h.split('#')[0] ?? '').replace(/^\/en(?=\/|$)/, ''));
     };
 
+    expect(await linksOn('/sesii'), '/trenirovki must be a segment of /sesii').toContain(
+      '/trenirovki',
+    );
     expect(await linksOn('/profil'), '/trenirovki must be linked from /profil').toContain(
       '/trenirovki',
     );
+
     expect(
       await linksOn('/klasirane'),
       '/trenirovki must be linked from the participation board',

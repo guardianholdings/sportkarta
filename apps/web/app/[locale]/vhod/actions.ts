@@ -16,7 +16,12 @@ import {
   otpIpRateLimiter,
 } from '@/lib/auth-rate-limit';
 import { clientIpFromForwardedFor } from '@/lib/rate-limit';
-import { SIGN_IN_PATH, signInDestination, signInHref } from '@/lib/sign-in-destination';
+import {
+  SIGN_IN_PATH,
+  signInDestination,
+  signInHref,
+  WELCOME_PATH,
+} from '@/lib/sign-in-destination';
 
 /**
  * Email-OTP sign-in (docs/ROADMAP.md §5). Two steps in one action: request a
@@ -148,11 +153,13 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
   const attempt = beginCodeAttempt(email, await clientKey());
   if (!attempt) return { step: 'code', email, error: 'verify_throttled' };
 
+  let named: boolean;
   try {
-    await auth.api.signInEmailOTP({
+    const signedIn = await auth.api.signInEmailOTP({
       body: { email, otp: code },
       headers: await headers(),
     });
+    named = signedIn.user.name.trim() !== '';
   } catch (error) {
     // Wrong, expired or already-used code — all the same message to the user,
     // and all one counted failure. Detail is logged only outside production
@@ -165,7 +172,14 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
   attempt.succeeded();
 
   // In the language the member signed in with, whatever prefix `next` carried.
-  return redirect({ href: signInDestination(formData.get('next')), locale });
+  const destination = signInDestination(formData.get('next'));
+  // A first sign-in has no name yet: one step asks for it before the page they
+  // came for, instead of landing them on /profil with an empty required field
+  // (UX audit, «New account»). An empty name used to show on rosters and mails.
+  if (!named) {
+    return redirect({ href: { pathname: WELCOME_PATH, query: { next: destination } }, locale });
+  }
+  return redirect({ href: destination, locale });
 }
 
 /**

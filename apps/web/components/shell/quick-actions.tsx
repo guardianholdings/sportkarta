@@ -7,7 +7,7 @@ import { createPortal } from 'react-dom';
 
 import { IconButton } from '@/components/ui/icon-button';
 import { Link } from '@/i18n/navigation';
-import { addFacilityHref } from '@/lib/map/add-from-view';
+import { addFacilityHref, logTrainingHref } from '@/lib/map/add-from-view';
 import { cn } from '@/lib/utils';
 
 /**
@@ -24,7 +24,8 @@ import { cn } from '@/lib/utils';
  * chrome sits in a pointer-events-none layer.
  *
  * `fromMap`: opened over /karta, «Добави съоръжение» starts the pin picker
- * where the map is looking (lib/map/add-from-view.ts).
+ * where the map is looking, and «Запиши тренировка» offers the places around
+ * it first (lib/map/add-from-view.ts).
  */
 
 type Variant = 'tab' | 'rail' | 'floating';
@@ -45,7 +46,7 @@ export function QuickActions({
 }) {
   const t = useTranslations('Nav');
   const [open, setOpen] = useState(false);
-  const [href, setHref] = useState('/dobavi');
+  const [hrefs, setHrefs] = useState({ add: '/dobavi', log: '/trenirovki?nova=1' });
   const [place, setPlace] = useState<React.CSSProperties>({});
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -59,7 +60,10 @@ export function QuickActions({
     if (!rect) return;
     setPlace(
       variant === 'rail'
-        ? { left: rect.right + 8, top: Math.max(8, Math.min(rect.top - 8, window.innerHeight - 280)) }
+        ? {
+            left: rect.right + 8,
+            top: Math.max(8, Math.min(rect.top - 8, window.innerHeight - 280)),
+          }
         : { left: rect.left, bottom: window.innerHeight - rect.top + 8 },
     );
   }, [open, variant]);
@@ -95,14 +99,18 @@ export function QuickActions({
   }
 
   function toggle() {
-    if (!open) setHref(fromMap ? addFacilityHref(window.location.search) : '/dobavi');
+    if (!open && fromMap) {
+      const { search } = window.location;
+      setHrefs({ add: addFacilityHref(search), log: logTrainingHref(search) });
+    }
 
     setOpen((v) => !v);
   }
 
   const actions = [
-    { key: 'addFacility', href, icon: MapPinPlus },
-    { key: 'logTraining', href: '/trenirovki?nova=1', icon: NotebookPen },
+    { key: 'addFacility', href: hrefs.add, icon: MapPinPlus },
+    { key: 'logTraining', href: hrefs.log, icon: NotebookPen },
+
     { key: 'scanQr', href: '/skenirai', icon: QrCode },
   ] as const;
 
@@ -117,7 +125,11 @@ export function QuickActions({
         onClick={toggle}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={variant === 'rail' ? undefined : t('navAdd')}
+        // Named after what it opens, not «Добави»: two of the three actions
+        // are not adding a place. The rail keeps its visible «Добави», which
+        // is then its name (a visible label must be part of the name).
+        aria-label={variant === 'rail' ? undefined : t('quick.title')}
+
         className={cn(
           variant === 'rail'
             ? 'flex flex-col items-center gap-1 rounded-md px-2 py-2 text-overline font-semibold text-ink-soft hover:bg-surface-2'

@@ -29,7 +29,6 @@ describe('the tab bar', () => {
     expect(tabs.map((n) => bg.Nav[n.key])).toEqual(['Карта', 'Тренировки', 'Паспорт', 'Профил']);
   });
 
-
   it('says «Вход», not «Профил», to a visitor without a session', () => {
     expect(bg.Nav.navSignIn).toBe('Вход');
     expect(nav).toMatch(/SIGN_IN = \{ key: 'navSignIn', href: '\/vhod'/);
@@ -49,17 +48,17 @@ describe('the tab bar', () => {
 
 describe('the «+» menu', () => {
   it('offers the three actions, in order', () => {
-    // `href` alone is the add-facility link, computed when the menu opens.
-    const keys = [...quick.matchAll(/\{ key: '(\w+)', href(?:: ([^,]+))?, icon/g)].map((m) => [
+    // The first two are computed when the menu opens (from the map's view).
+    const keys = [...quick.matchAll(/\{ key: '(\w+)', href: ([^,]+), icon/g)].map((m) => [
       m[1],
-      m[2] ?? 'href',
+      m[2],
     ]);
-
     expect(keys).toEqual([
-      ['addFacility', 'href'],
-      ['logTraining', "'/trenirovki?nova=1'"],
+      ['addFacility', 'hrefs.add'],
+      ['logTraining', 'hrefs.log'],
       ['scanQr', "'/skenirai'"],
     ]);
+    expect(quick).toContain("useState({ add: '/dobavi', log: '/trenirovki?nova=1' })");
     expect(bg.Nav.quick.addFacility.title).toBe('Добави съоръжение');
     expect(bg.Nav.quick.logTraining.title).toBe('Запиши тренировка');
     expect(bg.Nav.quick.scanQr.title).toBe('Сканирай QR за присъствие');
