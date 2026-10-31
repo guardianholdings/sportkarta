@@ -76,7 +76,12 @@ export async function Pricing({ locale }: { locale: string }) {
                     </span>
                     <span className="text-body-sm text-text-muted">{t('pricing.perMonth')}</span>
                   </p>
-                  <p className="text-body-sm font-medium text-ink-soft">{t('pricing.trialNote', { days: CLUB_TRIAL_DAYS, months: CLUB_CONTRACT_MONTHS })}</p>
+                  <p className="text-body-sm font-medium text-ink-soft">
+                    {t('pricing.trialNote', {
+                      days: CLUB_TRIAL_DAYS,
+                      months: CLUB_CONTRACT_MONTHS,
+                    })}
+                  </p>
                   {tier === 'community' && (
                     <p className="text-body-sm text-ink-soft">
                       {t('pricing.tiers.community.note', { cap: COMMUNITY_MEMBER_CAP })}
@@ -96,7 +101,9 @@ export async function Pricing({ locale }: { locale: string }) {
             })}
           </ul>
         </Reveal>
-        <p className="mt-4 text-caption text-text-muted">{t('pricing.vatNote', { days: CLUB_TRIAL_DAYS, months: CLUB_CONTRACT_MONTHS })}</p>
+        <p className="mt-4 text-caption text-text-muted">
+          {t('pricing.vatNote', { days: CLUB_TRIAL_DAYS, months: CLUB_CONTRACT_MONTHS })}
+        </p>
 
         <div
           className="mt-10 overflow-x-auto"

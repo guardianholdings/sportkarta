@@ -42,15 +42,21 @@ describe.skipIf(!hasDb)('club access rule, TypeScript and SQL (requires running 
     const today = String(todayRow.rows[0]?.d) as IsoDate;
     const at = (offset: number | null) => (offset === null ? null : addDaysIso(today, offset));
 
-    const cases: { status: ClubStatus; tier: ClubTier; trial: IsoDate | null; paid: IsoDate | null }[] =
-      [];
+    const cases: {
+      status: ClubStatus;
+      tier: ClubTier;
+      trial: IsoDate | null;
+      paid: IsoDate | null;
+    }[] = [];
     for (const status of STATUSES)
       for (const tier of CLUB_TIERS)
         for (const trial of OFFSETS)
-          for (const paid of OFFSETS) cases.push({ status, tier, trial: at(trial), paid: at(paid) });
+          for (const paid of OFFSETS)
+            cases.push({ status, tier, trial: at(trial), paid: at(paid) });
 
     const rows = cases.map(
-      (c, i) => sql`(${c.status}::text, ${c.tier}::text, ${c.trial}::date, ${c.paid}::date, ${i}::int)`,
+      (c, i) =>
+        sql`(${c.status}::text, ${c.tier}::text, ${c.trial}::date, ${c.paid}::date, ${i}::int)`,
     );
     const result = await db.execute(sql`
       SELECT c.i, ${clubWritableSql('c')} AS writable
@@ -62,7 +68,10 @@ describe.skipIf(!hasDb)('club access rule, TypeScript and SQL (requires running 
       const c = cases[Number(row.i)];
       if (!c) throw new Error('case');
       const expected = canWrite(
-        clubAccessState({ status: c.status, tier: c.tier, trialEndsOn: c.trial, paidUntil: c.paid }, today),
+        clubAccessState(
+          { status: c.status, tier: c.tier, trialEndsOn: c.trial, paidUntil: c.paid },
+          today,
+        ),
       );
       expect(row.writable, JSON.stringify(c)).toBe(expected);
     }
@@ -109,7 +118,14 @@ describe.skipIf(!hasDb)('club access rule, TypeScript and SQL (requires running 
  * one forgotten copy fails here rather than shipping a free tier.
  */
 describe('no statement treats a tier as free', () => {
-  const ROOTS = ['lib', 'app', 'components', '../../db/src', '../../apps/worker/src', '../../lib/src'];
+  const ROOTS = [
+    'lib',
+    'app',
+    'components',
+    '../../db/src',
+    '../../apps/worker/src',
+    '../../lib/src',
+  ];
   const FREE_TIER = /tier\s*(=|<>|!=)\s*'community'/;
 
   function sources(dir: string): string[] {

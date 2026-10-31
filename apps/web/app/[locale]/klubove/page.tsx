@@ -155,7 +155,9 @@ export default async function ClubDirectoryPage({
 
         <section className="space-y-2 rounded-card border border-dashed border-line-strong p-4">
           <h2 className="text-body font-bold text-ink">{t('applyTitle')}</h2>
-          <p className="max-w-prose text-body-sm text-ink-soft">{t('applyBody', { days: CLUB_TRIAL_DAYS })}</p>
+          <p className="max-w-prose text-body-sm text-ink-soft">
+            {t('applyBody', { days: CLUB_TRIAL_DAYS })}
+          </p>
           <div className="flex flex-wrap gap-2">
             <Link href="/klubove/zayavka" className={buttonVariants({ variant: 'secondary' })}>
               {t('apply')}

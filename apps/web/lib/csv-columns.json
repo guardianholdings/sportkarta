@@ -1,6 +1,15 @@
 {
   "bulk": {
-    "facility": ["съоръжение", "съоръжение/slug", "обект", "обект/slug", "facility", "facility slug", "slug", "игрище"],
+    "facility": [
+      "съоръжение",
+      "съоръжение/slug",
+      "обект",
+      "обект/slug",
+      "facility",
+      "facility slug",
+      "slug",
+      "игрище"
+    ],
     "sport": ["спорт", "sport"],
     "title": ["заглавие", "име", "title", "name"],
     "description": ["описание", "description"],

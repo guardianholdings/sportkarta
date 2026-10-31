@@ -1,11 +1,4 @@
-import {
-  BadgePercent,
-  EyeOff,
-  FileInput,
-  HeartHandshake,
-  MapPinned,
-  Medal,
-} from 'lucide-react';
+import { BadgePercent, EyeOff, FileInput, HeartHandshake, MapPinned, Medal } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 
 import { SectionHead } from '@/components/home/section-head';
