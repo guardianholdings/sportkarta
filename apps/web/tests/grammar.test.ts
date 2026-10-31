@@ -132,10 +132,10 @@ describe('the front page names a city the same way', () => {
 
   it('says «във Варна» and «в София» on a pinned map card', () => {
     expect(tHome('openCity', { city: 'Варна', cityVav: takesVav('Варна') })).toBe(
-      'Всички места във Варна',
+      'Всички съоръжения във Варна',
     );
     expect(tHome('openCity', { city: 'София', cityVav: takesVav('София') })).toBe(
-      'Всички места в София',
+      'Всички съоръжения в София',
     );
   });
 

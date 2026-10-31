@@ -155,7 +155,7 @@ export const EXTERNAL_SOURCES: readonly ExternalSource[] = [
   {
     id: 'inspire-portal',
     nameBg: 'Национален портал за пространствени данни',
-    operator: 'Държавна агенция „Електронно управление“ (INSPIRE)',
+    operator: 'Министерство на електронното управление (INSPIRE)',
     url: 'https://inspire.egov.bg',
     access:
       'INSPIRE national spatial data portal — administrative boundaries and orthophoto layers.',

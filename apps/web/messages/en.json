@@ -1,6 +1,6 @@
 {
   "Metadata": {
-    "title": "POPS — More than just sport. Bulgaria's map of free sport",
+    "title": "POPS — More than just sport. The national sports map",
     "titleTemplate": "%s — POPS",
     "description": "A national map of free public sports facilities in Bulgaria."
   },
@@ -552,7 +552,7 @@
     "dataSource": "Data source",
     "unnamed": "Sports facility",
     "unnamedAt": "{what} — {place}",
-    "metaDescription": "{title}: {sports}. Access: {access}. Location, photos and directions on POPS — the map of free sport in Bulgaria.",
+    "metaDescription": "{title}: {sports}. Access: {access}. Location, photos and directions on POPS — the national sports map.",
     "condition": "Condition",
     "conditionUnknown": "not reported",
     "sponsorTitle": "Supported by",
@@ -2120,7 +2120,7 @@
     "terms": "Terms of use",
     "contact": "Contact",
     "notice": "Report content",
-    "tagline": "Bulgaria's map of free sport. A non-profit association.",
+    "tagline": "The national sports map. A non-profit association.",
     "columns": {
       "platform": "Platform",
       "clubs": "Clubs",
@@ -2185,7 +2185,7 @@
     "audience": {
       "overline": "Where people find you",
       "title": "Your club stands in front of the people already looking for somewhere to play",
-      "lead": "POPS is the national map of free sport. Your club is on it — not on a separate site nobody visits.",
+      "lead": "POPS is the national sports map. Your club is on it — not on a separate site nobody visits.",
       "places": "places for sport on the map",
       "municipalities": "municipalities with data",
       "games": "sessions this week",
@@ -2887,7 +2887,7 @@
       },
       "ngo": {
         "title": "You pay an association",
-        "body": "POPS is a non-profit association: your fee keeps up the free sports map your clients come from too."
+        "body": "POPS is a non-profit association: your fee keeps up the national sports map your new members come from too."
       },
       "fee": {
         "title": "No commission",
@@ -3152,7 +3152,7 @@
   },
   "Podkrepi": {
     "metaTitle": "Support POPS",
-    "metaDescription": "Donations that keep the national map of free public sports facilities running — bank transfer, donor tax relief and donation contracts.",
+    "metaDescription": "Donations that keep the national sports map running — bank transfer, donor tax relief and donation contracts.",
     "back": "← Back to the map",
     "title": "Support us",
     "intro": "POPS is a non-profit association. The map, the sessions and the sports passport are free for everybody who plays, and stay that way — there are no paid features for people. Gyms and clubs that run on the «Clubs» module pay for it by invoice, and so help fund the project too. Your donation pays for the server, the map data and the work of verifying facilities.",
@@ -3305,8 +3305,8 @@
       "badges": "{count, plural, one {badge} other {badges}}"
     },
     "site": {
-      "title": "Bulgaria's map of free sport",
-      "imageAlt": "POPS — Bulgaria's map of free sport"
+      "title": "The national sports map",
+      "imageAlt": "POPS — the national sports map"
     },
     "clubs": {
       "title": "Run your club on POPS",
@@ -7635,7 +7635,7 @@
   },
   "Home": {
     "hero": {
-      "overline": "Bulgaria's map of free sport",
+      "overline": "The national sports map",
       "title": "Sport is closer than you think",
       "lead": "Pitches, outdoor gyms, tracks and courts across Bulgaria — free, on one map kept up to date by the people who play there.",
       "searchLabel": "Where do you want to play?",
