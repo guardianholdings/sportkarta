@@ -258,7 +258,7 @@ describe.skipIf(!hasDb)('club events journey (requires running database)', () =>
       options,
     );
     expect(mailer.sent.map((m) => m.to)).toEqual([`${boris}@example.org`]);
-    expect(mailer.sent[0]?.text).toContain('№1');
+    expect(mailer.sent[0]?.text).toContain('№ 1');
 
     const given = await cancelEventPlace(db, member(anna), first.registrationId);
     expect(given).toMatchObject({ ok: true, late: false, refundDue: false });

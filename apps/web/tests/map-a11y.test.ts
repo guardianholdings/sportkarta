@@ -114,7 +114,7 @@ describe('a failed location request', () => {
     expect(explorer).toMatch(
       /locateError === 'denied' \? t\('locateDeniedHelp'\) : t\('locateRetryHelp'\)/,
     );
-    expect(bg.Map.locateError).toBe('Местоположението ви не е достъпно.');
+    expect(bg.Map.locateError).toBe('Местоположението Ви не е достъпно.');
     expect(bg.Map.locateDeniedHelp).toMatch(/^Разрешете достъпа до местоположението/);
   });
 });

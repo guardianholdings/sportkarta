@@ -32,7 +32,7 @@ const PAYLOAD = buildShare({
   origin: 'https://example.test',
   page: '/obekt/borisova-gradina',
   ref: 'borisova-gradina',
-  text: 'Борисова градина — свободна спортна площадка в POPS.',
+  text: 'Борисова градина — безплатна спортна площадка в POPS.',
 });
 
 const FILE = new File([new Uint8Array([1, 2, 3])], 'pops-facility.png', { type: 'image/png' });
@@ -204,7 +204,7 @@ describe('the address printed on story images', () => {
 
 /**
  * L05, 2026-10-09: seven replies under an Instagram Reel read
- * „way-313548695 — свободна спортна площадка в POPS.“ The facility share text
+ * „way-313548695 — безплатна спортна площадка в POPS.“ The facility share text
  * fell back to the slug, and an unnamed place's slug is its map ID. The share
  * now names the place as the page heading does („Футбол — София“), with a comma
  * for the heading's dash, since textFacility puts its own dash after {place}.
@@ -291,7 +291,7 @@ describe('the facility share text', () => {
     const BG = labelsFor('bg');
     const EN = labelsFor('en');
     expect(tBg('textFacility', { place: facilitySharePlace(unnamed, BG) })).toBe(
-      'Футбол, София — свободна спортна площадка в POPS.',
+      'Футбол, София — безплатна спортна площадка в POPS.',
     );
     expect(
       tEn('textFacility', {
@@ -300,10 +300,10 @@ describe('the facility share text', () => {
     ).toBe('Football, Sofia — a free sports facility on POPS.');
     expect(
       tBg('textFacility', { place: facilitySharePlace({ ...unnamed, quarter: 'Лозенец' }, BG) }),
-    ).toBe('Футбол, Лозенец, София — свободна спортна площадка в POPS.');
+    ).toBe('Футбол, Лозенец, София — безплатна спортна площадка в POPS.');
     expect(
       tBg('textFacility', { place: facilitySharePlace({ ...unnamed, sportTypes: [] }, BG) }),
-    ).toBe('Спортно съоръжение, София — свободна спортна площадка в POPS.');
+    ).toBe('Спортно съоръжение, София — безплатна спортна площадка в POPS.');
   });
 
   it('is built through facilitySharePlace on the facility page, never from the slug', () => {

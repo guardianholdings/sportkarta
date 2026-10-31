@@ -7589,7 +7589,7 @@
         "title": "Webhooks",
         "intro": "The body is short: the type, the ids and a sequence number (seq). Fetch the rest through the API with the permission shown beside each event.",
         "headers": "Headers: POPS-Event (the type), POPS-Delivery (the delivery id — process each notice once) and POPS-Signature.",
-        "signature": "POPS-Signature is t=<unix seconds>,v1=<hex>: HMAC-SHA256 with the secret over “t.body”. Check the signature against the raw body and refuse notices older than {tolerance} seconds. For 24 hours after a new secret, two v1 signatures arrive.",
+        "signature": "POPS-Signature is t=‹unix seconds›,v1=‹hex›: HMAC-SHA256 with the secret over “t.body”. Check the signature against the raw body and refuse notices older than {tolerance} seconds. For 24 hours after a new secret, two v1 signatures arrive.",
         "retries": "A 2xx answer is success. Otherwise POPS tries again after 1 minute, 5 minutes, 30 minutes, 2, 6, 12 and 12 hours — 8 attempts in all. An address with no success for 3 days is stopped. Redirects are not followed, and delivery order is not guaranteed — order by seq.",
         "deleted": "member.deleted means the club erased a client: erase your copy too. For a stopped address the notice is kept for up to 30 days, until it is restarted. To be safe, also reconcile against the client list from time to time."
       },

@@ -231,7 +231,7 @@ function methodology(definition: ReportDefinition): string {
   ];
   return `<section class="methodology">
 <h2>Методология</h2>
-<p class="note">Всеки показател по-долу е придружен от точната заявка, с която е изчислен. Заявките се изпълняват срещу производствената база данни; параметрите <code>:from</code> и <code>:to</code> са началото и краят на периода, а <code>:municipality</code> е кодът на общината (или празно за национален обхват).</p>
+<p class="note">Всеки показател по-долу е придружен от точната заявка, с която е изчислен. Заявките се изпълняват върху работната база данни; параметрите <code>:from</code> и <code>:to</code> са началото и краят на периода, а <code>:municipality</code> е кодът на общината (при национален обхват остава празен).</p>
 ${entries
   .map(
     (entry) => `<div class="method-entry">
@@ -269,7 +269,7 @@ export function renderReportHtml(definition: ReportDefinition, data: ReportData)
     .join('\n');
 
   const suppression = definition.suppressSmallCounts
-    ? `<p class="note">Показателите, изведени от хора, се потискат при стойност под ${String(MIN_DISCLOSED)} и се отбелязват като „${SUPPRESSED_LABEL}“. Нулата не се потиска.</p>`
+    ? `<p class="note">Показателите, основани на данни за лица, не се оповестяват при стойност под ${String(MIN_DISCLOSED)} и се отбелязват като „${SUPPRESSED_LABEL}“. Нулевите стойности се показват винаги.</p>`
     : '';
 
   return `<!doctype html>

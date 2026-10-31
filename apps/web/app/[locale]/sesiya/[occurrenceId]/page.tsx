@@ -7,6 +7,7 @@ import { ReportContentLink } from '@/components/legal/report-content-link';
 import { ShareSheet } from '@/components/share/share-sheet';
 import { Link } from '@/i18n/navigation';
 import { getCurrentUser } from '@/lib/auth-session';
+import { takesVav } from '@/lib/grammar';
 import { signInHref } from '@/lib/sign-in-destination';
 import { occurrenceView } from '@/lib/sessions/occurrence';
 import { siteUrl } from '@/lib/seo';
@@ -57,7 +58,11 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
     // Without a facility the {facility} template would render a dangling
     // „{title} в ." — fall back to the place-free variant instead.
     description: view.facilityName
-      ? t('metaDescription', { title: view.title, facility: view.facilityName })
+      ? t('metaDescription', {
+          title: view.title,
+          facility: view.facilityName,
+          facilityVav: takesVav(view.facilityName),
+        })
       : t('metaDescriptionNoPlace', { title: view.title }),
     robots: { index: false, follow: false },
     openGraph: {
