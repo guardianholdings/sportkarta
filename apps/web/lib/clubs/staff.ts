@@ -3,8 +3,10 @@ import { grantableRoles, type ClubRole } from '@sportkarta/lib/clubs';
 import { generateInviteToken, sha256Hex } from '@sportkarta/lib/clubs/secrets';
 
 import { recordClubAudit } from './audit';
-import type { StaffInviteInput } from './input';
-import { clubActorMay, clubScope, type ClubActor } from './scope';
+import { violatedConstraint } from './errors';
+import { clubFeatureSql } from './features';
+import type { PayRateInput, StaffInviteInput, StaffProfileInput, TimeOffInput } from './input';
+import { clubActorMay, clubScope, clubWriteScope, type ClubActor } from './scope';
 
 /**
  * The club's team. Staff are POPS accounts with a role at the club
@@ -37,6 +39,10 @@ export interface StaffMember {
   email: string;
   role: ClubRole;
   displayName: string | null;
+  bio: string | null;
+  publicProfile: boolean;
+  /** Pay terms — report data only (0039); null unless the reader may manage staff. */
+  pay: { kind: string; cents: number | null; shareBp: number | null } | null;
   since: string;
 }
 
@@ -49,11 +55,13 @@ export interface PendingStaffInvite {
 
 export async function clubTeam(
   actor: ClubActor,
+  managesPay = false,
 ): Promise<{ staff: StaffMember[]; invites: PendingStaffInvite[] }> {
   const db = getDb();
   const [staff, invites] = await Promise.all([
     db.execute(sql`
       SELECT s.user_id, u.display_name AS account_name, u.email, s.role, s.display_name,
+             s.bio, s.public_profile, s.pay_rate_kind, s.pay_rate_cents, s.pay_share_bp,
              s.created_at
         FROM club_staff s JOIN users u ON u.id = s.user_id
        WHERE ${clubScope(actor, 'staff.view', 's')}
@@ -74,6 +82,15 @@ export async function clubTeam(
       email: String(row.email),
       role: String(row.role) as ClubRole,
       displayName: row.display_name === null ? null : String(row.display_name),
+      bio: row.bio === null ? null : String(row.bio),
+      publicProfile: row.public_profile === true,
+      pay: managesPay
+        ? {
+            kind: String(row.pay_rate_kind),
+            cents: row.pay_rate_cents === null ? null : Number(row.pay_rate_cents),
+            shareBp: row.pay_share_bp === null ? null : Number(row.pay_share_bp),
+          }
+        : null,
       since: new Date(String(row.created_at)).toISOString(),
     })),
     invites: invites.rows.map((row) => ({
@@ -100,7 +117,10 @@ export async function clubInstructors(
 
 export type StaffInviteResult =
   | { ok: true; inviteId: string }
-  | { ok: false; error: 'role_not_grantable' | 'already_staff' | 'not_allowed' };
+  | {
+      ok: false;
+      error: 'role_not_grantable' | 'already_staff' | 'already_invited' | 'not_allowed';
+    };
 
 export async function inviteStaff(
   db: TransactionalDb,
@@ -118,6 +138,13 @@ export async function inviteStaff(
        WHERE s.club_id = ${actor.clubId}::uuid AND lower(u.email) = ${input.email}
     `);
     if (existing.rows.length > 0) return { ok: false, error: 'already_staff' } as const;
+    // One live invitation per address: a second click sends no second mail.
+    const pending = await tx.execute(sql`
+      SELECT 1 FROM club_staff_invites i
+       WHERE i.club_id = ${actor.clubId}::uuid AND lower(i.email) = ${input.email}
+         AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > now()
+    `);
+    if (pending.rows.length > 0) return { ok: false, error: 'already_invited' } as const;
     const created = await tx.execute(sql`
       INSERT INTO club_staff_invites (club_id, email, role, token_hash, expires_at, created_by)
       SELECT ${actor.clubId}::uuid, ${input.email}, ${input.role},
@@ -360,4 +387,186 @@ export async function clubsForStaff(
     role: String(row.role) as ClubRole,
     status: String(row.status),
   }));
+}
+
+// ─── Profile, pay terms, time off (0045) ────────────────────────────────────
+
+/**
+ * A member of staff's OWN public profile: the name and bio the club page shows
+ * and the opt-in to show them at all. Only the person may switch it on — a
+ * trainer appears on a public page by their own choice, never the owner's.
+ */
+export async function updateOwnProfile(
+  db: TransactionalDb,
+  actor: ClubActor,
+  input: StaffProfileInput,
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const updated = await tx.execute(sql`
+      UPDATE club_staff s
+         SET display_name = ${input.displayName}, bio = ${input.bio},
+             public_profile = ${input.publicProfile}
+       WHERE s.user_id = ${actor.userId} AND ${clubWriteScope(actor, 'office.view', 's')}
+      RETURNING s.user_id
+    `);
+    if (updated.rows.length === 0) return false;
+    await recordClubAudit(tx, {
+      clubId: actor.clubId,
+      by: { kind: 'staff', actor },
+      action: 'staff_profile_changed',
+      detail: { publicProfile: input.publicProfile },
+    });
+    return true;
+  });
+}
+
+/**
+ * Pay terms for one member of staff: report data only, no payroll (0039).
+ * Touching an owner's terms, or one's OWN, is an owner's act
+ * (staff.manage_owners) — a manager cannot set their own share.
+ */
+export async function setPayRate(
+  db: TransactionalDb,
+  actor: ClubActor,
+  userId: string,
+  input: PayRateInput,
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const cents = input.kind === 'flat' || input.kind === 'per_head' ? input.cents : null;
+    const shareBp = input.kind === 'share' ? input.shareBp : null;
+    const updated = await tx.execute(sql`
+      UPDATE club_staff s
+         SET pay_rate_kind = ${input.kind}, pay_rate_cents = ${cents}, pay_share_bp = ${shareBp}
+       WHERE s.user_id = ${userId}
+         AND ${
+           userId === actor.userId
+             ? clubWriteScope(actor, 'staff.manage_owners', 's')
+             : sql`(CASE WHEN s.role = 'owner'
+                         THEN ${clubWriteScope(actor, 'staff.manage_owners', 's')}
+                         ELSE ${clubWriteScope(actor, 'staff.manage', 's')} END)`
+         }
+         AND ${clubFeatureSql(actor.clubId, 'staff_pay')}
+      RETURNING s.user_id
+    `);
+    if (updated.rows.length === 0) return false;
+    await recordClubAudit(tx, {
+      clubId: actor.clubId,
+      by: { kind: 'staff', actor },
+      action: 'staff_profile_changed',
+      detail: { pay: input.kind },
+    });
+    return true;
+  });
+}
+
+export interface TimeOffEntry {
+  id: string;
+  userId: string;
+  name: string;
+  startsOn: string;
+  endsOn: string;
+  reason: string;
+}
+
+/** Leave from yesterday onwards, everyone's — staff plan around each other. */
+export async function upcomingTimeOff(actor: ClubActor): Promise<TimeOffEntry[]> {
+  const result = await getDb().execute(sql`
+    SELECT b.id, b.staff_user_id, b.reason,
+           coalesce(nullif(btrim(st.display_name), ''), nullif(btrim(u.display_name), ''),
+                    split_part(u.email, '@', 1)) AS name,
+           to_char((b.starts_at AT TIME ZONE 'Europe/Sofia')::date, 'YYYY-MM-DD') AS starts_on,
+           to_char(((b.ends_at AT TIME ZONE 'Europe/Sofia') - interval '1 second')::date,
+                   'YYYY-MM-DD') AS ends_on
+      FROM club_time_blocks b
+      JOIN club_staff st ON st.club_id = b.club_id AND st.user_id = b.staff_user_id
+      JOIN users u ON u.id = b.staff_user_id
+     WHERE ${clubScope(actor, 'staff.view', 'b')} AND b.ends_at > now() - interval '1 day'
+     ORDER BY b.starts_at
+     LIMIT 100
+  `);
+  return result.rows.map((row) => ({
+    id: String(row.id),
+    userId: String(row.staff_user_id),
+    name: String(row.name),
+    startsOn: String(row.starts_on),
+    endsOn: String(row.ends_on),
+    reason: String(row.reason),
+  }));
+}
+
+/**
+ * Leave in whole Sofia days. Anyone records their own; staff.manage records
+ * anyone's. The block is [first day 00:00, day after the last 00:00) on the
+ * Sofia wall clock, so DST cannot shave an hour off a day.
+ */
+export async function addTimeOff(
+  db: TransactionalDb,
+  actor: ClubActor,
+  input: TimeOffInput,
+): Promise<'ok' | 'not_allowed' | 'overlaps'> {
+  try {
+    return await addTimeOffOnce(db, actor, input);
+  } catch (error: unknown) {
+    // 0048: a trainer's leave is busy time on the calendar, so it cannot
+    // overlap their other leave or an appointment already booked.
+    if (violatedConstraint(error) === 'club_calendar_claims_staff_free') return 'overlaps';
+    throw error;
+  }
+}
+
+async function addTimeOffOnce(
+  db: TransactionalDb,
+  actor: ClubActor,
+  input: TimeOffInput,
+): Promise<'ok' | 'not_allowed'> {
+  return db.transaction(async (tx) => {
+    const allowed =
+      input.userId === actor.userId
+        ? clubActorMay(actor, 'office.view', { write: true })
+        : clubActorMay(actor, 'staff.manage', { write: true });
+    const created = await tx.execute(sql`
+      INSERT INTO club_time_blocks (club_id, staff_user_id, starts_at, ends_at, reason, created_by)
+      SELECT s.club_id, s.user_id,
+             (${input.startsOn}::date)::timestamp AT TIME ZONE 'Europe/Sofia',
+             (${input.endsOn}::date + 1)::timestamp AT TIME ZONE 'Europe/Sofia',
+             ${input.reason}, ${actor.userId}
+        FROM club_staff s
+       WHERE s.club_id = ${actor.clubId}::uuid AND s.user_id = ${input.userId} AND ${allowed}
+      RETURNING id
+    `);
+    if (created.rows.length === 0) return 'not_allowed' as const;
+    await recordClubAudit(tx, {
+      clubId: actor.clubId,
+      by: { kind: 'staff', actor },
+      action: 'time_off_saved',
+      detail: { from: input.startsOn, to: input.endsOn, reason: input.reason },
+    });
+    return 'ok' as const;
+  });
+}
+
+/** Remove a leave: one's own, or anyone's with staff.manage. */
+export async function removeTimeOff(
+  db: TransactionalDb,
+  actor: ClubActor,
+  blockId: string,
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const removed = await tx.execute(sql`
+      DELETE FROM club_time_blocks b
+       WHERE b.id = ${blockId}::uuid AND b.staff_user_id IS NOT NULL
+         AND CASE WHEN b.staff_user_id = ${actor.userId}
+                  THEN ${clubWriteScope(actor, 'office.view', 'b')}
+                  ELSE ${clubWriteScope(actor, 'staff.manage', 'b')} END
+      RETURNING b.id
+    `);
+    if (removed.rows.length === 0) return false;
+    await recordClubAudit(tx, {
+      clubId: actor.clubId,
+      by: { kind: 'staff', actor },
+      action: 'time_off_removed',
+      detail: {},
+    });
+    return true;
+  });
 }

@@ -18,10 +18,13 @@ import type { OwnPassport } from '@/lib/passport';
  * of 2026-07-25 — minors are treated as adults, so there is nothing left to
  * explain and no member for whom publishing is unavailable.
  *
- * ONE PRECONDITION: a name. A member who signed up with an email code has none,
- * and a passport published without one was an empty heading and an empty link
- * on every board (S-1). They are told so, and sent to the profile, instead of
- * being offered a button the server refuses.
+ * ONE PRECONDITION: a name. A member who signed up before the welcome step
+ * may have none, and a passport published without one was an empty heading
+ * and an empty link on every board (S-1). The publish form asks for it beside
+ * the button and saves both at once.
+ *
+ * `id="vidimost"`: the leaderboard's «Към моя паспорт» lands here, and the
+ * panel sits right under the totals instead of at the foot of the page.
  */
 export async function VisibilityPanel({
   visibility,
@@ -33,7 +36,10 @@ export async function VisibilityPanel({
   const t = await getTranslations('Passport');
 
   return (
-    <section className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm">
+    <section
+      id="vidimost"
+      className="scroll-mt-4 space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm"
+    >
       <h2 className="text-h4 font-bold text-ink">{t('visibilityTitle')}</h2>
       <p className="text-body-sm text-ink-soft">
         {visibility.isPublic ? t('visibilityPublicExplainer') : t('visibilityPrivateExplainer')}
@@ -53,7 +59,9 @@ export async function VisibilityPanel({
         nameHelp={{
           required: !visibility.isPublic && !visibility.hasName,
           text: t('publishNeedsName'),
-          link: t('publishNeedsNameLink'),
+          label: t('publishNameLabel'),
+          tooLong: t('publishNameTooLong'),
+          missing: t('publishNameMissing'),
         }}
       />
 

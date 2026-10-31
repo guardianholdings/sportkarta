@@ -7,6 +7,7 @@ import { logTrainingAction, type TrainingFormState } from '@/app/[locale]/trenir
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { defaultTrainingStart } from '@/lib/training-defaults';
 import { useFormAction } from '@/lib/use-form-action';
 
 const EMPTY: TrainingFormState = { problems: [] };
@@ -42,6 +43,8 @@ export function TrainingForm({
   strings,
   sports,
   facilities,
+  defaults,
+  autoFocus = false,
 }: {
   strings: {
     sport: string;
@@ -61,6 +64,14 @@ export function TrainingForm({
   /** Every canonical sport, labelled and already in the reader's order. */
   sports: { value: string; label: string }[];
   facilities: { id: string; name: string }[];
+  /**
+   * A training that ends now (lib/training-defaults.ts), so a member who has
+   * just finished presses one button. Real values, not placeholders: a save
+   * resets the form to them.
+   */
+  defaults: { startedAt: string; minutes: number };
+  /** Opened from the «+»: focus the first field, which scrolls the form in. */
+  autoFocus?: boolean;
 }) {
   const [state, formProps, pending] = useFormAction(logTrainingAction, EMPTY, {
     resetWhen: (result) => result.saved === true,
@@ -72,8 +83,12 @@ export function TrainingForm({
   return (
     <form
       {...formProps}
-      onReset={() => {
+      onReset={(event) => {
         setSport(DEFAULT_SPORT);
+        // The next training ends NOW, not when the page was opened: the reset
+        // restores defaultValue, so that is what is moved on.
+        const start = event.currentTarget.elements.namedItem('startedAt');
+        if (start instanceof HTMLInputElement) start.defaultValue = defaultTrainingStart();
       }}
       className="space-y-3"
     >
@@ -88,6 +103,7 @@ export function TrainingForm({
             id="sport"
             name="sport"
             required
+            autoFocus={autoFocus}
             defaultValue={DEFAULT_SPORT}
             onChange={(event) => {
               setSport(event.target.value);
@@ -105,7 +121,13 @@ export function TrainingForm({
           <label className={label} htmlFor="startedAt">
             {strings.startedAt}
           </label>
-          <Input id="startedAt" name="startedAt" type="datetime-local" required />
+          <Input
+            id="startedAt"
+            name="startedAt"
+            type="datetime-local"
+            required
+            defaultValue={defaults.startedAt}
+          />
         </div>
 
         <div className="space-y-1">
@@ -118,7 +140,7 @@ export function TrainingForm({
             type="text"
             inputMode="numeric"
             required
-            placeholder="45"
+            defaultValue={String(defaults.minutes)}
             aria-describedby="duration-hint"
           />
           <p id="duration-hint" className="text-caption text-ink-soft">

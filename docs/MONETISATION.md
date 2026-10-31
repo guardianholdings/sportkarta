@@ -36,7 +36,7 @@ items are in MANUAL STEPS.
 | S4  | Donations page («Подкрепи ни»)                    | Nothing — asks for support; explains donor tax relief                                                                                                                                                               | Дарение                                                     | Low but zero marginal cost                                                                             | XS (part of M1)                            | M1      |
 | S5  | Display advertising in key spots                  | Direct-sold, flat-rate, labelled slots (first-party served, untracked): facility pages, city pages, weekly pages, map panel                                                                                         | Реклама (invoiced)                                          | Medium — one direct-sold slot beats Bulgarian network RPMs by orders of magnitude; scales with traffic | S (1 session)                              | M4      |
 | S6  | Grants                                            | —                                                                                                                                                                                                                   | Грант                                                       | Erasmus+ Sport small partnerships are lump-sum €30k/€60k; ММС + corporate grants                       | None (reports engine is the evidence base) | ongoing |
-| S7  | «Клубове» — club-management add-on                | Software for private gyms, studios and clubs (members, plans, payments as records, timetable, bookings, QR attendance, reports) + a labelled public page and facility-page block; free community tier               | Invoiced service (стопанска дейност — confirm the устав)    | Medium, recurring; scales per club                                                                     | L (Stage 9, shipped behind CLUBS_ENABLED)  | Stage 9 |
+| S7  | «Клубове» — club-management add-on                | Software for private gyms, studios and clubs (members, plans, payments as records, timetable, bookings, QR attendance, reports) + a labelled public page and facility-page block; three paid tiers, trial month     | Invoiced service (стопанска дейност — confirm the устав)    | Medium, recurring; scales per club                                                                     | L (Stage 9, shipped behind CLUBS_ENABLED)  | Stage 9 |
 
 **Explicitly rejected** (see §5): behaviourally-targeted/personalised ads
 and tracking pixels (never, under any setting), betting/gambling
@@ -63,7 +63,12 @@ never instead of it.** Concretely:
   pixel, or sponsor-hosted creative with tracking parameters would require a
   consent banner (EDPB Guidelines 2/2023 scope) and break a published promise.
   All sponsor creatives must be **self-hosted** (storage adapter), sponsor
-  links plain (no click IDs). Impression counts, if ever wanted, are
+  links plain (no click IDs). The ONE exception is not POPS's tracking but a
+  club's (operator decision 2026-10-25, «Клубове» v2 wave H2): a paid club
+  may add its OWN GA4 or Meta Pixel id to ITS public pages, loaded only after
+  the visitor accepts in a banner on those pages — ids only, never a tag
+  manager, `CLUB_PIXELS_ENABLED` off until the lawyer signs off the
+  joint-controller position. POPS's own pages stay pixel-free. Impression counts, if ever wanted, are
   self-hosted Umami events — nothing else. This is why S5 advertising is
   direct-sold and first-party served: the slot model needs none of the
   consent machinery, and the only sanctioned path to network fill is the
@@ -107,7 +112,9 @@ never instead of it.** Concretely:
 - **API keys raise rate limits and never gate access** (CLAUDE.md, Stage
   6.1), and there is deliberately no request log to bill against. A "paid
   API tier" is unbuildable by design (and the data-services stream was
-  dropped by operator decision — §5).
+  dropped by operator decision — §5). The club API (wave H1, 0057) is a
+  different thing and does not bend this rule: a club's key to ITS OWN
+  private records inside the paid add-on, never to the open dataset.
 - **Sponsorship never touches facility rows.** Adopt-a-facility is an
   _adjacent_ table, not fields on `facilities` — so the merge policy,
   `facility_edits` provenance, and crowd-data protections are never in the
@@ -311,21 +318,34 @@ grant application cites is SQL-traceable.
 gyms, studios and clubs run members, abonnements, payments (as records),
 timetable, bookings, QR attendance and reports in their own office on POPS, and
 get a public club page and a block on the facility pages where they train.
-Clubs and trainers at public facilities use it free (community tier). This is
+Every tier is paid (operator decision 2026-10-31 — the free community tier
+was withdrawn); each starts with a 30-day trial that binds nobody. To
+continue after it, the club signs a CONTRACT (operator decision 2026-10-31):
+at least 12 months, invoiced monthly or yearly as the club chooses, renewing
+for another 12 months unless the club gives notice at least one month before
+the term ends. The contract is signed offline; the operator records its start,
+the invoicing choice and the day notice arrives (migration 0061), and the
+terms are derived by `clubContractTerm` (`lib/src/clubs/contract.ts`). This is
 consistent with §5's rejection of "premium member features": the member
 product stays free and unchanged; a club pays for its tools.
 
 **How it is paid:** the operator invoices by bank transfer and activates by
-hand in `/admin/klubove` (tier, `paid_until`); a new paid club starts with a
-30-day trial; the invoice basis is `club_monthly_activity.members_active`
+hand in `/admin/klubove` (tier, `paid_until`); every newly approved club starts
+with a 30-day trial, on any tier; the invoice basis is `club_monthly_activity.members_active`
 (a valid abonnement on any day of the month, or 3+ visits). No card billing
-code exists. Phase 2 (not built): each club's OWN Stripe account, its clients
-paying on a Stripe-hosted page reached by redirect — the club is the merchant,
-the NGO never holds funds, and no payment script runs on pops.bg.
+code exists for the add-on itself. Online payments for a club's OWN clients
+are built (v2 wave E, 2026-10-25, behind `CLUB_PAYMENTS_ENABLED`): each club
+connects its own Stripe account (Connect Standard), its clients pay on a
+Stripe-hosted page reached by redirect — the club is the merchant, the NGO
+never holds funds, and no payment script runs on pops.bg. A platform share per
+payment is possible (`STRIPE_APPLICATION_FEE_BP`, default 0) and is an
+operator decision. Court, room and trainer bookings (wave C) sell through the
+same path: a service that requires online payment holds the slot for 35
+minutes while the member pays the club on Stripe.
 
-**Labelling and surfaces (the S3/S5 rules, applied):** a paid club's block on a
-facility page is labelled «Платено представяне», a community club's «Клуб на
-този обект»; a paid club's own website link is `rel="sponsored noopener"`; the
+**Labelling and surfaces (the S3/S5 rules, applied):** a club's block on a
+facility page is labelled «Платено представяне» (every tier is paid); the
+club's own website link is `rel="sponsored noopener"`; the
 map CANVAS gets no mark — only a chip in the preview panel beside it; the
 `/klubove` directory is in name order, so a paid tier buys tools, never rank.
 Hiding, suspending or a lapsed payment withdraws a club from every public
@@ -337,8 +357,11 @@ coordinates, no tracking; every club table is off the open-data
 `ALLOWED_RELATIONS`; the club's own audit log records exports and any NGO
 admin who opened its office.
 
-**Anchors (operator decision pending):** Общност €0 (≤50 active members, 1
-location); Старт ~€49/mo; Про ~€119/mo — against 1club.ai's €79/€179.
+**Prices (operator decision 2026-10-31):** Базов €49.99/mo (≤50 active
+members, 1 location; stored tier key `community`, formerly «Общност»); Старт
+€99.99/mo; Про €149.99/mo — each with a 30-day
+trial. The numbers live once, in `lib/src/clubs/pricing-public.ts`. The public
+pages name no competitor (operator, 2026-10-31).
 
 ## 3. Implementation phases
 

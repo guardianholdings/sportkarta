@@ -27,6 +27,7 @@ const PUBLIC_ROUTES = [
   'app/og/[locale]/story/[kind]/[slug]/story.png/route.tsx',
   'app/og/[locale]/[kind]/[slug]/card.png/route.tsx',
   'app/og/[locale]/site/card.png/route.tsx',
+  'app/og/[locale]/site/klubove/card.png/route.tsx',
 ];
 
 /**

@@ -13,6 +13,7 @@ import {
   openingCenter,
   southLimitLat,
   widthFitZoom,
+  zoomFloor,
 } from '../components/map/camera';
 import { createCluster, createPin } from '../components/map/markers';
 import { parseView } from '../lib/map/view';
@@ -447,5 +448,21 @@ describe('a device without WebGL', () => {
     for (const caller of ['components/map/map-explorer.tsx', 'components/map/place-map.tsx']) {
       expect(read(caller)).toMatch(/unavailableLabel=\{t\('mapUnavailable'\)\}/);
     }
+  });
+});
+
+describe('zoomFloor', () => {
+  it("keeps a hair of margin and clamps into MapLibre's range", () => {
+    expect(zoomFloor(7.1, 18)).toBeCloseTo(7);
+    expect(zoomFloor(-3, 18)).toBe(0);
+    expect(zoomFloor(30, 18)).toBe(18);
+  });
+
+  it('sets no floor for a canvas too small to fit the country', () => {
+    // A pane collapsed to a few pixels: narrower than the two fit margins, so
+    // the fit is the log of a negative width. setMinZoom(NaN) threw.
+    const fit = widthFitZoom(10, BULGARIA_BOUNDS);
+    expect(fit).toBeNaN();
+    expect(zoomFloor(fit, 18)).toBeNull();
   });
 });

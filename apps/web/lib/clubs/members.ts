@@ -1,5 +1,22 @@
-import { getDb, sql, type SQL } from '@sportkarta/db';
-import type { ClubCheckinMethod, IsoDate } from '@sportkarta/lib/clubs';
+import {
+  getDb,
+  MEMBER_DERIVED_COLUMNS,
+  MEMBER_DERIVED_JOINS,
+  memberFilterSql,
+  memberSegmentSql,
+  sql,
+  type SQL,
+} from '@sportkarta/db';
+import {
+  AUDIENCE_SEGMENTS,
+  CLUB_AT_RISK_DAYS,
+  CLUB_MEMBER_FILTERS,
+  type AudienceSegment,
+  type ClubCheckinMethod,
+  type ClubMemberFilter,
+  type IsoDate,
+  type LeadSource,
+} from '@sportkarta/lib/clubs';
 import { generateCardKey, sha256Hex } from '@sportkarta/lib/clubs/secrets';
 
 import { recordClubAudit } from './audit';
@@ -32,25 +49,15 @@ export const MEMBER_STATUSES = ['active', 'trial', 'lapsed', 'lead', 'archived']
 export type MemberStatus = (typeof MEMBER_STATUSES)[number];
 
 /** The list's filter chips (GET params, so the screen works without JS). */
-export const MEMBER_FILTERS = [
-  'all',
-  'with_membership',
-  'unpaid',
-  'overdue',
-  'partial',
-  'expiring',
-  'leads',
-  'lapsed',
-  'archived',
-] as const;
-export type MemberFilter = (typeof MEMBER_FILTERS)[number];
+export const MEMBER_FILTERS = CLUB_MEMBER_FILTERS;
+export type MemberFilter = ClubMemberFilter;
 
 /** Derived segments, the 1club-style tags — computed, never stored. */
-export const MEMBER_SEGMENTS = ['top', 'regular', 'new', 'trial', 'owes', 'at_risk'] as const;
-export type MemberSegment = (typeof MEMBER_SEGMENTS)[number];
+export const MEMBER_SEGMENTS = AUDIENCE_SEGMENTS;
+export type MemberSegment = AudienceSegment;
 
 /** Days without a visit after which a paying member counts as at risk. */
-export const AT_RISK_DAYS = 21;
+export const AT_RISK_DAYS = CLUB_AT_RISK_DAYS;
 
 export interface MemberListRow {
   id: string;
@@ -76,82 +83,13 @@ function text(value: unknown): string | null {
   return value === null || value === undefined ? null : String(value);
 }
 
-/**
- * The per-member derived columns, as LATERAL joins on `m` (club_members).
- * Every lookup leads with club_id so it uses the (club_id, member_id) indexes.
- */
-const DERIVED = sql`
-  JOIN club_member_status st ON st.member_id = m.id
-  LEFT JOIN club_members g ON g.club_id = m.club_id AND g.id = m.guardian_member_id
-  LEFT JOIN LATERAL (
-    SELECT max(b.effective_ends_on) FILTER (WHERE b.state IN ('active', 'paused', 'upcoming')) AS valid_until,
-           sum(b.visits_remaining) FILTER (WHERE b.state IN ('active', 'paused')
-                                             AND b.visits_total IS NOT NULL)::int AS visits_remaining
-      FROM club_membership_balances b
-     WHERE b.club_id = m.club_id AND b.member_id = m.id
-  ) v ON true
-  LEFT JOIN LATERAL (
-    SELECT coalesce(sum(cb.due_cents) FILTER (WHERE cb.status IN ('open', 'overdue', 'partial')), 0)::int AS owed_cents,
-           coalesce(bool_or(cb.status = 'overdue'), false) AS overdue,
-           coalesce(bool_or(cb.status = 'partial'), false) AS partial
-      FROM club_charge_balances cb
-     WHERE cb.club_id = m.club_id AND cb.member_id = m.id
-  ) o ON true
-  LEFT JOIN LATERAL (
-    SELECT max(ci.checked_in_at) AS last_visit,
-           count(*) FILTER (WHERE ci.sofia_day > (now() AT TIME ZONE 'Europe/Sofia')::date - 30)::int AS visits30
-      FROM club_checkins ci
-     WHERE ci.club_id = m.club_id AND ci.member_id = m.id
-  ) lv ON true
-  LEFT JOIN club_member_links ln ON ln.member_id = m.id AND ln.status <> 'declined'`;
-
-const DERIVED_COLUMNS = sql`
-  st.status, g.display_name AS guardian_name,
-  to_char(v.valid_until, 'YYYY-MM-DD') AS valid_until, v.visits_remaining,
-  o.owed_cents, o.overdue, o.partial, lv.last_visit, lv.visits30, ln.status AS link_status`;
-
-function filterSql(filter: MemberFilter): SQL {
-  switch (filter) {
-    case 'all':
-      return sql`m.archived_at IS NULL`;
-    case 'with_membership':
-      return sql`st.status IN ('active', 'trial')`;
-    case 'unpaid':
-      return sql`m.archived_at IS NULL AND o.owed_cents > 0`;
-    case 'overdue':
-      return sql`m.archived_at IS NULL AND o.overdue`;
-    case 'partial':
-      return sql`m.archived_at IS NULL AND o.partial`;
-    case 'expiring':
-      return sql`m.archived_at IS NULL
-        AND v.valid_until BETWEEN (now() AT TIME ZONE 'Europe/Sofia')::date
-                              AND (now() AT TIME ZONE 'Europe/Sofia')::date + 7`;
-    case 'leads':
-      return sql`st.status = 'lead'`;
-    case 'lapsed':
-      return sql`st.status = 'lapsed'`;
-    case 'archived':
-      return sql`st.status = 'archived'`;
-  }
-}
-
-function segmentSql(segment: MemberSegment): SQL {
-  switch (segment) {
-    case 'top':
-      return sql`lv.visits30 >= 8`;
-    case 'regular':
-      return sql`lv.visits30 BETWEEN 4 AND 7`;
-    case 'new':
-      return sql`m.created_at > now() - interval '30 days'`;
-    case 'trial':
-      return sql`st.status = 'trial'`;
-    case 'owes':
-      return sql`o.owed_cents > 0`;
-    case 'at_risk':
-      return sql`st.status = 'active'
-        AND (lv.last_visit IS NULL OR lv.last_visit < now() - make_interval(days => ${AT_RISK_DAYS}::int))`;
-  }
-}
+// The derived joins and the filter / segment predicates are shared with the
+// worker's broadcast audiences (db/src/clubs/audience.ts, 0051), so the list
+// and a message to "the members at risk" can never disagree about who that is.
+const DERIVED = MEMBER_DERIVED_JOINS;
+const DERIVED_COLUMNS = MEMBER_DERIVED_COLUMNS;
+const filterSql = memberFilterSql;
+const segmentSql = memberSegmentSql;
 
 /** Pure: which derived segments a row belongs to (unit-tested with the SQL above). */
 export function segmentsFor(row: {
@@ -302,6 +240,12 @@ export interface MemberMembership {
   state: string;
   priceCents: number;
   pausedToday: boolean;
+  /** A renewing chain (0045): renews, its notice end, and whether it is the tail. */
+  renews: boolean;
+  renewalEndsOn: string | null;
+  hasSuccessor: boolean;
+  /** Billed by a card subscription (0046): Stripe, not the desk, renews and pauses it. */
+  online: boolean;
 }
 
 export interface MemberCharge {
@@ -313,6 +257,10 @@ export interface MemberCharge {
   dueCents: number;
   dueOn: IsoDate;
   status: string;
+  /** Its live invoice (0050), if any. */
+  invoiceId: string | null;
+  /** Credit was spent on it — invoiced when loaded, so not invoiced here. */
+  paidByCredit: boolean;
 }
 
 export interface MemberPayment {
@@ -369,19 +317,31 @@ export async function memberCard(actor: ClubActor, memberId: string): Promise<Me
        WHERE club_id = ${clubId}::uuid AND guardian_member_id = ${memberId}::uuid
        ORDER BY display_name`),
     db.execute(sql`
-      SELECT membership_id, plan_name, kind, to_char(starts_on, 'YYYY-MM-DD') AS starts_on,
-             to_char(ends_on, 'YYYY-MM-DD') AS ends_on,
-             to_char(effective_ends_on, 'YYYY-MM-DD') AS effective_ends_on,
-             visits_total, visits_remaining, state, price_cents, paused_today
-        FROM club_membership_balances
-       WHERE club_id = ${clubId}::uuid AND member_id = ${memberId}::uuid
-       ORDER BY starts_on DESC, created_at DESC LIMIT 50`),
+      SELECT mb.membership_id, mb.plan_name, mb.kind, to_char(mb.starts_on, 'YYYY-MM-DD') AS starts_on,
+             to_char(mb.ends_on, 'YYYY-MM-DD') AS ends_on,
+             to_char(mb.effective_ends_on, 'YYYY-MM-DD') AS effective_ends_on,
+             mb.visits_total, mb.visits_remaining, mb.state, mb.price_cents, mb.paused_today,
+             ms.renews, to_char(ms.renewal_ends_on, 'YYYY-MM-DD') AS renewal_ends_on,
+             (ms.provider_subscription_ref IS NOT NULL) AS online,
+             EXISTS (SELECT 1 FROM club_memberships nx WHERE nx.renewal_of = ms.id) AS has_successor
+        FROM club_membership_balances mb
+        JOIN club_memberships ms ON ms.id = mb.membership_id
+       WHERE mb.club_id = ${clubId}::uuid AND mb.member_id = ${memberId}::uuid
+       ORDER BY mb.starts_on DESC, mb.created_at DESC LIMIT 50`),
     db.execute(sql`
-      SELECT charge_id, label, kind, amount_cents, paid_cents, due_cents,
-             to_char(due_on, 'YYYY-MM-DD') AS due_on, status
-        FROM club_charge_balances
-       WHERE club_id = ${clubId}::uuid AND member_id = ${memberId}::uuid
-       ORDER BY issued_on DESC, created_at DESC LIMIT 50`),
+      SELECT cb.charge_id, cb.label, cb.kind, cb.amount_cents, cb.paid_cents, cb.due_cents,
+             to_char(cb.due_on, 'YYYY-MM-DD') AS due_on, cb.status,
+             -- Its live invoice (0050), if one was issued and not wholly credited.
+             (SELECT i.id FROM club_invoices i
+               WHERE i.club_id = cb.club_id AND i.charge_id = cb.charge_id AND i.kind = 'invoice'
+                 AND i.total_cents > coalesce((SELECT sum(c.total_cents) FROM club_invoices c
+                                                WHERE c.club_id = i.club_id AND c.corrects_id = i.id), 0)
+               LIMIT 1) AS invoice_id,
+             (SELECT coalesce(sum(p.amount_cents), 0) FROM club_payments p
+               WHERE p.charge_id = cb.charge_id AND p.method = 'wallet') > 0 AS paid_by_credit
+        FROM club_charge_balances cb
+       WHERE cb.club_id = ${clubId}::uuid AND cb.member_id = ${memberId}::uuid
+       ORDER BY cb.issued_on DESC, cb.created_at DESC LIMIT 50`),
     db.execute(sql`
       SELECT p.id, ch.label, p.amount_cents, p.method, p.kind,
              to_char(p.received_on, 'YYYY-MM-DD') AS received_on
@@ -432,6 +392,10 @@ export async function memberCard(actor: ClubActor, memberId: string): Promise<Me
       state: String(m.state),
       priceCents: Number(m.price_cents),
       pausedToday: m.paused_today === true,
+      renews: m.renews === true,
+      renewalEndsOn: text(m.renewal_ends_on),
+      hasSuccessor: m.has_successor === true,
+      online: m.online === true,
     })),
     charges: charges.rows.map((c) => ({
       id: String(c.charge_id),
@@ -442,6 +406,8 @@ export async function memberCard(actor: ClubActor, memberId: string): Promise<Me
       dueCents: Number(c.due_cents),
       dueOn: String(c.due_on),
       status: String(c.status),
+      invoiceId: c.invoice_id === null || c.invoice_id === undefined ? null : String(c.invoice_id),
+      paidByCredit: c.paid_by_credit === true,
     })),
     payments: payments.rows.map((p) => ({
       id: Number(p.id),
@@ -477,15 +443,18 @@ export async function createMember(
   db: TransactionalDb,
   actor: ClubActor,
   input: MemberInput,
-  source: 'staff' | 'import' = 'staff',
+  /** 'api': through a club API key (0057). */
+  source: 'staff' | 'import' | 'api' = 'staff',
+  /** A prospect added from the pipeline board (0052): opens the lead in the same insert. */
+  lead: { source: LeadSource } | null = null,
 ): Promise<MemberWriteResult> {
   return db.transaction(async (tx) => {
     const created = await tx.execute(sql`
       INSERT INTO club_members (club_id, display_name, email, phone, is_minor, guardian_member_id,
-                                tags, staff_note, source)
+                                tags, staff_note, source, lead_opened_at, lead_source)
       SELECT ${actor.clubId}::uuid, ${input.displayName}, ${input.email}, ${input.phone},
              ${input.isMinor}, ${input.guardianMemberId}::uuid, ${sql.param(input.tags)}::text[],
-             ${input.staffNote}, ${source}
+             ${input.staffNote}, ${source}, ${lead ? sql`now()` : sql`NULL`}, ${lead?.source ?? null}
        WHERE ${clubActorMay(actor, 'members.manage', { write: true })}
          AND ${guardianOk(actor.clubId, input.guardianMemberId)}
       RETURNING id
@@ -504,6 +473,15 @@ export async function createMember(
       subjectMemberId: memberId,
       detail: { source },
     });
+    if (lead) {
+      await recordClubAudit(tx, {
+        clubId: actor.clubId,
+        by: { kind: 'staff', actor },
+        action: 'lead_opened',
+        subjectMemberId: memberId,
+        detail: { source: lead.source },
+      });
+    }
     return { ok: true, memberId } as const;
   });
 }
@@ -555,6 +533,15 @@ export async function setMemberArchived(
       RETURNING m.id
     `);
     if (updated.rows.length === 0) return false;
+    if (archived) {
+      // A client who left stops renewing: the periods already sold run out,
+      // and nothing new is charged (the wave A review).
+      await tx.execute(sql`
+        UPDATE club_memberships ms SET renews = false
+         WHERE ms.member_id = ${memberId}::uuid AND ms.renews
+           AND ${clubWriteScope(actor, 'members.manage', 'ms')}
+      `);
+    }
     await recordClubAudit(tx, {
       clubId: actor.clubId,
       by: { kind: 'staff', actor },
@@ -571,20 +558,30 @@ export async function setMemberArchived(
  * books whole with member_id cleared (0040, 0041). The audit row is written
  * first and names the record only by its id, which then resolves to nothing.
  * Owner only ('members.erase'); allowed even when the club is read-only,
- * because an erasure obligation does not lapse with an invoice.
+ * because an erasure obligation does not lapse with an invoice. Refused while
+ * the client still has prepaid credit (0050): that is the client's money, to
+ * be paid back first — erased, it would belong to nobody.
  */
 export async function eraseMember(
   db: TransactionalDb,
   actor: ClubActor,
   memberId: string,
-): Promise<boolean> {
+): Promise<'ok' | 'not_found' | 'credit_left'> {
   return db.transaction(async (tx) => {
     const target = await tx.execute(sql`
       SELECT m.id FROM club_members m
        WHERE m.id = ${memberId}::uuid AND ${clubScope(actor, 'members.erase', 'm')}
        FOR UPDATE
     `);
-    if (target.rows.length === 0) return false;
+    if (target.rows.length === 0) return 'not_found' as const;
+    // A separate statement AFTER the lock: under READ COMMITTED it sees a
+    // top-up that committed while this waited (in the same statement, the
+    // snapshot would predate the wait, and the credit would be orphaned).
+    const credit = await tx.execute(sql`
+      SELECT coalesce(sum(w.balance_cents), 0) AS credit FROM club_wallet_balances w
+       WHERE w.club_id = ${actor.clubId}::uuid AND w.member_id = ${memberId}::uuid
+    `);
+    if (Number(credit.rows[0]?.credit) > 0) return 'credit_left' as const;
     await recordClubAudit(tx, {
       clubId: actor.clubId,
       by: { kind: 'staff', actor },
@@ -595,7 +592,7 @@ export async function eraseMember(
       DELETE FROM club_members m
        WHERE m.id = ${memberId}::uuid AND m.club_id = ${actor.clubId}::uuid
     `);
-    return true;
+    return 'ok' as const;
   });
 }
 

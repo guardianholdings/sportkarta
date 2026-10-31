@@ -109,6 +109,45 @@ describe('facilitiesGeoJSON (the /api/facilities feed)', () => {
   });
 });
 
+/**
+ * The map preview's «Клуб на това съоръжение» is a link (UX audit N6): to the
+ * club's page when one renderable club trains here, to the facility's club
+ * block when several do — the feed never picks one of several.
+ */
+describe('facilitiesGeoJSON — the club link', () => {
+  const base = ROWS[0] as Record<string, unknown>;
+
+  it('names the club only when it is the only one, through the shared predicate', async () => {
+    vi.stubEnv('CLUBS_ENABLED', 'true');
+    rows = [
+      { ...base, slug: 'none', club_here: null },
+      { ...base, slug: 'one', club_here: 'zala-sila' },
+      { ...base, slug: 'two', club_here: '' },
+    ];
+    const { facilitiesGeoJSON } = await subject();
+    const feed = await facilitiesGeoJSON(FILTERS, 'bg');
+    expect(feed.features.map((f) => [f.properties.club, f.properties.clubSlug])).toEqual([
+      [undefined, undefined],
+      [true, 'zala-sila'],
+      [true, undefined],
+    ]);
+    const sql = statements[0]?.sql ?? '';
+    expect(sql).toContain('cl.active AND (c.visible AND');
+    expect(sql).toContain('count(DISTINCT c.id) = 1');
+    vi.unstubAllEnvs();
+  });
+
+  it('asks nothing about clubs while the add-on is off', async () => {
+    vi.stubEnv('CLUBS_ENABLED', 'false');
+    rows = [{ ...base, club_here: null }];
+    const { facilitiesGeoJSON } = await subject();
+    const feed = await facilitiesGeoJSON(FILTERS, 'bg');
+    expect(feed.features[0]?.properties.club).toBeUndefined();
+    expect(statements[0]?.sql ?? '').not.toContain('club_locations');
+    vi.unstubAllEnvs();
+  });
+});
+
 describe('listPublicFacilities (the first-paint seed)', () => {
   it('carries the same place as the feed it is replaced by', async () => {
     rows = ROWS;

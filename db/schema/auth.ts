@@ -8,9 +8,12 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  smallint,
   text,
   timestamp,
+  unique,
   uniqueIndex,
+  uuid,
 } from 'drizzle-orm/pg-core';
 
 /**
@@ -353,6 +356,8 @@ export const accountDeletions = pgTable(
      */
     clubStaffErased: integer('club_staff_erased').notNull().default(0),
     clubMemberLinksErased: integer('club_member_links_erased').notNull().default(0),
+    /** The account's push-notification devices (0051), removed with it. */
+    pushSubscriptionsErased: integer('push_subscriptions_erased').notNull().default(0),
   },
   (t) => [
     index('account_deletions_deleted_at_idx').on(t.deletedAt),
@@ -370,8 +375,36 @@ export const accountDeletions = pgTable(
           AND ${t.digestSubscriptionsErased} >= 0 AND ${t.resultsAnonymized} >= 0
           AND ${t.badgesErased} >= 0 AND ${t.campaignResultsAnonymized} >= 0
           AND ${t.sessionNotificationsErased} >= 0
-          AND ${t.clubStaffErased} >= 0 AND ${t.clubMemberLinksErased} >= 0`,
+          AND ${t.clubStaffErased} >= 0 AND ${t.clubMemberLinksErased} >= 0
+          AND ${t.pushSubscriptionsErased} >= 0`,
     ),
+  ],
+);
+
+/**
+ * A POPS account's devices that accepted notifications (0051, Web Push). The
+ * endpoint CHECK admits only known browser push services over https, so the
+ * worker never posts to an address a forged subscription chose.
+ */
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull(),
+    /** The browser's P-256 public key, base64url (RFC 8291 ua_public). */
+    p256dh: text('p256dh').notNull(),
+    /** The browser's 16-byte auth secret, base64url. */
+    auth: text('auth').notNull(),
+    createdAt: timestamptz('created_at').notNull().defaultNow(),
+    lastSuccessAt: timestamptz('last_success_at'),
+    failureCount: smallint('failure_count').notNull().default(0),
+  },
+  (t) => [
+    unique('push_subscriptions_endpoint_unique').on(t.endpoint),
+    index('push_subscriptions_user_idx').on(t.userId),
   ],
 );
 

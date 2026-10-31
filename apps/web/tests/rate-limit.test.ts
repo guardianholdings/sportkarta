@@ -63,6 +63,25 @@ describe('SlidingWindowRateLimiter', () => {
   });
 });
 
+describe('SlidingWindowRateLimiter reads', () => {
+  it('counts and peeks without charging', () => {
+    const clock = fakeClock();
+    const rl = new SlidingWindowRateLimiter(2, 10_000, clock.now);
+    expect(rl.count('ip')).toBe(0);
+    expect(rl.wouldRefuse('ip').allowed).toBe(true);
+    rl.check('ip');
+    rl.check('ip');
+    expect(rl.count('ip')).toBe(2);
+    const peek = rl.wouldRefuse('ip');
+    expect(peek.allowed).toBe(false);
+    expect(peek.retryAfterMs).toBe(10_000);
+    // Peeking did not charge: the window frees exactly when it would have.
+    clock.advance(10_001);
+    expect(rl.count('ip')).toBe(0);
+    expect(rl.wouldRefuse('ip').allowed).toBe(true);
+  });
+});
+
 describe('clientIpFromForwardedFor', () => {
   it('takes the RIGHTMOST hop (the one Caddy appends), not the spoofable left', () => {
     // A client prepends fakes; Caddy appends the real peer last.

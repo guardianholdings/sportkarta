@@ -111,10 +111,42 @@ describe('the discovery pages address the reader formally', () => {
     return Object.entries(value).flatMap(([key, child]) => strings(child, `${path}.${key}`));
   }
 
-  it.each(['Map', 'Places', 'Stats', 'Accountability', 'OpenData'] as const)('%s', (ns) => {
+  it.each([
+    'Map',
+    'Places',
+    'Stats',
+    'Accountability',
+    'OpenData',
+    'Home',
+    'ClubsLanding',
+  ] as const)('%s', (ns) => {
     const informal = strings(bg[ns], ns).filter(
       ([, text]) => PRONOUN.test(text) || SENTENCE_IMPERATIVE.test(text),
     );
     expect(informal).toEqual([]);
+  });
+});
+
+describe('the front page names a city the same way', () => {
+  const tHome = createTranslator({ locale: 'bg', messages: bg, namespace: 'Home.dots' });
+
+  it('says «във Варна» and «в София» on a pinned map card', () => {
+    expect(tHome('openCity', { city: 'Варна', cityVav: takesVav('Варна') })).toBe(
+      'Всички съоръжения във Варна',
+    );
+    expect(tHome('openCity', { city: 'София', cityVav: takesVav('София') })).toBe(
+      'Всички съоръжения в София',
+    );
+  });
+
+  it('no Bulgarian Home string hard-codes „в" in front of a place name', () => {
+    const flat = (node: unknown, prefix: string): [string, string][] =>
+      typeof node === 'string'
+        ? [[prefix, node]]
+        : Object.entries(node as Record<string, unknown>).flatMap(([key, child]) =>
+            flat(child, `${prefix}.${key}`),
+          );
+    const bare = flat(bg.Home, 'Home').filter(([, value]) => /(^|\s)[вВ] \{city\}/.test(value));
+    expect(bare.map(([key]) => key)).toEqual([]);
   });
 });

@@ -62,6 +62,34 @@ const DECLARED_ELSEWHERE = new Map<string, string>([
  */
 const SMTP_FAMILY = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'];
 
+/**
+ * Keys read by `stripeSettings(env)` in lib/src/payments/provider.ts — the
+ * same whole-env handoff. club.payment_event applies every Stripe event in
+ * the WORKER (the web app only records the webhook), so a worker without
+ * these leaves every online payment pending forever, in production only.
+ */
+const STRIPE_FAMILY = [
+  'STRIPE_SECRET_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+  'STRIPE_CONNECT_CLIENT_ID',
+  'STRIPE_APPLICATION_FEE_BP',
+];
+
+/**
+ * Keys read by `createSmsSender(env)` and `createPushSender(env)` (0051) —
+ * the same whole-env handoff: club SMS and push are sent by the worker, and a
+ * worker without these fails closed in production while every local test
+ * passes on the file outboxes.
+ */
+const SMS_FAMILY = ['SMS_TRANSPORT', 'SMS_API_KEY', 'SMS_SENDER_ID'];
+/**
+ * Keys read by `resolvePaymentProvider(env)` (0053): the worker offers a
+ * freed event seat for online payment only when it sees the same provider as
+ * the web app — without them every offer silently becomes a desk debt.
+ */
+const PAYMENT_PROVIDER_FAMILY = ['PAYMENT_PROVIDER', ...STRIPE_FAMILY];
+const PUSH_FAMILY = ['PUSH_VAPID_SECRET', 'CONTACT_EMAIL', 'NEXT_PUBLIC_SITE_URL'];
+
 function walk(dir: string): string[] {
   let out: string[] = [];
   for (const name of readdirSync(dir)) {
@@ -138,6 +166,29 @@ describe('deploy/compose.prod.yml — worker environment', () => {
     ).toEqual([]);
   });
 
+  it('declares the payment provider family, because the worker resolves the provider from the whole env', () => {
+    if (!/resolvePaymentProvider\(\s*process\.env\s*\)/.test(workerSource)) return;
+    const missing = PAYMENT_PROVIDER_FAMILY.filter((k) => !workerEnv.includes(k));
+    expect(
+      missing,
+      `the worker resolves the payment provider from process.env but the manifest lacks:\n` +
+        missing.map((k) => `  ${k}`).join('\n'),
+    ).toEqual([]);
+  });
+
+  it('declares the webhook family, because the worker reads it through a default parameter', () => {
+    // runClubWebhooks(env = process.env) reads CLUB_API_ENABLED and
+    // CLUB_WEBHOOK_SECRET off its parameter, so the direct scan above cannot
+    // see them; without them every webhook silently stops — in production only.
+    if (!/runClubWebhooks\(/.test(workerSource)) return;
+    const missing = ['CLUB_API_ENABLED', 'CLUB_WEBHOOK_SECRET'].filter(
+      (k) => !workerEnv.includes(k),
+    );
+    expect(missing, `compose.prod.yml withholds from the worker:\n${missing.join('\n')}`).toEqual(
+      [],
+    );
+  });
+
   it('declares the SMTP family, because the worker hands the whole env to createMailer', () => {
     // The regression that motivated this file. `createMailer(process.env)` is a
     // whole-environment handoff, so the direct scan above cannot see the keys
@@ -152,6 +203,28 @@ describe('deploy/compose.prod.yml — worker environment', () => {
         missing.map((k) => `  ${k}`).join('\n') +
         '\nWithout them resolveMailTransport returns "disabled" under NODE_ENV=production ' +
         'and every send REJECTS. This fails in production only; local dev uses the file outbox.',
+    ).toEqual([]);
+  });
+
+  it('declares the Stripe family, because the worker hands the whole env to stripeSettings', () => {
+    if (!/stripeSettings\(\s*process\.env\s*\)/.test(workerSource)) return;
+    const missing = STRIPE_FAMILY.filter((k) => !workerEnv.includes(k));
+    expect(
+      missing,
+      'apps/worker/src calls stripeSettings(process.env) but compose.prod.yml withholds:\n' +
+        missing.map((k) => `  ${k}`).join('\n'),
+    ).toEqual([]);
+  });
+
+  it('declares the SMS and push families, because the worker hands the whole env to them', () => {
+    const missing = [
+      ...(/createSmsSender\(\s*process\.env\s*\)/.test(workerSource) ? SMS_FAMILY : []),
+      ...(/createPushSender\(\s*process\.env\s*\)/.test(workerSource) ? PUSH_FAMILY : []),
+    ].filter((k) => !workerEnv.includes(k));
+    expect(
+      missing,
+      'apps/worker/src sends SMS/push from the whole env but compose.prod.yml withholds:\n' +
+        missing.map((k) => `  ${k}`).join('\n'),
     ).toEqual([]);
   });
 

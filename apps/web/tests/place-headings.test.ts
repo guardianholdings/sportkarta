@@ -62,7 +62,7 @@ describe('listingCopy — one builder for page 1 and pages 2..n', () => {
     const copy = listingCopy(s, { city: BREZNIK, scope, count: 5 }, { page: 2, pages: 2 });
     expect(copy.heading).toBe('Футбол в Брезник');
     expect(copy.metaTitle).toBe('Футбол в Брезник — страница 2 от 2');
-    expect(copy.metaDescription).toMatch(/^5 места за футбол в Брезник/);
+    expect(copy.metaDescription).toMatch(/^5 съоръжения за футбол в Брезник/);
     expect(errors).toEqual([]);
   });
 

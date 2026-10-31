@@ -1,4 +1,12 @@
-import { CLUB_KINDS, CLUB_TIERS } from '@sportkarta/lib/clubs';
+import {
+  CLUB_CONTRACT_MONTHS,
+  CLUB_KINDS,
+  CLUB_TIER_PRICE_CENTS,
+  CLUB_TIERS,
+  CLUB_TRIAL_DAYS,
+  COMMUNITY_MEMBER_CAP,
+  formatEuro,
+} from '@sportkarta/lib/clubs';
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
@@ -54,7 +62,12 @@ export default async function ClubApplicationPage({ params }: { params: PagePara
               tiers: CLUB_TIERS.map((tier) => ({
                 value: tier,
                 label: tClub(`tier.${tier}`),
-                hint: t(`tierHint.${tier}`),
+                hint: t(`tierHint.${tier}`, {
+                  price: formatEuro(CLUB_TIER_PRICE_CENTS[tier], locale),
+                  days: CLUB_TRIAL_DAYS,
+                  cap: COMMUNITY_MEMBER_CAP,
+                  months: CLUB_CONTRACT_MONTHS,
+                }),
               })),
               city: t('city'),
               cityNone: t('cityNone'),
@@ -73,7 +86,9 @@ export default async function ClubApplicationPage({ params }: { params: PagePara
         </section>
         <section className="space-y-1">
           <h2 className="text-body font-bold text-ink">{t('afterTitle')}</h2>
-          <p className="text-body-sm text-ink-soft">{t('after')}</p>
+          <p className="text-body-sm text-ink-soft">
+            {t('after', { days: CLUB_TRIAL_DAYS, months: CLUB_CONTRACT_MONTHS })}
+          </p>
         </section>
       </main>
     </AppShell>

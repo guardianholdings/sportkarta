@@ -27,9 +27,12 @@ export const PARTNER_SURFACES = [
   '/[locale]/obekt/[slug]',
   '/[locale]/igrishta/[city]',
   '/[locale]/sedmitsata/[city]',
-  // The home page lives in the (map) route group; a page pattern spells the
-  // group, as the app directory does (Next tags it /[locale]/(map)/page).
-  '/[locale]/(map)',
+  // The map carries the `map_panel` slot.
+  '/[locale]/karta',
+  // The front page lives in the (home) route group; a page pattern spells the
+  // group, as the app directory does (Next tags it /[locale]/(home)/page). It
+  // carries a running campaign's sponsor line.
+  '/[locale]/(home)',
 ] as const;
 
 export function revalidatePartnerSurfaces(): void {

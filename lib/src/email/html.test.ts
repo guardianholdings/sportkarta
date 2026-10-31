@@ -11,9 +11,9 @@ describe('brandEmailHtml', () => {
   });
 
   it('turns bare URLs into links and keeps the visible URL text', () => {
-    const html = brandEmailHtml('Виж: https://pops.bg/sesiya/abc');
-    expect(html).toContain('<a href="https://pops.bg/sesiya/abc"');
-    expect(html).toContain('>https://pops.bg/sesiya/abc</a>');
+    const html = brandEmailHtml('Виж: https://pops.bg/igra/abc');
+    expect(html).toContain('<a href="https://pops.bg/igra/abc"');
+    expect(html).toContain('>https://pops.bg/igra/abc</a>');
   });
 
   it('splits blank-line blocks into paragraphs and single breaks into <br>', () => {

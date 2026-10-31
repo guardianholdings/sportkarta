@@ -35,7 +35,7 @@ function strings(node: Tree, prefix: string): [string, string][] {
 
 /** Second-person-singular markers that turned up in these keys. */
 const INFORMAL =
-  /(?<![\p{L}])(Виж|Влез|Запиши|Абонирай|Върни|разгледай|твои|твоите|Имаш|получиш|играеш|споделяй|публикувай|абонираш|Здравей|Получаваш|Натисни|спреш|влизаш|се запишеш|си се записал|Записан си|Отписан си)(?![\p{L}])/u;
+  /(?<![\p{L}])(Виж|Влез|Запиши|Абонирай|Върни|разгледай|твои|твоите|Имаш|получиш|играеш|споделяй|публикувай|абонираш|Здравей|Получаваш|Натисни|спреш|влизаш|се запишеш|си се записал|Записан си|Отписан си|Покажи|Скрий)(?![\p{L}])/u;
 
 const FORMAL_KEYS = [
   'Session.metaDescription',
@@ -60,12 +60,24 @@ const FORMAL_KEYS = [
   'DigestEmail.greetingNoName',
   'DigestEmail.footer',
   'Passport.activityExplainer',
+  'ClubEvents.public.showName',
+  'ClubEvents.public.hideName',
 ];
 
 describe('formal address', () => {
   it.each(FORMAL_KEYS)('%s addresses the reader as Вие', (key) => {
     expect(value(key)).not.toMatch(INFORMAL);
   });
+
+  it.each(['Home', 'Footer', 'ClubsLanding'])(
+    'addresses the reader as Вие across the whole %s namespace',
+    (ns) => {
+      const offenders = strings((bg as unknown as Tree)[ns] as Tree, ns).filter(([, text]) =>
+        INFORMAL.test(text),
+      );
+      expect(offenders).toEqual([]);
+    },
+  );
 
   it('keeps «ти» where a member is talking to a friend', () => {
     for (const key of [
@@ -83,7 +95,7 @@ describe('formal address', () => {
 });
 
 describe('terminology', () => {
-  it('calls a group session «тренировка», never «сесия» (a login session)', () => {
+  it('never calls a game «сесия» (a login session)', () => {
     const offenders = [
       'Session',
       'Digest',
@@ -98,10 +110,47 @@ describe('terminology', () => {
       'Participation',
       'Division',
       'Campaign',
+      'Home',
+      'ClubsLanding',
     ].flatMap((ns) =>
       strings((bg as unknown as Tree)[ns] as Tree, ns).filter(([, text]) => /сеси[яи]/u.test(text)),
     );
     expect(offenders).toEqual([]);
+  });
+
+  it('calls an open game «игра», not «тренировка» (operator, 2026-10-31)', () => {
+    // «Тренировка» stays for what really is one: the member's own training log
+    // (Training, Participation) and a club's classes (the Club* namespaces).
+    const pickup = [
+      'Session',
+      'Digest',
+      'DigestEmail',
+      'SessionEmail',
+      'Checkin',
+      'Roster',
+      'Badge',
+      'Campaign',
+      'Passport',
+      'Leaderboard',
+      'Division',
+      'AdminBulkSessions',
+      'AdminResults',
+      'Home.games',
+      'Home.dots',
+      'Home.numbers',
+      'Home.personal',
+      'Home.guide.play.proof',
+      'Home.guide.passport',
+    ].flatMap((ns) => {
+      const tree = ns
+        .split('.')
+        .reduce<Tree>((node, key) => node[key] as Tree, bg as unknown as Tree);
+      return strings(tree, ns).filter(([, text]) => /тренир/iu.test(text));
+    });
+    expect(pickup).toEqual([]);
+    expect(value('Nav.navSessions')).toBe('Игри');
+    expect(value('Footer.sessions')).toBe('Игри');
+    expect(value('Home.guide.nav.play')).toBe('Играйте');
   });
 
   it('says «мин.» with the full stop, like the rest of the product', () => {

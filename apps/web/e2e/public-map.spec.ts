@@ -62,7 +62,7 @@ test.describe('public map — find nearest free football pitch', () => {
     const apiLoaded = page.waitForResponse(
       (r) => r.url().includes('/api/facilities') && r.url().includes('sport=football') && r.ok(),
     );
-    await page.goto('/?sport=football');
+    await page.goto('/karta?sport=football');
     await apiLoaded;
 
     // Free access is ON by default (the URL only narrows by sport). The access

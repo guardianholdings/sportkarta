@@ -59,7 +59,7 @@ export async function GET(
     endsAt: new Date(occurrence.endsAt),
     summary: occurrence.title,
     location: occurrence.facilityName ?? undefined,
-    url: `${base}/sesiya/${occurrence.occurrenceId}`,
+    url: `${base}/igra/${occurrence.occurrenceId}`,
     lat: occurrence.lat ?? undefined,
     lon: occurrence.lon ?? undefined,
     cancelled: occurrence.cancelled,
@@ -81,6 +81,21 @@ export async function GET(
       url: `${base}/klub/${booking.clubSlug}/trenirovka/${booking.occurrenceId}`,
       cancelled: booking.cancelled,
       sequence: 2 * booking.seq + (booking.cancelled ? 1 : 0),
+    });
+  }
+
+  // Classes the account teaches (0045): one event per occurrence, in a UID
+  // space of their own; the roster is the link a trainer needs.
+  for (const lesson of feed.clubTeaching) {
+    events.push({
+      uid: `club-teach-${lesson.occurrenceId}@${host}`,
+      startsAt: new Date(lesson.startsAt),
+      endsAt: new Date(lesson.endsAt),
+      summary: lesson.title,
+      location: lesson.location,
+      url: `${base}/klub/${lesson.clubSlug}/grafik/t/${lesson.occurrenceId}`,
+      cancelled: lesson.cancelled,
+      sequence: lesson.cancelled ? 1 : 0,
     });
   }
 

@@ -15,11 +15,24 @@ import { SlidingWindowRateLimiter } from '@/lib/rate-limit';
  * persisted, never logged.
  */
 const TEN_MINUTES = 10 * 60 * 1000;
+const ONE_MINUTE = 60 * 1000;
+
+/**
+ * The club API (0057): per key a minute's budget generous for a sync job,
+ * per door controller enough for a queue at the turnstile, and per client IP
+ * a cap on FAILED authentications — keys are 256 bits, so this is about
+ * garbage floods, not guessing.
+ */
+export const CLUB_API_PER_MINUTE = 120;
+export const CLUB_DOOR_PER_MINUTE = 60;
 
 const globalForRl = globalThis as unknown as {
   __kioskPairClubLimiter?: SlidingWindowRateLimiter;
   __kioskPairIpLimiter?: SlidingWindowRateLimiter;
   __clubMemberActionLimiter?: SlidingWindowRateLimiter;
+  __clubApiKeyLimiter?: SlidingWindowRateLimiter;
+  __clubApiFailureLimiter?: SlidingWindowRateLimiter;
+  __clubDoorLimiter?: SlidingWindowRateLimiter;
 };
 
 export const kioskPairClubLimiter =
@@ -33,3 +46,15 @@ export const kioskPairIpLimiter =
 export const clubMemberActionLimiter =
   globalForRl.__clubMemberActionLimiter ??
   (globalForRl.__clubMemberActionLimiter = new SlidingWindowRateLimiter(30, TEN_MINUTES));
+
+export const clubApiKeyLimiter =
+  globalForRl.__clubApiKeyLimiter ??
+  (globalForRl.__clubApiKeyLimiter = new SlidingWindowRateLimiter(CLUB_API_PER_MINUTE, ONE_MINUTE));
+
+export const clubApiFailureLimiter =
+  globalForRl.__clubApiFailureLimiter ??
+  (globalForRl.__clubApiFailureLimiter = new SlidingWindowRateLimiter(30, TEN_MINUTES));
+
+export const clubDoorLimiter =
+  globalForRl.__clubDoorLimiter ??
+  (globalForRl.__clubDoorLimiter = new SlidingWindowRateLimiter(CLUB_DOOR_PER_MINUTE, ONE_MINUTE));

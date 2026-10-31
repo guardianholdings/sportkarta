@@ -45,7 +45,11 @@ async function entriesFor(name: string): Promise<UrlEntry[] | null> {
       // predicate that 404s a hidden club, so a sitemap never lists one.
       if (!clubsEnabled()) return null;
       const clubs = await publicClubDirectory('bg');
-      return [{ path: '/klubove' }, ...clubs.map((club) => ({ path: `/klub/${club.slug}` }))];
+      return [
+        { path: '/klubove' },
+        { path: '/za-klubove' },
+        ...clubs.map((club) => ({ path: `/klub/${club.slug}` })),
+      ];
     }
     case 'static.xml': {
       const now = new Date().toISOString();

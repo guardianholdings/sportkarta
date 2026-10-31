@@ -27,10 +27,42 @@ export const CLUB_DIGEST_QUEUE = 'club.digest';
  */
 export const CLUB_WEEKLY_QUEUE = 'club.weekly';
 export const CLUB_ACTIVITY_QUEUE = 'club.activity';
+/** Daily: renew abonnements, raise no-show and late-cancel fees, mail both (0045). */
+export const CLUB_POLICIES_QUEUE = 'club.policies';
+/** Monthly: the owner's business-health mail for the month that closed. */
+export const CLUB_HEALTH_QUEUE = 'club.health';
+/**
+ * A verified Stripe webhook event to apply (0046): `{ eventId }` is the
+ * club_payment_events row id — the worker re-fetches the object from Stripe.
+ * Also swept every 10 minutes for events whose enqueue failed.
+ */
+export const CLUB_PAYMENT_EVENT_QUEUE = 'club.payment_event';
+/**
+ * Club broadcasts whose time has come (0051), swept every five minutes; the
+ * office enqueues an empty job on «Изпрати сега» so a message does not wait
+ * for the sweep. The payload is always empty — the sweep reads the table.
+ */
+export const CLUB_BROADCASTS_QUEUE = 'club.broadcasts';
+/** Daily: the clubs' automations (welcome, follow-ups, win-back), 0051. */
+export const CLUB_AUTOMATIONS_QUEUE = 'club.automations';
+/** Daily: each member of staff's prospects to call today (0052). */
+export const CLUB_LEADS_QUEUE = 'club.leads';
+/**
+ * Every minute: post the clubs' due webhook deliveries (0057). The payload is
+ * always empty — the deliveries are rows the database wrote.
+ */
+export const CLUB_WEBHOOKS_QUEUE = 'club.webhooks';
+/** Daily: prune the webhook delivery log (30 days) and idempotency records (a day). */
+export const CLUB_INTEGRATIONS_PRUNE_QUEUE = 'club.integrations_prune';
+
+export interface ClubPaymentEventJob {
+  eventId?: number;
+}
 
 export type ClubNotifyJob =
   | { kind: 'application_received'; clubId: string }
   | { kind: 'application_approved'; clubId: string }
+  | { kind: 'application_rejected'; clubId: string }
   | { kind: 'staff_invite'; inviteId: string }
   | { kind: 'member_invite'; inviteId: string }
   | { kind: 'booking_confirmed'; bookingId: string }
@@ -38,7 +70,21 @@ export type ClubNotifyJob =
   | { kind: 'booking_cancelled'; bookingId: string }
   | { kind: 'class_cancelled'; occurrenceIds: string[] }
   | { kind: 'claim_pending'; memberId: string }
-  | { kind: 'erasure_requested'; memberId: string };
+  | { kind: 'erasure_requested'; memberId: string }
+  /**
+   * A message in a club thread (0052): the member's tells the staff who
+   * answer, the club's tells the member. Enqueued only when the thread was
+   * read up to then, so a burst of messages is one notice.
+   */
+  | { kind: 'inbox_message'; messageId: string }
+  /**
+   * Event places (0053): a registration (a seat, an offer to pay, or a place
+   * in line), places that moved up from the waitlist, and places whose event
+   * the club cancelled.
+   */
+  | { kind: 'event_registered'; registrationId: string }
+  | { kind: 'event_promoted'; registrationIds: string[] }
+  | { kind: 'event_cancelled'; registrationIds: string[] };
 
 export type ClubNotifyKind = ClubNotifyJob['kind'];
 
@@ -67,6 +113,7 @@ export function parseClubNotifyJob(data: unknown): ClubNotifyJob | null {
   switch (job.kind) {
     case 'application_received':
     case 'application_approved':
+    case 'application_rejected':
       return uuid(job.clubId) ? { kind: job.kind, clubId: job.clubId } : null;
     case 'staff_invite':
     case 'member_invite':
@@ -81,6 +128,17 @@ export function parseClubNotifyJob(data: unknown): ClubNotifyJob | null {
     case 'claim_pending':
     case 'erasure_requested':
       return uuid(job.memberId) ? { kind: job.kind, memberId: job.memberId } : null;
+    case 'event_registered':
+      return uuid(job.registrationId)
+        ? { kind: job.kind, registrationId: job.registrationId }
+        : null;
+    case 'event_promoted':
+    case 'event_cancelled':
+      return uuids(job.registrationIds)
+        ? { kind: job.kind, registrationIds: job.registrationIds }
+        : null;
+    case 'inbox_message':
+      return uuid(job.messageId) ? { kind: job.kind, messageId: job.messageId } : null;
     default:
       return null;
   }

@@ -4,6 +4,7 @@ import {
   clubAccessState,
   sofiaToday,
   type ClubAccessState,
+  type ClubContractBilling,
   type ClubKind,
   type ClubStatus,
   type ClubTier,
@@ -19,7 +20,7 @@ import { clubWritableSql } from './access';
  * every page and action).
  *
  * THE OPERATOR SELLS THE ADD-ON BY INVOICE (decision 2026-10-24): approving an
- * application starts a 30-day trial on a paid tier; when the bank transfer
+ * application starts a 30-day trial on any tier (all are paid); when the bank transfer
  * arrives the operator records `paid_until`; nothing here charges a card.
  * Every change lands in admin_actions IN THE SAME TRANSACTION (0033's rule),
  * and every state change is written as "set the TARGET state WHERE it differs"
@@ -59,6 +60,8 @@ export interface AdminClubRow {
   trialEndsOn: IsoDate | null;
   paidUntil: IsoDate | null;
   memberCap: number | null;
+  /** SMS parts per Sofia month (0051); 0 = no SMS. */
+  smsMonthlyCap: number;
   appliedAt: string;
   cityBg: string | null;
   cityEn: string | null;
@@ -104,6 +107,7 @@ function toRow(row: Record<string, unknown>, today: IsoDate): AdminClubRow {
     accessState: clubAccessState(club, today),
     visible: row.visible === true,
     memberCap: row.member_cap === null ? null : Number(row.member_cap),
+    smsMonthlyCap: Number(row.sms_monthly_cap ?? 0),
     appliedAt: new Date(String(row.applied_at)).toISOString(),
     cityBg: text(row.city_bg),
     cityEn: text(row.city_en),
@@ -116,7 +120,8 @@ function toRow(row: Record<string, unknown>, today: IsoDate): AdminClubRow {
 }
 
 const LIST_COLUMNS = sql`
-  c.id, c.slug, c.name_bg, c.kind, c.tier, c.status, c.visible, c.member_cap, c.applied_at,
+  c.id, c.slug, c.name_bg, c.kind, c.tier, c.status, c.visible, c.member_cap, c.sms_monthly_cap,
+  c.applied_at,
   to_char(c.trial_ends_on, 'YYYY-MM-DD') AS trial_ends_on,
   to_char(c.paid_until, 'YYYY-MM-DD') AS paid_until,
   mu.name_bg AS city_bg, mu.name_en AS city_en,
@@ -171,6 +176,10 @@ export interface AdminClubDetail extends AdminClubRow {
   approvedAt: string | null;
   archivedAt: string | null;
   purgeableFrom: IsoDate | null;
+  /** The contract's recorded facts (0061); its terms come from clubContractTerm. */
+  contractStartsOn: IsoDate | null;
+  contractBilling: ClubContractBilling | null;
+  contractNoticeOn: IsoDate | null;
   staff: { userId: string; name: string; email: string; role: string; since: string }[];
   counts: {
     members: number;
@@ -187,7 +196,9 @@ export async function adminClubDetail(slug: string): Promise<AdminClubDetail | n
   const today = sofiaToday();
   const result = await db.execute(sql`
     SELECT ${LIST_COLUMNS}, c.legal_name, c.eik, c.public_email, c.website_url, c.description_bg,
-           c.sports, c.approved_at, c.archived_at,
+           c.sports, c.approved_at, c.archived_at, c.contract_billing,
+           to_char(c.contract_starts_on, 'YYYY-MM-DD') AS contract_starts_on,
+           to_char(c.contract_notice_on, 'YYYY-MM-DD') AS contract_notice_on,
            to_char((c.archived_at AT TIME ZONE 'Europe/Sofia')::date + ${PURGE_AFTER_DAYS}::int,
                    'YYYY-MM-DD') AS purgeable_from
       FROM clubs c
@@ -233,6 +244,9 @@ export async function adminClubDetail(slug: string): Promise<AdminClubDetail | n
     approvedAt: row.approved_at ? new Date(String(row.approved_at)).toISOString() : null,
     archivedAt: row.archived_at ? new Date(String(row.archived_at)).toISOString() : null,
     purgeableFrom: text(row.purgeable_from),
+    contractStartsOn: text(row.contract_starts_on),
+    contractBilling: text(row.contract_billing) as ClubContractBilling | null,
+    contractNoticeOn: text(row.contract_notice_on),
     staff: staff.rows.map((s) => ({
       userId: String(s.user_id),
       name: String(s.display_name ?? ''),
@@ -258,7 +272,7 @@ export async function adminClubDetail(slug: string): Promise<AdminClubDetail | n
 
 // ─── Changes ───────────────────────────────────────────────────────────────
 
-/** Approve a pending application: active, and a trial on a paid tier. */
+/** Approve a pending application: active, and the trial (every tier is paid, 2026-10-31). */
 export async function approveClub(
   db: TransactionalDb,
   adminId: string,
@@ -268,10 +282,8 @@ export async function approveClub(
     const updated = await tx.execute(sql`
       UPDATE clubs
          SET status = 'active', approved_at = now(),
-             trial_ends_on = CASE
-               WHEN tier <> 'community' AND trial_ends_on IS NULL
-               THEN (now() AT TIME ZONE 'Europe/Sofia')::date + ${CLUB_TRIAL_DAYS}::int
-               ELSE trial_ends_on END
+             trial_ends_on = coalesce(trial_ends_on,
+               (now() AT TIME ZONE 'Europe/Sofia')::date + ${CLUB_TRIAL_DAYS}::int)
        WHERE id = ${clubId}::uuid AND status = 'pending'
        RETURNING id
     `);
@@ -310,6 +322,11 @@ export interface ClubPlanChange {
   paidUntil: IsoDate | null;
   trialEndsOn: IsoDate | null;
   memberCap: number | null;
+  smsMonthlyCap: number;
+  /** The contract, as signed offline (0061): both or neither of start and billing. */
+  contractStartsOn: IsoDate | null;
+  contractBilling: ClubContractBilling | null;
+  contractNoticeOn: IsoDate | null;
 }
 
 export async function setClubPlan(
@@ -322,11 +339,18 @@ export async function setClubPlan(
     const updated = await tx.execute(sql`
       UPDATE clubs
          SET tier = ${change.tier}, paid_until = ${change.paidUntil}::date,
-             trial_ends_on = ${change.trialEndsOn}::date, member_cap = ${change.memberCap}
+             trial_ends_on = ${change.trialEndsOn}::date, member_cap = ${change.memberCap},
+             sms_monthly_cap = ${change.smsMonthlyCap},
+             contract_starts_on = ${change.contractStartsOn}::date,
+             contract_billing = ${change.contractBilling}::text,
+             contract_notice_on = ${change.contractNoticeOn}::date
        WHERE id = ${clubId}::uuid
-         AND (tier, paid_until, trial_ends_on, member_cap) IS DISTINCT FROM
+         AND (tier, paid_until, trial_ends_on, member_cap, sms_monthly_cap,
+              contract_starts_on, contract_billing, contract_notice_on) IS DISTINCT FROM
              (${change.tier}::text, ${change.paidUntil}::date, ${change.trialEndsOn}::date,
-              ${change.memberCap}::int)
+              ${change.memberCap}::int, ${change.smsMonthlyCap}::int,
+              ${change.contractStartsOn}::date, ${change.contractBilling}::text,
+              ${change.contractNoticeOn}::date)
        RETURNING id
     `);
     if (updated.rows.length === 0) return false;

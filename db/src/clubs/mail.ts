@@ -1,4 +1,10 @@
-import type { ClubNotificationKind, ClubRole, IsoDate } from '@sportkarta/lib/clubs';
+import {
+  CLUB_CONTRACT_REMINDER_DAYS,
+  CLUB_GRACE_DAYS,
+  clubContractTerm,
+  daysBetween,
+} from '@sportkarta/lib/clubs';
+import type { ClubChannel, ClubNotificationKind, ClubRole, IsoDate } from '@sportkarta/lib/clubs';
 import { sql, type SQL } from 'drizzle-orm';
 
 /**
@@ -172,6 +178,11 @@ export async function operatorRecipients(db: SqlRunner): Promise<StaffRecipient[
 /**
  * Claim a ledger row; true when THIS run may send. Run it in the same
  * transaction as the send, before it: a failed send rolls the claim back.
+ *
+ * One row per channel (0051): the same key may be claimed once by e-mail,
+ * once by SMS and once by push. An SMS claim carries its parts, and the
+ * club_notifications_sms_cap trigger refuses it (23514) when the club's
+ * monthly allowance would be exceeded — `isSmsCapRefusal` tells the caller.
  */
 export async function claimClubNotification(
   db: SqlRunner,
@@ -181,16 +192,31 @@ export async function claimClubNotification(
     userId?: string | null;
     kind: ClubNotificationKind;
     key: string;
+    channel?: ClubChannel;
+    smsParts?: number;
   },
 ): Promise<boolean> {
+  const channel = input.channel ?? 'email';
   const result = await db.execute(sql`
-    INSERT INTO club_notifications (club_id, member_id, user_id, kind, dedupe_key)
+    INSERT INTO club_notifications (club_id, member_id, user_id, kind, dedupe_key, channel, sms_parts)
     VALUES (${input.clubId}::uuid, ${input.memberId ?? null}::uuid, ${input.userId ?? null},
-            ${input.kind}, ${input.key})
-    ON CONFLICT (club_id, dedupe_key) DO NOTHING
+            ${input.kind}, ${input.key}, ${channel},
+            ${channel === 'sms' ? (input.smsParts ?? 1) : null}::smallint)
+    ON CONFLICT (club_id, channel, dedupe_key) DO NOTHING
     RETURNING id
   `);
   return result.rows.length > 0;
+}
+
+/** The SMS allowance refused a claim (club_notifications_sms_cap). */
+export function isSmsCapRefusal(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 4 && current && typeof current === 'object'; depth++) {
+    const fields = current as { code?: unknown; constraint?: unknown; cause?: unknown };
+    if (fields.code === '23514' && fields.constraint === 'club_notifications_sms_cap') return true;
+    current = fields.cause;
+  }
+  return false;
 }
 
 // ─── Invitations ────────────────────────────────────────────────────────────
@@ -402,6 +428,111 @@ export async function expiryCandidates(
   }));
 }
 
+// ─── The club's own standing (0059) ─────────────────────────────────────────
+
+export type ClubLifecycleKind =
+  | 'club_trial_ending'
+  | 'club_past_due'
+  | 'club_lapsed'
+  | 'club_suspended'
+  | 'club_contract_renewing';
+
+export interface ClubLifecycleCandidate {
+  kind: ClubLifecycleKind;
+  clubId: string;
+  /** The milestone's day: the trial's last day, the day coverage ran out, … */
+  date: IsoDate;
+  /** What the ledger key carries, so the same milestone is told once. */
+  anchor: string;
+  /** club_contract_renewing only: the last day notice still stops the renewal. */
+  noticeBy?: IsoDate;
+}
+
+/**
+ * Clubs at a milestone of their own standing, for the owners' mail:
+ * a trial that ends in a week or tomorrow (and is not already paid past),
+ * coverage that ran out in the last three days (the grace begins), a grace
+ * that ended in the last three days (read-only, public page hidden), a
+ * suspension in the last three days. Three days is the catch-up window for
+ * a worker that was down; the ledger key (kind, owner, milestone) keeps
+ * each mail to one. The trial-ending mail asks the club to sign, so a club
+ * with a recorded contract does not get it. Every tier pays (2026-10-31), so every tier is listed.
+ *
+ * And a contract that renews (0061): CLUB_CONTRACT_REMINDER_DAYS before its
+ * notice deadline (with the same three-day catch-up), unless notice was
+ * already received. The terms are computed by clubContractTerm — the same
+ * function the owner's settings page and the admin read — so the mail can
+ * never name a different date; it is anchored on the renewal day.
+ */
+export async function clubLifecycleCandidates(
+  db: SqlRunner,
+  today: IsoDate,
+): Promise<ClubLifecycleCandidate[]> {
+  const result = await db.execute(sql`
+    WITH paying AS (
+      SELECT c.id, c.status, c.trial_ends_on, c.paid_until, c.suspended_at, c.contract_starts_on,
+             greatest(c.paid_until, c.trial_ends_on) AS coverage
+        FROM clubs c
+       WHERE c.status IN ('active', 'suspended')
+    )
+    SELECT 'club_trial_ending' AS kind, id AS club_id,
+           to_char(trial_ends_on, 'YYYY-MM-DD') AS date,
+           to_char(trial_ends_on, 'YYYY-MM-DD') || ':' || (trial_ends_on - ${today}::date)::text AS anchor
+      FROM paying
+     WHERE status = 'active' AND (paid_until IS NULL OR paid_until <= trial_ends_on)
+       -- A club that has signed is past deciding: the mail's «ако не продължите,
+       -- не дължите нищо» would be false for it (0061).
+       AND contract_starts_on IS NULL
+       AND trial_ends_on IN (${today}::date + 7, ${today}::date + 1)
+    UNION ALL
+    SELECT 'club_past_due', id, to_char(coverage, 'YYYY-MM-DD'), to_char(coverage, 'YYYY-MM-DD')
+      FROM paying
+     WHERE status = 'active' AND coverage BETWEEN ${today}::date - 3 AND ${today}::date - 1
+    UNION ALL
+    SELECT 'club_lapsed', id,
+           to_char(coverage + ${CLUB_GRACE_DAYS}::int, 'YYYY-MM-DD'),
+           to_char(coverage + ${CLUB_GRACE_DAYS}::int, 'YYYY-MM-DD')
+      FROM paying
+     WHERE status = 'active'
+       AND coverage + ${CLUB_GRACE_DAYS}::int BETWEEN ${today}::date - 3 AND ${today}::date - 1
+    UNION ALL
+    SELECT 'club_suspended', id,
+           to_char(suspended_at AT TIME ZONE 'Europe/Sofia', 'YYYY-MM-DD'),
+           to_char(suspended_at AT TIME ZONE 'Europe/Sofia', 'YYYY-MM-DD')
+      FROM paying
+     WHERE status = 'suspended' AND suspended_at > now() - interval '3 days'
+     ORDER BY 2, 1
+  `);
+  const contracts = await db.execute(sql`
+    SELECT id AS club_id, to_char(contract_starts_on, 'YYYY-MM-DD') AS starts_on
+      FROM clubs
+     WHERE status = 'active' AND contract_starts_on IS NOT NULL AND contract_notice_on IS NULL
+  `);
+  const renewing: ClubLifecycleCandidate[] = [];
+  for (const row of contracts.rows) {
+    const term = clubContractTerm({ startsOn: String(row.starts_on), noticeOn: null }, today);
+    if (term.state !== 'running') continue;
+    const ahead = daysBetween(today, term.noticeBy);
+    if (ahead < CLUB_CONTRACT_REMINDER_DAYS - 2 || ahead > CLUB_CONTRACT_REMINDER_DAYS) continue;
+    renewing.push({
+      kind: 'club_contract_renewing',
+      clubId: String(row.club_id),
+      date: term.renewsOn,
+      anchor: term.renewsOn,
+      noticeBy: term.noticeBy,
+    });
+  }
+  return [
+    ...result.rows.map((row) => ({
+      kind: String(row.kind) as ClubLifecycleKind,
+      clubId: String(row.club_id),
+      date: String(row.date),
+      anchor: String(row.anchor),
+    })),
+    ...renewing,
+  ];
+}
+
 // ─── Digests (staff) ────────────────────────────────────────────────────────
 
 export interface TrainerClass {
@@ -468,6 +599,7 @@ export async function clubWeekFigures(db: SqlRunner, monday: IsoDate): Promise<C
           AND (b.created_at AT TIME ZONE 'Europe/Sofia')::date >= ${monday}::date
           AND (b.created_at AT TIME ZONE 'Europe/Sofia')::date < ${monday}::date + 7) AS bookings,
       (SELECT coalesce(sum(p.amount_cents), 0)::bigint FROM club_payments p WHERE p.club_id = c.id
+          AND p.method <> 'wallet'
           AND p.received_on >= ${monday}::date AND p.received_on < ${monday}::date + 7) AS revenue,
       (SELECT count(*)::int FROM club_membership_balances mb WHERE mb.club_id = c.id
           AND mb.state = 'active'
@@ -493,6 +625,105 @@ export async function clubWeekFigures(db: SqlRunner, monday: IsoDate): Promise<C
     pendingClaims: Number(row.claims ?? 0),
     erasureRequests: Number(row.erasures ?? 0),
   }));
+}
+
+export interface ClubMonthFigures {
+  clubId: string;
+  /** Held a valid abonnement on any day of the month (this, previous). */
+  members: [number, number];
+  revenueCents: [number, number];
+  checkins: [number, number];
+  newMembers: number;
+  /** Valid in the previous month, not in this one. */
+  churned: number;
+  /** Today: a live abonnement and no visit for 21 days. */
+  atRisk: number;
+  /** The best-filled class of the month (≥ 2 occurrences), if any. */
+  topClass: { title: string; fill: number } | null;
+}
+
+/**
+ * The owner's monthly business-health figures for [month, month + 1 month) —
+ * the club.health mail (0045), the deterministic answer to an "AI report":
+ * every number is one SQL definition, the same ones the reports page prints.
+ */
+export async function clubMonthFigures(db: SqlRunner, month: IsoDate): Promise<ClubMonthFigures[]> {
+  const result = await db.execute(sql`
+    WITH span AS (
+      SELECT ${month}::date AS first, (${month}::date + interval '1 month')::date AS next,
+             (${month}::date - interval '1 month')::date AS prev
+    )
+    SELECT c.id,
+      (SELECT count(DISTINCT mb.member_id)::int FROM club_membership_balances mb
+        WHERE mb.club_id = c.id AND mb.cancelled_at IS NULL
+          AND mb.starts_on < span.next AND mb.effective_ends_on >= span.first) AS members_now,
+      (SELECT count(DISTINCT mb.member_id)::int FROM club_membership_balances mb
+        WHERE mb.club_id = c.id AND mb.cancelled_at IS NULL
+          AND mb.starts_on < span.first AND mb.effective_ends_on >= span.prev) AS members_then,
+      (SELECT coalesce(sum(p.amount_cents), 0)::bigint FROM club_payments p
+        WHERE p.club_id = c.id AND p.method <> 'wallet'
+          AND p.received_on >= span.first AND p.received_on < span.next) AS rev_now,
+      (SELECT coalesce(sum(p.amount_cents), 0)::bigint FROM club_payments p
+        WHERE p.club_id = c.id AND p.method <> 'wallet'
+          AND p.received_on >= span.prev AND p.received_on < span.first) AS rev_then,
+      (SELECT count(*)::int FROM club_checkins ci
+        WHERE ci.club_id = c.id AND ci.sofia_day >= span.first AND ci.sofia_day < span.next) AS ci_now,
+      (SELECT count(*)::int FROM club_checkins ci
+        WHERE ci.club_id = c.id AND ci.sofia_day >= span.prev AND ci.sofia_day < span.first) AS ci_then,
+      (SELECT count(*)::int FROM club_members m
+        WHERE m.club_id = c.id AND (m.created_at AT TIME ZONE 'Europe/Sofia')::date >= span.first
+          AND (m.created_at AT TIME ZONE 'Europe/Sofia')::date < span.next) AS new_members,
+      (SELECT count(*)::int FROM (
+         SELECT mb.member_id FROM club_membership_balances mb
+          WHERE mb.club_id = c.id AND mb.cancelled_at IS NULL
+            AND mb.starts_on < span.first AND mb.effective_ends_on >= span.prev
+         EXCEPT
+         SELECT mb.member_id FROM club_membership_balances mb
+          WHERE mb.club_id = c.id AND mb.cancelled_at IS NULL
+            AND mb.starts_on < span.next AND mb.effective_ends_on >= span.first) gone) AS churned,
+      -- Distinct MEMBERS: a member holding two live abonnements is one person
+      -- at risk, not two.
+      (SELECT count(DISTINCT mb.member_id)::int FROM club_membership_balances mb
+        WHERE mb.club_id = c.id AND mb.state = 'active'
+          AND mb.starts_on <= (now() AT TIME ZONE 'Europe/Sofia')::date - 21
+          AND NOT EXISTS (SELECT 1 FROM club_checkins ci
+                           WHERE ci.club_id = mb.club_id AND ci.member_id = mb.member_id
+                             AND ci.sofia_day > (now() AT TIME ZONE 'Europe/Sofia')::date - 21))
+        AS at_risk,
+      (SELECT k.title || '|' || (sum(g.going)::float / nullif(sum(g.capacity), 0))::text
+         FROM (SELECT o.class_id, coalesce(o.capacity, kk.capacity) AS capacity,
+                      (SELECT count(*) FILTER (WHERE bp.booking_status = 'going')
+                         FROM club_booking_positions bp WHERE bp.occurrence_id = o.id) AS going
+                 FROM club_class_occurrences o JOIN club_classes kk ON kk.id = o.class_id
+                WHERE o.club_id = c.id AND o.status = 'scheduled'
+                  AND (o.starts_at AT TIME ZONE 'Europe/Sofia')::date >= span.first
+                  AND (o.starts_at AT TIME ZONE 'Europe/Sofia')::date < span.next) g
+         JOIN club_classes k ON k.id = g.class_id
+        GROUP BY k.id, k.title
+       HAVING count(*) >= 2 AND bool_and(g.capacity IS NOT NULL) AND sum(g.capacity) > 0
+        ORDER BY sum(g.going)::float / sum(g.capacity) DESC
+        LIMIT 1) AS top_class
+      FROM clubs c, span
+     WHERE c.status = 'active'
+     ORDER BY c.id
+  `);
+  return result.rows.map((row) => {
+    const top = row.top_class === null ? null : String(row.top_class);
+    const cut = top === null ? -1 : top.lastIndexOf('|');
+    return {
+      clubId: String(row.id),
+      members: [Number(row.members_now ?? 0), Number(row.members_then ?? 0)],
+      revenueCents: [Number(row.rev_now ?? 0), Number(row.rev_then ?? 0)],
+      checkins: [Number(row.ci_now ?? 0), Number(row.ci_then ?? 0)],
+      newMembers: Number(row.new_members ?? 0),
+      churned: Number(row.churned ?? 0),
+      atRisk: Number(row.at_risk ?? 0),
+      topClass:
+        top === null || cut < 0
+          ? null
+          : { title: top.slice(0, cut), fill: Number(top.slice(cut + 1)) },
+    };
+  });
 }
 
 // ─── Monthly activity (the invoicing basis) ─────────────────────────────────
@@ -524,7 +755,7 @@ export async function recordClubMonthlyActivity(
        GROUP BY ci.club_id, ci.member_id HAVING count(*) >= 3
     )
     INSERT INTO club_monthly_activity (club_id, month, members_with_membership, members_with_visits,
-                                       members_active, checkins, bookings, revenue_cents)
+                                       members_active, checkins, bookings, revenue_cents, sms_parts)
     SELECT c.id, bounds.first,
       (SELECT count(*)::int FROM held h WHERE h.club_id = c.id),
       (SELECT count(*)::int FROM visited v WHERE v.club_id = c.id),
@@ -536,7 +767,12 @@ export async function recordClubMonthlyActivity(
           AND (b.created_at AT TIME ZONE 'Europe/Sofia')::date >= bounds.first
           AND (b.created_at AT TIME ZONE 'Europe/Sofia')::date < bounds.next),
       (SELECT coalesce(sum(p.amount_cents), 0)::bigint FROM club_payments p WHERE p.club_id = c.id
-          AND p.received_on >= bounds.first AND p.received_on < bounds.next)
+          AND p.method <> 'wallet'
+          AND p.received_on >= bounds.first AND p.received_on < bounds.next),
+      -- The SMS parts sent in the month (0051), what the operator re-invoices:
+      -- the counter, which erasing a client does not lower.
+      (SELECT coalesce(sum(u.parts), 0)::int FROM club_sms_usage u
+        WHERE u.club_id = c.id AND u.month = bounds.first)
       FROM clubs c, bounds
      WHERE c.status <> 'archived' AND c.applied_at < bounds.next
     ON CONFLICT (club_id, month) DO NOTHING

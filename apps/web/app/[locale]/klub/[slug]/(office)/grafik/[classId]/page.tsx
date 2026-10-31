@@ -13,6 +13,7 @@ import { clubSportOptions } from '@/lib/clubs/labels';
 import { listPlans } from '@/lib/clubs/sales';
 import { classById } from '@/lib/clubs/schedule';
 import { clubLocations, clubSettings } from '@/lib/clubs/settings';
+import { clubResources } from '@/lib/clubs/resources';
 import { clubInstructors } from '@/lib/clubs/staff';
 
 import { cancelClassAction, saveClassAction } from '../actions';
@@ -69,6 +70,11 @@ export default async function EditClassPage({
               sports={sports}
               locations={usable.map((location) => ({ id: location.id, name: location.name }))}
               instructors={instructors}
+              rooms={(await clubResources(actor)).map((r) => ({
+                id: r.id,
+                name: r.name,
+                locationName: r.locationName,
+              }))}
               plans={plans.map((plan) => ({
                 id: plan.id,
                 name: locale === 'en' && plan.nameEn ? plan.nameEn : plan.nameBg,

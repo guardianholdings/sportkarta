@@ -1,7 +1,14 @@
 'use server';
 
 import { getDb } from '@sportkarta/db';
-import { CLUB_TIERS, isIsoDate, type ClubTier } from '@sportkarta/lib/clubs';
+import {
+  CLUB_CONTRACT_BILLING,
+  CLUB_TIERS,
+  isIsoDate,
+  sofiaToday,
+  type ClubContractBilling,
+  type ClubTier,
+} from '@sportkarta/lib/clubs';
 import { getLocale } from 'next-intl/server';
 import { revalidatePath } from 'next/cache';
 
@@ -17,6 +24,11 @@ import {
 } from '@/lib/clubs/admin';
 import { requireClubsEnabled } from '@/lib/clubs/club-session';
 import { enqueueClubNotify } from '@/lib/clubs/notify';
+import {
+  closeOpenCheckouts,
+  releaseClubAccount,
+  stopProviderSubscriptions,
+} from '@/lib/clubs/payments';
 import { revalidateClubSurfaces } from '@/lib/clubs/surfaces';
 import { discardContributionPhoto } from '@/lib/contributions/photo-upload';
 
@@ -72,6 +84,7 @@ export async function approveClubAction(formData: FormData): Promise<void> {
 export async function rejectClubAction(formData: FormData): Promise<void> {
   const { adminId, clubId, slug } = await guard(formData);
   const changed = await rejectApplication(getDb(), adminId, clubId);
+  if (changed) await enqueueClubNotify({ kind: 'application_rejected', clubId });
   refresh(slug);
   return backTo(slug, changed ? 'rejected' : 'unchanged');
 }
@@ -90,11 +103,43 @@ export async function setClubPlanAction(formData: FormData): Promise<void> {
   if (memberCap !== null && (!Number.isInteger(memberCap) || memberCap < 1)) {
     return backTo(slug, 'cap_invalid');
   }
+  // SMS parts a month (0051): what the club may send, and is re-invoiced for.
+  const smsRaw = field(formData, 'smsMonthlyCap') || '0';
+  if (!/^\d{1,6}$/.test(smsRaw) || Number(smsRaw) > 100_000) {
+    return backTo(slug, 'sms_cap_invalid');
+  }
+  // The contract, as signed offline (0061): a start and an invoicing choice
+  // together, notice only against a recorded contract — the CHECKs' rules,
+  // answered here with a message rather than a constraint error.
+  const contractStartsOn = field(formData, 'contractStartsOn') || null;
+  const contractNoticeOn = field(formData, 'contractNoticeOn') || null;
+  if (
+    (contractStartsOn && !isIsoDate(contractStartsOn)) ||
+    (contractNoticeOn && !isIsoDate(contractNoticeOn))
+  ) {
+    return backTo(slug, 'date_invalid');
+  }
+  const billingRaw = field(formData, 'contractBilling');
+  const contractBilling = (CLUB_CONTRACT_BILLING as readonly string[]).includes(billingRaw)
+    ? (billingRaw as ClubContractBilling)
+    : null;
+  if (billingRaw !== '' && contractBilling === null) return backTo(slug, 'invalid');
+  if ((contractStartsOn === null) !== (contractBilling === null)) {
+    return backTo(slug, 'contract_incomplete');
+  }
+  if (contractNoticeOn && !contractStartsOn) return backTo(slug, 'notice_needs_contract');
+  // Notice is a fact that has happened: a future date is a typo that would
+  // silence the renewal reminder.
+  if (contractNoticeOn && contractNoticeOn > sofiaToday()) return backTo(slug, 'notice_future');
   const changed = await setClubPlan(getDb(), adminId, clubId, {
     tier: tierRaw as ClubTier,
     paidUntil,
     trialEndsOn,
     memberCap,
+    smsMonthlyCap: Number(smsRaw),
+    contractStartsOn,
+    contractBilling,
+    contractNoticeOn,
   });
   refresh(slug);
   return backTo(slug, changed ? 'saved' : 'not_changed');
@@ -106,6 +151,13 @@ export async function setClubStatusAction(formData: FormData): Promise<void> {
   if (target !== 'active' && target !== 'suspended' && target !== 'archived') {
     return backTo(slug, 'invalid');
   }
+  // An archived club bills nobody: its members' card subscriptions end now.
+  if (target === 'archived') {
+    await closeOpenCheckouts(clubId, null);
+    if (!(await stopProviderSubscriptions(clubId, { club: true }, 'now'))) {
+      return backTo(slug, 'provider_error');
+    }
+  }
   const changed = await setClubStatus(getDb(), adminId, clubId, target as ClubStatusTarget);
   refresh(slug);
   return backTo(slug, changed ? 'saved' : 'unchanged');
@@ -113,8 +165,17 @@ export async function setClubStatusAction(formData: FormData): Promise<void> {
 
 export async function purgeClubAction(formData: FormData): Promise<void> {
   const { adminId, clubId, slug } = await guard(formData);
+  // No member is billed for a club that no longer exists: subscriptions end
+  // now, before the rows that record them go.
+  await closeOpenCheckouts(clubId, null);
+  if (!(await stopProviderSubscriptions(clubId, { club: true }, 'now'))) {
+    return backTo(slug, 'provider_error');
+  }
   const result = await purgeClub(getDb(), adminId, clubId);
   if (!result.purged) return backTo(slug, 'not_yet');
+  // Only once the club is gone: let go of its Stripe connection (best effort),
+  // so a purged club leaves POPS no read_write access to its account.
+  await releaseClubAccount(clubId);
   // The logo file only after the rows are gone — best effort, like partners.
   await discardContributionPhoto(result.logoPath);
   revalidatePath('/admin/klubove');

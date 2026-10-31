@@ -25,10 +25,11 @@ describe('the bg ⇄ en switch', () => {
   });
 
   it.each([
-    ['components/shell/site-footer.tsx', '<LocaleSwitcher />'],
+    // The footer's switcher carries layout classes; the element is what matters.
+    ['components/shell/site-footer.tsx', /<LocaleSwitcher(\s|\/)/],
     // The rail is the only chrome on the map screen, which has no footer.
-    ['components/shell/app-nav.tsx', '<LocaleSwitcher variant="rail" />'],
+    ['components/shell/app-nav.tsx', /<LocaleSwitcher variant="rail" \/>/],
   ])('is reachable from %s', (file, usage) => {
-    expect(readFileSync(path.join(process.cwd(), file), 'utf8')).toContain(usage);
+    expect(readFileSync(path.join(process.cwd(), file), 'utf8')).toMatch(usage);
   });
 });

@@ -12,7 +12,7 @@ import type { ApplicationInput } from './input';
  * same transaction that creates the club — there is no ownerless moment and no
  * separate "claim your club" step. The club starts `pending`: the office opens
  * read-only with the onboarding checklist, nothing is public, and the operator
- * approves it from /admin/klubove (which starts the trial on a paid tier).
+ * approves it from /admin/klubove (which starts the trial — every tier is paid).
  *
  * Spam is bounded structurally rather than by a captcha: one PENDING
  * application per account at a time and at most five clubs owned per account.

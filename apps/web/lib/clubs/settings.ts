@@ -1,7 +1,8 @@
 import { getDb, sql, type SQL } from '@sportkarta/db';
+import type { ClubContractBilling, IsoDate } from '@sportkarta/lib/clubs';
 
 import { recordClubAudit } from './audit';
-import type { ClubSettingsInput, LocationInput } from './input';
+import type { ClubSettingsInput, FaqInput, InvoiceDetailsInput, LocationInput } from './input';
 import { clubActorMay, clubScope, clubWriteScope, type ClubActor } from './scope';
 
 /**
@@ -26,14 +27,29 @@ export interface ClubSettings extends ClubSettingsInput {
   slug: string;
   visible: boolean;
   logoPath: string | null;
+  termsUrl: string | null;
+  /** What an invoice prints about the club (0050), beside legalName and eik. */
+  invoiceDetails: InvoiceDetailsInput;
+  /** The contract with the association (0061), read-only here: the operator records it. */
+  contract: {
+    startsOn: IsoDate | null;
+    billing: ClubContractBilling | null;
+    noticeOn: IsoDate | null;
+  };
 }
 
 export async function clubSettings(clubId: string): Promise<ClubSettings | null> {
   const result = await getDb().execute(sql`
     SELECT slug, name_bg, name_en, kind, description_bg, description_en, sports, municipality_id,
            website_url, public_email, public_phone, legal_name, eik, locale,
-           booking_opens_hours, cancel_deadline_hours, mail_unlinked_members, visible, logo_path
-      FROM clubs WHERE id = ${clubId}::uuid
+           booking_opens_hours, cancel_deadline_hours, mail_unlinked_members, visible, logo_path,
+           accent, terms_url, ist.legal_address, ist.vat_number, ist.iban, ist.invoice_vat_bp,
+           ist.zero_vat_basis, contract_billing,
+           to_char(contract_starts_on, 'YYYY-MM-DD') AS contract_starts_on,
+           to_char(contract_notice_on, 'YYYY-MM-DD') AS contract_notice_on
+      FROM clubs
+      LEFT JOIN club_invoice_settings ist ON ist.club_id = clubs.id
+     WHERE clubs.id = ${clubId}::uuid
   `);
   const row = result.rows[0];
   if (!row) return null;
@@ -55,9 +71,79 @@ export async function clubSettings(clubId: string): Promise<ClubSettings | null>
     bookingOpensHours: Number(row.booking_opens_hours),
     cancelDeadlineHours: Number(row.cancel_deadline_hours),
     mailUnlinkedMembers: row.mail_unlinked_members === true,
+    accent: row.accent === 'coral' || row.accent === 'sky' ? row.accent : 'green',
     visible: row.visible === true,
     logoPath: text(row.logo_path),
+    termsUrl: text(row.terms_url),
+    invoiceDetails: {
+      legalAddress: text(row.legal_address),
+      vatNumber: text(row.vat_number),
+      iban: text(row.iban),
+      invoiceVatBp: [0, 900, 2000].includes(Number(row.invoice_vat_bp))
+        ? (Number(row.invoice_vat_bp) as InvoiceDetailsInput['invoiceVatBp'])
+        : 2000,
+      zeroVatBasis: text(row.zero_vat_basis),
+    },
+    contract: {
+      startsOn: text(row.contract_starts_on),
+      billing: text(row.contract_billing) as ClubContractBilling | null,
+      noticeOn: text(row.contract_notice_on),
+    },
   };
+}
+
+/** What an invoice prints about the club (0050). settings.manage. */
+export async function saveInvoiceDetails(
+  db: TransactionalDb,
+  actor: ClubActor,
+  input: InvoiceDetailsInput,
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const updated = await tx.execute(sql`
+      INSERT INTO club_invoice_settings (club_id, legal_address, vat_number, iban, invoice_vat_bp,
+                                         zero_vat_basis)
+      SELECT ${actor.clubId}::uuid, ${input.legalAddress}, ${input.vatNumber}, ${input.iban},
+             ${input.invoiceVatBp}, ${input.zeroVatBasis}
+       WHERE ${clubActorMay(actor, 'settings.manage', { write: true })}
+      ON CONFLICT (club_id) DO UPDATE
+        SET legal_address = EXCLUDED.legal_address, vat_number = EXCLUDED.vat_number,
+            iban = EXCLUDED.iban, invoice_vat_bp = EXCLUDED.invoice_vat_bp,
+            zero_vat_basis = EXCLUDED.zero_vat_basis
+      RETURNING club_id
+    `);
+    if (updated.rows.length === 0) return false;
+    await recordClubAudit(tx, {
+      clubId: actor.clubId,
+      by: { kind: 'staff', actor },
+      action: 'settings_changed',
+      detail: { part: 'invoices' },
+    });
+    return true;
+  });
+}
+
+/** The club's terms of sale for online payments (0046). settings.manage. */
+export async function saveTermsUrl(
+  db: TransactionalDb,
+  actor: ClubActor,
+  termsUrl: string | null,
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const updated = await tx.execute(sql`
+      UPDATE clubs c SET terms_url = ${termsUrl}
+       WHERE c.id = ${actor.clubId}::uuid
+         AND ${clubActorMay(actor, 'settings.manage', { write: true })}
+      RETURNING c.id
+    `);
+    if (updated.rows.length === 0) return false;
+    await recordClubAudit(tx, {
+      clubId: actor.clubId,
+      by: { kind: 'staff', actor },
+      action: 'settings_changed',
+      detail: { part: 'terms' },
+    });
+    return true;
+  });
 }
 
 export async function updateClubSettings(
@@ -75,7 +161,7 @@ export async function updateClubSettings(
              public_phone = ${input.publicPhone}, legal_name = ${input.legalName}, eik = ${input.eik},
              locale = ${input.locale}, booking_opens_hours = ${input.bookingOpensHours},
              cancel_deadline_hours = ${input.cancelDeadlineHours},
-             mail_unlinked_members = ${input.mailUnlinkedMembers}
+             mail_unlinked_members = ${input.mailUnlinkedMembers}, accent = ${input.accent}
        WHERE c.id = ${actor.clubId}::uuid
          AND ${clubActorMay(actor, 'settings.manage', { write: true })}
        RETURNING c.id
@@ -306,4 +392,84 @@ export async function municipalityChoices(): Promise<
     nameBg: String(row.name_bg),
     nameEn: String(row.name_en),
   }));
+}
+
+// ─── The club's FAQ on its public page (0045) ──────────────────────────────
+
+export interface ClubFaqEntry extends FaqInput {
+  id: string;
+}
+
+export async function clubFaq(actor: ClubActor): Promise<ClubFaqEntry[]> {
+  const result = await getDb().execute(sql`
+    SELECT q.id, q.question_bg, q.answer_bg, q.question_en, q.answer_en, q.sort_order
+      FROM club_faq q
+     WHERE ${clubScope(actor, 'settings.manage', 'q')}
+     ORDER BY q.sort_order, q.created_at
+  `);
+  return result.rows.map((row) => ({
+    id: String(row.id),
+    questionBg: String(row.question_bg),
+    answerBg: String(row.answer_bg),
+    questionEn: text(row.question_en),
+    answerEn: text(row.answer_en),
+    sortOrder: Number(row.sort_order),
+  }));
+}
+
+/** At most this many questions per club — a page, not a knowledge base. */
+export const MAX_FAQ = 30;
+
+export async function saveFaq(
+  db: TransactionalDb,
+  actor: ClubActor,
+  faqId: string | null,
+  input: FaqInput,
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const values = sql`${input.questionBg}, ${input.answerBg}, ${input.questionEn},
+      ${input.answerEn}, ${input.sortOrder}`;
+    const saved = faqId
+      ? await tx.execute(sql`
+          UPDATE club_faq q
+             SET (question_bg, answer_bg, question_en, answer_en, sort_order) = (${values})
+           WHERE q.id = ${faqId}::uuid AND ${clubWriteScope(actor, 'settings.manage', 'q')}
+          RETURNING q.id`)
+      : await tx.execute(sql`
+          INSERT INTO club_faq (club_id, question_bg, answer_bg, question_en, answer_en, sort_order)
+          SELECT ${actor.clubId}::uuid, ${values}
+           WHERE ${clubActorMay(actor, 'settings.manage', { write: true })}
+             AND (SELECT count(*) FROM club_faq WHERE club_id = ${actor.clubId}::uuid) < ${MAX_FAQ}
+          RETURNING id`);
+    if (saved.rows.length === 0) return false;
+    await recordClubAudit(tx, {
+      clubId: actor.clubId,
+      by: { kind: 'staff', actor },
+      action: 'faq_saved',
+      detail: {},
+    });
+    return true;
+  });
+}
+
+export async function removeFaq(
+  db: TransactionalDb,
+  actor: ClubActor,
+  faqId: string,
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const removed = await tx.execute(sql`
+      DELETE FROM club_faq q
+       WHERE q.id = ${faqId}::uuid AND ${clubWriteScope(actor, 'settings.manage', 'q')}
+      RETURNING q.id
+    `);
+    if (removed.rows.length === 0) return false;
+    await recordClubAudit(tx, {
+      clubId: actor.clubId,
+      by: { kind: 'staff', actor },
+      action: 'faq_removed',
+      detail: {},
+    });
+    return true;
+  });
 }

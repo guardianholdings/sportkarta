@@ -8,6 +8,7 @@ import {
   CLUB_PLAN_AUDIENCES,
   CLUB_PLAN_KINDS,
   euroInputValue,
+  type ClubPaymentMethod,
 } from '@sportkarta/lib/clubs';
 import { instantToWall, parseRrule, SOFIA_TZ, WEEKDAY_CODES } from '@sportkarta/lib/recurrence';
 
@@ -33,7 +34,13 @@ export async function clubFormMessages(): Promise<ClubFormMessages> {
     saved: t('saved'),
     genericError: t('genericError'),
     readOnly: t('readOnly'),
-    errors: Object.fromEntries(Object.keys(catalogue).map((code) => [code, t(`error.${code}`)])),
+    // A PLAIN object: it crosses into client components (FormFeedback, the
+    // till), and React refuses a null-prototype one. Look codes up through
+    // formErrorText (./form-error), which reads own keys only — so
+    // `?rezultat=constructor` misses like any unknown code.
+    errors: Object.fromEntries(
+      Object.keys(catalogue).map((code) => [code, t(`error.${code}`)]),
+    ) as Record<string, string>,
   };
 }
 
@@ -79,11 +86,22 @@ export async function planFormLabels(): Promise<PlanFormLabels> {
     visibility: t('visibility'),
     public: t('public'),
     privatePlan: t('privatePlan'),
+    terms: t('terms'),
+    termsHint: t('termsHint'),
+    autoRenew: t('autoRenew'),
+    autoRenewHint: t('autoRenewHint'),
+    minTermMonths: t('minTermMonths'),
+    noticeDays: t('noticeDays'),
+    selfPause: t('selfPause'),
+    selfCancel: t('selfCancel'),
     save: t('save'),
   };
 }
 
-export async function saleFormLabels(): Promise<SaleFormLabels> {
+/** `methods`: the desk's methods for this club (deskPaymentMethods). */
+export async function saleFormLabels(
+  methods: readonly ClubPaymentMethod[] = CLUB_PAYMENT_METHODS.filter((m) => m !== 'wallet'),
+): Promise<SaleFormLabels> {
   const [t, tClub] = await Promise.all([
     getTranslations('ClubSales.sale'),
     getTranslations('Club'),
@@ -91,17 +109,23 @@ export async function saleFormLabels(): Promise<SaleFormLabels> {
   return {
     member: t('member'),
     memberPick: t('memberPick'),
+    memberSearch: t('memberSearch'),
+    memberNone: t('memberNone'),
     plan: t('plan'),
     startsOn: t('startsOn'),
     payNow: t('payNow'),
     payLater: t('payLater'),
     method: t('method'),
-    methods: Object.fromEntries(CLUB_PAYMENT_METHODS.map((m) => [m, tClub(`method.${m}`)])),
+    methods: Object.fromEntries(methods.map((m) => [m, tClub(`method.${m}`)])),
     amount: t('amount'),
     receivedOn: t('receivedOn'),
     dueOn: t('dueOn'),
     summary: t('summary', { plan: '{plan}', member: '{member}', price: '{price}' }),
     submit: t('submit'),
+    code: t('code'),
+    amountAll: t('amountAll'),
+    offersNote: t('offersNote'),
+    offerPrice: t('offerPrice', { price: '{price}', list: '{list}', offer: '{offer}' }),
   };
 }
 
@@ -117,6 +141,10 @@ export async function classFormLabels(): Promise<ClassFormLabels> {
     location: t('location'),
     instructor: t('instructor'),
     instructorNone: t('instructorNone'),
+    room: t('room'),
+    roomNone: t('roomNone'),
+    roomHint: t('roomHint'),
+    roomTaken: t('roomTaken'),
     firstDate: t('firstDate'),
     time: t('time'),
     duration: t('duration'),
@@ -135,11 +163,18 @@ export async function classFormLabels(): Promise<ClassFormLabels> {
     bookingOpensDays: t('bookingOpensDays'),
     cancelDeadlineHours: t('cancelDeadlineHours'),
     dropInPrice: t('dropInPrice'),
+    policyTitle: t('policyTitle'),
+    policyHint: t('policyHint'),
+    noShowFee: t('noShowFee'),
+    lateCancelFee: t('lateCancelFee'),
+    strikeLimit: t('strikeLimit'),
+    strikeDays: t('strikeDays'),
     coverage: t('coverage'),
     coverageAll: t('coverageAll'),
     coverageSelected: t('coverageSelected'),
     trialAllowed: t('trialAllowed'),
     public: t('public'),
+    more: t('more'),
     save: t('save'),
   };
 }
@@ -180,6 +215,7 @@ export function classFormValues(cls: ClubClass, locale: string): ClassValues {
     sport: cls.sport,
     locationId: cls.locationId,
     instructorUserId: cls.instructorUserId,
+    resourceId: cls.resourceId,
     firstDate: cls.startsAtLocal.slice(0, 10),
     time: cls.startsAtLocal.slice(11, 16),
     durationMinutes: cls.durationMinutes,
@@ -191,6 +227,11 @@ export function classFormValues(cls: ClubClass, locale: string): ClassValues {
     bookingOpensDays: Math.max(1, Math.round(cls.bookingOpensHours / 24)),
     cancelDeadlineHours: cls.cancelDeadlineHours,
     dropInPrice: cls.dropInPriceCents === null ? '' : euroInputValue(cls.dropInPriceCents, locale),
+    noShowFee: cls.noShowFeeCents === null ? '' : euroInputValue(cls.noShowFeeCents, locale),
+    lateCancelFee:
+      cls.lateCancelFeeCents === null ? '' : euroInputValue(cls.lateCancelFeeCents, locale),
+    strikeLimit: cls.strikeLimit,
+    strikeDays: cls.strikeDays,
     coversAllPlans: cls.coversAllPlans,
     planIds: cls.planIds,
     trialAllowed: cls.trialAllowed,

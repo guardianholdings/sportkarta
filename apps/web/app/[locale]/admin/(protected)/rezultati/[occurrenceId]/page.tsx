@@ -102,7 +102,7 @@ export default async function ResultsEditorPage({
     'error_csv_truncated',
     'error_too_many_rows',
   ];
-  // t.raw for the same reason as /admin/sesii: the client component formats
+  // t.raw for the same reason as /admin/igri: the client component formats
   // the ICU templates itself (useLabels), counts included.
   const labels = Object.fromEntries(labelKeys.map((key) => [key, String(t.raw(key))]));
 

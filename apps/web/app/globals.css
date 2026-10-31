@@ -106,6 +106,18 @@
   --color-cat-precision: var(--cat-precision);
   --color-cat-multi: var(--cat-multi);
 
+  /* ---- Belt colours (club ranks, 0056; graphics only) ---- */
+  --color-belt-white: var(--belt-white);
+  --color-belt-grey: var(--belt-grey);
+  --color-belt-yellow: var(--belt-yellow);
+  --color-belt-orange: var(--belt-orange);
+  --color-belt-red: var(--belt-red);
+  --color-belt-green: var(--belt-green);
+  --color-belt-blue: var(--belt-blue);
+  --color-belt-purple: var(--belt-purple);
+  --color-belt-brown: var(--belt-brown);
+  --color-belt-black: var(--belt-black);
+
   /* ---- Semantic status ---- */
   --color-success: var(--success);
   --color-success-bg: var(--success-bg);
@@ -287,6 +299,16 @@
   to {
     transform: translateY(0) scale(1);
     opacity: 1;
+  }
+}
+
+/* A row that scrolls sideways on a phone (the office hubs, the settings jump
+   menu) without a desktop scrollbar track under it; the row still scrolls by
+   touch, wheel and keyboard focus. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
   }
 }
 
@@ -551,4 +573,741 @@
     var(--paper-sunk) 0 11px,
     var(--surface-2) 11px 22px
   );
+}
+
+/* ============================================================
+   FRONT PAGE (components/home/*) — the dot map, the rolling
+   number, the badge coins. Colours are tokens; every animation
+   is an entrance or an ambient pulse, and the reduced-motion
+   rule in design-tokens/motion.css lands each on its end state.
+   Entrances use `backwards` fill so that, once finished, they
+   hand opacity and transform back to the cascade (the hover
+   dimming below depends on it).
+   ============================================================ */
+.sk-home-hero {
+  background:
+    radial-gradient(
+      60% 70% at 80% 45%,
+      color-mix(in srgb, var(--green-100) 60%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      45% 55% at 5% 0%,
+      color-mix(in srgb, var(--coral-100) 50%, transparent),
+      transparent 70%
+    );
+}
+
+/* A screenshot in a drawn window: a bar of three dots over the picture, the
+   frame's own border and shadow, nothing to download but the picture. */
+.sk-device-frame {
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+.sk-device-frame__bar {
+  display: flex;
+  gap: 0.375rem;
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.sk-device-frame__bar > span {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.sk-home-search:focus-within {
+  border-color: var(--brand);
+  box-shadow: var(--ring);
+}
+
+.sk-overline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--fs-overline);
+  font-weight: 600;
+  letter-spacing: var(--ls-overline);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.sk-overline::before {
+  content: '';
+  width: 1.25rem;
+  height: 0.1875rem;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.sk-overline--dark {
+  color: color-mix(in srgb, var(--paper) 75%, transparent);
+}
+
+/* ---- The dot map ---- */
+/* The map arrives as one west-to-east wipe — a mask sliding across — rather
+   than a delay per dot, which cost a style attribute on a thousand circles. */
+.sk-dotmap {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  cursor: crosshair;
+  mask-image: linear-gradient(90deg, black 45%, transparent 55%);
+  mask-size: 250% 100%;
+  mask-position: 0 0;
+  animation: sk-wipe 1.4s var(--ease-out) backwards;
+}
+.sk-dotmap__land {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  transition: opacity var(--dur-base) var(--ease-standard);
+  animation: sk-fade-in var(--dur-page) var(--ease-out) backwards;
+}
+.sk-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    fill var(--dur-base) var(--ease-standard),
+    opacity var(--dur-base) var(--ease-standard),
+    r var(--dur-slow) var(--ease-trail);
+}
+.sk-dot--t1 {
+  fill: var(--green-300);
+}
+.sk-dot--t2 {
+  fill: var(--green-400);
+}
+.sk-dot--t3 {
+  fill: var(--green-500);
+}
+.sk-dot--t4 {
+  fill: var(--green-600);
+}
+.sk-dot--t5 {
+  fill: var(--green-700);
+}
+.sk-dot--off {
+  fill: var(--line-strong);
+}
+.sk-dotmap.has-hot .sk-dot,
+.sk-dotmap.has-hot .sk-dotmap__land {
+  opacity: 0.35;
+}
+.sk-dotmap.has-hot .is-hot .sk-dot {
+  opacity: 1;
+}
+.sk-dotmap-frame.is-busy .sk-dot {
+  opacity: 0.45;
+}
+.sk-dotmap__focus {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  animation: sk-fade-in var(--dur-fast) var(--ease-out) backwards;
+}
+.sk-pulse__core {
+  fill: var(--accent);
+}
+.sk-pulse__ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.4;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sk-pulse 2.4s var(--ease-out) infinite;
+  animation-delay: var(--d, 0ms);
+}
+.sk-legend-dot {
+  width: 0.625rem;
+  height: 0.625rem;
+  flex: none;
+  border-radius: 999px;
+  background: var(--green-500);
+}
+.sk-legend-dot--game {
+  background: var(--accent);
+  box-shadow: 0 0 0 0.1875rem color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.sk-live-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--brand);
+  animation: sk-live 2s var(--ease-standard) infinite;
+}
+
+/* ---- The rolling number ---- */
+.sk-odo {
+  display: inline-block;
+  line-height: 1;
+}
+.sk-odo__face {
+  display: inline-flex;
+}
+.sk-odo__digit {
+  display: inline-block;
+  height: 1em;
+  overflow: hidden;
+}
+.sk-odo__strip {
+  display: flex;
+  flex-direction: column;
+  transform: translateY(calc(var(--v) * -1em));
+  animation: sk-odo-roll 1.3s var(--ease-out) backwards;
+  animation-delay: calc(var(--p) * 90ms);
+}
+.sk-odo__strip > span {
+  display: block;
+  height: 1em;
+  line-height: 1;
+}
+.sk-odo__sep {
+  display: inline-block;
+}
+
+/* ---- The badge coins ---- */
+.sk-coin {
+  transition: transform var(--dur-base) var(--ease-trail);
+}
+.sk-coin:hover {
+  transform: translateY(-0.1875rem) rotate(-4deg);
+}
+.sk-coin.is-selected {
+  transform: scale(1.06);
+}
+.sk-coin.is-selected img {
+  animation: sk-coin-spin 0.7s var(--ease-out);
+}
+
+/* The global reduced-motion rule shortens durations, not delays: without this
+   a rolled digit would sit at zero for its stagger before landing. */
+@media (prefers-reduced-motion: reduce) {
+  .sk-odo__strip,
+  .sk-pulse__ring {
+    animation-delay: 0s;
+  }
+}
+
+@keyframes sk-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sk-wipe {
+  from {
+    mask-position: 100% 0;
+  }
+}
+@keyframes sk-pulse {
+  0% {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(3.4);
+  }
+}
+@keyframes sk-live {
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes sk-odo-roll {
+  from {
+    transform: translateY(0);
+  }
+}
+@keyframes sk-coin-spin {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+/* ---- The guide: the front page's five chapters ---- */
+
+/* The chapter number: the dot map's dots, in coral, inside an ink outline —
+   a shirt number drawn in the map's own grain. */
+.sk-chapter-num {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(4.5rem, 12vw, 8.5rem);
+  line-height: 0.82;
+  letter-spacing: -0.04em;
+  color: transparent;
+  -webkit-text-stroke: 2px var(--ink);
+  background: radial-gradient(circle, var(--accent) 1.7px, transparent 1.9px) 0 0 / 7px 7px;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* While the sticky chapter bar is on the page, scrolling to an anchor or to
+   a focused control stops below it rather than under it (WCAG 2.4.11). */
+:root:has(#guide) {
+  scroll-padding-top: 4rem;
+}
+
+/* The chapter bar: a route through the page, each chapter a stop. */
+.sk-guide-nav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--paper) 90%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px);
+}
+.sk-guide-nav__link {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+  color: var(--ink-soft);
+  border-radius: var(--radius-md);
+  transition: color var(--dur-fast) var(--ease-standard);
+}
+.sk-guide-nav__link:hover {
+  color: var(--ink);
+}
+.sk-guide-nav__link:focus-visible {
+  box-shadow: var(--ring);
+}
+.sk-guide-nav__stop {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--line-strong);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard);
+}
+.sk-guide-nav__link.is-past .sk-guide-nav__stop {
+  border-color: var(--brand);
+  background: var(--brand-subtle);
+  color: var(--brand-active);
+}
+.sk-guide-nav__link[aria-current='location'] {
+  color: var(--ink);
+}
+.sk-guide-nav__link[aria-current='location'] .sk-guide-nav__stop {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+.sk-guide-nav__progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+/* ---- The screen recordings ---- */
+.sk-rec-stage {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  padding: 1.5rem 0;
+  background: radial-gradient(
+    55% 50% at 50% 50%,
+    color-mix(in srgb, var(--green-100) 85%, transparent),
+    transparent 72%
+  );
+}
+.sk-phone {
+  position: relative;
+  width: min(100%, 18.5rem, calc((100svh - 15rem) * 0.441));
+  min-width: 15rem;
+  padding: 0.55rem;
+  border-radius: 2.7rem;
+  background: var(--ink);
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--paper) 18%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--ink) 70%, var(--paper)),
+    var(--shadow-xl);
+}
+.sk-phone__screen {
+  position: relative;
+  overflow: hidden;
+  border-radius: 2.2rem;
+  background: var(--paper);
+}
+/* A drawn status bar above the picture: the screenshots start at the page's
+   first pixel, and a phone's island would otherwise sit on top of them. */
+.sk-phone__status {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  aspect-ratio: 390 / 40;
+  padding: 0 7% 0 9%;
+  background: var(--paper);
+  font-family: var(--font-sans);
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.sk-phone__island {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  width: 29%;
+  height: 62%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: var(--ink);
+}
+.sk-phone__icons {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+.sk-phone__icons i {
+  display: block;
+  width: 3px;
+  border-radius: 1px;
+  background: var(--ink);
+}
+.sk-phone__icons i:nth-child(1) {
+  height: 4px;
+}
+.sk-phone__icons i:nth-child(2) {
+  height: 6px;
+}
+.sk-phone__icons i:nth-child(3) {
+  width: 15px;
+  height: 7px;
+  margin-left: 3px;
+  border-radius: 2px;
+}
+.sk-phone__viewport {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 390 / 844;
+}
+.sk-rec-layer {
+  position: absolute;
+  inset: 0 0 auto;
+  opacity: 0;
+  visibility: hidden;
+}
+.sk-rec-layer[data-active='true'] {
+  opacity: 1;
+  visibility: visible;
+}
+.sk-rec-layer img,
+.sk-rec-bar img {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+}
+.sk-rec-bar {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 2;
+}
+.sk-rec-bar[data-hidden] {
+  visibility: hidden;
+}
+/* What matters on the screen: a coral frame that lands on it. */
+.sk-rec-mark {
+  position: absolute;
+  border: 3px solid var(--accent);
+  border-radius: 0.75rem;
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent),
+    0 0 26px color-mix(in srgb, var(--accent) 35%, transparent);
+  pointer-events: none;
+}
+/* A touch, as a phone's "show touches" draws one. */
+.sk-rec-touch {
+  position: absolute;
+  z-index: 1;
+  width: 12%;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--paper) 90%, transparent);
+  background: color-mix(in srgb, var(--ink) 38%, transparent);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--ink) 30%, transparent);
+  opacity: 0;
+  translate: -50% -50%;
+  pointer-events: none;
+}
+.sk-rec-touch.is-still {
+  opacity: 0.9;
+}
+.sk-rec-touch [data-ring] {
+  position: absolute;
+  inset: -3px;
+  border-radius: 999px;
+  border: 3px solid var(--accent);
+  opacity: 0;
+}
+
+.sk-rec-tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-sunk);
+}
+.sk-rec-tab {
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 999px;
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+  color: var(--ink-soft);
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard);
+}
+.sk-rec-tab[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+.sk-rec-tab:focus-visible,
+.sk-rec-play:focus-visible,
+.sk-rec-step:focus-visible {
+  box-shadow: var(--ring);
+}
+.sk-rec-play {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+}
+.sk-rec-play:disabled {
+  opacity: 0.4;
+}
+
+.sk-rec-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.sk-rec-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr);
+  gap: 0.875rem;
+  width: 100%;
+  padding: 0.875rem 1rem 1.125rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  text-align: left;
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard);
+}
+.sk-rec-step:hover {
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+.sk-rec-step[aria-current='step'] {
+  border-color: var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.sk-rec-step__num {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--line-strong);
+  font-family: var(--font-mono);
+  font-size: var(--fs-body-sm);
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.sk-rec-step[aria-current='step'] .sk-rec-step__num {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+.sk-rec-step__track {
+  position: absolute;
+  left: 4.125rem;
+  right: 1rem;
+  bottom: 0.5rem;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+  opacity: 0;
+}
+.sk-rec-step[aria-current='step'] .sk-rec-step__track {
+  opacity: 1;
+}
+.sk-rec-steps[data-static] .sk-rec-step__track {
+  display: none;
+}
+.sk-rec-step__track > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+/* The guide's contents: five stops on a dotted route (the hero's dots, run
+   sideways). Vertical on a phone, across the page on a wide screen. */
+.sk-route {
+  position: relative;
+}
+.sk-route::before {
+  content: '';
+  position: absolute;
+  top: 1.25rem;
+  bottom: 1.25rem;
+  left: 1.25rem;
+  width: 2px;
+  margin-left: -1px;
+  background: radial-gradient(circle, var(--line-strong) 1.2px, transparent 1.4px) 0 0 / 2px 8px;
+}
+.sk-route__stop {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr);
+  gap: 0.875rem;
+  height: 100%;
+  padding: 0.25rem 0.5rem 0.75rem 0;
+  border-radius: var(--radius-lg);
+}
+.sk-route__stop:focus-visible {
+  box-shadow: var(--ring);
+}
+.sk-route__dot {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  border: 2px solid var(--accent);
+  background: var(--paper);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--accent-active);
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard);
+}
+.sk-route__stop:hover .sk-route__dot {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+@media (min-width: 1024px) {
+  .sk-route::before {
+    top: 1.25rem;
+    bottom: auto;
+    left: 1.25rem;
+    right: 1.25rem;
+    width: auto;
+    height: 2px;
+    margin: -1px 0 0;
+    background: radial-gradient(circle, var(--line-strong) 1.2px, transparent 1.4px) 0 0 / 8px 2px;
+  }
+  .sk-route__stop {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* «Точки — само на място»: the 250-metre ring breathes outward. */
+.sk-onsite-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  /* Twice, then still: no loop runs on beside the text (WCAG 2.2.2). */
+  animation: sk-onsite 2.2s var(--ease-out) 2;
+}
+@keyframes sk-onsite {
+  from {
+    opacity: 0.7;
+    transform: scale(0.35);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sk-onsite-ring {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* «Пътят на едно ново място»: the stages joined by a dashed line. */
+@media (min-width: 640px) {
+  .sk-lifecycle > li:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 1.375rem;
+    left: 3rem;
+    right: -0.5rem;
+    border-top: 2px dashed var(--line-strong);
+  }
+}
+@media (max-width: 639.98px) {
+  .sk-lifecycle > li:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 3rem;
+    bottom: -1rem;
+    left: 1.375rem;
+    border-left: 2px dashed var(--line-strong);
+  }
+}
+
+/* A points price, drawn as a coin from the badge set. */
+.sk-ledger-coin {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 999px;
+  border: 2px dashed var(--accent);
+  background: var(--accent-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--fs-body-sm);
+  font-weight: 800;
+  color: var(--accent-active);
+}
+
+.sk-faq summary::-webkit-details-marker {
+  display: none;
+}
+.sk-faq summary:focus-visible {
+  border-radius: var(--radius-sm);
+  box-shadow: var(--ring);
 }

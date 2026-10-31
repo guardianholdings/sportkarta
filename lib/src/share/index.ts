@@ -217,7 +217,7 @@ export function cardPath(input: StoryPathInput): string | null {
 
   // The existing public card route keys on its own kind vocabulary.
   const kindPath =
-    input.kind === 'facility' ? 'obekt' : input.kind === 'session' ? 'sesiya' : 'kampaniya';
+    input.kind === 'facility' ? 'obekt' : input.kind === 'session' ? 'igra' : 'kampaniya';
   return `/og/${locale}/${kindPath}/${encodeURIComponent(ref)}/card.png`;
 }
 

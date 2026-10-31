@@ -67,7 +67,7 @@ export default async function PassportPage({ params }: { params: Promise<{ local
   ] as const;
 
   return (
-    <AppShell active="/profil">
+    <AppShell active="/pasport">
       <main className="mx-auto max-w-2xl space-y-10 p-4">
         <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line pb-3">
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
@@ -99,6 +99,10 @@ export default async function PassportPage({ params }: { params: Promise<{ local
             ))}
           </dl>
         </section>
+
+        {/* Under the totals, not at the foot: who sees the passport is the
+            one decision on this page (UX audit, «Publish passport»). */}
+        <VisibilityPanel visibility={passport.visibility} publicUrl={publicUrl} />
 
         <section aria-labelledby="streaks-h" className="space-y-3">
           <h2 id="streaks-h" className="text-h4 font-bold text-ink">
@@ -172,8 +176,6 @@ export default async function PassportPage({ params }: { params: Promise<{ local
           </h2>
           <HistoryList entries={passport.history} />
         </section>
-
-        <VisibilityPanel visibility={passport.visibility} publicUrl={publicUrl} />
       </main>
     </AppShell>
   );

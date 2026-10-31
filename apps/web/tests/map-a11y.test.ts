@@ -114,14 +114,21 @@ describe('a failed location request', () => {
     expect(explorer).toMatch(
       /locateError === 'denied' \? t\('locateDeniedHelp'\) : t\('locateRetryHelp'\)/,
     );
-    expect(bg.Map.locateError).toBe('Местоположението ви не е достъпно.');
+    expect(bg.Map.locateError).toBe('Местоположението Ви не е достъпно.');
     expect(bg.Map.locateDeniedHelp).toMatch(/^Разрешете достъпа до местоположението/);
   });
 });
 
-describe('the desktop add-facility button shows keyboard focus (D-5)', () => {
+describe('the desktop «+» shows keyboard focus (D-5)', () => {
   it('carries its own ring, since its shadow utility outranks the global one', () => {
-    const fab = /<Link\s+href="\/dobavi"[\s\S]*?className="([^"]+)"/.exec(explorer)?.[1] ?? '';
+    // The map's «+» is the shared speed-dial (2026-10-31), so its ring lives
+    // in the one class string every round «+» uses.
+    expect(explorer).toMatch(/<QuickActions\s+variant="floating"/);
+    const quick = readFileSync(
+      path.join(__dirname, '..', 'components', 'shell', 'quick-actions.tsx'),
+      'utf8',
+    );
+    const fab = /const fab =\s*'([^']+)'/.exec(quick)?.[1] ?? '';
     expect(fab).toContain('shadow-lg');
     expect(fab).toContain('focus-visible:shadow-[var(--ring-accent)]');
   });

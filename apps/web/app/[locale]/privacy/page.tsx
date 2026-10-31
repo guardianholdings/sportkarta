@@ -17,6 +17,7 @@ import {
 } from '@/lib/legal-pages';
 import { organisation } from '@/lib/organisation';
 import { buildAlternates } from '@/lib/seo';
+import { clubSwitchOn } from '@/lib/clubs/features';
 
 /**
  * «Поверителност» — the GDPR Art. 13 notice.
@@ -94,7 +95,10 @@ export default async function PrivacyPage({ params }: { params: PageParams }) {
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
           <p className="text-caption text-text-muted">{t('updated')}</p>
         </header>
-        <p className="text-ink-soft">{t('intro')}</p>
+        <p className="text-ink-soft">
+          {t('intro')}
+          {clubSwitchOn('pixels') && <> {t('introClubTracking')}</>}
+        </p>
 
         <Section id="controller" title={t('controller.title')}>
           <p className="text-ink-soft">{t('controller.body')}</p>
@@ -153,6 +157,8 @@ export default async function PrivacyPage({ params }: { params: PageParams }) {
           {providers.length > 0 && (
             <p className="text-ink-soft">{t('cookies.providers', { providers: providerNames })}</p>
           )}
+          {/* A paid club's own pixels (wave H2): said only while they can run. */}
+          {clubSwitchOn('pixels') && <p className="text-ink-soft">{t('cookies.clubTracking')}</p>}
           <p className="text-ink-soft">{t('cookies.cache')}</p>
         </Section>
 

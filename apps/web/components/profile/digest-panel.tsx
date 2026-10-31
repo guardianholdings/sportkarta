@@ -36,7 +36,7 @@ export async function DigestPanel({
             <li key={city.id} className="flex items-center gap-3 py-2">
               {/* C1: this was the ONLY inbound link to /sedmitsata anywhere in
                   the product until A6 added an index at /sedmitsata and a link
-                  from /sesii. It is still the personalised one — a member's own
+                  from /igri. It is still the personalised one — a member's own
                   subscribed cities — and remains the baseline the unburying is
                   measured against. */}
               <Link

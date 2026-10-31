@@ -92,6 +92,8 @@ describe('providerSignInAction', () => {
     const body = h.signInSocial.mock.calls[0]?.[0].body;
     expect(body?.provider).toBe('google');
     expect(body?.callbackURL).toBe('/profil');
+    // A new account is asked for its name on the way (app/[locale]/dobre-doshli).
+    expect(String(body?.newUserCallbackURL)).toMatch(/^\/dobre-doshli\?next=%2Fprofil$/);
     // /vhod names the provider, and better-auth appends &error=<code>.
     expect(String(body?.errorCallbackURL)).toMatch(/^\/vhod\?/);
     expect(new URLSearchParams(String(body?.errorCallbackURL).split('?')[1]).get('provider')).toBe(

@@ -222,6 +222,11 @@ export interface AccountExport {
       revokedAt: string | null;
     }[];
     calendarFeed: { issuedAt: string; rotatedAt: string | null } | null;
+    /**
+     * Devices that accept notifications (0051). The push service's host only:
+     * the full endpoint is a capability URL and stays out of a file.
+     */
+    pushDevices: { service: string; createdAt: string; lastSuccessAt: string | null }[];
   };
   /**
    * «Клубове» (Stage 9). The club is the controller of a member record; what
@@ -322,6 +327,7 @@ export async function buildAccountExport(
     calendarRows,
     accessRows,
     actionRows,
+    pushRows,
   ] = await Promise.all([
     db.execute(sql`
       SELECT am.municipality_id, m.name_bg, m.name_en, am.granted_at
@@ -463,6 +469,11 @@ export async function buildAccountExport(
       SELECT action::text AS action, acted_at FROM admin_actions
       WHERE subject_id = ${userId}
       ORDER BY acted_at
+    `),
+    db.execute(sql`
+      SELECT substring(endpoint from '^https://([^/]+)/') AS service, created_at, last_success_at
+      FROM push_subscriptions WHERE user_id = ${userId}
+      ORDER BY created_at
     `),
   ]);
 
@@ -707,6 +718,11 @@ export async function buildAccountExport(
       calendarFeed: calendar
         ? { issuedAt: iso(calendar.created_at), rotatedAt: isoOrNull(calendar.rotated_at) }
         : null,
+      pushDevices: pushRows.rows.map((row) => ({
+        service: String(row.service ?? ''),
+        createdAt: iso(row.created_at),
+        lastSuccessAt: isoOrNull(row.last_success_at),
+      })),
     },
     clubs: {
       staffOf: clubStaffRows.rows.map((row) => ({

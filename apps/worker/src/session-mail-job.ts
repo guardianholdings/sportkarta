@@ -149,7 +149,7 @@ async function sendOne(
     if (!claimed) return 'skipped';
 
     const base = options.siteUrl.replace(/\/+$/, '');
-    const sessionUrl = `${base}/sesiya/${recipient.occurrenceId}`;
+    const sessionUrl = `${base}/igra/${recipient.occurrenceId}`;
     const message = renderSessionMail(
       {
         kind,
@@ -160,7 +160,7 @@ async function sendOne(
         facilityName: recipient.facilityName ?? '',
         facilityUrl: recipient.facilitySlug ? `${base}/obekt/${recipient.facilitySlug}` : undefined,
         sessionUrl,
-        calendarUrl: `${base}/kalendar/sesiya/${recipient.occurrenceId}.ics`,
+        calendarUrl: `${base}/kalendar/igra/${recipient.occurrenceId}.ics`,
         // Only for members who already have a feed, and only a link to the
         // profile where it is managed. The feed URL itself is a credential: a
         // forwarded confirmation would hand the recipient a permanent view of

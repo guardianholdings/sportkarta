@@ -98,7 +98,7 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
       : [[], []];
 
   return (
-    <AppShell>
+    <AppShell cached>
       <main className="mx-auto max-w-3xl space-y-6 p-4">
         <Link
           href={`/igrishta/${city.slug}`}

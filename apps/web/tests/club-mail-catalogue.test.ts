@@ -1,4 +1,4 @@
-import { CLUB_ROLES } from '@sportkarta/lib/clubs';
+import { CLUB_ROLES, PUSH_NOTIFY_KINDS, SMS_NOTIFY_KINDS } from '@sportkarta/lib/clubs';
 import { CLUB_MAIL_KINDS } from '@sportkarta/lib/email';
 import { describe, expect, it } from 'vitest';
 
@@ -34,6 +34,36 @@ describe.each([
     for (const kind of CLUB_MAIL_KINDS) {
       const value = at(mail, `${group}.${kind}`);
       expect(typeof value === 'string' && value.length > 0, `${group}.${kind}`).toBe(true);
+    }
+  });
+
+  it('has a push line and an SMS line for every notice that goes by them (0051)', () => {
+    for (const kind of PUSH_NOTIFY_KINDS) expect(at(mail, `push.${kind}`), kind).toBeTruthy();
+    for (const kind of SMS_NOTIFY_KINDS) expect(at(mail, `sms.${kind}`), kind).toBeTruthy();
+    expect(at(mail, 'unsubscribeMarketing')).toBeTruthy();
+    expect(at(mail, 'smsOptOut')).toBeTruthy();
+  });
+
+  it('fills every placeholder of the club-standing mails (0059, 0061)', () => {
+    // fillClubTemplate leaves an unknown {x} in the text, so a placeholder the
+    // worker does not pass (runClubLifecycle's values, plus {club}) would be
+    // mailed literally.
+    const filled = new Set(['club', 'date', 'noticeBy', 'grace', 'months', 'contact']);
+    const kinds = [
+      'club_trial_ending',
+      'club_past_due',
+      'club_lapsed',
+      'club_suspended',
+      'club_contract_renewing',
+    ];
+    for (const kind of kinds) {
+      for (const group of ['subject', 'lead']) {
+        const text = String(at(mail, `${group}.${kind}`));
+        const unknown = [...text.matchAll(/\{(\w+)\}/g)]
+          .map((m) => m[1] as string)
+          .filter((name) => !filled.has(name));
+        expect(unknown, `${group}.${kind}`).toEqual([]);
+      }
     }
   });
 

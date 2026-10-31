@@ -37,7 +37,7 @@ export default async function CampaignsPage({ params }: { params: Promise<{ loca
   const now = new Date();
 
   return (
-    <AppShell>
+    <AppShell active="/pasport">
       <main className="mx-auto max-w-2xl space-y-8 p-4">
         <header className="space-y-2 border-b border-line pb-3">
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('listTitle')}</h1>

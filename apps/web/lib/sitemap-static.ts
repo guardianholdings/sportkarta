@@ -3,7 +3,7 @@
  * /sitemaps/static.xml lists. The facility, city, sport and municipality pages
  * come from the database in their own child sitemaps.
  *
- * The list used to stop at four pages, so /statistika, /danni and /sesii —
+ * The list used to stop at four pages, so /statistika, /danni and /igri —
  * the pages institutions and journalists are sent to — were only discoverable
  * by crawling. An entry belongs here only if its page is public, has a
  * canonical and is not `noindex`; tests/seo-sitemap.test.ts holds every entry
@@ -12,7 +12,8 @@
  */
 export const STATIC_SITEMAP_PATHS = [
   '/',
-  '/sesii',
+  '/karta',
+  '/igri',
   '/sedmitsata',
   '/statistika',
   '/danni',

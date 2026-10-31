@@ -9,6 +9,7 @@ import { ServiceWorkerRegistrar } from '@/components/pwa/service-worker';
 import { SiteFooter } from '@/components/shell/site-footer';
 import { ClientIntlProvider } from '@/i18n/client-intl-provider';
 import { routing } from '@/i18n/routing';
+import { clubsEnabled } from '@/lib/clubs/access';
 import { siteSocialMetadata, siteUrl } from '@/lib/seo';
 
 import '../fonts.css';
@@ -85,7 +86,11 @@ export default async function LocaleLayout({
           components need more widen it in their own layout. */}
         <ClientIntlProvider locale={locale}>
           {children}
-          <SiteFooter />
+          {/* Read when the page renders: at request time on dynamic pages, at
+              build or revalidation on the ISR city pages — so after a deploy an
+              ISR page may lack the «Клубове» column until it revalidates. Never
+              a dead link (the build runs with the flag off). */}
+          <SiteFooter clubs={clubsEnabled()} />
         </ClientIntlProvider>
         <ServiceWorkerRegistrar />
         {umamiSrc && umamiWebsiteId ? (

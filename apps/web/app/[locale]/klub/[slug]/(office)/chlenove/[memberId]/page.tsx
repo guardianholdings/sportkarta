@@ -1,7 +1,20 @@
-import { CLUB_CANCEL_REASONS, addDaysIso, formatEuro, sofiaToday } from '@sportkarta/lib/clubs';
+import { randomUUID } from 'node:crypto';
+
+import {
+  CLUB_CANCEL_REASONS,
+  LEAD_DESK_SOURCES,
+  THREAD_BODY_MAX,
+  THREAD_SUBJECT_MAX,
+  addDaysIso,
+  can,
+  formatEuro,
+  sofiaToday,
+} from '@sportkarta/lib/clubs';
+import { RANK_AWARD_REASONS, SIGNER_KINDS, SIGNER_NAME_MAX } from '@sportkarta/lib/clubs';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
+import { BeltChip } from '@/components/clubs/belt-chip';
 import { ClubLog } from '@/components/clubs/club-log';
 import {
   StatusBadge,
@@ -9,32 +22,50 @@ import {
   memberKind,
   membershipKind,
 } from '@/components/clubs/club-state-badge';
+import { LeadCardView } from '@/components/clubs/lead-card';
 import { IssueCardButton } from '@/components/clubs/member-form';
+import { RankProgressText } from '@/components/clubs/rank-progress';
+import { WalletForms } from '@/components/clubs/wallet-forms';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { Link } from '@/i18n/navigation';
 import { clubAuditHistory } from '@/lib/clubs/audit';
+import { memberDocuments } from '@/lib/clubs/documents';
 import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { featureOn } from '@/lib/clubs/features';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
+import { memberThreadsForStaff } from '@/lib/clubs/inbox';
 import { isUuid } from '@/lib/clubs/input';
+import { leadOwners, memberLead } from '@/lib/clubs/leads';
 import { memberCard } from '@/lib/clubs/members';
+import { liveLadderRanks, memberRanks } from '@/lib/clubs/ranks';
+import { memberWallet } from '@/lib/clubs/wallet';
 import { formatDate, formatDateTime } from '@/lib/format';
+import { formErrorText } from '@/lib/clubs/form-error';
 
-import { issueCardAction, memberOpAction, pauseAction } from '../actions';
+import { startThreadAction } from '../../vhodyashti/actions';
+import { deskSignAction } from '../../dokumenti/actions';
+import { awardOneAction, revokeAwardAction } from '../../poyasi/actions';
+import { issueCardAction, memberOpAction, pauseAction, walletAction } from '../actions';
+import { leadAction } from '../potentsialni/actions';
 
 export const dynamic = 'force-dynamic';
 
 const OUTCOMES = new Set([
   'saved',
+  'wallet_topped_up',
+  'wallet_paid_out',
   'invited',
   'checked_in',
   'checked_in_uncovered',
   'already',
   'club_closed',
   'not_linked',
+  'lead_saved',
 ]);
 
 export default async function MemberCardPage({
@@ -42,23 +73,47 @@ export default async function MemberCardPage({
   searchParams,
 }: {
   params: Promise<{ locale: string; slug: string; memberId: string }>;
-  searchParams: Promise<{ rezultat?: string }>;
+  searchParams: Promise<{ rezultat?: string; dokument?: string; poyas?: string }>;
 }) {
   const { locale, slug, memberId } = await params;
   setRequestLocale(locale);
   if (!isUuid(memberId)) notFound();
-  const { actor } = await requireClubStaff(slug, 'members.view');
+  const { actor, club } = await requireClubStaff(slug, 'members.view');
   const member = await memberCard(actor, memberId);
   if (!member) notFound();
-  const [t, tClub, messages, history] = await Promise.all([
-    getTranslations('ClubMembers'),
-    getTranslations('Club'),
-    clubFormMessages(),
-    actorCan(actor, 'audit.view')
-      ? clubAuditHistory(actor.clubId, { subjectMemberId: memberId }, 30)
-      : Promise.resolve([]),
+  const walletOn = featureOn(club, 'wallet') && actorCan(actor, 'payments.view');
+  const invoicesOn = featureOn(club, 'invoices') && actorCan(actor, 'invoices.issue');
+  const canInbox = actorCan(actor, 'inbox.reply');
+  const [t, tClub, tLeads, tInbox, messages, history, wallet, lead, owners, threads] =
+    await Promise.all([
+      getTranslations('ClubMembers'),
+      getTranslations('Club'),
+      getTranslations('ClubLeads'),
+      getTranslations('ClubInbox'),
+      clubFormMessages(),
+      actorCan(actor, 'audit.view')
+        ? clubAuditHistory(actor, { subjectMemberId: memberId }, 30)
+        : Promise.resolve([]),
+      // Shown wherever there is credit, even if the tier has lost the wallet.
+      actorCan(actor, 'payments.view') ? memberWallet(actor, memberId) : Promise.resolve(null),
+      memberLead(actor, memberId, sofiaToday()),
+      leadOwners(actor),
+      canInbox ? memberThreadsForStaff(actor, memberId) : Promise.resolve([]),
+    ]);
+  const { rezultat, dokument, poyas } = await searchParams;
+  // The club's own staff witness a signature and grade — never an NGO admin (0055, 0056).
+  // The STAFF role decides, never actorCan's NGO-admin shortcut: the SQL
+  // (clubStaffWriteScope) asks for the role.
+  const canSign = actor.role !== null && can(actor.role, 'documents.sign') && !member.archivedAt;
+  const canAwardRank = actor.role !== null && can(actor.role, 'ranks.award') && !member.archivedAt;
+  const [tDocs, documents, tRanks, ranks, awardable] = await Promise.all([
+    getTranslations('ClubDocuments'),
+    memberDocuments(actor, memberId, locale),
+    getTranslations('ClubRanks'),
+    memberRanks(actor, memberId, locale),
+    canAwardRank ? liveLadderRanks(actor, locale) : Promise.resolve([]),
   ]);
-  const { rezultat } = await searchParams;
+  const rankOutcomeGood = poyas === 'awardedOne' || poyas === 'revoked';
   const base = `/klub/${slug}`;
   const today = sofiaToday();
   const op = (name: string, extra?: Record<string, string>) => (
@@ -78,9 +133,15 @@ export default async function MemberCardPage({
       ? t(`card.outcome.${rezultat}`)
       : rezultat === 'readOnly'
         ? messages.readOnly
-        : (messages.errors[rezultat] ?? null)
+        : formErrorText(messages, rezultat, null)
     : null;
-  const outcomeIsGood = rezultat === 'saved' || rezultat === 'invited' || rezultat === 'checked_in';
+  const outcomeIsGood =
+    rezultat === 'saved' ||
+    rezultat === 'lead_saved' ||
+    rezultat === 'invited' ||
+    rezultat === 'checked_in' ||
+    rezultat === 'wallet_topped_up' ||
+    rezultat === 'wallet_paid_out';
   const linkState = member.link ? member.link.status : member.pendingInvite ? 'invited' : 'none';
 
   return (
@@ -324,9 +385,18 @@ export default async function MemberCardPage({
                       ` · ${tClub('visitsLeft', { count: ms.visitsRemaining })}`}
                     {` · ${formatEuro(ms.priceCents, locale)}`}
                   </p>
+                  {ms.renews && (
+                    <p className="text-caption text-ink-soft">
+                      {ms.renewalEndsOn
+                        ? t('card.renewalEnds', { date: formatDate(ms.renewalEndsOn, locale) })
+                        : ms.hasSuccessor
+                          ? t('card.renewed')
+                          : t('card.renews')}
+                    </p>
+                  )}
                   {live && actorCan(actor, 'sales.manage') && (
                     <div className="flex flex-wrap items-end gap-2">
-                      {ms.pausedToday ? (
+                      {ms.online ? null : ms.pausedToday ? (
                         <form action={memberOpAction}>
                           {op('resume', { membershipId: ms.id })}
                           <Button type="submit" variant="secondary" size="sm">
@@ -363,6 +433,16 @@ export default async function MemberCardPage({
                           </Button>
                         </form>
                       )}
+                      {ms.kind !== 'trial' && !ms.hasSuccessor && !(ms.online && !ms.renews) && (
+                        <form action={memberOpAction}>
+                          {op(ms.renews ? 'stop_renewal' : 'start_renewal', {
+                            membershipId: ms.id,
+                          })}
+                          <Button type="submit" variant="secondary" size="sm">
+                            {ms.renews ? t('card.stopRenewal') : t('card.startRenewal')}
+                          </Button>
+                        </form>
+                      )}
                       <form action={memberOpAction} className="flex flex-wrap items-end gap-2">
                         {op('cancel', { membershipId: ms.id })}
                         <label className="text-caption text-ink-soft">
@@ -375,9 +455,12 @@ export default async function MemberCardPage({
                             ))}
                           </Select>
                         </label>
-                        <Button type="submit" variant="ghost" size="sm">
+                        <ConfirmButton
+                          message={t('card.cancelConfirm')}
+                          className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+                        >
                           {t('card.cancel')}
-                        </Button>
+                        </ConfirmButton>
                       </form>
                     </div>
                   )}
@@ -408,28 +491,116 @@ export default async function MemberCardPage({
                         {formatDate(charge.dueOn, locale)}
                       </span>
                     </span>
-                    <span className="flex items-center gap-2">
+                    <span className="flex flex-wrap items-center gap-2">
                       <StatusBadge
                         kind={chargeKind(charge.status)}
                         label={tClub(`chargeStatus.${charge.status}`)}
                       />
-                      {charge.status !== 'void' && actorCan(actor, 'charges.void') && (
-                        <form action={memberOpAction}>
-                          {op('void', { chargeId: charge.id })}
-                          <ConfirmButton
-                            className={buttonVariants({ variant: 'ghost', size: 'sm' })}
-                            message={t('card.voidConfirm')}
-                          >
-                            {t('card.void')}
-                          </ConfirmButton>
-                        </form>
+                      {invoicesOn && !charge.invoiceId && charge.paidByCredit && (
+                        <span className="text-caption text-text-muted">
+                          {t('card.creditInvoiced')}
+                        </span>
                       )}
+                      {invoicesOn &&
+                        (charge.invoiceId ||
+                          (charge.status !== 'void' &&
+                            !charge.paidByCredit &&
+                            // A top-up is invoiced for the money on it (0050).
+                            (charge.kind !== 'wallet' || charge.paidCents > 0))) && (
+                          <Link
+                            href={
+                              charge.invoiceId
+                                ? `/klub/${slug}/fakturi/${charge.invoiceId}`
+                                : {
+                                    pathname: `/klub/${slug}/fakturi/nova`,
+                                    query: { zadalzhenie: charge.id },
+                                  }
+                            }
+                            className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+                          >
+                            {charge.invoiceId ? t('card.invoiceOpen') : t('card.invoiceIssue')}
+                          </Link>
+                        )}
+                      {charge.status !== 'void' &&
+                        charge.kind !== 'wallet' &&
+                        actorCan(actor, 'charges.void') && (
+                          <form action={memberOpAction}>
+                            {op('void', { chargeId: charge.id })}
+                            <ConfirmButton
+                              className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+                              message={t('card.voidConfirm')}
+                            >
+                              {t('card.void')}
+                            </ConfirmButton>
+                          </form>
+                        )}
                     </span>
                   </li>
                 ))}
               </ul>
             )}
           </section>
+          {wallet && (walletOn || wallet.balanceCents !== 0 || wallet.entries.length > 0) && (
+            <section className={`${section} lg:col-span-2`} aria-labelledby="wallet-h">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 id="wallet-h" className="text-h4 font-bold text-ink">
+                  {t('card.wallet')}
+                </h2>
+                <p className="font-mono text-h4 tabular-nums text-ink">
+                  {formatEuro(wallet.balanceCents, locale)}
+                </p>
+              </div>
+              <p className="text-caption text-text-muted">{t('card.walletHint')}</p>
+              {actorCan(actor, 'payments.record') && (walletOn || wallet.balanceCents > 0) && (
+                <WalletForms
+                  action={walletAction}
+                  slug={slug}
+                  memberId={memberId}
+                  nonces={{ topUp: randomUUID(), payOut: randomUUID() }}
+                  canTopUp={walletOn}
+                  // The client's money is paid back on any tier (0050).
+                  canPayOut={wallet.balanceCents > 0}
+                  messages={messages}
+                  labels={{
+                    topUp: t('card.walletTopUp'),
+                    payOut: t('card.walletPayOut'),
+                    method: t('card.walletMethod'),
+                    methods: Object.fromEntries(
+                      (['cash', 'card_desk', 'bank', 'other'] as const).map((m) => [
+                        m,
+                        tClub(`method.${m}`),
+                      ]),
+                    ),
+                    topUpSubmit: t('card.walletTopUpSubmit'),
+                    payOutSubmit: t('card.walletPayOutSubmit'),
+                    payOutConfirm: t('card.walletPayOutConfirm'),
+                  }}
+                />
+              )}
+              {wallet.entries.length > 0 && (
+                <ul className="divide-y divide-line">
+                  {wallet.entries.map((entry, i) => (
+                    <li
+                      key={i}
+                      className="flex flex-wrap items-center justify-between gap-2 py-1.5 text-body-sm"
+                    >
+                      <span>
+                        <span className="block text-ink">{entry.label}</span>
+                        <span className="text-caption text-text-muted">
+                          {formatDate(entry.receivedOn, locale)} ·{' '}
+                          {t(`card.walletEntry.${entry.kind}`)}
+                        </span>
+                      </span>
+                      <span className="font-mono tabular-nums text-ink">
+                        {entry.amountCents > 0 ? '+' : '−'}
+                        {formatEuro(Math.abs(entry.amountCents), locale)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
           <section className={section}>
             <h2 className="text-h4 font-bold text-ink">{t('card.payments')}</h2>
             {member.payments.length === 0 ? (
@@ -458,6 +629,395 @@ export default async function MemberCardPage({
             )}
           </section>
         </div>
+      )}
+
+      {documents.length > 0 && (
+        <section className={section} aria-labelledby="documents-h">
+          <h2 id="documents-h" className="text-h4 font-bold text-ink">
+            {tDocs('cardTitle')}
+          </h2>
+          {dokument && (
+            <p
+              role="status"
+              className={
+                dokument === 'signed'
+                  ? 'rounded-card border border-success-border bg-success-bg p-3 text-body-sm text-ink'
+                  : 'rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink'
+              }
+            >
+              {dokument === 'signed' ? tDocs('outcome.signed') : formErrorText(messages, dokument)}
+            </p>
+          )}
+          <ul className="divide-y divide-line">
+            {documents.map((doc) => (
+              <li key={doc.documentId} className="space-y-2 py-2.5">
+                <p className="flex flex-wrap items-center gap-2 text-body-sm">
+                  <Link
+                    href={`${base}/dokumenti/${doc.documentId}`}
+                    className="min-w-0 flex-1 font-semibold text-link hover:text-link-hover"
+                  >
+                    {doc.title}
+                  </Link>
+                  {doc.missing ? (
+                    <Badge tone="warning">{tDocs('missingBadge')}</Badge>
+                  ) : doc.lastSigned ? (
+                    <Badge tone="success">{tDocs('signedBadge')}</Badge>
+                  ) : null}
+                </p>
+                {doc.lastSigned && (
+                  <p className="text-caption text-text-muted">
+                    {tDocs('lastSigned', {
+                      version: doc.lastSigned.version,
+                      when: formatDateTime(doc.lastSigned.signedAt, locale),
+                      name: doc.lastSigned.signerName,
+                    })}{' '}
+                    ·{' '}
+                    <Link
+                      href={`${base}/dokumenti/podpis/${doc.lastSigned.id}`}
+                      className="font-semibold text-link hover:text-link-hover"
+                    >
+                      {tDocs('print')}
+                    </Link>
+                  </p>
+                )}
+                {canSign && (doc.missing || !doc.lastSigned) && (
+                  <details className="rounded-md border border-line p-2">
+                    <summary className="cursor-pointer text-caption font-semibold text-link">
+                      {tDocs('deskSign')}
+                    </summary>
+                    <form action={deskSignAction} className="mt-2 space-y-2">
+                      <input type="hidden" name="slug" value={slug} />
+                      <input type="hidden" name="memberId" value={memberId} />
+                      <input type="hidden" name="documentId" value={doc.documentId} />
+                      <input type="hidden" name="versionId" value={doc.versionId} />
+                      <p className="text-caption text-text-muted">
+                        {member.isMinor
+                          ? tDocs('deskSignHintMinor', {
+                              version: doc.version,
+                              guardian: member.guardianName ?? tDocs('noGuardian'),
+                            })
+                          : tDocs('deskSignHint', { version: doc.version })}
+                      </p>
+                      {member.isMinor && (
+                        <fieldset>
+                          <legend className="text-caption text-ink-soft">
+                            {tDocs('deskSigner')}
+                          </legend>
+                          <div className="flex flex-wrap gap-x-4">
+                            {SIGNER_KINDS.map((kind) => (
+                              <label
+                                key={kind}
+                                className="flex min-h-11 items-center gap-2 text-caption text-ink"
+                              >
+                                {/* No default: the witness says who signs, or a
+                                    parent's name is filed as the child's own. */}
+                                <input
+                                  type="radio"
+                                  name="signer"
+                                  value={kind}
+                                  required
+                                  className="size-4 accent-[var(--brand)]"
+                                />
+                                {tDocs(`deskSigners.${kind}`)}
+                              </label>
+                            ))}
+                          </div>
+                        </fieldset>
+                      )}
+                      <div className="flex flex-wrap items-end gap-2">
+                        <label className="block text-caption text-ink-soft">
+                          {tDocs('signerName')}
+                          <Input
+                            name="signerName"
+                            required
+                            maxLength={SIGNER_NAME_MAX}
+                            size="sm"
+                            autoComplete="off"
+                            className="mt-1"
+                          />
+                        </label>
+                      </div>
+                      <label className="flex min-h-11 items-center gap-2 text-caption text-ink">
+                        <input
+                          type="checkbox"
+                          name="accept"
+                          required
+                          className="size-4 accent-[var(--brand)]"
+                        />
+                        {tDocs('deskAccept')}
+                      </label>
+                      <Button type="submit" size="sm">
+                        {tDocs('deskSignSubmit')}
+                      </Button>
+                    </form>
+                  </details>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {(ranks.history.length > 0 || awardable.some((ladder) => ladder.ranks.length > 0)) && (
+        <section className={section} aria-labelledby="ranks-h">
+          <h2 id="ranks-h" className="text-h4 font-bold text-ink">
+            {tRanks('card.title')}
+          </h2>
+          {poyas && (
+            <p
+              role="status"
+              className={
+                rankOutcomeGood
+                  ? 'rounded-card border border-success-border bg-success-bg p-3 text-body-sm text-ink'
+                  : 'rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink'
+              }
+            >
+              {rankOutcomeGood
+                ? tRanks(`outcome.${poyas}`)
+                : poyas === 'readOnly'
+                  ? messages.readOnly
+                  : formErrorText(messages, poyas)}
+            </p>
+          )}
+          {ranks.progress.length === 0 ? (
+            <p className="text-body-sm text-text-muted">{tRanks('card.empty')}</p>
+          ) : (
+            <ul className="divide-y divide-line">
+              {ranks.progress.map((row) => (
+                <li key={row.ladderId} className="space-y-1 py-2.5">
+                  <p className="flex flex-wrap items-center gap-2 text-body-sm">
+                    <Link
+                      href={`${base}/poyasi/${row.ladderId}`}
+                      className="font-semibold text-link hover:text-link-hover"
+                    >
+                      {row.ladderName}
+                    </Link>
+                    {row.ready && <Badge tone="success">{tRanks('progress.readyBadge')}</Badge>}
+                  </p>
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-ink">
+                    <BeltChip {...row.current} />
+                    <span className="text-text-muted">
+                      {tRanks('progress.since', {
+                        date: formatDate(row.awardedOn, locale, 'medium'),
+                      })}
+                    </span>
+                    {row.next && (
+                      <>
+                        <span aria-hidden="true">→</span>
+                        <BeltChip {...row.next} />
+                      </>
+                    )}
+                  </p>
+                  <RankProgressText
+                    progress={row}
+                    locale={locale}
+                    className="block text-caption text-text-muted"
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+          {ranks.history.length > 0 && (
+            <details>
+              <summary className="cursor-pointer text-caption font-semibold text-link">
+                {tRanks('card.history')}
+              </summary>
+              <ul className="mt-2 divide-y divide-line">
+                {ranks.history.map((award) => (
+                  <li
+                    key={award.id}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-caption"
+                  >
+                    <span className="min-w-0 flex-1 space-y-0.5">
+                      <BeltChip
+                        {...award.rank}
+                        className={award.revokedAt ? 'text-text-muted line-through' : 'text-ink'}
+                      />
+                      <span className="block text-text-muted">
+                        {formatDate(award.awardedOn, locale, 'medium')} · {award.ladderName}
+                        {award.ladderArchived && ` (${tRanks('card.archivedLadder')})`} ·{' '}
+                        {tRanks(`reasons.${award.reason}`)}
+                        {award.recordedByName &&
+                          ` · ${tRanks('card.recordedBy', { name: award.recordedByName })}`}
+                      </span>
+                    </span>
+                    {award.revokedAt ? (
+                      <Badge tone="neutral">{tRanks('card.revoked')}</Badge>
+                    ) : (
+                      canAwardRank &&
+                      !award.ladderArchived && (
+                        <form action={revokeAwardAction}>
+                          <input type="hidden" name="slug" value={slug} />
+                          <input type="hidden" name="memberId" value={memberId} />
+                          <input type="hidden" name="awardId" value={award.id} />
+                          <ConfirmButton
+                            message={tRanks('card.revokeConfirm')}
+                            className="min-h-11 rounded-pill border border-line-strong px-3 text-caption font-semibold text-ink hover:bg-surface-2"
+                          >
+                            {tRanks('card.revoke')}
+                          </ConfirmButton>
+                        </form>
+                      )
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {canAwardRank && awardable.some((ladder) => ladder.ranks.length > 0) && (
+            <details className="rounded-md border border-line p-2">
+              <summary className="cursor-pointer text-caption font-semibold text-link">
+                {tRanks('card.award')}
+              </summary>
+              <form action={awardOneAction} className="mt-2 space-y-2">
+                <input type="hidden" name="slug" value={slug} />
+                <input type="hidden" name="memberId" value={memberId} />
+                <p className="text-caption text-text-muted">{tRanks('card.awardHint')}</p>
+                <label className="block text-caption text-ink-soft">
+                  {tRanks('award.rank')}
+                  <Select name="rankId" required defaultValue="" size="sm" className="mt-1">
+                    <option value="" disabled>
+                      {tRanks('award.rank')}
+                    </option>
+                    {awardable
+                      .filter((ladder) => ladder.ranks.length > 0)
+                      .map((ladder) => (
+                        <optgroup key={ladder.id} label={ladder.name}>
+                          {ladder.ranks.map((rank) => (
+                            <option key={rank.id} value={rank.id}>
+                              {rank.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                  </Select>
+                </label>
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="block text-caption text-ink-soft">
+                    {tRanks('award.date')}
+                    <Input
+                      type="date"
+                      name="awardedOn"
+                      defaultValue={today}
+                      max={today}
+                      size="sm"
+                      required
+                      className="mt-1"
+                    />
+                  </label>
+                  <label className="block text-caption text-ink-soft">
+                    {tRanks('award.reason')}
+                    <Select name="reason" defaultValue="exam" size="sm" className="mt-1">
+                      {RANK_AWARD_REASONS.map((reason) => (
+                        <option key={reason} value={reason}>
+                          {tRanks(`reasons.${reason}`)}
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
+                </div>
+                <p className="text-caption text-text-muted">{tRanks('reasonHint')}</p>
+                <Button type="submit" size="sm">
+                  {tRanks('award.submitOne')}
+                </Button>
+              </form>
+            </details>
+          )}
+        </section>
+      )}
+
+      <section className={section} aria-labelledby="lead-h">
+        <h2 id="lead-h" className="text-h4 font-bold text-ink">
+          {tLeads('cardTitle')}
+        </h2>
+        {lead ? (
+          <LeadCardView
+            slug={slug}
+            card={lead}
+            owners={owners}
+            locale={locale}
+            canManage={actorCan(actor, 'members.manage')}
+            from="member"
+          />
+        ) : actorCan(actor, 'members.manage') && !member.archivedAt ? (
+          <form action={leadAction} className="flex flex-wrap items-end gap-2">
+            {op('open', { from: 'member' })}
+            <label className="block text-body-sm font-semibold text-ink">
+              {tLeads('sourceLabel')}
+              <Select name="source" defaultValue="desk" size="sm" className="mt-1">
+                {LEAD_DESK_SOURCES.map((source) => (
+                  <option key={source} value={source}>
+                    {tLeads(`source.${source}`)}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <Button type="submit" size="sm" variant="secondary">
+              {tLeads('open')}
+            </Button>
+          </form>
+        ) : (
+          <p className="text-body-sm text-text-muted">{tLeads('notInPipeline')}</p>
+        )}
+      </section>
+
+      {canInbox && (
+        <section className={section} aria-labelledby="threads-h">
+          <h2 id="threads-h" className="text-h4 font-bold text-ink">
+            {tInbox('memberTitle')}
+          </h2>
+          {threads.length > 0 && (
+            <ul className="divide-y divide-line">
+              {threads.map((thread) => (
+                <li key={thread.id} className="flex flex-wrap items-baseline gap-x-3 py-1.5">
+                  <Link
+                    href={`${base}/vhodyashti/${thread.id}`}
+                    className={`min-w-0 flex-1 text-body-sm text-ink underline-offset-2 hover:underline ${
+                      thread.unread ? 'font-bold' : 'font-semibold'
+                    }`}
+                  >
+                    {thread.subject}
+                  </Link>
+                  <span className="text-caption text-text-muted">
+                    {formatDateTime(thread.lastAt, locale)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {member.link?.status === 'active' && !member.isMinor && !member.archivedAt ? (
+            <form action={startThreadAction} className="space-y-3">
+              <input type="hidden" name="slug" value={slug} />
+              <input type="hidden" name="memberId" value={memberId} />
+              <label className="block text-body-sm font-semibold text-ink">
+                {tInbox('subject')}
+                <Input
+                  name="subject"
+                  required
+                  maxLength={THREAD_SUBJECT_MAX}
+                  size="sm"
+                  className="mt-1"
+                />
+              </label>
+              <label className="block text-body-sm font-semibold text-ink">
+                {tInbox('body')}
+                <Textarea
+                  name="body"
+                  required
+                  maxLength={THREAD_BODY_MAX}
+                  rows={4}
+                  size="sm"
+                  className="mt-1"
+                />
+              </label>
+              <Button type="submit" size="sm">
+                {tInbox('startSend')}
+              </Button>
+            </form>
+          ) : (
+            <p className="text-body-sm text-text-muted">{tInbox('startNeedsLink')}</p>
+          )}
+        </section>
       )}
 
       <section className={section}>

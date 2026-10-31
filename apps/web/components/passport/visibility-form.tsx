@@ -5,7 +5,7 @@ import {
   type VisibilityFormState,
 } from '@/app/[locale]/pasport/actions';
 import { Button } from '@/components/ui/button';
-import { Link } from '@/i18n/navigation';
+import { Input } from '@/components/ui/input';
 import { useFormAction } from '@/lib/use-form-action';
 
 const INITIAL: VisibilityFormState = { error: null };
@@ -35,41 +35,61 @@ export function VisibilityForm({
   label: string;
   variant?: 'primary' | 'secondary';
   /**
-   * The publish control only. While the member has no display name the button
-   * gives way to the reason and a link to the profile, where the name is set;
-   * the same words answer a publish the server refused (a stale page).
+   * The publish control only. While the member has no display name, the form
+   * asks for one beside the button and posts both together (UX audit,
+   * «Publish passport»: it used to send them to /profil and back). The same
+   * field answers a publish the server refused (a stale page).
    */
-  nameHelp?: { required: boolean; text: string; link: string };
+  nameHelp?: { required: boolean; text: string; label: string; tooLong: string; missing: string };
 }) {
   const [state, formProps, pending] = useFormAction(setPassportVisibilityAction, INITIAL);
-  const refused = state.error === 'name_required';
-
-  if (nameHelp && (nameHelp.required || refused)) {
-    return (
-      <div className="space-y-3">
-        {/* An alert only when it answers a press: inserted in place of the
-            button, it is announced; on a plain page load it is just the
-            explanation. */}
-        <p role={refused ? 'alert' : undefined} className="text-body-sm text-ink">
-          {nameHelp.text}
-        </p>
-        <Button asChild>
-          <Link href="/profil">{nameHelp.link}</Link>
-        </Button>
-      </div>
-    );
-  }
+  const askName = Boolean(nameHelp && (nameHelp.required || state.error !== null));
+  const errorText =
+    state.error === 'name_too_long'
+      ? nameHelp?.tooLong
+      : state.error === 'name_required'
+        ? nameHelp?.missing
+        : undefined;
 
   return (
-    <form {...formProps} className="flex flex-wrap items-center gap-3">
+    <form {...formProps} className="flex flex-col gap-3">
       <input type="hidden" name="isPublic" value={isPublic ? 'true' : 'false'} />
       <input type="hidden" name="showActivity" value={showActivity ? 'true' : 'false'} />
+      {askName && nameHelp && (
+        <>
+          <p id="passport-name-help" className="text-body-sm text-ink">
+            {nameHelp.text}
+          </p>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-caption font-medium text-ink-soft">{nameHelp.label}</span>
+            <Input
+              type="text"
+              name="displayName"
+              required
+              maxLength={60}
+              autoComplete="nickname"
+              aria-invalid={errorText !== undefined}
+              aria-describedby={
+                errorText ? 'passport-name-help passport-name-error' : 'passport-name-help'
+              }
+            />
+          </label>
+          {/* Inserted only when a press is answered, so it is announced. */}
+          {errorText && (
+            <p id="passport-name-error" role="alert" className="text-body-sm text-danger">
+              {errorText}
+            </p>
+          )}
+        </>
+      )}
       {/* The Button primitive, not hand-rolled twins: the old pair had no
           visible focus ring, a 34px height and an off-scale radius — on the
           CONSENT control of the whole passport. */}
-      <Button type="submit" variant={variant} disabled={pending}>
-        {label}
-      </Button>
+      <div>
+        <Button type="submit" variant={variant} disabled={pending}>
+          {label}
+        </Button>
+      </div>
     </form>
   );
 }

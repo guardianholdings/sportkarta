@@ -117,6 +117,18 @@ export interface CalendarFeed {
   occurrences: CalendarOccurrence[];
   /** Stage 9: the member's club bookings (their own records and their children's). */
   clubBookings: ClubCalendarBooking[];
+  /** 0045: classes this account TEACHES at a club where it is staff. */
+  clubTeaching: ClubCalendarTeaching[];
+}
+
+export interface ClubCalendarTeaching {
+  occurrenceId: string;
+  clubSlug: string;
+  startsAt: string;
+  endsAt: string;
+  title: string;
+  location: string;
+  cancelled: boolean;
 }
 
 export interface ClubCalendarBooking {
@@ -200,6 +212,23 @@ export async function calendarFeed(db: SqlRunner, token: string): Promise<Calend
      ORDER BY o.starts_at
   `);
 
+  // The trainer's own teaching (0045): occurrences whose effective instructor
+  // is this account, at a club where it still holds a staff grant — the
+  // composite FK to club_staff makes "instructor" imply "staff of this club".
+  const teaching = await db.execute(sql`
+    SELECT o.id AS occurrence_id, o.starts_at, o.ends_at, (o.status = 'cancelled') AS cancelled,
+           k.title, l.name AS location, c.slug AS club_slug
+      FROM club_class_occurrences o
+      JOIN club_classes k ON k.id = o.class_id
+      JOIN club_locations l ON l.id = k.location_id
+      JOIN clubs c ON c.id = o.club_id AND c.status <> 'archived'
+     WHERE o.starts_at >= now() - make_interval(days => ${FEED_PAST_DAYS})
+       AND coalesce(o.instructor_user_id, k.instructor_user_id) = ${userId}
+       AND EXISTS (SELECT 1 FROM club_staff st WHERE st.club_id = o.club_id AND st.user_id = ${userId})
+     ORDER BY o.starts_at
+     LIMIT 1000
+  `);
+
   return {
     userId,
     displayName: String(ownerRow.display_name ?? ''),
@@ -214,6 +243,15 @@ export async function calendarFeed(db: SqlRunner, token: string): Promise<Calend
       location: String(row.location),
       cancelled: row.cancelled === true,
       seq: Number(row.seq),
+    })),
+    clubTeaching: teaching.rows.map((row) => ({
+      occurrenceId: String(row.occurrence_id),
+      clubSlug: String(row.club_slug),
+      startsAt: new Date(row.starts_at as string | number | Date).toISOString(),
+      endsAt: new Date(row.ends_at as string | number | Date).toISOString(),
+      title: String(row.title),
+      location: String(row.location),
+      cancelled: row.cancelled === true,
     })),
   };
 }

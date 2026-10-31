@@ -76,7 +76,7 @@ export async function GET(_request: Request, { params }: { params: Params }) {
     subtitle: t('passport.since', { month: formatMonthYear(share.memberSince, lang) }),
     stats: [
       // The label AGREES with the number. Bulgarian has no bare plural noun
-      // that works for both: a fixed "тренировки" renders "1 тренировки", which
+      // that works for both: a fixed "игри" renders "1 игри", which
       // is simply wrong — caught by looking at the rendered card.
       { value: String(share.points), label: t('passport.points', { count: share.points }) },
       { value: String(share.checkins), label: t('passport.checkins', { count: share.checkins }) },

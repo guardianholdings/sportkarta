@@ -6,7 +6,7 @@ import { OG_PALETTE } from '@/lib/og/palette';
 /**
  * The site-wide link-preview card — the image every page without a card of
  * its own inherits from the [locale] layout (lib/seo.ts siteSocialMetadata):
- * the home page, the city and sport pages, /statistika, /sesii.
+ * the home page, the city and sport pages, /statistika, /igri.
  *
  * It follows the three path rules the sibling [kind]/[slug] route documents:
  * not under /api (robots.txt), a dotted final segment (so the i18n middleware

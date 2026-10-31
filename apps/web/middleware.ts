@@ -3,12 +3,48 @@ import createMiddleware from 'next-intl/middleware';
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { routing } from './i18n/routing';
+import { clubPageCsp, isClubPublicPage } from './lib/club-page-csp';
+import { legacyMapHref } from './lib/home/legacy-map-link';
 import { isProtectedPath, REQUEST_PATH_HEADER } from './lib/sign-in-destination';
 
 const intlMiddleware = createMiddleware(routing);
 
+/** A club's short link, pops.bg/k/<slug> (0045) — for flyers and bios. */
+const CLUB_SHORT_LINK = /^(\/en)?\/k\/([a-z0-9-]{3,60})\/?$/;
+
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Permanent, and only a shape check: the club page itself 404s a slug that
+  // is not a renderable club, so the short link reveals nothing more.
+  const short = CLUB_SHORT_LINK.exec(pathname);
+  if (short) {
+    const target = request.nextUrl.clone();
+    target.pathname = `${short[1] ?? ''}/klub/${short[2] ?? ''}`;
+    target.search = '';
+    return NextResponse.redirect(target, 308);
+  }
+
+  // Until the front page existed the map WAS "/", so a link carrying a map
+  // parameter (`/?sport=…`, `/en?selected=…`) is a visitor who came for the
+  // map: a permanent redirect to /karta, query intact. Here and not in the
+  // page, because the page streams behind a loading boundary and a redirect
+  // from inside a stream is a 200 with a meta refresh — which link unfurlers,
+  // crawlers and anything reading the status never follow.
+  if (pathname === '/' || pathname === '/en') {
+    const params: Record<string, string[]> = {};
+    for (const key of new Set(request.nextUrl.searchParams.keys())) {
+      params[key] = request.nextUrl.searchParams.getAll(key);
+    }
+    const legacy = legacyMapHref(params);
+    if (legacy) {
+      const target = request.nextUrl.clone();
+      const [path = '/karta', query = ''] = legacy.split('?');
+      target.pathname = pathname === '/en' ? `/en${path}` : path;
+      target.search = query ? `?${query}` : '';
+      return NextResponse.redirect(target, 308);
+    }
+  }
 
   // First gate only, and an optimistic one: it checks that a session cookie
   // exists, not that it is valid. Role checks and real session verification
@@ -32,7 +68,26 @@ export default function middleware(request: NextRequest) {
   // EVERY request, overwriting anything the client sent; next-intl copies the
   // request headers onto the request the page renders with.
   request.headers.set(REQUEST_PATH_HEADER, pathname);
-  return intlMiddleware(request);
+  const response = intlMiddleware(request);
+  // A club's public pages may load the club's own pixels after consent
+  // (wave H2): there, scripts come only from this site, the two vendors and
+  // the site's own analytics (lib/club-page-csp.ts).
+  if (isClubPublicPage(pathname)) {
+    response.headers.set(
+      'Content-Security-Policy',
+      clubPageCsp({
+        dev: process.env.NODE_ENV !== 'production',
+        analyticsSrc: process.env.UMAMI_SRC,
+      }),
+    );
+    // The vendors' scripts run in this origin: whatever a visitor once
+    // granted pops.bg (the map's geolocation) must not reach them.
+    response.headers.set(
+      'Permissions-Policy',
+      'geolocation=(), camera=(), microphone=(), payment=(), interest-cohort=()',
+    );
+  }
+  return response;
 }
 
 export const config = {

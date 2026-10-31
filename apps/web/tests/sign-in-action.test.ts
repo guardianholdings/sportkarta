@@ -64,6 +64,9 @@ function enterCode(email: string, code = '000000', extra: Record<string, string>
   return signInAction(START, form({ step: 'code', email, code, locale: 'bg', ...extra }));
 }
 
+/** What better-auth answers for an account that already has a name. */
+const NAMED = { token: 't', user: { name: 'Иван' } };
+
 async function redirectTarget(promise: Promise<unknown>): Promise<unknown> {
   try {
     await promise;
@@ -162,7 +165,7 @@ describe('entering a code', () => {
   it('does not count a correct code against the member', async () => {
     const email = 'regular@example.org';
     for (let i = 0; i < 9; i += 1) await enterCode(email);
-    h.signInEmailOTP.mockResolvedValueOnce({});
+    h.signInEmailOTP.mockResolvedValueOnce(NAMED);
     await redirectTarget(enterCode(email, '123456'));
     // Nine failures on the books, not ten: one more wrong code is still heard.
     expect((await enterCode(email)).error).toBe('invalid_code');
@@ -170,7 +173,7 @@ describe('entering a code', () => {
   });
 
   it('lands on the requested page, in the language of the form', async () => {
-    h.signInEmailOTP.mockResolvedValue({});
+    h.signInEmailOTP.mockResolvedValue(NAMED);
     expect(
       await redirectTarget(
         enterCode('en-member@example.org', '123456', { locale: 'en', next: '/obekt/ndk' }),
@@ -185,12 +188,21 @@ describe('entering a code', () => {
   });
 
   it('falls back to the profile, localised, when next is missing or hostile', async () => {
-    h.signInEmailOTP.mockResolvedValue({});
+    h.signInEmailOTP.mockResolvedValue(NAMED);
     expect(
       await redirectTarget(
         enterCode('fallback@example.org', '123456', { locale: 'en', next: '/en//evil.example' }),
       ),
     ).toEqual({ href: '/profil', locale: 'en' });
+  });
+
+  it('asks a nameless account for its name first, then goes where it was going', async () => {
+    h.signInEmailOTP.mockResolvedValue({ user: { name: '  ' } });
+    expect(
+      await redirectTarget(
+        enterCode('new@example.org', '123456', { locale: 'en', next: '/en/dobavi' }),
+      ),
+    ).toEqual({ href: { pathname: '/dobre-doshli', query: { next: '/dobavi' } }, locale: 'en' });
   });
 });
 

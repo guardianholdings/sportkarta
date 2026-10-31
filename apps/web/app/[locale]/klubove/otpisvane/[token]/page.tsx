@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Button } from '@/components/ui/button';
 import { requireClubsEnabled } from '@/lib/clubs/club-session';
-import { unsubscribeTarget } from '@/lib/clubs/unsubscribe';
+import { unsubscribeScope, unsubscribeTarget } from '@/lib/clubs/unsubscribe';
 
 import { unsubscribeAction } from './actions';
 
@@ -28,18 +28,22 @@ export default async function ClubUnsubscribePage({
   searchParams,
 }: {
   params: PageParams;
-  searchParams: Promise<{ gotovo?: string }>;
+  searchParams: Promise<{ gotovo?: string; vid?: string }>;
 }) {
   const { locale, token } = await params;
   setRequestLocale(locale);
   requireClubsEnabled();
   const t = await getTranslations('ClubUnsubscribe');
-  const target = await unsubscribeTarget(token, locale);
-  const { gotovo } = await searchParams;
+  const { gotovo, vid } = await searchParams;
+  // What is being refused: all club mail, the club's offers, or SMS (0051).
+  const scope = unsubscribeScope(vid);
+  const target = await unsubscribeTarget(token, locale, scope);
+  const say = (key: 'title' | 'done' | 'body' | 'confirm') =>
+    scope === 'all' ? key : (`${scope}.${key}` as const);
 
   return (
     <main className="mx-auto max-w-md space-y-4 p-4">
-      <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
+      <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t(say('title'))}</h1>
       {!target ? (
         <p className="text-body text-ink-soft">{t('invalid')}</p>
       ) : target.optedOut || gotovo === '1' ? (
@@ -47,14 +51,15 @@ export default async function ClubUnsubscribePage({
           role="status"
           className="rounded-card border border-success-border bg-success-bg p-3 text-body text-ink"
         >
-          {t('done', { club: target.clubName })}
+          {t(say('done'), { club: target.clubName })}
         </p>
       ) : (
         <>
-          <p className="text-body text-ink">{t('body', { club: target.clubName })}</p>
+          <p className="text-body text-ink">{t(say('body'), { club: target.clubName })}</p>
           <form action={unsubscribeAction}>
             <input type="hidden" name="token" value={token} />
-            <Button type="submit">{t('confirm')}</Button>
+            {scope !== 'all' && <input type="hidden" name="vid" value={scope} />}
+            <Button type="submit">{t(say('confirm'))}</Button>
           </form>
         </>
       )}

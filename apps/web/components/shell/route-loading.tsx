@@ -23,11 +23,16 @@ import { LoadingMark } from '@/components/shell/loading-mark';
  * every tab tap (all four tabs are dynamic) and put them back a moment later
  * (UX audit 2026-10-10). The mark now sits in the content area of the same
  * chrome; no tab is highlighted until the page itself says which one it is.
+ *
+ * `cached`: a fallback is rendered along with its segment, so reading the
+ * session cookie here would make every route under a loading.tsx dynamic —
+ * /danni/litsenz among them. The fallback shows «Профил» for the moment it is
+ * on screen; the page then says «Вход» to a visitor who is signed out.
  */
 export default async function RouteLoading() {
   const t = await getTranslations('Nav');
   return (
-    <AppShell>
+    <AppShell cached>
       <div className="grid min-h-[70dvh] place-items-center">
         <LoadingMark size={72} label={t('loading')} className="text-accent" />
       </div>

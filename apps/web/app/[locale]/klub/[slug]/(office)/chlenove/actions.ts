@@ -1,13 +1,20 @@
 'use server';
 
 import { getDb } from '@sportkarta/db';
-import { CLUB_CANCEL_REASONS, sofiaToday, type ClubCancelReason } from '@sportkarta/lib/clubs';
-import { getLocale } from 'next-intl/server';
+import {
+  CLUB_CANCEL_REASONS,
+  CLUB_PAYMENT_METHODS,
+  parseEuroCents,
+  sofiaToday,
+  type ClubCancelReason,
+} from '@sportkarta/lib/clubs';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { revalidatePath } from 'next/cache';
 
 import { redirect } from '@/i18n/navigation';
 import { clubCheckIn } from '@/lib/clubs/checkin';
 import { requireClubStaff } from '@/lib/clubs/club-session';
+import { featureOn } from '@/lib/clubs/features';
 import { isUuid, parseMember, parsePause } from '@/lib/clubs/input';
 import { decideClaim, inviteMemberToLink, unlinkRecord } from '@/lib/clubs/links';
 import {
@@ -18,7 +25,19 @@ import {
   updateMember,
 } from '@/lib/clubs/members';
 import { enqueueClubNotify } from '@/lib/clubs/notify';
-import { cancelMembership, pauseMembership, resumeMembership, voidCharge } from '@/lib/clubs/sales';
+import { closeOpenCheckouts, stopProviderSubscriptions } from '@/lib/clubs/payments';
+import {
+  cancelMembership,
+  pauseMembership,
+  resumeMembership,
+  setMembershipRenewal,
+  voidCharge,
+} from '@/lib/clubs/sales';
+import type { WalletState } from '@/components/clubs/wallet-forms';
+import { memberWallet, payOutWallet, topUpWallet, type TopUpMethod } from '@/lib/clubs/wallet';
+
+/** Real money in or out of credit — never credit itself. */
+const TOP_UP_METHODS = CLUB_PAYMENT_METHODS.filter((m) => m !== 'wallet');
 
 /**
  * The member screens' actions. Each re-gates with requireClubStaff for the
@@ -91,19 +110,40 @@ export async function memberOpAction(formData: FormData): Promise<void> {
     case 'archive':
     case 'restore': {
       const { actor } = await requireClubStaff(slug, 'members.manage');
-      if (!(await setMemberArchived(db, actor, memberId, op === 'archive'))) outcome = 'readOnly';
+      if (
+        op === 'archive' &&
+        !(await stopProviderSubscriptions(actor.clubId, { memberId }, 'period_end'))
+      ) {
+        outcome = 'provider_error';
+      } else if (!(await setMemberArchived(db, actor, memberId, op === 'archive'))) {
+        outcome = 'readOnly';
+      }
       break;
     }
     case 'erase': {
       const { actor } = await requireClubStaff(slug, 'members.erase');
-      if (await eraseMember(db, actor, memberId)) {
+      // Prepaid credit is the client's money, paid back before the record
+      // goes (0050) — checked before anything at the provider is stopped.
+      if ((await memberWallet(actor, memberId)).balanceCents > 0) {
+        outcome = 'credit_left';
+        break;
+      }
+      // A record still billed at Stripe is not erased until the billing stops,
+      // and no checkout is left payable for a record about to vanish.
+      await closeOpenCheckouts(actor.clubId, memberId);
+      if (!(await stopProviderSubscriptions(actor.clubId, { memberId }, 'now'))) {
+        outcome = 'provider_error';
+        break;
+      }
+      const erased = await eraseMember(db, actor, memberId);
+      if (erased === 'ok') {
         refresh(slug);
         return redirect({
           href: { pathname: `/klub/${slug}/chlenove`, query: { rezultat: 'erased' } },
           locale: await getLocale(),
         });
       }
-      outcome = 'not_allowed';
+      outcome = erased === 'credit_left' ? 'credit_left' : 'not_allowed';
       break;
     }
     case 'invite': {
@@ -145,7 +185,25 @@ export async function memberOpAction(formData: FormData): Promise<void> {
       const reason = str(formData, 'reason');
       if (!isUuid(membershipId) || !CANCEL_REASONS.has(reason)) {
         outcome = 'reason_invalid';
+      } else if (!(await stopProviderSubscriptions(actor.clubId, { membershipId }, 'period_end'))) {
+        outcome = 'provider_error';
       } else if (!(await cancelMembership(db, actor, membershipId, reason as ClubCancelReason))) {
+        outcome = 'not_found';
+      }
+      break;
+    }
+    case 'stop_renewal':
+    case 'start_renewal': {
+      const { actor } = await requireClubStaff(slug, 'sales.manage');
+      const membershipId = str(formData, 'membershipId');
+      if (!isUuid(membershipId)) {
+        outcome = 'not_found';
+      } else if (
+        op === 'stop_renewal' &&
+        !(await stopProviderSubscriptions(actor.clubId, { membershipId }, 'period_end'))
+      ) {
+        outcome = 'provider_error';
+      } else if (!(await setMembershipRenewal(db, actor, membershipId, op === 'start_renewal'))) {
         outcome = 'not_found';
       }
       break;
@@ -153,7 +211,14 @@ export async function memberOpAction(formData: FormData): Promise<void> {
     case 'void': {
       const { actor } = await requireClubStaff(slug, 'charges.void');
       const chargeId = str(formData, 'chargeId');
-      if (!isUuid(chargeId) || !(await voidCharge(db, actor, chargeId))) outcome = 'not_found';
+      if (!isUuid(chargeId)) {
+        outcome = 'not_found';
+      } else {
+        // A till sale's charge is undone by reversing the sale (0049); an
+        // invoiced one waits for its credit note, and a top-up is paid back.
+        const voided = await voidCharge(db, actor, chargeId);
+        if (voided !== 'ok') outcome = voided;
+      }
       break;
     }
     case 'checkin': {
@@ -202,4 +267,50 @@ export async function issueCardAction(
   if (!key) return { error: 'readOnly' };
   refresh(slug, memberId);
   return { error: null, key };
+}
+
+/**
+ * Credit in and out at the desk (0050): the card's wallet forms. A top-up
+ * needs the tier's wallet; paying credit back never does — it is the client's
+ * money, owed on any tier and while the club is read-only. The form's token
+ * (`nonce`) makes a repeated submit do nothing. The top-up's label is in the
+ * CLUB's language: it is the name of a charge in the club's own books.
+ */
+export async function walletAction(_prev: WalletState, formData: FormData): Promise<WalletState> {
+  const slug = slugOf(formData);
+  const memberId = str(formData, 'memberId');
+  const op = str(formData, 'op');
+  const { actor, club } = await requireClubStaff(slug, 'payments.record');
+  if (!isUuid(memberId)) return { error: 'not_found' };
+  const amount = parseEuroCents(str(formData, 'amount'));
+  const method = str(formData, 'method');
+  const nonce = str(formData, 'nonce');
+  if (amount === null || amount === 0) return { error: 'amount_invalid' };
+  if (!(TOP_UP_METHODS as readonly string[]).includes(method)) return { error: 'method_invalid' };
+  const input = {
+    memberId,
+    amountCents: amount,
+    method: method as TopUpMethod,
+    receivedOn: sofiaToday(),
+    ...(isUuid(nonce) ? { nonce } : {}),
+  };
+  let result;
+  if (op === 'wallet_top_up') {
+    if (!featureOn(club, 'wallet')) return { error: 'feature_unavailable' };
+    const t = await getTranslations({ locale: club.locale, namespace: 'ClubMembers.card' });
+    result = await topUpWallet(getDb(), actor, input, t('walletTopUpLabel'));
+  } else if (op === 'wallet_pay_out') {
+    result = await payOutWallet(getDb(), actor, input);
+  } else {
+    return { error: 'invalid' };
+  }
+  if (!result.ok) return { error: result.error === 'not_allowed' ? 'readOnly' : result.error };
+  revalidatePath(`/klub/${slug}/chlenove/${memberId}`);
+  return redirect({
+    href: {
+      pathname: `/klub/${slug}/chlenove/${memberId}`,
+      query: { rezultat: op === 'wallet_top_up' ? 'wallet_topped_up' : 'wallet_paid_out' },
+    },
+    locale: await getLocale(),
+  });
 }

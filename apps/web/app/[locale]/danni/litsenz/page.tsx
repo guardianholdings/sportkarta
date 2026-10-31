@@ -49,7 +49,7 @@ export default async function OpenDataLicensePage({ params }: { params: PagePara
   ] as const;
 
   return (
-    <AppShell>
+    <AppShell active="/danni" cached>
       <main className="mx-auto max-w-2xl space-y-6 p-4">
         <Link href="/danni" className="text-body-sm font-medium text-link hover:text-link-hover">
           {t('back')}

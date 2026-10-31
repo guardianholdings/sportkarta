@@ -1,14 +1,17 @@
+import { formatEuro } from '@sportkarta/lib/clubs';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
+import { ClubTrackingSlot } from '@/components/clubs/club-tracking-slot';
 import { AppShell } from '@/components/shell/app-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
 import { getCurrentUser } from '@/lib/auth-session';
 import { clubsEnabled } from '@/lib/clubs/access';
+import { isOutcomeCode } from '@/lib/clubs/form-error';
 import { isUuid } from '@/lib/clubs/input';
 import { clubSportLabeler } from '@/lib/clubs/labels';
 import { portalView } from '@/lib/clubs/portal';
@@ -57,8 +60,9 @@ export default async function PublicClassPage({
   if (!occurrence) notFound();
   const { rezultat } = await searchParams;
   const user = await getCurrentUser();
-  const [t, sportLabel, view] = await Promise.all([
+  const [t, tRules, sportLabel, view] = await Promise.all([
     getTranslations('ClubPublic'),
+    getTranslations('ClubPortal.rules'),
     clubSportLabeler(),
     user ? portalView(user.id, slug, locale) : Promise.resolve(null),
   ]);
@@ -139,6 +143,15 @@ export default async function PublicClassPage({
   return (
     <AppShell active={null}>
       <main className="mx-auto max-w-md space-y-4 p-4">
+        {/* Signed in, the page shows names (the viewer's family): no pixels there. */}
+        {!user && (
+          <ClubTrackingSlot
+            clubId={occurrence.clubId}
+            clubName={occurrence.clubName}
+            slug={slug}
+            locale={locale}
+          />
+        )}
         <Link
           href={`/klub/${slug}`}
           className="text-body-sm font-semibold text-link hover:text-link-hover"
@@ -154,7 +167,7 @@ export default async function PublicClassPage({
         </header>
 
         <div role="status" aria-live="polite">
-          {rezultat && t.has(`class.outcome.${rezultat}`) && (
+          {isOutcomeCode(rezultat) && t.has(`class.outcome.${rezultat}`) && (
             <p
               className={cn(
                 'rounded-card border p-3 text-body-sm text-ink',
@@ -201,6 +214,25 @@ export default async function PublicClassPage({
                 : occurrence.capacity === null
                   ? t('spotsOpen', { going: occurrence.going })
                   : t('spots', { going: occurrence.going, capacity: occurrence.capacity })}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-caption text-text-muted">{t('class.terms')}</dt>
+            <dd className="text-ink">
+              {[
+                tRules('cancelHours', { hours: occurrence.cancelDeadlineHours }),
+                occurrence.lateCancelFeeCents !== null &&
+                  tRules('lateFee', { amount: formatEuro(occurrence.lateCancelFeeCents, locale) }),
+                occurrence.noShowFeeCents !== null &&
+                  tRules('noShowFee', { amount: formatEuro(occurrence.noShowFeeCents, locale) }),
+                occurrence.strikeLimit !== null &&
+                  tRules('strikes', {
+                    limit: occurrence.strikeLimit,
+                    days: occurrence.strikeDays ?? 30,
+                  }),
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             </dd>
           </div>
         </dl>

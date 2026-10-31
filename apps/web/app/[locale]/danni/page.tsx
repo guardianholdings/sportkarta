@@ -73,7 +73,7 @@ export default async function OpenDataPage({ params }: { params: PageParams }) {
   const manifest = version ? await dumpManifest(db, version).catch(() => null) : null;
 
   return (
-    <AppShell>
+    <AppShell active="/danni">
       <main className="mx-auto max-w-3xl space-y-10 p-4">
         <div className="space-y-3">
           <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">

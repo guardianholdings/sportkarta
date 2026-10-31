@@ -1,12 +1,14 @@
 import { getTranslations } from 'next-intl/server';
 
 import { calendarTokenAction } from '@/app/[locale]/profil/actions';
+import { CopyUrl } from '@/components/profile/copy-url';
 
 /**
  * The private calendar-feed panel (docs/ROADMAP.md §6, Stage 4.2).
  *
- * Plain forms, no client component: two buttons and a URL to copy, and it must
- * work before hydration.
+ * Plain forms for the two buttons, so they work before hydration; the URL sits
+ * in a small client island (CopyUrl) only for its «Копирай».
+
  *
  * The URL IS the credential — a calendar client cannot sign in, so anyone
  * holding this link can read where this member plays. The panel says that in
@@ -18,7 +20,7 @@ import { calendarTokenAction } from '@/app/[locale]/profil/actions';
  * for should not exist.
  */
 export async function CalendarPanel({ token, siteUrl }: { token: string | null; siteUrl: string }) {
-  const t = await getTranslations('Session');
+  const [t, tShare] = await Promise.all([getTranslations('Session'), getTranslations('Share')]);
   const feedUrl = token ? `${siteUrl.replace(/\/+$/, '')}/kalendar/${token}.ics` : null;
 
   return (
@@ -28,12 +30,8 @@ export async function CalendarPanel({ token, siteUrl }: { token: string | null; 
 
       {feedUrl ? (
         <>
-          {/* Selectable text rather than a link: clicking it would open the
-              download, and what the member needs is to copy it into a calendar
-              app's "subscribe by URL" box. */}
-          <p className="overflow-x-auto rounded-md border border-line bg-paper-sunk p-2.5 font-mono text-caption">
-            {feedUrl}
-          </p>
+          <CopyUrl value={feedUrl} labels={{ copy: t('feedCopy'), copied: tShare('copied') }} />
+
           <p className="text-body-sm text-warning">{t('feedSecretWarning')}</p>
           <form action={calendarTokenAction}>
             <input type="hidden" name="rotate" value="true" />

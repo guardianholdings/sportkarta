@@ -1,15 +1,17 @@
-import { daysUntilReadOnly, sofiaToday, type ClubPermission } from '@sportkarta/lib/clubs';
+import { daysUntilReadOnly, sofiaToday } from '@sportkarta/lib/clubs';
 import { Map as MapIcon, User } from 'lucide-react';
 import { getLocale, getTranslations } from 'next-intl/server';
 
-import { AdminNav } from '@/components/shell/admin-nav';
 import { BrandMark } from '@/components/shell/app-nav';
 import { Badge } from '@/components/ui/badge';
 import { Link } from '@/i18n/navigation';
 import { actorCan, clubName, type ClubContext } from '@/lib/clubs/club-session';
+import { featureOn } from '@/lib/clubs/features';
+import { groupOfficeSections, OFFICE_SECTIONS } from '@/lib/clubs/office-nav';
 import { formatDate } from '@/lib/format';
 
 import { ClubStateBadge } from './club-state-badge';
+import { OfficeNav } from './office-nav';
 
 /**
  * The club office's chrome (docs/ROADMAP.md Stage 9): the POPS mark, the club,
@@ -17,24 +19,12 @@ import { ClubStateBadge } from './club-state-badge';
  * office nav — FILTERED by what the role may see — and one banner saying what
  * the club's access state means for today.
  *
- * The nav reuses components/shell/admin-nav.tsx unchanged (longest-prefix
- * current-page marking); on a phone it is one sideways-scrolling row of 44px
- * targets, the admin layout's classes. Filtering here is for RENDERING only:
- * every page gates itself with requireClubStaff and every statement carries
- * its own scope.
+ * The nav groups the sections into seven hubs (lib/clubs/office-nav.ts,
+ * operator decision 2026-10-31): a row of hubs, then the sections of the hub
+ * you are in (OfficeNav). Filtering here is for RENDERING only: every page
+ * gates itself with requireClubStaff and every statement carries its own
+ * scope.
  */
-
-const NAV: readonly { segment: string; key: string; permission: ClubPermission }[] = [
-  { segment: 'tablo', key: 'dashboard', permission: 'office.view' },
-  { segment: 'prisastviya', key: 'desk', permission: 'attendance.record' },
-  { segment: 'grafik', key: 'schedule', permission: 'schedule.view' },
-  { segment: 'chlenove', key: 'members', permission: 'members.view' },
-  { segment: 'abonamenti', key: 'plans', permission: 'sales.manage' },
-  { segment: 'plashtaniya', key: 'payments', permission: 'payments.view' },
-  { segment: 'otcheti', key: 'reports', permission: 'reports.view' },
-  { segment: 'ekip', key: 'team', permission: 'staff.view' },
-  { segment: 'nastroyki', key: 'settings', permission: 'settings.manage' },
-];
 
 export async function ClubShell({
   context,
@@ -53,9 +43,19 @@ export async function ClubShell({
   ]);
   const { club, actor } = context;
   const base = `/klub/${club.slug}`;
-  const items = NAV.filter((item) => actorCan(actor, item.permission)).map((item) => ({
-    href: `${base}/${item.segment}`,
-    label: t(`nav.${item.key}`),
+  const visible = OFFICE_SECTIONS.filter(
+    (item) =>
+      actorCan(actor, item.permission) &&
+      (item.feature === undefined || featureOn(club, item.feature)),
+  );
+  const hubs = groupOfficeSections(visible).map((hub) => ({
+    key: hub.key,
+    label: t(`hubs.${hub.key}`),
+    items: hub.sections.map((item) => ({
+      href: `${base}/${item.segment}`,
+      label: t(`nav.${item.key}`),
+    })),
+    also: hub.also.map((segment) => `${base}/${segment}`),
   }));
   const state = club.accessState;
   const banner = (() => {
@@ -120,7 +120,7 @@ export async function ClubShell({
               </details>
             )}
             <Link
-              href="/"
+              href="/karta"
               className="inline-flex min-h-11 items-center gap-1.5 rounded-pill border border-line-strong bg-surface px-3 text-caption font-semibold text-ink-soft hover:bg-surface-2"
             >
               <MapIcon size={15} aria-hidden="true" />
@@ -135,9 +135,7 @@ export async function ClubShell({
             </Link>
           </div>
         </div>
-        <div className="-mx-4 overflow-x-auto px-4 max-sm:[&_a]:inline-flex max-sm:[&_a]:min-h-11 max-sm:[&_a]:shrink-0 max-sm:[&_a]:items-center max-sm:[&_a]:whitespace-nowrap max-sm:[&>nav]:flex-nowrap">
-          <AdminNav items={items} />
-        </div>
+        <OfficeNav hubs={hubs} labels={{ hubs: t('hubsLabel'), sections: t('sectionsLabel') }} />
         {banner && (
           <p
             role="status"

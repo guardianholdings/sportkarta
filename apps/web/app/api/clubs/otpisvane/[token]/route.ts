@@ -1,5 +1,5 @@
 import { clubsEnabled } from '@/lib/clubs/access';
-import { unsubscribe } from '@/lib/clubs/unsubscribe';
+import { unsubscribe, unsubscribeScope } from '@/lib/clubs/unsubscribe';
 
 /**
  * RFC 8058 one-click unsubscribe: a mail client POSTs
@@ -11,11 +11,13 @@ import { unsubscribe } from '@/lib/clubs/unsubscribe';
 export const dynamic = 'force-dynamic';
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ token: string }> },
 ): Promise<Response> {
   if (!clubsEnabled()) return new Response(null, { status: 404 });
   const { token } = await params;
-  const ok = await unsubscribe(token);
+  // `?vid=marketing` on a club's offers (0051): only the offers stop.
+  const scope = unsubscribeScope(new URL(request.url).searchParams.get('vid'));
+  const ok = await unsubscribe(token, scope);
   return new Response(null, { status: ok ? 200 : 404, headers: { 'Cache-Control': 'no-store' } });
 }

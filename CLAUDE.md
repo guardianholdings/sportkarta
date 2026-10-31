@@ -163,7 +163,9 @@ browser) in a MANUAL STEPS list at the end of the session.
   (`facility_sponsorships`, 0023) and the ad slots (`ad_placements`, 0021).
   Ad slots are the compliance-critical part: four slot keys closed in three
   agreeing places, selection by SURFACE only (`AdSlot` receives no viewer
-  attribute, which is why the site still needs no consent banner), an unsold
+  attribute, which is why the site still needs no consent banner — the ONE
+  banner is a paid club's own GA4 / Meta Pixel on that club's public pages,
+  wave H2 below), an unsold
   slot renders nothing, the «Реклама» label is inseparable from the creative,
   and there is deliberately NO impression or click counter anywhere. Slot
   exclusivity and one-adoption-per-facility are EXCLUDE constraints (btree_gist),
@@ -182,9 +184,176 @@ browser) in a MANUAL STEPS list at the end of the session.
   refuses a write in `lib/clubs` without a scope fragment or an allowlisted
   reason; trainer rosters, portal class lists, the kiosk counter and staff
   digests are pinned to counts/names-only by `club-projections.test.ts`.
-  Money is RECORDS ONLY (no card code; phase 2 = the club's own Stripe on a
-  hosted page by redirect). Writes need `clubWritableSql` (active and paid or
-  community, 14-day grace); every public surface embeds `clubRenderableSql`.
+  Online payments (v2 wave E, `0046`, behind `CLUB_PAYMENTS_ENABLED`) go
+  through EACH CLUB'S OWN Stripe account (Connect Standard) on Stripe's
+  hosted page by redirect — no Stripe script or SDK, the NGO never holds
+  funds. The webhook verifies its own HMAC and records ids only; the WORKER
+  re-fetches every object as the connected account and applies a checkout
+  once (`UPDATE … WHERE status='open'`); money that no longer fits is
+  `unapplied`, never forced into the books. `PAYMENT_PROVIDER=fake` is a dev
+  stand-in that cannot resolve in production. Fee rules and plan terms are
+  SNAPSHOTTED onto bookings and memberships (`0047`) — never read live from
+  the class or plan. A scope fragment's alias must be declared by its
+  statement (`club-scope.test.ts`). Courts, rooms and appointments (wave C,
+  `0048`): every busy interval — class occurrences in a room, reservations
+  (with their buffer), closures, trainer leave — is a row in
+  `club_calendar_claims`, written ONLY by triggers (a guard refuses any other
+  writer) and refused on overlap by EXCLUDE constraints; a pool resource is
+  counted by units under `FOR NO KEY UPDATE`. Availability is recomputed on the
+  server before every booking, never taken from a form. Shop and offers (wave
+  B1, `0049`): a till sale is ONE transaction — gapless number, snapshot lines,
+  stock out, one `product` charge, payment or account, the offer's use — and
+  is reversed, never edited (and its charge is never voided on its own). Keys
+  inside a club are NO ACTION, which a purge survives only because every
+  table has its OWN `club_id → clubs` CASCADE — a child reached solely
+  through another table is checked before it is gone and refuses the purge
+  (why `club_sale_lines` carries one). Offers are decided by the pure engine
+  inside the purchase's transaction (`resolveOffer`, which locks a capped
+  offer); a use is DERIVED (a reversed sale or a mistaken membership frees
+  it) and an OPEN online checkout carrying an offer counts as one (a
+  reservation, with a 31-minute session), so a voucher cannot be spent twice.
+  Tills and desks show the post-offer total via `previewOffer`. Wallet and
+  invoices (wave B2, `0050`): credit is DERIVED from the books
+  (`club_wallet_balances`: wallet-charge payments minus `wallet`-method
+  payments), and `club_payments_wallet` is the only arbiter — every row the
+  club writes keeps it ≥ 0, while a refund the provider reports is a fact and
+  may take it below (what the client owes). Revenue sums exclude
+  `method = 'wallet'`. Credit is INVOICED WHEN LOADED (the operator's
+  accountant, 2026-10-25): a top-up is invoiced for what stays on it,
+  `club_invoices_wallet_spent` refuses an invoice for a charge credit was
+  spent on, and `club_payments_wallet_invoiced` refuses credit on a charge
+  with a live invoice — so no euro is declared twice; spent credit never
+  leaves as money (`club_payments_wallet_cash_back`), and a pay-out of
+  invoiced credit writes a partial credit note for what leaves
+  (`creditInvoice`). An invoice's number, chronology, lines-add-up and
+  one-live-per-charge are triggers (deferred where they must see the whole
+  transaction), and `club_number_sequences_used` refuses a number drawn
+  without its document. The invoice document's words live in
+  `lib/src/clubs/invoice-document.ts` (Bulgarian in any locale, like the
+  ministry annex), allowlisted in the package Cyrillic gate. Messaging (wave F1, `0051`):
+  e-mail, SMS and push are sent ONLY by the worker, each channel its own
+  claim in `club_notifications`, unique per (club, channel, key); a club's
+  SMS parts per Sofia month are capped by a trigger (`club_notifications_sms_cap`,
+  operator-set `clubs.sms_monthly_cap`); a push endpoint must match the
+  known-push-service CHECK (the SSRF guard) and the VAPID key is derived from
+  `PUSH_VAPID_SECRET`, never stored. Who a group is lives ONCE in
+  `db/src/clubs/audience.ts` (the members list and broadcasts share it); who
+  may receive by which channel is `memberChannels` + `channelAllowed`
+  (`db/src/clubs/messaging.ts`): offers need the receiving record's consent
+  timestamp for that channel, never go by push, and always carry a way out.
+  Bulk e-mail (`CLUB_BULK_MAIL_DAILY_LIMIT`) is SHARED, never first-come:
+  broadcasts take at most `BROADCAST_SHARE_OF_BULK` of the day, a capped
+  number per club per sweep, least-sent club first; automations split the
+  rest in equal per-club parts, then hand on the leftover. The allowance is
+  spent only after a claim succeeds, so somebody already reached never costs
+  a token. Inbox, prospects and ratings (wave F2, `0052`): a thread is
+  between the club and ONE client record, written only by signed-in people;
+  a public inquiry first gets the person their own record (`ensureSelfRecord`,
+  the trial path). Notices are enqueued after the commit and only when the
+  other side had read up to then, and never carry what was written. The lead
+  STAGE is derived (`club_lead_stages`), never stored; the desk stores only
+  what a person decides. `club_feedback_attended` admits only somebody who
+  came and records the trainer itself; the public average needs
+  PUBLIC_RATING_MIN_COUNT ratings of classes the member SCANNED into (QR or
+  card), and the club's Google link follows EVERY rating (review gating is
+  forbidden). A minor's record has no conversation; an NGO admin reads the
+  inbox and never writes as the club. The request to rate is marketing
+  (consent) until a lawyer says otherwise. Events (wave D1, `0053`): SEATS are
+  the database's — `club_event_registrations_seat` counts under the event row
+  lock, refuses a newcomer while somebody waits for that ticket, and a
+  capacity never drops below the seats taken; a freed seat goes to the line in
+  the SAME transaction (`promoteEventWaitlist`), as a hold-to-pay offer when
+  the event takes payment online only. Every place-writer locks the event
+  first, then checkouts → charges → registrations; a payment never takes the
+  event lock. One charge per place; a published event's court closure is its
+  trigger's alone (`club_time_blocks_event_guard`). Tournaments (wave D2,
+  `0054`) are events of kind `tournament`: the draw and the Elo are pure in
+  `lib/src/clubs/tournament.ts`, matches are rows, and standings and ratings
+  are DERIVED on every read, never stored. Once drawn, the entrants are the
+  places the draw names, numbered by seed (`drawnSeeds`). A public result names
+  an entrant only with their own `name_public_at`, decided IN THE PUBLIC
+  STATEMENT, and only for a confirmed place whose client still has a live
+  link; the registrations guard clears it when the place ends or the client
+  is erased, `club_member_links_clear_names` when the link goes, and a consent
+  can always be withdrawn (`setNamePublic` off needs no live place and no
+  writable club). A recorded result is never deleted or withdrawn
+  (`club_tournament_matches_guard`, purge excepted). Documents (wave G1,
+  `0055`): a document's title and text are append-only versions numbered and
+  hashed by the database (sha256 over the raw sha256 digests of the title and
+  body in both languages); a signature names its version, only the latest of
+  a live document, once per client. A minor signs their own record like
+  anyone (operator decision 2026-10-30, in line with 0020); a guardian may
+  sign only a minor's (`club_document_signatures_guardian_minor`). In the
+  portal the signer kind follows the LINK that signs, never the form; at the
+  desk the witness records it. Who is missing what is the view
+  `club_documents_missing`; a missing signature WARNS and never refuses.
+  Ranks (wave G2, `0056`): a client's CURRENT rank is their newest award not
+  revoked (by day, then by when it was recorded), never the highest place;
+  readiness for the next one is the view `club_member_rank_progress`
+  (check-ins since that day, in the ladder's sport) and never refuses an
+  award. An award is append-only — a mistake is revoked once — and only the
+  club's own staff grade (`clubStaffWriteScope`, no NGO admin). Belt colours
+  are a closed palette of `--belt-*` tokens. A trainer reads the ladder pages
+  through the projection in `ranks.ts` (`progressRows`, a name and counts).
+  Integrations (wave H1, `0057`, `CLUB_API_ENABLED` ships off): a club API
+  key (`skbk_`, SHA-256 only) ACTS AS ITS CREATOR — `verifyClubApiKey` returns
+  a `ClubActor` for that staff member with their role as of now (and
+  `apiKeyId`, which the audit log records as actor kind 'api'), so the API,
+  the MCP connector and the office run the SAME scoped functions; the key's
+  scopes only narrow it, in code, before any statement runs. Webhooks are an
+  outbox the database fills (`club_webhook_enqueue` triggers, FOR KEY SHARE so
+  a removed endpoint never fails a desk write); the worker posts them, and
+  every request to an address somebody typed goes through `safePost`
+  (`@sportkarta/lib/net`: https, public addresses checked in the socket's own
+  lookup, no redirects) — never a bare fetch. Webhook secrets are derived
+  from `CLUB_WEBHOOK_SECRET`, never stored. A door is a `club_kiosk_devices`
+  row of kind 'door' whose secret has a kiosk cookie's shape, so EVERY device
+  lookup names its kind; a door is the one check-in that may say no (the
+  club's rule), and a refused door records nothing.
+  Club pixels (wave H2, `0058`, operator decision 2026-10-25,
+  `CLUB_PIXELS_ENABLED` ships off): a paid club's own GA4 measurement id and
+  Meta Pixel id — IDS ONLY (CHECKs; Google Tag Manager is never offered, a
+  container would run arbitrary code on our origin; an id still pulls the
+  vendor-side configuration the club sets in Google's/Meta's console) — plus
+  the club's privacy notice, which a CHECK requires with any id. They render
+  only on that club's PUBLIC pages (club page, event, class date, inquiry)
+  through `ClubTrackingSlot` — the class and event pages only for a visitor
+  who is NOT signed in (signed in, they show family names) — never the
+  office, portal or the rest of pops.bg. Nothing loads before the visitor
+  accepts, and consent is PER TOOL (statistics and advertising are separate
+  purposes; a tool the club adds later is asked about afresh); the answer
+  lives in localStorage per club for a year under a wording version
+  (`TRACKING_CONSENT_VERSION` — raise it when the banner's wording changes;
+  no server cookie). POPS is joint controller with the club for loading and
+  consent (privacy notice, legal positions in ROADMAP H2). ONE DOCUMENT, ONE ADDRESS (`lib/club-tracking-runtime.ts`): the
+  vendors start only in a document loaded at the club page, and once they run
+  every move elsewhere is a full load (links native, back/forward and route
+  changes reload with the vendors switched off first), so a pixel can never
+  follow the visitor in-app to the map, the portal or another club. Meta's
+  autoConfig is off and every event names its own id. Withdrawing switches
+  the vendors off, then clears their cookies on every locale's club path, then
+  reloads. Only the club's own management sets them (clubStaffWriteScope,
+  with a responsibility confirmation). Those pages carry the script policy of
+  `lib/club-page-csp.ts` (set in middleware; it REPLACES next.config's CSP
+  there, so its `frame-ancestors 'none'` is load-bearing).
+  Form-error lookups go through `formErrorText` (own keys only): the
+  `ClubFormMessages` catalogue must stay a PLAIN object, because it crosses
+  into client components. Writes need `clubWritableSql`: active AND a trial
+  or a payment within the 14-day grace, on EVERY tier — there is no free
+  tier (operator decision 2026-10-31, migration 0060; `approveClub` starts
+  the trial on any tier). It is NULL-safe (a club with neither date is a
+  plain false), `tests/journeys/clubs-access.test.ts` holds it equal to
+  `clubAccessState` over every tier, status and date and refuses any
+  `tier = 'community'` clause, and every copy embeds it or reads
+  `CLUB_GRACE_DAYS`. Every public surface embeds `clubRenderableSql`.
+  Club copy rules (operator, 2026-10-31): prices live only in
+  `lib/src/clubs/pricing-public.ts` (cents, `formatEuro`), and the plans
+  read «Базов» / «Старт» / «Про» (the stored key of the first is still
+  `community`); the trial is stated as `{days}` from `CLUB_TRIAL_DAYS`, never
+  typed (`tests/clubs-landing.test.ts`); no competitor is named in any
+  user-facing string; the staff area is «платформата за управление (на
+  бизнеса)» in copy — "office" survives only as a code word (the `(office)`
+  route group).
   Check-ins never refuse (`covered=false` is recorded); only a QR/card visit of
   a consenting linked member writes `training_logs(source='club',
 evidence='qr_verified')`, enforced by trigger + CHECK, never points.

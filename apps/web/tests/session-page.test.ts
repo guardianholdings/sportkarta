@@ -11,9 +11,9 @@ function source(relative: string): string {
   return readFileSync(new URL(relative, import.meta.url), 'utf8');
 }
 
-const page = source('../app/[locale]/sesiya/[occurrenceId]/page.tsx');
-const rsvp = source('../app/[locale]/sesiya/[occurrenceId]/rsvp-form.tsx');
-const qr = source('../app/[locale]/sesiya/[occurrenceId]/qr/page.tsx');
+const page = source('../app/[locale]/igra/[occurrenceId]/page.tsx');
+const rsvp = source('../app/[locale]/igra/[occurrenceId]/rsvp-form.tsx');
+const qr = source('../app/[locale]/igra/[occurrenceId]/qr/page.tsx');
 const occurrence = source('../lib/sessions/occurrence.ts');
 
 describe('leaving a session (S-7)', () => {

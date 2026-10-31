@@ -80,7 +80,8 @@ describe('the copy', () => {
       const c = messages.Contribute;
       expect(c.thanksNoPoints, locale).toBeTruthy();
       expect(c.offSiteNoLocation, locale).toBeTruthy();
-      expect(c.thanksWithPoints, locale).toContain('{points}');
+      // Plainly or as a plural («1 точка», «2 точки»).
+      expect(c.thanksWithPoints, locale).toMatch(/\{points[},]/);
       // `{km, number}` so the reader's locale formats the decimal («4,2»).
       expect(c.offSiteNotice, locale).toContain('{km, number}');
       expect(c.conditionOffSiteNote, locale).toBeTruthy();

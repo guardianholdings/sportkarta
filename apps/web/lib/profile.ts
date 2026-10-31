@@ -55,11 +55,7 @@ export class ProfileValidationError extends Error {
  * when the input is unusable.
  */
 export function buildProfileUpdate(input: ProfileFormInput, now: Date = new Date()): ProfileUpdate {
-  const displayName = input.displayName.trim().replace(/\s+/g, ' ');
-  if (!displayName) throw new ProfileValidationError('display_name_required');
-  if (displayName.length > DISPLAY_NAME_MAX) {
-    throw new ProfileValidationError('display_name_too_long');
-  }
+  const displayName = normaliseDisplayName(input.displayName);
 
   const homeCityRaw = input.homeCity.trim().replace(/\s+/g, ' ');
   if (homeCityRaw.length > HOME_CITY_MAX) throw new ProfileValidationError('home_city_too_long');
@@ -79,8 +75,37 @@ export function buildProfileUpdate(input: ProfileFormInput, now: Date = new Date
   }
 }
 
+/**
+ * A display name as every form stores it: trimmed, inner whitespace collapsed,
+ * required, at most DISPLAY_NAME_MAX. Shared by the profile form, the welcome
+ * step and the passport's publish-with-a-name form.
+ */
+export function normaliseDisplayName(raw: string): string {
+  const displayName = raw.trim().replace(/\s+/g, ' ');
+  if (!displayName) throw new ProfileValidationError('display_name_required');
+  if (displayName.length > DISPLAY_NAME_MAX) {
+    throw new ProfileValidationError('display_name_too_long');
+  }
+  return displayName;
+}
+
 interface SqlRunner {
   execute(query: SQL): Promise<unknown>;
+}
+
+/**
+ * The name alone — the passport asks for nothing else when it is published
+ * without one (components/passport/visibility-form.tsx). Pass it through
+ * `normaliseDisplayName` first.
+ */
+export async function saveDisplayName(
+  db: SqlRunner,
+  userId: string,
+  displayName: string,
+): Promise<void> {
+  await db.execute(sql`
+    UPDATE users SET display_name = ${displayName}, updated_at = now() WHERE id = ${userId}
+  `);
 }
 
 /**

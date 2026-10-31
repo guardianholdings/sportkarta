@@ -54,7 +54,7 @@ describe('readColumnMapping', () => {
 describe('the three wizards share it', () => {
   const ADMIN = path.join(process.cwd(), 'app', '[locale]', 'admin', '(protected)');
 
-  for (const wizard of ['sesii', 'rezultati', 'obshtini']) {
+  for (const wizard of ['igri', 'rezultati', 'obshtini']) {
     it(`${wizard}/actions.ts reads the mapping through readColumnMapping`, () => {
       const source = readFileSync(path.join(ADMIN, wizard, 'actions.ts'), 'utf8');
       expect(source).toMatch(/readColumnMapping\(/);

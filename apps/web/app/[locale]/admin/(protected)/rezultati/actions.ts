@@ -21,7 +21,7 @@ import {
 /**
  * Results actions (docs/ROADMAP.md §6, Stage 4.6). Admin-only, same reasoning
  * as bulk-create. The CSV path shares the parser, the mapping step and the
- * commit-valid-skip-invalid rule with /admin/sesii.
+ * commit-valid-skip-invalid rule with /admin/igri.
  */
 
 export interface ResultsState {

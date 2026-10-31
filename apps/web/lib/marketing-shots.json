@@ -1,0 +1,102 @@
+{
+  "hero": {
+    "src": "/marketing/tablo.webp",
+    "width": 1200,
+    "height": 750
+  },
+  "dashboard": {
+    "src": "/marketing/tablo.webp",
+    "width": 1200,
+    "height": 750
+  },
+  "members": {
+    "src": "/marketing/chlenove.webp",
+    "width": 1200,
+    "height": 750
+  },
+  "plans": {
+    "src": "/marketing/abonamenti.webp",
+    "width": 1200,
+    "height": 564
+  },
+  "schedule": {
+    "src": "/marketing/grafik.webp",
+    "width": 1200,
+    "height": 750
+  },
+  "attendance": {
+    "src": "/marketing/prisastviya.webp",
+    "width": 1200,
+    "height": 718
+  },
+  "courts": {
+    "src": "/marketing/kalendar.webp",
+    "width": 1200,
+    "height": 740
+  },
+  "events": {
+    "src": "/marketing/sabitiya.webp",
+    "width": 1200,
+    "height": 536
+  },
+  "payments": {
+    "src": "/marketing/plashtaniya.webp",
+    "width": 1200,
+    "height": 750
+  },
+  "shop": {
+    "src": "/marketing/prodazhbi.webp",
+    "width": 1200,
+    "height": 518
+  },
+  "invoices": {
+    "src": "/marketing/fakturi.webp",
+    "width": 1200,
+    "height": 686
+  },
+  "messaging": {
+    "src": "/marketing/saobshteniya.webp",
+    "width": 1200,
+    "height": 750
+  },
+  "inbox": {
+    "src": "/marketing/vhodyashti.webp",
+    "width": 1200,
+    "height": 596
+  },
+  "documents": {
+    "src": "/marketing/dokumenti.webp",
+    "width": 1200,
+    "height": 750
+  },
+  "reports": {
+    "src": "/marketing/otcheti.webp",
+    "width": 1200,
+    "height": 750
+  },
+  "team": {
+    "src": "/marketing/ekip.webp",
+    "width": 1200,
+    "height": 750
+  },
+  "website": {
+    "src": "/marketing/stranitsa.webp",
+    "width": 1200,
+    "height": 750
+  },
+  "portal": {
+    "src": "/marketing/portal.webp",
+    "width": 1200,
+    "height": 750
+  },
+  "integrations": {
+    "src": "/marketing/integratsii.webp",
+    "width": 1200,
+    "height": 750
+  },
+  "security": {
+    "src": "/marketing/nastroyki.webp",
+    "width": 1200,
+    "height": 750
+  }
+}

@@ -395,3 +395,50 @@ export async function mailOutcomes(db: SqlRunner): Promise<MailOutcome[]> {
     })),
   );
 }
+
+// ─── «Клубове» (audit 2026-10-30) ───────────────────────────────────────────
+
+export interface ClubOpsHealth {
+  /** Stripe events recorded but not yet applied, and the oldest one's age. */
+  pendingPaymentEvents: number;
+  oldestPendingEventSeconds: number | null;
+  /** Webhook endpoints the worker switched off in the last 7 days. */
+  endpointsDisabled7d: number;
+  /** Group messages past their time by more than an hour and still not sent. */
+  broadcastsWaiting: number;
+  /** Clubs whose SMS parts this Sofia month reached their cap. */
+  clubsAtSmsCap: number;
+}
+
+/**
+ * The club module's failure modes the operator could otherwise see only in
+ * the worker's log: a Stripe event stuck (an account revoked, a key wrong),
+ * a webhook endpoint given up on, a group message held for days by the
+ * daily limit, a club out of SMS. Counts and ages only — never a club's
+ * name, a URL or an amount.
+ */
+export async function clubOpsHealth(db: SqlRunner): Promise<ClubOpsHealth> {
+  const row = (
+    await db.execute(sql`
+      SELECT (SELECT count(*)::int FROM club_payment_events WHERE processed_at IS NULL) AS pending,
+             (SELECT extract(epoch FROM now() - min(received_at))::int FROM club_payment_events
+               WHERE processed_at IS NULL) AS oldest,
+             (SELECT count(*)::int FROM club_webhook_endpoints
+               WHERE disabled_at > now() - interval '7 days') AS disabled,
+             (SELECT count(*)::int FROM club_broadcasts
+               WHERE status IN ('scheduled', 'sending')
+                 AND scheduled_for < now() - interval '1 hour') AS waiting,
+             (SELECT count(*)::int FROM club_sms_usage u JOIN clubs c ON c.id = u.club_id
+               WHERE u.month = date_trunc('month', (now() AT TIME ZONE 'Europe/Sofia'))::date
+                 AND c.sms_monthly_cap IS NOT NULL AND u.parts >= c.sms_monthly_cap) AS capped
+    `)
+  ).rows[0];
+  return {
+    pendingPaymentEvents: Number(row?.pending ?? 0),
+    oldestPendingEventSeconds:
+      row?.oldest === null || row?.oldest === undefined ? null : Number(row.oldest),
+    endpointsDisabled7d: Number(row?.disabled ?? 0),
+    broadcastsWaiting: Number(row?.waiting ?? 0),
+    clubsAtSmsCap: Number(row?.capped ?? 0),
+  };
+}

@@ -63,7 +63,7 @@ describe('statistics copy', () => {
     // String chunks come back joined: the link is the bracketed part.
     const link = (chunks: ReactNode) => `[${String(chunks)}]`;
     expect(tBg.rich('downloadOpenData', { link })).toBe(
-      'Всички данни са свободни за изтегляне (CSV/GeoJSON) и през API — вижте [„Отворени данни“].',
+      'Всички данни могат да се изтеглят свободно (CSV/GeoJSON) или да се ползват през API — вижте [„Отворени данни“].',
     );
     expect(tEn.rich('downloadOpenData', { link })).toMatch(/— see \[Open data\]\.$/);
     expect(JSON.stringify(bg.Stats)).not.toMatch(/следващ етап/);

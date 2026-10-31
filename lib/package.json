@@ -18,9 +18,11 @@
     "./email": "./src/email/index.ts",
     "./error-report": "./src/error-report/index.ts",
     "./ical": "./src/ical/index.ts",
+    "./net": "./src/net/index.ts",
     "./moderation": "./src/moderation/index.ts",
     "./import-municipal": "./src/import-municipal/index.ts",
     "./opendata": "./src/opendata/index.ts",
+    "./payments": "./src/payments/index.ts",
     "./recurrence": "./src/recurrence/index.ts",
     "./reports": "./src/reports/index.ts",
     "./share": "./src/share/index.ts",
@@ -29,7 +31,10 @@
     "./storage": "./src/storage/index.ts",
     "./training": "./src/training/index.ts",
     "./csv": "./src/csv.ts",
-    "./cities": "./src/cities.ts"
+    "./cities": "./src/cities.ts",
+    "./push": "./src/push/index.ts",
+    "./sms": "./src/sms/index.ts",
+    "./sms/text": "./src/sms/text.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

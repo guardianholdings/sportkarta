@@ -43,8 +43,8 @@ const BASE: SessionMailData = {
   startsAtLocal: '2026-07-24T18:00:00',
   facilityName: 'Борисова градина',
   facilityUrl: 'https://pops.bg/obekt/borisova-gradina',
-  sessionUrl: 'https://pops.bg/sesiya/abc',
-  calendarUrl: 'https://pops.bg/sesiya/abc.ics',
+  sessionUrl: 'https://pops.bg/igra/abc',
+  calendarUrl: 'https://pops.bg/igra/abc.ics',
   capacity: 10,
   going: 4,
 };

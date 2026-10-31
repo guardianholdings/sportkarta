@@ -46,7 +46,8 @@ describe('loading boundaries never sit above a notFound()', () => {
   it('the rest of the app still has its loading screens', () => {
     // The fix was to MOVE the boundary down, not to delete the brand moment.
     expect(LOADING_FILES.length).toBeGreaterThan(5);
-    expect(existsSync(path.join(LOCALE, '(map)', 'loading.tsx')), 'the map / home page').toBe(true);
+    expect(existsSync(path.join(LOCALE, 'karta', 'loading.tsx')), 'the map').toBe(true);
+    expect(existsSync(path.join(LOCALE, '(home)', 'loading.tsx')), 'the front page').toBe(true);
   });
 
   it.each(LOADING_FILES.map(rel))('%s wraps no route that can 404', (loading) => {
@@ -55,7 +56,11 @@ describe('loading boundaries never sit above a notFound()', () => {
     // so a page that calls them can 404 as surely as one calling notFound().
     const offenders = walk(segment)
       .filter((f) => /\/(page|layout)\.tsx$/.test(f))
-      .filter((f) => /\b(notFound|requireRole|requireAdmin)\s*\(/.test(code(f)))
+      .filter((f) =>
+        /\b(notFound|requireRole|requireAdmin|requireClubsEnabled|requireClubStaff)\s*\(/.test(
+          code(f),
+        ),
+      )
       .map(rel);
     expect(
       offenders,

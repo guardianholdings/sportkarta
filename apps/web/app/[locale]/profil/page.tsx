@@ -1,24 +1,25 @@
 import type { Metadata } from 'next';
 import { calendarToken, getDb } from '@sportkarta/db';
-import { Activity, BookOpenCheck, Building2, Download, ShieldCheck } from 'lucide-react';
+import { Activity, Building2, Download, LogOut, ShieldCheck } from 'lucide-react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { CalendarPanel } from '@/components/profile/calendar-panel';
 import { DigestPanel } from '@/components/profile/digest-panel';
-import { PointsPanel } from '@/components/profile/points-panel';
 import { AppShell } from '@/components/shell/app-shell';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { PushToggle } from '@/components/pwa/push-toggle';
 import { requireUser } from '@/lib/auth-session';
 import { clubsEnabled } from '@/lib/clubs/access';
 import { digestCities, subscriptionsFor } from '@/lib/digest';
 import { loadCityCatalog } from '@/lib/places';
-import { pointsSummary } from '@/lib/points';
+import { pushDeviceCount, pushPublicKey, pushToggleLabels } from '@/lib/push';
 import { siteUrl } from '@/lib/seo';
 import { canAccessAdminPanel } from '@/lib/roles';
 import { Link } from '@/i18n/navigation';
 
 import { signOutAction } from '../vhod/actions';
 import { DeleteAccountForm, ProfileForm } from './profile-form';
+import { removeAllDevicesAction } from './push-actions';
 
 export async function generateMetadata({
   params,
@@ -43,13 +44,18 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
   setRequestLocale(locale);
   const t = await getTranslations('Profile');
   const user = await requireUser();
-  const [summary, digestOptions, subscriptions, catalog, feedToken] = await Promise.all([
-    pointsSummary(getDb(), user.id),
-    digestCities(getDb(), user.id),
-    subscriptionsFor(getDb(), user.id),
-    loadCityCatalog(),
-    calendarToken(getDb(), user.id),
-  ]);
+  // Notifications on this device (0051): offered only while POPS runs push.
+  const pushKey = clubsEnabled() ? pushPublicKey() : null;
+  const [digestOptions, subscriptions, catalog, feedToken, tPush, pushLabels, devices] =
+    await Promise.all([
+      digestCities(getDb(), user.id),
+      subscriptionsFor(getDb(), user.id),
+      loadCityCatalog(),
+      calendarToken(getDb(), user.id),
+      getTranslations('PushDevice'),
+      pushToggleLabels(),
+      pushKey ? pushDeviceCount(user.id) : Promise.resolve(0),
+    ]);
   // digestCities knows which municipalities are worth offering; the catalog is
   // what turns them into the slugs /sedmitsata links use.
   const digestCityList = digestOptions
@@ -65,17 +71,13 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
           <p className="mt-1.5 text-body-sm text-ink-soft">
             {t('emailLine', { email: user.email })}
           </p>
+          {/*
+            SETTINGS, not a second hub (UX audit N8): the passport is a tab and
+            carries the points, so its pill and the «Моите точки» panel are gone.
+            What stays here is what has no tab — the log (also a segment of
+            Игри), the clubs, the admin.
+          */}
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Link href="/pasport" className={pillLink}>
-              <BookOpenCheck size={15} />
-              {t('passportLink')}
-            </Link>
-            {/*
-              /trenirovki has no nav tab — the bar is already four items plus the
-              add FAB — so this and the prompt under the participation board are
-              its only entry points. Both are load-bearing rather than decorative:
-              a page nothing links to is the defect A6 was written to fix.
-            */}
             <Link href="/trenirovki" className={pillLink}>
               <Activity size={15} />
               {t('trainingLink')}
@@ -93,11 +95,6 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
                 {t('adminLink')}
               </Link>
             )}
-            <form action={signOutAction} className="ml-auto">
-              <Button type="submit" variant="ghost" size="sm">
-                {t('signOut')}
-              </Button>
-            </form>
           </div>
         </header>
 
@@ -109,11 +106,33 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
           />
         </section>
 
-        <PointsPanel summary={summary} />
+        {/* Ids for deep links: /igri and the weekly city page point at the
+            digest; the calendar and erasure can be linked the same way. */}
+        <div id="sedmichna" className="scroll-mt-4">
+          <DigestPanel locale={locale} cities={digestCityList} subscribedIds={subscribedIds} />
+        </div>
 
-        <DigestPanel locale={locale} cities={digestCityList} subscribedIds={subscribedIds} />
+        <div id="kalendar" className="scroll-mt-4">
+          <CalendarPanel token={feedToken} siteUrl={siteUrl()} />
+        </div>
 
-        <CalendarPanel token={feedToken} siteUrl={siteUrl()} />
+        {pushKey && (
+          <section className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm">
+            <h2 className="text-h4 font-bold text-ink">{tPush('profileTitle')}</h2>
+            <p className="text-body-sm text-ink-soft">{tPush('profileText')}</p>
+            <PushToggle publicKey={pushKey} labels={pushLabels} />
+            {devices > 0 && (
+              <form action={removeAllDevicesAction} className="space-y-2 border-t border-line pt-3">
+                <p className="text-caption text-text-muted">
+                  {tPush('devices', { count: devices })}
+                </p>
+                <Button type="submit" variant="secondary" size="sm">
+                  {tPush('removeAll')}
+                </Button>
+              </form>
+            )}
+          </section>
+        )}
 
         {/*
           GDPR Art. 15/20: the member's own copy, built by the same function the
@@ -135,8 +154,20 @@ export default async function ProfilePage({ params }: { params: Promise<{ locale
           <p className="text-caption text-text-muted">{t('exportNote')}</p>
         </section>
 
-        <section className="space-y-4 rounded-card border border-danger-border bg-danger-bg/40 p-4">
+        {/* Signing out is the end of the page, full width, where a thumb
+            finds it — not a small ghost button among the pills at the top. */}
+        <form action={signOutAction}>
+          <Button type="submit" variant="secondary" block iconLeft={<LogOut size={18} />}>
+            {t('signOut')}
+          </Button>
+        </form>
+
+        <section
+          id="iztrivane"
+          className="scroll-mt-4 space-y-4 rounded-card border border-danger-border bg-danger-bg/40 p-4"
+        >
           <h2 className="text-h4 font-bold text-danger">{t('deleteTitle')}</h2>
+
           <DeleteAccountForm confirmationWord={t('deleteConfirmWord')} clubs={clubsEnabled()} />
         </section>
 

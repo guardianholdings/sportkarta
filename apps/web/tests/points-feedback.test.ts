@@ -36,10 +36,10 @@ describe('points feedback — the copy names a figure', () => {
       ] as const) {
         expect(
           read(messages as Messages),
-          `${locale}.json ${path} must contain the {points} placeholder — without it the ` +
-            'member is told they earned points but never how many, which is the exact ' +
-            'gap A2 exists to close.',
-        ).toContain('{points}');
+          `${locale}.json ${path} must interpolate {points} (plainly or as a plural) — ` +
+            'without it the member is told they earned points but never how many, which ' +
+            'is the exact gap A2 exists to close.',
+        ).toMatch(/\{points[},]/);
       }
     });
   }
@@ -59,7 +59,7 @@ describe('points feedback — the copy names a figure', () => {
       bg.Checkin.outcome.unscored_daily_cap,
       bg.Checkin.outcome.unscored_already,
     ];
-    for (const line of unscored) expect(line).not.toContain('{points}');
+    for (const line of unscored) expect(line).not.toMatch(/\{points[},]/);
   });
 });
 

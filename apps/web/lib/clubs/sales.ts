@@ -4,13 +4,18 @@ import {
   membershipEndsOn,
   type ClubCancelReason,
   type ClubPlanAudience,
+  type ClubPaymentMethod,
   type ClubPlanKind,
   type IsoDate,
+  sofiaToday,
 } from '@sportkarta/lib/clubs';
 
 import { recordClubAudit } from './audit';
 import { violatedConstraint } from './errors';
+import { walletMethodAllowed } from './features';
+import { liveInvoiceFor } from './invoices';
 import type { ChargeInput, PaymentInput, PauseInput, PlanInput, SaleInput } from './input';
+import { previewOffer, recordRedemption, resolveOffer } from './promotions';
 import { clubActorMay, clubScope, clubWriteScope, type ClubActor } from './scope';
 
 /**
@@ -34,14 +39,30 @@ function text(value: unknown): string | null {
   return value === null || value === undefined ? null : String(value);
 }
 
+/** A refusal found mid-sale: thrown so the whole sale rolls back. */
+class SaleRefused extends Error {
+  constructor(readonly code: string) {
+    super(code);
+  }
+}
+
 /** A database refusal, as the code a form shows; null = a real bug, rethrow. */
 export function saleErrorCode(error: unknown): string | null {
+  if (error instanceof SaleRefused) return error.code;
   const constraint = violatedConstraint(error);
   if (constraint === 'club_payments_within_charge') return 'amount_exceeds_due';
   if (constraint === 'club_payments_charge_not_void') return 'charge_void';
   if (constraint === 'club_memberships_one_trial') return 'trial_used';
   if (constraint === 'club_membership_pauses_no_overlap') return 'pause_overlap';
   if (constraint === 'club_membership_pauses_within_membership') return 'pause_outside';
+  // Prepaid credit (0050).
+  if (constraint === 'club_payments_wallet_balance') return 'wallet_insufficient';
+  if (constraint === 'club_payments_wallet_member') return 'wallet_needs_client';
+  if (constraint === 'club_payments_wallet_not_circular') return 'wallet_not_for_credit';
+  if (constraint === 'club_charges_wallet_void') return 'wallet_void';
+  if (constraint === 'club_payments_wallet_refund') return 'wallet_refund_exceeds';
+  if (constraint === 'club_payments_wallet_invoiced') return 'wallet_invoiced';
+  if (constraint === 'club_payments_wallet_cash_back') return 'refund_paid_by_credit';
   return null;
 }
 
@@ -67,6 +88,11 @@ function toPlan(row: Record<string, unknown>): ClubPlan {
     validityMonths: row.validity_months === null ? null : Number(row.validity_months),
     visitsCount: row.visits_count === null ? null : Number(row.visits_count),
     visibility: row.visibility === 'private' ? 'private' : 'public',
+    autoRenew: row.auto_renew === true,
+    minTermMonths: row.min_term_months === null ? null : Number(row.min_term_months),
+    noticeDays: Number(row.notice_days ?? 0),
+    selfPauseAllowed: row.self_pause_allowed === true,
+    selfCancelAllowed: row.self_cancel_allowed === true,
     archived: row.archived_at !== null && row.archived_at !== undefined,
     liveCount: Number(row.live_count ?? 0),
   };
@@ -75,6 +101,7 @@ function toPlan(row: Record<string, unknown>): ClubPlan {
 const PLAN_COLUMNS = sql`
   p.id, p.name_bg, p.name_en, p.description_bg, p.description_en, p.kind, p.audience,
   p.price_cents, p.validity_days, p.validity_months, p.visits_count, p.visibility, p.archived_at,
+  p.auto_renew, p.min_term_months, p.notice_days, p.self_pause_allowed, p.self_cancel_allowed,
   (SELECT count(*)::int FROM club_membership_balances b
     WHERE b.club_id = p.club_id AND b.plan_id = p.id AND b.state IN ('active', 'paused', 'upcoming'))
     AS live_count`;
@@ -110,18 +137,21 @@ export async function savePlan(
   return db.transaction(async (tx) => {
     const values = sql`${input.nameBg}, ${input.nameEn}, ${input.descriptionBg}, ${input.descriptionEn},
       ${input.kind}, ${input.audience}, ${input.priceCents}, ${input.validityDays},
-      ${input.validityMonths}, ${input.visitsCount}, ${input.visibility}`;
+      ${input.validityMonths}, ${input.visitsCount}, ${input.visibility}, ${input.autoRenew},
+      ${input.minTermMonths}, ${input.noticeDays}, ${input.selfPauseAllowed}, ${input.selfCancelAllowed}`;
     const result = planId
       ? await tx.execute(sql`
           UPDATE club_plans p
              SET (name_bg, name_en, description_bg, description_en, kind, audience, price_cents,
-                  validity_days, validity_months, visits_count, visibility) = (${values})
+                  validity_days, validity_months, visits_count, visibility, auto_renew,
+                  min_term_months, notice_days, self_pause_allowed, self_cancel_allowed) = (${values})
            WHERE p.id = ${planId}::uuid AND ${clubWriteScope(actor, 'plans.manage', 'p')}
            RETURNING p.id`)
       : await tx.execute(sql`
           INSERT INTO club_plans (club_id, name_bg, name_en, description_bg, description_en, kind,
                                   audience, price_cents, validity_days, validity_months,
-                                  visits_count, visibility)
+                                  visits_count, visibility, auto_renew, min_term_months,
+                                  notice_days, self_pause_allowed, self_cancel_allowed)
           SELECT ${actor.clubId}::uuid, ${values}
            WHERE ${clubActorMay(actor, 'plans.manage', { write: true })}
           RETURNING id`);
@@ -194,7 +224,8 @@ export async function sellMembership(
       `);
       const found = await tx.execute(sql`
         SELECT p.name_bg, p.kind, p.audience, p.price_cents, p.validity_days, p.validity_months,
-               p.visits_count, m.is_minor,
+               p.visits_count, p.auto_renew, p.notice_days, p.min_term_months,
+               p.self_pause_allowed, p.self_cancel_allowed, m.is_minor,
                c.member_cap,
                (SELECT count(DISTINCT b.member_id)::int FROM club_membership_balances b
                  WHERE b.club_id = c.id AND b.member_id <> m.id
@@ -225,14 +256,41 @@ export async function sellMembership(
           ? { days: Number(plan.validity_days) }
           : { months: Number(plan.validity_months) },
       );
-      const priceCents = Number(plan.price_cents);
+      // The offer, if any (0049): decided here, in this transaction, on the
+      // plan's list price — the desk never computes a discount by hand.
+      const listCents = Number(plan.price_cents);
+      const offer = await resolveOffer(
+        tx,
+        actor.clubId,
+        [{ kind: 'plan', id: input.planId, unitPriceCents: listCents, quantity: 1 }],
+        input.memberId,
+        input.code ?? null,
+        sofiaToday(),
+      );
+      if (!offer.ok) return { ok: false, error: offer.error } as const;
+      const discountCents = offer.applied?.totalDiscountCents ?? 0;
+      const priceCents = listCents - discountCents;
+      // An offer can make a priced plan free: nothing is then owed, and an
+      // amount the desk typed (the list price, quoted from memory) must be
+      // refused — never dropped, or the drawer is over and the books are not.
+      if (priceCents === 0 && input.payment?.amountCents) {
+        return { ok: false, error: 'amount_exceeds_due' } as const;
+      }
+      // A plan with auto-renewal starts a chain whose term counts from today's
+      // first day (0045); the club.renewals job appends the next periods.
+      const renews = plan.auto_renew === true;
       const sold = await tx.execute(sql`
         INSERT INTO club_memberships (club_id, member_id, plan_id, plan_name, kind, audience,
-                                      price_cents, visits_total, starts_on, ends_on, sold_by)
+                                      price_cents, visits_total, starts_on, ends_on, sold_by,
+                                      renews, term_started_on, notice_days, min_term_months,
+                                      self_pause_allowed, self_cancel_allowed)
         SELECT ${actor.clubId}::uuid, ${input.memberId}::uuid, ${input.planId}::uuid,
                ${String(plan.name_bg)}, ${String(plan.kind)}, ${String(plan.audience)}, ${priceCents},
                ${plan.visits_count === null ? null : Number(plan.visits_count)},
-               ${input.startsOn}::date, ${endsOn}::date, ${actor.userId}
+               ${input.startsOn}::date, ${endsOn}::date, ${actor.userId},
+               ${renews}, ${renews ? input.startsOn : null}::date, ${Number(plan.notice_days)},
+               ${plan.min_term_months === null ? null : Number(plan.min_term_months)},
+               ${plan.self_pause_allowed === true}, ${plan.self_cancel_allowed === true}
          WHERE ${clubActorMay(actor, 'sales.manage', { write: true })}
         RETURNING id
       `);
@@ -255,21 +313,41 @@ export async function sellMembership(
         `);
         chargeId = text(charge.rows[0]?.id);
         if (input.payment && chargeId) {
-          await tx.execute(sql`
+          const paid = await tx.execute(sql`
             INSERT INTO club_payments (club_id, charge_id, member_id, kind, amount_cents, method,
                                        received_on, recorded_by)
-            VALUES (${actor.clubId}::uuid, ${chargeId}::uuid, ${input.memberId}::uuid, 'payment',
-                    ${input.payment.amountCents}, ${input.payment.method},
-                    ${input.payment.receivedOn}::date, ${actor.userId})
+            SELECT ${actor.clubId}::uuid, ${chargeId}::uuid, ${input.memberId}::uuid, 'payment',
+                   ${input.payment.amountCents ?? priceCents}, ${input.payment.method},
+                   ${input.payment.receivedOn}::date, ${actor.userId}
+             WHERE ${walletMethodAllowed(actor.clubId, input.payment.method)}
+            RETURNING id
           `);
+          // Credit on a tier without the wallet: nothing of the sale stays.
+          if (paid.rows.length === 0) throw new SaleRefused('feature_unavailable');
         }
+      }
+      if (offer.applied && discountCents > 0) {
+        await recordRedemption(tx, {
+          clubId: actor.clubId,
+          promotionId: offer.applied.promotion.id,
+          memberId: input.memberId,
+          subject: { membershipId },
+          discountCents,
+        });
       }
       await recordClubAudit(tx, {
         clubId: actor.clubId,
         by: { kind: 'staff', actor },
         action: 'membership_sold',
         subjectMemberId: input.memberId,
-        detail: { planId: input.planId, priceCents, paidCents: input.payment?.amountCents ?? 0 },
+        detail: {
+          planId: input.planId,
+          priceCents,
+          // What was written: no charge (a free plan) means no payment.
+          paidCents:
+            chargeId !== null && input.payment ? (input.payment.amountCents ?? priceCents) : 0,
+          promotionId: offer.applied?.promotion.id ?? null,
+        },
       });
       return { ok: true, membershipId, chargeId } as const;
     });
@@ -278,6 +356,55 @@ export async function sellMembership(
     if (code) return { ok: false, error: code };
     throw error;
   }
+}
+
+export type SalePreview =
+  | {
+      ok: true;
+      listCents: number;
+      discountCents: number;
+      priceCents: number;
+      offerName: string | null;
+    }
+  | { ok: false; error: string };
+
+/**
+ * What a desk sale of this plan to this client WILL cost, offer included —
+ * sellMembership's decision (previewOffer), shown before the desk takes the
+ * money. Writes nothing.
+ */
+export async function previewMembershipSale(
+  db: TransactionalDb,
+  actor: ClubActor,
+  input: { memberId: string; planId: string; code: string | null },
+): Promise<SalePreview> {
+  const found = (
+    await db.execute(sql`
+      SELECT p.price_cents FROM club_plans p
+        JOIN club_members m ON m.club_id = p.club_id AND m.id = ${input.memberId}::uuid
+       WHERE ${clubScope(actor, 'sales.manage', 'p')} AND p.id = ${input.planId}::uuid
+         AND p.archived_at IS NULL AND m.archived_at IS NULL
+    `)
+  ).rows[0];
+  if (!found) return { ok: false, error: 'plan_unavailable' };
+  const listCents = Number(found.price_cents);
+  const offer = await previewOffer(
+    db,
+    actor.clubId,
+    [{ kind: 'plan', id: input.planId, unitPriceCents: listCents, quantity: 1 }],
+    input.memberId,
+    input.code,
+    sofiaToday(),
+  );
+  if (!offer.ok) return { ok: false, error: offer.error };
+  const discountCents = offer.applied?.totalDiscountCents ?? 0;
+  return {
+    ok: true,
+    listCents,
+    discountCents,
+    priceCents: listCents - discountCents,
+    offerName: discountCents > 0 ? (offer.applied?.promotion.name ?? null) : null,
+  };
 }
 
 // ─── Pauses, cancellation ──────────────────────────────────────────────────
@@ -289,6 +416,14 @@ export async function pauseMembership(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     return await db.transaction(async (tx) => {
+      // A card subscription keeps billing through a pause, so it is not paused
+      // here; the member stops it and buys again, or the club pauses it in Stripe.
+      const online = await tx.execute(sql`
+        SELECT 1 FROM club_memberships ms
+         WHERE ms.id = ${input.membershipId}::uuid AND ms.provider_subscription_ref IS NOT NULL
+           AND ${clubWriteScope(actor, 'sales.manage', 'ms')}
+      `);
+      if (online.rows.length > 0) return { ok: false, error: 'subscription_pause' } as const;
       const created = await tx.execute(sql`
         INSERT INTO club_membership_pauses (club_id, membership_id, starts_on, ends_on, created_by)
         SELECT ms.club_id, ms.id, ${input.startsOn}::date, ${input.endsOn}::date, ${actor.userId}
@@ -371,12 +506,27 @@ export async function cancelMembership(
     const memberId = text(updated.rows[0]?.member_id);
     if (!memberId) return false;
     if (reason === 'mistake') {
-      await tx.execute(sql`
+      // Voiding is management's act (charges.void, as voidCharge): a desk
+      // cancel-as-mistake leaves the unpaid charge for management to void. An
+      // invoiced charge waits for its credit note (0050), whoever cancels.
+      const voided = await tx.execute(sql`
         UPDATE club_charges ch SET voided_at = now()
          WHERE ch.club_id = ${actor.clubId}::uuid AND ch.membership_id = ${membershipId}::uuid
            AND ch.voided_at IS NULL
            AND NOT EXISTS (SELECT 1 FROM club_payments p WHERE p.charge_id = ch.id)
+           AND NOT ${liveInvoiceFor(sql`ch.club_id`, sql`ch.id`)}
+           AND ${clubWriteScope(actor, 'charges.void', 'ch')}
+        RETURNING ch.id
       `);
+      for (const row of voided.rows) {
+        await recordClubAudit(tx, {
+          clubId: actor.clubId,
+          by: { kind: 'staff', actor },
+          action: 'charge_voided',
+          subjectMemberId: memberId,
+          detail: { chargeId: String(row.id), reason: 'membership_mistake' },
+        });
+      }
     }
     await recordClubAudit(tx, {
       clubId: actor.clubId,
@@ -384,6 +534,51 @@ export async function cancelMembership(
       action: 'membership_cancelled',
       subjectMemberId: memberId,
       detail: { membershipId, reason },
+    });
+    return true;
+  });
+}
+
+/**
+ * Switch a renewing chain on or off from the office (0045). Off is immediate —
+ * it is the club's own decision — and stops the club.renewals job from adding
+ * the next period; the period already sold runs to its end. On is refused
+ * when the member gave notice (the club cannot undo a member's notice), and
+ * only for a membership still running or ahead — never an old one, which
+ * would back-charge every period since.
+ */
+export async function setMembershipRenewal(
+  db: TransactionalDb,
+  actor: ClubActor,
+  membershipId: string,
+  renews: boolean,
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const updated = await tx.execute(sql`
+      UPDATE club_memberships ms
+         SET renews = ${renews},
+             term_started_on = coalesce(ms.term_started_on, ms.starts_on)
+       WHERE ms.id = ${membershipId}::uuid AND ms.cancelled_at IS NULL AND ms.kind <> 'trial'
+         AND ms.renews IS DISTINCT FROM ${renews}
+         -- A card subscription, once stopped, is not restarted from the desk:
+         -- the nightly job never bills it, so "on" would renew nothing.
+         AND (NOT ${renews} OR ms.provider_subscription_ref IS NULL)
+         AND (NOT ${renews} OR (ms.renewal_ends_on IS NULL
+              AND EXISTS (SELECT 1 FROM club_membership_balances lb
+                           WHERE lb.membership_id = ms.id
+                             AND lb.state IN ('active', 'paused', 'upcoming'))))
+         AND NOT EXISTS (SELECT 1 FROM club_memberships nx WHERE nx.renewal_of = ms.id)
+         AND ${clubWriteScope(actor, 'sales.manage', 'ms')}
+      RETURNING ms.member_id
+    `);
+    const memberId = text(updated.rows[0]?.member_id);
+    if (!memberId) return false;
+    await recordClubAudit(tx, {
+      clubId: actor.clubId,
+      by: { kind: 'staff', actor },
+      action: renews ? 'membership_renewed' : 'renewal_stopped',
+      subjectMemberId: memberId,
+      detail: { membershipId, renews },
     });
     return true;
   });
@@ -420,28 +615,65 @@ export async function createCharge(
   });
 }
 
+export type VoidResult = 'ok' | 'not_found' | 'till_sale_charge' | 'invoice_live' | 'wallet_void';
+
+/**
+ * Void a charge. Never a till sale's (0049): that is undone by reversing the
+ * sale, which also returns the goods and stops the offer's use counting —
+ * voiding only its charge would leave the stock and best sellers wrong.
+ * Never while it has a live invoice (0050): the credit note comes first. And
+ * a top-up with money on it is paid back, never voided (the trigger refuses).
+ */
 export async function voidCharge(
   db: TransactionalDb,
   actor: ClubActor,
   chargeId: string,
-): Promise<boolean> {
-  return db.transaction(async (tx) => {
-    const updated = await tx.execute(sql`
-      UPDATE club_charges ch SET voided_at = now()
-       WHERE ch.id = ${chargeId}::uuid AND ch.voided_at IS NULL
-         AND ${clubWriteScope(actor, 'charges.void', 'ch')}
-      RETURNING ch.member_id
-    `);
-    if (updated.rows.length === 0) return false;
-    await recordClubAudit(tx, {
-      clubId: actor.clubId,
-      by: { kind: 'staff', actor },
-      action: 'charge_voided',
-      subjectMemberId: text(updated.rows[0]?.member_id),
-      detail: { chargeId },
+  options: { onlyIfNothingPaid?: boolean } = {},
+): Promise<VoidResult> {
+  try {
+    return await db.transaction(async (tx) => {
+      const found = (
+        await tx.execute(sql`
+          SELECT EXISTS (SELECT 1 FROM club_sales sa
+                          WHERE sa.club_id = ch.club_id AND sa.charge_id = ch.id) AS sale,
+                 ${liveInvoiceFor(sql`ch.club_id`, sql`ch.id`)} AS invoiced
+            FROM club_charges ch
+           WHERE ch.id = ${chargeId}::uuid AND ch.voided_at IS NULL
+             AND ${clubWriteScope(actor, 'charges.void', 'ch')}
+             FOR NO KEY UPDATE
+        `)
+      ).rows[0];
+      if (!found) return 'not_found' as const;
+      if (found.sale === true) return 'till_sale_charge' as const;
+      if (found.invoiced === true) return 'invoice_live' as const;
+      // onlyIfNothingPaid: after a full refund, so no money is left on the
+      // charge — a void row with money on it means the club still owes a refund.
+      const updated = await tx.execute(sql`
+        UPDATE club_charges ch SET voided_at = now()
+         WHERE ch.id = ${chargeId}::uuid AND ch.voided_at IS NULL
+           AND ${clubWriteScope(actor, 'charges.void', 'ch')}
+           AND ${
+             options.onlyIfNothingPaid
+               ? sql`coalesce((SELECT sum(pp.amount_cents) FROM club_payments pp
+                                WHERE pp.charge_id = ch.id), 0) = 0`
+               : sql`true`
+           }
+        RETURNING ch.member_id
+      `);
+      if (updated.rows.length === 0) return 'not_found' as const;
+      await recordClubAudit(tx, {
+        clubId: actor.clubId,
+        by: { kind: 'staff', actor },
+        action: 'charge_voided',
+        subjectMemberId: text(updated.rows[0]?.member_id),
+        detail: { chargeId },
+      });
+      return 'ok' as const;
     });
-    return true;
-  });
+  } catch (error: unknown) {
+    if (saleErrorCode(error) === 'wallet_void') return 'wallet_void';
+    throw error;
+  }
 }
 
 export async function recordPayment(
@@ -458,15 +690,122 @@ export async function recordPayment(
                ${input.receivedOn}::date, ${actor.userId}
           FROM club_charges ch
          WHERE ch.id = ${input.chargeId}::uuid AND ${clubWriteScope(actor, 'payments.record', 'ch')}
+           -- A top-up is loaded and paid back only by its own paths (wallet.ts),
+           -- which keep its invoice true (0050).
+           AND ch.kind <> 'wallet'
+           AND ${walletMethodAllowed(actor.clubId, input.method)}
+           -- Money back on an invoiced charge waits for the credit note (0050).
+           AND (${input.kind} = 'payment' OR NOT ${liveInvoiceFor(sql`ch.club_id`, sql`ch.id`)})
         RETURNING member_id
       `);
-      if (inserted.rows.length === 0) return { ok: false, error: 'not_allowed' } as const;
+      if (inserted.rows.length === 0) {
+        // Say why, when it is not simply someone else's charge.
+        const why = (
+          await tx.execute(sql`
+            SELECT ${walletMethodAllowed(actor.clubId, input.method)} AS wallet_ok,
+                   ${liveInvoiceFor(sql`ch.club_id`, sql`ch.id`)} AS invoiced
+              FROM club_charges ch
+             WHERE ch.id = ${input.chargeId}::uuid AND ${clubScope(actor, 'payments.record', 'ch')}
+          `)
+        ).rows[0];
+        const error =
+          why?.wallet_ok === false
+            ? 'feature_unavailable'
+            : why?.invoiced === true && input.kind === 'refund'
+              ? 'invoice_live'
+              : 'not_allowed';
+        return { ok: false, error } as const;
+      }
       await recordClubAudit(tx, {
         clubId: actor.clubId,
         by: { kind: 'staff', actor },
         action: input.kind === 'refund' ? 'refund_recorded' : 'payment_recorded',
         subjectMemberId: text(inserted.rows[0]?.member_id),
         detail: { chargeId: input.chargeId, amountCents: input.amountCents, method: input.method },
+      });
+      return { ok: true } as const;
+    });
+  } catch (error: unknown) {
+    const code = saleErrorCode(error);
+    if (code) return { ok: false, error: code };
+    throw error;
+  }
+}
+
+/**
+ * Give back everything paid on a charge (a booking cancelled in time): the
+ * credit spent on it back to the client's credit, the money by `method` —
+ * credit spent never leaves as money (0050, club_payments_wallet_cash_back;
+ * it leaves only through a pay-out, which keeps an invoiced top-up true).
+ * One transaction, the charge locked first; an invoiced charge waits for its
+ * credit note (invoice_live), and card money still on it goes back online
+ * (paid_online).
+ */
+export async function refundPaid(
+  db: TransactionalDb,
+  actor: ClubActor,
+  input: {
+    chargeId: string;
+    method: Exclude<ClubPaymentMethod, 'wallet'>;
+    receivedOn: IsoDate;
+  },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    return await db.transaction(async (tx) => {
+      const charge = (
+        await tx.execute(sql`
+          SELECT ch.member_id FROM club_charges ch
+           WHERE ch.id = ${input.chargeId}::uuid AND ch.kind <> 'wallet'
+             AND ${clubWriteScope(actor, 'payments.record', 'ch')}
+             FOR NO KEY UPDATE
+        `)
+      ).rows[0];
+      if (!charge) return { ok: false, error: 'not_allowed' } as const;
+      // After the lock: a fresh statement sees every payment committed before.
+      const net = (
+        await tx.execute(sql`
+          SELECT coalesce(sum(p.amount_cents) FILTER (WHERE p.method = 'wallet'), 0)::int AS credit,
+                 coalesce(sum(p.amount_cents) FILTER (WHERE p.method <> 'wallet'), 0)::int AS money,
+                 coalesce(sum(p.amount_cents) FILTER (WHERE p.method = 'card_online'), 0)::int
+                   AS online,
+                 ${liveInvoiceFor(sql`${actor.clubId}::uuid`, sql`${input.chargeId}::uuid`)}
+                   AS invoiced
+            FROM club_payments p
+           WHERE p.club_id = ${actor.clubId}::uuid AND p.charge_id = ${input.chargeId}::uuid
+        `)
+      ).rows[0];
+      if (net?.invoiced === true) return { ok: false, error: 'invoice_live' } as const;
+      // Card money goes back through the provider, from its row in the ledger:
+      // a desk refund of it would leave Stripe's own refund nowhere to land.
+      if (Number(net?.online ?? 0) !== 0) return { ok: false, error: 'paid_online' } as const;
+      const back = [
+        { method: 'wallet', cents: Number(net?.credit ?? 0) },
+        { method: input.method, cents: Number(net?.money ?? 0) },
+      ].filter((part) => part.cents > 0);
+      if (back.length === 0) return { ok: false, error: 'not_allowed' } as const;
+      for (const part of back) {
+        await tx.execute(sql`
+          INSERT INTO club_payments (club_id, charge_id, member_id, kind, amount_cents, method,
+                                     received_on, recorded_by)
+          SELECT ch.club_id, ch.id, ch.member_id, 'refund', ${-part.cents}, ${part.method},
+                 ${input.receivedOn}::date, ${actor.userId}
+            FROM club_charges ch
+           WHERE ch.id = ${input.chargeId}::uuid
+             AND ${clubWriteScope(actor, 'payments.record', 'ch')}
+        `);
+      }
+      await recordClubAudit(tx, {
+        clubId: actor.clubId,
+        by: { kind: 'staff', actor },
+        action: 'refund_recorded',
+        subjectMemberId: text(charge.member_id),
+        detail: {
+          chargeId: input.chargeId,
+          amountCents: -back.reduce((sum, part) => sum + part.cents, 0),
+          // How the MONEY went back — none when it was all credit.
+          method: Number(net?.money ?? 0) > 0 ? input.method : null,
+          creditCents: Number(net?.credit ?? 0),
+        },
       });
       return { ok: true } as const;
     });
@@ -525,7 +864,9 @@ export async function paymentLedger(
   const byMethod: Record<string, number> = {};
   let totalCents = 0;
   for (const row of ledger) {
-    totalCents += row.amountCents;
+    // Money received: paying with credit (0050) is not new money — it came
+    // in once, as the top-up. It keeps its own line in byMethod.
+    if (row.method !== 'wallet') totalCents += row.amountCents;
     byMethod[row.method] = (byMethod[row.method] ?? 0) + row.amountCents;
   }
   return { rows: ledger, totalCents, byMethod };

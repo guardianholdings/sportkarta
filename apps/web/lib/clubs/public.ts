@@ -9,7 +9,7 @@ import { portalClasses, type PortalClass } from './portal';
  * class page and the block on a facility page.
  *
  * ONE RULE FOR "MAY THIS CLUB BE SHOWN": clubRenderableSql — active, published
- * by the club itself (`visible`), and paid up or community — embedded in every
+ * by the club itself (`visible`), and paid up or in its trial — embedded in every
  * statement here, so a hidden, lapsed or suspended club disappears from every
  * surface at once and its page 404s. A facility is linked only when it is
  * itself public (publicFacilityVisible), so the paid-venue switches are obeyed
@@ -96,15 +96,34 @@ export interface PublicPlan {
   validityDays: number | null;
   validityMonths: number | null;
   visitsCount: number | null;
+  /** The contract terms a buyer reads before paying (0045). */
+  autoRenew: boolean;
+  noticeDays: number;
+  minTermMonths: number | null;
+}
+
+export interface PublicTrainer {
+  name: string;
+  bio: string | null;
+}
+
+export interface PublicFaq {
+  question: string;
+  answer: string;
 }
 
 export interface PublicClub extends Omit<PublicClubCard, 'classesThisWeek'> {
   websiteUrl: string | null;
   publicEmail: string | null;
   publicPhone: string | null;
+  /** green | coral | sky — the page's accent (0045). */
+  accent: 'green' | 'coral' | 'sky';
   locations: PublicLocation[];
   plans: PublicPlan[];
   classes: PortalClass[];
+  /** Staff who opted in themselves (club_staff.public_profile). */
+  trainers: PublicTrainer[];
+  faq: PublicFaq[];
 }
 
 export async function publicClub(slug: string, locale: string): Promise<PublicClub | null> {
@@ -114,14 +133,14 @@ export async function publicClub(slug: string, locale: string): Promise<PublicCl
     await db.execute(sql`
       SELECT c.id, c.slug, ${NAME(locale)} AS name, c.kind, c.tier, c.sports, c.municipality_id,
              (c.logo_path IS NOT NULL) AS has_logo, ${DESCRIPTION(locale)} AS description,
-             c.website_url, c.public_email, c.public_phone
+             c.website_url, c.public_email, c.public_phone, c.accent
         FROM clubs c
        WHERE c.slug = ${slug} AND ${clubRenderableSql('c')}
     `)
   ).rows[0];
   if (!row) return null;
   const clubId = String(row.id);
-  const [locations, plans, classes] = await Promise.all([
+  const [locations, plans, classes, trainers, faq] = await Promise.all([
     db.execute(sql`
       SELECT l.id, l.name, l.address,
              CASE WHEN f.id IS NOT NULL AND ${publicFacilityVisible} THEN f.slug END AS facility_slug,
@@ -135,15 +154,40 @@ export async function publicClub(slug: string, locale: string): Promise<PublicCl
       SELECT p.id, CASE WHEN ${locale} = 'en' THEN coalesce(p.name_en, p.name_bg) ELSE p.name_bg END AS name,
              CASE WHEN ${locale} = 'en' THEN coalesce(p.description_en, p.description_bg)
                   ELSE p.description_bg END AS description,
-             p.kind, p.audience, p.price_cents, p.validity_days, p.validity_months, p.visits_count
+             p.kind, p.audience, p.price_cents, p.validity_days, p.validity_months, p.visits_count,
+             p.auto_renew, p.notice_days, p.min_term_months
         FROM club_plans p
        WHERE p.club_id = ${clubId}::uuid AND p.visibility = 'public' AND p.archived_at IS NULL
        ORDER BY p.sort_order, p.price_cents
     `),
     portalClasses(clubId),
+    // Only a name and a bio, and only for staff who switched it on themselves —
+    // never an e-mail, a role, a photo or the account behind it.
+    db.execute(sql`
+      SELECT coalesce(nullif(btrim(s.display_name), ''), nullif(btrim(u.display_name), '')) AS name,
+             s.bio
+        FROM club_staff s JOIN users u ON u.id = s.user_id
+       WHERE s.club_id = ${clubId}::uuid AND s.public_profile
+         AND coalesce(nullif(btrim(s.display_name), ''), nullif(btrim(u.display_name), '')) IS NOT NULL
+       ORDER BY array_position(ARRAY['owner','manager','trainer','desk'], s.role), name
+       LIMIT 24
+    `),
+    db.execute(sql`
+      SELECT CASE WHEN ${locale} = 'en' THEN coalesce(q.question_en, q.question_bg)
+                  ELSE q.question_bg END AS question,
+             CASE WHEN ${locale} = 'en' THEN coalesce(q.answer_en, q.answer_bg)
+                  ELSE q.answer_bg END AS answer
+        FROM club_faq q
+       WHERE q.club_id = ${clubId}::uuid
+       ORDER BY q.sort_order, q.created_at
+       LIMIT 30
+    `),
   ]);
   return {
     id: clubId,
+    accent: row.accent === 'coral' || row.accent === 'sky' ? row.accent : 'green',
+    trainers: trainers.rows.map((t) => ({ name: String(t.name), bio: text(t.bio) })),
+    faq: faq.rows.map((q) => ({ question: String(q.question), answer: String(q.answer) })),
     slug: String(row.slug),
     name: String(row.name),
     kind: String(row.kind) as ClubKind,
@@ -172,6 +216,9 @@ export async function publicClub(slug: string, locale: string): Promise<PublicCl
       validityDays: p.validity_days === null ? null : Number(p.validity_days),
       validityMonths: p.validity_months === null ? null : Number(p.validity_months),
       visitsCount: p.visits_count === null ? null : Number(p.visits_count),
+      autoRenew: p.auto_renew === true,
+      noticeDays: Number(p.notice_days),
+      minTermMonths: p.min_term_months === null ? null : Number(p.min_term_months),
     })),
     classes,
   };
@@ -196,9 +243,17 @@ export async function publicOccurrence(
   const result = await getDb().execute(sql`
     SELECT o.id, o.class_id, k.title, k.description, k.sport, o.starts_at, o.ends_at, o.status,
            l.name AS location_name, k.trial_allowed,
-           coalesce(nullif(btrim(sto.display_name), ''), nullif(btrim(uo.display_name), ''), nullif(btrim(stk.display_name), ''), nullif(btrim(uk.display_name), '')) AS instructor_name,
+           -- A trainer is named outside the office only by their OWN choice
+           -- (club_staff.public_profile, 0045) — never from the account
+           -- behind them alone, and never the class's trainer for a date
+           -- somebody else teaches.
+           CASE WHEN sto.public_profile THEN coalesce(nullif(btrim(sto.display_name), ''), nullif(btrim(uo.display_name), ''))
+                WHEN o.instructor_user_id IS NULL AND stk.public_profile THEN coalesce(nullif(btrim(stk.display_name), ''), nullif(btrim(uk.display_name), ''))
+           END AS instructor_name,
            coalesce(o.capacity, k.capacity) AS capacity,
            o.starts_at - make_interval(hours => k.booking_opens_hours) AS opens_at,
+           k.cancel_deadline_hours, k.late_cancel_fee_cents, k.no_show_fee_cents,
+           k.strike_limit, k.strike_days,
            (SELECT count(*) FILTER (WHERE bp.booking_status = 'going')::int FROM club_booking_positions bp
              WHERE bp.club_id = o.club_id AND bp.occurrence_id = o.id) AS going,
            (SELECT count(*) FILTER (WHERE bp.booking_status = 'waitlisted')::int FROM club_booking_positions bp
@@ -236,6 +291,12 @@ export async function publicOccurrence(
     waitlisted: Number(row.waitlisted ?? 0),
     bookingOpensAt: iso(row.opens_at),
     trialAllowed: row.trial_allowed === true,
+    cancelDeadlineHours: Number(row.cancel_deadline_hours),
+    lateCancelFeeCents:
+      row.late_cancel_fee_cents === null ? null : Number(row.late_cancel_fee_cents),
+    noShowFeeCents: row.no_show_fee_cents === null ? null : Number(row.no_show_fee_cents),
+    strikeLimit: row.strike_limit === null ? null : Number(row.strike_limit),
+    strikeDays: row.strike_days === null ? null : Number(row.strike_days),
     clubId: String(row.club_id),
     clubSlug: String(row.slug),
     clubName: String(row.club_name),

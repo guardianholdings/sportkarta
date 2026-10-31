@@ -40,6 +40,9 @@ export const CLUB_PERMISSIONS = [
   'payments.view',
   'payments.record',
   'charges.void',
+  'shop.sell',
+  'shop.manage',
+  'invoices.issue',
   'schedule.view',
   'schedule.manage',
   'roster.view',
@@ -51,6 +54,17 @@ export const CLUB_PERMISSIONS = [
   'data.export',
   'data.import',
   'audit.view',
+  'messages.send',
+  'inbox.reply',
+  'feedback.view',
+  'events.manage',
+  'events.results',
+  'documents.manage',
+  'documents.sign',
+  'ranks.view',
+  'ranks.manage',
+  'ranks.award',
+  'api.manage',
 ] as const;
 export type ClubPermission = (typeof CLUB_PERMISSIONS)[number];
 
@@ -75,6 +89,12 @@ const MATRIX: Readonly<Record<ClubPermission, readonly ClubRole[]>> = {
   'payments.view': FRONT_OF_HOUSE,
   'payments.record': FRONT_OF_HOUSE,
   'charges.void': MANAGEMENT,
+  // The till is the desk's; what is on the shelf, its price and its stock
+  // count are management's (wave B1).
+  'shop.sell': FRONT_OF_HOUSE,
+  'shop.manage': MANAGEMENT,
+  /** Invoices and credit notes (0050): a legal document, so owner and manager. */
+  'invoices.issue': MANAGEMENT,
   'schedule.view': ALL,
   'schedule.manage': MANAGEMENT,
   'roster.view': FRONT_OF_HOUSE,
@@ -86,6 +106,58 @@ const MATRIX: Readonly<Record<ClubPermission, readonly ClubRole[]>> = {
   'data.export': MANAGEMENT,
   'data.import': MANAGEMENT,
   'audit.view': MANAGEMENT,
+  /**
+   * Messages to a group and automations (0051): what goes out under the
+   * club's name, to many people, is management's.
+   */
+  'messages.send': MANAGEMENT,
+  /**
+   * The inbox and inquiries (0052): whoever answers the club's phone answers
+   * its messages. The prospects pipeline is members.manage.
+   */
+  'inbox.reply': FRONT_OF_HOUSE,
+  /** Ratings and their comments (0052): how the club is doing is management's. */
+  'feedback.view': MANAGEMENT,
+  /**
+   * Events, camps and tournaments (0053): what the club puts on, its tickets,
+   * prices and cancellation are management's. Registering a person at the
+   * desk, and giving a place up for them, is bookings.manage (front of house).
+   */
+  'events.manage': MANAGEMENT,
+  /**
+   * A tournament's results (0054): whoever runs the matches records them —
+   * management and the trainers. The draw itself is events.manage.
+   */
+  'events.results': ['owner', 'manager', 'trainer'],
+  /**
+   * Documents and waivers (0055): what the club asks its clients to sign, and
+   * its text, are management's.
+   */
+  'documents.manage': MANAGEMENT,
+  /**
+   * Taking a signature at the desk — the member of staff is its witness —
+   * belongs to the front of house, who meets the client. Reading signatures
+   * is members.view.
+   */
+  'documents.sign': FRONT_OF_HOUSE,
+  /**
+   * Ranks and belts (0056). Everybody on the staff reads the ladders and who
+   * holds what — a trainer through a projection (a display name, the rank and
+   * the attendance count; never contact details or money).
+   */
+  'ranks.view': ALL,
+  /** The ladders, their ranks, colours and what each asks: management's. */
+  'ranks.manage': MANAGEMENT,
+  /**
+   * Awarding a rank (or revoking a mistaken award): whoever grades — the
+   * trainers and management. The club's own staff only (clubStaffWriteScope).
+   */
+  'ranks.award': ['owner', 'manager', 'trainer'],
+  /**
+   * API keys, webhooks and door controllers (0057). A key acts as the person
+   * who created it, so only management may create one — and only for itself.
+   */
+  'api.manage': MANAGEMENT,
 };
 
 export function isClubRole(value: unknown): value is ClubRole {

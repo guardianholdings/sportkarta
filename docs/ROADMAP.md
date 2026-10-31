@@ -216,9 +216,10 @@ facility data, moderation or scoring. Migrations `0019`–`0023`.
 
 ## 9b. Stage 9 — «Клубове» (club-management add-on, 2026-10-24)
 
-A paid add-on for private gyms, studios and sports clubs (free community tier
-for clubs at public facilities), sold by invoice and switched on by the
-operator. Plan: the approved plan of 2026-10-24; commercial record:
+A paid add-on for private gyms, studios and sports clubs (the free community
+tier for clubs at public facilities was withdrawn 2026-10-31 — every tier is
+paid, with a 30-day trial; migration 0060), sold by invoice and switched on
+by the operator. Plan: the approved plan of 2026-10-24; commercial record:
 `docs/MONETISATION.md` S7. **Behind `CLUBS_ENABLED`, which ships off**: every
 club route 404s, the worker's club jobs find nothing, the map feed carries no
 club flag. Migrations `0038`–`0044`.
@@ -268,10 +269,571 @@ operator invoices by bank transfer and activates by hand (30-day trial).
   trial, tier / paid-until / member cap, suspend, purge of archived clubs, the
   monthly `members_active` figure that paid tiers are invoiced on.
 - [ ] **9.8 Not in v1** — OG share cards for club pages; Playwright specs
-  (CI runs with the flag off); CSV member import wizard; per-head trainer pay
-  report; v1.1 and v2 per the plan (leads pipeline, Stripe Connect, products,
-  messaging inbox, door access).
+  (CI runs with the flag off); v2 waves below.
 
+### 9c. «Клубове» v2 — parity with vedro.one, 1club.ai and anolla.com (2026-10-25)
+
+The operator asked that every feature the three competitors present is covered,
+with extras only POPS has. Plan of 2026-10-25 (waves A → E → C → B → F → D → G
+→ H, branch `feat/clubs-parity`). Operator decisions, not to be reopened:
+online payments through EACH CLUB'S OWN Stripe (Connect Standard, hosted
+Checkout by redirect, no Stripe script on pops.bg, the NGO never holds funds);
+email + push + an EU SMS gateway (cost passed to the club; no WhatsApp); paid
+clubs may add GA4 / Meta Pixel IDs to their own public pages only, behind a
+consent banner there (never GTM); an installable web app, no native apps.
+Features are gated per tier in ONE pure matrix (`lib/src/clubs/features.ts`)
+and, where an outside service is involved, by an env switch as well.
+
+- [x] **A — foundations** (`0045`, `0047`) — plan terms (auto-renew, minimum
+  term, notice, self-pause/-cancel) and the nightly `club.policies` renewals;
+  no-show and late-cancel fees and booking strikes (attendance never refused);
+  CSV member import from vedro/1club/spreadsheets (preview, then one-transaction
+  commit; idempotent; leva refused); trainer pay, time off, a teaching
+  calendar feed and public trainer profiles; advanced reports (peak hours,
+  per-member retention, churn, revenue by plan, top clients, trainer pay,
+  engagement score) and the owner's monthly health mail; the club page as the
+  club's website (accent, trainers, FAQ, `/k/<slug>`, embeddable widgets with
+  no script); portal self-service (stop renewal with notice, one pause, own
+  phone and consents). Rules and terms are SNAPSHOTTED onto bookings and
+  memberships (0047) — a rule a member never saw never binds them.
+- [x] **E — online payments** (`0046`) — Connect OAuth from Настройки →
+  Онлайн плащания; members pay open charges and buy public plans on Stripe's
+  hosted page (a renewing plan is a Stripe subscription); the webhook records
+  ids only and the worker re-fetches every object as the club's account; a
+  checkout applies once, and money that no longer fits is `unapplied` and
+  listed for the office; refunds from the payments screen (a full refund
+  voids the charge). Behind `CLUB_PAYMENTS_ENABLED`; a local `fake` provider
+  (`/dev/plashtane`) stands in for Stripe and can never run in production.
+- [x] **C — rooms, courts, equipment and appointments** (`0048`) — bookable
+  resources (exclusive, or a pool of N), opening hours, closures; services
+  (rental by the hour, appointment with a trainer) with durations, buffer,
+  peak/off-peak and member prices, a booking window and cancel deadline;
+  trainers' appointment hours; classes that occupy a room. Every busy interval
+  is a row in `club_calendar_claims`, written only by triggers and guarded by
+  two EXCLUDE constraints — double booking is impossible by construction. The
+  slot engine and the price table are pure (`lib/src/clubs/slots.ts`,
+  `pricing.ts`), DST-tested. Office «Съоръжения», «Услуги», «Резервации» (day
+  calendar, desk booking); the member books in the portal (`/rezervatsiya`),
+  online-required services hold the slot for 35 minutes while Stripe takes the
+  money. Holds are released in one transaction (charge voided, payment page
+  closed); any payment confirms a hold; a paid booking cancelled in time is
+  listed as a refund owed until it is recorded. Not yet: two-way calendar sync
+  (the ICS busy import) — moved to F. Known gaps, deliberately later: a class
+  date the materializer skips because its room is booked reaches only the
+  worker log (the save-time check names the dates, but not for a pool room);
+  two members racing for the same court get `slot_taken` even when a second
+  court is free.
+- [ ] **B — shop, promotions, wallet, invoices** (waits on the accountant: Н‑18 for the till, online card payments)
+  - [x] **B1 — shop and offers** (`0049`): products with an append-only stock
+    ledger (deliveries, write-offs, shelf counts; on hand derived, may go
+    below zero); the till («Каса») with gapless per-club sale numbers, snapshot
+    lines, one `product` charge per sale, payment or the client's account, a
+    printable receipt marked «Не е фискален бон», and reversal once («сторно»:
+    goods back, money back the way it came, charge voided); best sellers.
+    Offers («Отстъпки»): a code or automatic (struck-through prices on the club
+    page and the purchase page), percent / amount / fixed price, for plans,
+    products or named ones, validity, caps overall and per client, new clients
+    only, a loyalty threshold; one offer per purchase, the best for the buyer
+    (pure engine `lib/src/clubs/promotions.ts`); single-use generated gift
+    vouchers. Applied at the till, on a desk plan sale (a blank amount pays all
+    of it after the offer) and on a one-off online purchase (recorded when the
+    money lands); never on a Stripe subscription. Shop behind `shop` +
+    `CLUB_SHOP_ENABLED`; offers behind `promotions`.
+  - [x] **B2 — wallet and invoices** (`0050`): a client's prepaid credit
+    («Предплатен кредит») derived from the 0041 books — a top-up is a `wallet`
+    charge created already paid (at the desk, or online when the money
+    arrives), spending is a `wallet` payment at the desk, on a plan sale or at
+    the till; a trigger keeps every balance the club writes at zero or above
+    and is the only arbiter; a top-up is never owed, paid back rather than
+    voided, and a client with credit is never erased. Revenue figures leave
+    `wallet` payments out (the money came once, as the top-up). Invoices and
+    credit notes («Фактури»): issued from a charge (a till sale's lines, or
+    the charge as one line) to a person or a company, with the club's
+    details (address, VAT number, IBAN, default rate) snapshotted; VAT split
+    from gross to the cent (pure `lib/src/clubs/invoices.ts`); one gapless
+    10-digit series, never dated before the previous number; lines written
+    with their document and adding up to it at commit; never changed — a
+    credit note cancels what is left of it, or (a one-line invoice) exactly
+    the money given back: a pay-out of credit, a refund made in Stripe.
+    Prepaid credit is invoiced when it is
+    LOADED: a top-up is invoiced for what stays on it, a charge credit was
+    spent on is not invoiced again, credit never pays a charge with a live
+    invoice (both triggers). Spent credit never leaves as money (a refund in
+    money is capped by the money paid on the charge; a cancelled booking
+    gives its credit back to the credit). Invoiced credit is paid back by an
+    owner or manager, and the pay-out writes a partial credit note for
+    exactly what leaves; «Фактури» lists invoices whose money went back
+    afterwards (a refund in the Stripe dashboard) without a credit note.
+    Every buyer has an address. The document reads in
+    Bulgarian in any UI locale and prints from the browser. Invoices behind
+    `invoices` + `CLUB_SHOP_ENABLED`.
+    - Accountant's answers (operator, 2026-10-25): «чл. 113, ал. 9 от ЗДДС»
+      is the right wording for a club without VAT registration; credit is
+      invoiced when loaded, not when spent; a private-person buyer needs an
+      address.
+    - Accountant's answers (operator, 2026-10-30): prepaid credit is NOT a
+      multi-purpose voucher — a top-up is taxed when loaded at the club's own
+      rate, as built; the cent drift of partial credit notes is accepted; the
+      invoice content (ЗДДС чл. 114) is fine; advance and instalment invoices
+      are REFUSED (a charge paid partly with credit is not invoiced for the
+      rest — `invoice_paid_by_credit` stays); a club rings its sales on its
+      OWN fiscal device, so the till stays «Не е фискален бон».
+    - Explained, nothing to build: a 0 % line on a VAT-registered
+      club's invoice exists for EXEMPT supplies (e.g. a non-profit sports
+      club's services to people doing sport, ЗДДС чл. 41 / Directive art.
+      132(1)(m)); the club types the legal ground (чл. 114, ал. 1, т. 12) and
+      the invoice is refused until it does.
+    - [ ] **Open:** what a club issues for an ONLINE card payment through
+      Stripe (Н‑18: a fiscal receipt from its own device, or the e-shop route
+      — a sale document per Приложение 33 with monthly reporting to НАП);
+      asked again 2026-10-30.
+    - [ ] **Open:** whether a club that records desk sales in the till while
+      ringing them on its own fiscal device makes POPS «софтуер за управление
+      на продажби» (Н‑18 Глава седма „а“); `CLUB_SHOP_ENABLED` stays off
+      until answered.
+- [ ] **F — push, SMS, broadcasts, automations, inbox, leads, feedback**
+  - [x] **F1 — channels, broadcasts, automations** (`0051`): every club
+    message goes by e-mail, SMS or Web Push from the WORKER, through the 0044
+    ledger, now unique per (club, channel, key) — one message may go by every
+    channel, never twice by one. Push is self-implemented (VAPID, RFC 8291,
+    pinned by the RFC's own example), the key pair DERIVED from
+    `PUSH_VAPID_SECRET` (deploy.yml derives it from `AUTH_SECRET`), and a
+    subscription's endpoint must be a known browser push service (a CHECK —
+    the worker never posts to an address a browser chose). SMS goes through a
+    transport seam with the part count (Cyrillic: 70, then 67 per part); a
+    club's parts per Sofia month never exceed `clubs.sms_monthly_cap`, set by
+    the operator (a trigger, race-free) and frozen into the monthly activity
+    for re-invoicing. The automatic notices go by push (freed place, cancelled
+    class, reminder, abonnement ending) and, where the club chose, by SMS.
+    «Съобщения» in the office: a message to a group (everyone, a segment, a
+    list filter, a tag, a plan's holders, a class's attendees — the members
+    list's own SQL, shared), service or OFFER; offers only to records with a
+    consent timestamp for that channel, never by push, always with a way out
+    (one-click e-mail opt-out, a short `/s/<token>` link in an SMS); drafts,
+    reach per channel, send now or later, three a club per day, fixed once
+    scheduled, kept once sent, counted from the ledger. Automations: welcome
+    after the first visit (service), trial / ended-abonnement follow-ups and
+    "we miss you" (offers), daily at 10:15, each event answered once.
+    Bulk e-mail stops at `CLUB_BULK_MAIL_DAILY_LIMIT` per day across clubs,
+    and is shared: broadcasts use at most three quarters (the rest is kept
+    for the automations), each club at most 25 per five-minute sweep, the
+    club that sent least today first; messages go out only 08:00–21:00 Sofia,
+    SMS and push never wait for the e-mail allowance, a message can be
+    cancelled while it is being sent (it keeps the count of what it reached),
+    and one that could never start within 3 days of its time is retired with
+    the reason shown. The automations' part is shared too: each club with
+    somebody to answer gets an equal slice, the club that sent fewest today
+    first, and the leftover goes to those still waiting (an event that
+    automation's channel already answered is never a candidate again).
+    Push on the member's devices from the portal and `/profil`; each club can
+    be muted on its own link. A club's own installable app:
+    `/klub/<slug>/manifest.webmanifest` (name, logo, opens on the portal).
+    Behind `broadcasts` / `automations` / `sms` tiers and `CLUB_SMS_ENABLED`,
+    `CLUB_PUSH_ENABLED`.
+    - [ ] **Operator — before each switch goes on (audit 2026-10-30):**
+      - **Stripe** (`CLUB_PAYMENTS_ENABLED`, `PAYMENT_PROVIDER=stripe`): the
+        NGO's platform account; a Connect application (`ca_…`) whose redirect
+        is `https://pops.bg/api/clubs/stripe/connect`; a CONNECT webhook
+        endpoint at `https://pops.bg/api/clubs/stripe/webhook` subscribed to
+        `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+        `checkout.session.async_payment_failed`, `checkout.session.expired`,
+        `invoice.paid`, `customer.subscription.deleted`, `charge.refunded`,
+        `account.updated`, `account.application.deauthorized`; the secrets
+        `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_CLIENT_ID`.
+        Test-mode keys first; the webhook answers whenever the keys are set.
+      - **Cloudflare**: a WAF custom rule that SKIPS Bot Fight Mode and the
+        managed challenges for `/api/clubs/stripe/webhook`, `/api/clubs/v1/*`,
+        `/api/clubs/mcp` and `/api/clubs/v1/access/check` — Stripe, API
+        clients and door controllers are not browsers, and a challenge page
+        means events silently never arrive.
+      - **Mail relay**: `CLUB_BULK_MAIL_DAILY_LIMIT` (repository variable;
+        default 60) stays below the relay's daily quota minus the sign-in
+        codes (Migadu Mini: 100 a day) — upgrade the plan before the first
+        club on a broadcasts tier.
+      - **SMS** (`CLUB_SMS_ENABLED`): choose the EU gateway (price, DPA, the
+        «POPS» sender ID) AND land its adapter — one class behind
+        `SMS_TRANSPORT`, and none exists yet: with the switch on and no
+        adapter the office offers SMS that are silently skipped. Then
+        `SMS_TRANSPORT`, `SMS_API_KEY`, `SMS_SENDER_ID`.
+      - **Secrets**: rotating `AUTH_SECRET` silently orphans every push
+        subscription and every webhook signing secret (deploy.yml derives
+        both from it) — members re-enable push, integrators rotate keys.
+      - **Dependencies**: `better-auth` 1.6.23 carries a critical advisory
+        (an OAuth state usable as a magic link) reachable only with a social
+        provider ON — keep `AUTH_GOOGLE/APPLE/FACEBOOK_ENABLED=false` until
+        the bump to ≥ 1.7.7 is tested; `nodemailer` ≥ 10.1.4 likewise.
+    - [ ] **Later:** «service» is the club's own label — a club could call an
+      offer a service message and reach members without consent. The terms
+      forbid it; give the operator a view of service messages by volume and
+      text to spot it.
+    - [ ] **Known limits (accepted for v1):** a broadcast has no per-club
+      DAILY e-mail cap — fairness is per sweep (25) and by who sent least
+      today, so a club alone in a quiet day may use the whole broadcast
+      share. Cancelling a message mid-send records its counts at that
+      instant; a send already in flight may land just after and is in the
+      ledger but not in the count. The SMS length check uses the longest
+      member name when the message is saved; a longer name added later can
+      push one SMS past the part limit (the club's monthly cap still holds).
+      A member who joins the group while a started message waits only on
+      e-mail allowance gets its SMS/push when that club next has e-mail room.
+    - [ ] **For the lawyer:** offers by e-mail go only with explicit consent
+      (no "soft opt-in" for existing clients yet) — confirm, or allow the
+      ZEK/ePrivacy existing-customer exemption with an opt-out at collection.
+  - [x] **F2 — inbox and inquiries, leads pipeline, feedback** (`0052`):
+    «Входящи» in the office and «Съобщения» in the portal — a conversation is
+    between the club and ONE of its client records, only signed-in people
+    write, the office writes first only to an adult member with an account,
+    and the member sees the club's name, never the staff member's. «Изпратете
+    запитване» on the club's page (a hall, an event, a corporate group, a
+    party, a camp; a date and a party size) gets a stranger their own record
+    (the trial booking's path), opens the thread and puts them on the
+    pipeline. Notices go by the worker and say THAT there is something to
+    read, never what; a burst of messages is one notice (only when the other
+    side had read up to then); at most 30 messages, 5 new conversations and
+    3 inquiries a person a day per club, and 10 inquiries a day to all clubs. «Потенциални клиенти» (from Членове): the pipeline's stage
+    is DERIVED (`club_lead_stages`) — a trial booking, a first visit and a sale
+    move the card by themselves; the desk records the call, the next step and
+    its owner, and a closed-list reason for a loss; answering an inquiry marks
+    the prospect contacted; the desk's daily 09:05 list (`club.leads`, counts
+    only) is 1club's «lead not contacted». «Отзиви»: a member rates (1–5, an
+    optional private comment) a class they CAME to or a booking of theirs
+    that is over, once, within 14 days — a trigger admits nobody else and
+    records the trainer itself; the office sees averages by class and by
+    trainer and the comments; the club's page shows the average only from 5
+    ratings in 12 months, counting only classes the member scanned into (QR
+    or card — a desk tick or a booking is the club's own word); after EVERY
+    rating, never only good ones (Google forbids review gating), the club's
+    own Google review link (three Google review-link shapes, CHECK-pinned).
+    «Молба за оценка» is an automation (e-mail only, ≤ 7 days, once a month
+    per member, linked members only, marketing consent required). A minor's
+    record has no conversation (the guardian is who the club writes to); an
+    NGO admin reads the inbox and never writes as the club. Inbox and pipeline
+    on every tier; ratings standard and up. Conversations and ratings are in
+    the club export and go with the record.
+    - [ ] **For the lawyer:** the request to rate a class is sent as MARKETING
+      (only to members who consented to offers by e-mail). If it may go as a
+      service message about a class the member already had, `automationPurpose`
+      is the one line to change.
+    - [ ] **Known limits (accepted for v1):** a rating names the class's
+      trainer as the database knows them when the member rates — a substitute
+      removed from the staff, or a class's instructor changed, inside the
+      14-day window credits the class's current instructor. Staff are told of
+      a new message by e-mail only (no push to staff yet).
+- [x] **D — events, camps, tournaments**
+  - [x] **D1 — events, camps, workshops: tickets, waitlist, online payment** (`0053`):
+    «Събития» in the office (management puts an event on — a draft, its ticket
+    types with a price, a member price, a capacity and an audience, then
+    «Публикувай»; the desk registers clients and gives places up), a public
+    event page (register yourself or a child, team name for team events, pay a
+    held place, give a place up, «Добавете в календара» `.ics`), the events on
+    the club's page and in the portal. A seat is taken only while there is one —
+    the database counts under the event lock and refuses a newcomer while
+    somebody waits for that ticket; a full event takes a place in line, in
+    arrival order; a freed seat goes to the first in line at once (outright, or
+    held 23 hours to pay when the event takes payment online only); a lapsed
+    hold is released by the 10-minute sweep and the line moves. Giving a
+    confirmed place up after the snapshotted deadline keeps the charge;
+    otherwise it is voided and paid money is listed as owed back («Плащания»,
+    with the court bookings). Cancelling the event is final: every place goes,
+    everyone is told. A published event with a court closes it for its span —
+    the calendar refuses an event on a booked court and a booking over an event.
+    Notices: registered (a seat, a held seat with its deadline, or the place in
+    line), moved up, event cancelled — by e-mail, and push for the last two.
+    Events are on every tier.
+    - [ ] **Known limits (accepted for v1):** the member's private calendar
+      feed does not list event places yet (the public `.ics` per event does);
+      an event's time change after registration tells nobody; places are per
+      person (a team registers once, under its captain).
+  - [x] **D2 — tournaments: draws, results, standings, ratings** (`0054`): a
+    tournament is an event of kind «Турнир»; its entrants are the confirmed
+    places, numbered in arrival order. Management draws it («Изтегли схемата»)
+    as single elimination — standard seeding, the byes to the top seeds,
+    decided at once — or round robin (everybody meets everybody, circle
+    method), seeded by arrival or by the club rating. A trainer or management
+    records a result (two scores or a walkover); the winner moves on by itself;
+    an elimination has no draws; a result is corrected only while the next
+    match has none, and a re-draw only before any result. Round robin keeps a
+    table (3 / 1 / 0). The club rating per sport («Рейтинг», members.view) is an
+    Elo fold (start 1500, K 32) over every individual tournament — derived on
+    every read, never stored; a correction keeps its match's place in that
+    fold. The public event page shows the bracket or the table, a name only
+    with the entrant's OWN «Покажете името в резултатите» (otherwise
+    «Участник N»), given by the client's own account when they have one. The
+    consent ends with the place, with the link it was given through (unlinked
+    or the account deleted) and with erasure; it is withdrawn from the event
+    page at any time, the tournament over or not, and the desk hides a name on
+    request. A withdrawn entrant keeps their number in the draw; somebody
+    confirmed after the draw is no entrant. The database keeps the rest: a bye
+    names its winner, the higher score wins, a recorded result is never deleted
+    or withdrawn, a drawn tournament keeps its format (and its kind, sport and
+    team format on a save). Matches are in the club export (`matches.csv`).
+    Tournaments are on every tier.
+    - [ ] **Known limits (accepted for v1):** no double elimination, Swiss or
+      groups-then-knockout; no seeding by hand; a team tournament is rated
+      nowhere (the Elo is individual only); no third-place match.
+- [x] **G — waivers and documents, ranks and belts**
+  - [x] **G1 — waivers and documents** (`0055`): «Документи» in the office —
+    a declaration, the house rules, a parent's consent, each asked of nobody,
+    every client, minors or clients with a trial abonnement. The text lives in
+    VERSIONS the database numbers and hashes (sha256 over the hashes of the
+    title and text in both languages, recomputable by anyone) and never edits;
+    a new version says whether it needs a new signature. Clients sign from the
+    portal («Документи») by typing their name and ticking that they read it —
+    a minor signs their own record (operator decision 2026-10-30), and a
+    parent or guardian may sign for a child; the desk takes a witnessed
+    signature from the member card and records who signed. «Липсва
+    декларация» warns at the desk search and on the member card and NEVER
+    refuses a visit. Every signature has a
+    print-ready page (the exact text signed, who, how, when, the hash) and is in
+    the export (`signatures.csv`); it goes with the client's record when the
+    club erases it. Documents are on every tier.
+    - [ ] **Known limits (accepted for v1):** no signing on the kiosk; no
+      reminder mail to sign; a trial CLASS booking alone asks for nothing (a
+      trial abonnement does); the trainer's roster shows no warning (the
+      roster projection stays a name and a minor flag). Since a minor signs
+      their own record, a minors' document — a parent's consent too — is
+      answered by the minor's own signature; a per-document «parent must
+      sign» option is the fix if a club needs one (child consent stays a
+      lawyer question, §1's 0020 note). An account that was linked to a
+      record as its OWN before the desk ticked «непълнолетен» (a parent who
+      claimed the child's record) signs as the client, not the guardian.
+  - [x] **G2 — ranks and belts** (`0056`): «Пояси» in the office — a club's
+    grading ladders (judo's kyu belts, BJJ's belts, taekwondo's gup — three
+    starting templates, or an empty ladder), each tied to a sport whose
+    classes count toward it (or to every check-in). A rank has a colour and an
+    optional second colour from a CLOSED belt palette (CSS tokens, never a
+    colour a club types), stripes (0–6), and what it asks before it is
+    awarded: check-ins and/or months at the rank before. Trainers and
+    management award ranks — one at a time from the member card or a ladder,
+    or the whole exam at once (each ticked client gets the rank the page
+    showed them; a client whose rank changed meanwhile is skipped) — and
+    revoke a mistake, which stays in the history. «Готови за изпит» is DERIVED
+    from attendance (`club_member_rank_progress`) and never refuses anything:
+    the coach awards what they decide. «Започнали в дисциплината» lists who
+    trained in the ladder's sport in the last 90 days without a rank, to start
+    them on the first one. A trainer sees clients by name only (the roster's
+    projection). The portal shows a client — and a parent, their child — the
+    current belt, how far the next one is and the history. Every award is in
+    the export (`ranks.csv`) and goes with the client's record when the club
+    erases it. Ranks are on every tier.
+    - [ ] **Known limits (accepted for v1):** no reminder or notice to the
+      client when they become ready or are awarded; no exam scheduling (an
+      exam is a club event, wave D, plus the awards); a ladder counts one
+      sport (a club teaching judo in two class types gives them one sport); a
+      rank's asks are counted from the CURRENT award's day, so a client
+      demoted and re-awarded starts counting again; belts never reach the
+      public passport (that would need the passport's own opt-in, Stage 5).
+- [x] **H — club API, webhooks, MCP, door access, pixels** (pixels built, switched off until the lawyer's sign-off)
+  - [x] **H1 — API, webhooks, MCP connector, doors** (`0057`): «Интеграции» in
+    the office (management; Pro tier; `CLUB_API_ENABLED`, ships off). API
+    keys (`skbk_…`, shown once, SHA-256 only, closed scopes) ACT AS THE STAFF
+    MEMBER WHO CREATED THEM — every request runs the office's own scoped
+    statements with that person's role as it is now, narrowed to the key's
+    scopes; a creator who leaves the club takes their keys' power with them.
+    REST under `/api/clubs/v1` (members, classes, bookings, check-ins,
+    payments; Bearer only, never CORS-open, `no-store`, 120 a minute per key,
+    a stable error envelope, optional `Idempotency-Key` that records an
+    outcome and the id it made — never a response body). Webhooks are an
+    OUTBOX the database fills by trigger in the transaction that made the
+    change (every path is covered, a rolled-back change announces nothing):
+    thin events (type, ids, `seq`), signed `POPS-Signature` with a per-endpoint
+    secret DERIVED from `CLUB_WEBHOOK_SECRET` (deploy.yml derives it from
+    `AUTH_SECRET`; shown once, rotation signs with both for a day), sent by
+    the worker every minute through `safePost` — https, PUBLIC addresses only,
+    checked at connection time (DNS rebinding), no redirects, 10 s — retried
+    8 times over a day and a half; three failing days disable an endpoint;
+    `member.deleted` is held for a disabled endpoint so an erasure reaches the
+    integration. The MCP connector (`/api/clubs/mcp`, stateless Streamable
+    HTTP, JSON only) offers the same functions as tools filtered by the key's
+    scopes, writes annotated so the assistant asks first — the club connects
+    ITS OWN assistant; POPS sends nothing to an AI provider. Door controllers
+    (`club_kiosk_devices.kind = 'door'`, `skbd_…` token) post a card or member
+    QR to `/api/clubs/v1/access/check`; the club's rule ('member' | 'covered')
+    decides, an allowed entry IS the check-in (method 'door', which reaches a
+    linked, consenting member's training log like a card at the desk), a
+    refused one records nothing. Developer documentation in the office.
+    - [ ] **Known limits (accepted for v1):** the MCP connector authenticates
+      with a key in a header (Claude Code, Claude Desktop through a bridge,
+      most agent frameworks) — not OAuth, so clients that only accept OAuth
+      connectors cannot use it yet; no vendor adapters for Salto KS or WebLock
+      (partner credentials, manual step) — any controller or bridge that can
+      make an HTTPS call works; no "send a test event" button (create a test
+      record instead); webhook delivery order is not guaranteed (`seq` orders
+      them); `member.deleted` can still be lost after 8 failures or the 30-day
+      prune, so integrators are told to reconcile against the member list;
+      a door has no anti-passback — a second scan for the same class or day
+      opens again (a screenshot of a member QR works for about two minutes);
+      a webhook endpoint outlives the manager who added it (the office shows
+      who did, and flags it once they have left); a
+      key whose creator is an NGO admin as well as club staff keeps the
+      admin's reach inside that club (it never exceeds what the admin can
+      already do in the office).
+  - [x] **H2 — GA4 / Meta Pixel on the club's public pages** (`0058`; built,
+    `CLUB_PIXELS_ENABLED` ships off until the lawyer's joint-controller
+    sign-off): in Настройки a paid club (Старт and up) enters its GA4
+    measurement id and/or Meta Pixel id — ids only, CHECK-pinned, never a
+    tag manager — plus a link to the club's privacy notice (a CHECK requires
+    it with any id), and confirms it is responsible for the tracking. Its
+    public pages (club page, inquiry form; event and class date only for a
+    visitor who is not signed in, since those then show family names) ask the
+    visitor first, at the top of the page, with «Приемам» and «Отказвам» of
+    equal weight, naming the purposes (Meta: ad targeting) and transfers
+    outside the EU and linking the club's notice; nothing loads before an
+    answer of yes, the answer stays in the visitor's browser per club for a
+    year (no server cookie), it can be changed at any time, and withdrawing
+    switches the vendors off, clears their cookies on every locale's club path
+    and reloads. ONE DOCUMENT, ONE ADDRESS (`lib/club-tracking-runtime.ts`):
+    the vendors start only in a document loaded at the club page, and once
+    they run every move elsewhere is a full load — so no pixel follows the
+    visitor in-app to the map, the portal or another club. PageView on every
+    such page, Lead once per sent inquiry (the conversation id is taken out of
+    the address first); Meta's automatic events off, every event addressed to
+    the club's own id; GA4 cookies limited to the club's own path, Google
+    signals and ad personalisation off; a same-site referrer is cut to its
+    path. Those pages carry a script policy (`lib/club-page-csp.ts`: this
+    site, the two vendors and Umami only). The privacy notice gains a
+    paragraph while the switch is on. The office, the portal and the rest of
+    pops.bg never load a pixel.
+    - [ ] **Known limits (accepted for v1):** no Purchase event (an online
+      payment returns to the member portal, which stays tracker-free); Meta's
+      `_fbp` cookie cannot be limited to the club's path; the GA4 cookie path
+      differs between /klub and /en/klub, so a visitor switching language is
+      measured as two; the script policy carries no nonce (Next's inline
+      hydration scripts need 'unsafe-inline'), so it limits script SOURCES,
+      not inline injection, and has no report-uri; a club page reached
+      in-app is reloaded once before the vendors start; the banner appears
+      after hydration (the answer is in the browser), so an undecided visit
+      shifts the page once; the consent flow is tested against a stand-in
+      window (`tests/club-tracking-runtime.test.ts`), not a real browser run
+      in CI.
+    - **Legal positions** (2026-10-30 — the operator asked Claude to answer
+      as counsel; recorded so they can be checked later):
+      - POPS IS a joint controller with the club for LOADING the tools and
+        asking for consent (it runs the page and built the feature — CJEU
+        C‑40/17 Fashion ID, C‑210/16 Wirtschaftsakademie); the club, with
+        Google or Meta, controls what happens afterwards. The privacy notice
+        says so and names where requests go; the club terms need the Art. 26
+        arrangement (the club informs and answers requests, POPS runs the
+        consent mechanism).
+      - Consent is PER PURPOSE: with both tools in use the banner offers
+        statistics and advertising separately («Приемам всички», «Отказвам
+        всички», «Запазете избора», equal weight); a tool added later is
+        asked about afresh; the stored answer carries a wording version
+        (`TRACKING_CONSENT_VERSION`), and changed wording asks again.
+      - Proof of consent (Art. 7(1)) is the mechanism itself, versioned in
+        git, with the date and wording version in the visitor's browser — no
+        per-visitor record (it would be the tracking we refuse to do).
+      - A year before asking again is proportionate.
+      - Art. 8 (digital consent at 14) applies to services offered DIRECTLY
+        to a child; a club's public page addresses the public and parents,
+        and an anonymous visitor's age cannot be known without collecting
+        more. The club confirms its pages are not aimed mainly at children
+        under 14; nothing is gated on age.
+      - The notice's «не проследяваме потребителите» gains a qualifier
+        while the switch is on (`Privacy.introClubTracking`).
+    - [ ] **Before switching on:** the club terms carry the Art. 26 clause.
+- [x] **Audit 2026-10-30 — production readiness** (eight reviewers over
+  authorisation, money, privacy, the worker, the web layer, the migrations,
+  the journeys and operations, plus a browser crawl). Fixed on the branch:
+  a subscription whose money went `unapplied` is now ended at Stripe on every
+  visit until the cancel lands, and money Stripe collects for a renewal the
+  books refuse is listed for the office; a full refund voids its charge
+  wherever it was made; credit refunds decided under the client's lock; the
+  webhook never 404s on the clubs switch and reads its body capped; renewal
+  terms Stripe cannot bill are refused; a booking's or sale's charge keeps its
+  live invoice; a trainer is named outside the office only by their own
+  opt-in; hidden clubs are reached only by their own people; a trainer ticks
+  only their own list; the door answer carries no minor flag; a forged Lead
+  is impossible; staff invitations are capped and deduplicated; automations
+  never run at night; «три на ден» counts a cancelled send; a crafted
+  `?rezultat=` can no longer 500 a club page; confirmations before fee-
+  bearing cancellations; the portal names an expired period; read-only and
+  permission outcomes say the right thing; the bulk-mail default is below a
+  100-a-day relay; nightly retention prunes; club rows on «Здраве»; a club
+  e2e smoke spec (the 0045 lock order was re-reviewed and kept as it was:
+  erasure's first club lock is the club_staff read, which 0045 takes first).
+  - [ ] **Operator decisions:** the NGO admin acts as the club on money,
+    erasure, messages and staff (every act logged as `ngo_admin`) — keep as
+    "processor with write", or narrow those to `clubStaffWriteScope`; a
+    manager (settings.manage) may re-point Stripe and change the invoice
+    identity (legal name, EIK, IBAN) — owner-only?; the minor-signature note
+    and the consumer-withdrawal checkbox (the two questions of 2026-10-30).
+  - [x] **Lifecycle mail (0059):** a paying club's owners are told when the
+    trial ends in a week and tomorrow, when coverage ran out (the grace
+    begins), when the grace is over (read-only, page hidden) and when the
+    association suspends the club — each milestone once, with the
+    association's address; a rejected applicant gets a mail instead of
+    silence. Daily with `club.expiry`; the admin's «Отхвърли» enqueues it.
+  - [ ] **Later:** the club e2e smoke spec as a deploy gate (it exists;
+    e2e.yml is not a gate yet); the weekday in dates; a member-facing
+    invoice; `club_notifications.user_id` counted in `account_deletions`;
+    the account export's later club datasets; the SMS adapter.
+- [x] **Front page v2 and the clubs page (2026-10-31, `feat/front-page-v2`
+  on top of `feat/clubs-parity` + `feat/front-page`)** — the operator's brief:
+  the front page is the players' page and mentions the club module in ONE
+  light section, which opens a dedicated page that shows EVERY function and
+  is built to convert. Front page: the dot-map hero with a trust line from
+  `mv_national_stats`, «Как работи», the тренировки rail, a dark numbers
+  band (the dot map's count, municipalities, this week's тренировки, 30 days
+  of contributions), contribute, the passport (the fourteen coins, points,
+  streaks, divisions — catalogue and counts, never a name), the one clubs
+  band, four principles, a four-column footer. `/za-klubove`: the complete
+  catalogue (`lib/src/clubs/catalogue.ts`, 19 areas; `catalogue.test.ts`
+  proves every tier-gated feature has a row, the web test that every row
+  has its words), the audience band, six «само в POPS» tiles, three price
+  cards from ONE constant (`lib/src/clubs/pricing-public.ts`; the
+  application form reads the same prices, the admin hint the same cap) with a grid
+  whose ticks come from the tier matrix, four steps, ten questions, one
+  call to action throughout plus a floating one. The page never sells what
+  is not there: a row behind a switched-off service reads «скоро»
+  (`apps/web/lib/clubs/landing.ts` rowState), the Stripe sentence and the
+  «без комисиона» line exist only while `CLUB_PAYMENTS_ENABLED` is on and
+  `STRIPE_APPLICATION_FEE_BP` is zero. Product screenshots come from
+  `apps/web/scripts/marketing-shots/shots.mjs` (signs in like the e2e suite,
+  one picture per area of the demo club, WebP + manifest; fixture names
+  only). Podkrepi and the Terms no longer say «няма платени функции».
+  - [x] **Operator corrections (2026-10-31):** no second menu — the
+    marketing header is gone and «Данни» + «За клубове» (the latter only
+    while `CLUBS_ENABLED`) sit at the foot of the side rail (`NAV_MORE`,
+    `apps/web/components/shell/app-nav.tsx`); prices €49.99 / €99.99 /
+    €149.99 with a 30-day trial on EVERY tier (the entry plan renamed
+    «Базов», copy says `{days}` from `CLUB_TRIAL_DAYS`) — the free community tier
+    is withdrawn in the logic too (`clubAccessState`, `clubWritableSql` and
+    its six inline twins, `approveClub` grants the trial on any tier, the
+    lifecycle mails cover every tier, every facility block reads «Платено
+    представяне», every club website link is `sponsored`); no competitor is
+    named on any page; the club «офис» is now «платформата за управление
+    (на бизнеса)» in every string, bg and en. Migration 0060 gives any active
+    or suspended club with neither date the trial it would get today, and
+    `apps/web/tests/journeys/clubs-access.test.ts` holds the TS and SQL rules
+    equal over every tier, status and date (and NULL-free).
+  - [x] **Contract, not «без обвързващ срок» (operator correction
+    2026-10-31):** after the free trial a club signs a contract for at least
+    `CLUB_CONTRACT_MONTHS` (12), invoiced monthly or yearly as it chooses,
+    renewing yearly unless noticed `CLUB_CONTRACT_NOTICE_MONTHS` (1) before
+    the term ends (`lib/src/clubs/contract.ts`, derived like the access
+    state, gates nothing). Migration 0061 adds the three facts the operator
+    records in the plan form of `/admin/klubove/<slug>` (start, invoicing,
+    notice received) and the `club_contract_renewing` owner mail, sent
+    `CLUB_CONTRACT_REMINDER_DAYS` (30) before the notice deadline. The owner
+    reads the terms in «Настройки → Договор». The clubs page, the
+    application form, the Terms, the trial-ending mail and the close hint
+    state the contract with `{months}` / `{notice}`, and
+    `apps/web/tests/clubs-landing.test.ts` refuses a typed term or a
+    returning «без обвързващ срок».
+  - [ ] **Operator decisions:** whether the prices are shown «без ДДС» (the
+    VAT line is deliberately neutral);
+    flat per month or per `members_active` (MONETISATION S7 names the
+    latter as the invoice basis; the cards say the former — the step copy
+    now names neither); the «до два работни дни» review promise (nothing
+    enforces it); a demo club in production for «Разгледайте примерен
+    клуб»; `CLUBS_ENABLED=true` in production before launch, or neither the
+    band nor the page exists.
+  - [ ] **Later:** a richer seeded demo club for the screenshots (today
+    they are the QA club's five members); an owner-side «Закрийте клуба»
+    action (the page says «с едно писмо» because only the operator can
+    archive); the sticky call to action on phones sits above the tab bar's
+    FAB — check on a real device.
 ---
 
 ## 10. Cadence & top risks

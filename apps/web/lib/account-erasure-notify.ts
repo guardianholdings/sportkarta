@@ -11,7 +11,7 @@ import { getBoss } from './admin-boss';
  * Best-effort, like every session.notify enqueue: deleteAccount calls it after
  * the erasure has COMMITTED, and a queue that is briefly down must not turn a
  * completed erasure into an error page. The message is logged, never the error
- * object (the sesiya actions' rule) — a pg-boss error can carry the payload or
+ * object (the igra actions' rule) — a pg-boss error can carry the payload or
  * the connection string.
  */
 export const enqueueErasureNotice: Enqueue = async (queue, data) => {

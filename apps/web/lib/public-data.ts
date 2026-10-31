@@ -95,7 +95,10 @@ export interface FacilityFeatureCollection {
      * `place` is OMITTED rather than null when unknown — ~6k features ride this
      * feed. `club` likewise appears only when true: a published club holds
      * classes here (Stage 9), shown in the preview panel BESIDE the map — the
-     * canvas itself stays free of commercial marks.
+     * canvas itself stays free of commercial marks. `clubSlug` comes with it
+     * when exactly ONE club is here, so the preview links that club's page;
+     * with two or more it links the facility's club block instead, rather than
+     * crowning one of them (a paid tier buys tools, never rank).
      */
     properties: {
       slug: string;
@@ -103,6 +106,7 @@ export interface FacilityFeatureCollection {
       sports: string[];
       place?: string;
       club?: true;
+      clubSlug?: string;
     };
   }[];
 }
@@ -113,13 +117,20 @@ export async function facilitiesGeoJSON(
   locale = 'bg',
 ): Promise<FacilityFeatureCollection> {
   const db = getDb();
-  const hasClub = clubsEnabled()
-    ? sql`EXISTS (SELECT 1 FROM club_locations cl JOIN clubs c ON c.id = cl.club_id
-                   WHERE cl.facility_id = f.id AND cl.active AND ${clubRenderableSql('c')})`
-    : sql`false`;
+  // The renderable clubs with an active location here: NULL for none, the
+  // slug for exactly one, '' for two or more. ONE predicate (clubRenderableSql)
+  // decides every public club surface, this chip included. HAVING turns "no
+  // row matched" into no row at all, which the scalar subquery reads as NULL.
+  const clubsHere = clubsEnabled()
+    ? sql`(SELECT CASE WHEN count(DISTINCT c.id) = 1 THEN min(c.slug) ELSE '' END
+             FROM club_locations cl JOIN clubs c ON c.id = cl.club_id
+            WHERE cl.facility_id = f.id AND cl.active AND ${clubRenderableSql('c')}
+           HAVING count(*) > 0)`
+    : sql`NULL::text`;
+
   const result = await db.execute(sql`
     SELECT f.slug, f.name, f.sport_types, ${PLACE_COLUMNS},
-           ST_X(f.geom) AS lon, ST_Y(f.geom) AS lat, ${hasClub} AS has_club
+           ST_X(f.geom) AS lon, ST_Y(f.geom) AS lat, ${clubsHere} AS club_here
     FROM facilities f
     ${PLACE_JOIN}
     WHERE ${publicConditions(f)}
@@ -142,7 +153,10 @@ export async function facilitiesGeoJSON(
           name: (row.name as string | null) ?? null,
           sports: (row.sport_types as string[] | null) ?? [],
           ...(place ? { place } : {}),
-          ...(row.has_club === true ? { club: true as const } : {}),
+          ...(typeof row.club_here === 'string' ? { club: true as const } : {}),
+          ...(typeof row.club_here === 'string' && row.club_here !== ''
+            ? { clubSlug: row.club_here }
+            : {}),
         },
       };
     }),

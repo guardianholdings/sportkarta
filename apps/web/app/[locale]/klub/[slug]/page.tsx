@@ -1,18 +1,26 @@
-import { formatEuro } from '@sportkarta/lib/clubs';
+import { advertisedPrice, formatEuro, sofiaToday } from '@sportkarta/lib/clubs';
 import { ExternalLink, MapPin } from 'lucide-react';
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
+import { ClubTrackingSlot } from '@/components/clubs/club-tracking-slot';
 import { AppShell } from '@/components/shell/app-shell';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
 import { clubsEnabled } from '@/lib/clubs/access';
+import { publicEvents } from '@/lib/clubs/events';
+import { publicRating } from '@/lib/clubs/feedback';
+import { clubTakesInquiries } from '@/lib/clubs/inbox';
 import { clubSportLabeler } from '@/lib/clubs/labels';
+import { MIN_ONLINE_CENTS, clubTakesPayments } from '@/lib/clubs/payments';
+import { publicOffers } from '@/lib/clubs/promotions';
+import { publicServices } from '@/lib/clubs/reservations';
 import { publicClub } from '@/lib/clubs/public';
-import { formatDateTime } from '@/lib/format';
+import { formatDate, formatDateTime } from '@/lib/format';
 import { buildAlternates } from '@/lib/seo';
+import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,14 +42,17 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
     }),
     description: t('metaDescription', { name: club.name }),
     alternates: buildAlternates(`/klub/${club.slug}`, locale),
+    // The club's own installable app (0051).
+    manifest: `/klub/${club.slug}/manifest.webmanifest`,
   };
 }
 
 /**
  * A club's public page. RENDERABLE clubs only (public.ts) — a hidden, lapsed
  * or suspended club 404s here exactly as it vanishes from /klubove and from
- * facility pages. A paid club's own website link is `sponsored`: it is a
- * commercial listing on a platform whose links are otherwise editorial.
+ * facility pages. The club's own website link is `sponsored`: every tier is
+ * paid (2026-10-31), so it is a commercial listing on a platform whose links
+ * are otherwise editorial.
  */
 export default async function PublicClubPage({ params }: { params: PageParams }) {
   const { locale, slug } = await params;
@@ -49,19 +60,57 @@ export default async function PublicClubPage({ params }: { params: PageParams })
   if (!clubsEnabled()) notFound();
   const club = await publicClub(slug, locale);
   if (!club) notFound();
-  const [t, tClub, sportLabel] = await Promise.all([
+  const [
+    t,
+    tClub,
+    sportLabel,
+    takesPayments,
+    services,
+    offers,
+    rating,
+    inquiries,
+    events,
+    tEvents,
+  ] = await Promise.all([
     getTranslations('ClubPublic'),
     getTranslations('Club'),
     clubSportLabeler(),
+    clubTakesPayments(club.id),
+    publicServices(club.id, locale),
+    publicOffers(club.id, sofiaToday()),
+    publicRating(club.id),
+    clubTakesInquiries(club.id),
+    publicEvents(club.id, locale, 12),
+    getTranslations('ClubEvents'),
   ]);
+  const today = sofiaToday();
+  // An automatic offer open to a new visitor, struck through (0049). Not on a
+  // subscription, which renews at the price it was opened with.
+  const deal = (plan: (typeof club.plans)[number]) =>
+    plan.kind === 'trial' || (plan.autoRenew && plan.validityMonths !== null)
+      ? null
+      : advertisedPrice(
+          offers,
+          { kind: 'plan', id: plan.id, unitPriceCents: plan.priceCents, quantity: 1 },
+          today,
+        );
   const section = 'space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm';
   const trialClasses = club.classes.filter((c) => c.trialAllowed);
-  const paid = club.tier !== 'community';
+  // The club's accent (0045): one of the design system's scales, never a value
+  // the club typed — a band over the header, nothing that carries meaning.
+  const accentBand = {
+    green: 'border-green-500',
+    coral: 'border-coral-500',
+    sky: 'border-sky-500',
+  }[club.accent];
 
   return (
     <AppShell active={null}>
       <main className="mx-auto max-w-3xl space-y-5 p-4">
-        <header className="flex flex-wrap items-start gap-4 border-b border-line pb-4">
+        <ClubTrackingSlot clubId={club.id} clubName={club.name} slug={slug} locale={locale} />
+        <header
+          className={`flex flex-wrap items-start gap-4 rounded-card border-t-4 border-b border-b-line pb-4 pt-4 ${accentBand}`}
+        >
           {club.hasLogo && (
             // eslint-disable-next-line @next/next/no-img-element -- the row-decides logo route
             <img
@@ -82,6 +131,19 @@ export default async function PublicClubPage({ params }: { params: PageParams })
                 </Badge>
               ))}
             </p>
+            {rating && (
+              // An average only, from enough ratings that no single one shows (0052).
+              <p className="text-body-sm text-ink-soft">
+                <span aria-hidden="true">★ </span>
+                {t('rating', {
+                  average: new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'bg-BG', {
+                    minimumFractionDigits: 1,
+                    maximumFractionDigits: 1,
+                  }).format(rating.average),
+                  count: rating.count,
+                })}
+              </p>
+            )}
             <div className="flex flex-wrap gap-2">
               {trialClasses.length > 0 && (
                 <Link
@@ -95,8 +157,16 @@ export default async function PublicClubPage({ params }: { params: PageParams })
                 href={`/klub/${club.slug}/az`}
                 className={buttonVariants({ variant: 'secondary' })}
               >
-                {t('memberHere')} {t('myClub')}
+                {t('memberHereLink')}
               </Link>
+              {inquiries && (
+                <Link
+                  href={`/klub/${club.slug}/zapitvane`}
+                  className={buttonVariants({ variant: 'secondary' })}
+                >
+                  {t('inquiry')}
+                </Link>
+              )}
             </div>
           </div>
         </header>
@@ -149,7 +219,7 @@ export default async function PublicClubPage({ params }: { params: PageParams })
           )}
         </section>
 
-        <section className={section} aria-labelledby="plans-h">
+        <section id="ceni" className={section} aria-labelledby="plans-h">
           <h2 id="plans-h" className="text-h4 font-bold text-ink">
             {t('plansTitle')}
           </h2>
@@ -162,9 +232,25 @@ export default async function PublicClubPage({ params }: { params: PageParams })
                   <p className="flex items-baseline justify-between gap-2">
                     <span className="font-semibold text-ink">{plan.name}</span>
                     <span className="font-mono tabular-nums text-ink">
-                      {formatEuro(plan.priceCents, locale)}
+                      {deal(plan) ? (
+                        <>
+                          <s className="text-text-muted">{formatEuro(plan.priceCents, locale)}</s>{' '}
+                          {formatEuro(deal(plan)?.priceCents ?? plan.priceCents, locale)}
+                        </>
+                      ) : (
+                        formatEuro(plan.priceCents, locale)
+                      )}
                     </span>
                   </p>
+                  {deal(plan) && (
+                    <p className="text-caption font-semibold text-ink-soft">
+                      {deal(plan)?.promotion.name}
+                      {deal(plan)?.promotion.newMembersOnly ? ` · ${t('offerNewOnly')}` : ''}
+                      {deal(plan)?.promotion.endsOn
+                        ? ` · ${t('offerUntil', { date: formatDate(deal(plan)?.promotion.endsOn ?? today, locale) })}`
+                        : ''}
+                    </p>
+                  )}
                   <p className="text-caption text-text-muted">
                     {plan.validityMonths
                       ? t('validityMonths', { count: plan.validityMonths })
@@ -175,11 +261,132 @@ export default async function PublicClubPage({ params }: { params: PageParams })
                   {plan.description && (
                     <p className="mt-1 text-caption text-ink-soft">{plan.description}</p>
                   )}
+                  {takesPayments &&
+                    plan.kind !== 'trial' &&
+                    plan.priceCents >= MIN_ONLINE_CENTS && (
+                      <Link
+                        href={`/klub/${club.slug}/kupi/${plan.id}`}
+                        className={cn(buttonVariants({ size: 'sm' }), 'mt-2')}
+                      >
+                        {t('buyOnline')}
+                      </Link>
+                    )}
                 </li>
               ))}
             </ul>
           )}
         </section>
+
+        {services.length > 0 && (
+          <section id="rezervatsii" className={section} aria-labelledby="services-h">
+            <h2 id="services-h" className="text-h4 font-bold text-ink">
+              {t('servicesTitle')}
+            </h2>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {services.map((service) => (
+                <li key={service.id} className="rounded-card border border-line p-3">
+                  <p className="flex items-baseline justify-between gap-2">
+                    <span className="font-semibold text-ink">{service.name}</span>
+                    <span className="font-mono tabular-nums text-ink">
+                      {formatEuro(service.priceCents, locale)}
+                    </span>
+                  </p>
+                  <p className="text-caption text-text-muted">
+                    {service.priceUnit === 'hour' ? t('perHour') : t('perBooking')}
+                    {service.memberPriceCents !== null
+                      ? ` · ${t('memberPrice', { amount: formatEuro(service.memberPriceCents, locale) })}`
+                      : ''}
+                  </p>
+                  {service.description && (
+                    <p className="mt-1 text-caption text-ink-soft">{service.description}</p>
+                  )}
+                  <Link
+                    href={{
+                      pathname: `/klub/${club.slug}/rezervatsiya`,
+                      query: { usluga: service.id },
+                    }}
+                    className={cn(buttonVariants({ size: 'sm', variant: 'secondary' }), 'mt-2')}
+                  >
+                    {t('reserve')}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {events.length > 0 && (
+          <section id="sabitiya" className={section} aria-labelledby="events-h">
+            <h2 id="events-h" className="text-h4 font-bold text-ink">
+              {t('eventsTitle')}
+            </h2>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {events.map((event) => (
+                <li key={event.id} className="rounded-card border border-line p-3">
+                  <p className="flex items-baseline justify-between gap-2">
+                    <span className="font-semibold text-ink">{event.title}</span>
+                    {event.fromCents !== null && (
+                      <span className="font-mono tabular-nums text-ink">
+                        {event.fromCents === 0
+                          ? tEvents('public.free')
+                          : formatEuro(event.fromCents, locale)}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-caption text-text-muted">
+                    {tEvents(`kinds.${event.kind}`)} · {formatDateTime(event.startsAt, locale)}
+                  </p>
+                  <Link
+                    href={`/klub/${club.slug}/sabitie/${event.id}`}
+                    className={cn(buttonVariants({ size: 'sm', variant: 'secondary' }), 'mt-2')}
+                  >
+                    {tEvents('public.more')}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {club.trainers.length > 0 && (
+          <section className={section} aria-labelledby="trainers-h">
+            <h2 id="trainers-h" className="text-h4 font-bold text-ink">
+              {t('trainersTitle')}
+            </h2>
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {club.trainers.map((trainer) => (
+                <li key={trainer.name} className="rounded-card border border-line p-3">
+                  <p className="font-semibold text-ink">{trainer.name}</p>
+                  {trainer.bio && (
+                    <p className="mt-1 whitespace-pre-line text-caption text-ink-soft">
+                      {trainer.bio}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {club.faq.length > 0 && (
+          <section className={section} aria-labelledby="faq-h">
+            <h2 id="faq-h" className="text-h4 font-bold text-ink">
+              {t('faqTitle')}
+            </h2>
+            <div className="divide-y divide-line">
+              {club.faq.map((entry, index) => (
+                <details key={index} className="group py-2">
+                  <summary className="flex min-h-11 cursor-pointer items-center text-body-sm font-semibold text-ink">
+                    {entry.question}
+                  </summary>
+                  <p className="whitespace-pre-line pb-2 text-body-sm text-ink-soft">
+                    {entry.answer}
+                  </p>
+                </details>
+              ))}
+            </div>
+          </section>
+        )}
 
         {club.locations.length > 0 && (
           <section className={section} aria-labelledby="where-h">
@@ -221,7 +428,7 @@ export default async function PublicClubPage({ params }: { params: PageParams })
                   <a
                     href={club.websiteUrl}
                     target="_blank"
-                    rel={paid ? 'sponsored noopener' : 'noopener'}
+                    rel="sponsored noopener"
                     className="inline-flex items-center gap-1 font-semibold text-link"
                   >
                     {t('website')}

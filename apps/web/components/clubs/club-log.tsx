@@ -22,6 +22,11 @@ export async function ClubLog({ entries }: { entries: ClubAuditEntry[] }) {
         return t('system');
       case 'kiosk':
         return t('kiosk');
+      case 'door':
+        return t('door');
+      case 'api':
+        // The key's creator, through the key (0057).
+        return t('api', { name: entry.actorName ?? tClub('formerUser') });
       case 'member':
         return entry.actorName ?? t('member');
       case 'ngo_admin':

@@ -19,6 +19,7 @@ import {
   insideVisibleFrame,
   openingCenter,
   widthFitZoom,
+  zoomFloor,
 } from './camera';
 import { createCluster, createPin } from './markers';
 
@@ -34,6 +35,8 @@ export interface MapPoint {
   place?: string | null;
   /** A published club holds classes here — the preview panel says so, the canvas does not. */
   club?: boolean;
+  /** …and when it is the only one, its slug: the preview links its page. */
+  clubSlug?: string;
 }
 
 export interface MapView {
@@ -294,6 +297,8 @@ export default function MapCanvas({
   onBoundsChangeRef.current = onBoundsChange;
   const paddingRef = useRef(padding);
   paddingRef.current = padding;
+  const nearMeRef = useRef(nearMe);
+  nearMeRef.current = nearMe;
   const unrestrictedRef = useRef(unrestricted);
   unrestrictedRef.current = unrestricted;
 
@@ -548,6 +553,13 @@ export default function MapCanvas({
       };
     };
 
+    // zoomFloor (camera.ts) clamps into setMinZoom's range and returns null
+    // for a canvas too small to fit anything, which would otherwise throw.
+    const setFloor = (fit: number) => {
+      const floor = zoomFloor(fit, map.getMaxZoom());
+      if (floor !== null) map.setMinZoom(floor);
+    };
+
     const applyPadding = () => {
       const p = framePadding();
       map.setPadding(p);
@@ -576,7 +588,7 @@ export default function MapCanvas({
         const widthFit = widthFitZoom(map.getCanvas().clientWidth, BULGARIA_BOUNDS);
         // Clamp to maxZoom as well: setMinZoom THROWS above it, and on a small
         // canvas the fit math can legitimately land there.
-        map.setMinZoom(Math.min(Math.max(0, widthFit - 0.1), map.getMaxZoom()));
+        setFloor(widthFit);
       } else if (cam?.zoom !== undefined) {
         // Desktop: the floor is the whole country fitted into the visible
         // frame — both axes — so it is always one zoom-out away. On a
@@ -584,7 +596,7 @@ export default function MapCanvas({
         // cameraForBounds then reports a zoom past maxZoom — setMinZoom throws
         // ("minZoom must be between -2 and the current maxZoom") instead of
         // clamping, so clamp here.
-        map.setMinZoom(Math.min(Math.max(0, cam.zoom - 0.1), map.getMaxZoom()));
+        setFloor(cam.zoom);
       }
 
       // MapLibre re-runs a transform constraint when the centre, the zoom or
@@ -654,7 +666,14 @@ export default function MapCanvas({
         paint: { 'circle-opacity': 0, 'circle-radius': 16 },
       });
 
-      map.addSource(NEARME_ID, { type: 'geojson', data: EMPTY });
+      // Seeded from the latest radius, not EMPTY: a position can land before
+      // the map loads (the front page's «Близо до мен» locates on arrival),
+      // and the [nearMe] effect below skips an unloaded map.
+      const near = nearMeRef.current;
+      map.addSource(NEARME_ID, {
+        type: 'geojson',
+        data: near ? circlePolygon(near.center, near.radiusKm) : EMPTY,
+      });
       map.addLayer({
         id: 'nearme-fill',
         type: 'fill',
@@ -679,11 +698,13 @@ export default function MapCanvas({
       syncMarkers();
     });
 
-    map.on('moveend', () => {
+    map.on('moveend', (event: maplibregl.MapLibreEvent & { fromLocate?: boolean }) => {
       // The automatic country fit is NOT written to the URL: it is a function of
       // this screen's size, and pinning it there would make a reload — or a
       // shared link opened on a different device — replay one screen's zoom.
-      if (!autoFitRef.current) {
+      // Nor is the fly to the visitor's own position: centred on them at five
+      // decimals, it would put where they stand into a link they might share.
+      if (!autoFitRef.current && !event.fromLocate) {
         const c = map.getCenter();
         onMoveEndRef.current({ lng: c.lng, lat: c.lat, zoom: map.getZoom() });
       }
@@ -822,7 +843,11 @@ export default function MapCanvas({
     }
     autoFitRef.current = false;
     urlCameraRef.current = false;
-    map.flyTo({ center: lngLat, zoom: Math.max(map.getZoom(), 13), speed: 1.4 });
+    // `fromLocate` rides on the move's events, so moveend can keep it out of the URL.
+    map.flyTo(
+      { center: lngLat, zoom: Math.max(map.getZoom(), 13), speed: 1.4 },
+      { fromLocate: true },
+    );
   }, [userLocation, myLocationLabel]);
 
   return (

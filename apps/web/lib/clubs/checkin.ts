@@ -8,17 +8,23 @@ import {
 } from '@sportkarta/lib/clubs';
 import { sha256Hex } from '@sportkarta/lib/clubs/secrets';
 
+import { clubWritableSql } from './access';
 import { recordClubAudit } from './audit';
 import { clubActorMay, clubScope, type ClubActor } from './scope';
 
 /**
- * ATTENDANCE AT A CLUB — one transaction, four doors (0043).
+ * ATTENDANCE AT A CLUB — one transaction, six ways in (0043, 0057).
  *
  *   desk       staff ticked «Присъства» (the desk search, or the roster)
  *   qr_member  the desk scanned the client's per-club QR (/klub/<slug>/skan/<token>)
  *   card       the desk scanned a printed member card
  *   qr_kiosk   the client's phone scanned the tablet's QR (/klubove/otmetka/<token>);
  *              WHO is the session cookie, never the token
+ *   api        an integration, through a key that acts as its creator (0057)
+ *   door       a door controller read the client's card or member QR (0057):
+ *              the ONE way in that may say no — a door that opens for nobody
+ *              is the club's rule ('covered'), and a refused door records
+ *              nothing, because nobody came in
  *
  * THE ALGORITHM:
  *   1. resolve the client record (and refuse a staff actor out of scope);
@@ -64,7 +70,19 @@ export type CheckinRequest =
     }
   | { method: 'qr_member'; actor: ClubActor; memberId: string; locationId?: string | null }
   | { method: 'card'; actor: ClubActor; cardKey: string; locationId?: string | null }
-  | { method: 'qr_kiosk'; userId: string; clubId: string; locationId: string };
+  | { method: 'qr_kiosk'; userId: string; clubId: string; locationId: string }
+  | {
+      method: 'api';
+      actor: ClubActor;
+      memberId: string;
+      occurrenceId?: string | null;
+      locationId?: string | null;
+    }
+  | { method: 'door'; clubId: string; deviceId: string; credential: DoorCredential };
+
+/** What a door controller read: a printed card, or a member QR already verified. */
+export type DoorCredential =
+  { kind: 'card'; cardKey: string } | { kind: 'member'; memberId: string };
 
 export interface CheckinOutcome {
   status:
@@ -74,7 +92,12 @@ export interface CheckinOutcome {
     | 'not_linked'
     | 'not_allowed'
     | 'club_closed'
-    | 'too_early';
+    | 'too_early'
+    | 'denied';
+  /** Why a door stayed shut (method 'door' only). */
+  denial?: 'archived' | 'not_covered';
+  /** The visit's club_checkins row — this one, or the one already there. */
+  checkinId?: string;
   memberId?: string;
   memberName?: string;
   isMinor?: boolean;
@@ -104,22 +127,62 @@ export async function clubCheckIn(
   request: CheckinRequest,
 ): Promise<CheckinOutcome> {
   return db.transaction(async (tx) => {
-    const clubId = request.method === 'qr_kiosk' ? request.clubId : request.actor.clubId;
+    const clubId =
+      request.method === 'qr_kiosk' || request.method === 'door'
+        ? request.clubId
+        : request.actor.clubId;
 
     // The club must be operating; a lapsed or suspended club's kiosk and desk
     // record nothing (writes are an entitlement, 0039).
     const club = await tx.execute(sql`
       SELECT c.id, c.sports FROM clubs c
-       WHERE c.id = ${clubId}::uuid AND c.status = 'active'
-         AND (c.tier = 'community'
-              OR greatest(c.paid_until, c.trial_ends_on) + 14 >= (now() AT TIME ZONE 'Europe/Sofia')::date)
+       WHERE c.id = ${clubId}::uuid AND ${clubWritableSql('c')}
     `);
     if (club.rows.length === 0) return { status: 'club_closed' };
 
     // 1. The client record, and the actor's right to record it.
     let memberId: string | null = null;
     let linkUserId: string | null = null;
-    if (request.method === 'qr_kiosk') {
+    let doorRule: string | null = null;
+    let doorLocation: string | null = null;
+    if (request.method === 'door') {
+      // The controller is live, a door, and this club's — in this transaction.
+      const device = await tx.execute(sql`
+        SELECT location_id, access_rule FROM club_kiosk_devices
+         WHERE id = ${request.deviceId}::uuid AND club_id = ${clubId}::uuid AND kind = 'door'
+           AND revoked_at IS NULL
+      `);
+      doorRule = text(device.rows[0]?.access_rule);
+      doorLocation = text(device.rows[0]?.location_id);
+      if (!doorRule || !doorLocation) return { status: 'not_allowed' };
+      const credential = request.credential;
+      const found = await tx.execute(sql`
+        SELECT id, display_name, archived_at FROM club_members
+         WHERE club_id = ${clubId}::uuid
+           AND ${
+             credential.kind === 'card'
+               ? sql`card_token_hash = ${sha256Hex(credential.cardKey)}`
+               : sql`id = ${credential.memberId}::uuid`
+           }
+      `);
+      const record = found.rows[0];
+      if (!record) return { status: 'not_found' };
+      if (record.archived_at) {
+        return {
+          status: 'denied',
+          denial: 'archived',
+          memberId: String(record.id),
+          memberName: String(record.display_name),
+        };
+      }
+      memberId = String(record.id);
+      const link = await tx.execute(sql`
+        SELECT user_id FROM club_member_links
+         WHERE club_id = ${clubId}::uuid AND member_id = ${memberId}::uuid AND status = 'active'
+           AND passport_consent_at IS NOT NULL
+      `);
+      linkUserId = text(link.rows[0]?.user_id);
+    } else if (request.method === 'qr_kiosk') {
       const linked = await tx.execute(sql`
         SELECT member_id, (passport_consent_at IS NOT NULL) AS consent FROM club_member_links
          WHERE club_id = ${clubId}::uuid AND user_id = ${request.userId} AND status = 'active'
@@ -131,7 +194,8 @@ export async function clubCheckIn(
       linkUserId = linked.rows[0]?.consent === true ? request.userId : null;
     } else {
       const allowed = await tx.execute(sql`
-        SELECT 1 AS ok WHERE ${clubActorMay(request.actor, 'attendance.record', { write: true })}
+        SELECT (${clubActorMay(request.actor, 'attendance.record', { write: true })}) AS full
+         WHERE ${clubActorMay(request.actor, 'attendance.record', { write: true })}
            OR (${request.method === 'desk' && request.occurrenceId ? sql`TRUE` : sql`FALSE`}
                AND ${clubActorMay(request.actor, 'attendance.record_own', { write: true })}
                AND EXISTS (SELECT 1 FROM club_class_occurrences o JOIN club_classes k ON k.id = o.class_id
@@ -140,6 +204,7 @@ export async function clubCheckIn(
                               AND coalesce(o.instructor_user_id, k.instructor_user_id) = ${request.actor.userId}))
       `);
       if (allowed.rows.length === 0) return { status: 'not_allowed' };
+      const ownClassOnly = allowed.rows[0]?.full !== true;
       if (request.method === 'card') {
         const card = await tx.execute(sql`
           SELECT id FROM club_members
@@ -148,8 +213,15 @@ export async function clubCheckIn(
         `);
         memberId = text(card.rows[0]?.id);
       } else {
+        // A trainer ticking their own class (record_own) names only somebody
+        // on its list — booked, or in line — never any client of the club.
         const member = await tx.execute(sql`
-          SELECT id FROM club_members WHERE club_id = ${clubId}::uuid AND id = ${request.memberId}::uuid
+          SELECT m.id FROM club_members m
+           WHERE m.club_id = ${clubId}::uuid AND m.id = ${request.memberId}::uuid
+             AND (${!ownClassOnly} OR EXISTS (SELECT 1 FROM club_bookings b
+                     WHERE b.club_id = m.club_id AND b.member_id = m.id
+                       AND b.occurrence_id = ${request.method === 'desk' ? (request.occurrenceId ?? null) : null}::uuid
+                       AND b.state = 'active'))
         `);
         memberId = text(member.rows[0]?.id);
       }
@@ -170,8 +242,19 @@ export async function clubCheckIn(
     `);
 
     // 2. The class, and the location.
-    const explicitOccurrence = request.method === 'desk' ? (request.occurrenceId ?? null) : null;
-    const requestedLocation = request.locationId ?? null;
+    const explicitOccurrence =
+      request.method === 'desk' || request.method === 'api' ? (request.occurrenceId ?? null) : null;
+    const requestedLocation =
+      request.method === 'door' ? doorLocation : (request.locationId ?? null);
+    // A location named by id — the desk's form, an integration — must be one
+    // of THIS club's live ones: a foreign id is a refusal, not a 23503.
+    if (requestedLocation && request.method !== 'door') {
+      const location = await tx.execute(sql`
+        SELECT 1 FROM club_locations
+         WHERE id = ${requestedLocation}::uuid AND club_id = ${clubId}::uuid AND active
+      `);
+      if (location.rows.length === 0) return { status: 'not_found' };
+    }
     const occurrence = await tx.execute(sql`
       SELECT o.id, o.starts_at, o.ends_at, k.title, k.sport, k.location_id, k.covers_all_plans,
              k.id AS class_id,
@@ -229,8 +312,43 @@ export async function clubCheckIn(
     `);
     const cover = coverage.rows[0];
 
-    // 5. The record — once per class, once per open-gym day.
-    const recordedBy = request.method === 'qr_kiosk' ? null : request.actor.userId;
+    // A door under the 'covered' rule stays shut for a client with nothing
+    // that covers this visit — and since nobody came in, nothing is recorded.
+    // Unless they are ALREADY in: the scan that let them in may have spent a
+    // pack's last visit (the pack is then 'exhausted'), and a second scan for
+    // the same class or open-gym day — a slow turnstile, a trip to the car —
+    // is the same visit, answered 'already' below.
+    const alreadyIn =
+      request.method === 'door' && doorRule === 'covered' && !cover
+        ? await tx.execute(sql`
+            SELECT 1 FROM club_checkins
+             WHERE club_id = ${clubId}::uuid AND member_id = ${memberId}::uuid
+               AND ${
+                 occ
+                   ? sql`occurrence_id = ${String(occ.id)}::uuid`
+                   : sql`occurrence_id IS NULL AND location_id = ${locationId}::uuid
+                         AND sofia_day = (now() AT TIME ZONE 'Europe/Sofia')::date`
+               }
+          `)
+        : null;
+    if (alreadyIn !== null && alreadyIn.rows.length === 0) {
+      return {
+        status: 'denied',
+        denial: 'not_covered',
+        memberId,
+        memberName: String(member.rows[0]?.display_name ?? ''),
+        isMinor,
+        covered: false,
+        membership: null,
+      };
+    }
+
+    // 5. The record — once per class, once per open-gym day. Nobody at the
+    // desk vouched for a kiosk scan, an integration's call or a door.
+    const recordedBy =
+      request.method === 'qr_kiosk' || request.method === 'api' || request.method === 'door'
+        ? null
+        : request.actor.userId;
     const inserted = await tx.execute(sql`
       INSERT INTO club_checkins (club_id, member_id, occurrence_id, location_id, method, recorded_by,
                                  consumed_membership_id, covered, sofia_day)
@@ -261,7 +379,24 @@ export async function clubCheckIn(
     };
     const row = inserted.rows[0];
     if (!row) {
-      return { status: 'already', ...base, covered: Boolean(cover), membership, passport: false };
+      const existing = await tx.execute(sql`
+        SELECT id FROM club_checkins
+         WHERE club_id = ${clubId}::uuid AND member_id = ${memberId}::uuid
+           AND ${
+             occ
+               ? sql`occurrence_id = ${String(occ.id)}::uuid`
+               : sql`occurrence_id IS NULL AND location_id = ${locationId}::uuid
+                     AND sofia_day = (now() AT TIME ZONE 'Europe/Sofia')::date`
+           }
+      `);
+      return {
+        status: 'already',
+        checkinId: text(existing.rows[0]?.id) ?? undefined,
+        ...base,
+        covered: Boolean(cover),
+        membership,
+        passport: false,
+      };
     }
     const checkinId = String(row.id);
 
@@ -315,12 +450,21 @@ export async function clubCheckIn(
       by:
         request.method === 'qr_kiosk'
           ? { kind: 'member', userId: request.userId }
-          : { kind: 'staff', actor: request.actor },
+          : request.method === 'door'
+            ? { kind: 'door', deviceId: request.deviceId }
+            : { kind: 'staff', actor: request.actor },
       action: 'checkin_recorded',
       subjectMemberId: memberId,
       detail: { method, covered: Boolean(cover), passport },
     });
-    return { status: 'recorded', ...base, covered: Boolean(cover), membership, passport };
+    return {
+      status: 'recorded',
+      checkinId,
+      ...base,
+      covered: Boolean(cover),
+      membership,
+      passport,
+    };
   });
 }
 

@@ -38,6 +38,18 @@ export function widthFitZoom(pixelWidth: number, bounds: Bounds, margin = FIT_MA
 }
 
 /**
+ * The zoom floor for a fitted country: the fit less a hair of margin, clamped
+ * to [0, maxZoom] because MapLibre's setMinZoom THROWS outside its range.
+ * A canvas narrower than the two fit margins (a pane collapsed to a few pixels
+ * while the map is mounted) fits at a NaN zoom — widthFitZoom takes the log of
+ * a negative width — and no clamp catches NaN, since Math.max(0, NaN) is NaN.
+ * Then there is no floor to set: null, and the next real resize sets one.
+ */
+export function zoomFloor(fit: number, maxZoom: number): number | null {
+  return Number.isNaN(fit) ? null : clamp(fit - 0.1, 0, maxZoom);
+}
+
+/**
  * Web-mercator y of a latitude, as a fraction of the world's height: 0 at the
  * top edge, 1 at the bottom (MapLibre's convention, so y grows southwards).
  */

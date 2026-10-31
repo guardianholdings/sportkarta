@@ -31,7 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function LocaleNotFound() {
   const t = await getTranslations('NotFound');
   return (
-    <AppShell>
+    <AppShell cached>
       <main className="mx-auto flex max-w-xl flex-col items-start gap-5 px-4 py-12 sm:py-16">
         <PopsMark size={56} className="text-accent" />
         <div className="space-y-3">
@@ -43,13 +43,13 @@ export default async function LocaleNotFound() {
         </div>
         <div className="flex flex-wrap gap-3">
           <Link
-            href="/"
+            href="/karta"
             className="inline-flex min-h-11 items-center rounded-pill bg-brand px-5 text-body-sm font-semibold text-on-brand shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-brand-hover"
           >
             {t('toMap')}
           </Link>
           <Link
-            href="/sesii"
+            href="/igri"
             className="inline-flex min-h-11 items-center rounded-pill border border-line-strong bg-surface px-5 text-body-sm font-semibold text-ink shadow-xs focus-visible:shadow-[var(--ring)] hover:bg-surface-2"
           >
             {t('toSessions')}

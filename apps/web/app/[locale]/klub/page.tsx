@@ -8,6 +8,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
 import { requireUser } from '@/lib/auth-session';
 import { clubName, requireClubsEnabled } from '@/lib/clubs/club-session';
+import { isOutcomeCode } from '@/lib/clubs/form-error';
 import { claimableRecords } from '@/lib/clubs/links';
 import { memberClubs } from '@/lib/clubs/portal';
 import { clubsForStaff } from '@/lib/clubs/staff';
@@ -59,7 +60,7 @@ export default async function ClubHubPage({
   const empty = offices.length === 0 && memberships.length === 0 && claimable.length === 0;
 
   return (
-    <AppShell active={null}>
+    <AppShell active="/profil">
       <main className="mx-auto max-w-2xl space-y-6 p-4">
         <header className="space-y-1 border-b border-line pb-3">
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
@@ -67,7 +68,7 @@ export default async function ClubHubPage({
         </header>
 
         <div role="status" aria-live="polite">
-          {rezultat && t.has(`outcome.${rezultat}`) && (
+          {isOutcomeCode(rezultat) && t.has(`outcome.${rezultat}`) && (
             <p
               className={cn(
                 'rounded-card border p-3 text-body-sm text-ink',

@@ -18,7 +18,7 @@ import {
  *
  * A repeating-row form, because that is what entering a scoreline is: type,
  * tab, type. Rows are added locally with no round trip, and the CSV path reuses
- * the mapping + preview flow from /admin/sesii so an operator learns it once.
+ * the mapping + preview flow from /admin/igri so an operator learns it once.
  *
  * Every step holds useFormAction, not useActionState: React 19 resets a form
  * after any result, so a refused row used to wipe the whole scoresheet (A-2).

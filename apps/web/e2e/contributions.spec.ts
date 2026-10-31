@@ -4,6 +4,7 @@ import path from 'node:path';
 import { POINTS_BY_EVENT } from '@sportkarta/lib/points';
 import { expect, test, type Page } from '@playwright/test';
 import { config } from 'dotenv';
+import { createTranslator } from 'next-intl';
 import pg from 'pg';
 
 import bg from '../messages/bg.json';
@@ -144,10 +145,11 @@ test.describe('authenticated contributions', () => {
 
     // …and the member is actually told, rather than being redirected with a
     // number nothing reads. This is the whole point of A2.
+    // Formatted as the app formats it: the message is an ICU plural now, so
+    // a plain «{points}» replace no longer produces what the page says.
+    const tContribute = createTranslator({ locale: 'bg', messages: bg, namespace: 'Contribute' });
     await expect(
-      page.getByText(
-        bg.Contribute.thanksWithPoints.replace('{points}', String(POINTS_BY_EVENT.facility_added)),
-      ),
+      page.getByText(tContribute('thanksWithPoints', { points: POINTS_BY_EVENT.facility_added })),
     ).toBeVisible();
 
     const rows = await query<{ status: string; source: string; id: string }>(
@@ -297,7 +299,7 @@ test.describe('authenticated contributions', () => {
     expect(awards.length).toBe(1);
   });
 
-  test('points show up on the profile', async ({ page }, testInfo) => {
+  test('points show up on the passport', async ({ page }, testInfo) => {
     const email = contributorEmail(testInfo);
     await signIn(page, email, /\/profil/);
 
@@ -317,9 +319,13 @@ test.describe('authenticated contributions', () => {
     await page.getByRole('button', { name: /^(потвърди|confirm)$/i }).click();
     await expect(page.getByRole('status')).toBeVisible();
 
-    await page.goto('/profil');
-    // 3 points for a verification (lib/src/points.ts).
-    await expect(page.getByText(/^3 (точки|points)$/)).toBeVisible();
+    // The passport carries the points (the profile's points panel is gone,
+    // 2026-10-31). 3 for a verification (lib/src/points.ts).
+    await page.goto('/pasport');
+    const total = page.locator('dl > div', {
+      has: page.locator('dt', { hasText: /^(точки|points)$/i }),
+    });
+    await expect(total.locator('dd')).toHaveText('3');
   });
 });
 

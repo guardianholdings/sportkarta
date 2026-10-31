@@ -309,7 +309,7 @@ describe('admin-only enforcement', () => {
     // are the сдружение's official national slots — an ambassador's authority
     // is municipality-scoped moderation, not this.
     const source = readFileSync(
-      new URL('../app/[locale]/admin/(protected)/sesii/actions.ts', import.meta.url),
+      new URL('../app/[locale]/admin/(protected)/igri/actions.ts', import.meta.url),
       'utf8',
     );
     // Split on the exports and check each body, so a mention in a comment
@@ -331,7 +331,7 @@ describe('label bags handed to client components', () => {
   // no value — and the client component is the one that fills the count in.
   // This caught a real 4-error page in the browser; the guard keeps it caught.
   const pages = [
-    '../app/[locale]/admin/(protected)/sesii/page.tsx',
+    '../app/[locale]/admin/(protected)/igri/page.tsx',
     '../app/[locale]/admin/(protected)/rezultati/[occurrenceId]/page.tsx',
   ];
 

@@ -1,7 +1,9 @@
 import { getDb, sql, type SQL } from '@sportkarta/db';
 import type { ClubCheckinMethod, ClubSport, IsoDate } from '@sportkarta/lib/clubs';
+import { SOFIA_TZ, expandRrule, parseWall } from '@sportkarta/lib/recurrence';
 
 import { recordClubAudit } from './audit';
+import { violatedConstraint } from './errors';
 import type { ClassInput } from './input';
 import {
   clubActorMay,
@@ -65,6 +67,7 @@ function toClass(row: Record<string, unknown>): ClubClass {
     sport: String(row.sport) as ClubSport,
     locationId: String(row.location_id),
     instructorUserId: text(row.instructor_user_id),
+    resourceId: text(row.resource_id),
     startsAtLocal: String(row.starts_local_text),
     rrule: text(row.rrule),
     durationMinutes: Number(row.duration_minutes),
@@ -76,6 +79,11 @@ function toClass(row: Record<string, unknown>): ClubClass {
     planIds: Array.isArray(row.plan_ids) ? row.plan_ids.map(String) : [],
     trialAllowed: row.trial_allowed === true,
     public: row.public === true,
+    noShowFeeCents: row.no_show_fee_cents === null ? null : Number(row.no_show_fee_cents),
+    lateCancelFeeCents:
+      row.late_cancel_fee_cents === null ? null : Number(row.late_cancel_fee_cents),
+    strikeLimit: row.strike_limit === null ? null : Number(row.strike_limit),
+    strikeDays: row.strike_days === null ? null : Number(row.strike_days),
     status: row.status === 'cancelled' ? 'cancelled' : 'scheduled',
     locationName: String(row.location_name),
     instructorName: text(row.instructor_name),
@@ -105,34 +113,127 @@ export async function classById(actor: ClubActor, classId: string): Promise<Club
  * The location and the plans must be this club's (composite keys refuse the
  * rest); the instructor must be this club's staff (composite FK to club_staff).
  */
+/**
+ * A class put in a room (0048) whose dates collide with a booking or a
+ * closure there: the office is told WHICH dates (as instants, for the page
+ * to format), never left with occurrences the materializer had to skip in
+ * silence.
+ */
+export class ClassRoomTaken extends Error {
+  constructor(readonly dates: string[]) {
+    super('room taken');
+  }
+}
+
+/** A room chosen at another location than the class's (0048's 3-column key). */
+export class ClassRoomElsewhere extends Error {
+  constructor() {
+    super('room at another location');
+  }
+}
+
+const ROOM_HORIZON_MS = 8 * 7 * 24 * 60 * 60 * 1000;
+
+async function roomConflicts(
+  tx: SqlRunner,
+  clubId: string,
+  classId: string | null,
+  input: ClassInput,
+): Promise<string[]> {
+  if (!input.resourceId) return [];
+  const now = new Date();
+  const occurrences = expandRrule(
+    {
+      dtstart: parseWall(input.startsAtLocal.replace(' ', 'T').slice(0, 16)),
+      timeZone: SOFIA_TZ,
+      durationMinutes: input.durationMinutes,
+      rrule: input.rrule,
+    },
+    { from: now, to: new Date(now.getTime() + ROOM_HORIZON_MS) },
+  );
+  if (occurrences.length === 0) return [];
+  // A date of THIS class whose occurrence was cancelled holds no claim and
+  // will not be re-created by the materializer — it cannot clash.
+  const clashes = await tx.execute(sql`
+    SELECT DISTINCT w.s AS at
+      FROM unnest(${sql.param(occurrences.map((o) => o.startsAt.toISOString()))}::timestamptz[],
+                  ${sql.param(occurrences.map((o) => o.endsAt.toISOString()))}::timestamptz[]) AS w(s, e)
+      JOIN club_calendar_claims c
+        ON c.club_id = ${clubId}::uuid AND c.resource_id = ${input.resourceId}::uuid AND c.exclusive
+       AND c.during && tstzrange(w.s, w.e, '[)')
+     WHERE NOT (c.source = 'occurrence' AND ${classId}::uuid IS NOT NULL
+                AND c.source_id IN (SELECT o.id FROM club_class_occurrences o
+                                     WHERE o.class_id = ${classId}::uuid))
+       AND NOT EXISTS (SELECT 1 FROM club_class_occurrences x
+                        WHERE ${classId}::uuid IS NOT NULL AND x.club_id = ${clubId}::uuid
+                          AND x.class_id = ${classId}::uuid AND x.starts_at = w.s
+                          AND x.status <> 'scheduled')
+     ORDER BY 1
+     LIMIT 10
+  `);
+  return clashes.rows.map((row) =>
+    row.at instanceof Date ? row.at.toISOString() : new Date(String(row.at)).toISOString(),
+  );
+}
+
 export async function saveClass(
   db: TransactionalDb,
   actor: ClubActor,
   classId: string | null,
   input: ClassInput,
 ): Promise<string | null> {
+  try {
+    return await saveClassOnce(db, actor, classId, input);
+  } catch (error: unknown) {
+    if (error instanceof ClassRoomTaken) throw error;
+    const constraint = violatedConstraint(error);
+    if (constraint === 'club_classes_resource_fk') throw new ClassRoomElsewhere();
+    // The room trigger re-claims the class's future dates on save.
+    if (
+      constraint === 'club_calendar_claims_resource_free' ||
+      constraint === 'club_calendar_claims_pool_full'
+    ) {
+      throw new ClassRoomTaken([]);
+    }
+    throw error;
+  }
+}
+
+async function saveClassOnce(
+  db: TransactionalDb,
+  actor: ClubActor,
+  classId: string | null,
+  input: ClassInput,
+): Promise<string | null> {
   return db.transaction(async (tx) => {
+    const taken = await roomConflicts(tx, actor.clubId, classId, input);
+    if (taken.length > 0) throw new ClassRoomTaken(taken);
     const fields = sql`${input.locationId}::uuid, ${input.title}, ${input.description}, ${input.sport},
-      ${input.instructorUserId}, ${input.startsAtLocal}::timestamp, ${input.rrule},
+      ${input.instructorUserId}, ${input.resourceId}::uuid, ${input.startsAtLocal}::timestamp, ${input.rrule},
       ${input.durationMinutes}, ${input.capacity}, ${input.bookingOpensHours},
       ${input.cancelDeadlineHours}, ${input.dropInPriceCents}, ${input.coversAllPlans},
-      ${input.trialAllowed}, ${input.public}`;
+      ${input.trialAllowed}, ${input.public}, ${input.noShowFeeCents}, ${input.lateCancelFeeCents},
+      ${input.strikeLimit}, ${input.strikeDays}`;
     const result = classId
       ? await tx.execute(sql`
           UPDATE club_classes k
-             SET (location_id, title, description, sport, instructor_user_id, starts_at_local, rrule,
+             SET (location_id, title, description, sport, instructor_user_id, resource_id,
+                  starts_at_local, rrule,
                   duration_minutes, capacity, booking_opens_hours, cancel_deadline_hours,
-                  drop_in_price_cents, covers_all_plans, trial_allowed, public) = (${fields}),
+                  drop_in_price_cents, covers_all_plans, trial_allowed, public, no_show_fee_cents,
+                  late_cancel_fee_cents, strike_limit, strike_days) = (${fields}),
                  materialized_through = NULL
            WHERE k.id = ${classId}::uuid AND k.status = 'scheduled'
              AND ${clubWriteScope(actor, 'schedule.manage', 'k')}
            RETURNING k.id`)
       : await tx.execute(sql`
           INSERT INTO club_classes (club_id, location_id, title, description, sport,
-                                    instructor_user_id, starts_at_local, rrule, duration_minutes,
+                                    instructor_user_id, resource_id, starts_at_local, rrule,
+                                    duration_minutes,
                                     capacity, booking_opens_hours, cancel_deadline_hours,
                                     drop_in_price_cents, covers_all_plans, trial_allowed, public,
-                                    created_by)
+                                    no_show_fee_cents, late_cancel_fee_cents, strike_limit,
+                                    strike_days, created_by)
           SELECT ${actor.clubId}::uuid, ${fields}, ${actor.userId}
            WHERE ${clubActorMay(actor, 'schedule.manage', { write: true })}
           RETURNING id`);
@@ -231,6 +332,8 @@ export interface WeekOccurrence {
   checkedIn: number;
   status: 'scheduled' | 'cancelled';
   mine: boolean;
+  /** The effective instructor has time off over the class (0045). */
+  instructorAway: boolean;
 }
 
 /**
@@ -255,7 +358,11 @@ export async function weekOccurrences(
            (SELECT count(*) FILTER (WHERE bp.booking_status = 'waitlisted')::int FROM club_booking_positions bp
              WHERE bp.club_id = o.club_id AND bp.occurrence_id = o.id) AS waitlisted,
            (SELECT count(*)::int FROM club_checkins ci WHERE ci.club_id = o.club_id AND ci.occurrence_id = o.id)
-             AS checked_in
+             AS checked_in,
+           EXISTS (SELECT 1 FROM club_time_blocks tb
+                    WHERE tb.club_id = o.club_id
+                      AND tb.staff_user_id = coalesce(o.instructor_user_id, k.instructor_user_id)
+                      AND tb.starts_at < o.ends_at AND tb.ends_at > o.starts_at) AS instructor_away
       FROM club_class_occurrences o
       JOIN club_classes k ON k.id = o.class_id
       JOIN club_locations l ON l.id = k.location_id
@@ -286,6 +393,7 @@ export async function weekOccurrences(
     checkedIn: Number(row.checked_in ?? 0),
     status: row.status === 'cancelled' ? 'cancelled' : 'scheduled',
     mine: row.mine === true,
+    instructorAway: row.instructor_away === true,
   }));
 }
 

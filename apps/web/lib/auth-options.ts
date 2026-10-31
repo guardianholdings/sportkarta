@@ -101,8 +101,10 @@ export function authOptions(input: AuthOptionsInput) {
            * the account is created unverified. When the real owner later
            * redeems an email code, better-auth proves the address and — before
            * marking it verified — strips the account's password and sessions
-           * (revokeUnprovenAccountAccess), but NOT its social links: the
-           * stranger's Facebook link would keep opening the owner's account.
+           * (revokeUnprovenAccountAccess). Before 1.7.7 it did NOT strip the
+           * social links: the stranger's Facebook link would keep opening the
+           * owner's account. Since 1.7.7 it strips every link too, so this
+           * finds nothing to drop and stays as the backstop should that regress.
            *
            * This runs at exactly that moment — inside the code redemption,
            * after the code has been checked, while the account is still

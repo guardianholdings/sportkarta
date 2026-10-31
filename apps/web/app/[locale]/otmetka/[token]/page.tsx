@@ -123,7 +123,7 @@ export default async function CheckinPage({ params }: { params: PageParams }) {
 
       <p className="border-t border-line pt-3 text-body-sm">
         <Link
-          href={`/sesiya/${verified.occurrenceId}`}
+          href={`/igra/${verified.occurrenceId}`}
           className="font-medium text-link hover:text-link-hover"
         >
           {t('viewSession')}

@@ -28,6 +28,12 @@ export interface ClubActor {
   role: ClubRole | null;
   /** users.role = 'admin' at the time of the request. */
   ngoAdmin: boolean;
+  /**
+   * Set when the request came through a club API key (0057): the key acts as
+   * the member of staff who created it — this actor — with their role as it
+   * is now. The audit log records it as 'api', with the key's id.
+   */
+  apiKeyId?: string;
 }
 
 /** Closed alias set, rendered with sql.raw — never caller text. */
@@ -53,7 +59,43 @@ export type ScopeAlias =
   | 'a'
   | 'n'
   | 'cp'
-  | 'x';
+  | 'q'
+  | 'kc'
+  | 'rs'
+  | 'sv'
+  | 'rv'
+  | 'pr'
+  | 'lh'
+  | 'sh'
+  | 'tb'
+  | 'pd'
+  | 'sa'
+  | 'sm'
+  | 'po'
+  | 'rd'
+  | 'i'
+  | 'il'
+  | 'x'
+  | 'bc'
+  | 'au'
+  | 'th'
+  | 'fb'
+  | 'ev'
+  | 'et'
+  | 'er'
+  | 'tm'
+  | 'doc'
+  | 'dv'
+  | 'dsg'
+  | 'dm'
+  | 'rl'
+  | 'rk'
+  | 'ra'
+  | 'rp'
+  | 'ak'
+  | 'we'
+  | 'wd'
+  | 'st';
 
 function staffHolds(actor: ClubActor, roles: readonly ClubRole[]): SQL {
   return sql`EXISTS (SELECT 1 FROM club_staff sc
@@ -88,6 +130,20 @@ export function clubWriteScope(
   alias: ScopeAlias,
 ): SQL {
   return sql`(${clubScope(actor, permission, alias)} AND ${clubWritableGuard(actor.clubId)})`;
+}
+
+/**
+ * clubWriteScope for an act only the club's OWN staff may do — the NGO admin
+ * branch left out: they read, and never act as the club (a desk witness on a
+ * client's waiver, 0055). Their staff role still has to hold `permission`.
+ */
+export function clubStaffWriteScope(
+  actor: ClubActor,
+  permission: ClubPermission,
+  alias: ScopeAlias,
+): SQL {
+  return sql`(${sql.raw(alias)}.club_id = ${actor.clubId}::uuid
+    AND ${staffHolds(actor, rolesWith(permission))} AND ${clubWritableGuard(actor.clubId)})`;
 }
 
 /**

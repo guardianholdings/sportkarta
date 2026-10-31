@@ -8,7 +8,7 @@ import {
   LocateFixed,
   MapPin,
   Navigation,
-  Plus,
+  ChevronRight,
   Search,
   SlidersHorizontal,
   WifiOff,
@@ -22,6 +22,8 @@ import type { Dispatch, KeyboardEvent, RefObject, SetStateAction } from 'react';
 
 import { AdCreative } from '@/components/ads/ad-creative';
 import { BottomNav, NavRail } from '@/components/shell/app-nav';
+import { QuickActions } from '@/components/shell/quick-actions';
+
 import { LoadingMark } from '@/components/shell/loading-mark';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -155,6 +157,10 @@ interface MapExplorerProps {
    * client bundle. Null/absent = unsold = nothing rendered.
    */
   ad?: { id: number; url: string; alt: string } | null;
+  /** Whether the «Клубове» add-on is on, so the rail may link /za-klubove. */
+  clubs?: boolean;
+  /** A session cookie came with the request: the last tab reads «Профил», else «Вход». */
+  signedIn?: boolean;
 }
 
 function toggle(list: string[], value: string): string[] {
@@ -172,6 +178,8 @@ export function MapExplorer({
   initialFacilities,
   externalLayers = [],
   ad = null,
+  clubs = false,
+  signedIn = true,
 }: MapExplorerProps) {
   const t = useTranslations('Map');
   const tAds = useTranslations('Ads');
@@ -236,7 +244,9 @@ export function MapExplorer({
   const [offline, setOffline] = useState(false);
   const [nearMeOn, setNearMeOn] = useState(false);
   const [radiusKm, setRadiusKm] = useState(8);
-  const [query, setQuery] = useState('');
+  // The front page's search form submits here as `?q=` (it works without
+  // JavaScript). The search itself stays client state, as it always was.
+  const [query, setQuery] = useState(() => searchParams.get('q') ?? '');
   const [snap, setSnap] = useState<Snap>('half');
   /** Phone only: the pin preview expanded from its half height to full. */
   const [previewFull, setPreviewFull] = useState(false);
@@ -357,6 +367,7 @@ export function MapExplorer({
             lat: f.geometry.coordinates[1],
             place: f.properties.place ?? null,
             ...(f.properties.club ? { club: true } : {}),
+            ...(f.properties.clubSlug ? { clubSlug: f.properties.clubSlug } : {}),
           })),
         );
         setLoading(false);
@@ -470,6 +481,35 @@ export function MapExplorer({
     setNearMeOn(true);
     if (!userLocation) locate();
   }
+
+  /**
+   * The front page's «Близо до мен» lands here as `?blizo=1`. The position is
+   * asked for by THIS page, so no coordinate ever travels in a URL. One-shot:
+   * both hand-offs (`blizo`, `q`) leave the address bar once read, so a reload
+   * neither asks again nor brings back a search that has since been cleared.
+   */
+  const handOffRef = useRef(() => {
+    const sp = new URLSearchParams(window.location.search);
+    if (!sp.has('blizo') && !sp.has('q')) return;
+    if (sp.get('blizo') === '1') {
+      setNearMeOn(true);
+      locate();
+    }
+    // A task later, not now: effects run child-first, so the App Router's own
+    // hydration effect — which writes the URL it rendered back into the
+    // address bar — would otherwise run after this one and restore both.
+    window.setTimeout(() => {
+      const now = new URLSearchParams(window.location.search);
+      now.delete('blizo');
+      now.delete('q');
+      const qs = now.toString();
+      const { pathname } = window.location;
+      window.history.replaceState(null, '', qs ? `${pathname}?${qs}` : pathname);
+    }, 0);
+  });
+  useEffect(() => {
+    handOffRef.current();
+  }, []);
 
   // The notice sits over the sheet on a phone: it clears itself, and its close
   // button clears it sooner. It used to stay for the rest of the visit.
@@ -719,6 +759,7 @@ export function MapExplorer({
           viewDetails: t('viewDetails'),
           close: t('close'),
           club: t('clubChip'),
+          clubMany: t('clubChipMany'),
         }}
       />
     );
@@ -876,13 +917,15 @@ export function MapExplorer({
 
       {/* ═══ DESKTOP: left rail + list panel + right detail ═══ */}
       <div className="pointer-events-none absolute inset-0 z-20 hidden lg:flex">
-        {/* The add-facility FAB lives on the map itself here (bottom-left of
-            the visible map, below), so the rail's copy is off. */}
+        {/* The «+» lives on the map itself here (bottom-left of the visible
+            map, below), so the rail's copy is off. */}
         <NavRail
-          active="/"
+          active="/karta"
           labelFor={(k) => tNav(k)}
           className="pointer-events-auto"
           showAdd={false}
+          clubs={clubs}
+          signedIn={signedIn}
         />
 
         {/*
@@ -964,23 +1007,13 @@ export function MapExplorer({
           {resultsBody(desktopListRef)}
         </aside>
 
-        {/* The visible map region (right of the list). The add-facility FAB
-            anchors to ITS bottom-left, so it sits on the map, not under the
-            panel — operator request 2026-07-25. Mobile keeps the BottomNav
-            center FAB.
-
-            Its focus ring is explicit, as on the BottomNav FAB and the accent
-            Button: the global :focus-visible ring lives in @layer base, and the
-            `shadow-lg` utility here outranks it, so keyboard focus on this
-            button used to be invisible. */}
+        {/* The visible map region (right of the list). The «+» anchors to ITS
+            bottom-left, so it sits on the map, not under the panel — operator
+            request 2026-07-25. Mobile keeps the BottomNav centre «+». The same
+            QuickActions as the bar's, so both open the same three actions,
+            and both start «Добави съоръжение» where the map is looking. */}
         <div className="relative min-w-0 flex-1">
-          <Link
-            href="/dobavi"
-            aria-label={tNav('navAdd')}
-            className="pointer-events-auto absolute bottom-6 left-6 grid size-[54px] place-items-center rounded-full border-[3px] border-surface bg-accent text-on-accent shadow-lg transition-[transform,box-shadow] duration-150 ease-standard hover:scale-105 focus-visible:shadow-[var(--ring-accent)] active:scale-[0.97]"
-          >
-            <Plus size={26} />
-          </Link>
+          <QuickActions variant="floating" fromMap className="absolute bottom-6 left-6" />
         </div>
 
         {selected && (
@@ -1074,9 +1107,11 @@ export function MapExplorer({
         )}
 
         <BottomNav
-          active="/"
+          active="/karta"
           labelFor={(k) => tNav(k)}
           className="absolute inset-x-0 bottom-0 z-40"
+          signedIn={signedIn}
+          fromMap
         />
       </div>
 
@@ -1274,6 +1309,7 @@ function FacilityPreview({
     viewDetails: string;
     close: string;
     club: string;
+    clubMany: string;
   };
 }) {
   const v = primaryVisual(point.sports);
@@ -1309,11 +1345,17 @@ function FacilityPreview({
             {title}
           </h2>
           {subtitle && <p className="mt-1 text-body-sm text-text-muted">{subtitle}</p>}
+          {/* A link, not a label (UX audit N6): the club's page when one club
+              is here, the facility's club block when several are. */}
           {point.club && (
             <p className="mt-2">
-              <span className="inline-flex items-center rounded-pill border border-line-strong px-2.5 py-0.5 text-caption font-semibold text-ink-soft">
-                {labels.club}
-              </span>
+              <Link
+                href={point.clubSlug ? `/klub/${point.clubSlug}` : `/obekt/${point.slug}#klubove`}
+                className="inline-flex min-h-11 items-center gap-1 rounded-pill border border-line-strong px-3.5 text-body-sm font-semibold text-ink-soft hover:border-brand-border hover:text-brand focus-visible:shadow-[var(--ring)]"
+              >
+                {point.clubSlug ? labels.club : labels.clubMany}
+                <ChevronRight size={14} aria-hidden />
+              </Link>
             </p>
           )}
         </div>

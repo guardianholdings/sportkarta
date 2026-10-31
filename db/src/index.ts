@@ -20,16 +20,65 @@ export type {
 export { refreshStats, STATS_MATVIEWS } from './stats.js';
 export { HORIZON_WEEKS, materializeSessions } from './sessions/materialize.js';
 export { materializeClubClasses } from './clubs/materialize.js';
+export {
+  chargeClubBookingFees,
+  clubStrikesSql,
+  feeMailCandidates,
+  renewClubMemberships,
+  renewalMailCandidates,
+} from './clubs/policies.js';
+export {
+  applyCheckoutPaid,
+  applySubscriptionInvoice,
+  expireCheckout,
+  markPaymentAccountGone,
+  markPaymentEvent,
+  paymentEventById,
+  expireReservationHolds,
+  HOLD_GRACE_MINUTES,
+  releaseLapsedHolds,
+  prunePaymentEvents,
+  subscriptionRefsFor,
+  pendingPaymentEventIds,
+  providerPaymentKnown,
+  receiptCandidates,
+  recordPaymentEvent,
+  recordProviderRefund,
+  recordUnappliedRenewal,
+  setPaymentAccountState,
+  stopSubscription,
+  subscriptionCancelOwed,
+} from './clubs/payments.js';
+export type {
+  CheckoutOutcome,
+  PaidCheckout,
+  PaymentEvent,
+  ReceiptCandidate,
+} from './clubs/payments.js';
+export {
+  DATED_NOTIFICATION_KINDS,
+  pruneClubRetention,
+  type RetentionPruneReport,
+} from './clubs/retention.js';
+export type {
+  FeeLabels,
+  FeeMailCandidate,
+  RenewalMailCandidate,
+  RenewalReport,
+} from './clubs/policies.js';
 export type { ClubMaterializeOptions, ClubMaterializeReport } from './clubs/materialize.js';
 export {
+  clubMonthFigures,
   bookingsForMail,
   cancelledOccurrenceBookings,
   claimClubNotification,
   clubForMail,
   clubWeekFigures,
   dueClubReminders,
+  clubLifecycleCandidates,
   expiryCandidates,
   inviteForMail,
+  isSmsCapRefusal,
   memberForStaffMail,
   memberRecipient,
   operatorRecipients,
@@ -39,15 +88,68 @@ export {
   trainerClassesOn,
 } from './clubs/mail.js';
 export type {
+  ClubMonthFigures,
   ClubBookingMail,
   ClubMailClub,
   ClubMemberRecipient,
   ClubWeekFigures,
+  ClubLifecycleCandidate,
+  ClubLifecycleKind,
   ExpiryCandidate,
   InviteForMail,
   StaffRecipient,
   TrainerClass,
 } from './clubs/mail.js';
+export {
+  MEMBER_DERIVED_COLUMNS,
+  MEMBER_DERIVED_JOINS,
+  audienceSql,
+  broadcastTargets,
+  memberFilterSql,
+  memberSegmentSql,
+} from './clubs/audience.js';
+export {
+  BROADCAST_STALE_DAYS,
+  activeAutomations,
+  automationCandidates,
+  automationMailToday,
+  broadcastReached,
+  broadcastStillSending,
+  bulkMailSentToday,
+  cancelStaleBroadcasts,
+  channelAllowed,
+  dueBroadcasts,
+  finishBroadcast,
+  memberChannels,
+  membersChannels,
+  notePushResult,
+  pushSubscriptionsOf,
+  startBroadcast,
+} from './clubs/messaging.js';
+export type {
+  ActiveAutomation,
+  AutomationCandidate,
+  BroadcastToSend,
+  MemberChannels,
+  StoredPushSubscription,
+} from './clubs/messaging.js';
+export { inboxNoticeOf, leadsDue } from './clubs/inbox.js';
+export {
+  claimWebhookDeliveries,
+  disableFailingEndpoints,
+  pruneClubIntegrations,
+  settleWebhookDelivery,
+} from './clubs/webhooks.js';
+export type { DueWebhookDelivery, WebhookAttempt } from './clubs/webhooks.js';
+export type { InboxNotice, LeadsDue } from './clubs/inbox.js';
+export {
+  eventPlacesForMail,
+  expireEventHolds,
+  lockEvent,
+  promoteEventWaitlist,
+  releaseLapsedEventHolds,
+} from './clubs/events.js';
+export type { ClubEventPlaceMail, EventPromotion, OnlineProvider } from './clubs/events.js';
 export {
   claimDigestSend,
   digestRecipients,

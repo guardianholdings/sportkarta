@@ -1,5 +1,5 @@
 /**
- * The column mapping the admin CSV wizards post back (/admin/sesii,
+ * The column mapping the admin CSV wizards post back (/admin/igri,
  * /admin/rezultati, /admin/obshtini) — read in ONE place.
  *
  * The mapping step renders one `map.<field>` select per field, whose value is

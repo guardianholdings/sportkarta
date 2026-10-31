@@ -1,4 +1,4 @@
-import { sql, type SQL } from '@sportkarta/db';
+import { publicFacilityVisible, sql, type SQL } from '@sportkarta/db';
 
 interface SqlRunner {
   execute(query: SQL): Promise<{ rows: Record<string, unknown>[] }>;
@@ -51,6 +51,31 @@ export async function memberFacilities(
       JOIN facilities f ON f.id = l.facility_id
      WHERE f.status <> 'gone' AND f.name IS NOT NULL AND btrim(f.name) <> ''
      ORDER BY l.at DESC, f.name
+     LIMIT ${limit}
+  `);
+  return result.rows.map((row) => ({ id: String(row.id), name: String(row.name) }));
+}
+
+/** How many nearby places the picker offers when it knows where the member is. */
+export const NEARBY_FACILITIES_LIMIT = 20;
+
+/**
+ * The named public facilities nearest to a point, for the picker when the form
+ * was opened from the map (`?lat=&lon=`, lib/map/add-from-view.ts) — the
+ * member is logging a training somewhere around what they were looking at.
+ * Only what the public map shows (`publicFacilityVisible`), nearest first by
+ * the GIST index's distance operator.
+ */
+export async function nearbyFacilities(
+  db: SqlRunner,
+  point: { lon: number; lat: number },
+  limit: number = NEARBY_FACILITIES_LIMIT,
+): Promise<{ id: string; name: string }[]> {
+  const result = await db.execute(sql`
+    SELECT f.id::text AS id, f.name
+      FROM facilities f
+     WHERE ${publicFacilityVisible} AND f.name IS NOT NULL AND btrim(f.name) <> ''
+     ORDER BY f.geom <-> ST_SetSRID(ST_MakePoint(${point.lon}, ${point.lat}), 4326)
      LIMIT ${limit}
   `);
   return result.rows.map((row) => ({ id: String(row.id), name: String(row.name) }));

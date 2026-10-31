@@ -9,6 +9,15 @@ config({ path: '../../.env' });
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 
+/** Old addresses → new ones; `localised` pages also live under /en. */
+export const RENAMED_PATHS = [
+  { from: '/sesii', to: '/igri', localised: true },
+  { from: '/sesiya', to: '/igra', localised: true },
+  { from: '/admin/sesii', to: '/admin/igri', localised: true },
+  { from: '/kalendar/sesiya', to: '/kalendar/igra', localised: false },
+  { from: '/og/:locale/sesiya', to: '/og/:locale/igra', localised: false },
+] as const;
+
 const nextConfig: NextConfig = {
   output: 'standalone',
   transpilePackages: ['@sportkarta/lib', '@sportkarta/db'],
@@ -34,11 +43,25 @@ const nextConfig: NextConfig = {
     // and a deploy is exactly when it should not.
     isrFlushToDisk: false,
   },
+  // «Тренировки» became «Игри» (operator, 2026-10-31), and their addresses
+  // with them. Permanent, so a link in an old e-mail, a calendar, a share or a
+  // search result still lands; `:path*` also matches the bare list page.
+  async redirects() {
+    return RENAMED_PATHS.flatMap(({ from, to, localised }) => [
+      { source: `${from}/:path*`, destination: `${to}/:path*`, permanent: true },
+      ...(localised
+        ? [{ source: `/en${from}/:path*`, destination: `/en${to}/:path*`, permanent: true }]
+        : []),
+    ]);
+  },
   // Framing policy (Stage 3.4). The municipality widget under /api/widget is
   // the ONE surface meant to be embedded on other people's sites, and it sets
   // `frame-ancestors *` on its own response. Everything else — the admin shell,
   // the moderation queue, the profile and passport pages — is denied here, so
   // adding the widget did not quietly make the whole app frameable.
+  // On a club's public pages the middleware's script policy REPLACES the CSP
+  // below (lib/club-page-csp.ts); it repeats `frame-ancestors 'none'`, and
+  // tests/club-page-csp.test.ts holds it there. X-Frame-Options stays as is.
   //
   // The negative lookahead is deliberate rather than relying on rule ordering:
   // two overlapping `source` entries both match, and which Content-Security-
@@ -49,7 +72,12 @@ const nextConfig: NextConfig = {
         source: '/:path((?!api/widget).*)',
         headers: [
           { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          // base-uri and object-src cost nothing and close two injection
+          // levers; script-src stays open here (Next's inline hydration).
+          {
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
+          },
           // A facility photo or an open-data CSV is served from our own origin;
           // without nosniff a browser may re-interpret an uploaded file as
           // something executable on the strength of its bytes alone.
@@ -94,6 +122,24 @@ const nextConfig: NextConfig = {
         // rebrand did exactly that), so they get a day plus a background
         // refresh rather than a long lifetime that would pin a retired icon.
         source: '/icons/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
+        ],
+      },
+      {
+        // The product screenshots on the clubs page (scripts/marketing-shots):
+        // re-rendered after UI changes under the SAME names, so a day plus a
+        // background refresh, like the icons — never a year that would pin a
+        // retired screen.
+        source: '/marketing/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
+        ],
+      },
+      {
+        // The front page's screen recordings (scripts/marketing-shots/guide.mjs):
+        // the same contract — re-recorded under the same names after UI changes.
+        source: '/guide/:path*',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
         ],

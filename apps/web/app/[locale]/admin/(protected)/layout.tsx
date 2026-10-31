@@ -47,7 +47,7 @@ export default async function AdminLayout({
     // undo, and whether the worker, the queues and the mail are running.
     { href: '/admin/redakcii', label: t('crowdEdits'), minRole: 'admin' },
     { href: '/admin/zdrave', label: t('health'), minRole: 'admin' },
-    { href: '/admin/sesii', label: t('bulkSessions'), minRole: 'admin' },
+    { href: '/admin/igri', label: t('bulkSessions'), minRole: 'admin' },
     { href: '/admin/rezultati', label: t('results'), minRole: 'admin' },
     { href: '/admin/kampanii', label: t('campaigns'), minRole: 'admin' },
     { href: '/admin/partnyori', label: t('partners'), minRole: 'admin' },
@@ -75,7 +75,7 @@ export default async function AdminLayout({
           <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1">
             <span className="text-caption text-text-muted">{t('signedInAs', { actor })}</span>
             <Link
-              href="/"
+              href="/karta"
               className="inline-flex items-center gap-1.5 rounded-pill border border-line-strong bg-surface px-3 py-1.5 text-caption font-semibold text-ink-soft hover:bg-surface-2"
             >
               <MapIcon size={15} />

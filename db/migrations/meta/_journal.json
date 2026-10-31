@@ -316,6 +316,125 @@
       "when": 1785156000000,
       "tag": "0044_club_notifications_activity",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1785159600000,
+      "tag": "0045_club_policies_staff_site",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1785163200000,
+      "tag": "0046_club_online_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1785166800000,
+      "tag": "0047_club_policy_fixes",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1785170400000,
+      "tag": "0048_club_resources_reservations",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1785174000000,
+      "tag": "0049_club_shop_promotions",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1785177600000,
+      "tag": "0050_club_wallet_invoices",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1785181200000,
+      "tag": "0051_club_messaging",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1785184800000,
+      "tag": "0052_club_inbox_leads_feedback",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1785188400000,
+      "tag": "0053_club_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1785192000000,
+      "tag": "0054_club_tournaments",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1785195600000,
+      "tag": "0055_club_documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1785199200000,
+      "tag": "0056_club_ranks",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1785202800000,
+      "tag": "0057_club_integrations",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1785206400000,
+      "tag": "0058_club_tracking",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1785210000000,
+      "tag": "0059_club_lifecycle_mail",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1785213600000,
+      "tag": "0060_clubs_every_tier_paid",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1785217200000,
+      "tag": "0061_club_contracts",
+      "breakpoints": true
     }
   ]
 }

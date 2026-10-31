@@ -54,6 +54,9 @@ export interface SettingsFormLabels {
   cancelDeadlineHours: string;
   mailUnlinked: string;
   mailUnlinkedHint: string;
+  accent: string;
+  accentHint: string;
+  accents: Record<'green' | 'coral' | 'sky', string>;
   save: string;
 }
 
@@ -74,6 +77,7 @@ export interface SettingsValues {
   bookingOpensHours: number;
   cancelDeadlineHours: number;
   mailUnlinkedMembers: boolean;
+  accent: 'green' | 'coral' | 'sky';
 }
 
 export function SettingsForm({
@@ -270,6 +274,26 @@ export function SettingsForm({
               defaultValue={values.cancelDeadlineHours}
             />
           </div>
+        </div>
+        <div className="space-y-1">
+          <label className={label} htmlFor="s-accent">
+            {labels.accent}
+          </label>
+          <Select
+            id="s-accent"
+            name="accent"
+            defaultValue={values.accent}
+            aria-describedby="s-accent-hint"
+          >
+            {(['green', 'coral', 'sky'] as const).map((accent) => (
+              <option key={accent} value={accent}>
+                {labels.accents[accent]}
+              </option>
+            ))}
+          </Select>
+          <p id="s-accent-hint" className="text-caption text-text-muted">
+            {labels.accentHint}
+          </p>
         </div>
         <div className="space-y-1">
           <label className={label} htmlFor="s-locale">

@@ -13,7 +13,13 @@ export default function manifest(): MetadataRoute.Manifest {
     description: messages.Metadata.description,
     lang: 'bg',
     dir: 'ltr',
-    start_url: '/',
+    // The installed app opens on the map, as it always has: the front page at
+    // "/" is for visitors arriving from a link or a search. `id` is pinned to
+    // the OLD start_url because a manifest without one is identified BY its
+    // start_url — moving it to /karta would otherwise turn every installed copy
+    // into a different app that no longer receives updates.
+    id: '/',
+    start_url: '/karta',
     scope: '/',
     display: 'standalone',
     // = --paper and --accent in app/design-tokens/colors.css. The install

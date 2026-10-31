@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 
 import { AdSlot } from '@/components/ads/ad-slot';
 import { Link } from '@/i18n/navigation';
+import { takesVav } from '@/lib/grammar';
 import { getCityBySlug, type City } from '@/lib/places';
 import { buildAlternates } from '@/lib/seo';
 import { AppShell } from '@/components/shell/app-shell';
@@ -47,8 +48,8 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   const name = cityName(city, locale);
   const week = await weeklyDigest(getDb(), { municipalityId: city.id, timeZone: SOFIA_TZ });
   return {
-    title: t('metaTitle', { city: name }),
-    description: t('metaDescription', { city: name }),
+    title: t('metaTitle', { city: name, cityVav: takesVav(name) }),
+    description: t('metaDescription', { city: name, cityVav: takesVav(name) }),
     alternates: buildAlternates(`/sedmitsata/${city.slug}`, locale),
     // A week with nothing on is thin content, but the URL must stay stable —
     // it is in every digest email already sent. So: keep the page, drop it from
@@ -105,15 +106,15 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
   }).format(new Date(`${week.weekStart}T00:00:00Z`));
 
   return (
-    <AppShell active="/sesii">
+    <AppShell active="/igri" cached>
       <main className="mx-auto max-w-3xl space-y-6 p-4">
-        <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
+        <Link href="/karta" className="text-body-sm font-medium text-link hover:text-link-hover">
           {t('backToMap')}
         </Link>
 
         <header className="space-y-2">
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">
-            {t('h1', { city: name })}
+            {t('h1', { city: name, cityVav: takesVav(name) })}
           </h1>
           <p className="text-body-sm text-text-muted">{t('weekOf', { date: weekStartLabel })}</p>
           {week.occurrences.length > 0 && (
@@ -123,11 +124,14 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
 
         {week.occurrences.length === 0 ? (
           <section className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-sm">
-            <p className="text-ink-soft">{t('empty', { city: name })}</p>
+            <p className="text-ink-soft">{t('empty', { city: name, cityVav: takesVav(name) })}</p>
             <p className="text-body-sm text-text-muted">{t('emptyHint')}</p>
             {/* To the map, as the label says: the city's listing page is a 404
                 for the ~35 municipalities with fewer than three facilities. */}
-            <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">
+            <Link
+              href="/karta"
+              className="text-body-sm font-medium text-link hover:text-link-hover"
+            >
               {t('backToMap')}
             </Link>
           </section>
@@ -155,7 +159,7 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
                           listing — each entry leads to the page where you can
                           actually sign up. */}
                         <Link
-                          href={`/sesiya/${entry.occurrenceId}`}
+                          href={`/igra/${entry.occurrenceId}`}
                           className="font-medium text-link hover:text-link-hover"
                         >
                           {entry.title}
@@ -190,7 +194,7 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
         )}
 
         <p className="border-t border-line pt-4 text-body-sm text-ink-soft">
-          <Link href="/profil" className="font-medium text-link hover:text-link-hover">
+          <Link href="/profil#sedmichna" className="font-medium text-link hover:text-link-hover">
             {t('subscribe')}
           </Link>
         </p>

@@ -22,6 +22,8 @@ export interface ScheduleState {
   error: string | null;
   errors?: string[];
   saved?: boolean;
+  /** Dates the chosen room is already taken (0048). */
+  dates?: string[];
 }
 
 const INITIAL: ScheduleState = { error: null };
@@ -34,6 +36,10 @@ export interface ClassFormLabels {
   location: string;
   instructor: string;
   instructorNone: string;
+  room: string;
+  roomNone: string;
+  roomHint: string;
+  roomTaken: string;
   firstDate: string;
   time: string;
   duration: string;
@@ -52,11 +58,19 @@ export interface ClassFormLabels {
   bookingOpensDays: string;
   cancelDeadlineHours: string;
   dropInPrice: string;
+  policyTitle: string;
+  policyHint: string;
+  noShowFee: string;
+  lateCancelFee: string;
+  strikeLimit: string;
+  strikeDays: string;
   coverage: string;
   coverageAll: string;
   coverageSelected: string;
   trialAllowed: string;
   public: string;
+  /** The fold over everything that has a default. */
+  more: string;
   save: string;
 }
 
@@ -67,6 +81,7 @@ export interface ClassValues {
   sport: string;
   locationId: string;
   instructorUserId: string | null;
+  resourceId: string | null;
   firstDate: string;
   time: string;
   durationMinutes: number;
@@ -78,6 +93,10 @@ export interface ClassValues {
   bookingOpensDays: number;
   cancelDeadlineHours: number;
   dropInPrice: string;
+  noShowFee: string;
+  lateCancelFee: string;
+  strikeLimit: number | null;
+  strikeDays: number | null;
   coversAllPlans: boolean;
   planIds: string[];
   trialAllowed: boolean;
@@ -92,10 +111,12 @@ export function ClassForm({
   sports,
   locations,
   instructors,
+  rooms = [],
   plans,
   today,
   defaults,
   value,
+  clubSports = [],
 }: {
   action: (prev: ScheduleState, formData: FormData) => Promise<ScheduleState>;
   slug: string;
@@ -104,19 +125,44 @@ export function ClassForm({
   sports: { value: string; label: string }[];
   locations: { id: string; name: string }[];
   instructors: { userId: string; name: string }[];
+  /** Rooms and courts (0048); the class claims the one chosen on each of its dates. */
+  rooms?: { id: string; name: string; locationName: string }[];
   plans: { id: string; name: string }[];
   today: string;
   defaults: { bookingOpensDays: number; cancelDeadlineHours: number };
   value?: ClassValues;
+  /** The sports the club chose (settings), the first of which a new class takes. */
+  clubSports?: readonly string[];
 }) {
   const [state, formProps, pending] = useFormAction(action, INITIAL);
   const [ends, setEnds] = useState<ClassValues['ends']>(value?.ends ?? 'never');
   const [coverage, setCoverage] = useState(value && !value.coversAllPlans ? 'selected' : 'all');
+  const advancedOpen =
+    value !== undefined &&
+    (value.instructorUserId !== null ||
+      value.resourceId !== null ||
+      value.ends !== 'never' ||
+      value.bookingOpensDays !== defaults.bookingOpensDays ||
+      value.cancelDeadlineHours !== defaults.cancelDeadlineHours ||
+      value.dropInPrice !== '' ||
+      !value.coversAllPlans ||
+      !value.trialAllowed ||
+      !value.public ||
+      value.noShowFee !== '' ||
+      value.lateCancelFee !== '' ||
+      value.strikeLimit !== null ||
+      (value.strikeDays !== null && value.strikeDays !== 30) ||
+      (value.description ?? '') !== '');
   return (
     <form {...formProps} className="space-y-4">
       <input type="hidden" name="slug" value={slug} />
       {value && <input type="hidden" name="classId" value={value.id} />}
       <FormFeedback state={state} messages={messages} />
+      {state.dates && state.dates.length > 0 && (
+        <p className="rounded-card border border-danger-border bg-danger-bg p-3 text-body-sm text-ink">
+          {labels.roomTaken} {state.dates.join(', ')}
+        </p>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1">
           <label className={label} htmlFor="c-title">
@@ -128,7 +174,13 @@ export function ClassForm({
           <label className={label} htmlFor="c-sport">
             {labels.sport}
           </label>
-          <Select id="c-sport" name="sport" required defaultValue={value?.sport ?? ''}>
+          <Select
+            id="c-sport"
+            name="sport"
+            required
+            // The club's own first sport (UX audit): the club chose its sports.
+            defaultValue={value?.sport ?? clubSports[0] ?? ''}
+          >
             <option value="" disabled>
               —
             </option>
@@ -152,23 +204,6 @@ export function ClassForm({
             {locations.map((location) => (
               <option key={location.id} value={location.id}>
                 {location.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <label className={label} htmlFor="c-instructor">
-            {labels.instructor}
-          </label>
-          <Select
-            id="c-instructor"
-            name="instructorUserId"
-            defaultValue={value?.instructorUserId ?? ''}
-          >
-            <option value="">{labels.instructorNone}</option>
-            {instructors.map((instructor) => (
-              <option key={instructor.userId} value={instructor.userId}>
-                {instructor.name}
               </option>
             ))}
           </Select>
@@ -254,157 +289,262 @@ export function ClassForm({
         </div>
         <p className="text-caption text-text-muted">{labels.weekdaysHint}</p>
       </fieldset>
-      <fieldset className="space-y-2">
-        <legend className={label}>{labels.ends}</legend>
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              ['never', labels.endsNever],
-              ['until', labels.endsUntil],
-              ['count', labels.endsCount],
-            ] as const
-          ).map(([kind, text]) => (
-            <label
-              key={kind}
-              className="flex min-h-11 cursor-pointer items-center gap-2 rounded-pill border border-line-strong px-4 text-body-sm has-[:checked]:border-brand has-[:checked]:bg-brand-subtle"
-            >
-              <input
-                type="radio"
-                name="ends"
-                value={kind}
-                checked={ends === kind}
-                onChange={() => setEnds(kind)}
-                className="size-4 accent-[var(--brand)]"
-              />
-              {text}
-            </label>
-          ))}
-        </div>
-        {ends === 'until' && (
-          <label className="block max-w-xs text-body-sm text-ink">
-            {labels.until}
-            <Input
-              name="until"
-              type="date"
-              min={today}
-              defaultValue={value?.until ?? ''}
-              required
-            />
-          </label>
-        )}
-        {ends === 'count' && (
-          <label className="block max-w-xs text-body-sm text-ink">
-            {labels.count}
-            <Input
-              name="count"
-              type="number"
-              min={1}
-              max={999}
-              defaultValue={value?.count ?? 10}
-              required
-            />
-          </label>
-        )}
-      </fieldset>
-      <fieldset className="space-y-3 rounded-card border border-line p-3">
-        <legend className="px-1 text-body-sm font-bold text-ink">{labels.bookingTitle}</legend>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="space-y-1">
-            <label className={label} htmlFor="c-opens">
-              {labels.bookingOpensDays}
-            </label>
-            <Input
-              id="c-opens"
-              name="bookingOpensDays"
-              type="number"
-              min={1}
-              max={90}
-              defaultValue={value?.bookingOpensDays ?? defaults.bookingOpensDays}
-            />
-          </div>
-          <div className="space-y-1">
-            <label className={label} htmlFor="c-deadline">
-              {labels.cancelDeadlineHours}
-            </label>
-            <Input
-              id="c-deadline"
-              name="cancelDeadlineHours"
-              type="number"
-              min={0}
-              max={168}
-              defaultValue={value?.cancelDeadlineHours ?? defaults.cancelDeadlineHours}
-            />
-          </div>
-          <div className="space-y-1">
-            <label className={label} htmlFor="c-dropin">
-              {labels.dropInPrice}
-            </label>
-            <Input
-              id="c-dropin"
-              name="dropInPrice"
-              inputMode="decimal"
-              defaultValue={value?.dropInPrice ?? ''}
-            />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <span className={label}>{labels.coverage}</span>
-          <div className="flex flex-wrap gap-2">
-            {(
-              [
-                ['all', labels.coverageAll],
-                ['selected', labels.coverageSelected],
-              ] as const
-            ).map(([kind, text]) => (
-              <label
-                key={kind}
-                className="flex min-h-11 cursor-pointer items-center gap-2 rounded-pill border border-line-strong px-4 text-body-sm has-[:checked]:border-brand has-[:checked]:bg-brand-subtle"
-              >
-                <input
-                  type="radio"
-                  name="coverage"
-                  value={kind}
-                  checked={coverage === kind}
-                  onChange={() => setCoverage(kind)}
-                  className="size-4 accent-[var(--brand)]"
-                />
-                {text}
+      {/*
+        The essentials above are a class; everything below has a default
+        (UX audit, «Office: add a class»: ~25 fields on first setup). Opened by
+        itself when editing a class that already sets any of it, and when the
+        server refused something — the field it names may be in here.
+      */}
+      <details
+        open={advancedOpen || state.error !== null || Boolean(state.dates?.length)}
+        className="group rounded-card border border-line p-3 [&[open]>summary]:mb-3"
+      >
+        <summary className="flex min-h-11 cursor-pointer list-none items-center text-body-sm font-semibold text-link">
+          {labels.more}
+        </summary>
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className={label} htmlFor="c-instructor">
+                {labels.instructor}
               </label>
-            ))}
+              <Select
+                id="c-instructor"
+                name="instructorUserId"
+                defaultValue={value?.instructorUserId ?? ''}
+              >
+                <option value="">{labels.instructorNone}</option>
+                {instructors.map((instructor) => (
+                  <option key={instructor.userId} value={instructor.userId}>
+                    {instructor.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            {rooms.length > 0 && (
+              <div className="space-y-1">
+                <label className={label} htmlFor="c-room">
+                  {labels.room}
+                </label>
+                <Select id="c-room" name="resourceId" defaultValue={value?.resourceId ?? ''}>
+                  <option value="">{labels.roomNone}</option>
+                  {rooms.map((room) => (
+                    <option key={room.id} value={room.id}>
+                      {room.name} · {room.locationName}
+                    </option>
+                  ))}
+                </Select>
+                <p className="text-caption text-text-muted">{labels.roomHint}</p>
+              </div>
+            )}
           </div>
-          {coverage === 'selected' && (
-            <div className="flex flex-wrap gap-x-4 gap-y-1">
-              {plans.map((plan) => (
-                <Checkbox
-                  key={plan.id}
-                  name="planIds"
-                  value={plan.id}
-                  label={plan.name}
-                  defaultChecked={value?.planIds.includes(plan.id)}
-                />
+          <fieldset className="space-y-2">
+            <legend className={label}>{labels.ends}</legend>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ['never', labels.endsNever],
+                  ['until', labels.endsUntil],
+                  ['count', labels.endsCount],
+                ] as const
+              ).map(([kind, text]) => (
+                <label
+                  key={kind}
+                  className="flex min-h-11 cursor-pointer items-center gap-2 rounded-pill border border-line-strong px-4 text-body-sm has-[:checked]:border-brand has-[:checked]:bg-brand-subtle"
+                >
+                  <input
+                    type="radio"
+                    name="ends"
+                    value={kind}
+                    checked={ends === kind}
+                    onChange={() => setEnds(kind)}
+                    className="size-4 accent-[var(--brand)]"
+                  />
+                  {text}
+                </label>
               ))}
             </div>
-          )}
+            {ends === 'until' && (
+              <label className="block max-w-xs text-body-sm text-ink">
+                {labels.until}
+                <Input
+                  name="until"
+                  type="date"
+                  min={today}
+                  defaultValue={value?.until ?? ''}
+                  required
+                />
+              </label>
+            )}
+            {ends === 'count' && (
+              <label className="block max-w-xs text-body-sm text-ink">
+                {labels.count}
+                <Input
+                  name="count"
+                  type="number"
+                  min={1}
+                  max={999}
+                  defaultValue={value?.count ?? 10}
+                  required
+                />
+              </label>
+            )}
+          </fieldset>
+          <fieldset className="space-y-3 rounded-card border border-line p-3">
+            <legend className="px-1 text-body-sm font-bold text-ink">{labels.bookingTitle}</legend>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-1">
+                <label className={label} htmlFor="c-opens">
+                  {labels.bookingOpensDays}
+                </label>
+                <Input
+                  id="c-opens"
+                  name="bookingOpensDays"
+                  type="number"
+                  min={1}
+                  max={90}
+                  defaultValue={value?.bookingOpensDays ?? defaults.bookingOpensDays}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className={label} htmlFor="c-deadline">
+                  {labels.cancelDeadlineHours}
+                </label>
+                <Input
+                  id="c-deadline"
+                  name="cancelDeadlineHours"
+                  type="number"
+                  min={0}
+                  max={168}
+                  defaultValue={value?.cancelDeadlineHours ?? defaults.cancelDeadlineHours}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className={label} htmlFor="c-dropin">
+                  {labels.dropInPrice}
+                </label>
+                <Input
+                  id="c-dropin"
+                  name="dropInPrice"
+                  inputMode="decimal"
+                  defaultValue={value?.dropInPrice ?? ''}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <span className={label}>{labels.coverage}</span>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    ['all', labels.coverageAll],
+                    ['selected', labels.coverageSelected],
+                  ] as const
+                ).map(([kind, text]) => (
+                  <label
+                    key={kind}
+                    className="flex min-h-11 cursor-pointer items-center gap-2 rounded-pill border border-line-strong px-4 text-body-sm has-[:checked]:border-brand has-[:checked]:bg-brand-subtle"
+                  >
+                    <input
+                      type="radio"
+                      name="coverage"
+                      value={kind}
+                      checked={coverage === kind}
+                      onChange={() => setCoverage(kind)}
+                      className="size-4 accent-[var(--brand)]"
+                    />
+                    {text}
+                  </label>
+                ))}
+              </div>
+              {coverage === 'selected' && (
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {plans.map((plan) => (
+                    <Checkbox
+                      key={plan.id}
+                      name="planIds"
+                      value={plan.id}
+                      label={plan.name}
+                      defaultChecked={value?.planIds.includes(plan.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+            <Checkbox
+              name="trialAllowed"
+              label={labels.trialAllowed}
+              defaultChecked={value?.trialAllowed ?? true}
+            />
+            <Checkbox name="public" label={labels.public} defaultChecked={value?.public ?? true} />
+          </fieldset>
+          <fieldset className="space-y-3 rounded-card border border-line p-3">
+            <legend className={`${label} px-1`}>{labels.policyTitle}</legend>
+            <p className="text-caption text-text-muted">{labels.policyHint}</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1">
+                <label className={label} htmlFor="c-noshow">
+                  {labels.noShowFee}
+                </label>
+                <Input
+                  id="c-noshow"
+                  name="noShowFee"
+                  inputMode="decimal"
+                  defaultValue={value?.noShowFee ?? ''}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className={label} htmlFor="c-latecancel">
+                  {labels.lateCancelFee}
+                </label>
+                <Input
+                  id="c-latecancel"
+                  name="lateCancelFee"
+                  inputMode="decimal"
+                  defaultValue={value?.lateCancelFee ?? ''}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className={label} htmlFor="c-strikes">
+                  {labels.strikeLimit}
+                </label>
+                <Input
+                  id="c-strikes"
+                  name="strikeLimit"
+                  type="number"
+                  min={1}
+                  max={20}
+                  defaultValue={value?.strikeLimit ?? ''}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className={label} htmlFor="c-strike-days">
+                  {labels.strikeDays}
+                </label>
+                <Input
+                  id="c-strike-days"
+                  name="strikeDays"
+                  type="number"
+                  min={7}
+                  max={180}
+                  defaultValue={value?.strikeDays ?? 30}
+                />
+              </div>
+            </div>
+          </fieldset>
+          <div className="space-y-1">
+            <label className={label} htmlFor="c-description">
+              {labels.description}
+            </label>
+            <Textarea
+              id="c-description"
+              name="description"
+              maxLength={2000}
+              rows={3}
+              defaultValue={value?.description ?? ''}
+            />
+          </div>
         </div>
-        <Checkbox
-          name="trialAllowed"
-          label={labels.trialAllowed}
-          defaultChecked={value?.trialAllowed ?? true}
-        />
-        <Checkbox name="public" label={labels.public} defaultChecked={value?.public ?? true} />
-      </fieldset>
-      <div className="space-y-1">
-        <label className={label} htmlFor="c-description">
-          {labels.description}
-        </label>
-        <Textarea
-          id="c-description"
-          name="description"
-          maxLength={2000}
-          rows={3}
-          defaultValue={value?.description ?? ''}
-        />
-      </div>
+      </details>
       <Button type="submit" disabled={pending || locations.length === 0}>
         {labels.save}
       </Button>

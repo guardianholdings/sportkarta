@@ -88,8 +88,13 @@ describe('worker schedules avoid the DST hour', () => {
     expect(sofia.map((schedule) => schedule.queue).sort()).toEqual(
       [
         'CLUB_ACTIVITY_QUEUE',
+        'CLUB_AUTOMATIONS_QUEUE',
         'CLUB_DIGEST_QUEUE',
         'CLUB_EXPIRY_QUEUE',
+        'CLUB_HEALTH_QUEUE',
+        'CLUB_INTEGRATIONS_PRUNE_QUEUE',
+        'CLUB_LEADS_QUEUE',
+        'CLUB_POLICIES_QUEUE',
         'CLUB_WEEKLY_QUEUE',
         'DIGEST_WEEKLY_QUEUE',
         'DIVISIONS_ROLLOVER_QUEUE',

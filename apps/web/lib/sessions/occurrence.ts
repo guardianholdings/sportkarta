@@ -1,4 +1,4 @@
-import { getDb, sql, waitlistPlaceSql } from '@sportkarta/db';
+import { getDb, publicFacilityVisible, sql, type SQL, waitlistPlaceSql } from '@sportkarta/db';
 
 /**
  * The read behind the public session page (docs/ROADMAP.md §6, Stage 4.2).
@@ -38,6 +38,17 @@ export interface OccurrenceView {
   ended: boolean;
   facilityName: string | null;
   facilitySlug: string | null;
+  /**
+   * What an UNNAMED place is called by (components/map/facility-label.ts):
+   * its sports and its area. 91% of the corpus has no name, and the page used
+   * to print «—» where the place should be.
+   */
+  facilitySports: string[];
+  facilityQuarter: string | null;
+  /** The municipality's Bulgarian name, as the facility row carries it. */
+  facilityMunicipality: string | null;
+  /** Whether the public site shows the place — only then is it a link. */
+  facilityPublic: boolean;
   organizerName: string | null;
   capacity: number | null;
   going: number;
@@ -68,7 +79,7 @@ export interface SessionSummary {
 
 /**
  * Upcoming PUBLIC session occurrences, soonest first — the read behind the
- * `/sesii` index (the discovery surface the audit found missing). Same
+ * `/igri` index (the discovery surface the audit found missing). Same
  * visibility + cancellation rules as the single-occurrence page: `public`
  * sessions only, non-cancelled occurrences, in the future. No attendee names —
  * a count only, exactly as the occurrence view is careful to.
@@ -106,6 +117,111 @@ export async function listUpcomingSessions(limit = 40): Promise<SessionSummary[]
   });
 }
 
+/** A handle that runs a statement — the pool, or a journey test's transaction. */
+interface Runner {
+  execute(query: SQL): Promise<{ rows: Record<string, unknown>[] }>;
+}
+
+/** An upcoming public игра at one facility, for the block on its page. */
+export interface FacilitySession {
+  occurrenceId: string;
+  title: string;
+  /** The instant, for formatDateTime in the reader's locale. */
+  startsAt: string;
+  capacity: number | null;
+  going: number;
+}
+
+/**
+ * The next public игри AT this facility (UX audit N7: a facility page
+ * said nothing about what is played there). The rule of the /igri index —
+ * public series, not cancelled, still to start — narrowed to the facility.
+ */
+export async function facilitySessions(
+  facilityId: string,
+  limit = 5,
+  db: Runner = getDb(),
+): Promise<FacilitySession[]> {
+  const result = await db.execute(sql`
+    SELECT o.id AS occurrence_id, o.starts_at, s.title, s.capacity::int AS capacity,
+           (SELECT count(*)::int FROM play_session_rsvp_positions p
+             WHERE p.occurrence_id = o.id AND p.rsvp_status = 'going') AS going
+      FROM play_session_occurrences o
+      JOIN play_sessions s ON s.id = o.session_id
+     WHERE s.facility_id = ${facilityId}::uuid
+       AND s.visibility = 'public'
+       AND o.status <> 'cancelled'
+       AND o.starts_at > now()
+     ORDER BY o.starts_at
+     LIMIT ${limit}
+  `);
+  return result.rows.map((r) => {
+    const row = r as Record<string, unknown>;
+    return {
+      occurrenceId: String(row.occurrence_id),
+      title: String(row.title),
+      startsAt: new Date(row.starts_at as string | number | Date).toISOString(),
+      capacity: row.capacity === null || row.capacity === undefined ? null : Number(row.capacity),
+      going: Number(row.going ?? 0),
+    };
+  });
+}
+
+/** One of the member's own upcoming RSVPs, for «Моите записвания» on /igri. */
+export interface MySession {
+  occurrenceId: string;
+  title: string;
+  sport: string;
+  startsAtLocal: string;
+  facilityName: string | null;
+  /** Going, or queued behind the capacity (0008's arrival order). */
+  status: 'going' | 'waitlisted';
+}
+
+/**
+ * The member's upcoming игри, going or waitlisted (UX audit N7: nothing
+ * listed what a member had signed up for except the home strip's «Следва»).
+ * Their own RSVPs only, keyed by the account; the positions view is asked per
+ * occurrence, because its window runs over the whole occurrence and an
+ * account filter could not reach inside it (lib/home/personal.ts says why).
+ */
+export async function myUpcomingSessions(
+  userId: string,
+  limit = 5,
+  db: Runner = getDb(),
+): Promise<MySession[]> {
+  const result = await db.execute(sql`
+    SELECT o.id AS occurrence_id,
+           to_char(o.starts_at_local, 'YYYY-MM-DD"T"HH24:MI:SS') AS starts_at_local,
+           s.title, s.sport, f.name AS facility_name, p.rsvp_status
+      FROM play_session_rsvps r
+      JOIN play_session_occurrences o ON o.id = r.occurrence_id
+      JOIN play_sessions s ON s.id = o.session_id
+      JOIN facilities f ON f.id = s.facility_id
+      JOIN LATERAL (
+        SELECT q.rsvp_status FROM play_session_rsvp_positions q
+         WHERE q.occurrence_id = o.id AND q.user_id = ${userId}
+      ) p ON true
+     WHERE r.user_id = ${userId}
+       AND r.state = 'active'
+       AND o.status <> 'cancelled'
+       AND o.starts_at > now()
+     ORDER BY o.starts_at
+     LIMIT ${limit}
+  `);
+  return result.rows.map((r) => {
+    const row = r as Record<string, unknown>;
+    return {
+      occurrenceId: String(row.occurrence_id),
+      title: String(row.title),
+      sport: String(row.sport),
+      startsAtLocal: String(row.starts_at_local),
+      facilityName: (row.facility_name as string | null) ?? null,
+      status: row.rsvp_status === 'waitlisted' ? 'waitlisted' : 'going',
+    };
+  });
+}
+
 export async function occurrenceView(
   occurrenceId: string,
   viewerId: string | null,
@@ -122,6 +238,9 @@ export async function occurrenceView(
       s.title, s.description, s.sport, s.skill_level, s.duration_minutes,
       s.capacity::int AS capacity,
       f.name AS facility_name, f.slug AS facility_slug,
+      f.sport_types AS facility_sports, f.quarter AS facility_quarter,
+      m.name_bg AS facility_municipality,
+      (${publicFacilityVisible}) AS facility_public,
       -- The organiser's display name, or NULL if they erased their account —
       -- in which case a trigger has already cancelled the series (0008), so the
       -- page shows a cancelled session with nobody named, which is the truth.
@@ -138,6 +257,7 @@ export async function occurrenceView(
     FROM play_session_occurrences o
     JOIN play_sessions s ON s.id = o.session_id
     JOIN facilities f ON f.id = s.facility_id
+    LEFT JOIN municipalities m ON m.id = f.municipality_id
     LEFT JOIN users u ON u.id = s.organizer_id
     WHERE o.id = ${occurrenceId}::uuid
       -- By-id read: the id IS the capability. 'unlisted' means reachable by
@@ -163,6 +283,10 @@ export async function occurrenceView(
     ended: row.ended === true,
     facilityName: (row.facility_name as string | null) ?? null,
     facilitySlug: (row.facility_slug as string | null) ?? null,
+    facilitySports: Array.isArray(row.facility_sports) ? row.facility_sports.map(String) : [],
+    facilityQuarter: (row.facility_quarter as string | null) ?? null,
+    facilityMunicipality: (row.facility_municipality as string | null) ?? null,
+    facilityPublic: row.facility_public === true,
     organizerName: (row.organizer_name as string | null) ?? null,
     capacity: row.capacity === null || row.capacity === undefined ? null : Number(row.capacity),
     going: Number(row.going ?? 0),

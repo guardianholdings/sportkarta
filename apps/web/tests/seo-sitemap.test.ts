@@ -65,12 +65,12 @@ describe('static.xml', () => {
   /** The page file a locale-agnostic path is served by. */
   function pageFor(p: string): string {
     return p === '/'
-      ? path.join(LOCALE, '(map)', 'page.tsx')
+      ? path.join(LOCALE, '(home)', 'page.tsx')
       : path.join(LOCALE, ...p.slice(1).split('/'), 'page.tsx');
   }
 
   it('lists the transparency and discovery pages, not only the four it started with', () => {
-    for (const p of ['/statistika', '/danni', '/danni/litsenz', '/sesii', '/sedmitsata']) {
+    for (const p of ['/statistika', '/danni', '/danni/litsenz', '/igri', '/sedmitsata']) {
       expect(STATIC_SITEMAP_PATHS).toContain(p);
     }
   });

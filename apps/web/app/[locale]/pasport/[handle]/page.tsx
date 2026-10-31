@@ -84,7 +84,7 @@ export default async function PublicPassportPage({ params }: { params: PageParam
   ] as const;
 
   return (
-    <AppShell>
+    <AppShell active="/pasport">
       <main className="mx-auto max-w-2xl space-y-10 p-4">
         <header className="space-y-1 border-b border-line pb-3">
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">

@@ -5,7 +5,7 @@ import { ClubShell } from '@/components/clubs/club-shell';
 import { clubName, requireClubStaff } from '@/lib/clubs/club-session';
 import { clubsForStaff } from '@/lib/clubs/staff';
 
-/** «<club> — офис» in the tab; never indexed. The context lookup is cached per request. */
+/** «<club> — управление» in the tab; never indexed. The context lookup is cached per request. */
 export async function generateMetadata({
   params,
 }: {

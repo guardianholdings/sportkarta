@@ -38,6 +38,17 @@ describe('a trainer’s roster is a name and a minor flag', () => {
   });
 });
 
+describe('a trainer’s view of the belts is a name, the ranks and the counts', () => {
+  const ranks = read('apps', 'web', 'lib', 'clubs', 'ranks.ts');
+  it.each(['progressRows', 'ladderCandidates', 'awardRows'])(
+    '%s selects no contact, note, money or card column',
+    (name) => {
+      expect(body(ranks, name)).not.toMatch(CONTACT_AND_MONEY);
+      expect(body(ranks, name)).not.toMatch(/\bm\.(?:email|phone|staff_note|card_token_hash)\b/);
+    },
+  );
+});
+
 describe('the member portal names nobody else', () => {
   const portal = read('apps', 'web', 'lib', 'clubs', 'portal.ts');
   it('lists classes with counts only', () => {
