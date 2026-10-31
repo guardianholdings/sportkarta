@@ -49,7 +49,7 @@ export default async function PortalRanksPage({ params }: { params: PageParams }
   ];
 
   return (
-    <AppShell active={null}>
+    <AppShell active="/profil">
       <main className="mx-auto max-w-2xl space-y-5 p-4">
         <header className="space-y-1 border-b border-line pb-3">
           <Link

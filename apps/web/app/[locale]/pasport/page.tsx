@@ -67,7 +67,7 @@ export default async function PassportPage({ params }: { params: Promise<{ local
   ] as const;
 
   return (
-    <AppShell active="/profil">
+    <AppShell active="/pasport">
       <main className="mx-auto max-w-2xl space-y-10 p-4">
         <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line pb-3">
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>

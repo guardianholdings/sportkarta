@@ -35,8 +35,10 @@ export const REQUEST_PATH_HEADER = 'x-sportkarta-path';
 
 /**
  * Routes middleware sends straight to sign-in when there is no session cookie:
- * /admin, /profil, /dobavi (adding a facility) and /trenirovki (a member's own
- * training log), with or without a locale prefix. /vhod (sign-in) is public by
+ * /admin, /profil, /dobavi (adding a facility), /trenirovki (a member's own
+ * training log) and /skenirai (the check-in scanner — signed in FIRST, so a
+ * check-in code's two minutes are not spent on the sign-in page), with or
+ * without a locale prefix. /vhod (sign-in) is public by
  * definition, and so is every facility page — the verify and condition forms on
  * them gate themselves. Pages gated only by requireUser() (API keys, an
  * organiser's QR) still land back where they started, via REQUEST_PATH_HEADER.
@@ -50,7 +52,7 @@ export const REQUEST_PATH_HEADER = 'x-sportkarta-path';
  * follows the same rule: `/klub/<slug>` is a club's PUBLIC page.
  */
 const PROTECTED_PATH =
-  /^\/(?:(?:bg|en)\/)?(?:(?:admin|profil|dobavi|trenirovki)(?:\/|$)|(?:pasport|klub)\/?$)/;
+  /^\/(?:(?:bg|en)\/)?(?:(?:admin|profil|dobavi|trenirovki|skenirai)(?:\/|$)|(?:pasport|klub)\/?$)/;
 
 export function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PATH.test(pathname);
@@ -115,6 +117,7 @@ export type SignInReason =
   | 'contribute'
   | 'session'
   | 'checkin'
+  | 'scan'
   | 'clubs'
   | 'clubApply'
   | 'clubInvite'
@@ -137,7 +140,9 @@ const REASONS: readonly [path: string | RegExp, reason: SignInReason][] = [
   ['/obekt/', 'contribute'],
   ['/sesiya/', 'session'],
   ['/otmetka/', 'checkin'],
+  ['/skenirai', 'scan'],
   ['/klub', 'clubs'],
+
   ['/klubove/zayavka', 'clubApply'],
   ['/klubove/pokana/', 'clubInvite'],
   ['/klubove/otmetka/', 'clubCheckin'],

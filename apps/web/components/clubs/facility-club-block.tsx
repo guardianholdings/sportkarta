@@ -30,10 +30,14 @@ export async function FacilityClubBlock({ facilityId }: { facilityId: string }) 
 
   return (
     <>
-      {clubs.map((club) => (
+      {clubs.map((club, i) => (
         <section
           key={club.id}
-          className="rounded-card border border-line bg-surface p-4 shadow-sm sm:p-5"
+          // `#klubove` is where the map's «Клуб на това съоръжение» lands when
+          // more than one club trains here (map-explorer.tsx, FacilityPreview).
+          id={i === 0 ? 'klubove' : undefined}
+          className="scroll-mt-4 rounded-card border border-line bg-surface p-4 shadow-sm sm:p-5"
+
           aria-labelledby={`club-${club.id}`}
         >
           <p className="text-caption font-semibold uppercase tracking-wide text-text-muted">

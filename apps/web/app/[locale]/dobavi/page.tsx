@@ -60,10 +60,16 @@ export default async function AddFacilityPage({
   // here" links from the map, and then it already IS the member's choice. Only
   // the starting view: the value posted is whatever the pin ends up on, and the
   // server validates it.
+  //
+  // With `izgled=1` it is only where the map was LOOKING when the member
+  // opened the «+» (components/shell/quick-actions.tsx): the picker opens
+  // there, but the pin still waits for a tap — an untouched pin is not a
+  // location (pin-picker.tsx).
   const sp = await searchParams;
   const fromLon = coordinate(sp.lon, 180);
   const fromLat = coordinate(sp.lat, 90);
-  const initiallyPlaced = fromLon !== null && fromLat !== null;
+  const initiallyPlaced = fromLon !== null && fromLat !== null && sp.izgled !== '1';
+
   const lon = fromLon ?? DEFAULT_CENTRE.lon;
   const lat = fromLat ?? DEFAULT_CENTRE.lat;
 

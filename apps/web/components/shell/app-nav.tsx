@@ -1,15 +1,8 @@
-import {
-  Building2,
-  CalendarDays,
-  Database,
-  Map as MapIcon,
-  Plus,
-  Trophy,
-  User,
-} from 'lucide-react';
+import { Award, Building2, CalendarDays, Database, LogIn, Map as MapIcon, User } from 'lucide-react';
 
 import { LocaleSwitcher } from '@/components/shell/locale-switcher';
 import { PopsMark } from '@/components/shell/pops-mark';
+import { QuickActions } from '@/components/shell/quick-actions';
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
 
@@ -17,15 +10,27 @@ import { cn } from '@/lib/utils';
  * App-wide primary navigation (desktop left rail + mobile bottom tab bar).
  * Pure and props-driven — no hooks, no server imports — so the map page's
  * client explorer and the server-rendered AppShell share one source of truth.
- * Labels come from the `Nav` i18n namespace via `labelFor`.
+ * Labels come from the `Nav` i18n namespace via `labelFor`; the «+» is the one
+ * client island (QuickActions), which reads `Nav` itself because a function
+ * cannot cross from the server shell into it.
+ *
+ * The tabs (operator, 2026-10-31): Карта · Тренировки · Паспорт · Профил.
+ * Класиране lives inside the passport and the private training log inside
+ * Тренировки, so `tabFor` lights the tab a page belongs to.
  */
 
 export const NAV = [
   { key: 'navMap', href: '/karta', icon: MapIcon },
   { key: 'navSessions', href: '/sesii', icon: CalendarDays },
-  { key: 'navLeaderboards', href: '/klasirane', icon: Trophy },
+  { key: 'navPassport', href: '/pasport', icon: Award },
   { key: 'navProfile', href: '/profil', icon: User },
 ] as const;
+
+/**
+ * The last tab for a visitor with no session cookie: «Профил» would only have
+ * sent them to the sign-in page under another name (UX audit N5).
+ */
+const SIGN_IN = { key: 'navSignIn', href: '/vhod', icon: LogIn } as const;
 
 /**
  * The rail's foot, under the primary tabs: the open data and, while the
@@ -40,9 +45,20 @@ export const NAV_MORE = [
 ] as const;
 
 export type NavItem = (typeof NAV)[number];
-type RailItem = NavItem | (typeof NAV_MORE)[number];
+type TabItem = NavItem | typeof SIGN_IN;
+type RailItem = TabItem | (typeof NAV_MORE)[number];
 export type NavKey = RailItem['key'] | 'navAdd' | 'navBrand' | 'navPrimary' | 'skipToContent';
-export type ActiveHref = RailItem['href'];
+export type ActiveHref = NavItem['href'] | (typeof NAV_MORE)[number]['href'];
+
+/** The tabs as this visitor sees them: «Вход» in place of «Профил» when signed out. */
+function tabsFor(signedIn: boolean): readonly TabItem[] {
+  return signedIn ? NAV : NAV.map((n) => (n.href === '/profil' ? SIGN_IN : n));
+}
+
+/** Whether `item` is the tab `active` names — «Вход» stands in for «Профил». */
+function isActive(item: RailItem, active: ActiveHref | null | undefined): boolean {
+  return item.href === active || (item.href === '/vhod' && active === '/profil');
+}
 
 /**
  * The brand mark („Усмивката") in raw coral — the mark's own colour, never a
@@ -63,17 +79,24 @@ export function NavRail({
   className,
   showAdd = true,
   clubs = false,
+  signedIn = true,
 }: {
   active?: ActiveHref | null;
   labelFor: (key: NavKey) => string;
   className?: string;
-  /** The map screen renders its own add-facility FAB over the map instead. */
+  /** The map screen renders its own «+» over the map instead. */
   showAdd?: boolean;
   /**
    * Whether the «Клубове» add-on is on (clubsEnabled()): every club route
    * 404s while it is off, so the rail links /za-klubove only with this set.
    */
   clubs?: boolean;
+  /**
+   * False when the request carries no session cookie: the last tab reads
+   * «Вход». True (the default) keeps «Профил» — what a cached page shows,
+   * since it cannot know who is looking.
+   */
+  signedIn?: boolean;
 }) {
   return (
     <nav
@@ -88,24 +111,14 @@ export function NavRail({
     >
       <BrandMark label={labelFor('navBrand')} />
       <div className="mt-4 flex flex-1 flex-col gap-1">
-        {NAV.map((n) => (
-          <NavRailItem key={n.key} item={n} active={n.href === active} label={labelFor(n.key)} />
+        {tabsFor(signedIn).map((n) => (
+          <NavRailItem key={n.key} item={n} active={isActive(n, active)} label={labelFor(n.key)} />
         ))}
-        {showAdd && (
-          <Link
-            href="/dobavi"
-            className="mt-2 flex flex-col items-center gap-1 rounded-md px-2 py-2 text-overline font-semibold text-ink-soft hover:bg-surface-2"
-          >
-            <span className="grid size-9 place-items-center rounded-full bg-accent text-on-accent shadow-xs">
-              <Plus size={20} />
-            </span>
-            {labelFor('navAdd')}
-          </Link>
-        )}
+        {showAdd && <QuickActions variant="rail" className="mt-2" />}
       </div>
       <div className="mb-2 flex flex-col gap-1 border-t border-line pt-2">
         {NAV_MORE.filter((n) => clubs || n.href !== '/za-klubove').map((n) => (
-          <NavRailItem key={n.key} item={n} active={n.href === active} label={labelFor(n.key)} />
+          <NavRailItem key={n.key} item={n} active={isActive(n, active)} label={labelFor(n.key)} />
         ))}
       </div>
       {/* Pinned to the rail's foot. A client component, so the rail itself
@@ -135,11 +148,18 @@ export function BottomNav({
   active,
   labelFor,
   className,
+  signedIn = true,
+  fromMap = false,
 }: {
   active?: ActiveHref | null;
   labelFor: (key: NavKey) => string;
   className?: string;
+  /** As on NavRail: false swaps «Профил» for «Вход». */
+  signedIn?: boolean;
+  /** On /karta: «Добави съоръжение» opens the pin where the map is looking. */
+  fromMap?: boolean;
 }) {
+  const tabs = tabsFor(signedIn);
   return (
     <nav
       aria-label={labelFor('navPrimary')}
@@ -151,25 +171,24 @@ export function BottomNav({
         className,
       )}
     >
-      {NAV.slice(0, 2).map((n) => (
-        <TabItem key={n.key} item={n} active={n.href === active} label={labelFor(n.key)} />
+      {tabs.slice(0, 2).map((n) => (
+        <TabLink key={n.key} item={n} active={isActive(n, active)} label={labelFor(n.key)} />
       ))}
       <div className="w-14" />
-      {NAV.slice(2).map((n) => (
-        <TabItem key={n.key} item={n} active={n.href === active} label={labelFor(n.key)} />
+      {tabs.slice(2).map((n) => (
+        <TabLink key={n.key} item={n} active={isActive(n, active)} label={labelFor(n.key)} />
       ))}
-      <Link
-        href="/dobavi"
-        aria-label={labelFor('navAdd')}
-        className="absolute left-1/2 top-[-22px] grid size-[54px] -translate-x-1/2 place-items-center rounded-full border-[3px] border-surface bg-accent text-on-accent shadow-lg transition-[transform,box-shadow] duration-150 ease-standard focus-visible:shadow-[var(--ring-accent)] active:scale-[0.97]"
-      >
-        <Plus size={26} />
-      </Link>
+      <QuickActions
+        variant="tab"
+        fromMap={fromMap}
+        className="absolute left-1/2 top-[-22px] -translate-x-1/2"
+      />
     </nav>
   );
 }
 
-function TabItem({ item, active, label }: { item: NavItem; active: boolean; label: string }) {
+function TabLink({ item, active, label }: { item: TabItem; active: boolean; label: string }) {
+
   const Icon = item.icon;
   return (
     <Link

@@ -106,7 +106,7 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
   }).format(new Date(`${week.weekStart}T00:00:00Z`));
 
   return (
-    <AppShell active="/sesii">
+    <AppShell active="/sesii" cached>
       <main className="mx-auto max-w-3xl space-y-6 p-4">
         <Link href="/karta" className="text-body-sm font-medium text-link hover:text-link-hover">
           {t('backToMap')}

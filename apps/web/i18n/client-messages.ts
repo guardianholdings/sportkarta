@@ -61,6 +61,8 @@ export const CLIENT_SCOPES = {
   },
   passport: { dir: 'app/[locale]/pasport', namespaces: ['Share'] },
   profile: { dir: 'app/[locale]/profil', namespaces: ['Profile'] },
+  scan: { dir: 'app/[locale]/skenirai', namespaces: ['Scan'] },
+
   signIn: { dir: 'app/[locale]/vhod', namespaces: ['SignIn'] },
   stats: { dir: 'app/[locale]/statistika', namespaces: ['Stats'] },
 } as const satisfies Record<string, { dir: string; namespaces: readonly string[] }>;

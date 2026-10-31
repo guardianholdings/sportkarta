@@ -1,4 +1,6 @@
+import { getSessionCookie } from 'better-auth/cookies';
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { adSlotProps } from '@/components/ads/ad-slot';
@@ -46,10 +48,11 @@ export default async function MapPage({
   // client explorer as three plain strings (MONETISATION §S5): the ad logic and
   // the database import stay out of the map bundle, and the map CANVAS stays
   // ad-free — the slot is a card at the foot of the list panel beside it.
-  const [t, facilities, ad] = await Promise.all([
+  const [t, facilities, ad, requestHeaders] = await Promise.all([
     getTranslations('Map'),
     listPublicFacilities(filters, 100, locale),
     adSlotProps('map_panel'),
+    headers(),
   ]);
 
   return (
@@ -59,7 +62,10 @@ export default async function MapPage({
         externalLayers={externalMapLayers()}
         ad={ad}
         clubs={clubsEnabled()}
+        // The cookie's presence, as AppShell reads it: «Вход» or «Профил».
+        signedIn={getSessionCookie(requestHeaders) !== null}
         initialFacilities={facilities.map((f) => ({
+
           slug: f.slug,
           name: f.name,
           sports: f.sportTypes,

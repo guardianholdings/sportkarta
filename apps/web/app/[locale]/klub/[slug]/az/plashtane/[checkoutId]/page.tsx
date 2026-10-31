@@ -58,7 +58,7 @@ export default async function CheckoutReturnPage({
         : 'border-line bg-surface';
 
   return (
-    <AppShell active={null}>
+    <AppShell active="/profil">
       {checkout.status === 'open' && <meta httpEquiv="refresh" content={String(REFRESH_SECONDS)} />}
       <main className="mx-auto max-w-md space-y-4 p-4">
         <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('returnTitle')}</h1>

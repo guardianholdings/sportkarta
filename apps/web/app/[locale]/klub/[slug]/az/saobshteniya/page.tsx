@@ -56,7 +56,7 @@ export default async function PortalMessagesPage({
   const field = 'block text-body-sm font-semibold text-ink';
 
   return (
-    <AppShell active={null}>
+    <AppShell active="/profil">
       <main className="mx-auto max-w-2xl space-y-5 p-4">
         <header className="space-y-1 border-b border-line pb-3">
           <Link

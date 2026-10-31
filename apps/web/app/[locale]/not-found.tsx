@@ -31,7 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function LocaleNotFound() {
   const t = await getTranslations('NotFound');
   return (
-    <AppShell>
+    <AppShell cached>
       <main className="mx-auto flex max-w-xl flex-col items-start gap-5 px-4 py-12 sm:py-16">
         <PopsMark size={56} className="text-accent" />
         <div className="space-y-3">

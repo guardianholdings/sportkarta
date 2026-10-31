@@ -108,7 +108,7 @@ export default async function CampaignPage({ params }: { params: PageParams }) {
   const leadWithCountdown = campaign.template === 'sprint';
 
   return (
-    <AppShell>
+    <AppShell active="/pasport">
       <main className="mx-auto max-w-2xl space-y-8 p-4">
         <header className="space-y-3 border-b border-line pb-4">
           <div className="flex flex-wrap items-center gap-2">

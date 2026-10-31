@@ -66,7 +66,7 @@ export default async function CampaignResultsPage({ params }: { params: PagePara
   const prize = localizedText(campaign.prizeBg, campaign.prizeEn, locale);
 
   return (
-    <AppShell>
+    <AppShell active="/pasport">
       <main className="mx-auto max-w-2xl space-y-8 p-4">
         <header className="space-y-2 border-b border-line pb-4">
           <p className="text-caption uppercase tracking-wide text-text-muted">

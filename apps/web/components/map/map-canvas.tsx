@@ -35,6 +35,9 @@ export interface MapPoint {
   place?: string | null;
   /** A published club holds classes here — the preview panel says so, the canvas does not. */
   club?: boolean;
+  /** …and when it is the only one, its slug: the preview links its page. */
+  clubSlug?: string;
+
 }
 
 export interface MapView {

@@ -5,6 +5,7 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { ShareSheet } from '@/components/share/share-sheet';
+import { SessionsSegments } from '@/components/sessions/sessions-segments';
 import { AppShell } from '@/components/shell/app-shell';
 import { TrainingForm } from '@/components/training/training-form';
 import { buttonVariants } from '@/components/ui/button';
@@ -82,14 +83,16 @@ export default async function TrainingPage({ params }: { params: PageParams }) {
     ] as const
   ).filter(([, at]) => integrations || at !== null);
 
-  // No `active` nav destination: the tab bar is already four items plus the add
-  // FAB, and a fifth tab is a design change rather than a routing one.
-  // /trenirovki is reached from /profil and from the participation board on
-  // /klasirane — both covered by the reachability gate in e2e/crawl.spec.ts.
+  // Under the Тренировки tab, a segment beside the public list (operator,
+  // 2026-10-31), and still linked from /profil and from the participation
+  // board on /klasirane — the reachability gate in e2e/crawl.spec.ts.
   return (
-    <AppShell active={null}>
+    <AppShell active="/sesii">
       <main className="mx-auto max-w-2xl space-y-8 p-4">
+        <SessionsSegments current="log" />
+
         <header className="space-y-2 border-b border-line pb-3">
+
           <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
           <p className="text-body-sm text-ink-soft">{t('intro')}</p>
         </header>

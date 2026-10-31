@@ -228,7 +228,7 @@ export default async function ClubPortalPage({
   };
 
   return (
-    <AppShell active={null}>
+    <AppShell active="/profil">
       <main className="mx-auto max-w-2xl space-y-6 p-4">
         <header className="space-y-1 border-b border-line pb-3">
           <p className="text-caption font-semibold uppercase tracking-wide text-text-muted">

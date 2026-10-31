@@ -83,7 +83,7 @@ export default async function CityPage({ params }: { params: PageParams }) {
   const crossSports = sportCounts.filter((s) => s.count >= MIN_LISTING_FACILITIES);
 
   return (
-    <AppShell>
+    <AppShell cached>
       <main className="mx-auto max-w-3xl space-y-6 p-4">
         <Link href="/karta" className="text-body-sm font-medium text-link hover:text-link-hover">
           {t('viewAllOnMap')}

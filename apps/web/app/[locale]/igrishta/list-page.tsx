@@ -33,7 +33,7 @@ export async function PlaceListPage({
   const pages = listPageCount(total);
 
   return (
-    <AppShell>
+    <AppShell cached>
       <main className="mx-auto max-w-3xl space-y-6 p-4">
         <Link href={basePath} className="text-body-sm font-medium text-link hover:text-link-hover">
           {t('backToListing', { heading })}

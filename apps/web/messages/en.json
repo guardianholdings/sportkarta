@@ -423,11 +423,28 @@
   "Nav": {
     "navMap": "Map",
     "navSessions": "Sessions",
-    "navLeaderboards": "Leaderboard",
+    "navPassport": "Passport",
     "navProfile": "Profile",
+    "navSignIn": "Sign in",
     "navData": "Data",
     "navClubs": "For clubs",
     "navAdd": "Add",
+    "quick": {
+      "title": "Quick actions",
+      "close": "Close",
+      "addFacility": {
+        "title": "Add a facility",
+        "hint": "If it is missing from the map"
+      },
+      "logTraining": {
+        "title": "Log a training",
+        "hint": "In your private log"
+      },
+      "scanQr": {
+        "title": "Scan a check-in QR",
+        "hint": "The organiser's or the club's code"
+      }
+    },
     "navBrand": "POPS — home",
     "navPrimary": "Primary navigation",
     "skipToContent": "Skip to content",
@@ -848,6 +865,7 @@
       "contribute": "Sign in to confirm the details or report the condition of the facility.",
       "session": "Sign in to sign up for the training session.",
       "checkin": "Sign in to check in. After signing in, scan the code again.",
+      "scan": "Sign in to scan the check-in code.",
       "clubs": "Sign in to see your clubs.",
       "clubApply": "Sign in to register a club. Your account becomes the owner's account.",
       "clubInvite": "Sign in with the email address the invitation was sent to.",
@@ -1637,6 +1655,21 @@
     "widgetMore": "Full figures and methodology",
     "widgetUnavailable": "The data is temporarily unavailable. Try again in a minute."
   },
+  "Scan": {
+    "metaTitle": "Scan a check-in code",
+    "title": "Scan the check-in code",
+    "intro": "Point the camera at the organiser's QR code or at the club's tablet. Your attendance is recorded on the next screen.",
+    "privacy": "The camera only reads the code. Nothing is recorded or sent.",
+    "starting": "Starting the camera…",
+    "scanning": "Looking for a code…",
+    "opening": "Opening…",
+    "notOurs": "This is not a POPS check-in code.",
+    "unreadable": "No QR code can be seen in the photo. Try again, closer.",
+    "denied": "We can't use the camera. Allow it in the browser's settings, or take a photo of the code.",
+    "unavailable": "The camera can't start on this device. Take a photo of the code instead.",
+    "retry": "Try again",
+    "photo": "Photograph the code"
+  },
   "Session": {
     "metaTitle": "{title} — session",
     "metaDescription": "{title} at {facility}. See when it is, how many places are left, and sign up.",
@@ -1695,7 +1728,12 @@
     "weeklyLink": "This week →",
     "campaignsCardTitle": "Campaigns",
     "campaignsCardBody": "Short initiatives with a clear deadline — add, verify and play together.",
-    "campaignsCardLink": "See the campaigns →"
+    "campaignsCardLink": "See the campaigns →",
+    "segments": {
+      "label": "Sessions",
+      "upcoming": "Upcoming",
+      "log": "My log"
+    }
   },
   "SessionSkill": {
     "any": "all levels",
