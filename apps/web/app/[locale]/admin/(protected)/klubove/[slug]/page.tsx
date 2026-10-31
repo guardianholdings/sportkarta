@@ -1,4 +1,10 @@
-import { CLUB_TIERS, formatEuro, sofiaToday, tierFeatures } from '@sportkarta/lib/clubs';
+import {
+  CLUB_TIERS,
+  COMMUNITY_MEMBER_CAP,
+  formatEuro,
+  sofiaToday,
+  tierFeatures,
+} from '@sportkarta/lib/clubs';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
@@ -176,7 +182,7 @@ export default async function AdminClubPage({
               aria-describedby="c-cap-hint"
             />
             <p id="c-cap-hint" className="text-caption text-text-muted">
-              {t('memberCapHint')}
+              {t('memberCapHint', { cap: COMMUNITY_MEMBER_CAP })}
             </p>
           </div>
           <div className="space-y-1">

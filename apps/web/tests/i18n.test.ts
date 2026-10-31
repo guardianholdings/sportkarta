@@ -1,7 +1,10 @@
 import {
   CLUB_AUDIT_ACTIONS,
   CLUB_CHARGE_KINDS,
+  CLUB_FEATURES,
+  CLUB_KINDS,
   CLUB_PAYMENT_METHODS_ALL,
+  CLUB_TIERS,
 } from '@sportkarta/lib/clubs';
 import { describe, expect, it } from 'vitest';
 
@@ -70,6 +73,11 @@ describe('club vocabularies have labels', () => {
     ['ClubAudit.action', CLUB_AUDIT_ACTIONS],
     ['Club.method', CLUB_PAYMENT_METHODS_ALL],
     ['Club.chargeKind', CLUB_CHARGE_KINDS],
+    // The clubs page derives its audience tiles, pricing grid and tier chips
+    // from these three (apps/web/lib/clubs/landing.ts).
+    ['Club.feature', CLUB_FEATURES],
+    ['Club.kind', CLUB_KINDS],
+    ['Club.tier', CLUB_TIERS],
   ] as const)('%s', (namespace, values) => {
     expect(values.filter((value) => !keys.has(`${namespace}.${value}`))).toEqual([]);
   });

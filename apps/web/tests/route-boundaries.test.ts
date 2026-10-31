@@ -56,7 +56,11 @@ describe('loading boundaries never sit above a notFound()', () => {
     // so a page that calls them can 404 as surely as one calling notFound().
     const offenders = walk(segment)
       .filter((f) => /\/(page|layout)\.tsx$/.test(f))
-      .filter((f) => /\b(notFound|requireRole|requireAdmin)\s*\(/.test(code(f)))
+      .filter((f) =>
+        /\b(notFound|requireRole|requireAdmin|requireClubsEnabled|requireClubStaff)\s*\(/.test(
+          code(f),
+        ),
+      )
       .map(rel);
     expect(
       offenders,

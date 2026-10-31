@@ -19,7 +19,7 @@ export async function ClubsSection() {
     <section aria-labelledby="home-clubs" className="border-y border-line bg-surface">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8 lg:py-14">
         <SectionHead id="home-clubs" overline={t('overline')} title={t('title')} lead={t('lead')}>
-          <Link href="/klubove" className={buttonVariants({ variant: 'accent' })}>
+          <Link href="/za-klubove" className={buttonVariants({ variant: 'accent' })}>
             {t('cta')}
             <ArrowRight size={18} aria-hidden="true" />
           </Link>

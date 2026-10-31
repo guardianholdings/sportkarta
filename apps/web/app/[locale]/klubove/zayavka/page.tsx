@@ -1,4 +1,9 @@
-import { CLUB_KINDS, CLUB_TIERS } from '@sportkarta/lib/clubs';
+import {
+  CLUB_KINDS,
+  CLUB_TIERS,
+  CLUB_TRIAL_DAYS,
+  COMMUNITY_MEMBER_CAP,
+} from '@sportkarta/lib/clubs';
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
@@ -54,7 +59,7 @@ export default async function ClubApplicationPage({ params }: { params: PagePara
               tiers: CLUB_TIERS.map((tier) => ({
                 value: tier,
                 label: tClub(`tier.${tier}`),
-                hint: t(`tierHint.${tier}`),
+                hint: t(`tierHint.${tier}`, { days: CLUB_TRIAL_DAYS, cap: COMMUNITY_MEMBER_CAP }),
               })),
               city: t('city'),
               cityNone: t('cityNone'),

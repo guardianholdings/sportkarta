@@ -86,6 +86,10 @@ export default async function LocaleLayout({
           components need more widen it in their own layout. */}
         <ClientIntlProvider locale={locale}>
           {children}
+          {/* Read when the page renders: at request time on dynamic pages, at
+              build or revalidation on the ISR city pages — so after a deploy an
+              ISR page may lack the «Клубове» column until it revalidates. Never
+              a dead link (the build runs with the flag off). */}
           <SiteFooter clubs={clubsEnabled()} />
         </ClientIntlProvider>
         <ServiceWorkerRegistrar />

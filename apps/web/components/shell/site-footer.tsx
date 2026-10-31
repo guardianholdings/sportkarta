@@ -20,6 +20,7 @@ type FooterHref =
   | '/klasirane'
   | '/kampanii'
   | '/statistika'
+  | '/za-klubove'
   | '/klubove'
   | '/klubove/zayavka'
   | '/danni'
@@ -37,6 +38,7 @@ type LinkKey =
   | 'leaderboards'
   | 'campaigns'
   | 'stats'
+  | 'clubsLanding'
   | 'clubsDirectory'
   | 'clubsApply'
   | 'openData'
@@ -71,6 +73,7 @@ const PLATFORM: Column = {
 const CLUBS: Column = {
   key: 'clubs',
   links: [
+    ['/za-klubove', 'clubsLanding'],
     ['/klubove', 'clubsDirectory'],
     ['/klubove/zayavka', 'clubsApply'],
   ],

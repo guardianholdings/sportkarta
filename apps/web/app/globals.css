@@ -596,6 +596,29 @@
   -webkit-backdrop-filter: blur(10px);
 }
 
+/* A screenshot in a drawn window: a bar of three dots over the picture, the
+   frame's own border and shadow, nothing to download but the picture. */
+.sk-device-frame {
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+.sk-device-frame__bar {
+  display: flex;
+  gap: 0.375rem;
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.sk-device-frame__bar > span {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
 .sk-home-search:focus-within {
   border-color: var(--brand);
   box-shadow: var(--ring);

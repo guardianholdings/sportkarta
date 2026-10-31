@@ -5,6 +5,7 @@ import {
   clubHasFeature,
   type ClubFeature,
   type ClubPaymentMethod,
+  type ClubService,
   type ClubTier,
 } from '@sportkarta/lib/clubs';
 
@@ -21,15 +22,17 @@ import {
  * lives in the statement).
  */
 
-const SWITCHES = {
+// Keyed by the catalogue's service names (lib/src/clubs/catalogue.ts), so the
+// clubs page can ask "is this service on?" with the same vocabulary.
+const SWITCHES: Readonly<Record<ClubService, string>> = {
   payments: 'CLUB_PAYMENTS_ENABLED',
   sms: 'CLUB_SMS_ENABLED',
   push: 'CLUB_PUSH_ENABLED',
   pixels: 'CLUB_PIXELS_ENABLED',
   shop: 'CLUB_SHOP_ENABLED',
   api: 'CLUB_API_ENABLED',
-} as const;
-export type ClubSwitch = keyof typeof SWITCHES;
+};
+export type ClubSwitch = ClubService;
 
 /** The outside service each tier feature needs, if any. */
 const NEEDS: Partial<Record<ClubFeature, ClubSwitch>> = {
@@ -45,6 +48,11 @@ const NEEDS: Partial<Record<ClubFeature, ClubSwitch>> = {
 
 export function clubSwitchOn(name: ClubSwitch): boolean {
   return process.env[SWITCHES[name]] === 'true';
+}
+
+/** The outside service a tier feature needs, or undefined when it needs none. */
+export function serviceFor(feature: ClubFeature): ClubSwitch | undefined {
+  return NEEDS[feature];
 }
 
 export function featureOn(club: { tier: ClubTier }, feature: ClubFeature): boolean {

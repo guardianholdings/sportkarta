@@ -8,6 +8,8 @@ const PRINCIPLES = [
   { key: 'ngo', href: '/podkrepi', icon: HeartHandshake },
   { key: 'tracking', href: '/privacy', icon: EyeOff },
   { key: 'openData', href: '/danni', icon: Database },
+  // Export and erasure live in the profile; a stranger is sent to the policy
+  // that describes them rather than to a sign-in wall.
   { key: 'yourData', href: '/profil', icon: UserCheck },
 ] as const;
 
@@ -17,7 +19,7 @@ const PRINCIPLES = [
  * open data under ODbL, the member's data in the member's hands. Each tile is
  * a link to the page that proves it.
  */
-export async function PrinciplesBand() {
+export async function PrinciplesBand({ signedIn }: { signedIn: boolean }) {
   const t = await getTranslations('Home.principles');
   return (
     <section
@@ -29,7 +31,7 @@ export async function PrinciplesBand() {
         {PRINCIPLES.map((item) => (
           <li key={item.key}>
             <Link
-              href={item.href}
+              href={item.key === 'yourData' && !signedIn ? '/privacy' : item.href}
               className="group flex h-full flex-col gap-3 rounded-card border border-line bg-surface p-5 transition-[border-color,box-shadow] duration-150 ease-standard hover:border-brand-border hover:shadow-sm focus-visible:shadow-[var(--ring)]"
             >
               <span className="grid size-11 shrink-0 place-items-center rounded-full bg-brand-subtle text-brand">

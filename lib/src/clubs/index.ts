@@ -9,6 +9,7 @@
  */
 export * from './access.js';
 export * from './activities.js';
+export * from './catalogue.js';
 export * from './dates.js';
 export * from './documents.js';
 export * from './engagement.js';
@@ -25,6 +26,7 @@ export * from './money.js';
 export * from './permissions.js';
 export * from './policies.js';
 export * from './pricing.js';
+export * from './pricing-public.js';
 export * from './promotions.js';
 export * from './ranks.js';
 export * from './slots.js';

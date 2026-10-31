@@ -26,12 +26,12 @@ export async function MarketingHeader({
   clubs: boolean;
 }) {
   const t = await getTranslations('Marketing');
-  const links: { href: '/karta' | '/sesii' | '/danni' | '/klubove'; label: string }[] = [
+  const links: { href: '/karta' | '/sesii' | '/danni' | '/za-klubove'; label: string }[] = [
     { href: '/karta', label: t('nav.map') },
     { href: '/sesii', label: t('nav.sessions') },
     { href: '/danni', label: t('nav.data') },
   ];
-  if (clubs) links.push({ href: '/klubove', label: t('nav.clubs') });
+  if (clubs) links.push({ href: '/za-klubove', label: t('nav.clubs') });
 
   return (
     <header className="sk-marketing-header sticky top-0 z-30 border-b border-line">

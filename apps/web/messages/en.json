@@ -2128,6 +2128,7 @@
     "map": "Map",
     "sessions": "Sessions",
     "leaderboards": "Leaderboards",
+    "clubsLanding": "For clubs",
     "clubsDirectory": "Club directory",
     "clubsApply": "Apply for a club",
     "dataLicense": "Data licence"
@@ -2144,6 +2145,882 @@
     },
     "signIn": "Sign in",
     "profile": "My profile"
+  },
+  "ClubsLanding": {
+    "metaTitle": "For clubs — run your gym, studio or club",
+    "metaDescription": "Members, memberships, timetable, bookings, QR attendance, payments through your own Stripe, events, messaging and a page on the national map. Free for clubs at public facilities.",
+    "cta": "Start for free",
+    "hero": {
+      "overline": "For gyms, studios, clubs and trainers",
+      "title": "Run your club on POPS",
+      "lead": "Members, memberships, timetable and attendance in one office. Payments go through your own Stripe. The club page sits on the national map — where people already look for somewhere to play.",
+      "prices": "See the prices",
+      "fee": "POPS takes no commission on your members’ payments.",
+      "shotAlt": "The club dashboard: today’s sessions and check-ins, expiring memberships and unpaid charges."
+    },
+    "assurances": {
+      "free": "A free plan forever for clubs at public facilities",
+      "trial": "A trial on the paid plans, no card needed",
+      "contract": "No contract — a monthly invoice by bank transfer",
+      "cancel": "Stop in one step, whenever you decide",
+      "export": "Export of all your data at any time"
+    },
+    "audiences": {
+      "overline": "Who it is for",
+      "title": "One office for every kind of club",
+      "lead": "The same tools, arranged around what does the work for you.",
+      "gym": "Auto-renewing memberships, attendance at the desk and by QR code, a till and invoices.",
+      "studio": "A weekly timetable, bookings and waitlists, session packs, a trial session for newcomers.",
+      "club": "Children and parents on one card, belts and exams, tournaments with tables and ratings, camps.",
+      "trainer": "Hourly bookings at your prices, a client portal, online payment without a website of your own."
+    },
+    "audience": {
+      "overline": "Where people find you",
+      "title": "Your club stands in front of the people already looking for somewhere to play",
+      "lead": "POPS is the national map of free sport. Your club is on it — not on a separate site nobody visits.",
+      "places": "places for sport on the map",
+      "municipalities": "municipalities with data",
+      "games": "sessions this week",
+      "surfaces": {
+        "directory": {
+          "title": "The club directory",
+          "body": "Every published club is in the directory, filtered by sport and city. The order is by name — a paid plan buys tools, not a higher place."
+        },
+        "facility": {
+          "title": "The facility page",
+          "body": "At every place you train, its page shows your club and the next sessions."
+        },
+        "map": {
+          "title": "The map panel",
+          "body": "When somebody opens the place on the map, they see there is a club there."
+        }
+      },
+      "directoryCta": "Browse the directory"
+    },
+    "catalogue": {
+      "overline": "Every function",
+      "title": "What the club office can do",
+      "lead": "Everything the module does — function by function, nothing left out. The label says from which plan it is included; “soon” means the service is not switched on for everybody yet.",
+      "jumpLabel": "Areas",
+      "legend": "No label: included in every plan, the free one too.",
+      "soon": "soon",
+      "dashboard": {
+        "title": "Dashboard",
+        "lead": "The club’s day on one screen.",
+        "shotAlt": "The dashboard with today’s check-ins, sessions and charges.",
+        "rows": {
+          "today": {
+            "title": "Today",
+            "body": "The day’s check-ins and sessions, live."
+          },
+          "expiring": {
+            "title": "Expiring memberships",
+            "body": "Who needs to renew in the coming days."
+          },
+          "unpaid": {
+            "title": "Unpaid",
+            "body": "Open and overdue charges, by member."
+          },
+          "cap": {
+            "title": "Active against the cap",
+            "body": "How many active members the club has and how many the plan allows."
+          },
+          "claims": {
+            "title": "“That’s me” claims",
+            "body": "Members who want to link their record to their POPS account."
+          },
+          "erasures": {
+            "title": "Erasure requests",
+            "body": "GDPR requests, so you meet the deadline."
+          },
+          "inbox": {
+            "title": "Unread",
+            "body": "New messages and inquiries."
+          },
+          "leads": {
+            "title": "To call",
+            "body": "The leads it is time to call."
+          },
+          "checklist": {
+            "title": "First steps",
+            "body": "A list for a new club: location, logo, first plan, first session, team, import, kiosk, publish."
+          }
+        }
+      },
+      "members": {
+        "title": "Members",
+        "lead": "Every member’s card and everything around it.",
+        "shotAlt": "The member list with segments and search.",
+        "rows": {
+          "card": {
+            "title": "Member card",
+            "body": "Membership, payments, visits, documents, belts and history — in one place."
+          },
+          "family": {
+            "title": "Parent and child",
+            "body": "A child is a record under the parent; the parent pays, books and signs."
+          },
+          "segments": {
+            "title": "Segments",
+            "body": "Active, expiring, new, inactive — ready lists for work and messages."
+          },
+          "import": {
+            "title": "Import",
+            "body": "From vedro, 1club or a spreadsheet: a preview, then one commit; a repeated import does not duplicate."
+          },
+          "export": {
+            "title": "CSV export",
+            "body": "Every dataset downloads as a table."
+          },
+          "history": {
+            "title": "History per member",
+            "body": "Who changed what and when — the action log on the card."
+          },
+          "invites": {
+            "title": "Email invitations",
+            "body": "An invitation links the record to the person’s account, if they accept."
+          },
+          "link": {
+            "title": "Link to a POPS account",
+            "body": "Always the member’s own choice — the club never links on their behalf."
+          },
+          "gdpr": {
+            "title": "GDPR erasure",
+            "body": "The request reaches you with a deadline; you fulfil it in one step."
+          },
+          "consents": {
+            "title": "Contact consents",
+            "body": "Email, SMS and push — per member, with date and source."
+          }
+        }
+      },
+      "plans": {
+        "title": "Memberships and sales",
+        "lead": "Plans, terms and the sale at the desk.",
+        "shotAlt": "Selling a membership with one form.",
+        "rows": {
+          "renewal": {
+            "title": "Auto-renewal",
+            "body": "A membership that renews itself until the member stops it."
+          },
+          "terms": {
+            "title": "Term and notice",
+            "body": "A minimum term and a notice period, recorded on the membership at purchase."
+          },
+          "selfService": {
+            "title": "Pause and stop",
+            "body": "The member stops renewal or takes one pause — from the portal."
+          },
+          "sale": {
+            "title": "One-form sale",
+            "body": "Member, plan, start, payment — one step at the desk."
+          },
+          "online": {
+            "title": "Buy online",
+            "body": "Public plans are bought from the club page, by card on Stripe."
+          },
+          "cap": {
+            "title": "Plan cap",
+            "body": "The active-member cap is enforced at every sale."
+          },
+          "fees": {
+            "title": "No-show fees",
+            "body": "A fee for a no-show and for a late cancel — your rules, recorded on the booking."
+          },
+          "strikes": {
+            "title": "Strikes",
+            "body": "Strikes are counted; attendance is never refused."
+          }
+        }
+      },
+      "schedule": {
+        "title": "Timetable and bookings",
+        "lead": "The club’s week and who is coming.",
+        "shotAlt": "The weekly grid with sessions and bookings.",
+        "rows": {
+          "grid": {
+            "title": "Weekly grid",
+            "body": "Every session by day and hour, with places and waitlist."
+          },
+          "recurring": {
+            "title": "Recurring sessions",
+            "body": "Set the rule once; the timetable fills eight weeks ahead."
+          },
+          "waitlist": {
+            "title": "Bookings and waitlist",
+            "body": "The waitlist is by arrival; a freed place goes to the next in line."
+          },
+          "trial": {
+            "title": "Trial session",
+            "body": "One per person, from the club page — and a lead at once."
+          },
+          "roster": {
+            "title": "Roster",
+            "body": "The trainer sees who booked and marks attendance."
+          },
+          "cancel": {
+            "title": "Cancel with notice",
+            "body": "A cancelled session notifies everyone booked by email and push."
+          },
+          "feed": {
+            "title": "Trainer calendar",
+            "body": "A personal calendar feed with their sessions."
+          }
+        }
+      },
+      "attendance": {
+        "title": "Attendance",
+        "lead": "Four ways to check in. None of them refuses.",
+        "shotAlt": "The desk: search by name, card and a camera for QR codes.",
+        "rows": {
+          "desk": {
+            "title": "Desk check-in",
+            "body": "Search by name, one tick; works without JavaScript too."
+          },
+          "card": {
+            "title": "Barcode card",
+            "body": "A printed member card, read at the desk."
+          },
+          "qr": {
+            "title": "Personal QR code",
+            "body": "In the member portal, rotating; scanned at the desk."
+          },
+          "kiosk": {
+            "title": "Kiosk tablet",
+            "body": "A tablet at the door shows a rotating QR code; the member scans it with their phone."
+          },
+          "doors": {
+            "title": "Door access",
+            "body": "A door controller asks POPS whether to let someone in."
+          },
+          "neverRefused": {
+            "title": "Never refused",
+            "body": "An unpaid visit is recorded and the desk is told — nobody is left at the door."
+          },
+          "passport": {
+            "title": "Into the sports passport",
+            "body": "A QR or card visit goes into the member’s passport, if they consented."
+          }
+        }
+      },
+      "courts": {
+        "title": "Courts, rooms and services",
+        "lead": "Hourly bookings, at your prices.",
+        "shotAlt": "The day by courts and trainers, with the bookings.",
+        "rows": {
+          "resources": {
+            "title": "Resources",
+            "body": "Courts, rooms and equipment with opening hours and closures."
+          },
+          "services": {
+            "title": "Services",
+            "body": "Per hour or per booking, with capacity and audience."
+          },
+          "pricing": {
+            "title": "Peak and member prices",
+            "body": "A printed table: when it costs what, and for whom — no black box."
+          },
+          "booking": {
+            "title": "Booking from the page",
+            "body": "The client picks a free slot on the club page."
+          },
+          "hold": {
+            "title": "Hold while paying online",
+            "body": "The slot is held for 35 minutes while the client pays on Stripe."
+          },
+          "window": {
+            "title": "Window and deadline",
+            "body": "How far ahead one can book, and until when one can cancel without a fee."
+          },
+          "noDouble": {
+            "title": "No double bookings",
+            "body": "Impossible by construction — not by a check in the app."
+          }
+        }
+      },
+      "events": {
+        "title": "Events and tournaments",
+        "lead": "Camps, competitions and everything with tickets.",
+        "shotAlt": "An event with tickets, a waitlist and a bracket.",
+        "rows": {
+          "kinds": {
+            "title": "Events, camps, tournaments",
+            "body": "One-off or multi-day, priced or free."
+          },
+          "tickets": {
+            "title": "Tickets and waitlist",
+            "body": "Seats by order of registration; the waitlist moves up by itself when a seat frees."
+          },
+          "hold": {
+            "title": "Held seat",
+            "body": "A seat paid online is held while the client pays."
+          },
+          "brackets": {
+            "title": "Brackets and tables",
+            "body": "Draw, knock-out or groups — the tables are kept in the office."
+          },
+          "elo": {
+            "title": "Rating per sport",
+            "body": "An Elo rating of the entrants, per sport, from recorded results."
+          },
+          "ics": {
+            "title": "Calendar download",
+            "body": "An .ics file for every event."
+          },
+          "names": {
+            "title": "Names only by consent",
+            "body": "An entrant appears by name in public only if they decided so."
+          }
+        }
+      },
+      "payments": {
+        "title": "Payments",
+        "lead": "Your Stripe, your money.",
+        "shotAlt": "Payments with owed, partial and overdue.",
+        "rows": {
+          "stripe": {
+            "title": "Your own Stripe",
+            "body": "You connect your own Stripe account (Connect Standard). The money goes to you."
+          },
+          "portal": {
+            "title": "Pay from the portal",
+            "body": "The member pays open charges by card, on a Stripe page."
+          },
+          "subscriptions": {
+            "title": "Renewing memberships",
+            "body": "An auto-renewing membership is a Stripe subscription."
+          },
+          "refunds": {
+            "title": "Refunds",
+            "body": "From the payments screen; a full refund closes the charge."
+          },
+          "owed": {
+            "title": "Owed, partial, overdue",
+            "body": "Derived from the payments — no manual statuses."
+          },
+          "noFunds": {
+            "title": "POPS holds no funds",
+            "body": "We see no cards and hold no money. The association is not a party to the payment."
+          }
+        }
+      },
+      "shop": {
+        "title": "Till, products and credit",
+        "lead": "Sales at the desk and prepaid balance.",
+        "shotAlt": "The till with products and a receipt.",
+        "rows": {
+          "till": {
+            "title": "Till",
+            "body": "A sale at the desk with a receipt. The receipt is not a fiscal one — the club uses its own fiscal device."
+          },
+          "stock": {
+            "title": "Products and stock",
+            "body": "A product catalogue and a stock ledger."
+          },
+          "promotions": {
+            "title": "Promotions",
+            "body": "A code or an automatic discount — percent, amount or fixed price; the struck-through price shows on the page."
+          },
+          "vouchers": {
+            "title": "Gift vouchers",
+            "body": "A voucher bought and given away."
+          },
+          "wallet": {
+            "title": "Prepaid credit",
+            "body": "Top up at the desk or online; spend at the desk and the till."
+          }
+        }
+      },
+      "invoices": {
+        "title": "Invoices",
+        "lead": "Invoices and credit notes from the office.",
+        "shotAlt": "An invoice with issuer and buyer details.",
+        "rows": {
+          "documents": {
+            "title": "Invoices and credit notes",
+            "body": "Gapless numbering that cannot be broken or swapped."
+          },
+          "identity": {
+            "title": "Issuer and buyer details",
+            "body": "Your company details and the client’s on the document."
+          },
+          "vat": {
+            "title": "VAT by rate",
+            "body": "Net prices and VAT per rate, as the law requires."
+          },
+          "zero": {
+            "title": "Zero rate with a basis",
+            "body": "An exempt supply is marked with its legal basis."
+          }
+        }
+      },
+      "messaging": {
+        "title": "Messaging",
+        "lead": "To the members, when needed and as much as needed.",
+        "shotAlt": "A broadcast to a chosen segment.",
+        "rows": {
+          "broadcasts": {
+            "title": "Broadcasts",
+            "body": "To a segment of members, by email or SMS, within the allowed hours."
+          },
+          "automations": {
+            "title": "Automations",
+            "body": "Welcome, expiring membership, after a first session, a review request — by event."
+          },
+          "channels": {
+            "title": "Email and push",
+            "body": "Notifications arrive by email and as push on the phone — in every plan."
+          },
+          "sms": {
+            "title": "SMS",
+            "body": "Through a European provider, with a monthly cap; the cost is accounted to the club."
+          },
+          "system": {
+            "title": "33 kinds of notice",
+            "body": "Confirmation, promotion from the waitlist, a reminder 24 hours before, cancellation, expiry, payment and more."
+          },
+          "worker": {
+            "title": "Only from the server",
+            "body": "Nothing is sent from a screen — everything runs on schedule, with no duplicate mail."
+          }
+        }
+      },
+      "inbox": {
+        "title": "Inbox and leads",
+        "lead": "Conversations, and the people who are not members yet.",
+        "shotAlt": "The inbox with conversations and inquiries.",
+        "rows": {
+          "threads": {
+            "title": "Conversations with members",
+            "body": "Messages to the club and the replies — in one thread."
+          },
+          "inquiries": {
+            "title": "Inquiries from the page",
+            "body": "For a hall, an event, a group, a party or a camp — each opens a conversation."
+          },
+          "pipeline": {
+            "title": "Lead pipeline",
+            "body": "The stage is derived from actions: trial session, first visit, sale."
+          },
+          "tasks": {
+            "title": "Call tasks",
+            "body": "When to call and whom, so nobody slips through."
+          },
+          "ratings": {
+            "title": "Reviews",
+            "body": "A rating after a session, per trainer; a Google link after every rating, no filtering."
+          }
+        }
+      },
+      "documents": {
+        "title": "Documents and belts",
+        "lead": "Signatures and progress.",
+        "shotAlt": "A document to sign in the member portal.",
+        "rows": {
+          "versions": {
+            "title": "Versions with a fingerprint",
+            "body": "Waivers and contracts with versions and a cryptographic hash."
+          },
+          "signing": {
+            "title": "Signing",
+            "body": "From the member portal or at the desk with a witness."
+          },
+          "guardian": {
+            "title": "Parent for a child",
+            "body": "The parent signs for the child; the child may sign too."
+          },
+          "missing": {
+            "title": "Missing documents",
+            "body": "A list of who has not signed what yet."
+          },
+          "ladders": {
+            "title": "Belt ladders",
+            "body": "The belts per sport, in your order and colours."
+          },
+          "readiness": {
+            "title": "Exam readiness",
+            "body": "Visits since the last belt — who is ready."
+          },
+          "bulk": {
+            "title": "Exam day",
+            "body": "Awarding the next belt to a whole group."
+          }
+        }
+      },
+      "reports": {
+        "title": "Reports",
+        "lead": "Numbers with printed definitions.",
+        "shotAlt": "The retention and churn report.",
+        "rows": {
+          "definitions": {
+            "title": "A definition for every figure",
+            "body": "Every report says how it was computed."
+          },
+          "csv": {
+            "title": "CSV of every dataset",
+            "body": "Everything downloads as a table."
+          },
+          "advanced": {
+            "title": "Advanced reports",
+            "body": "Peak hours, retention, churn, revenue by plan, top clients."
+          },
+          "engagement": {
+            "title": "Engagement score",
+            "body": "Per member, with every point explained — never a black box."
+          },
+          "trainerPay": {
+            "title": "Trainer pay",
+            "body": "A statement by sessions and rules for every trainer."
+          }
+        }
+      },
+      "team": {
+        "title": "Team",
+        "lead": "Roles, invitations and pay.",
+        "shotAlt": "The team with roles and invitations.",
+        "rows": {
+          "roles": {
+            "title": "Four roles",
+            "body": "Owner, manager, trainer, desk — each sees only its own."
+          },
+          "invites": {
+            "title": "Email invitations",
+            "body": "A new team member joins by invitation."
+          },
+          "pay": {
+            "title": "Trainer pay",
+            "body": "Pay rules and a monthly statement per trainer."
+          },
+          "timeOff": {
+            "title": "Time off",
+            "body": "Every trainer’s time away."
+          },
+          "profile": {
+            "title": "Public trainer profile",
+            "body": "With a biography on the club page."
+          },
+          "mail": {
+            "title": "Owner mail",
+            "body": "A weekly summary and a monthly club-health report."
+          }
+        }
+      },
+      "website": {
+        "title": "The club page",
+        "lead": "The website you already have.",
+        "shotAlt": "The public club page with timetable and prices.",
+        "rows": {
+          "page": {
+            "title": "A page on POPS",
+            "body": "Timetable, prices, trainers, events and contact at pops.bg/klub/your-name."
+          },
+          "shortLink": {
+            "title": "Short link",
+            "body": "pops.bg/k/your-name — for flyers and bios."
+          },
+          "branding": {
+            "title": "Logo and colour",
+            "body": "Your logo and accent colour on the page."
+          },
+          "content": {
+            "title": "Description and FAQ",
+            "body": "Text about the club and answers to common questions."
+          },
+          "locations": {
+            "title": "Locations on the map",
+            "body": "The places you train, linked to the map’s facilities."
+          },
+          "embeds": {
+            "title": "Embed without a script",
+            "body": "Timetable and prices in your own website — no JavaScript, no cookies."
+          },
+          "pwa": {
+            "title": "Installable app",
+            "body": "The club page installs on the phone as an app, with your name and icon."
+          },
+          "pixels": {
+            "title": "Google Analytics and Meta Pixel",
+            "body": "Your IDs, only on your pages, only with the visitor’s consent."
+          }
+        }
+      },
+      "portal": {
+        "title": "The member portal",
+        "lead": "What a member sees on their phone.",
+        "shotAlt": "The member portal with the membership and bookings.",
+        "rows": {
+          "membership": {
+            "title": "Membership in words",
+            "body": "What they have, until when and what comes next — no code."
+          },
+          "bookings": {
+            "title": "Bookings",
+            "body": "For sessions — for themselves and for a child."
+          },
+          "buy": {
+            "title": "Buy and pay",
+            "body": "A new membership or an open charge, by card."
+          },
+          "credit": {
+            "title": "Credit",
+            "body": "Balance and online top-up."
+          },
+          "reservations": {
+            "title": "Reservations",
+            "body": "Courts, rooms and trainer slots."
+          },
+          "events": {
+            "title": "Events",
+            "body": "Tickets and seats."
+          },
+          "qr": {
+            "title": "Personal QR code",
+            "body": "For checking in at the door."
+          },
+          "chat": {
+            "title": "Conversation with the club",
+            "body": "Messages to the desk and the replies."
+          },
+          "documents": {
+            "title": "Documents",
+            "body": "Signing waivers and contracts."
+          },
+          "ranks": {
+            "title": "Belts",
+            "body": "Current belt and progress to the next."
+          },
+          "ratings": {
+            "title": "Reviews",
+            "body": "Rating the session and the trainer."
+          },
+          "consents": {
+            "title": "Consents",
+            "body": "Contact, passport, stopping renewal — by the member themselves."
+          },
+          "push": {
+            "title": "Push notifications",
+            "body": "Switched on from the portal, for the member’s phone."
+          },
+          "gdpr": {
+            "title": "GDPR data",
+            "body": "Export and an erasure request — from the portal."
+          }
+        }
+      },
+      "integrations": {
+        "title": "Integrations",
+        "lead": "For clubs that connect their own systems.",
+        "shotAlt": "The club’s API keys and webhooks.",
+        "rows": {
+          "api": {
+            "title": "API keys",
+            "body": "Scoped, acting on behalf of whoever created them."
+          },
+          "webhooks": {
+            "title": "Webhooks",
+            "body": "The club’s events, sent to your address."
+          },
+          "mcp": {
+            "title": "Your AI assistant (MCP)",
+            "body": "Connect your own assistant; POPS sends nothing to any AI provider."
+          },
+          "doors": {
+            "title": "Door controllers",
+            "body": "The door asks POPS whether to let someone in."
+          },
+          "docs": {
+            "title": "Documentation",
+            "body": "A description of everything in the office."
+          }
+        }
+      },
+      "security": {
+        "title": "Security and data",
+        "lead": "You are the controller. We process.",
+        "shotAlt": "The club’s action log.",
+        "rows": {
+          "controller": {
+            "title": "You are the controller",
+            "body": "The club is the controller of its members’ data; POPS processes it on the club’s behalf."
+          },
+          "audit": {
+            "title": "Action log",
+            "body": "Everything the team does — including whether anyone from POPS opened your office."
+          },
+          "noDob": {
+            "title": "No date of birth",
+            "body": "Stored nowhere; a child is a record under the parent."
+          },
+          "noTracking": {
+            "title": "No tracking",
+            "body": "POPS does not track or profile your members."
+          },
+          "export": {
+            "title": "Export everything",
+            "body": "All the club’s data downloads at any time."
+          },
+          "archive": {
+            "title": "After closing",
+            "body": "90 days to export, then deletion."
+          }
+        }
+      }
+    },
+    "edges": {
+      "overline": "Only on POPS",
+      "title": "What you will not find elsewhere",
+      "lead": "Other systems are an office. POPS is an office plus the map people are already on.",
+      "found": {
+        "title": "People find you",
+        "body": "A directory, a block on the facility page and a chip in the map panel — without advertising."
+      },
+      "passport": {
+        "title": "The sports passport",
+        "body": "Visits to you go into the member’s passport, with consent — a reason to come back."
+      },
+      "free": {
+        "title": "A free plan",
+        "body": "For clubs and trainers at public facilities — forever, not for a trial."
+      },
+      "fee": {
+        "title": "No commission",
+        "body": "POPS takes no share of your members’ payments. You pay only the plan."
+      },
+      "privacy": {
+        "title": "No tracking",
+        "body": "The club is the controller, POPS processes; no date of birth, no trackers."
+      },
+      "migrate": {
+        "title": "Bring your data",
+        "body": "From vedro, 1club or a spreadsheet, with a preview before the commit."
+      }
+    },
+    "pricing": {
+      "overline": "Prices",
+      "title": "Three plans, one office",
+      "lead": "Every plan includes the whole base office. The paid ones add tools — not a higher place in the directory.",
+      "popular": "Most chosen",
+      "perMonth": "per month",
+      "paidNote": "{days}-day trial, then an invoice by bank transfer.",
+      "vatNote": "Prices are per month, invoiced by bank transfer. The paid plans start with a trial; stop whenever you decide.",
+      "gridTitle": "What each plan includes",
+      "yes": "included",
+      "no": "not included",
+      "tiers": {
+        "community": {
+          "for": "For clubs and trainers at public facilities.",
+          "note": "Up to {cap} active members, {locations, plural, one {# location} other {# locations}}."
+        },
+        "standard": {
+          "for": "For gyms and studios with a desk and a till."
+        },
+        "pro": {
+          "for": "For chains, large clubs and anyone connecting their own systems."
+        }
+      },
+      "included": {
+        "members": "Members, parent and child, segments, import and export",
+        "timetable": "Timetable, bookings and waitlist",
+        "attendance": "Attendance: desk, card, QR code, kiosk",
+        "portal": "Member portal",
+        "email": "Email and push notifications",
+        "reports": "Basic reports and CSV",
+        "documents": "Documents and signatures",
+        "ranks": "Belts and ladders",
+        "events": "Events and tournaments",
+        "courts": "Courts, rooms and services",
+        "payments": "Online payments through your own Stripe",
+        "inbox": "Inbox, inquiries and leads",
+        "page": "Club page and a place on the map"
+      }
+    },
+    "steps": {
+      "overline": "How it works",
+      "title": "From the application to the first invoice",
+      "lead": "No salesperson, no demo call. You fill in an application, we review it, the office is yours.",
+      "apply": {
+        "title": "Application",
+        "body": "Two minutes with a POPS account: name, kind, plan, city, sports."
+      },
+      "review": {
+        "title": "Review",
+        "body": "Up to two working days. Meanwhile the office is open for setting up."
+      },
+      "trial": {
+        "title": "Trial",
+        "body": "{days} days on the paid plans. The free one has no end."
+      },
+      "invoice": {
+        "title": "Invoice",
+        "body": "Monthly, by bank transfer, by active members. No contract."
+      },
+      "transferTitle": "Move in a day",
+      "transferLead": "If you already use another system, the move is three steps.",
+      "transfer": {
+        "import": {
+          "title": "Import",
+          "body": "Upload the members from vedro, 1club or a spreadsheet; review and commit."
+        },
+        "team": {
+          "title": "Team",
+          "body": "Invite the trainers and the desk with one email each."
+        },
+        "publish": {
+          "title": "Publish",
+          "body": "Logo, timetable, prices — and the page is on the map."
+        }
+      }
+    },
+    "faq": {
+      "overline": "Questions before you start",
+      "title": "What owners ask",
+      "money": {
+        "q": "Who holds the money from payments?",
+        "a": "You do. Members pay into your own Stripe account; POPS sees no cards and holds no funds."
+      },
+      "account": {
+        "q": "Do my members need a POPS account?",
+        "a": "No. The record lives in your office. Linking to a POPS account is the member’s choice — then they get a portal, a QR code and a passport."
+      },
+      "minors": {
+        "q": "How are children handled?",
+        "a": "A child is a record under the parent: the parent books, pays and signs. A date of birth is stored nowhere."
+      },
+      "switching": {
+        "q": "I use another system. How do I move my data?",
+        "a": "With an import from vedro, 1club or a spreadsheet: you see what will be written before it is written; a repeated import does not duplicate."
+      },
+      "cancel": {
+        "q": "Can I stop at any time?",
+        "a": "Yes, in one step. Data downloads at any time; after closing you have 90 days to export, then we delete it."
+      },
+      "sms": {
+        "q": "What do SMS messages cost?",
+        "a": "What they cost at the provider — the cost is accounted to the club, with a monthly cap you set. Email and push are unlimited."
+      },
+      "fiscal": {
+        "q": "Do I need a fiscal device?",
+        "a": "Yes, your own. The till in POPS issues a receipt that is not a fiscal one; the fiscal receipt comes from your device."
+      },
+      "free": {
+        "q": "What does the free plan include?",
+        "a": "The whole base office — members, timetable, attendance, portal, payments, events, documents — for clubs at public facilities, up to {cap} active members."
+      },
+      "lapse": {
+        "q": "What happens if I pay late?",
+        "a": "For two weeks everything works with a warning. Then the office becomes read-only and the page is hidden until you pay — nothing is deleted."
+      },
+      "trainer": {
+        "q": "I am a trainer without a hall. Is this for me?",
+        "a": "Yes. Hourly bookings at your prices, a client portal, online payment and a page on the map — free if you train at a public facility."
+      }
+    },
+    "final": {
+      "title": "Your club office is ready",
+      "lead": "The application takes two minutes. Free for clubs at public facilities; a trial for the rest.",
+      "cta": "Start for free",
+      "contact": "Have a question? Write to us"
+    }
   },
   "LocaleSwitcher": {
     "switchTo": "Български"
@@ -2366,6 +3243,11 @@
     "site": {
       "title": "Bulgaria's map of free sport",
       "imageAlt": "POPS — Bulgaria's map of free sport"
+    },
+    "clubs": {
+      "title": "Run your club on POPS",
+      "subtitle": "Members, timetable, payments and attendance — and a page on the national map.",
+      "imageAlt": "POPS — for clubs"
     }
   },
   "Legend": {
@@ -3158,7 +4040,7 @@
     "fieldPaidUntil": "Paid until",
     "fieldTrialEndsOn": "Trial until",
     "fieldMemberCap": "Active member limit",
-    "memberCapHint": "Empty = no limit. The Community plan is up to 50 active members.",
+    "memberCapHint": "Empty = no limit. The Community plan is up to {cap} active members.",
     "save": "Save",
     "saved": "Saved.",
     "statusTitle": "State",
@@ -4638,9 +5520,9 @@
     "kind": "Type",
     "tier": "Plan",
     "tierHint": {
-      "community": "Free for clubs and trainers at public facilities. Up to 50 active members.",
-      "standard": "For small gyms and studios. A 30-day free trial, then invoiced.",
-      "pro": "For chains and large clubs. A 30-day free trial, then invoiced."
+      "community": "Free for clubs and trainers at public facilities. Up to {cap} active members.",
+      "standard": "For small gyms and studios. {days} days free trial, then by invoice.",
+      "pro": "For chains and large clubs. {days} days free trial, then by invoice."
     },
     "city": "Municipality",
     "cityNone": "— choose —",
@@ -5059,7 +5941,8 @@
     "offerUntil": "until {date}",
     "inquiry": "Send an inquiry",
     "rating": "{average} out of 5 · {count, plural, one {# rating} other {# ratings}}",
-    "eventsTitle": "Events"
+    "eventsTitle": "Events",
+    "applyMore": "Everything for clubs"
   },
   "ClubPurchase": {
     "title": "Buy online",
@@ -6847,7 +7730,7 @@
       },
       "yourData": {
         "title": "Your data is yours",
-        "body": "No date of birth, no IP addresses in the logs. Export and deletion of the profile — in one step.",
+        "body": "Your date of birth is never stored and IP addresses never enter the logs. Export and deletion of the profile — in one step.",
         "link": "To your profile"
       }
     }

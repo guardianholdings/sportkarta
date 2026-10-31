@@ -90,6 +90,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         <HowItWorks />
         <GamesSection games={games ?? []} locale={locale} />
         <NumbersBand
+          places={dots?.layer.total ?? numbers?.free ?? null}
           numbers={numbers}
           gamesThisWeek={pulses?.total ?? null}
           contributions={pulse?.last30Days ?? null}
@@ -98,7 +99,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         <ContributeSection pulse={pulse} campaign={campaign} locale={locale} />
         <PassportSection signedIn={user !== null} />
         {clubs && <ClubsSection />}
-        <PrinciplesBand />
+        <PrinciplesBand signedIn={user !== null} />
       </main>
     </AppShell>
   );

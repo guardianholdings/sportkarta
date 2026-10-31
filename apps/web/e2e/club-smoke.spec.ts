@@ -18,6 +18,16 @@ test('the club directory renders in Bulgarian', async ({ page }) => {
   await expect(page).toHaveTitle(new RegExp(bg.ClubPublic.directoryTitle));
 });
 
+test('the clubs page renders with its prices and its one call to action', async ({ page }) => {
+  await page.goto('/za-klubove');
+  await expect(page).toHaveTitle(new RegExp(bg.ClubsLanding.metaTitle));
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(bg.ClubsLanding.hero.title);
+  await expect(page.locator('#ceni')).toBeVisible();
+  await expect(page.locator('#funktsii')).toBeVisible();
+  const cta = page.locator('a[href="/klubove/zayavka"]').first();
+  await expect(cta).toHaveText(bg.ClubsLanding.cta);
+});
+
 test.describe('an unknown club is a real 404 on every public surface', () => {
   for (const path of [
     `/klub/${SLUG}`,

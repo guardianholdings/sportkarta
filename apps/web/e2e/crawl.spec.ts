@@ -41,6 +41,8 @@ const PUBLIC_ROUTES = [
   '/sedmitsata',
   `/sedmitsata/${CITY}`,
   '/vhod',
+  // The clubs page (the add-on is on in playwright.config.ts).
+  '/za-klubove',
 ];
 
 const MEMBER_ONLY = ['/profil', '/pasport', '/dobavi', '/trenirovki'];

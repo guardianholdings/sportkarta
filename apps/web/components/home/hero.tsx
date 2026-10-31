@@ -154,7 +154,8 @@ export async function Hero({
           {numbers && (
             <p className="text-body-sm text-ink-soft">
               {t('hero.trust', {
-                places: numbers.free,
+                // The dot map's own count when it loaded, so the first screen tells one number once.
+                places: dots?.layer.total ?? numbers.free,
                 municipalities: numbers.municipalitiesCovered,
                 sports: numbers.sportsCount,
               })}{' '}

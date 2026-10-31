@@ -47,9 +47,13 @@ export function buildAlternates(path: string, locale: string): Metadata['alterna
 /** Open Graph locale tags (language_TERRITORY), per app locale. */
 const OG_LOCALE: Record<string, string> = { bg: 'bg_BG', en: 'en_GB' };
 
-/** The site-wide share card, rendered by app/og/[locale]/site/card.png. */
-export function siteCardPath(locale: string): string {
-  return `/og/${locale === 'en' ? 'en' : 'bg'}/site/card.png`;
+/** The brand-only share cards: `site` (app/og/[locale]/site/card.png) and the clubs page's `klubove` sibling. */
+export type SiteCard = 'site' | 'klubove';
+
+/** The site-wide share card, rendered by app/og/[locale]/site/card.png — or the clubs page's. */
+export function siteCardPath(locale: string, card: SiteCard = 'site'): string {
+  const lang = locale === 'en' ? 'en' : 'bg';
+  return card === 'klubove' ? `/og/${lang}/site/klubove/card.png` : `/og/${lang}/site/card.png`;
 }
 
 /**
@@ -69,6 +73,7 @@ export function siteCardPath(locale: string): string {
 export function siteSocialMetadata(
   locale: string,
   labels: { siteName: string; imageAlt: string },
+  options: { card?: SiteCard } = {},
 ): Pick<Metadata, 'openGraph' | 'twitter'> {
   const own = OG_LOCALE[locale] ?? 'bg_BG';
   return {
@@ -77,7 +82,9 @@ export function siteSocialMetadata(
       siteName: labels.siteName,
       locale: own,
       alternateLocale: Object.values(OG_LOCALE).filter((l) => l !== own),
-      images: [{ url: siteCardPath(locale), width: 1200, height: 630, alt: labels.imageAlt }],
+      images: [
+        { url: siteCardPath(locale, options.card), width: 1200, height: 630, alt: labels.imageAlt },
+      ],
     },
     twitter: { card: 'summary_large_image' },
   };
