@@ -49,7 +49,10 @@ export function StickyCta({
       <Link
         href={href}
         tabIndex={shown ? 0 : -1}
-        className={cn(buttonVariants({ variant: 'accent', size: 'lg' }), 'shadow-lg')}
+        className={cn(
+          buttonVariants({ variant: 'accent', size: 'md' }),
+          'shadow-lg lg:h-13 lg:px-6 lg:text-body',
+        )}
       >
         {label}
         <ArrowRight size={20} aria-hidden="true" />
