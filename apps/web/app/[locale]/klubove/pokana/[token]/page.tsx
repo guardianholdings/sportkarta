@@ -27,7 +27,12 @@ const INVITE_ERRORS = new Set(['invalid', 'wrong_account', 'already_linked']);
 export async function generateMetadata({ params }: { params: PageParams }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'ClubInvite' });
-  return { title: t('title'), robots: { index: false, follow: false } };
+  return {
+    title: t('title'),
+    robots: { index: false, follow: false },
+    // The token stays out of the next page's referrer.
+    referrer: 'no-referrer',
+  };
 }
 
 export default async function ClubInvitePage({

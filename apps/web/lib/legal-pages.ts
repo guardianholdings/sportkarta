@@ -11,8 +11,8 @@
 export const PRIVACY_ACTIVITIES = [
   'browsing',
   'analytics',
-  // Google Analytics through Cloudflare Zaraz, only after a yes in the consent
-  // card (public/consent.js).
+  // Google Analytics (Google's own tag, gtag.js), only after a yes in the
+  // consent card (public/consent.js).
   'googleAnalytics',
   'account',
   // Printed only while at least one of Google, Apple or Facebook is switched

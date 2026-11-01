@@ -97,10 +97,10 @@ export default async function LocaleLayout({
           <UmamiAnalytics src={umamiSrc} websiteId={umamiWebsiteId} />
         ) : null}
         {glitchtipDsn ? <ErrorMonitor dsn={glitchtipDsn} /> : null}
-        {/* The analytics consent card (public/consent.js). It loads Cloudflare
-            Zaraz, and with it Google Analytics, only after a yes; Umami above
-            is cookieless and does not ask. The widget routes render outside
-            this layout, so they never get it. */}
+        {/* The analytics consent card (public/consent.js). It loads Google
+            Analytics (Google's own tag, gtag.js) only after a yes, and never
+            on a personal page; Umami above is cookieless and does not ask.
+            The widget routes render outside this layout, so they never get it. */}
         <script src="/consent.js" defer />
       </body>
     </html>
