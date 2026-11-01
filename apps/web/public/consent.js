@@ -18,8 +18,9 @@
   var COOKIE_SECONDS = 33696000;
   // Account pages, pages that show people (standings, rosters, passports) and pages with a token in the
   // address. /klub/ is the whole club module: the offices, the member's pages, the purchase flow, and the
-  // public club pages, where a club's own Google tag may run. sesiya/ is the old name of igra/.
-  var PERSONAL = /^(\/en)?\/(admin(\/|$)|otmetka\/|sedmitsata\/otpisvane\/|pasport(\/|$)|profil(\/|$)|trenirovki(\/|$)|klasirane(\/|$)|kampanii\/[^/]+|sesiya\/|igra\/|klub(\/|$)|klubove\/(otmetka|otpisvane|pokana)\/|s\/|dobre-doshli(\/|$)|dev\/)/;
+  // public club pages, where a club's own Google tag may run. sesiya/ is the old name of igra/. vhod (sign-in) and
+  // signal (report a page) carry the page they came from in their query (?next=, ?url=), a token page included.
+  var PERSONAL = /^(\/en)?\/(admin(\/|$)|otmetka\/|sedmitsata\/otpisvane\/|pasport(\/|$)|profil(\/|$)|trenirovki(\/|$)|klasirane(\/|$)|kampanii\/[^/]+|sesiya\/|igra\/|klub(\/|$)|klubove\/(otmetka|otpisvane|pokana)\/|s\/|dobre-doshli(\/|$)|dev\/|vhod(\/|$)|signal(\/|$))/;
   var w = window, d = document;
 
   function personal(path) { return PERSONAL.test(path); }
