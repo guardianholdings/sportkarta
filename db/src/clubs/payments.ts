@@ -635,6 +635,13 @@ export interface PaymentAccountGone {
    * club must, in its own dashboard. What the owners are told.
    */
   subscriptions: number;
+  /**
+   * False when THIS event had already done the work — a retry after the run
+   * died between the commit and the owners' notice. The counts are then read
+   * back from the audit row the first run wrote (it carries the event id), so
+   * the notice can still go; the notifications ledger dedupes a double.
+   */
+  fresh: boolean;
 }
 
 /**
@@ -650,13 +657,17 @@ export interface PaymentAccountGone {
  *     after all, applyCheckoutPaid lists the money as `unapplied`;
  *   - every chain whose subscription was opened on that account stops
  *     renewing in the books — Stripe may bill it, no period would be recorded;
- *   - the club's audit log gets the disconnect, by 'system', with both counts.
- * The caller tells the owners (club.notify) with the subscription count.
+ *   - the club's audit log gets the disconnect, by 'system', with both counts
+ *     and the event's id.
+ * The caller tells the owners (club.notify) with the subscription count. Asked
+ * again by the SAME event (a retry), the audit row answers with the counts and
+ * `fresh: false`; by any other event once the connection is gone, null.
  */
 export async function markPaymentAccountGone(
   db: TransactionalDb,
   accountRef: string,
   eventReceivedAt: Date,
+  eventId: number,
 ): Promise<PaymentAccountGone | null> {
   return db.transaction(async (tx) => {
     const gone = await tx.execute(sql`
@@ -666,7 +677,29 @@ export async function markPaymentAccountGone(
       RETURNING club_id
     `);
     const clubId = text(gone.rows[0]?.club_id);
-    if (!clubId) return null;
+    if (!clubId) {
+      // Nothing to end now. If THIS event ended it on an earlier run that died
+      // before the notice went, its audit row says so — and what to tell.
+      const earlier = (
+        await tx.execute(sql`
+          SELECT a.club_id, a.detail FROM club_audit a
+           WHERE a.action = 'payment_account_disconnected' AND a.actor_kind = 'system'
+             AND a.detail->>'eventId' = ${String(eventId)}
+           ORDER BY a.acted_at DESC
+           LIMIT 1
+        `)
+      ).rows[0];
+      if (!earlier) return null;
+      const detail = (
+        typeof earlier.detail === 'string' ? JSON.parse(earlier.detail) : (earlier.detail ?? {})
+      ) as Record<string, unknown>;
+      return {
+        clubId: String(earlier.club_id),
+        checkoutsExpired: Number(detail.checkoutsExpired ?? 0),
+        subscriptions: Number(detail.subscriptionsAtStripe ?? 0),
+        fresh: false,
+      };
+    }
     // Checkouts first, then the chains: applyCheckoutPaid's order (checkout →
     // charge → membership), so a payment landing at this moment never
     // deadlocks with the revoke.
@@ -692,9 +725,10 @@ export async function markPaymentAccountGone(
       null,
       sql`jsonb_build_object('provider', 'stripe', 'by', 'provider',
                              'checkoutsExpired', ${expired.rows.length}::int,
-                             'subscriptionsAtStripe', ${subscriptions}::int)`,
+                             'subscriptionsAtStripe', ${subscriptions}::int,
+                             'eventId', ${eventId}::bigint)`,
     );
-    return { clubId, checkoutsExpired: expired.rows.length, subscriptions };
+    return { clubId, checkoutsExpired: expired.rows.length, subscriptions, fresh: true };
   });
 }
 
@@ -724,6 +758,8 @@ export async function recordRenewalPaymentFailed(
     subscriptionRef: string;
     invoiceRef: string;
     amountCents: number;
+    /** The invoice's currency, stored beside the figure so no reader prints a foreign number as euros. */
+    currency: string;
   },
 ): Promise<RenewalPaymentFailure | null> {
   return db.transaction(async (tx) => {
@@ -748,7 +784,8 @@ export async function recordRenewalPaymentFailed(
              jsonb_build_object('membershipId', ${membershipId}::text,
                                 'invoiceRef', ${failure.invoiceRef}::text,
                                 'provider', ${failure.provider}::text,
-                                'amountCents', ${failure.amountCents}::int)
+                                'amountCents', ${failure.amountCents}::int,
+                                'currency', ${failure.currency}::text)
        WHERE NOT EXISTS (SELECT 1 FROM club_audit a
                           WHERE a.club_id = ${clubId}::uuid AND a.action = 'online_payment_failed'
                             AND a.detail->>'invoiceRef' = ${failure.invoiceRef})

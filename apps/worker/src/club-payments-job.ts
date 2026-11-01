@@ -45,8 +45,15 @@ import {
  * is not 45,00 €. Anything else goes the `unapplied` way with its own reason.
  *
  * NOTICES: an event that someone must be told about (a revoked account, a
- * failed renewal) is handed back as `club.notify` jobs — ids and counts only —
- * for the caller to enqueue, like the places a sweep promotes (0053).
+ * failed renewal) becomes `club.notify` jobs — ids and counts only — sent
+ * through the caller's `enqueue` BEFORE the event is marked processed. The
+ * order matters: marked first, a crash or a refused send between the two
+ * would lose the notice for good (the retry finds processed_at set). Sent
+ * first, a crash between the two leaves the event pending; the retry then
+ * re-derives the same notice from what the first run wrote (the audit row of
+ * a revoke carries the event id, a failed renewal is keyed by its invoice)
+ * and the notifications ledger dedupes the double. The places a sweep
+ * promotes (0053) are handed back as before — nothing was marked for them.
  */
 
 export type PaymentEventOutcome = 'applied' | 'ignored' | 'failed';
@@ -198,18 +205,28 @@ async function apply(
         subscriptionRef: invoice.subscription,
         invoiceRef: invoice.id,
         amountCents: invoice.amount_due,
+        currency: invoice.currency,
       });
-      // No chain of ours: the club's own business at Stripe.
-      if (!failed) return 'ignored';
-      // Stripe raises the event again on each of its own retries of the same
-      // invoice; the member and the owners are told once per invoice.
-      if (!failed.recorded) return 'ignored';
+      if (!failed) {
+        // No chain of ours: the club's own business at Stripe — unless a
+        // checkout of ours opened it and its first payment went `unapplied`
+        // (and the cancel then failed): ended here, as on invoice.paid.
+        if (await subscriptionCancelOwed(db, invoice.subscription)) {
+          await endSubscription(stripe, invoice.subscription, account);
+          return 'applied';
+        }
+        return 'ignored';
+      }
+      // Told once per invoice — whether THIS run recorded the failure or an
+      // earlier one did and died before its notice went (the ledger dedupes
+      // the double). Stripe's own retries of the invoice raise the event
+      // again and are recorded, and told, once.
       notify.push({
         kind: 'renewal_payment_failed',
         membershipId: failed.membershipId,
         invoiceRef: invoice.id,
       });
-      return 'applied';
+      return failed.recorded ? 'applied' : 'ignored';
     }
     case 'customer.subscription.deleted': {
       if (!account) return 'ignored';
@@ -262,15 +279,18 @@ async function apply(
       if (!account) return 'ignored';
       // Ends the connection AND the money paths on it (open checkouts, the
       // renewal of chains opened there) in one transaction; null when the
-      // club had reconnected before this arrived, or it was already ended.
-      const gone = await markPaymentAccountGone(db, account, event.receivedAt);
+      // club had reconnected before this arrived, or another event ended it.
+      // Not fresh: THIS event ended it on a run that died before the notice
+      // went — the notice goes now, the ledger dedupes it.
+      const gone = await markPaymentAccountGone(db, account, event.receivedAt, event.id);
       if (!gone) return 'ignored';
       notify.push({
         kind: 'club_payments_revoked',
         clubId: gone.clubId,
         subscriptions: gone.subscriptions,
+        eventId: event.id,
       });
-      return 'applied';
+      return gone.fresh ? 'applied' : 'ignored';
     }
     default:
       return 'ignored';
@@ -280,11 +300,15 @@ async function apply(
 export interface PaymentEventResult {
   type: string;
   outcome: PaymentEventOutcome;
-  /** Notices the event earned — for the caller to enqueue on club.notify. */
-  notify: ClubNotifyJob[];
 }
 
-export async function runClubPaymentEvent(id: number): Promise<PaymentEventResult | null> {
+/** Sends one notice on club.notify; a rejection propagates and keeps the event pending. */
+export type EnqueueNotice = (job: ClubNotifyJob) => Promise<void>;
+
+export async function runClubPaymentEvent(
+  id: number,
+  enqueue: EnqueueNotice,
+): Promise<PaymentEventResult | null> {
   const db = getDb();
   const event = await paymentEventById(db, id);
   if (!event) return null;
@@ -306,8 +330,11 @@ export async function runClubPaymentEvent(id: number): Promise<PaymentEventResul
     else if (error instanceof StripeError && error.status === 404) outcome = 'ignored';
     else throw error;
   }
+  // Notices BEFORE the mark (the header's order): a refused send throws, the
+  // event stays pending, and the retry re-derives and re-sends — deduped.
+  for (const notice of notify) await enqueue(notice);
   await markPaymentEvent(db, id, outcome);
-  return { type: event.type, outcome, notify };
+  return { type: event.type, outcome };
 }
 
 /**
@@ -324,25 +351,19 @@ function onlineProvider(): OnlineProvider {
 
 /**
  * The backlog: events recorded but never processed (a lost enqueue), and the
- * 90-day retention of processed ones (0046's header). Returns how many were
- * applied, the notices those earned, and the event places that moved up from
- * a waitlist into a seat a lapsed hold freed (0053) — for the caller to tell.
+ * 90-day retention of processed ones (0046's header). Each event's notices go
+ * through `enqueue` before it is marked. Returns how many were applied, and
+ * the event places that moved up from a waitlist into a seat a lapsed hold
+ * freed (0053) — for the caller to tell.
  */
-export async function sweepClubPaymentEvents(): Promise<{
-  done: number;
-  promoted: string[];
-  notify: ClubNotifyJob[];
-}> {
+export async function sweepClubPaymentEvents(
+  enqueue: EnqueueNotice,
+): Promise<{ done: number; promoted: string[] }> {
   const ids = await pendingPaymentEventIds(getDb());
   let done = 0;
-  const notify: ClubNotifyJob[] = [];
   for (const id of ids) {
     try {
-      const result = await runClubPaymentEvent(id);
-      if (result) {
-        done += 1;
-        notify.push(...result.notify);
-      }
+      if (await runClubPaymentEvent(id, enqueue)) done += 1;
     } catch (error: unknown) {
       // Left unprocessed for the next sweep. The row id and the error's name
       // only — never an account, an amount or a person.
@@ -375,5 +396,5 @@ export async function sweepClubPaymentEvents(): Promise<{
     );
   }
   await prunePaymentEvents(getDb());
-  return { done, promoted, notify };
+  return { done, promoted };
 }

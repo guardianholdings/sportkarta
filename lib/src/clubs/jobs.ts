@@ -89,9 +89,12 @@ export type ClubNotifyJob =
    * The club revoked POPS's access in its Stripe dashboard (0062): the owners
    * are told, with how many renewing subscriptions the books just stopped
    * expecting — the club must now end or manage them in Stripe itself. A
-   * count, not a reference: nothing here names a Stripe object.
+   * count, not a reference: nothing here names a Stripe object. `eventId` is
+   * the club_payment_events row that learnt it — the notice's dedupe anchor,
+   * so a retry across midnight mails nobody twice and two revocations in one
+   * day both inform.
    */
-  | { kind: 'club_payments_revoked'; clubId: string; subscriptions: number }
+  | { kind: 'club_payments_revoked'; clubId: string; subscriptions: number; eventId: number }
   /**
    * Stripe could not collect a renewal (0062): the member and the owners, once
    * per invoice. The invoice reference is an opaque Stripe id (the dedupe
@@ -123,6 +126,11 @@ function providerRef(value: unknown): value is string {
 
 function count(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 1_000_000;
+}
+
+/** A row id of ours (a serial): a positive safe integer. */
+function rowId(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 1;
 }
 
 /**
@@ -162,8 +170,13 @@ export function parseClubNotifyJob(data: unknown): ClubNotifyJob | null {
     case 'inbox_message':
       return uuid(job.messageId) ? { kind: job.kind, messageId: job.messageId } : null;
     case 'club_payments_revoked':
-      return uuid(job.clubId) && count(job.subscriptions)
-        ? { kind: job.kind, clubId: job.clubId, subscriptions: job.subscriptions }
+      return uuid(job.clubId) && count(job.subscriptions) && rowId(job.eventId)
+        ? {
+            kind: job.kind,
+            clubId: job.clubId,
+            subscriptions: job.subscriptions,
+            eventId: job.eventId,
+          }
         : null;
     case 'renewal_payment_failed':
       return uuid(job.membershipId) && providerRef(job.invoiceRef)

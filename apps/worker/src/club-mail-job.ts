@@ -767,7 +767,9 @@ export async function runClubNotify(
       // many renewing subscriptions they must now end in Stripe themselves.
       const club = await clubForMail(db(), job.clubId);
       if (!club) return { kind: job.kind, report: emptyDeliveryReport() };
-      const anchor = sofiaToday();
+      // Anchored on the event that learnt it: a retry across midnight mails
+      // nobody twice, two revocations in one day both inform.
+      const anchor = String(job.eventId);
       return {
         kind: job.kind,
         report: await deliverEach(
@@ -801,10 +803,20 @@ export async function runClubNotify(
       // Stripe could not collect a renewal (0062): the member (or guardian),
       // then each owner — once per invoice each; Stripe's retries of the same
       // invoice raise the same event again and are told once.
-      const chain = await renewalFailureForMail(db(), job.membershipId);
+      const chain = await renewalFailureForMail(db(), job.membershipId, job.invoiceRef);
       const club = chain ? await clubForMail(db(), chain.clubId) : null;
       if (!chain || !club) return { kind: job.kind, report: emptyDeliveryReport() };
-      const amount = formatEuro(chain.priceCents, club.locale);
+      // The invoice's own figure, in its own currency — euros formatted as
+      // euros, anything else with its code, and no line at all without a
+      // figure. Never the chain's price: Stripe asked for what it asked for.
+      const amount =
+        chain.amountCents === null
+          ? null
+          : chain.currency === 'eur'
+            ? formatEuro(chain.amountCents, club.locale)
+            : `${(chain.amountCents / 100).toFixed(2)} ${(chain.currency ?? '').toUpperCase()}`;
+      const amountLine =
+        amount === null ? [] : [{ key: 'renewalFailedAmount', values: { amount } }];
       const sends: (() => Promise<DeliveryOutcome>)[] = [
         () =>
           sendToMember(
@@ -817,7 +829,11 @@ export async function runClubNotify(
                 membershipId: job.membershipId,
                 invoiceRef: job.invoiceRef,
               }),
-              values: { label: chain.planName, amount },
+              values: { label: chain.planName },
+              detailLines: amountLine,
+              // The portal lists each record's abonnements under its own
+              // heading (az/page.tsx `r-<memberId>`): «Към абонамента» lands there.
+              portalPath: `#r-${chain.memberId}`,
             },
             options,
           ),
@@ -836,7 +852,10 @@ export async function runClubNotify(
                 }),
                 ledgerUserId: recipient.userId,
                 actionUrl: `${base(club)}/chlenove/${chain.memberId}`,
-                values: { label: chain.planName, amount, name: chain.memberName },
+                values: { label: chain.planName, name: chain.memberName },
+                details: amountLine.map((line) =>
+                  fillClubTemplate(pick(club.locale, line.key), line.values),
+                ),
               },
               options,
             ),

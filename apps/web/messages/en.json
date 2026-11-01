@@ -5855,7 +5855,7 @@
       "event_cancelled": "The club cancelled “{title}”. {name}’s place ({ticket}) is cancelled.",
       "club_contract_renewing": "The contract of {club} with POPS renews on {date} for another {months} months. If you do not want it to renew, write to us by {noticeBy} at {contact}; the contract then ends at the end of the current term. If you are continuing, you need to do nothing.",
       "club_payments_revoked": "POPS's access to the Stripe account of {club} was revoked from your Stripe. Online payments have stopped and open payments were closed. Auto-renewing subscriptions the platform can no longer see or record: {count}. End or manage them in your Stripe, so that no card is billed for periods that are not recorded here. To take payments again, connect Stripe anew from the settings. Questions — write to us at {contact}.",
-      "renewal_payment_failed": "Stripe could not collect the renewal payment for “{label}” ({name}): {amount}. Stripe will retry over the coming days; nothing is paid until then. If the payment does not go through, the period will not be renewed and the membership will stop. If needed, the renewal can be paid at the desk."
+      "renewal_payment_failed": "Stripe could not collect the renewal payment for “{label}” ({name}). Stripe will retry over the coming days; nothing is paid until then. If the payment does not go through, the period will not be renewed and the membership will stop. If needed, the renewal can be paid at the desk."
     },
     "action": {
       "staff_invite": "Accept the invitation",
@@ -5897,6 +5897,7 @@
     },
     "rosterLine": "{time} {title}: {going} of {capacity} booked",
     "rosterLineOpen": "{time} {title}: {going} booked",
+    "renewalFailedAmount": "Invoice amount: {amount}",
     "week": {
       "checkins": "Visits: {count}",
       "newMembers": "New members: {count}",

@@ -651,8 +651,14 @@ describe.skipIf(!hasDb)('club online payments (requires running database)', () =
        VALUES ($1, 'charge', $2, $3, 4500, 'fake', 'acct_test_elsewhere') RETURNING id`,
       [club.clubId, memberId, await openCharge()],
     );
-    const gone = await markPaymentAccountGone(getDb(), ACCOUNT, new Date(Date.now() + 60_000));
-    expect(gone).toEqual({ clubId: club.clubId, checkoutsExpired: 1, subscriptions: 1 });
+    const after = new Date(Date.now() + 60_000);
+    const gone = await markPaymentAccountGone(getDb(), ACCOUNT, after, 9001);
+    expect(gone).toEqual({
+      clubId: club.clubId,
+      checkoutsExpired: 1,
+      subscriptions: 1,
+      fresh: true,
+    });
     expect((await checkout(open))?.status).toBe('expired');
     expect((await checkout(elsewhere.rows[0]?.id ?? ''))?.status).toBe('open');
     const renewing = await client.query(
@@ -673,13 +679,18 @@ describe.skipIf(!hasDb)('club online payments (requires running database)', () =
           by: 'provider',
           checkoutsExpired: 1,
           subscriptionsAtStripe: 1,
+          eventId: 9001,
         },
       },
     ]);
-    // A disconnect is final: the same event again changes nothing, tells nobody.
-    expect(
-      await markPaymentAccountGone(getDb(), ACCOUNT, new Date(Date.now() + 60_000)),
-    ).toBeNull();
+    // A disconnect is final. The SAME event asking again (a retry after the
+    // run died before the owners' notice went) gets the counts back from the
+    // audit row, not fresh — the notice can still go; another event gets nothing.
+    expect(await markPaymentAccountGone(getDb(), ACCOUNT, after, 9001)).toEqual({
+      ...gone,
+      fresh: false,
+    });
+    expect(await markPaymentAccountGone(getDb(), ACCOUNT, after, 9002)).toBeNull();
   });
 
   it('records a failed renewal on the chain once per invoice', async () => {
@@ -690,6 +701,7 @@ describe.skipIf(!hasDb)('club online payments (requires running database)', () =
       subscriptionRef,
       invoiceRef: 'in_test_failed',
       amountCents: 4500,
+      currency: 'eur',
     };
     const first = await recordRenewalPaymentFailed(getDb(), failure);
     expect(first).toMatchObject({ clubId: club.clubId, memberId, recorded: true });
@@ -709,6 +721,7 @@ describe.skipIf(!hasDb)('club online payments (requires running database)', () =
           invoiceRef: 'in_test_failed',
           provider: 'fake',
           amountCents: 4500,
+          currency: 'eur',
         },
       },
     ]);
@@ -736,12 +749,17 @@ describe.skipIf(!hasDb)('club online payments (requires running database)', () =
        VALUES ($1, 'fake', 'acct_test_reconnect', true)`,
       [club.clubId],
     );
-    await markPaymentAccountGone(getDb(), 'acct_test_reconnect', before);
+    await markPaymentAccountGone(getDb(), 'acct_test_reconnect', before, 9003);
     const still = await client.query(
       `SELECT disconnected_at FROM club_payment_accounts WHERE account_ref = 'acct_test_reconnect'`,
     );
     expect(still.rows[0]?.disconnected_at).toBeNull();
-    await markPaymentAccountGone(getDb(), 'acct_test_reconnect', new Date(Date.now() + 60_000));
+    await markPaymentAccountGone(
+      getDb(),
+      'acct_test_reconnect',
+      new Date(Date.now() + 60_000),
+      9004,
+    );
     const gone = await client.query(
       `SELECT disconnected_at FROM club_payment_accounts WHERE account_ref = 'acct_test_reconnect'`,
     );

@@ -873,6 +873,12 @@ async function main(): Promise<void> {
   // Online payments (0046): apply a verified Stripe event by re-fetching its
   // object, then send any receipts now owed. A job without an event id is the
   // sweep (lost enqueues, and receipts whose send failed).
+  // What an event earns somebody a notice of (a revoked account, a failed
+  // renewal) goes on club.notify BEFORE the event is marked processed, so a
+  // refused send keeps the event pending rather than losing the notice.
+  const tell = async (notice: ClubNotifyJob): Promise<void> => {
+    await boss.send(CLUB_NOTIFY_QUEUE, notice);
+  };
   await work(
     CLUB_PAYMENT_EVENT_QUEUE,
     { batchSize: 1 },
@@ -880,16 +886,13 @@ async function main(): Promise<void> {
       for (const job of jobs) {
         const data = (job.data ?? {}) as ClubPaymentEventJob;
         if (typeof data.eventId === 'number') {
-          const result = await runClubPaymentEvent(data.eventId);
+          const result = await runClubPaymentEvent(data.eventId, tell);
           if (result) {
             // The event type and outcome only — never an account or an amount.
             console.log(`[worker] ${CLUB_PAYMENT_EVENT_QUEUE} ${result.type}: ${result.outcome}`);
-            // What the event earned somebody a notice of (a revoked account,
-            // a failed renewal): through club.notify, ids and counts only.
-            for (const notice of result.notify) await boss.send(CLUB_NOTIFY_QUEUE, notice);
           }
         } else {
-          const swept = await sweepClubPaymentEvents();
+          const swept = await sweepClubPaymentEvents(tell);
           if (swept.done > 0)
             console.log(`[worker] ${CLUB_PAYMENT_EVENT_QUEUE} sweep: ${String(swept.done)}`);
           // Places that moved up into a seat a lapsed hold freed (0053): told
@@ -903,7 +906,6 @@ async function main(): Promise<void> {
             };
             await boss.send(CLUB_NOTIFY_QUEUE, job);
           }
-          for (const notice of swept.notify) await boss.send(CLUB_NOTIFY_QUEUE, notice);
         }
         const receipts = await runClubReceipts(clubMail);
         await reportMailFailures(`${CLUB_PAYMENT_EVENT_QUEUE}/receipt`, receipts);

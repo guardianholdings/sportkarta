@@ -28,14 +28,23 @@
 --   renewal_payment_failed   the failed renewal above, to the member and to
 --                            the owners — one notice per invoice.
 --
+-- One partial index, club_audit_provider_disconnect_idx, on exactly the rows
+-- the revoke writes (action = 'payment_account_disconnected' by 'system'),
+-- by acted_at. Two readers: «Здраве» (apps/web/lib/ops-health.ts) sums their
+-- subscription counts over the last 30 days, and the worker's retry of a
+-- revoke event finds the row that event wrote (db/src/clubs/payments.ts,
+-- markPaymentAccountGone, by detail->>'eventId'). Without it both scan the
+-- whole log.
+--
 -- No column changes: a failed renewal is a FACT about the chain, recorded in
 -- the append-only audit log and keyed by the invoice; the chain's own state
 -- (renews, renewal_ends_on) stays what the office and the member set.
 --
 -- Locking: each CHECK swap takes ACCESS EXCLUSIVE on its table until COMMIT
 -- (DROP CONSTRAINT holds it; NOT VALID + VALIDATE is the repo's pattern) and
--- scans it once. Both tables are small in any club's first year; the scans
--- are milliseconds.
+-- scans it once. The index is built in the same transaction (CONCURRENTLY
+-- cannot run inside one) under the lock already held, one more scan. Both
+-- tables are small in any club's first year; the scans are milliseconds.
 --
 -- rollback: the new values are only ever written by the WORKER (the
 -- invoice.payment_failed and account.application.deauthorized handlers in
@@ -45,9 +54,11 @@
 -- checkouts and stopped renewals of a revoked account included) and be
 -- retried by Stripe for three days.
 -- The widened club_audit_action_known then STAYS, as after every earlier
--- widening (0045, 0046, 0051, 0052, 0057): club_audit is append-only —
+-- widening (0045 through 0057): club_audit is append-only —
 -- club_audit_no_delete (0039) refuses the DELETE that narrowing would need —
 -- and a superset is harmless to the reverted application.
+-- The index may go at any time: DROP INDEX "club_audit_provider_disconnect_idx";
+-- («Здраве» and the worker's revoke retry then scan the log; nothing breaks.)
 -- club_notifications may be narrowed, in ONE transaction: delete the rows of
 -- the two kinds (losing their dedupe state — the worker would not re-send
 -- them, since their events are already processed), re-create the constraint
@@ -104,5 +115,8 @@ ALTER TABLE "club_notifications" ADD CONSTRAINT "club_notifications_kind_known" 
 ALTER TABLE "club_notifications" VALIDATE CONSTRAINT "club_notifications_kind_known";--> statement-breakpoint
 COMMENT ON CONSTRAINT "club_notifications_kind_known" ON "club_notifications" IS
   'The closed list of notices; the TypeScript twin is CLUB_NOTIFICATION_KINDS in lib/src/clubs/vocab.ts (0062 added the revoked Stripe connection and the failed renewal).';--> statement-breakpoint
+CREATE INDEX "club_audit_provider_disconnect_idx" ON "club_audit" USING btree ("acted_at") WHERE "club_audit"."action" = 'payment_account_disconnected' AND "club_audit"."actor_kind" = 'system';--> statement-breakpoint
+COMMENT ON INDEX "club_audit_provider_disconnect_idx" IS
+  'The revokes a club made in its own Stripe dashboard (0062): «Здраве» sums their subscriptionsAtStripe over 30 days (apps/web/lib/ops-health.ts); the worker''s retry of a revoke event finds its own row by detail->>''eventId'' (db/src/clubs/payments.ts).';--> statement-breakpoint
 SET LOCAL lock_timeout = DEFAULT;--> statement-breakpoint
 SET LOCAL statement_timeout = DEFAULT;
