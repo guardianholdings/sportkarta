@@ -682,7 +682,7 @@
     "back": "← Home",
     "title": "Privacy",
     "metaDescription": "What personal data POPS (“More than just sport”) processes, why and on what legal basis, who receives it, how long it is kept and what your rights are.",
-    "updated": "Last updated: 9 October 2026",
+    "updated": "Last updated: 31 October 2026",
     "intro": "POPS (“More than just sport”) is a non-profit project. This page explains what personal data we process, why and on what legal basis, who we share it with, how long we keep it and what your rights are. We collect as little data as possible and do not track users.",
     "introClubTracking": "The one exception is statistics and advertising tools that a club may add to its own pages, which load only if you accept them there (see “Cookies and data in your browser” below).",
     "controller": {
@@ -761,6 +761,16 @@
         "title": "Calendar and open-data keys",
         "body": "If you create them: a personal address through which your calendar follows the games you signed up for, and an open-data API key, of which we keep only a fingerprint (hash) — the key itself is not stored.",
         "basis": "Basis: contract (Art. 6(1)(b))."
+      },
+      "clubs": {
+        "title": "The “Clubs” module",
+        "body": "Gyms, studios and sports clubs use POPS as a management platform for their members. The records a club keeps there (names, contact details, memberships, attendance, documents, messages) are the club’s: the club is the controller of that data and we process it on the club’s behalf under the <clubTerms>POPS Clubs terms</clubTerms> and their Annex A (data processing agreement). If you are a club member, turn to the club about those records; we follow its instructions and help it answer you. Your own POPS account — the map, the passport, the games — is separate and our responsibility. Linking it to a club serves only the member portal and notifications; it gives the club no access to your passport, training log or games.",
+        "basis": "Basis: for the club’s records we process on the controller’s behalf under Art. 28 GDPR — the basis is the club’s; for the link between your account and the club — contract (Art. 6(1)(b))."
+      },
+      "push": {
+        "title": "Notifications on your phone (push)",
+        "body": "If you turn notifications on from your club’s portal, your browser creates a notification address and two keys, which we keep on your account so we can deliver the club’s messages — a booking confirmed, a class cancelled, a reminder, a membership about to expire, a reply from the club. The content passes through your browser’s notification service (for example Google’s, Apple’s or Mozilla’s). You turn them off in the same place or in your browser settings; an address that no longer answers is deleted.",
+        "basis": "Basis: consent (Art. 6(1)(a)), which you withdraw by turning notifications off."
       }
     },
     "recipients": {
@@ -769,6 +779,7 @@
       "hosting": "Hetzner Online GmbH (Germany) — hosting and backups. The server and the database are in a data centre in Finland (EU); once off-server backups are switched on, encrypted copies of the database and the uploaded photos are kept in a separate Hetzner data centre in Germany (EU).",
       "network": "Cloudflare, Inc. (USA) — network protection and delivery. Every visit to the site passes through Cloudflare’s network on its way to our server, so Cloudflare processes your IP address and the requests themselves (including which pages you open) to deliver the site and protect it from attacks, and keeps technical logs of this for a limited time under its own terms. It keeps copies only of the site’s design files, fonts and icons, which are the same for everyone — never of pages, photos or anything about you.",
       "mail": "Migadu-Mail GmbH (Switzerland) — our email. The site’s messages to you (sign-in codes, game confirmations and reminders, decisions on your contributions) are sent through Migadu, so your address and their content pass through it; messages you write to us are kept in our mailbox there until we delete them — write to us if you want yours deleted.",
+      "payments": "Stripe Payments Europe, Ltd. (Ireland) — online payments to clubs. If you pay a club online, you pay on a Stripe page into the club’s own account; we receive only a confirmation, the amount and a payment identifier, never your card details. Stripe processes data under its own privacy policy, including in the United States, under the safeguards of Chapter V GDPR.",
       "people": "People at POPS: a game organiser sees the display names of those signed up; ambassadors (volunteer moderators for their municipality) see the contributions and facility reports there; administrators can use the admin panel, and every time they open an account it is recorded.",
       "external": "External services you choose. The default map is served entirely from our own server, but if you pick an external map layer (CyclOSM, Thunderforest Transport, Tracestrack Topo), your browser loads tiles directly from that provider, and the “Directions” button opens Waze or Google Maps at the facility. They see your IP address, as they would if you visited their site.",
       "signInProviders": "{providers}, if you choose to sign in with them. The service learns that you are signing in to POPS and handles that under its own privacy policy; we send it no data about you.",
@@ -787,13 +798,14 @@
       "notices": "The name and email in a content notice — up to {days} days after the decision on it; the notice itself and the decision are kept as a record.",
       "logs": "Records of administrators opening accounts — with no time limit, so that every such access can be checked.",
       "errors": "Error reports in GlitchTip — up to 90 days.",
-      "backups": "Backups — of the database for up to 14 days on the server, and of the database and uploaded photos for about 8 weeks in a separate data centre, once that is switched on. A deleted account or photo disappears from them as the copies expire."
+      "backups": "Backups — of the database for up to 14 days on the server, and of the database and uploaded photos for about 8 weeks in a separate data centre, once that is switched on. A deleted account or photo disappears from them as the copies expire.",
+      "clubs": "Your records as a club member — for as long as the club keeps them, under its own rules. When a club is archived on POPS, its data is deleted {purgeDays} days after that, unless the law requires individual documents to be kept longer. To have a record deleted earlier, turn to the club."
     },
     "rights": {
       "title": "Your rights",
       "body": "You have the right to access your data and receive a copy, to rectification, to erasure, to restriction of processing, to data portability and to object to processing based on legitimate interest. You can withdraw consent at any time, without affecting the lawfulness of processing before that.",
-      "self": "You can do much of this yourself from <profile>My profile</profile>: change your name and city, make your passport private, unsubscribe from the digest and delete your account.",
-      "ask": "For anything else — for example a copy of your data — write to the address under “Who is responsible for your data” or on the <contact>Contact</contact> page. We reply within one month.",
+      "self": "You can do much of this yourself from <profile>My profile</profile>: download a copy of all your data as a file (JSON), change your name and city, make your passport private, unsubscribe from the digest and delete your account.",
+      "ask": "For anything else — or if you cannot sign in to your account — write to the address under “Who is responsible for your data” or on the <contact>Contact</contact> page. We reply within one month.",
       "complaint": "You have the right to lodge a complaint with the Bulgarian Commission for Personal Data Protection (<cpdp>www.cpdp.bg</cpdp>)."
     },
     "cookies": {
@@ -3791,7 +3803,7 @@
     },
     "service": {
       "title": "The service",
-      "body": "POPS is a free map of the publicly accessible sports facilities in Bulgaria, with open games, a sports passport, leaderboards and open data. There are no paid features for people who play. The «Clubs» module is a service for gyms, studios and sports clubs: a club uses it under the terms accepted when applying and, after the free trial, under a contract for at least {months} months that renews every year unless the club ends it with at least {notice, plural, one {one month’s} other {# months’}} notice before the term ends. The service is paid for by invoice. We may change, temporarily suspend or discontinue parts of the service, including for maintenance."
+      "body": "POPS is a free map of the publicly accessible sports facilities in Bulgaria, with open games, a sports passport, leaderboards and open data. There are no paid features for people who play. The «Clubs» module is a service for gyms, studios and sports clubs: a club uses it under the <clubTerms>POPS Clubs terms</clubTerms>, which it accepts when applying, and, after the free trial, under a contract for at least {months} months that renews every year unless the club ends it with at least {notice, plural, one {one month’s} other {# months’}} notice before the term ends. The service is paid for by invoice. We may change, temporarily suspend or discontinue parts of the service, including for maintenance."
     },
     "account": {
       "title": "Your account",
@@ -3844,6 +3856,105 @@
     "law": {
       "title": "Governing law",
       "body": "Bulgarian law applies. Disputes are settled by the competent Bulgarian court, without limiting your rights as a consumer."
+    }
+  },
+  "ClubTerms": {
+    "back": "← Home",
+    "title": "POPS Clubs terms",
+    "metaDescription": "The terms on which a gym, studio or sports club uses the “POPS Clubs” management platform: trial, contract, payment, duties, termination, and Annex A — the data processing agreement under Art. 28 GDPR.",
+    "updated": "Version of {date}",
+    "draftNotice": "Draft: this text was prepared by the POPS team and is awaiting review by the association’s lawyer. Until it is approved it shows what we offer and how the platform works, but it may change.",
+    "intro": "These terms (the “Terms”) govern the use of the “Clubs” module of POPS (“More than just sport”) — the management platform for gyms, studios and sports clubs. They supplement the POPS <terms>Terms of use</terms>, which apply to people’s accounts, and <privacy>Privacy</privacy>, which describes how we process POPS members’ data. Annex A — the data processing agreement — is an integral part of the Terms.",
+    "who": {
+      "title": "Parties and subject matter",
+      "subject": "The subject matter of the Terms is the club’s access to the management platform: members, memberships, timetable, bookings, attendance, documents, messages and reports, and a club page on the POPS map.",
+      "club": "The “club” is the legal person or sole trader named in the application. The application is submitted by a natural person with a POPS account who, by submitting it, declares that they are entitled to represent the club and to bind it to the Terms. That person’s account becomes the owner’s account on the platform.",
+      "association": "The platform is provided by the non-profit association that runs POPS (the “association”, “we”):"
+    },
+    "trial": {
+      "title": "Application and trial",
+      "apply": "The club applies through POPS. The association reviews the application and may approve or decline it without giving reasons; until approval the platform is open for viewing only.",
+      "trial": "Approval starts a free trial of {days} days with full access under the chosen plan. The trial commits the club to nothing: if no contract is signed, access becomes read-only when it ends and the data can be downloaded.",
+      "features": "What each plan includes is described on the <clubsPage>clubs page</clubsPage>. Rows marked there as “soon” depend on an outside service that is not yet switched on and are not a promise of a date."
+    },
+    "contract": {
+      "title": "Contract, prices and payment",
+      "term": "To continue after the trial, the club signs a contract with the association for a term of at least {months} months. The contract renews automatically for a further {months} months unless either party notifies the other in writing at least {notice, plural, one {one month} other {# months}} before the end of the current term.",
+      "invoicing": "The price is the monthly price of the chosen plan as published on the public POPS clubs page on the day the contract is signed or renewed. At the club’s choice it is invoiced monthly or once a year for the whole term. Payment is by bank transfer within the period stated on the invoice. Invoices are issued by the association, with the details given under “Parties and subject matter”.",
+      "nonPayment": "If an invoice is not paid on time, access continues for a further {grace} days with a warning on the platform; after that the platform becomes read-only and the club’s public page stops being shown until the debt is settled. Suspension does not release the club from the amounts due for the whole contract term."
+    },
+    "service": {
+      "title": "What the platform is, and what it is not",
+      "what": "The platform gives the club tools to keep members, memberships and plans, a timetable and bookings, attendance, documents and signatures, messages to members and reports, plus a public club page and a place on the POPS map. The functions of each plan are described on the public clubs page.",
+      "not": "The platform is not a payment institution and holds no funds; it is not a fiscal device and issues no fiscal receipts; it is not an accounting service and does not replace an accountant or a tax adviser. Reports are an aid, not primary accounting documents.",
+      "availability": "We keep the platform available on a reasonable-effort basis, with no guarantee of uninterrupted operation. Planned maintenance is announced in advance on the platform or by email to the owners and scheduled, as far as possible, outside busy hours.",
+      "support": "The club gets help by email at the address under “Parties and subject matter”, on working days."
+    },
+    "clubDuties": {
+      "title": "The club’s duties",
+      "body": "The club:",
+      "items": {
+        "lawful": "collects its members’ data lawfully and tells them how it is processed — including that POPS processes it on the club’s behalf;",
+        "consents": "obtains consent for marketing messages itself where the law requires it, and records it on the platform;",
+        "accurate": "keeps its records accurate and up to date, and corrects or deletes data at a member’s request where the law requires;",
+        "messaging": "sends messages, SMS and notifications only to its own members and only for the club’s purposes — not for unsolicited advertising and not to people outside the club;",
+        "fiscal": "is solely responsible for its fiscal, tax and accounting obligations, including receipts and invoices to members;",
+        "content": "publishes no content that breaks the law or third-party rights, and is responsible for its page, documents and messages;",
+        "staff": "gives platform access only to staff and trainers who use it for their work, and removes it when they leave."
+      }
+    },
+    "dataRoles": {
+      "title": "Roles in processing personal data",
+      "records": "For the records of the club’s members — names, contact details, memberships, attendance, documents, messages — the club is the controller and the association is a processor acting on its behalf under Annex A.",
+      "accounts": "For people’s own POPS accounts — the map, the sports passport, the games — the association is the controller, as described under <privacy>Privacy</privacy>. When a POPS member links to a club, the club sees only what the member shared with it or what the club entered in its own records.",
+      "limits": "The club may not use data of POPS members beyond its own records. For example, it may not collect names from the map, the games or the leaderboards, nor write to people who are not its members."
+    },
+    "payments": {
+      "title": "Online payments",
+      "own": "When online payments are switched on, members pay the club through the club’s own account with the payment provider (Stripe Connect), which the club connects itself. The association never holds the club’s funds and never sees card data.",
+      "fee": "If the association retains a fee from online payments, its amount is published on the public clubs page before the club switches payments on. The payment provider’s fees are borne by the club under its contract with the provider.",
+      "refunds": "Refunding amounts, payment disputes (chargebacks) and receipts and invoices to members are the club’s responsibility."
+    },
+    "termination": {
+      "title": "Termination",
+      "notice": "Either party may terminate the contract by written notice as described under “Contract, prices and payment”. During the trial the club may withdraw at any time, owing nothing.",
+      "suspension": "The association may suspend the club’s access for non-payment, for use in breach of the law or of the Terms, or for a breach of members’ data security caused by the club. Where possible, the association first warns by email and gives a period to remedy.",
+      "end": "On termination the club is archived: the platform stays open for viewing only and the club can download all of its data in CSV format. The club’s data is deleted for good {purgeDays} days after archiving, unless the law requires individual records (for example accounting documents) to be kept longer.",
+      "accounts": "Termination does not affect people’s own POPS accounts: their link to the club is removed, and their accounts, passports and game participation remain."
+    },
+    "liability": {
+      "title": "Liability",
+      "cap": "The association’s liability to the club for damage under the Terms is limited to the amounts the club paid for the {months} months preceding the event. The limit does not apply to intent or gross negligence, or where the law does not allow a limit.",
+      "exclusions": "The association is not liable for the content the club publishes, for its members’ conduct, for the accuracy of the data the club enters, or for outside services — the payment provider, the delivery of email, SMS and notifications — beyond its control. Nor is it liable for lost profit."
+    },
+    "changes": {
+      "title": "Changes to the Terms",
+      "body": "We may change the Terms and Annex A. A change is announced at least {noticeDays} days ahead by email to the club’s owners and on this page, with the date from which it applies. If the club continues to use the platform after that date, it accepts the change. If a change is materially adverse to the club, the club may terminate the contract as of the date it takes effect, without notice."
+    },
+    "law": {
+      "title": "Governing law",
+      "body": "Bulgarian law applies. Disputes are settled by the competent court at the association’s seat. Where the Bulgarian and the English text differ, the Bulgarian text prevails."
+    },
+    "annex": {
+      "title": "Annex A — Data processing agreement (Art. 28 GDPR)",
+      "intro": "This annex governs the processing of personal data that the association (the “processor”) carries out on behalf of the club (the “controller”) through the platform. It is part of the Terms and applies for as long as the club has access to the platform and, after that, until the data is deleted under “Termination”.",
+      "items": {
+        "subject": "Subject matter and duration. The subject matter is the processing of the club’s member records on the platform. The duration coincides with the contract term, including the trial, and continues until the data is deleted under “Termination”.",
+        "nature": "Nature and purpose. Storage, structuring, retrieval, sending of messages and deletion — the functions of the platform: members, memberships, timetable and bookings, attendance, documents, messages and reports. The processor does not use the data for its own purposes.",
+        "data": "Types of data. Names; email and phone; date of birth and parent or guardian for minors; memberships, plans and payment status (never card data); attendance and bookings; signed documents; messages; ratings and feedback; the club’s notes.",
+        "subjects": "Categories of data subjects. Club members; parents and guardians; prospective members and enquirers; the club’s staff and trainers.",
+        "instructions": "Instructions. The processor processes the data only on the controller’s documented instructions. The instructions are the platform’s functions and the settings the club chooses in it; further instructions are given in writing. If the processor considers an instruction unlawful, it informs the controller.",
+        "confidentiality": "Confidentiality. The persons who handle the data on the processor’s behalf are bound to confidentiality and receive access only as far as needed to maintain the platform.",
+        "security": "Security (Art. 32). Encryption in transit; role-based access set by the club; a log of actions on the platform; daily backups; the processor’s own access only for operating the service, and every such access is recorded.",
+        "rights": "Data subjects’ rights. The processor assists the controller in answering members’ requests — access, rectification, erasure, portability — through the platform’s functions (download, editing, deletion). A request that reaches the processor directly is forwarded to the controller.",
+        "dpia": "Impact assessments. The processor provides the information available to it so that the controller can carry out a data protection impact assessment and consult the supervisory authority where needed.",
+        "breach": "Personal data breaches. The processor notifies the controller of a personal data breach without undue delay and no later than 48 hours after becoming aware of it, with the available information on its nature, the data affected and the measures taken.",
+        "end": "End of processing. On termination the controller downloads its data (CSV) and the processor deletes it within the period under “Termination”, unless the law requires retention. Backups expire on the schedule described under <privacy>Privacy</privacy>.",
+        "audit": "Demonstrating compliance. The processor makes available the information needed to demonstrate compliance with this annex and allows one audit a year by the controller or an auditor it mandates, on reasonable notice, during working hours and under confidentiality.",
+        "subprocessors": "Sub-processors. The controller gives general authorisation for the following sub-processors: Hetzner Online GmbH — hosting and backups (Germany and Finland); Cloudflare, Inc. — network protection and delivery (USA, under the EU-U.S. Data Privacy Framework); Migadu-Mail GmbH — sending email (Switzerland); Stripe Payments Europe, Ltd. — online payments (Ireland), only while they are switched on for the club. A change to the list is announced at least {noticeDays} days ahead; the controller may object and, if the objection is not resolved, terminate the contract.",
+        "transfers": "Transfers outside the EEA. The data is stored in the EU. A transfer outside the European Economic Area takes place only under the safeguards of Chapter V GDPR — an adequacy decision or standard contractual clauses.",
+        "controller": "The controller’s obligations. The controller ensures a legal basis for the processing, informs its members, keeps the data accurate, gives its instructions in writing and is responsible for the lawfulness of the data collected."
+      }
     }
   },
   "Contact": {
@@ -5703,7 +5814,9 @@
     "sports": "Sports and activities",
     "website": "Website (optional)",
     "description": "Short description (optional)",
-    "acceptTerms": "I accept the terms of use of POPS Clubs. The club is the controller of its members' personal data, and POPS processes it on the club's behalf.",
+    "acceptTermsBefore": "I accept the",
+    "acceptTermsLink": "POPS Clubs terms",
+    "acceptTermsAfter": "and their Annex A (data processing agreement). The club is the controller of its members’ personal data, and POPS processes it on the club’s behalf.",
     "submit": "Send the application",
     "already_pending": "You already have an application under review.",
     "too_many": "You have reached the maximum number of clubs for one account.",

@@ -3,10 +3,13 @@ import { allReasonSlugs } from '@sportkarta/lib/moderation';
 import { describe, expect, it } from 'vitest';
 
 import {
+  CLUB_TERMS_SECTIONS,
+  CLUB_TERMS_VERSION,
   PRIVACY_ACTIVITIES,
   PRIVACY_PROVIDER_ONLY,
   PRIVACY_RECIPIENTS,
   PRIVACY_RETENTION,
+  PRIVACY_SWITCH_ONLY,
   TERMS_SECTIONS,
 } from '@/lib/legal-pages';
 import { NOTICE_CATEGORIES } from '@/lib/notice-input';
@@ -48,7 +51,16 @@ function tagsOf(message: string): string[] {
 }
 
 /** The tags components/legal/legal-links.tsx provides, plus page-specific ones. */
-const LEGAL_TAGS = ['privacy', 'terms', 'contact', 'form', 'profile', 'openData'];
+const LEGAL_TAGS = [
+  'privacy',
+  'terms',
+  'clubTerms',
+  'clubsPage',
+  'contact',
+  'form',
+  'profile',
+  'openData',
+];
 
 describe('the privacy notice', () => {
   it('has every section the page prints', () => {
@@ -104,6 +116,24 @@ describe('the privacy notice', () => {
     }
   });
 
+  it('prints the clubs module only behind its switches, and from the constants', () => {
+    const lists = [...PRIVACY_ACTIVITIES, ...PRIVACY_RECIPIENTS, ...PRIVACY_RETENTION] as string[];
+    for (const key of Object.keys(PRIVACY_SWITCH_ONLY)) expect(lists).toContain(key);
+    expect(PRIVACY_SWITCH_ONLY).toMatchObject({
+      clubs: 'clubs',
+      push: 'push',
+      payments: 'payments',
+    });
+    expect(expectString('Privacy.retention.clubs')).toContain('{purgeDays}');
+    expect(tagsOf(expectString('Privacy.processing.clubs.body'))).toContain('clubTerms');
+  });
+
+  it('tells members a copy of their data is a download, before «write to us»', () => {
+    expect(tagsOf(expectString('Privacy.rights.self'))).toEqual(['profile']);
+    expect(expectString('Privacy.rights.self')).toContain('JSON');
+    expect(expectString('Privacy.rights.ask')).not.toContain('копие');
+  });
+
   it('uses only link tags the page supplies', () => {
     for (const [path, message] of leaves(messages.Privacy as Tree, 'Privacy')) {
       for (const tag of tagsOf(message)) {
@@ -124,6 +154,68 @@ describe('the terms of use', () => {
 
   it('uses only link tags the page supplies', () => {
     for (const [path, message] of leaves(messages.Terms as Tree, 'Terms')) {
+      for (const tag of tagsOf(message)) expect(LEGAL_TAGS, `${path} <${tag}>`).toContain(tag);
+    }
+  });
+
+  it('names and links the clubs terms where it used to say «the terms accepted when applying»', () => {
+    expect(tagsOf(expectString('Terms.service.body'))).toContain('clubTerms');
+    expect(expectString('Terms.service.body')).not.toContain('приети при заявката');
+  });
+});
+
+describe('the clubs terms and Annex A', () => {
+  it('has every numbered section, paragraph and clause the page prints', () => {
+    for (const path of ['title', 'metaDescription', 'updated', 'draftNotice', 'intro', 'back']) {
+      expectString(`ClubTerms.${path}`);
+    }
+    for (const section of CLUB_TERMS_SECTIONS) {
+      expectString(`ClubTerms.${section.key}.title`);
+      for (const paragraph of section.paragraphs) {
+        expectString(`ClubTerms.${section.key}.${paragraph}`);
+      }
+      for (const item of section.items ?? []) {
+        expectString(`ClubTerms.${section.key}.items.${item}`);
+      }
+    }
+  });
+
+  it('is a dated version the application records, and the date is printed from it', () => {
+    expect(CLUB_TERMS_VERSION).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(Number.isNaN(Date.parse(CLUB_TERMS_VERSION))).toBe(false);
+    expect(expectString('ClubTerms.updated')).toContain('{date}');
+  });
+
+  it('states every figure from the constant that runs it, never as a typed number', () => {
+    const placeholders: Record<string, string> = {
+      'trial.trial': '{days}',
+      'contract.term': '{months}',
+      'contract.nonPayment': '{grace}',
+      'termination.end': '{purgeDays}',
+      'liability.cap': '{months}',
+      'changes.body': '{noticeDays}',
+      'annex.items.subprocessors': '{noticeDays}',
+    };
+    for (const [path, placeholder] of Object.entries(placeholders)) {
+      expect(expectString(`ClubTerms.${path}`), path).toContain(placeholder);
+    }
+    expect(expectString('ClubTerms.contract.term')).toMatch(/\{notice, plural/);
+  });
+
+  it('is the parties, the trial, the contract and the Art. 28 annex, in that order', () => {
+    const keys = CLUB_TERMS_SECTIONS.map((s) => s.key);
+    expect(keys.slice(0, 3)).toEqual(['who', 'trial', 'contract']);
+    expect(keys.at(-1)).toBe('annex');
+    expect(CLUB_TERMS_SECTIONS.find((s) => s.key === 'who')?.org).toBe(true);
+    const annex = CLUB_TERMS_SECTIONS.find((s) => s.key === 'annex');
+    expect(annex?.numbered).toBe(true);
+    expect(annex?.items).toEqual(
+      expect.arrayContaining(['instructions', 'security', 'breach', 'subprocessors', 'transfers']),
+    );
+  });
+
+  it('uses only link tags the page supplies', () => {
+    for (const [path, message] of leaves(messages.ClubTerms as Tree, 'ClubTerms')) {
       for (const tag of tagsOf(message)) expect(LEGAL_TAGS, `${path} <${tag}>`).toContain(tag);
     }
   });

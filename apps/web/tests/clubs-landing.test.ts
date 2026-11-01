@@ -123,6 +123,9 @@ describe('the trial length is never typed into the copy', () => {
     ['ClubPublic.applyBody', bg.ClubPublic.applyBody],
     ['ClubApply', bg.ClubApply],
     ['AdminClubs.approveConfirm', bg.AdminClubs.approveConfirm],
+    // The contract text itself (/usloviya-klubove) states the trial as {days}.
+    ['ClubTerms', bg.ClubTerms],
+    ['Privacy.retention.clubs', bg.Privacy.retention.clubs],
   ];
   function strings(node: unknown, at: string): [string, string][] {
     if (typeof node === 'string') return [[at, node]];
@@ -150,8 +153,10 @@ describe('the contract term is never typed into the copy', () => {
     ['AdminClubs.contractNote', bg.AdminClubs.contractNote],
     ['ClubEmail.lead', bg.ClubEmail.lead],
     ['Terms.service', bg.Terms.service],
+    ['ClubTerms', bg.ClubTerms],
     ['en.ClubsLanding', en.ClubsLanding],
     ['en.Terms.service', en.Terms.service],
+    ['en.ClubTerms', en.ClubTerms],
   ];
   function strings(node: unknown, at: string): [string, string][] {
     if (typeof node === 'string') return [[at, node]];
