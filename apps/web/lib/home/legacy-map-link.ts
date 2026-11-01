@@ -9,7 +9,19 @@
  * a campaign tag). A bare "/" — or "/" with only parameters the map never read
  * — is the front page.
  */
-const MAP_PARAMS = ['sport', 'surface', 'access', 'lighting', 'selected', 'z', 'lat', 'lng'];
+const MAP_PARAMS = [
+  'sport',
+  'surface',
+  'access',
+  'lighting',
+  'selected',
+  'z',
+  'lat',
+  'lng',
+  // The front page's "near me" hand-off. Printed QR codes point at `/?blizo=1`,
+  // and a printed code can't be changed, so it has to keep opening the map.
+  'blizo',
+];
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
