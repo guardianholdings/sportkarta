@@ -1,3 +1,5 @@
+import { CLUB_CONTRACT_MONTHS } from '@sportkarta/lib/clubs';
+
 import type { ClubSwitch } from '@/lib/clubs/features';
 
 /**
@@ -70,6 +72,35 @@ export const PRIVACY_SWITCH_ONLY: Readonly<Record<string, 'clubs' | ClubSwitch>>
   push: 'push',
   payments: 'payments',
 };
+
+/** What /privacy knows about the switches when it decides what to print. */
+export interface PrivacySwitches {
+  /** At least one sign-in provider is on (lib/auth-config.ts). */
+  providersOn: boolean;
+  /** CLUBS_ENABLED (lib/clubs/access.ts clubsEnabled). */
+  clubsOn: boolean;
+  /** A club service switch (lib/clubs/features.ts clubSwitchOn). */
+  switchOn: (name: ClubSwitch) => boolean;
+}
+
+/**
+ * Whether /privacy prints `key` — the ONE place the gating rule lives, pure so
+ * tests/legal-pages.test.ts can hold every combination: a key nobody gates is
+ * always printed; a provider-only key needs a provider; a club key needs the
+ * module on, and a service key its own switch too (a switch with the module
+ * off describes nothing the site does).
+ */
+export function privacyKeyPrinted(key: string, on: PrivacySwitches): boolean {
+  const needs = PRIVACY_SWITCH_ONLY[key];
+  if (needs !== undefined) return on.clubsOn && (needs === 'clubs' || on.switchOn(needs));
+  return on.providersOn || !PRIVACY_PROVIDER_ONLY.has(key);
+}
+
+/**
+ * /privacy: the transfers section, one paragraph each — `body` always, the
+ * Stripe and browser-push sentences only behind their switches (above).
+ */
+export const PRIVACY_TRANSFERS = ['body', 'payments', 'push'] as const;
 
 /** /privacy: retention, one bullet each. */
 export const PRIVACY_RETENTION = [
@@ -144,10 +175,21 @@ export const CLUB_TERMS_DRAFT = true;
 export const CLUB_TERMS_CHANGE_NOTICE_DAYS = 30;
 
 /**
+ * The window the liability cap is measured over (`{capMonths}`): the club's
+ * fees for this many months before the event. Equal to the contract term for
+ * now, but its own name so the lawyer can set it without touching the term.
+ */
+export const CLUB_LIABILITY_CAP_MONTHS = CLUB_CONTRACT_MONTHS;
+
+/** Annex A: the processor tells the controller of a personal data breach within this many hours. */
+export const CLUB_BREACH_NOTICE_HOURS = 48;
+
+/**
  * /usloviya-klubove, numbered in this order. The figures the text states —
  * `{days}` trial, `{months}` term, `{notice}` months of notice, `{grace}` days
- * after non-payment, `{purgeDays}` after archiving, `{noticeDays}` for changes
- * — are passed in from the constants, never typed (tests/clubs-landing.test.ts
+ * after non-payment, `{purgeDays}` after archiving, `{noticeDays}` for changes,
+ * `{capMonths}` for the liability cap, `{breachHours}` for a breach notice —
+ * are passed in from the constants, never typed (tests/clubs-landing.test.ts
  * refuses a typed term in ClubTerms as it does in the landing copy).
  */
 export const CLUB_TERMS_SECTIONS: readonly TermsSection[] = [

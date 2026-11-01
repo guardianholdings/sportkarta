@@ -787,7 +787,9 @@
     },
     "transfers": {
       "title": "Transfers outside the EU",
-      "body": "Your data is stored in the EU. It can leave the EU through Cloudflare, whose network every visit to the site passes through and which also processes data in the United States under the EU-U.S. Data Privacy Framework; through our email provider Migadu, a Swiss company — the EU recognises Switzerland as ensuring an adequate level of data protection; and through the external services you choose yourself."
+      "body": "Your data is stored in the EU. It can leave the EU through Cloudflare, whose network every visit to the site passes through and which also processes data in the United States under the EU-U.S. Data Privacy Framework; through our email provider Migadu, a Swiss company — the EU recognises Switzerland as ensuring an adequate level of data protection; and through the external services you choose yourself.",
+      "payments": "If you pay a club online, Stripe also processes the payment in the United States, under the safeguards of Chapter V GDPR.",
+      "push": "If you turn on notifications on your phone, their content passes through your browser’s notification service (Google, Apple or Mozilla), which may process it outside the EU."
     },
     "retention": {
       "title": "How long we keep data",
@@ -3874,12 +3876,12 @@
     "trial": {
       "title": "Application and trial",
       "apply": "The club applies through POPS. The association reviews the application and may approve or decline it without giving reasons; until approval the platform is open for viewing only.",
-      "trial": "Approval starts a free trial of {days} days with full access under the chosen plan. The trial commits the club to nothing: if no contract is signed, access becomes read-only when it ends and the data can be downloaded.",
+      "trial": "Approval starts a free trial of {days} days with full access under the chosen plan. The trial commits the club to nothing: if no contract is signed, access becomes read-only {grace} days after it ends and the data can be downloaded.",
       "features": "What each plan includes is described on the <clubsPage>clubs page</clubsPage>. Rows marked there as “soon” depend on an outside service that is not yet switched on and are not a promise of a date."
     },
     "contract": {
       "title": "Contract, prices and payment",
-      "term": "To continue after the trial, the club signs a contract with the association for a term of at least {months} months. The contract renews automatically for a further {months} months unless either party notifies the other in writing at least {notice, plural, one {one month} other {# months}} before the end of the current term.",
+      "term": "To continue after the trial, the club signs a contract with the association for a term of at least {months} months. The contract renews automatically for a further {months} months unless the club notifies the association in writing, at least {notice, plural, one {one month} other {# months}} before the end of the current term, that it does not wish to renew.",
       "invoicing": "The price is the monthly price of the chosen plan as published on the public POPS clubs page on the day the contract is signed or renewed. At the club’s choice it is invoiced monthly or once a year for the whole term. Payment is by bank transfer within the period stated on the invoice. Invoices are issued by the association, with the details given under “Parties and subject matter”.",
       "nonPayment": "If an invoice is not paid on time, access continues for a further {grace} days with a warning on the platform; after that the platform becomes read-only and the club’s public page stops being shown until the debt is settled. Suspension does not release the club from the amounts due for the whole contract term."
     },
@@ -3917,14 +3919,14 @@
     },
     "termination": {
       "title": "Termination",
-      "notice": "Either party may terminate the contract by written notice as described under “Contract, prices and payment”. During the trial the club may withdraw at any time, owing nothing.",
+      "notice": "The club may end the contract at the end of the current term by written notice as described under “Contract, prices and payment”. During the trial the club may withdraw at any time, owing nothing. The association does not decline renewal; it may end the contract early only on the suspension grounds below.",
       "suspension": "The association may suspend the club’s access for non-payment, for use in breach of the law or of the Terms, or for a breach of members’ data security caused by the club. Where possible, the association first warns by email and gives a period to remedy.",
       "end": "On termination the club is archived: the platform stays open for viewing only and the club can download all of its data in CSV format. The club’s data is deleted for good {purgeDays} days after archiving, unless the law requires individual records (for example accounting documents) to be kept longer.",
       "accounts": "Termination does not affect people’s own POPS accounts: their link to the club is removed, and their accounts, passports and game participation remain."
     },
     "liability": {
       "title": "Liability",
-      "cap": "The association’s liability to the club for damage under the Terms is limited to the amounts the club paid for the {months} months preceding the event. The limit does not apply to intent or gross negligence, or where the law does not allow a limit.",
+      "cap": "The association’s liability to the club for damage under the Terms is limited to the amounts the club paid for the {capMonths} months preceding the event. The limit does not apply to intent or gross negligence, or where the law does not allow a limit.",
       "exclusions": "The association is not liable for the content the club publishes, for its members’ conduct, for the accuracy of the data the club enters, or for outside services — the payment provider, the delivery of email, SMS and notifications — beyond its control. Nor is it liable for lost profit."
     },
     "changes": {
@@ -3941,14 +3943,14 @@
       "items": {
         "subject": "Subject matter and duration. The subject matter is the processing of the club’s member records on the platform. The duration coincides with the contract term, including the trial, and continues until the data is deleted under “Termination”.",
         "nature": "Nature and purpose. Storage, structuring, retrieval, sending of messages and deletion — the functions of the platform: members, memberships, timetable and bookings, attendance, documents, messages and reports. The processor does not use the data for its own purposes.",
-        "data": "Types of data. Names; email and phone; date of birth and parent or guardian for minors; memberships, plans and payment status (never card data); attendance and bookings; signed documents; messages; ratings and feedback; the club’s notes.",
+        "data": "Types of data. Names; email and phone; a minor flag and parent or guardian; memberships, plans and payment status (never card data); attendance and bookings; signed documents; messages; ratings and feedback; the club’s notes.",
         "subjects": "Categories of data subjects. Club members; parents and guardians; prospective members and enquirers; the club’s staff and trainers.",
         "instructions": "Instructions. The processor processes the data only on the controller’s documented instructions. The instructions are the platform’s functions and the settings the club chooses in it; further instructions are given in writing. If the processor considers an instruction unlawful, it informs the controller.",
         "confidentiality": "Confidentiality. The persons who handle the data on the processor’s behalf are bound to confidentiality and receive access only as far as needed to maintain the platform.",
-        "security": "Security (Art. 32). Encryption in transit; role-based access set by the club; a log of actions on the platform; daily backups; the processor’s own access only for operating the service, and every such access is recorded.",
+        "security": "Security (Art. 32). Encryption in transit; role-based access set by the club; daily backups; the processor’s own access only for operating the service; actions in the platform are logged.",
         "rights": "Data subjects’ rights. The processor assists the controller in answering members’ requests — access, rectification, erasure, portability — through the platform’s functions (download, editing, deletion). A request that reaches the processor directly is forwarded to the controller.",
         "dpia": "Impact assessments. The processor provides the information available to it so that the controller can carry out a data protection impact assessment and consult the supervisory authority where needed.",
-        "breach": "Personal data breaches. The processor notifies the controller of a personal data breach without undue delay and no later than 48 hours after becoming aware of it, with the available information on its nature, the data affected and the measures taken.",
+        "breach": "Personal data breaches. The processor notifies the controller of a personal data breach without undue delay and no later than {breachHours} hours after becoming aware of it, with the available information on its nature, the data affected and the measures taken.",
         "end": "End of processing. On termination the controller downloads its data (CSV) and the processor deletes it within the period under “Termination”, unless the law requires retention. Backups expire on the schedule described under <privacy>Privacy</privacy>.",
         "audit": "Demonstrating compliance. The processor makes available the information needed to demonstrate compliance with this annex and allows one audit a year by the controller or an auditor it mandates, on reasonable notice, during working hours and under confidentiality.",
         "subprocessors": "Sub-processors. The controller gives general authorisation for the following sub-processors: Hetzner Online GmbH — hosting and backups (Germany and Finland); Cloudflare, Inc. — network protection and delivery (USA, under the EU-U.S. Data Privacy Framework); Migadu-Mail GmbH — sending email (Switzerland); Stripe Payments Europe, Ltd. — online payments (Ireland), only while they are switched on for the club. A change to the list is announced at least {noticeDays} days ahead; the controller may object and, if the objection is not resolved, terminate the contract.",

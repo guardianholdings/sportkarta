@@ -1,9 +1,9 @@
 import { renderSql, type SQL } from '@sportkarta/db';
 import { describe, expect, it } from 'vitest';
 
-import { applyForClub } from '@/lib/clubs/apply';
+import { applyForClub, MAX_CLUBS_PER_OWNER } from '@/lib/clubs/apply';
 import type { ApplicationInput } from '@/lib/clubs/input';
-import { CLUB_TERMS_VERSION } from '@/lib/legal-pages';
+import { CLUB_TERMS_DRAFT, CLUB_TERMS_VERSION } from '@/lib/legal-pages';
 
 /**
  * The application is the club's acceptance of the clubs terms and their
@@ -58,7 +58,12 @@ describe('applyForClub', () => {
     expect(audit).toBeDefined();
     const json = audit?.params.find((p) => typeof p === 'string' && p.startsWith('{'));
     const detail = JSON.parse(String(json)) as Record<string, unknown>;
-    expect(detail).toMatchObject({ tier: 'standard', termsVersion: CLUB_TERMS_VERSION });
+    expect(detail).toMatchObject({
+      tier: 'standard',
+      termsVersion: CLUB_TERMS_VERSION,
+      termsDraft: CLUB_TERMS_DRAFT,
+    });
+    expect(typeof detail.termsDraft).toBe('boolean');
     const acceptedAt = Date.parse(String(detail.termsAcceptedAt));
     expect(acceptedAt).toBeGreaterThanOrEqual(before);
     expect(acceptedAt).toBeLessThanOrEqual(Date.now());
@@ -71,6 +76,12 @@ describe('applyForClub', () => {
   it('writes nothing when the account already has a pending application', async () => {
     const db = fakeDb([[], [{ owned: 1, pending: 1 }]]);
     expect(await applyForClub(db, USER, input)).toEqual({ ok: false, error: 'already_pending' });
+    expect(db.statements.some((s) => /INSERT/.test(s.sql))).toBe(false);
+  });
+
+  it('writes nothing when the account already owns the maximum number of clubs', async () => {
+    const db = fakeDb([[], [{ owned: MAX_CLUBS_PER_OWNER, pending: 0 }]]);
+    expect(await applyForClub(db, USER, input)).toEqual({ ok: false, error: 'too_many' });
     expect(db.statements.some((s) => /INSERT/.test(s.sql))).toBe(false);
   });
 });

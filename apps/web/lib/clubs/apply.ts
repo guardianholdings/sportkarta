@@ -1,7 +1,7 @@
 import { sql, type SQL } from '@sportkarta/db';
 import { clubSlugFrom, nextFreeClubSlug } from '@sportkarta/lib/clubs';
 
-import { CLUB_TERMS_VERSION } from '@/lib/legal-pages';
+import { CLUB_TERMS_DRAFT, CLUB_TERMS_VERSION } from '@/lib/legal-pages';
 
 import { recordClubAudit } from './audit';
 import { violatedConstraint } from './errors';
@@ -21,8 +21,8 @@ import type { ApplicationInput } from './input';
  *
  * The application is also the club's ACCEPTANCE of the clubs terms and their
  * Annex A (/usloviya-klubove): the audit row records which version was shown
- * (CLUB_TERMS_VERSION) and when, so a later edition of the text cannot blur
- * what this club agreed to. parseApplication refuses the form without the box.
+ * (CLUB_TERMS_VERSION, and whether it was still the draft) and when, so a
+ * later edition of the text cannot blur what this club agreed to. parseApplication refuses the form without the box.
  */
 
 interface SqlRunner {
@@ -88,6 +88,9 @@ export async function applyForClub(
           detail: {
             tier: input.tier,
             termsVersion: CLUB_TERMS_VERSION,
+            // True while the text awaits the lawyer: an acceptance of the draft
+            // edition stays distinguishable after the flag is flipped.
+            termsDraft: CLUB_TERMS_DRAFT,
             termsAcceptedAt: new Date().toISOString(),
           },
         });

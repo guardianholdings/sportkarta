@@ -10,6 +10,8 @@ import {
   PRIVACY_RECIPIENTS,
   PRIVACY_RETENTION,
   PRIVACY_SWITCH_ONLY,
+  PRIVACY_TRANSFERS,
+  privacyKeyPrinted,
   TERMS_SECTIONS,
 } from '@/lib/legal-pages';
 import { NOTICE_CATEGORIES } from '@/lib/notice-input';
@@ -70,10 +72,10 @@ describe('the privacy notice', () => {
     }
     for (const key of PRIVACY_RECIPIENTS) expectString(`Privacy.recipients.${key}`);
     for (const key of PRIVACY_RETENTION) expectString(`Privacy.retention.${key}`);
+    for (const key of PRIVACY_TRANSFERS) expectString(`Privacy.transfers.${key}`);
     for (const path of [
       'controller.title',
       'controller.body',
-      'transfers.body',
       'rights.body',
       'rights.self',
       'rights.ask',
@@ -117,7 +119,12 @@ describe('the privacy notice', () => {
   });
 
   it('prints the clubs module only behind its switches, and from the constants', () => {
-    const lists = [...PRIVACY_ACTIVITIES, ...PRIVACY_RECIPIENTS, ...PRIVACY_RETENTION] as string[];
+    const lists = [
+      ...PRIVACY_ACTIVITIES,
+      ...PRIVACY_RECIPIENTS,
+      ...PRIVACY_RETENTION,
+      ...PRIVACY_TRANSFERS,
+    ] as string[];
     for (const key of Object.keys(PRIVACY_SWITCH_ONLY)) expect(lists).toContain(key);
     expect(PRIVACY_SWITCH_ONLY).toMatchObject({
       clubs: 'clubs',
@@ -126,6 +133,52 @@ describe('the privacy notice', () => {
     });
     expect(expectString('Privacy.retention.clubs')).toContain('{purgeDays}');
     expect(tagsOf(expectString('Privacy.processing.clubs.body'))).toContain('clubTerms');
+  });
+
+  describe('privacyKeyPrinted', () => {
+    const ON = () => true;
+    const OFF = () => false;
+    const nothing = { providersOn: false, clubsOn: false, switchOn: OFF };
+    const everything = { providersOn: true, clubsOn: true, switchOn: ON };
+
+    it('always prints a key no switch gates', () => {
+      for (const key of ['account', 'hosting', 'backups', 'body']) {
+        expect(privacyKeyPrinted(key, nothing), key).toBe(true);
+        expect(privacyKeyPrinted(key, everything), key).toBe(true);
+      }
+    });
+
+    it('prints the sign-in providers only while one is on', () => {
+      expect(privacyKeyPrinted('signInProviders', nothing)).toBe(false);
+      expect(privacyKeyPrinted('signInProviders', { ...nothing, providersOn: true })).toBe(true);
+      // The club switches have no say over it.
+      expect(
+        privacyKeyPrinted('signInProviders', { ...nothing, clubsOn: true, switchOn: ON }),
+      ).toBe(false);
+    });
+
+    it('prints the clubs module only while CLUBS_ENABLED is on', () => {
+      expect(privacyKeyPrinted('clubs', nothing)).toBe(false);
+      expect(privacyKeyPrinted('clubs', { ...nothing, clubsOn: true })).toBe(true);
+      // Every service switch on, module off: nothing the site does.
+      expect(privacyKeyPrinted('clubs', { ...nothing, switchOn: ON })).toBe(false);
+      expect(privacyKeyPrinted('clubs', { ...nothing, providersOn: true })).toBe(false);
+    });
+
+    it.each(['push', 'payments'])(
+      'prints %s only while the module AND its own switch are on',
+      (key) => {
+        expect(privacyKeyPrinted(key, nothing)).toBe(false);
+        expect(privacyKeyPrinted(key, { ...nothing, clubsOn: true })).toBe(false);
+        expect(privacyKeyPrinted(key, { ...nothing, switchOn: ON })).toBe(false);
+        expect(
+          privacyKeyPrinted(key, { ...nothing, clubsOn: true, switchOn: (s) => s === key }),
+        ).toBe(true);
+        expect(
+          privacyKeyPrinted(key, { ...nothing, clubsOn: true, switchOn: (s) => s !== key }),
+        ).toBe(false);
+      },
+    );
   });
 
   it('tells members a copy of their data is a download, before «write to us»', () => {
@@ -187,19 +240,33 @@ describe('the clubs terms and Annex A', () => {
   });
 
   it('states every figure from the constant that runs it, never as a typed number', () => {
-    const placeholders: Record<string, string> = {
-      'trial.trial': '{days}',
-      'contract.term': '{months}',
-      'contract.nonPayment': '{grace}',
-      'termination.end': '{purgeDays}',
-      'liability.cap': '{months}',
-      'changes.body': '{noticeDays}',
-      'annex.items.subprocessors': '{noticeDays}',
+    const placeholders: Record<string, string[]> = {
+      'trial.trial': ['{days}', '{grace}'],
+      'contract.term': ['{months}'],
+      'contract.nonPayment': ['{grace}'],
+      'termination.end': ['{purgeDays}'],
+      'liability.cap': ['{capMonths}'],
+      'changes.body': ['{noticeDays}'],
+      'annex.items.breach': ['{breachHours}'],
+      'annex.items.subprocessors': ['{noticeDays}'],
     };
-    for (const [path, placeholder] of Object.entries(placeholders)) {
-      expect(expectString(`ClubTerms.${path}`), path).toContain(placeholder);
+    for (const [path, expected] of Object.entries(placeholders)) {
+      for (const placeholder of expected) {
+        expect(expectString(`ClubTerms.${path}`), path).toContain(placeholder);
+      }
     }
     expect(expectString('ClubTerms.contract.term')).toMatch(/\{notice, plural/);
+  });
+
+  it('says what the code keeps: no date of birth, no view log, club-side notice', () => {
+    // club_members stores a minor flag, never a date of birth (lib/src/age.ts).
+    expect(expectString('ClubTerms.annex.items.data')).not.toMatch(/дата на раждане/);
+    // club_audit records actions; nothing logs an office being opened.
+    expect(expectString('ClubTerms.annex.items.security')).not.toMatch(/всеки такъв достъп/);
+    // Operator decision 0061: the renewal notice is the club's, not either party's.
+    expect(expectString('ClubTerms.contract.term')).toMatch(/клубът уведоми сдружението/);
+    expect(expectString('ClubTerms.contract.term')).not.toMatch(/една от страните/);
+    expect(expectString('ClubTerms.termination.notice')).not.toMatch(/Всяка от страните/);
   });
 
   it('is the parties, the trial, the contract and the Art. 28 annex, in that order', () => {

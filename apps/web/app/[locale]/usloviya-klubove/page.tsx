@@ -16,6 +16,8 @@ import { Link } from '@/i18n/navigation';
 import { clubsEnabled } from '@/lib/clubs/access';
 import { formatDate } from '@/lib/format';
 import {
+  CLUB_BREACH_NOTICE_HOURS,
+  CLUB_LIABILITY_CAP_MONTHS,
   CLUB_TERMS_CHANGE_NOTICE_DAYS,
   CLUB_TERMS_DRAFT,
   CLUB_TERMS_SECTIONS,
@@ -74,6 +76,8 @@ export default async function ClubTermsPage({ params }: { params: PageParams }) 
     grace: CLUB_GRACE_DAYS,
     purgeDays: CLUB_PURGE_AFTER_DAYS,
     noticeDays: CLUB_TERMS_CHANGE_NOTICE_DAYS,
+    capMonths: CLUB_LIABILITY_CAP_MONTHS,
+    breachHours: CLUB_BREACH_NOTICE_HOURS,
   };
 
   return (
