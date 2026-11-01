@@ -16,6 +16,7 @@ import { redirect } from '@/i18n/navigation';
 import { requireRole } from '@/lib/auth-session';
 import {
   approveClub,
+  clubPurgeable,
   purgeClub,
   rejectApplication,
   setClubPlan,
@@ -165,17 +166,22 @@ export async function setClubStatusAction(formData: FormData): Promise<void> {
 
 export async function purgeClubAction(formData: FormData): Promise<void> {
   const { adminId, clubId, slug } = await guard(formData);
+  // The same predicate purgeClub locks on, asked first: nothing is done at the
+  // provider for a club still inside its export window.
+  if (!(await clubPurgeable(getDb(), clubId))) return backTo(slug, 'not_yet');
   // No member is billed for a club that no longer exists: subscriptions end
   // now, before the rows that record them go.
   await closeOpenCheckouts(clubId, null);
   if (!(await stopProviderSubscriptions(clubId, { club: true }, 'now'))) {
     return backTo(slug, 'provider_error');
   }
-  const result = await purgeClub(getDb(), adminId, clubId);
+  // BEFORE the rows go: let go of the club's Stripe connection, so a purged
+  // club leaves POPS no read_write grant on its account. The account row
+  // cascades with the club, so after the purge there is nothing left to
+  // release. Best effort — the outcome is audited with the purge.
+  const released = await releaseClubAccount(clubId);
+  const result = await purgeClub(getDb(), adminId, clubId, released);
   if (!result.purged) return backTo(slug, 'not_yet');
-  // Only once the club is gone: let go of its Stripe connection (best effort),
-  // so a purged club leaves POPS no read_write access to its account.
-  await releaseClubAccount(clubId);
   // The logo file only after the rows are gone — best effort, like partners.
   await discardContributionPhoto(result.logoPath);
   revalidatePath('/admin/klubove');

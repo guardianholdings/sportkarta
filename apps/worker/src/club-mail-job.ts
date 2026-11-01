@@ -23,6 +23,7 @@ import {
   operatorRecipients,
   receiptCandidates,
   recordClubMonthlyActivity,
+  renewalFailureForMail,
   renewalMailCandidates,
   renewClubMemberships,
   setInviteTokenHash,
@@ -759,6 +760,89 @@ export async function runClubNotify(
           run,
         ),
       };
+    }
+    case 'club_payments_revoked': {
+      // The club revoked POPS's access in its Stripe dashboard (0062): each
+      // owner, once per revocation (the Sofia day it was learnt), with how
+      // many renewing subscriptions they must now end in Stripe themselves.
+      const club = await clubForMail(db(), job.clubId);
+      if (!club) return { kind: job.kind, report: emptyDeliveryReport() };
+      const anchor = sofiaToday();
+      return {
+        kind: job.kind,
+        report: await deliverEach(
+          await staffOf(club.clubId, ['owner']),
+          (recipient) =>
+            sendToStaff(
+              {
+                kind: job.kind,
+                club,
+                recipient,
+                key: dedupeKey({
+                  kind: job.kind,
+                  clubId: club.clubId,
+                  userId: recipient.userId,
+                  anchor,
+                }),
+                ledgerUserId: recipient.userId,
+                actionUrl: `${base(club)}/nastroyki#plashtaniya`,
+                values: {
+                  count: job.subscriptions,
+                  contact: options.contactEmail ?? `${siteBase(options, club.locale)}/kontakt`,
+                },
+              },
+              options,
+            ),
+          run,
+        ),
+      };
+    }
+    case 'renewal_payment_failed': {
+      // Stripe could not collect a renewal (0062): the member (or guardian),
+      // then each owner — once per invoice each; Stripe's retries of the same
+      // invoice raise the same event again and are told once.
+      const chain = await renewalFailureForMail(db(), job.membershipId);
+      const club = chain ? await clubForMail(db(), chain.clubId) : null;
+      if (!chain || !club) return { kind: job.kind, report: emptyDeliveryReport() };
+      const amount = formatEuro(chain.priceCents, club.locale);
+      const sends: (() => Promise<DeliveryOutcome>)[] = [
+        () =>
+          sendToMember(
+            {
+              kind: job.kind,
+              clubId: chain.clubId,
+              memberId: chain.memberId,
+              key: dedupeKey({
+                kind: job.kind,
+                membershipId: job.membershipId,
+                invoiceRef: job.invoiceRef,
+              }),
+              values: { label: chain.planName, amount },
+            },
+            options,
+          ),
+        ...(await staffOf(club.clubId, ['owner'])).map(
+          (recipient) => () =>
+            sendToStaff(
+              {
+                kind: job.kind,
+                club,
+                recipient,
+                key: dedupeKey({
+                  kind: job.kind,
+                  membershipId: job.membershipId,
+                  invoiceRef: job.invoiceRef,
+                  userId: recipient.userId,
+                }),
+                ledgerUserId: recipient.userId,
+                actionUrl: `${base(club)}/chlenove/${chain.memberId}`,
+                values: { label: chain.planName, amount, name: chain.memberName },
+              },
+              options,
+            ),
+        ),
+      ];
+      return { kind: job.kind, report: await deliverEach(sends, (send) => send(), run) };
     }
     case 'claim_pending':
     case 'erasure_requested': {

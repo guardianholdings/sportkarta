@@ -884,6 +884,9 @@ async function main(): Promise<void> {
           if (result) {
             // The event type and outcome only — never an account or an amount.
             console.log(`[worker] ${CLUB_PAYMENT_EVENT_QUEUE} ${result.type}: ${result.outcome}`);
+            // What the event earned somebody a notice of (a revoked account,
+            // a failed renewal): through club.notify, ids and counts only.
+            for (const notice of result.notify) await boss.send(CLUB_NOTIFY_QUEUE, notice);
           }
         } else {
           const swept = await sweepClubPaymentEvents();
@@ -900,6 +903,7 @@ async function main(): Promise<void> {
             };
             await boss.send(CLUB_NOTIFY_QUEUE, job);
           }
+          for (const notice of swept.notify) await boss.send(CLUB_NOTIFY_QUEUE, notice);
         }
         const receipts = await runClubReceipts(clubMail);
         await reportMailFailures(`${CLUB_PAYMENT_EVENT_QUEUE}/receipt`, receipts);

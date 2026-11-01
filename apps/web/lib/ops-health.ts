@@ -402,6 +402,13 @@ export interface ClubOpsHealth {
   /** Stripe events recorded but not yet applied, and the oldest one's age. */
   pendingPaymentEvents: number;
   oldestPendingEventSeconds: number | null;
+  /**
+   * Renewing subscriptions the books stopped expecting in the last 30 days
+   * because their club revoked POPS's access in its Stripe dashboard (0062):
+   * each is still billing a card at Stripe until that club ends it itself.
+   * Read from the club audit rows the revoke wrote, so it needs no table.
+   */
+  subscriptionsLeftAtStripe30d: number;
   /** Webhook endpoints the worker switched off in the last 7 days. */
   endpointsDisabled7d: number;
   /** Group messages past their time by more than an hour and still not sent. */
@@ -413,6 +420,7 @@ export interface ClubOpsHealth {
 /**
  * The club module's failure modes the operator could otherwise see only in
  * the worker's log: a Stripe event stuck (an account revoked, a key wrong),
+ * subscriptions a club left renewing at Stripe after revoking our access,
  * a webhook endpoint given up on, a group message held for days by the
  * daily limit, a club out of SMS. Counts and ages only — never a club's
  * name, a URL or an amount.
@@ -423,6 +431,10 @@ export async function clubOpsHealth(db: SqlRunner): Promise<ClubOpsHealth> {
       SELECT (SELECT count(*)::int FROM club_payment_events WHERE processed_at IS NULL) AS pending,
              (SELECT extract(epoch FROM now() - min(received_at))::int FROM club_payment_events
                WHERE processed_at IS NULL) AS oldest,
+             (SELECT coalesce(sum((a.detail->>'subscriptionsAtStripe')::int), 0)::int
+                FROM club_audit a
+               WHERE a.action = 'payment_account_disconnected' AND a.actor_kind = 'system'
+                 AND a.acted_at > now() - interval '30 days') AS left_at_stripe,
              (SELECT count(*)::int FROM club_webhook_endpoints
                WHERE disabled_at > now() - interval '7 days') AS disabled,
              (SELECT count(*)::int FROM club_broadcasts
@@ -437,6 +449,7 @@ export async function clubOpsHealth(db: SqlRunner): Promise<ClubOpsHealth> {
     pendingPaymentEvents: Number(row?.pending ?? 0),
     oldestPendingEventSeconds:
       row?.oldest === null || row?.oldest === undefined ? null : Number(row.oldest),
+    subscriptionsLeftAtStripe30d: Number(row?.left_at_stripe ?? 0),
     endpointsDisabled7d: Number(row?.disabled ?? 0),
     broadcastsWaiting: Number(row?.waiting ?? 0),
     clubsAtSmsCap: Number(row?.capped ?? 0),

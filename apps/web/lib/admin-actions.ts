@@ -75,7 +75,8 @@ export type AdminActionRecord =
       detail: { clubId: string; role: 'owner' | 'manager' | 'trainer' | 'desk' };
     }
   | { action: 'club_staff_revoked'; subjectId: string; detail: { clubId: string } }
-  | { action: 'club_purged'; detail: { clubId: string } };
+  /** `stripe`: what became of the club's Connect grant just before the purge. */
+  | { action: 'club_purged'; detail: { clubId: string; stripe?: 'released' | 'failed' | 'none' } };
 
 export type AdminAction = AdminActionRecord['action'];
 

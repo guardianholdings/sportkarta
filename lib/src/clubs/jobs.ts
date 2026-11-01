@@ -84,7 +84,20 @@ export type ClubNotifyJob =
    */
   | { kind: 'event_registered'; registrationId: string }
   | { kind: 'event_promoted'; registrationIds: string[] }
-  | { kind: 'event_cancelled'; registrationIds: string[] };
+  | { kind: 'event_cancelled'; registrationIds: string[] }
+  /**
+   * The club revoked POPS's access in its Stripe dashboard (0062): the owners
+   * are told, with how many renewing subscriptions the books just stopped
+   * expecting — the club must now end or manage them in Stripe itself. A
+   * count, not a reference: nothing here names a Stripe object.
+   */
+  | { kind: 'club_payments_revoked'; clubId: string; subscriptions: number }
+  /**
+   * Stripe could not collect a renewal (0062): the member and the owners, once
+   * per invoice. The invoice reference is an opaque Stripe id (the dedupe
+   * anchor), never an address or an amount.
+   */
+  | { kind: 'renewal_payment_failed'; membershipId: string; invoiceRef: string };
 
 export type ClubNotifyKind = ClubNotifyJob['kind'];
 
@@ -101,6 +114,15 @@ function uuid(value: unknown): value is string {
 
 function uuids(value: unknown): value is string[] {
   return Array.isArray(value) && value.length > 0 && value.length <= 500 && value.every(uuid);
+}
+
+/** A provider's object reference, as the 0046 CHECKs shape them. */
+function providerRef(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{1,255}$/.test(value);
+}
+
+function count(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 1_000_000;
 }
 
 /**
@@ -139,6 +161,14 @@ export function parseClubNotifyJob(data: unknown): ClubNotifyJob | null {
         : null;
     case 'inbox_message':
       return uuid(job.messageId) ? { kind: job.kind, messageId: job.messageId } : null;
+    case 'club_payments_revoked':
+      return uuid(job.clubId) && count(job.subscriptions)
+        ? { kind: job.kind, clubId: job.clubId, subscriptions: job.subscriptions }
+        : null;
+    case 'renewal_payment_failed':
+      return uuid(job.membershipId) && providerRef(job.invoiceRef)
+        ? { kind: job.kind, membershipId: job.membershipId, invoiceRef: job.invoiceRef }
+        : null;
     default:
       return null;
   }

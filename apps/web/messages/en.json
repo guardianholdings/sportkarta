@@ -304,8 +304,9 @@
     "mailTitle": "Mail over the last {days} days",
     "mailHelp": "“Failed” counts recipients the message could not be sent to — the job still completes, which is why they are counted separately. “Failed jobs” are jobs that stopped entirely. Moderation decision mail is one message per job and reports no recipients: there, a failed job is an unsent message.",
     "clubsTitle": "Clubs",
-    "clubsHelp": "Stripe events the worker has not applied yet (a key, access to the account); webhook endpoints switched off after three failing days; group messages waiting more than an hour past their time (the daily mail limit); clubs that used up their monthly SMS allowance.",
+    "clubsHelp": "Stripe events the worker has not applied yet (a key, access to the account); webhook endpoints switched off after three failing days; group messages waiting more than an hour past their time (the daily mail limit); clubs that used up their monthly SMS allowance. Subscriptions a club left renewing at Stripe after revoking POPS's access to its account — the platform can no longer see them or record their payments; the club must end them itself.",
     "clubPendingEvents": "Unapplied Stripe events: {count}{count, plural, =0 {} other { · the oldest from {age} ago}}",
+    "clubSubscriptionsAtStripe": "Subscriptions left renewing at Stripe after a revoked connection (30 days): {count}",
     "clubEndpointsDisabled": "Webhook endpoints switched off (7 days): {count}",
     "clubBroadcastsWaiting": "Group messages waiting over an hour: {count}",
     "clubSmsCapped": "Clubs out of SMS this month: {count}",
@@ -5125,6 +5126,7 @@
       "checkout_started": "Online payment started",
       "online_payment_received": "Online payment received",
       "online_refund_issued": "Online payment refunded",
+      "online_payment_failed": "Online payment failed",
       "resource_saved": "Resource saved",
       "resource_archived": "Resource archived",
       "hours_saved": "Opening hours saved",
@@ -5813,7 +5815,9 @@
       "event_registered": "Registered for “{title}”",
       "event_promoted": "A place freed up — “{title}”",
       "event_cancelled": "Event cancelled: “{title}”",
-      "club_contract_renewing": "Your contract renews on {date}"
+      "club_contract_renewing": "Your contract renews on {date}",
+      "club_payments_revoked": "Your Stripe connection was revoked",
+      "renewal_payment_failed": "Payment failed: {label}"
     },
     "lead": {
       "staff_invite": "{club} invites you to join its team as {role}. The invitation is valid for 14 days.",
@@ -5849,7 +5853,9 @@
       "event_registered": "{name} is registered for “{title}” ({ticket}).",
       "event_promoted": "A place freed up for {name} at “{title}” ({ticket}).",
       "event_cancelled": "The club cancelled “{title}”. {name}’s place ({ticket}) is cancelled.",
-      "club_contract_renewing": "The contract of {club} with POPS renews on {date} for another {months} months. If you do not want it to renew, write to us by {noticeBy} at {contact}; the contract then ends at the end of the current term. If you are continuing, you need to do nothing."
+      "club_contract_renewing": "The contract of {club} with POPS renews on {date} for another {months} months. If you do not want it to renew, write to us by {noticeBy} at {contact}; the contract then ends at the end of the current term. If you are continuing, you need to do nothing.",
+      "club_payments_revoked": "POPS's access to the Stripe account of {club} was revoked from your Stripe. Online payments have stopped and open payments were closed. Auto-renewing subscriptions the platform can no longer see or record: {count}. End or manage them in your Stripe, so that no card is billed for periods that are not recorded here. To take payments again, connect Stripe anew from the settings. Questions — write to us at {contact}.",
+      "renewal_payment_failed": "Stripe could not collect the renewal payment for “{label}” ({name}): {amount}. Stripe will retry over the coming days; nothing is paid until then. If the payment does not go through, the period will not be renewed and the membership will stop. If needed, the renewal can be paid at the desk."
     },
     "action": {
       "staff_invite": "Accept the invitation",
@@ -5885,7 +5891,9 @@
       "event_registered": "To the event",
       "event_promoted": "To the event",
       "event_cancelled": "My club",
-      "club_contract_renewing": "Open the settings"
+      "club_contract_renewing": "Open the settings",
+      "club_payments_revoked": "Open the settings",
+      "renewal_payment_failed": "Open the membership"
     },
     "rosterLine": "{time} {title}: {going} of {capacity} booked",
     "rosterLineOpen": "{time} {title}: {going} booked",

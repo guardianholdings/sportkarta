@@ -782,6 +782,39 @@ export async function recordClubMonthlyActivity(
 }
 
 /** The club a record belongs to and its name — for staff mail about a member. */
+/**
+ * The chain a failed renewal (0062) is about: who, which plan, for how much —
+ * resolved at send time, ids in, one club's facts out. Null once the member or
+ * the club is gone, or the club is no longer active.
+ */
+export async function renewalFailureForMail(
+  db: SqlRunner,
+  membershipId: string,
+): Promise<{
+  clubId: string;
+  memberId: string;
+  memberName: string;
+  planName: string;
+  priceCents: number;
+} | null> {
+  const result = await db.execute(sql`
+    SELECT ms.club_id, ms.member_id, m.display_name, ms.plan_name, ms.price_cents
+      FROM club_memberships ms
+      JOIN club_members m ON m.club_id = ms.club_id AND m.id = ms.member_id
+      JOIN clubs c ON c.id = ms.club_id AND c.status = 'active'
+     WHERE ms.id = ${membershipId}::uuid
+  `);
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    clubId: String(row.club_id),
+    memberId: String(row.member_id),
+    memberName: String(row.display_name),
+    planName: String(row.plan_name),
+    priceCents: Number(row.price_cents),
+  };
+}
+
 export async function memberForStaffMail(
   db: SqlRunner,
   memberId: string,

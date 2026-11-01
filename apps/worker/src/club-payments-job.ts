@@ -12,6 +12,7 @@ import {
   providerPaymentKnown,
   prunePaymentEvents,
   recordProviderRefund,
+  recordRenewalPaymentFailed,
   recordUnappliedRenewal,
   setPaymentAccountState,
   stopSubscription,
@@ -19,6 +20,7 @@ import {
   type OnlineProvider,
   type PaymentEvent,
 } from '@sportkarta/db';
+import type { ClubNotifyJob } from '@sportkarta/lib/clubs';
 import {
   createStripeClient,
   resolvePaymentProvider,
@@ -37,6 +39,14 @@ import {
  * whose enqueue was lost.
  *
  * NO PII IN LOGS: the caller logs the event type and outcome only.
+ *
+ * CURRENCY: every checkout and every subscription POPS opens is in EUR, so an
+ * amount is compared only once its currency is `eur` — 4500 of anything else
+ * is not 45,00 €. Anything else goes the `unapplied` way with its own reason.
+ *
+ * NOTICES: an event that someone must be told about (a revoked account, a
+ * failed renewal) is handed back as `club.notify` jobs — ids and counts only —
+ * for the caller to enqueue, like the places a sweep promotes (0053).
  */
 
 export type PaymentEventOutcome = 'applied' | 'ignored' | 'failed';
@@ -80,7 +90,11 @@ async function endSubscription(
  */
 const PAYMENT_WAIT_MS = 60 * 60_000;
 
-async function apply(event: PaymentEvent, stripe: StripeClient): Promise<PaymentEventOutcome> {
+async function apply(
+  event: PaymentEvent,
+  stripe: StripeClient,
+  notify: ClubNotifyJob[],
+): Promise<PaymentEventOutcome> {
   const db = getDb();
   const account = event.accountRef ?? undefined;
   const ref = event.objectRef;
@@ -105,6 +119,7 @@ async function apply(event: PaymentEvent, stripe: StripeClient): Promise<Payment
         provider: 'stripe',
         paymentRef,
         amountCents: session.amount_total ?? 0,
+        currency: session.currency,
         subscriptionRef: session.subscription,
       });
       if (result.applied) return 'applied';
@@ -142,6 +157,7 @@ async function apply(event: PaymentEvent, stripe: StripeClient): Promise<Payment
         subscriptionRef: invoice.subscription,
         paymentRef: invoice.payment_intent ?? invoice.id,
         amountCents: invoice.amount_paid,
+        currency: invoice.currency,
       });
       if (result.applied) return 'applied';
       if (result.reason === 'duplicate') return 'ignored';
@@ -152,9 +168,10 @@ async function apply(event: PaymentEvent, stripe: StripeClient): Promise<Payment
         // and ended like every renewal the books refuse.
         if (!(await subscriptionCancelOwed(db, invoice.subscription))) return 'ignored';
       }
-      // The office stopped renewing, the notice has ended, or the chain was
-      // never opened — yet Stripe billed: no period is invented, the money
-      // is listed for the office to refund, and the subscription ends now.
+      // The office stopped renewing, the notice has ended, the chain was
+      // never opened, or the money is not in EUR — yet Stripe billed: no
+      // period is invented, the money is listed for the office to refund, and
+      // the subscription ends now.
       await recordUnappliedRenewal(db, {
         provider: 'stripe',
         accountRef: account,
@@ -166,6 +183,34 @@ async function apply(event: PaymentEvent, stripe: StripeClient): Promise<Payment
       await endSubscription(stripe, invoice.subscription, account);
       return 'failed';
     }
+    case 'invoice.payment_failed': {
+      if (!account) return 'ignored';
+      const invoice = await stripe.retrieveInvoice(ref, { account });
+      // Only a renewal cycle: a first invoice that fails is a checkout that
+      // never completed (its own events say so), a proration is no period.
+      if (!invoice.subscription || invoice.billing_reason !== 'subscription_cycle') {
+        return 'ignored';
+      }
+      // Paid meanwhile (a retry succeeded before this ran): invoice.paid tells it.
+      if (invoice.status === 'paid') return 'ignored';
+      const failed = await recordRenewalPaymentFailed(db, {
+        provider: 'stripe',
+        subscriptionRef: invoice.subscription,
+        invoiceRef: invoice.id,
+        amountCents: invoice.amount_due,
+      });
+      // No chain of ours: the club's own business at Stripe.
+      if (!failed) return 'ignored';
+      // Stripe raises the event again on each of its own retries of the same
+      // invoice; the member and the owners are told once per invoice.
+      if (!failed.recorded) return 'ignored';
+      notify.push({
+        kind: 'renewal_payment_failed',
+        membershipId: failed.membershipId,
+        invoiceRef: invoice.id,
+      });
+      return 'applied';
+    }
     case 'customer.subscription.deleted': {
       if (!account) return 'ignored';
       const subscription = await stripe.retrieveSubscription(ref, { account });
@@ -176,7 +221,11 @@ async function apply(event: PaymentEvent, stripe: StripeClient): Promise<Payment
       if (!account) return 'ignored';
       const charge = await stripe.retrieveCharge(ref, { account });
       if (!charge.payment_intent) return 'ignored';
-      const refunds = (charge.refunds?.data ?? []).filter((r) => r.status === 'succeeded');
+      // A refund is in its charge's currency, and every charge of ours is in
+      // EUR; anything else is not a refund of money these books hold.
+      const refunds = (charge.refunds?.data ?? []).filter(
+        (r) => r.status === 'succeeded' && r.currency === 'eur',
+      );
       if (refunds.length === 0) return 'ignored';
       if (!(await providerPaymentKnown(db, 'stripe', charge.payment_intent))) {
         // A refund of a payment not yet in the books: the payment's own
@@ -211,7 +260,16 @@ async function apply(event: PaymentEvent, stripe: StripeClient): Promise<Payment
     }
     case 'account.application.deauthorized': {
       if (!account) return 'ignored';
-      await markPaymentAccountGone(db, account, event.receivedAt);
+      // Ends the connection AND the money paths on it (open checkouts, the
+      // renewal of chains opened there) in one transaction; null when the
+      // club had reconnected before this arrived, or it was already ended.
+      const gone = await markPaymentAccountGone(db, account, event.receivedAt);
+      if (!gone) return 'ignored';
+      notify.push({
+        kind: 'club_payments_revoked',
+        clubId: gone.clubId,
+        subscriptions: gone.subscriptions,
+      });
       return 'applied';
     }
     default:
@@ -219,9 +277,14 @@ async function apply(event: PaymentEvent, stripe: StripeClient): Promise<Payment
   }
 }
 
-export async function runClubPaymentEvent(
-  id: number,
-): Promise<{ type: string; outcome: PaymentEventOutcome } | null> {
+export interface PaymentEventResult {
+  type: string;
+  outcome: PaymentEventOutcome;
+  /** Notices the event earned — for the caller to enqueue on club.notify. */
+  notify: ClubNotifyJob[];
+}
+
+export async function runClubPaymentEvent(id: number): Promise<PaymentEventResult | null> {
   const db = getDb();
   const event = await paymentEventById(db, id);
   if (!event) return null;
@@ -231,8 +294,9 @@ export async function runClubPaymentEvent(
   if (!stripe) throw new Error('club.payment_event: Stripe is not configured on the worker');
   // A throw propagates: pg-boss retries the job, the row stays unprocessed.
   let outcome: PaymentEventOutcome;
+  const notify: ClubNotifyJob[] = [];
   try {
-    outcome = await apply(event, stripe);
+    outcome = await apply(event, stripe, notify);
   } catch (error: unknown) {
     // The account no longer lets the platform in (revoked at Stripe): the
     // event can never be processed — recorded as failed, not retried every
@@ -243,7 +307,7 @@ export async function runClubPaymentEvent(
     else throw error;
   }
   await markPaymentEvent(db, id, outcome);
-  return { type: event.type, outcome };
+  return { type: event.type, outcome, notify };
 }
 
 /**
@@ -261,15 +325,24 @@ function onlineProvider(): OnlineProvider {
 /**
  * The backlog: events recorded but never processed (a lost enqueue), and the
  * 90-day retention of processed ones (0046's header). Returns how many were
- * applied, and the event places that moved up from a waitlist into a seat a
- * lapsed hold freed (0053) — for the caller to tell.
+ * applied, the notices those earned, and the event places that moved up from
+ * a waitlist into a seat a lapsed hold freed (0053) — for the caller to tell.
  */
-export async function sweepClubPaymentEvents(): Promise<{ done: number; promoted: string[] }> {
+export async function sweepClubPaymentEvents(): Promise<{
+  done: number;
+  promoted: string[];
+  notify: ClubNotifyJob[];
+}> {
   const ids = await pendingPaymentEventIds(getDb());
   let done = 0;
+  const notify: ClubNotifyJob[] = [];
   for (const id of ids) {
     try {
-      if (await runClubPaymentEvent(id)) done += 1;
+      const result = await runClubPaymentEvent(id);
+      if (result) {
+        done += 1;
+        notify.push(...result.notify);
+      }
     } catch (error: unknown) {
       // Left unprocessed for the next sweep. The row id and the error's name
       // only — never an account, an amount or a person.
@@ -302,5 +375,5 @@ export async function sweepClubPaymentEvents(): Promise<{ done: number; promoted
     );
   }
   await prunePaymentEvents(getDb());
-  return { done, promoted };
+  return { done, promoted, notify };
 }

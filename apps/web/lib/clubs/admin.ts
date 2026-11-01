@@ -400,27 +400,44 @@ export async function setClubStatus(
   });
 }
 
+/** The one predicate of a purge: archived, and past the export window. */
+function purgeable(clubId: string): SQL {
+  return sql`status = 'archived'
+         AND archived_at < now() - make_interval(days => ${PURGE_AFTER_DAYS}::int)
+         AND id = ${clubId}::uuid`;
+}
+
+/**
+ * Whether the club may be purged NOW — asked before anything irreversible is
+ * done at the provider (the Stripe grant is released before the rows go), so
+ * a club still inside its export window is not disconnected for nothing.
+ */
+export async function clubPurgeable(db: SqlRunner, clubId: string): Promise<boolean> {
+  const found = await db.execute(sql`SELECT 1 FROM clubs WHERE ${purgeable(clubId)}`);
+  return found.rows.length > 0;
+}
+
 /**
  * Delete an archived club and EVERYTHING it held, after the export window
  * (0039: the processor deletes at contract end, Art. 28(3)(g)). The ledgers'
  * append-only triggers admit the cascade only because this transaction names
  * the club in `pops.purging_club`. Returns the logo key so the caller can
- * remove the file after the commit.
+ * remove the file after the commit. `stripe` is what became of the club's
+ * Stripe grant just before (releaseClubAccount) — audited with the purge, so
+ * a grant that could not be released is a recorded fact, not a silent one.
  */
 export async function purgeClub(
   db: TransactionalDb,
   adminId: string,
   clubId: string,
+  stripe: 'released' | 'failed' | 'none' = 'none',
 ): Promise<{ purged: boolean; logoPath: string | null }> {
   return db.transaction(async (tx) => {
     const club = await tx.execute(sql`
-      SELECT logo_path FROM clubs
-       WHERE id = ${clubId}::uuid AND status = 'archived'
-         AND archived_at < now() - make_interval(days => ${PURGE_AFTER_DAYS}::int)
-       FOR UPDATE
+      SELECT logo_path FROM clubs WHERE ${purgeable(clubId)} FOR UPDATE
     `);
     if (club.rows.length === 0) return { purged: false, logoPath: null };
-    await recordAdminAction(tx, adminId, { action: 'club_purged', detail: { clubId } });
+    await recordAdminAction(tx, adminId, { action: 'club_purged', detail: { clubId, stripe } });
     await tx.execute(sql`SELECT set_config('pops.purging_club', ${clubId}, true)`);
     await tx.execute(sql`DELETE FROM clubs WHERE id = ${clubId}::uuid`);
     return { purged: true, logoPath: text(club.rows[0]?.logo_path) };
