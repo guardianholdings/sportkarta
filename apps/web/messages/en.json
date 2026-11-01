@@ -6042,6 +6042,8 @@
     "filterAll": "All",
     "filter": "Show",
     "empty": "No clubs match these filters.",
+    "emptyCatalogTitle": "Be the first club in the directory",
+    "emptyCatalogBody": "No clubs are listed yet. {days} days free, no card needed.",
     "classesThisWeek": "{count, plural, =0 {no classes this week} one {# class this week} other {# classes this week}}",
     "open": "Open the club",
     "applyTitle": "Do you run a gym, studio or club?",

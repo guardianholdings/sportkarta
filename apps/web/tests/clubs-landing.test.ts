@@ -9,7 +9,7 @@ import {
 } from '@sportkarta/lib/clubs';
 
 import { serviceFor } from '../lib/clubs/features';
-import { PRICING_INCLUDED, platformFeeFree, rowState } from '../lib/clubs/landing';
+import { PRICING_INCLUDED, audienceFigures, platformFeeFree, rowState } from '../lib/clubs/landing';
 import bg from '../messages/bg.json';
 import en from '../messages/en.json';
 
@@ -63,6 +63,28 @@ describe('the pricing grid base rows', () => {
     expect(Object.keys(included).filter((k) => !PRICING_INCLUDED.some((r) => r.key === k))).toEqual(
       [],
     );
+  });
+});
+
+describe('the audience band figures', () => {
+  // «0 игри тази седмица» on a page that sells the audience reads as an empty
+  // platform, so the games figure shows only while there are games this week
+  // (operator, 2026-11-01).
+  it('leaves out the games figure while there are none this week', () => {
+    expect(audienceFigures(100, 20, 0).map((f) => f.key)).toEqual(['places', 'municipalities']);
+    expect(audienceFigures(100, 20, null).map((f) => f.key)).toEqual(['places', 'municipalities']);
+  });
+
+  it('shows it, with its count, once there is a game', () => {
+    expect(audienceFigures(100, 20, 4)).toEqual([
+      { key: 'places', value: 100 },
+      { key: 'municipalities', value: 20 },
+      { key: 'games', value: 4 },
+    ]);
+  });
+
+  it('leaves out a figure it has no number for', () => {
+    expect(audienceFigures(null, null, 4)).toEqual([{ key: 'games', value: 4 }]);
   });
 });
 
@@ -121,6 +143,7 @@ describe('the trial length is never typed into the copy', () => {
     ['ClubsLanding', bg.ClubsLanding],
     ['Home.clubs', bg.Home.clubs],
     ['ClubPublic.applyBody', bg.ClubPublic.applyBody],
+    ['ClubPublic.emptyCatalogBody', bg.ClubPublic.emptyCatalogBody],
     ['ClubApply', bg.ClubApply],
     ['AdminClubs.approveConfirm', bg.AdminClubs.approveConfirm],
   ];
