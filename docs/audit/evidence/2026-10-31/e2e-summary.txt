@@ -1,0 +1,4 @@
+  1 flaky
+  1 skipped
+  107 passed (2.3m)
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: playwright test -c playwright.audit.config.ts
