@@ -782,6 +782,51 @@ export async function recordClubMonthlyActivity(
 }
 
 /** The club a record belongs to and its name — for staff mail about a member. */
+/**
+ * The chain a failed renewal (0062) is about: who, which plan — and the
+ * invoice's own figure in its own currency, read back from the audit row the
+ * worker wrote for that invoice (never the chain's price: the two may differ,
+ * and a foreign figure must never be printed as euros). Resolved at send
+ * time, ids in. Null once the member or the club is gone, or the club is no
+ * longer active; the figure alone is null if no audit row names the invoice.
+ */
+export async function renewalFailureForMail(
+  db: SqlRunner,
+  membershipId: string,
+  invoiceRef: string,
+): Promise<{
+  clubId: string;
+  memberId: string;
+  memberName: string;
+  planName: string;
+  amountCents: number | null;
+  currency: string | null;
+} | null> {
+  const result = await db.execute(sql`
+    SELECT ms.club_id, ms.member_id, m.display_name, ms.plan_name,
+           f.detail->>'amountCents' AS amount_cents, f.detail->>'currency' AS currency
+      FROM club_memberships ms
+      JOIN club_members m ON m.club_id = ms.club_id AND m.id = ms.member_id
+      JOIN clubs c ON c.id = ms.club_id AND c.status = 'active'
+      LEFT JOIN LATERAL (SELECT a.detail FROM club_audit a
+                          WHERE a.club_id = ms.club_id AND a.action = 'online_payment_failed'
+                            AND a.detail->>'invoiceRef' = ${invoiceRef}
+                          ORDER BY a.acted_at DESC LIMIT 1) f ON true
+     WHERE ms.id = ${membershipId}::uuid
+  `);
+  const row = result.rows[0];
+  if (!row) return null;
+  const amount = text(row.amount_cents);
+  return {
+    clubId: String(row.club_id),
+    memberId: String(row.member_id),
+    memberName: String(row.display_name),
+    planName: String(row.plan_name),
+    amountCents: amount === null ? null : Number(amount),
+    currency: text(row.currency),
+  };
+}
+
 export async function memberForStaffMail(
   db: SqlRunner,
   memberId: string,

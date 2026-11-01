@@ -437,8 +437,9 @@ and, where an outside service is involved, by an env switch as well.
         endpoint at `https://pops.bg/api/clubs/stripe/webhook` subscribed to
         `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
         `checkout.session.async_payment_failed`, `checkout.session.expired`,
-        `invoice.paid`, `customer.subscription.deleted`, `charge.refunded`,
-        `account.updated`, `account.application.deauthorized`; the secrets
+        `invoice.paid`, `invoice.payment_failed`, `customer.subscription.deleted`,
+        `charge.refunded`, `account.updated`, `account.application.deauthorized`;
+        the secrets
         `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_CLIENT_ID`.
         Test-mode keys first; the webhook answers whenever the keys are set.
       - **Cloudflare**: a WAF custom rule that SKIPS Bot Fight Mode and the
@@ -752,6 +753,25 @@ and, where an outside service is involved, by an env switch as well.
   100-a-day relay; nightly retention prunes; club rows on «Здраве»; a club
   e2e smoke spec (the 0045 lock order was re-reviewed and kept as it was:
   erasure's first club lock is the club_staff read, which 0045 takes first).
+  - [x] **Review 2026-10-31 — payments readiness** (read-only adversarial
+    review of the money path before `CLUB_PAYMENTS_ENABLED` goes on; the core
+    path — signature, idempotency, applied-once, account binding, refunds,
+    Connect state — held). Closed by `fix/audit-payments-gates`: a purged
+    club's Stripe grant is released BEFORE its rows go (the account row
+    cascaded with the club, so the old order never deauthorized anything) and
+    the outcome is audited with the purge; a revoke from the club's own Stripe
+    dashboard now also expires that account's open checkouts, stops the
+    renewal of every chain opened on it, logs the disconnect and tells the
+    owners how many subscriptions they must end in Stripe (summed on «Здраве»
+    for 30 days); `invoice.payment_failed` is handled (0062: an audit row on
+    the chain per invoice, mail to the member and the owners); the webhook
+    drops an event whose `livemode` disagrees with the key's mode; amounts are
+    compared only in EUR (anything else is `unapplied`, `currency_mismatch`);
+    an unparsable 2xx from Stripe is a retried error, not an empty object; the
+    Connect callback is gated like checkout. Left for later: disputes
+    (`charge.dispute.*`), `customer_email` prefill, a sweep attempt cap, a
+    `club_checkouts (club_id, payment_ref)` unique index, `RETURNING` on the
+    payments insert.
   - [ ] **Operator decisions:** the NGO admin acts as the club on money,
     erasure, messages and staff (every act logged as `ngo_admin`) — keep as
     "processor with write", or narrow those to `clubStaffWriteScope`; a
