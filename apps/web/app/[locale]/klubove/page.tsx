@@ -8,6 +8,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { Link } from '@/i18n/navigation';
 import { requireClubsEnabled } from '@/lib/clubs/club-session';
+import { directoryView } from '@/lib/clubs/directory-view';
 import { clubSportLabeler, clubSportOptions } from '@/lib/clubs/labels';
 import { clubMunicipalities, publicClubDirectory } from '@/lib/clubs/public';
 import { cityDisplayName, loadCityCatalog } from '@/lib/places';
@@ -60,6 +61,12 @@ export default async function ClubDirectoryPage({
     municipalityId: city?.id ?? null,
     sport,
   });
+  // The whole-catalogue count runs only when a filter found none (directoryView).
+  const view = await directoryView(
+    clubs.length,
+    city !== null || sport !== null,
+    async () => (await publicClubDirectory(locale)).length,
+  );
   const cities = withClubs
     .map((id) => catalog.byId.get(id))
     .filter((c): c is NonNullable<typeof c> => c !== undefined)
@@ -78,41 +85,66 @@ export default async function ClubDirectoryPage({
           <p className="max-w-prose text-body-sm text-ink-soft">{t('directoryIntro')}</p>
         </header>
 
-        <form method="get" className="flex flex-wrap items-end gap-2">
-          <label className="text-caption text-ink-soft">
-            {t('filterSport')}
-            <Select name="sport" defaultValue={sport ?? ''} size="sm">
-              <option value="">{t('filterAll')}</option>
-              {sportOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
-          </label>
-          {cities.length > 0 && (
+        {view === 'emptyCatalogue' ? (
+          // No club is published yet: an invitation in place of the filter and
+          // the no-match line (operator, 2026-11-01).
+          <section
+            aria-labelledby="clubs-empty"
+            className="space-y-3 rounded-card border border-dashed border-line-strong p-6 text-center"
+          >
+            <h2 id="clubs-empty" className="text-h3 font-extrabold tracking-tight text-ink">
+              {t('emptyCatalogTitle')}
+            </h2>
+            <p className="mx-auto max-w-prose text-body-sm text-ink-soft">
+              {t('emptyCatalogBody', { days: CLUB_TRIAL_DAYS })}
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Link href="/klubove/zayavka" className={buttonVariants({ variant: 'primary' })}>
+                {t('apply')}
+              </Link>
+              <Link href="/za-klubove" className={buttonVariants({ variant: 'ghost' })}>
+                {t('applyMore')}
+              </Link>
+            </div>
+          </section>
+        ) : (
+          <form method="get" className="flex flex-wrap items-end gap-2">
             <label className="text-caption text-ink-soft">
-              {t('filterCity')}
-              <Select name="grad" defaultValue={city?.slug ?? ''} size="sm">
+              {t('filterSport')}
+              <Select name="sport" defaultValue={sport ?? ''} size="sm">
                 <option value="">{t('filterAll')}</option>
-                {cities.map((c) => (
-                  <option key={c.slug} value={c.slug}>
-                    {c.name}
+                {sportOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </Select>
             </label>
-          )}
-          <Button type="submit" variant="secondary" size="sm">
-            {t('filter')}
-          </Button>
-        </form>
+            {cities.length > 0 && (
+              <label className="text-caption text-ink-soft">
+                {t('filterCity')}
+                <Select name="grad" defaultValue={city?.slug ?? ''} size="sm">
+                  <option value="">{t('filterAll')}</option>
+                  {cities.map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+            )}
+            <Button type="submit" variant="secondary" size="sm">
+              {t('filter')}
+            </Button>
+          </form>
+        )}
 
-        {clubs.length === 0 ? (
+        {view === 'noMatch' && (
           <p className="rounded-card border border-dashed border-line-strong p-6 text-center text-body-sm text-text-muted">
             {t('empty')}
           </p>
-        ) : (
+        )}
+        {view === 'clubs' && (
           <ul className="grid gap-3 sm:grid-cols-2">
             {clubs.map((club) => (
               <li key={club.id}>

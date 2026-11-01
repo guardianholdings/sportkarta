@@ -4,6 +4,7 @@ import { getTranslations } from 'next-intl/server';
 import { Odometer } from '@/components/home/odometer';
 import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
+import { audienceFigures } from '@/lib/clubs/landing';
 import type { NationalStats } from '@/lib/stats-data';
 import { cn } from '@/lib/utils';
 
@@ -27,14 +28,12 @@ export async function AudienceBand({
   /** The free places the front page counts (the dot map's figure), told the same way here. */
   places: number | null;
   numbers: NationalStats | null;
+  /** Shown only while above 0 (audienceFigures). */
   gamesThisWeek: number | null;
   locale: string;
 }) {
   const t = await getTranslations('ClubsLanding.audience');
-  const figures: { key: string; value: number }[] = [];
-  if (places !== null) figures.push({ key: 'places', value: places });
-  if (numbers) figures.push({ key: 'municipalities', value: numbers.municipalitiesCovered });
-  if (gamesThisWeek !== null) figures.push({ key: 'games', value: gamesThisWeek });
+  const figures = audienceFigures(places, numbers?.municipalitiesCovered ?? null, gamesThisWeek);
 
   return (
     <section aria-labelledby="clubs-audience" className="bg-ink text-paper">
@@ -49,7 +48,12 @@ export async function AudienceBand({
           </h2>
           <p className="mt-3 max-w-2xl text-body text-paper/75">{t('lead')}</p>
           {figures.length > 0 && (
-            <dl className="mt-8 grid grid-cols-3 gap-x-6 gap-y-6">
+            <dl
+              className={cn(
+                'mt-8 grid gap-x-6 gap-y-6',
+                figures.length === 3 ? 'grid-cols-3' : 'grid-cols-2',
+              )}
+            >
               {figures.map((figure) => (
                 <div key={figure.key} className="flex flex-col gap-1">
                   <dt className="order-2 text-body-sm text-paper/75">{t(figure.key)}</dt>
