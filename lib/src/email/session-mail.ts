@@ -69,6 +69,8 @@ export interface SessionMailStrings {
 
   labelWhen: string;
   labelWhere: string;
+  /** The generic noun for a place with neither a name nor an area (Facility.unnamed). */
+  unnamedFacility: string;
   labelSpots: string;
   /** `{going}` `{capacity}` */
   spots: string;
@@ -95,6 +97,7 @@ export interface SessionMailData {
   sport: string;
   /** Sofia wall clock `YYYY-MM-DDTHH:MM:SS` — never converted again here. */
   startsAtLocal: string;
+  /** Where — its name or its area (mailPlace); empty when neither is known. */
   facilityName: string;
   facilityUrl?: string | undefined;
   sessionUrl: string;
@@ -208,7 +211,9 @@ export function renderSessionMail(data: SessionMailData, strings: SessionMailStr
     leadFor(data, strings),
     '',
     `${strings.labelWhen}: ${formatLocal(data.startsAtLocal, strings.locale)}`,
-    `${strings.labelWhere}: ${data.facilityName} — ${data.sport}`,
+    // Never a blank: an unnamed place with no recorded area printed
+    // «Къде:  — баскетбол».
+    `${strings.labelWhere}: ${data.facilityName.trim() || strings.unnamedFacility} — ${data.sport}`,
   ];
   if (data.facilityUrl) lines.push(`  ${data.facilityUrl}`);
   // A cancelled session has no meaningful attendance any more, and printing

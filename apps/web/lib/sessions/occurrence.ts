@@ -1,4 +1,14 @@
-import { getDb, publicFacilityVisible, sql, type SQL, waitlistPlaceSql } from '@sportkarta/db';
+import {
+  getDb,
+  publicFacilityVisible,
+  SESSION_PLACE_COLUMNS,
+  SESSION_PLACE_JOIN,
+  sessionPlaceFromRow,
+  type SessionPlace,
+  sql,
+  type SQL,
+  waitlistPlaceSql,
+} from '@sportkarta/db';
 
 /**
  * The read behind the public session page (docs/ROADMAP.md §6, Stage 4.2).
@@ -16,7 +26,7 @@ import { getDb, publicFacilityVisible, sql, type SQL, waitlistPlaceSql } from '@
  * strangers are being invited to, and organising one is a public act.
  */
 
-export interface OccurrenceView {
+export interface OccurrenceView extends SessionPlace {
   occurrenceId: string;
   sessionId: string;
   title: string;
@@ -36,17 +46,7 @@ export interface OccurrenceView {
    * offered an invite and a calendar file for an evening that had passed (S-14).
    */
   ended: boolean;
-  facilityName: string | null;
   facilitySlug: string | null;
-  /**
-   * What an UNNAMED place is called by (components/map/facility-label.ts):
-   * its sports and its area. 91% of the corpus has no name, and the page used
-   * to print «—» where the place should be.
-   */
-  facilitySports: string[];
-  facilityQuarter: string | null;
-  /** The municipality's Bulgarian name, as the facility row carries it. */
-  facilityMunicipality: string | null;
   /** Whether the public site shows the place — only then is it a link. */
   facilityPublic: boolean;
   organizerName: string | null;
@@ -65,13 +65,12 @@ export interface OccurrenceView {
   viewerIsOrganizer: boolean;
 }
 
-export interface SessionSummary {
+export interface SessionSummary extends SessionPlace {
   occurrenceId: string;
   title: string;
   sport: string;
   /** Sofia wall clock `YYYY-MM-DDTHH:MM:SS`, formatted in SQL. */
   startsAtLocal: string;
-  facilityName: string | null;
   facilitySlug: string | null;
   capacity: number | null;
   going: number;
@@ -90,12 +89,13 @@ export async function listUpcomingSessions(limit = 40): Promise<SessionSummary[]
       o.id AS occurrence_id,
       to_char(o.starts_at_local, 'YYYY-MM-DD"T"HH24:MI:SS') AS starts_at_local,
       s.title, s.sport, s.capacity::int AS capacity,
-      f.name AS facility_name, f.slug AS facility_slug,
+      ${SESSION_PLACE_COLUMNS}, f.slug AS facility_slug,
       (SELECT count(*)::int FROM play_session_rsvp_positions p
         WHERE p.occurrence_id = o.id AND p.rsvp_status = 'going') AS going
     FROM play_session_occurrences o
     JOIN play_sessions s ON s.id = o.session_id
     JOIN facilities f ON f.id = s.facility_id
+    ${SESSION_PLACE_JOIN}
     WHERE s.visibility = 'public'
       AND o.status <> 'cancelled'
       AND o.starts_at > now()
@@ -109,7 +109,7 @@ export async function listUpcomingSessions(limit = 40): Promise<SessionSummary[]
       title: String(row.title),
       sport: String(row.sport),
       startsAtLocal: String(row.starts_at_local),
-      facilityName: (row.facility_name as string | null) ?? null,
+      ...sessionPlaceFromRow(row),
       facilitySlug: (row.facility_slug as string | null) ?? null,
       capacity: row.capacity === null || row.capacity === undefined ? null : Number(row.capacity),
       going: Number(row.going ?? 0),
@@ -168,12 +168,11 @@ export async function facilitySessions(
 }
 
 /** One of the member's own upcoming RSVPs, for «Моите записвания» on /igri. */
-export interface MySession {
+export interface MySession extends SessionPlace {
   occurrenceId: string;
   title: string;
   sport: string;
   startsAtLocal: string;
-  facilityName: string | null;
   /** Going, or queued behind the capacity (0008's arrival order). */
   status: 'going' | 'waitlisted';
 }
@@ -193,11 +192,12 @@ export async function myUpcomingSessions(
   const result = await db.execute(sql`
     SELECT o.id AS occurrence_id,
            to_char(o.starts_at_local, 'YYYY-MM-DD"T"HH24:MI:SS') AS starts_at_local,
-           s.title, s.sport, f.name AS facility_name, p.rsvp_status
+           s.title, s.sport, ${SESSION_PLACE_COLUMNS}, p.rsvp_status
       FROM play_session_rsvps r
       JOIN play_session_occurrences o ON o.id = r.occurrence_id
       JOIN play_sessions s ON s.id = o.session_id
       JOIN facilities f ON f.id = s.facility_id
+      ${SESSION_PLACE_JOIN}
       JOIN LATERAL (
         SELECT q.rsvp_status FROM play_session_rsvp_positions q
          WHERE q.occurrence_id = o.id AND q.user_id = ${userId}
@@ -216,7 +216,7 @@ export async function myUpcomingSessions(
       title: String(row.title),
       sport: String(row.sport),
       startsAtLocal: String(row.starts_at_local),
-      facilityName: (row.facility_name as string | null) ?? null,
+      ...sessionPlaceFromRow(row),
       status: row.rsvp_status === 'waitlisted' ? 'waitlisted' : 'going',
     };
   });
@@ -237,9 +237,7 @@ export async function occurrenceView(
       (o.ends_at <= now()) AS ended,
       s.title, s.description, s.sport, s.skill_level, s.duration_minutes,
       s.capacity::int AS capacity,
-      f.name AS facility_name, f.slug AS facility_slug,
-      f.sport_types AS facility_sports, f.quarter AS facility_quarter,
-      m.name_bg AS facility_municipality,
+      ${SESSION_PLACE_COLUMNS}, f.slug AS facility_slug,
       (${publicFacilityVisible}) AS facility_public,
       -- The organiser's display name, or NULL if they erased their account —
       -- in which case a trigger has already cancelled the series (0008), so the
@@ -257,7 +255,7 @@ export async function occurrenceView(
     FROM play_session_occurrences o
     JOIN play_sessions s ON s.id = o.session_id
     JOIN facilities f ON f.id = s.facility_id
-    LEFT JOIN municipalities m ON m.id = f.municipality_id
+    ${SESSION_PLACE_JOIN}
     LEFT JOIN users u ON u.id = s.organizer_id
     WHERE o.id = ${occurrenceId}::uuid
       -- By-id read: the id IS the capability. 'unlisted' means reachable by
@@ -281,11 +279,8 @@ export async function occurrenceView(
     cancelled: row.cancelled === true,
     started: row.started === true,
     ended: row.ended === true,
-    facilityName: (row.facility_name as string | null) ?? null,
+    ...sessionPlaceFromRow(row),
     facilitySlug: (row.facility_slug as string | null) ?? null,
-    facilitySports: Array.isArray(row.facility_sports) ? row.facility_sports.map(String) : [],
-    facilityQuarter: (row.facility_quarter as string | null) ?? null,
-    facilityMunicipality: (row.facility_municipality as string | null) ?? null,
     facilityPublic: row.facility_public === true,
     organizerName: (row.organizer_name as string | null) ?? null,
     capacity: row.capacity === null || row.capacity === undefined ? null : Number(row.capacity),

@@ -8,6 +8,14 @@ import {
 } from '@sportkarta/lib/recurrence';
 import { sql, type SQL } from 'drizzle-orm';
 
+import { publicFacilityVisible } from './opendata/visibility.js';
+import {
+  SESSION_PLACE_COLUMNS,
+  SESSION_PLACE_JOIN,
+  sessionPlaceFromRow,
+  type SessionPlace,
+} from './sessions/place.js';
+
 /**
  * The weekly city digest query (docs/ROADMAP.md §6, Stage 4.4).
  *
@@ -39,7 +47,7 @@ interface SqlRunner {
   execute(query: SQL): Promise<{ rows: Record<string, unknown>[] }>;
 }
 
-export interface DigestOccurrence {
+export interface DigestOccurrence extends SessionPlace {
   occurrenceId: string;
   sessionId: string;
   /** UTC instant. */
@@ -50,8 +58,9 @@ export interface DigestOccurrence {
   sport: string;
   title: string;
   facilityId: string;
-  facilityName: string | null;
   facilitySlug: string | null;
+  /** Whether the public site shows the place — only then is it a link. */
+  facilityPublic: boolean;
   /** NULL = unlimited. */
   capacity: number | null;
   going: number;
@@ -129,13 +138,15 @@ export async function weeklyDigest(
       s.title         AS title,
       s.capacity      AS capacity,
       f.id            AS facility_id,
-      f.name          AS facility_name,
+      ${SESSION_PLACE_COLUMNS},
       f.slug          AS facility_slug,
+      (${publicFacilityVisible}) AS facility_public,
       (SELECT count(*)::int FROM play_session_rsvp_positions p
         WHERE p.occurrence_id = o.id AND p.rsvp_status = 'going') AS going
     FROM play_session_occurrences o
     JOIN play_sessions s ON s.id = o.session_id
     JOIN facilities f    ON f.id = s.facility_id
+    ${SESSION_PLACE_JOIN}
     WHERE f.municipality_id = ${options.municipalityId}
       AND o.status = 'scheduled'
       AND s.status = 'scheduled'
@@ -160,8 +171,9 @@ export async function weeklyDigest(
       sport: String(row.sport),
       title: String(row.title),
       facilityId: String(row.facility_id),
-      facilityName: row.facility_name === null ? null : String(row.facility_name),
+      ...sessionPlaceFromRow(row),
       facilitySlug: row.facility_slug === null ? null : String(row.facility_slug),
+      facilityPublic: row.facility_public === true,
       capacity: row.capacity === null ? null : Number(row.capacity),
       going: Number(row.going ?? 0),
     })),

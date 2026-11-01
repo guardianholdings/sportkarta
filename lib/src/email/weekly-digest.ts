@@ -20,6 +20,7 @@ export interface DigestEntry {
   title: string;
   /** Already-translated sport label. */
   sport: string;
+  /** Where in the city — its name or its quarter (mailPlace); empty when neither is known. */
   facilityName: string;
   facilityUrl?: string | undefined;
   capacity: number | null;
@@ -150,8 +151,11 @@ export function renderWeeklyDigest(
             going: entry.going,
           })
         : fill(strings.spots, { going: entry.going, capacity: entry.capacity });
+    // A place with neither a name nor a quarter adds nothing to the city the
+    // mail is about, so the line ends at the sport rather than «баскетбол,  (…)».
+    const where = entry.facilityName.trim();
     lines.push(
-      `  ${timeOf(entry.startsAtLocal)}  ${entry.title} — ${entry.sport}, ${entry.facilityName} (${spots})`,
+      `  ${timeOf(entry.startsAtLocal)}  ${entry.title} — ${entry.sport}${where ? `, ${where}` : ''} (${spots})`,
     );
     if (entry.facilityUrl) lines.push(`    ${entry.facilityUrl}`);
   }

@@ -195,6 +195,12 @@ export {
 } from './sessions/calendar.js';
 export type { CalendarFeed, CalendarOccurrence, ClubCalendarBooking } from './sessions/calendar.js';
 export {
+  SESSION_PLACE_COLUMNS,
+  SESSION_PLACE_JOIN,
+  sessionPlaceFromRow,
+} from './sessions/place.js';
+export type { SessionPlace } from './sessions/place.js';
+export {
   adminStandings,
   campaignById,
   campaignBySlug,

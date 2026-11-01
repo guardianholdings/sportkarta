@@ -8,6 +8,7 @@ import { OG_MISSING } from '@/lib/og/card';
 import { getFacilityBySlug } from '@/lib/public-data';
 import { siteHost } from '@/lib/seo';
 import { occurrenceView } from '@/lib/sessions/occurrence';
+import { sessionPlaceNamer } from '@/lib/sessions/place-name';
 import { isUuid } from '@/lib/uuid';
 
 /**
@@ -121,12 +122,15 @@ export async function GET(_request: Request, { params }: { params: Params }) {
       day: 'numeric',
       month: 'long',
     }).format(new Date(`${datePart ?? ''}T00:00:00`));
+    // Where, named the way the map names it — an unnamed place by its sport
+    // and area, not a blank line.
+    const namePlace = await sessionPlaceNamer([view], lang);
     return cachedStoryCard({
       eyebrow: day,
       hero: (timePart ?? '').slice(0, 5) || OG_MISSING,
       heroLabel: tStory('session.heroLabel'),
       title: view.title,
-      subtitle: view.facilityName,
+      subtitle: namePlace(view),
       wordmark,
       callToAction: tStory('session.callToAction', { site: siteHost() }),
       // A session happens at a mapped facility.

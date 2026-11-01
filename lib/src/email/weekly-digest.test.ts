@@ -125,6 +125,20 @@ describe('renderWeeklyDigest', () => {
     expect(text).not.toContain('undefined');
   });
 
+  it('ends the line at the sport when the place has neither a name nor a quarter', () => {
+    const unnamed: DigestEntry = {
+      startsAtLocal: '2026-09-01T18:00:00',
+      title: 'Вечерен футбол',
+      sport: 'Футбол',
+      facilityName: '',
+      capacity: 12,
+      going: 5,
+    };
+    const text = renderWeeklyDigest({ ...data, entries: [unnamed] }, strings)?.text ?? '';
+    // It read «Вечерен футбол — Футбол,  (5 от 12 места)».
+    expect(text).toContain('Вечерен футбол — Футбол (5 от 12 места)');
+  });
+
   it('greets a member who never set a name without «Здравей, !»', () => {
     const text = renderWeeklyDigest({ ...data, recipientName: ' ' }, strings)?.text ?? '';
     expect(text.split('\n')[0]).toBe('Здравей! Ето какво се играе тази седмица в София.');

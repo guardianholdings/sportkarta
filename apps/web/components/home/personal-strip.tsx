@@ -1,4 +1,4 @@
-import { getDb } from '@sportkarta/db';
+import { getDb, type SessionPlace } from '@sportkarta/db';
 import { CalendarClock, Flame, Medal, QrCode } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 
@@ -8,6 +8,7 @@ import type { CurrentUser } from '@/lib/auth-session';
 import { badgeArt } from '@/lib/design/badge-art';
 import { homePersonal, type HomePersonal } from '@/lib/home/personal';
 import { dayWord, whenParts } from '@/lib/home/when';
+import { sessionPlaceNamer } from '@/lib/sessions/place-name';
 
 const TILE =
   'flex min-h-16 min-w-0 items-center gap-3 rounded-md px-3 py-2.5 transition-colors duration-150 ease-standard hover:bg-surface-2 focus-visible:shadow-[var(--ring)]';
@@ -56,6 +57,15 @@ export async function PersonalStrip({ user, locale }: { user: CurrentUser; local
 
   const name = user.displayName.trim();
   const next = data.next;
+  // A game's place is named the way the map names it; a club class keeps its
+  // own hall's name.
+  const namePlace = await sessionPlaceNamer(
+    [next?.kind === 'session' ? next.place : null, data.checkin?.place ?? null].filter(
+      (place): place is SessionPlace => place !== null,
+    ),
+    locale,
+  );
+  const nextPlace = next && (next.kind === 'club' ? next.place : namePlace(next.place));
   let when: string | null = null;
   if (next) {
     const [date, time] = whenParts(next.startsAtLocal, locale);
@@ -78,7 +88,7 @@ export async function PersonalStrip({ user, locale }: { user: CurrentUser; local
           {t('checkinTitle', { title: data.checkin.title })}
         </span>
         <span className="block text-caption text-ink-soft">
-          {data.checkin.place ? `${data.checkin.place} · ` : ''}
+          {`${namePlace(data.checkin.place)} · `}
           {t('checkinBody')}
         </span>
       </span>
@@ -109,7 +119,7 @@ export async function PersonalStrip({ user, locale }: { user: CurrentUser; local
               </span>
               <span className="line-clamp-2 text-caption text-ink-soft">
                 {when}
-                {next.place ? ` · ${next.place}` : ''}
+                {nextPlace ? ` · ${nextPlace}` : ''}
               </span>
             </>
           ) : (

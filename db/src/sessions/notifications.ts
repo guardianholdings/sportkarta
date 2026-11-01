@@ -1,5 +1,12 @@
 import { sql, type SQL } from 'drizzle-orm';
 
+import {
+  SESSION_PLACE_COLUMNS,
+  SESSION_PLACE_JOIN,
+  sessionPlaceFromRow,
+  type SessionPlace,
+} from './place.js';
+
 /**
  * Who to tell about a play session, and what we have already told them
  * (docs/ROADMAP.md §6, Stage 4.2).
@@ -34,7 +41,7 @@ export type SessionNotificationKind =
   | 'occurrence_cancelled';
 
 /** Everything a session email needs, for one member and one occurrence. */
-export interface SessionMailRecipient {
+export interface SessionMailRecipient extends SessionPlace {
   occurrenceId: string;
   sessionId: string;
   userId: string;
@@ -45,7 +52,6 @@ export interface SessionMailRecipient {
   /** Sofia wall clock, `YYYY-MM-DDTHH:MM:SS`. Never re-converted downstream. */
   startsAtLocal: string;
   startsAt: string;
-  facilityName: string | null;
   facilitySlug: string | null;
   capacity: number | null;
   going: number;
@@ -107,7 +113,7 @@ function recipientColumns(): SQL {
     s.title,
     s.sport,
     s.capacity::int AS capacity,
-    f.name AS facility_name,
+    ${SESSION_PLACE_COLUMNS},
     f.slug AS facility_slug,
     u.id AS user_id,
     u.email,
@@ -127,6 +133,7 @@ function recipientJoins(): SQL {
     FROM play_session_occurrences o
     JOIN play_sessions s ON s.id = o.session_id
     JOIN facilities f ON f.id = s.facility_id
+    ${SESSION_PLACE_JOIN}
     JOIN play_session_rsvp_positions pos ON pos.occurrence_id = o.id
     JOIN users u ON u.id = pos.user_id
   `;
@@ -146,7 +153,7 @@ function toRecipient(row: Record<string, unknown>): SessionMailRecipient {
     // offset. The column is cast to text in SQL instead — see the queries.
     startsAtLocal: String(row.starts_at_local),
     startsAt: new Date(row.starts_at as string | number | Date).toISOString(),
-    facilityName: (row.facility_name as string | null) ?? null,
+    ...sessionPlaceFromRow(row),
     facilitySlug: (row.facility_slug as string | null) ?? null,
     capacity: row.capacity === null || row.capacity === undefined ? null : Number(row.capacity),
     going: Number(row.going ?? 0),

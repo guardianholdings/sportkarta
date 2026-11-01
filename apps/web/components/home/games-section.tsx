@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { SPORT_VISUALS } from '@/lib/design/sport-visuals';
 import { dayWord, whenParts } from '@/lib/home/when';
 import type { SessionSummary } from '@/lib/sessions/occurrence';
+import { sessionPlaceNamer } from '@/lib/sessions/place-name';
 import type { CanonicalSport } from '@sportkarta/lib/sports';
 
 import { GamesRail } from './games-rail';
@@ -53,7 +54,10 @@ export async function GamesSection({ games, locale }: { games: SessionSummary[];
  * page's «Играйте» chapter, under the recording of how to join one.
  */
 export async function GamesList({ games, locale }: { games: SessionSummary[]; locale: string }) {
-  const [t, tSport] = await Promise.all([getTranslations('Home.games'), getTranslations('Sport')]);
+  const [t, namePlace] = await Promise.all([
+    getTranslations('Home.games'),
+    sessionPlaceNamer(games, locale),
+  ]);
 
   return (
     <>
@@ -121,7 +125,7 @@ export async function GamesList({ games, locale }: { games: SessionSummary[]; lo
                   </span>
                   <span className="mt-1 flex items-center gap-1 truncate text-caption text-text-muted">
                     <MapPin size={13} aria-hidden="true" className="shrink-0" />
-                    <span className="truncate">{game.facilityName ?? tSport(game.sport)}</span>
+                    <span className="truncate">{namePlace(game)}</span>
                   </span>
                   <span className="mt-auto block pt-5">
                     {fill !== null && (

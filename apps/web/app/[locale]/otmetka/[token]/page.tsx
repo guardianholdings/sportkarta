@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth-session';
 import { signInHref } from '@/lib/sign-in-destination';
 import { checkinSecret } from '@/lib/checkin-config';
 import { occurrenceView } from '@/lib/sessions/occurrence';
+import { sessionPlaceNamer } from '@/lib/sessions/place-name';
 
 import { CheckinForm } from './checkin-form';
 
@@ -109,11 +110,14 @@ export default async function CheckinPage({ params }: { params: PageParams }) {
     );
   }
 
+  // Named the way the map names it: an unnamed place by its sport and area.
+  const namePlace = await sessionPlaceNamer([view], locale);
+
   return (
     <Shell>
       <header className="space-y-1">
         <h1 className="text-h2 font-extrabold tracking-tight text-ink">{view.title}</h1>
-        {view.facilityName && <p className="text-body-sm text-text-muted">{view.facilityName}</p>}
+        <p className="text-body-sm text-text-muted">{namePlace(view)}</p>
       </header>
 
       {/* CheckinForm resolves its own copy: the success line names the points

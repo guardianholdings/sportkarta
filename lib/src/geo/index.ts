@@ -76,3 +76,29 @@ export const BULGARIA_BOUNDS: readonly [readonly [number, number], readonly [num
 
 /** The whole-country overview the map opens on when nothing else is asked for. */
 export const BULGARIA_CENTER = { lng: 25.3, lat: 42.72, zoom: 6.8 } as const;
+
+/**
+ * Where a facility is, as precisely as the data allows: "Лозенец, София",
+ * or just the municipality when no quarter is recorded.
+ *
+ * This is what tells two unnamed facilities apart. 91% of the corpus has no
+ * name — OSM rarely names a pitch — so without it the list was a column of
+ * identical "Спортно съоръжение" rows. A quarter that merely repeats the
+ * municipality ("Варна, Варна") is dropped rather than printed twice.
+ *
+ * Here rather than in apps/web because the worker's mail names places too
+ * (lib/src/email/place.ts), and two copies of this rule would drift.
+ */
+export function placeLabel(
+  quarter: string | null | undefined,
+  municipality: string | null | undefined,
+): string | null {
+  const parts: string[] = [];
+  for (const raw of [quarter, municipality]) {
+    const part = raw?.trim();
+    if (!part) continue;
+    if (parts.some((p) => p.toLocaleLowerCase() === part.toLocaleLowerCase())) continue;
+    parts.push(part);
+  }
+  return parts.length > 0 ? parts.join(', ') : null;
+}

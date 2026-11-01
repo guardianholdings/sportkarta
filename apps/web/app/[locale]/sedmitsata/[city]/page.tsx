@@ -8,6 +8,7 @@ import { Link } from '@/i18n/navigation';
 import { takesVav } from '@/lib/grammar';
 import { getCityBySlug, type City } from '@/lib/places';
 import { buildAlternates } from '@/lib/seo';
+import { sessionPlaceNamer } from '@/lib/sessions/place-name';
 import { AppShell } from '@/components/shell/app-shell';
 
 /**
@@ -85,10 +86,12 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
   const city = await getCityBySlug(slug);
   if (!city) notFound();
 
-  const [t, tSport, week] = await Promise.all([
+  const [t, tSport, week, namePlace] = await Promise.all([
     getTranslations('Digest'),
     getTranslations('Sport'),
     weeklyDigest(getDb(), { municipalityId: city.id, timeZone: SOFIA_TZ }),
+    // No municipality to resolve: every row is in the city the page is about.
+    sessionPlaceNamer([], locale),
   ]);
   const name = cityName(city, locale);
   const weekdayFormat = new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'bg-BG', {
@@ -165,20 +168,22 @@ export default async function WeeklyDigestPage({ params }: { params: PageParams 
                           {entry.title}
                         </Link>
                         <span className="text-text-muted"> · {tSport(entry.sport)}</span>
-                        {entry.facilityName && (
-                          <span className="block text-body-sm text-ink-soft">
-                            {entry.facilitySlug ? (
-                              <Link
-                                href={`/obekt/${entry.facilitySlug}`}
-                                className="font-medium text-link hover:text-link-hover"
-                              >
-                                {entry.facilityName}
-                              </Link>
-                            ) : (
-                              entry.facilityName
-                            )}
-                          </span>
-                        )}
+                        {/* Named the way the map names it, minus the city —
+                          the page's own heading — so an unnamed place reads
+                          «Баскетбол — Лозенец» instead of vanishing. A link
+                          only where the public site shows the place. */}
+                        <span className="block text-body-sm text-ink-soft">
+                          {entry.facilitySlug && entry.facilityPublic ? (
+                            <Link
+                              href={`/obekt/${entry.facilitySlug}`}
+                              className="font-medium text-link hover:text-link-hover"
+                            >
+                              {namePlace({ ...entry, facilityMunicipality: null })}
+                            </Link>
+                          ) : (
+                            namePlace({ ...entry, facilityMunicipality: null })
+                          )}
+                        </span>
                       </span>
                       <span className="shrink-0 self-start text-body-sm text-text-muted">
                         {entry.capacity === null

@@ -1,7 +1,9 @@
 import { calendarOccurrence, getDb } from '@sportkarta/db';
 import { renderCalendar } from '@sportkarta/lib/ical';
 
+import { routing } from '@/i18n/routing';
 import { siteUrl } from '@/lib/seo';
+import { sessionPlaceNamer } from '@/lib/sessions/place-name';
 
 /**
  * One session as a downloadable `.ics` (docs/ROADMAP.md §6, Stage 4.2).
@@ -42,6 +44,9 @@ export async function GET(
 
   const base = siteUrl().replace(/\/+$/, '');
   const host = new URL(base).host;
+  // A calendar file has no reader language: the place is named in the site's
+  // own, the way the map names it (an unnamed one by its sport and area).
+  const namePlace = await sessionPlaceNamer([occurrence], routing.defaultLocale);
 
   return new Response(
     renderCalendar({
@@ -56,7 +61,7 @@ export async function GET(
           startsAt: new Date(occurrence.startsAt),
           endsAt: new Date(occurrence.endsAt),
           summary: occurrence.title,
-          location: occurrence.facilityName ?? undefined,
+          location: namePlace(occurrence),
           url: `${base}/igra/${occurrence.occurrenceId}`,
           lat: occurrence.lat ?? undefined,
           lon: occurrence.lon ?? undefined,

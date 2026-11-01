@@ -6,6 +6,7 @@ import { cachedOgCard, OG_MISSING } from '@/lib/og/card';
 import { OG_PALETTE } from '@/lib/og/palette';
 import { getFacilityBySlug } from '@/lib/public-data';
 import { occurrenceView } from '@/lib/sessions/occurrence';
+import { sessionPlaceNamer } from '@/lib/sessions/place-name';
 import { isUuid } from '@/lib/uuid';
 
 /**
@@ -106,12 +107,13 @@ export async function GET(_request: Request, { params }: { params: Params }) {
       day: 'numeric',
       month: 'long',
     }).format(new Date(`${datePart ?? ''}T00:00:00`));
+    const namePlace = await sessionPlaceNamer([view], lang);
     return cachedOgCard({
       eyebrow: day,
       title: view.title,
-      // null, not the CTA: the footnote already carries it, and a missing
-      // facility must not print the same line twice on one card.
-      subtitle: view.facilityName ?? null,
+      // Where, named the way the map names it: an unnamed place (most of them)
+      // reads «Баскетбол — Лозенец, София» rather than leaving the line empty.
+      subtitle: namePlace(view),
       stats: [
         { value: (timePart ?? '').slice(0, 5) || OG_MISSING, label: tOg('session.startsAt') },
       ],

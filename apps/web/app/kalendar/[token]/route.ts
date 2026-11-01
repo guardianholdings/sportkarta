@@ -1,7 +1,9 @@
 import { calendarFeed, getDb } from '@sportkarta/db';
 import { renderCalendar, type IcalEvent } from '@sportkarta/lib/ical';
 
+import { routing } from '@/i18n/routing';
 import { siteUrl } from '@/lib/seo';
+import { sessionPlaceNamer } from '@/lib/sessions/place-name';
 
 /**
  * The member's private calendar feed (docs/ROADMAP.md §6, Stage 4.2).
@@ -51,6 +53,9 @@ export async function GET(
 
   const base = siteUrl().replace(/\/+$/, '');
   const host = new URL(base).host;
+  // A calendar client has no reader language: the place is named in the site's
+  // own, the way the map names it (an unnamed one by its sport and area).
+  const namePlace = await sessionPlaceNamer(feed.occurrences, routing.defaultLocale);
   const events: IcalEvent[] = feed.occurrences.map((occurrence) => ({
     // Stable across every regeneration: a changed UID makes a client show a
     // duplicate rather than an update.
@@ -58,7 +63,7 @@ export async function GET(
     startsAt: new Date(occurrence.startsAt),
     endsAt: new Date(occurrence.endsAt),
     summary: occurrence.title,
-    location: occurrence.facilityName ?? undefined,
+    location: namePlace(occurrence),
     url: `${base}/igra/${occurrence.occurrenceId}`,
     lat: occurrence.lat ?? undefined,
     lon: occurrence.lon ?? undefined,

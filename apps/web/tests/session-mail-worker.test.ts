@@ -17,6 +17,7 @@ function source(relative: string): string {
 
 const index = source('../../worker/src/index.ts');
 const sessionJob = source('../../worker/src/session-mail-job.ts');
+const digestJob = source('../../worker/src/digest-job.ts');
 const notifications = source('../../../db/src/sessions/notifications.ts');
 const occurrence = source('../lib/sessions/occurrence.ts');
 const sessionPage = source('../app/[locale]/igra/[occurrenceId]/page.tsx');
@@ -82,6 +83,15 @@ describe('what a session mail says', () => {
     expect(occurrence).toMatch(/waitlistPlaceSql\('p'\)/);
     expect(sessionPage).toMatch(/position: view\.viewerWaitlistPlace/);
     expect(sessionPage).not.toMatch(/viewerPosition/);
+  });
+
+  it('names an unnamed place by its area in both mails, never a blank', () => {
+    // 91% of places have no name; `facilityName ?? ''` printed «Къде:  — …».
+    expect(sessionJob).toMatch(/facilityName: mailPlace\(recipient, strings\.locale\)/);
+    expect(digestJob).toMatch(
+      /mailPlace\(occurrence, strings\.locale \?\? 'bg', \{ municipality: false \}\)/,
+    );
+    for (const job of [sessionJob, digestJob]) expect(job).not.toMatch(/facilityName \?\? ''/);
   });
 
   it('never puts the calendar-feed token into a mail', () => {

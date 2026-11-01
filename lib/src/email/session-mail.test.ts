@@ -24,6 +24,7 @@ const STRINGS: SessionMailStrings = {
   leadCancelled: '{title} has been cancelled.',
   labelWhen: 'When',
   labelWhere: 'Where',
+  unnamedFacility: 'Sports facility',
   labelSpots: 'Spots',
   spots: '{going} of {capacity}',
   spotsUnlimitedOne: '{going} person going',
@@ -170,6 +171,14 @@ describe('renderSessionMail', () => {
     // The feed URL is /kalendar/<token>.ics — a credential. Nothing shaped like
     // one may appear in a message that gets forwarded.
     expect(body).not.toMatch(/\/kalendar\/[A-Za-z0-9_-]{22,}\.ics/);
+  });
+
+  it('says where an unnamed place is, and never prints a blank there', () => {
+    expect(mail({ facilityName: 'Лозенец, София' }).text).toContain(
+      'Where: Лозенец, София — Football',
+    );
+    // Neither a name nor an area: the generic noun, not «Where:  — Football».
+    expect(mail({ facilityName: '' }).text).toContain('Where: Sports facility — Football');
   });
 
   it('defaults the reminder lead-in hours from the kind', () => {

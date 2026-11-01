@@ -40,28 +40,8 @@ export function formatKm(km: number, locale: string): string {
   }).format(km);
 }
 
-/**
- * Where a facility is, as precisely as the data allows: "Лозенец, София",
- * or just the municipality when no quarter is recorded.
- *
- * This is what tells two unnamed facilities apart. 91% of the corpus has no
- * name — OSM rarely names a pitch — so without it the list was a column of
- * identical "Спортно съоръжение" rows. A quarter that merely repeats the
- * municipality ("Варна, Варна") is dropped rather than printed twice.
- */
-export function placeLabel(
-  quarter: string | null | undefined,
-  municipality: string | null | undefined,
-): string | null {
-  const parts: string[] = [];
-  for (const raw of [quarter, municipality]) {
-    const part = raw?.trim();
-    if (!part) continue;
-    if (parts.some((p) => p.toLocaleLowerCase() === part.toLocaleLowerCase())) continue;
-    parts.push(part);
-  }
-  return parts.length > 0 ? parts.join(', ') : null;
-}
+/** "Лозенец, София" — shared with the worker's mail, so it lives in the lib. */
+export { placeLabel } from '@sportkarta/lib/geo';
 
 export interface MapView {
   lng: number;

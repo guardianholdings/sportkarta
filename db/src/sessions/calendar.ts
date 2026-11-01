@@ -2,6 +2,13 @@ import { randomBytes } from 'node:crypto';
 
 import { sql, type SQL } from 'drizzle-orm';
 
+import {
+  SESSION_PLACE_COLUMNS,
+  SESSION_PLACE_JOIN,
+  sessionPlaceFromRow,
+  type SessionPlace,
+} from './place.js';
+
 /**
  * The private calendar feed (docs/ROADMAP.md §6, Stage 4.2).
  *
@@ -73,13 +80,12 @@ export async function calendarToken(db: SqlRunner, userId: string): Promise<stri
   return typeof token === 'string' ? token : null;
 }
 
-export interface CalendarOccurrence {
+export interface CalendarOccurrence extends SessionPlace {
   occurrenceId: string;
   startsAt: string;
   endsAt: string;
   title: string;
   sport: string;
-  facilityName: string | null;
   facilitySlug: string | null;
   lat: number | null;
   lon: number | null;
@@ -95,7 +101,7 @@ function toOccurrence(row: Record<string, unknown>): CalendarOccurrence {
     endsAt: new Date(row.ends_at as string | number | Date).toISOString(),
     title: String(row.title),
     sport: String(row.sport),
-    facilityName: (row.facility_name as string | null) ?? null,
+    ...sessionPlaceFromRow(row),
     facilitySlug: (row.facility_slug as string | null) ?? null,
     lat: row.lat === null || row.lat === undefined ? null : Number(row.lat),
     lon: row.lon === null || row.lon === undefined ? null : Number(row.lon),
@@ -173,11 +179,12 @@ export async function calendarFeed(db: SqlRunner, token: string): Promise<Calend
            (o.status = 'cancelled') AS cancelled,
            s.title, s.sport,
            (s.organizer_id = ${userId}) AS organizing,
-           f.name AS facility_name, f.slug AS facility_slug,
+           ${SESSION_PLACE_COLUMNS}, f.slug AS facility_slug,
            ST_Y(f.geom) AS lat, ST_X(f.geom) AS lon
       FROM play_session_occurrences o
       JOIN play_sessions s ON s.id = o.session_id
       JOIN facilities f ON f.id = s.facility_id
+      ${SESSION_PLACE_JOIN}
      WHERE o.starts_at >= now() - make_interval(days => ${FEED_PAST_DAYS})
        AND (
          -- The member's own attendance …
@@ -269,11 +276,12 @@ export async function calendarOccurrence(
            (o.status = 'cancelled') AS cancelled,
            s.title, s.sport,
            FALSE AS organizing,
-           f.name AS facility_name, f.slug AS facility_slug,
+           ${SESSION_PLACE_COLUMNS}, f.slug AS facility_slug,
            ST_Y(f.geom) AS lat, ST_X(f.geom) AS lon
       FROM play_session_occurrences o
       JOIN play_sessions s ON s.id = o.session_id
       JOIN facilities f ON f.id = s.facility_id
+      ${SESSION_PLACE_JOIN}
      WHERE o.id = ${occurrenceId}::uuid
        -- By-id read: the id is the capability — unlisted sessions must
        -- resolve here too (reachable by link, absent from listings).

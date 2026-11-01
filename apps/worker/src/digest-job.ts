@@ -13,6 +13,7 @@ import {
 import { assignCitySlugs, cityDisplayName, type MunicipalityRow } from '@sportkarta/lib/cities';
 import {
   deliverEach,
+  mailPlace,
   renderWeeklyDigest,
   type DeliveryOutcome,
   type DeliveryReport,
@@ -211,10 +212,15 @@ async function sendOne(
           startsAtLocal: occurrence.startsAtLocal,
           title: occurrence.title,
           sport: city.sports[occurrence.sport] ?? occurrence.sport,
-          facilityName: occurrence.facilityName ?? '',
-          facilityUrl: occurrence.facilitySlug
-            ? `${base}/obekt/${occurrence.facilitySlug}`
-            : undefined,
+          // Its name, or its quarter — the city is the mail's own subject, as
+          // on /sedmitsata. 91% of places have no name (mailPlace).
+          facilityName:
+            mailPlace(occurrence, strings.locale ?? 'bg', { municipality: false }) ?? '',
+          // A link only where the public site shows the place — the page's rule.
+          facilityUrl:
+            occurrence.facilitySlug && occurrence.facilityPublic
+              ? `${base}/obekt/${occurrence.facilitySlug}`
+              : undefined,
           capacity: occurrence.capacity,
           going: occurrence.going,
         })),

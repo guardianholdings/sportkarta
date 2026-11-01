@@ -14,6 +14,7 @@ import {
 import {
   deliverEach,
   emptyDeliveryReport,
+  mailPlace,
   renderSessionMail,
   type DeliveryOutcome,
   type DeliveryReport,
@@ -74,6 +75,11 @@ export function sessionMailStrings(locale: string): SessionMailStrings {
     }
     return value;
   };
+  // The site's own generic noun, not a mail-only copy of it.
+  const unnamedFacility = messages(locale).Facility?.unnamed;
+  if (typeof unnamedFacility !== 'string' || unnamedFacility === '') {
+    throw new Error(`Facility.unnamed is missing from messages/${locale}.json`);
+  }
   return {
     locale,
     subjectConfirmed: pick('subjectConfirmed'),
@@ -90,6 +96,7 @@ export function sessionMailStrings(locale: string): SessionMailStrings {
     leadCancelled: pick('leadCancelled'),
     labelWhen: pick('labelWhen'),
     labelWhere: pick('labelWhere'),
+    unnamedFacility,
     labelSpots: pick('labelSpots'),
     spots: pick('spots'),
     spotsUnlimitedOne: pick('spotsUnlimitedOne'),
@@ -157,7 +164,8 @@ async function sendOne(
         title: recipient.title,
         sport: sports[recipient.sport] ?? recipient.sport,
         startsAtLocal: recipient.startsAtLocal,
-        facilityName: recipient.facilityName ?? '',
+        // Its name, or its area — 91% of places have no name (mailPlace).
+        facilityName: mailPlace(recipient, strings.locale) ?? '',
         facilityUrl: recipient.facilitySlug ? `${base}/obekt/${recipient.facilitySlug}` : undefined,
         sessionUrl,
         calendarUrl: `${base}/kalendar/igra/${recipient.occurrenceId}.ics`,

@@ -6,6 +6,7 @@ import { FAMILY_COLOR, SPORT_FAMILY } from '@/lib/design/families';
 import { SPORT_VISUALS } from '@/lib/design/sport-visuals';
 import { getCurrentUser } from '@/lib/auth-session';
 import { listUpcomingSessions, myUpcomingSessions } from '@/lib/sessions/occurrence';
+import { sessionPlaceNamer } from '@/lib/sessions/place-name';
 import { buildAlternates } from '@/lib/seo';
 import { Link } from '@/i18n/navigation';
 import type { CanonicalSport } from '@sportkarta/lib/sports';
@@ -44,14 +45,14 @@ export default async function SessionsIndexPage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const [t, tSport, sessions, user] = await Promise.all([
+  const [t, sessions, user] = await Promise.all([
     getTranslations('Session'),
-    getTranslations('Sport'),
     listUpcomingSessions(40),
     getCurrentUser(),
   ]);
   // What the member signed up for, above everything else (UX audit N7).
   const mine = user ? await myUpcomingSessions(user.id) : [];
+  const namePlace = await sessionPlaceNamer([...mine, ...sessions], locale);
 
   return (
     <AppShell active="/igri">
@@ -94,9 +95,7 @@ export default async function SessionsIndexPage({
                           {s.title}
                         </span>
                         <span className="block truncate text-caption text-text-muted">
-                          {s.status === 'waitlisted'
-                            ? t('mine.waitlisted')
-                            : (s.facilityName ?? tSport(s.sport))}
+                          {s.status === 'waitlisted' ? t('mine.waitlisted') : namePlace(s)}
                         </span>
                       </span>
                       <span className="shrink-0 text-right font-mono text-caption">
@@ -179,7 +178,7 @@ export default async function SessionsIndexPage({
                       </span>
                       <span className="mt-0.5 flex items-center gap-1 truncate text-caption text-text-muted">
                         <MapPin size={13} className="shrink-0" />
-                        {s.facilityName ?? tSport(s.sport)}
+                        {namePlace(s)}
                       </span>
                     </span>
                     <span className="shrink-0 text-right">

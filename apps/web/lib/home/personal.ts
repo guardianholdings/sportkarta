@@ -1,4 +1,14 @@
-import { frozenStreakWeeks, passportEvents, passportTotals, sql, type SQL } from '@sportkarta/db';
+import {
+  frozenStreakWeeks,
+  passportEvents,
+  passportTotals,
+  SESSION_PLACE_COLUMNS,
+  SESSION_PLACE_JOIN,
+  sessionPlaceFromRow,
+  type SessionPlace,
+  sql,
+  type SQL,
+} from '@sportkarta/db';
 import { evaluateBadges, LAUNCH_BADGES, passportStreaks } from '@sportkarta/lib/badges';
 
 import { clubsEnabled } from '@/lib/clubs/access';
@@ -33,7 +43,8 @@ export type NextUp =
       title: string;
       sport: string;
       startsAtLocal: string;
-      place: string | null;
+      /** Named by the strip as the map names it (lib/sessions/place-name.ts). */
+      place: SessionPlace;
     }
   | {
       kind: 'club';
@@ -47,7 +58,7 @@ export type NextUp =
 /** An игра the member signed up for whose check-in is open right now. */
 export interface OpenCheckin {
   title: string;
-  place: string | null;
+  place: SessionPlace;
 }
 
 export interface HomePersonal {
@@ -78,11 +89,12 @@ async function nextSession(db: SqlRunner, userId: string): Promise<Candidate | n
   const result = await db.execute(sql`
     SELECT o.id, o.starts_at,
            to_char(o.starts_at_local, 'YYYY-MM-DD"T"HH24:MI:SS') AS starts_at_local,
-           s.title, s.sport, f.name AS facility_name
+           s.title, s.sport, ${SESSION_PLACE_COLUMNS}
       FROM play_session_rsvps r
       JOIN play_session_occurrences o ON o.id = r.occurrence_id
       JOIN play_sessions s ON s.id = o.session_id
       JOIN facilities f ON f.id = s.facility_id
+      ${SESSION_PLACE_JOIN}
      WHERE r.user_id = ${userId}
        AND r.state = 'active'
        AND o.status <> 'cancelled'
@@ -102,7 +114,7 @@ async function nextSession(db: SqlRunner, userId: string): Promise<Candidate | n
       title: String(row.title),
       sport: String(row.sport),
       startsAtLocal: String(row.starts_at_local),
-      place: row.facility_name === null ? null : String(row.facility_name),
+      place: sessionPlaceFromRow(row),
     },
     startsAt: new Date(row.starts_at as string | number | Date).getTime(),
   };
@@ -116,11 +128,12 @@ async function nextSession(db: SqlRunner, userId: string): Promise<Candidate | n
  */
 async function openCheckin(db: SqlRunner, userId: string): Promise<OpenCheckin | null> {
   const result = await db.execute(sql`
-    SELECT s.title, f.name AS facility_name
+    SELECT s.title, ${SESSION_PLACE_COLUMNS}
       FROM play_session_rsvps r
       JOIN play_session_occurrences o ON o.id = r.occurrence_id
       JOIN play_sessions s ON s.id = o.session_id
       JOIN facilities f ON f.id = s.facility_id
+      ${SESSION_PLACE_JOIN}
      WHERE r.user_id = ${userId}
        AND r.state = 'active'
        AND o.status <> 'cancelled'
@@ -134,7 +147,7 @@ async function openCheckin(db: SqlRunner, userId: string): Promise<OpenCheckin |
   if (!row) return null;
   return {
     title: String(row.title),
-    place: row.facility_name === null ? null : String(row.facility_name),
+    place: sessionPlaceFromRow(row),
   };
 }
 
