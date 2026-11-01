@@ -28,7 +28,7 @@ const HANDLE = 'test-handle';
 const SECRET = new RegExp(`${TOKEN}|${HEX}|${HANDLE}|otmetka|pokana|otpisvane|pasport`);
 /** consent.js's own list of personal pages. */
 const PERSONAL =
-  /^(\/en)?\/(admin(\/|$)|otmetka\/|sedmitsata\/otpisvane\/|pasport(\/|$)|profil(\/|$)|trenirovki(\/|$)|klasirane(\/|$)|kampanii\/[^/]+|sesiya\/|igra\/|klub(\/|$)|klubove\/(otmetka|otpisvane|pokana)\/|s\/|dobre-doshli(\/|$)|dev\/)/;
+  /^(\/en)?\/(admin(\/|$)|otmetka\/|sedmitsata\/otpisvane\/|pasport(\/|$)|profil(\/|$)|trenirovki(\/|$)|klasirane(\/|$)|kampanii\/[^/]+|sesiya\/|igra\/|klub(\/|$)|klubove\/(otmetka|otpisvane|pokana)\/|s\/|dobre-doshli(\/|$)|dev\/|vhod(\/|$)|signal(\/|$))/;
 
 function personalAt(at: string) {
   return PERSONAL.test(at.split('?')[0] ?? at);
@@ -284,6 +284,9 @@ test.describe('Google Analytics behind the card', () => {
       '/klasirane',
       ...(club ? [`/klub/${club}`] : []),
       '/en/klasirane',
+      // Public pages whose query carries the page they came from.
+      `/vhod?next=%2Fklubove%2Fpokana%2F${HEX}`,
+      `/signal?url=%2Fpasport%2F${HANDLE}`,
     ];
     const personalLoads: string[] = [];
     for (const path of pages) {
@@ -314,6 +317,30 @@ test.describe('Google Analytics behind the card', () => {
     await pushTo(page, '/statistika');
     const out = await pageView(google, '/statistika', mark);
     expect(out.dr).not.toMatch(SECRET);
+
+    // Into the sign-in page with a token page in its ?next=, by the router: Google off, the page loads afresh.
+    google.step = 'a page load of /karta, again';
+    mark = google.hits.length;
+    await page.goto('/karta');
+    await pageView(google, '/karta', mark);
+    google.step = `the router moves /karta → /vhod?next=%2Fotmetka%2F${TOKEN}`;
+    await pushTo(page, `/vhod?next=%2Fotmetka%2F${TOKEN}`);
+    expect(new URL(page.url()).pathname).toBe('/vhod');
+    expect(await page.evaluate(() => typeof (window as { gtag?: unknown }).gtag)).toBe('undefined');
+
+    // A full load from such a sign-in page: no token in the page_view's referrer.
+    google.step = `a page load of /vhod?next=%2Fklubove%2Fpokana%2F${HEX}`;
+    await page.goto(`/vhod?next=%2Fklubove%2Fpokana%2F${HEX}`);
+    google.step = 'a full load of /statistika from that /vhod';
+    mark = google.hits.length;
+    await page
+      .evaluate(() => {
+        window.location.href = '/statistika';
+      })
+      .catch(() => undefined);
+    await expect(page).toHaveURL(`${origin}/statistika`);
+    const fromSignIn = await pageView(google, '/statistika', mark);
+    expect(fromSignIn.dr).not.toMatch(SECRET);
 
     // Out of a personal page by a real link (the router).
     google.step = 'a page load of /en/klasirane';
