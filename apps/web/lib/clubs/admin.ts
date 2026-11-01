@@ -1,5 +1,6 @@
 import { getDb, sql, type SQL } from '@sportkarta/db';
 import {
+  CLUB_PURGE_AFTER_DAYS,
   CLUB_TRIAL_DAYS,
   clubAccessState,
   sofiaToday,
@@ -46,7 +47,7 @@ export const ADMIN_CLUB_FILTERS: readonly AdminClubFilter[] = [
 ];
 
 /** Days an archived club stays exportable before it may be purged (Art. 28(3)(g)). */
-export const PURGE_AFTER_DAYS = 90;
+export const PURGE_AFTER_DAYS = CLUB_PURGE_AFTER_DAYS;
 
 export interface AdminClubRow {
   id: string;

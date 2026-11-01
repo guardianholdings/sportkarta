@@ -1,4 +1,5 @@
 import { NOTIFIER_CONTACT_RETENTION_DAYS } from '@sportkarta/db';
+import { CLUB_PURGE_AFTER_DAYS } from '@sportkarta/lib/clubs';
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import type { ReactNode } from 'react';
@@ -9,15 +10,18 @@ import { AppShell } from '@/components/shell/app-shell';
 import { Link } from '@/i18n/navigation';
 import { enabledSignInProviders, SIGN_IN_PROVIDER_NAMES } from '@/lib/auth-config';
 import { OTP_TTL_SECONDS } from '@/lib/auth-surface';
+import { clubsEnabled } from '@/lib/clubs/access';
+import { clubSwitchOn, type ClubSwitch } from '@/lib/clubs/features';
+import { paymentsReady } from '@/lib/clubs/payments';
 import {
   PRIVACY_ACTIVITIES,
-  PRIVACY_PROVIDER_ONLY,
   PRIVACY_RECIPIENTS,
   PRIVACY_RETENTION,
+  PRIVACY_TRANSFERS,
+  privacyKeyPrinted,
 } from '@/lib/legal-pages';
 import { organisation } from '@/lib/organisation';
 import { buildAlternates } from '@/lib/seo';
-import { clubSwitchOn } from '@/lib/clubs/features';
 
 /**
  * «Поверителност» — the GDPR Art. 13 notice.
@@ -37,6 +41,14 @@ import { clubSwitchOn } from '@/lib/clubs/features';
  * 8 weekly off-box), NOTIFIER_CONTACT_RETENTION_DAYS and OTP_TTL_SECONDS — both
  * passed in rather than typed into the messages so they cannot drift — and the
  * sign-in providers that are switched on. Change a behaviour, change this page.
+ *
+ * The clubs module (launch audit) is described the same way: the `clubs`
+ * activity and retention line print while CLUBS_ENABLED is on, the `push`
+ * activity and the Stripe recipient only while their own switch is too
+ * (PRIVACY_SWITCH_ONLY; for Stripe, paymentsReady — a switch without a
+ * provider pays nobody), and the purge figure is CLUB_PURGE_AFTER_DAYS. For a
+ * club's records the club is the controller — the notice points members at
+ * /usloviya-klubove, whose Annex A is the processing agreement.
  *
  * Dynamic so the controller's identity (ORG_*, CONTACT_EMAIL) applies from the
  * container env without a rebuild; the page itself holds no user data.
@@ -77,12 +89,18 @@ export default async function PrivacyPage({ params }: { params: PageParams }) {
   const providerNames = new Intl.ListFormat(locale, { type: 'disjunction' }).format(
     providers.map((provider) => SIGN_IN_PROVIDER_NAMES[provider]),
   );
-  const printed = (key: string) => providers.length > 0 || !PRIVACY_PROVIDER_ONLY.has(key);
+  // Stripe is disclosed only while payments can actually run: the switch AND
+  // a working provider (lib/clubs/payments.ts paymentsReady), not the env flag alone.
+  const switchOn = (name: ClubSwitch) =>
+    name === 'payments' ? paymentsReady() : clubSwitchOn(name);
+  const switches = { providersOn: providers.length > 0, clubsOn: clubsEnabled(), switchOn };
+  const printed = (key: string) => privacyKeyPrinted(key, switches);
   const rich = {
     ...legalLinks,
     days: NOTIFIER_CONTACT_RETENTION_DAYS,
     minutes: OTP_TTL_SECONDS / 60,
     providers: providerNames,
+    purgeDays: CLUB_PURGE_AFTER_DAYS,
   };
 
   return (
@@ -132,12 +150,16 @@ export default async function PrivacyPage({ params }: { params: PageParams }) {
         </Section>
 
         <Section id="transfers" title={t('transfers.title')}>
-          <p className="text-ink-soft">{t('transfers.body')}</p>
+          {PRIVACY_TRANSFERS.filter(printed).map((key) => (
+            <p key={key} className="text-ink-soft">
+              {t(`transfers.${key}`)}
+            </p>
+          ))}
         </Section>
 
         <Section id="retention" title={t('retention.title')}>
           <ul className="list-disc space-y-2 pl-5 text-ink-soft">
-            {PRIVACY_RETENTION.map((key) => (
+            {PRIVACY_RETENTION.filter(printed).map((key) => (
               <li key={key}>{t.rich(`retention.${key}`, rich)}</li>
             ))}
           </ul>
