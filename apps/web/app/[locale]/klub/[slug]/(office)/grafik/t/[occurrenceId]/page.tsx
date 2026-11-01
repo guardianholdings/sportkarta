@@ -121,7 +121,9 @@ export default async function ClubRosterPage({
     minute: '2-digit',
     timeZone: 'Europe/Sofia',
   }).format(new Date(roster.endsAt));
-  const tone = rezultat ? OUTCOME_TONE[rezultat] : undefined;
+  // An own key only: `?rezultat=constructor` must miss, not find Object.
+  const tone =
+    rezultat && Object.hasOwn(OUTCOME_TONE, rezultat) ? OUTCOME_TONE[rezultat] : undefined;
   const hidden = (
     <>
       <input type="hidden" name="slug" value={slug} />
