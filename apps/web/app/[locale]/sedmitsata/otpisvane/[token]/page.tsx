@@ -39,7 +39,12 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   const t = await getTranslations({ locale, namespace: 'Digest' });
   // A real title (D-4): this used to set only robots, so the tab read as the
   // bare site title.
-  return { title: t('unsubscribeConfirmTitle'), robots: { index: false, follow: false } };
+  return {
+    title: t('unsubscribeConfirmTitle'),
+    robots: { index: false, follow: false },
+    // The token stays out of the next page's referrer.
+    referrer: 'no-referrer',
+  };
 }
 
 function first(value: string | string[] | undefined): string | undefined {

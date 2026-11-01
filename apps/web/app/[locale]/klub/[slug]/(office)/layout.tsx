@@ -19,6 +19,8 @@ export async function generateMetadata({
   return {
     title: t('metaTitle', { club: clubName(club, locale) }),
     robots: { index: false, follow: false },
+    // Member and token paths stay out of the next page's referrer.
+    referrer: 'no-referrer',
   };
 }
 
