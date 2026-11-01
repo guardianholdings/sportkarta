@@ -1,0 +1,9 @@
+--- db
+ Test Files  60 passed (60)
+      Tests  605 passed (605)
+--- public-data-db
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+--- journeys
+ Test Files  16 passed (16)
+      Tests  98 passed (98)
