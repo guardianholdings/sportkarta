@@ -101,6 +101,11 @@ services:
       # CHECKIN_TOKEN_SECRET secret is set. It was missing here, so production
       # showed «QR check-in is unavailable» to every organiser.
       CHECKIN_TOKEN_SECRET: ${CHECKIN_TOKEN_SECRET:-}
+      # Server Actions key (deploy.yml derives it from AUTH_SECRET and bakes the
+      # same value into the image at build time). Stable across deploys, so a
+      # form that was open during a deploy still reaches its action instead of
+      # losing the member's answers to a 404. Empty = Next's per-build key.
+      NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: ${NEXT_SERVER_ACTIONS_ENCRYPTION_KEY:-}
       # Headline partner strip (Stage 8). Ships off.
       PARTNER_STRIP_ENABLED: ${PARTNER_STRIP_ENABLED:-}
       # «Клубове» add-on (Stage 9). Ships off: every club route 404s.
