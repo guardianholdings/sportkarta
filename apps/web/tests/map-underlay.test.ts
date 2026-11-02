@@ -16,6 +16,7 @@ import {
   underlayUrl,
 } from '../lib/map/style';
 import {
+  keepsSouthLimit,
   nationalCovers,
   nationalRange,
   skipUnderlayTile,
@@ -228,5 +229,20 @@ describe('the underlay in the style', () => {
     expect(read('components/map/map-canvas.tsx')).toMatch(
       /map\.addLayer\(layer, NATIONAL_FIRST_LAYER\)/,
     );
+  });
+});
+
+describe('the south limit with the underlay', () => {
+  it('comes back from UNDERLAY_LAYER_MAXZOOM, where MapLibre no longer draws its layers', () => {
+    expect(keepsSouthLimit(true, 5.5)).toBe(false);
+    expect(keepsSouthLimit(true, UNDERLAY_LAYER_MAXZOOM - 0.01)).toBe(false);
+    expect(keepsSouthLimit(true, UNDERLAY_LAYER_MAXZOOM)).toBe(true);
+    expect(keepsSouthLimit(true, 16)).toBe(true);
+  });
+
+  it('is always kept without it: the phone and the place listings', () => {
+    for (const zoom of [3, 5.5, UNDERLAY_LAYER_MAXZOOM - 0.01, UNDERLAY_LAYER_MAXZOOM, 16]) {
+      expect(keepsSouthLimit(false, zoom)).toBe(true);
+    }
   });
 });

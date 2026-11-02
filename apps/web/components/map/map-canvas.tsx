@@ -21,6 +21,7 @@ import {
   underlayStyle,
   underlayUrl,
 } from '@/lib/map/style';
+import { keepsSouthLimit } from '@/lib/map/underlay';
 
 import {
   boxMiddle,
@@ -593,8 +594,10 @@ export default function MapCanvas({
     // `clampCenter` for why the centre and not the viewport). Without the
     // regional underlay, also keep the bottom of the visible frame on the
     // basemap's southern edge (see `southLimitLat`: below it there are no
-    // tiles, only the background). With it there is map on every side, so the
-    // country stays centred in the frame — on desktop, list open or closed. A
+    // tiles, only the background). With it there is map on every side below
+    // UNDERLAY_LAYER_MAXZOOM, so the country stays centred in the frame — on
+    // desktop, list open or closed; from that zoom its layers are hidden and
+    // the south limit applies again (`keepsSouthLimit`). A
     // transform constraint REPLACES MapLibre's default one, including its zoom
     // clamp, so the min/max zoom is re-applied here — first, because the south
     // limit depends on the zoom it is computed for.
@@ -614,7 +617,9 @@ export default function MapCanvas({
       const centre = clampCenter(
         lngLat,
         BULGARIA_BOUNDS,
-        underlayRef.current ? undefined : { zoom: clampedZoom, halfHeight: frameHalfHeight() },
+        keepsSouthLimit(underlayRef.current, clampedZoom)
+          ? { zoom: clampedZoom, halfHeight: frameHalfHeight() }
+          : undefined,
       );
       return {
         center: new maplibregl.LngLat(centre.lng, centre.lat),
@@ -692,7 +697,7 @@ export default function MapCanvas({
             halfWidth: frameHalfWidth(),
             halfHeight: frameHalfHeight(),
           },
-          !underlayRef.current,
+          keepsSouthLimit(underlayRef.current, map.getZoom()),
         );
         const at = map.getCenter();
         if (open.lat !== at.lat || open.lng !== at.lng) {
