@@ -199,3 +199,44 @@ describe('analytics event vocabulary', () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * The two campaign-week events (near-me, the club application) and the promise
+ * that has to move with them. lib/analytics-events.ts says the privacy
+ * paragraph changes in the same commit as the vocabulary; for these two that is
+ * pinned here in both languages, together with where each one is wired.
+ */
+describe('near_me_open and club_apply_submit', () => {
+  const privacyAnalytics = (locale: 'bg' | 'en'): string => {
+    const messages = JSON.parse(readFileSync(join(WEB_ROOT, 'messages', `${locale}.json`), 'utf8'));
+    return messages.Privacy.processing.analytics.body as string;
+  };
+  const valuesIn = (file: string): string[] =>
+    usages.filter((u) => u.file === file).map((u) => u.value);
+
+  it('the privacy paragraph names both actions, and the club among what is never recorded', () => {
+    const bg = privacyAnalytics('bg');
+    expect(bg).toContain('потърсил е места около себе си');
+    expect(bg).toContain('подал заявка за клуб');
+    expect(bg).toContain('мрежа или клуб се отнася');
+
+    const en = privacyAnalytics('en');
+    expect(en).toContain('looked for places near them');
+    expect(en).toContain('sent a club application');
+    expect(en).toContain('network or club it concerned');
+  });
+
+  it('near-me is counted at both doors, and the map chip only while near-me is off', () => {
+    expect(valuesIn('components/home/place-search.tsx')).toContain('{ANALYTICS_EVENTS.nearMeOpen}');
+    // An unconditional attribute would count switching near-me OFF as opening it.
+    expect(valuesIn('components/map/map-explorer.tsx')).toContain(
+      '{nearMeOn ? undefined : ANALYTICS_EVENTS.nearMeOpen}',
+    );
+  });
+
+  it('the club application is counted at its send button', () => {
+    expect(valuesIn('components/clubs/application-form.tsx')).toEqual([
+      '{ANALYTICS_EVENTS.clubApplySubmit}',
+    ]);
+  });
+});

@@ -102,6 +102,30 @@ export const ANALYTICS_EVENTS = {
   shareOpen: 'share_open',
   shareNetwork: 'share_network',
   shareDownload: 'share_download',
+
+  /**
+   * Near-me, from either door: the front page's «Близо до мен» (a link that
+   * hands `?blizo=1` to the map) and the map's own «Около мен» chip. One name
+   * for both, because Umami records the page the click happened on, and that
+   * already says which door it was. It counts that somebody asked for places
+   * around them — never where they are: the event carries no dimension, the
+   * position never leaves the browser, and `data-exclude-search` keeps the
+   * map's `?lat=…&lng=…` out of the URL Umami records with it.
+   *
+   * The chip carries the attribute only while near-me is OFF, so switching it
+   * off is not counted as opening it. That works because the tracker listens on
+   * `document` in the CAPTURE phase and reads the attribute before React's
+   * handler flips the state.
+   */
+  nearMeOpen: 'near_me_open',
+
+  /**
+   * The club application form's send button: the top of the clubs funnel.
+   * Intent, like the contribution submits — a press of the button, whatever the
+   * server then answers. No outcome dimension (rule 2): "already pending" or
+   * "too many clubs" describes one account, not the product.
+   */
+  clubApplySubmit: 'club_apply_submit',
 } as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];
