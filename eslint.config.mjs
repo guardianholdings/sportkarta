@@ -26,6 +26,9 @@ export default tseslint.config(
       // The consent card, another browser-runtime script: kept in the shape of
       // the source it was reviewed as, so a diff against that source stays short.
       'apps/web/public/consent.js',
+      // Umami's tracker, a byte-for-byte copy of the production build that the
+      // analytics E2E spec drives (a test fixture, never served).
+      'apps/web/e2e/fixtures/umami-tracker.js',
       // Seed design handoff — read-only reference bundle (browser-runtime .js /
       // .jsx prototype, not our source). Authority for the design system; never
       // linted, typechecked, or built. See docs/design/RECONCILIATION.md.

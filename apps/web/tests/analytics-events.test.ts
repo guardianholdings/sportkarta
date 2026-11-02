@@ -234,6 +234,20 @@ describe('near_me_open and club_apply_submit', () => {
     );
   });
 
+  it("the front page's near-me link keeps its client-side navigation", () => {
+    // Umami's tracker cancels a click on an <a> that carries the attribute
+    // itself, sends the event, then loads the address as a full page; on any
+    // other element it only sends. So the attribute sits on a `contents`
+    // wrapper around the link, never on the link. e2e/analytics-events.spec.ts
+    // drives the real tracker against it.
+    const src = readFileSync(join(WEB_ROOT, 'components', 'home', 'place-search.tsx'), 'utf8');
+    const at = [...src.matchAll(/data-umami-event=/g)].map((m) => m.index);
+    expect(at).toHaveLength(1);
+    const openingTag = src.slice(src.lastIndexOf('<', at[0]), at[0]);
+    expect(openingTag).toMatch(/^<span\b/);
+    expect(openingTag).toContain('className="contents"');
+  });
+
   it('the club application is counted at its send button', () => {
     expect(valuesIn('components/clubs/application-form.tsx')).toEqual([
       '{ANALYTICS_EVENTS.clubApplySubmit}',
