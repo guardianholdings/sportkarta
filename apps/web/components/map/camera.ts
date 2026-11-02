@@ -63,6 +63,16 @@ export function latitudeAt(y: number): number {
   return (Math.atan(Math.sinh(Math.PI * (1 - 2 * y))) * 180) / Math.PI;
 }
 
+/**
+ * The middle of the box in degrees (25.5° E, 42.75° N for Bulgaria's): the
+ * point the desktop fit puts at the centre of the visible map (operator
+ * request 2026-11-02). `cameraForBounds` centres the box's Mercator middle
+ * instead, which lies at 42.775° N, 4 to 9 px north of it at desktop zooms.
+ */
+export function boxMiddle(bounds: Bounds): { lng: number; lat: number } {
+  return { lng: (bounds[0][0] + bounds[1][0]) / 2, lat: (bounds[0][1] + bounds[1][1]) / 2 };
+}
+
 /** The part of the canvas the member can see, as the phone pan limit needs it. */
 export interface VisibleFrame {
   /** The camera zoom (MapLibre's 512px world). */
