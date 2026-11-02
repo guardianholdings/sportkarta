@@ -9,8 +9,9 @@ import bg from '../messages/bg.json';
  * on a laptop) showed the country at the bottom, under an empty band.
  *
  * On desktop the list sits beside the map, not over it, so the visible map is
- * the canvas. The box's corners are projected through the map itself, so the
- * check is in screen pixels.
+ * the canvas. The box's middle, 25.5° E 42.75° N, is projected through the
+ * map itself, so the check is in screen pixels; the whole box must be inside
+ * the visible map as well.
  */
 
 const BOX = { west: 22, south: 41, east: 29, north: 44.5 };
@@ -60,12 +61,14 @@ async function boxOffset(page: Page) {
     if (!map || map.isMoving()) return null;
     const canvas = map.getCanvas();
     if (canvas.clientWidth !== map.getContainer().clientWidth) return null;
+    const middle = map.project([(west + east) / 2, (south + north) / 2]);
     const nw = map.project([west, north]);
     const se = map.project([east, south]);
     return {
       left: Math.round(canvas.getBoundingClientRect().left),
-      dx: (nw.x + se.x) / 2 - canvas.clientWidth / 2,
-      dy: (nw.y + se.y) / 2 - canvas.clientHeight / 2,
+      dx: middle.x - canvas.clientWidth / 2,
+      dy: middle.y - canvas.clientHeight / 2,
+      inside: nw.x >= 0 && nw.y >= 0 && se.x <= canvas.clientWidth && se.y <= canvas.clientHeight,
     };
   }, BOX);
 }
@@ -106,7 +109,7 @@ async function settledView(page: Page, left: number): Promise<View> {
   return seen.last as unknown as View;
 }
 
-/** Waits for the map beside a list of `left` px, then for the fit to centre the box. */
+/** Waits for the map beside a list of `left` px, then for the fit to centre the box's middle, box in view. */
 async function expectCentred(page: Page, left: number) {
   await expect
     .poll(
@@ -114,7 +117,8 @@ async function expectCentred(page: Page, left: number) {
         const o = await boxOffset(page);
         if (!o || o.left !== left) return 'not settled';
         const centred = Math.abs(o.dx) <= TOLERANCE_PX && Math.abs(o.dy) <= TOLERANCE_PX;
-        return centred ? 'centred' : `off by ${o.dx.toFixed(1)}, ${o.dy.toFixed(1)} px`;
+        if (!centred) return `off by ${o.dx.toFixed(1)}, ${o.dy.toFixed(1)} px`;
+        return o.inside ? 'centred' : 'centred, but the box runs off the map';
       },
       { timeout: 20_000 },
     )

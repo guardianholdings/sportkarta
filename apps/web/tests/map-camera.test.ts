@@ -5,6 +5,7 @@ import { BULGARIA_BOUNDS, insideBulgaria } from '@sportkarta/lib/geo';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  boxMiddle,
   clampCenter,
   FIT_MARGIN_PX,
   insideVisibleFrame,
@@ -147,23 +148,34 @@ describe('desktop fit', () => {
     // The fitted frame is taller than the box on these canvases. From 10 Oct to
     // 2 Nov the south limit pushed all the spare room north, past the national
     // archive's tiles, onto an empty band (operator request 2026-11-02). Desktop draws the
-    // regional underlay, so it passes no frame and the fit stays centred.
+    // regional underlay, so it passes no frame and the box's middle stays at the centre.
     const { width, height } = TABLET;
     const zoom = fittedFloor(width, height);
     const half = height / 2 / (512 * 2 ** zoom);
-    const middle = {
-      lng: (west + east) / 2,
-      lat: latitudeAt((mercatorY(south) + mercatorY(north)) / 2),
-    };
+    const middle = boxMiddle(BULGARIA_BOUNDS);
+    expect(middle).toEqual({ lng: 25.5, lat: 42.75 });
     expect(clampCenter(middle, BULGARIA_BOUNDS)).toEqual(middle);
-    // Equal room above and below the box, in screen pixels (Mercator).
-    const above = mercatorY(north) - (mercatorY(middle.lat) - half);
-    const below = mercatorY(middle.lat) + half - mercatorY(south);
-    expect(above).toBeCloseTo(below, 12);
+    // Room above and below the box, in screen pixels: both positive, and a few
+    // pixels apart only, since the box's Mercator middle lies 0.025° north.
+    const px = 512 * 2 ** zoom;
+    const above = (mercatorY(north) - (mercatorY(middle.lat) - half)) * px;
+    const below = (mercatorY(middle.lat) + half - mercatorY(south)) * px;
     expect(above).toBeGreaterThan(0);
+    expect(below).toBeGreaterThan(0);
+    expect(Math.abs(above - below)).toBeLessThan(2 * 4);
+    const mercatorMiddle = latitudeAt((mercatorY(south) + mercatorY(north)) / 2);
+    expect(mercatorMiddle - middle.lat).toBeCloseTo(0.025, 3);
     // With the frame, as the phone still passes it, the same fit is pushed north.
     const framed = clampCenter(middle, BULGARIA_BOUNDS, { zoom, halfHeight: height / 2 });
     expect(framed.lat).toBeGreaterThan(middle.lat);
+  });
+
+  it('opens desktop with the box’s middle at the centre, at the fit’s zoom; the phone keeps the fit', () => {
+    const canvas = read('components/map/map-canvas.tsx');
+    expect(canvas).toMatch(/const fitMiddle = boxMiddle\(BULGARIA_BOUNDS\);/);
+    expect(canvas).toMatch(
+      /if \(cam\) map\.jumpTo\(underlayRef\.current \? \{ \.\.\.cam, center: fitMiddle \} : cam\);/,
+    );
   });
 
   it('passes no frame on desktop, in the pan limit and in the URL camera', () => {

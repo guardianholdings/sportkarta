@@ -23,6 +23,7 @@ import {
 } from '@/lib/map/style';
 
 import {
+  boxMiddle,
   clampCenter,
   FIT_MARGIN_PX,
   insideVisibleFrame,
@@ -584,6 +585,9 @@ export default function MapCanvas({
     // the part of the canvas the member can actually SEE. Fitting it into the
     // full canvas is what put a third of the country behind the list panel.
     const countryCamera = () => map.cameraForBounds(BG_BOUNDS, { padding: FIT_MARGIN_PX });
+    // Desktop (the regional underlay) opens with the box's middle at the
+    // centre, at the fit's zoom; the phone keeps the fit's own centre.
+    const fitMiddle = boxMiddle(BULGARIA_BOUNDS);
 
     // The pan limit, on every layout: pin the camera centre inside the box (see
     // `clampCenter` for why the centre and not the viewport). Without the
@@ -702,7 +706,7 @@ export default function MapCanvas({
       // provisional frame would open the map off-centre.
       if (autoFitRef.current) {
         const cam = countryCamera();
-        if (cam) map.jumpTo(cam);
+        if (cam) map.jumpTo(underlayRef.current ? { ...cam, center: fitMiddle } : cam);
       }
     };
     applyPadding();
