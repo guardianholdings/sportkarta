@@ -6,10 +6,12 @@ export interface NumbersFigure {
 
 /**
  * The front page's numbers band (components/marketing/numbers-band.tsx), in the
- * platform's own figures. A figure with no number is left out, and so is the
- * games figure while there are no games this week (operator, 2026-11-02): «0
- * игри тази седмица» on the front page reads as an empty platform. The clubs
- * page's audience band follows the same rule (lib/clubs/landing.ts).
+ * platform's own figures. A figure with no number is left out, and so are its
+ * two pulses while they are 0 (operator, 2026-11-02): «0 игри тази седмица» or
+ * «0 приноси за 30 дни» on the front page reads as an empty platform. With both
+ * left out, the band's two figures fill one row of two columns at every width.
+ * The clubs page's audience band follows the same rule for games
+ * (lib/clubs/landing.ts).
  */
 export function numbersFigures(
   places: number | null,
@@ -23,7 +25,9 @@ export function numbersFigures(
   if (gamesThisWeek !== null && gamesThisWeek > 0) {
     figures.push({ key: 'games', value: gamesThisWeek });
   }
-  if (contributions !== null) figures.push({ key: 'contributions', value: contributions });
+  if (contributions !== null && contributions > 0) {
+    figures.push({ key: 'contributions', value: contributions });
+  }
   return figures;
 }
 

@@ -17,8 +17,8 @@ import { cn } from '@/lib/utils';
  * rolling counters. Nothing here is person-derived: places, municipalities
  * with data, public игри in the next seven days, awarded contributions
  * in the last thirty days. A figure that failed to load is left out rather
- * than shown as zero, and so is the games figure while there are none
- * (numbersFigures).
+ * than shown as zero, and so are the games and contributions figures while
+ * they are 0 (numbersFigures).
  */
 export async function NumbersBand({
   places,
@@ -32,6 +32,7 @@ export async function NumbersBand({
   numbers: NationalStats | null;
   /** Shown only while above 0 (numbersFigures). */
   gamesThisWeek: number | null;
+  /** Shown only while above 0 (numbersFigures). */
   contributions: number | null;
   locale: string;
 }) {
