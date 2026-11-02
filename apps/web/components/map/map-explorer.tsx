@@ -31,6 +31,7 @@ import { Chip } from '@/components/ui/chip';
 import { IconButton } from '@/components/ui/icon-button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 import { facilityFamily, FAMILY_COLOR } from '@/lib/design/families';
 import { SPORT_VISUALS } from '@/lib/design/sport-visuals';
 import {
@@ -1540,6 +1541,9 @@ function FilterSheet({
                 selected={nearMeOn}
                 icon={<MapPin size={15} />}
                 onClick={onToggleNearMe}
+                // Only while off: switching near-me off is not "opening" it
+                // (see ANALYTICS_EVENTS.nearMeOpen).
+                data-umami-event={nearMeOn ? undefined : ANALYTICS_EVENTS.nearMeOpen}
               >
                 {t('nearMe')}
               </Chip>

@@ -7,6 +7,7 @@ import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import type { ClubFormMessages } from '@/lib/clubs/form-labels';
 import { useFormAction } from '@/lib/use-form-action';
+import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 
 import { FormFeedback } from './form-feedback';
 
@@ -132,7 +133,7 @@ export function ApplicationForm({
         <Textarea id="a-desc" name="description" maxLength={2000} rows={4} />
       </div>
       <Checkbox name="acceptTerms" required label={labels.acceptTerms} />
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" disabled={pending} data-umami-event={ANALYTICS_EVENTS.clubApplySubmit}>
         {labels.submit}
       </Button>
     </form>

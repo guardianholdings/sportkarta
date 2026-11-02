@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 
 import { buttonVariants } from '@/components/ui/button';
 import { getPathname, Link } from '@/i18n/navigation';
+import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 import { cn } from '@/lib/utils';
 
 /**
@@ -44,7 +45,11 @@ export async function PlaceSearch({ locale }: { locale: string }) {
       </form>
 
       <div className="flex flex-wrap gap-2">
-        <Link href="/karta?blizo=1" className={buttonVariants({ variant: 'secondary' })}>
+        <Link
+          href="/karta?blizo=1"
+          className={buttonVariants({ variant: 'secondary' })}
+          data-umami-event={ANALYTICS_EVENTS.nearMeOpen}
+        >
           <LocateFixed size={18} aria-hidden="true" />
           {t('hero.nearMe')}
         </Link>
