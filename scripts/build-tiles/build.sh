@@ -14,6 +14,11 @@
 # OUTPUT  deploy/tiles/bulgaria.pmtiles (git-ignored — too large for the repo;
 #         shipped to the VPS tiles volume as an ops step, see README.md).
 #
+# `build.sh region` builds the regional underlay instead: the countries around
+# Bulgaria at low zoom, which the desktop map draws under the national archive
+# (apps/web/lib/map/underlay.ts). It is small (about 13 MB), committed under
+# apps/web/public/basemap/ and served by the app itself. See REGION_BUILD below.
+#
 # `pmtiles extract` streams only the tiles inside --bbox over HTTP range
 # requests, so this downloads megabytes, not the multi-GB planet.
 set -euo pipefail
@@ -22,6 +27,15 @@ set -euo pipefail
 # db/migrations/0001 (lon 22..29, lat 41..44.5) so basemap and data align.
 BBOX="22.0,41.0,29.0,44.5"
 MAXZOOM="${MAXZOOM:-14}"
+
+# The regional underlay. Its Protomaps build date is pinned and is part of the
+# file name, which UNDERLAY_PATH in apps/web/lib/map/underlay.ts names, so the
+# browser may cache the file for a month. Protomaps prunes old dailies: to
+# rebuild, set an available date here, change UNDERLAY_PATH to the new name
+# (the unit tests check that the two agree) and delete the old file.
+REGION_BUILD="20261101"
+REGION_BBOX="14,36,37,49"
+REGION_MAXZOOM="7"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -33,6 +47,13 @@ if [[ "${SOURCE}" =~ ^[0-9]{8}$ ]]; then
   SOURCE="https://build.protomaps.com/${SOURCE}.pmtiles"
 fi
 OUTPUT="${2:-${OUTPUT:-${REPO_ROOT}/deploy/tiles/bulgaria.pmtiles}}"
+
+if [[ "${1:-}" == "region" ]]; then
+  SOURCE="https://build.protomaps.com/${REGION_BUILD}.pmtiles"
+  OUTPUT="${REPO_ROOT}/apps/web/public/basemap/region-${REGION_BUILD}.pmtiles"
+  BBOX="${REGION_BBOX}"
+  MAXZOOM="${REGION_MAXZOOM}"
+fi
 
 if ! command -v pmtiles >/dev/null 2>&1; then
   cat >&2 <<'EOF'

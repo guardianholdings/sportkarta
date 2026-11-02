@@ -110,6 +110,13 @@ const nextConfig: NextConfig = {
         headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000' }],
       },
       {
+        // The regional map underlay (lib/map/underlay.ts): its file name
+        // carries the Protomaps build date, so a rebuild is a new URL and a
+        // month is safe, as for the glyphs.
+        source: '/basemap/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=2592000' }],
+      },
+      {
         // The glyph PBFs are protobuf but went out as application/octet-stream,
         // which Caddy's default `encode` matcher skips — 134 KB on the wire
         // where 83 KB would do. Naming the real type, which is on that default
