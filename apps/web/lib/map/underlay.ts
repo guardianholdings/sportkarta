@@ -26,15 +26,30 @@ export const UNDERLAY_PATH = '/basemap/region-20261101.pmtiles';
 export const UNDERLAY_MAXZOOM = 7;
 
 /**
- * The underlay's layers are drawn below this map zoom only. Above it the
- * frame is close to the country: the pan limit keeps the camera centre inside
- * the box, so even at the box's edge the frame reaches only a few tenths of a
- * degree past it, where the national archive still has tiles at these zooms.
- * Above it MapLibre fetches no underlay tile at all — a hidden layer's source
- * is not used — so zooming into a town never downloads the enlarged z7 tile
- * under it.
+ * The underlay's layers are drawn below this map zoom only. Above it MapLibre
+ * fetches no underlay tile at all — a hidden layer's source is not used — so
+ * zooming into a town never downloads the enlarged z7 tile under it. From
+ * this zoom only the national archive is drawn, so the pan limit keeps the
+ * bottom of the frame on the box's southern edge again (`keepsSouthLimit`).
  */
 export const UNDERLAY_LAYER_MAXZOOM = 11;
+
+/**
+ * Whether the pan limit keeps the bottom of the visible frame on the box's
+ * southern edge: `clampCenter` gets the frame, `openingCenter` its
+ * `southLimit`.
+ *
+ * Without the underlay, always: the national archive's last tile row ends
+ * just south of the box (40.98° N), and below it there is only the style's
+ * background. With it, only from `UNDERLAY_LAYER_MAXZOOM`, where its layers
+ * are hidden. Below that zoom the underlay draws south of the box, and the
+ * fitted country stays centred in the frame. Dropping the limit at every zoom
+ * let a centre dragged to the box's southern edge at zoom 11 leave an empty
+ * band of about 360 px at the bottom of a 1512×870 window.
+ */
+export function keepsSouthLimit(underlay: boolean, zoom: number): boolean {
+  return !underlay || zoom >= UNDERLAY_LAYER_MAXZOOM;
+}
 
 function tileX(lon: number, z: number): number {
   return Math.floor(((lon + 180) / 360) * 2 ** z);

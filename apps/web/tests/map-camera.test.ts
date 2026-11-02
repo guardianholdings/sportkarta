@@ -17,6 +17,7 @@ import {
   zoomFloor,
 } from '../components/map/camera';
 import { createCluster, createPin } from '../components/map/markers';
+import { keepsSouthLimit, UNDERLAY_LAYER_MAXZOOM } from '../lib/map/underlay';
 import { parseView } from '../lib/map/view';
 
 /**
@@ -178,12 +179,14 @@ describe('desktop fit', () => {
     );
   });
 
-  it('passes no frame on desktop, in the pan limit and in the URL camera', () => {
+  it('passes no frame on desktop while the underlay is drawn, in the pan limit and in the URL camera', () => {
     const canvas = read('components/map/map-canvas.tsx');
     expect(canvas).toMatch(
-      /underlayRef\.current \? undefined : \{ zoom: clampedZoom, halfHeight: frameHalfHeight\(\) \}/,
+      /keepsSouthLimit\(underlayRef\.current, clampedZoom\)\s*\?\s*\{ zoom: clampedZoom, halfHeight: frameHalfHeight\(\) \}\s*:\s*undefined/,
     );
-    expect(canvas).toMatch(/halfHeight: frameHalfHeight\(\),\s*\},\s*!underlayRef\.current,\s*\);/);
+    expect(canvas).toMatch(
+      /halfHeight: frameHalfHeight\(\),\s*\},\s*keepsSouthLimit\(underlayRef\.current, map\.getZoom\(\)\),\s*\);/,
+    );
     // Only the home map's desktop layout asks for the underlay.
     expect(read('components/map/map-explorer.tsx')).toMatch(/underlay=\{viewport\.desktop\}/);
     expect(read('components/map/place-map.tsx')).not.toMatch(/underlay/);
@@ -328,7 +331,7 @@ describe('phone south limit', () => {
   it('is wired into the phone constraint, and re-applied when only the padding changes', () => {
     const canvas = read('components/map/map-canvas.tsx');
     expect(canvas).toMatch(
-      /clampCenter\(\s*lngLat,\s*BULGARIA_BOUNDS,\s*underlayRef\.current \? undefined : \{ zoom: clampedZoom,/,
+      /clampCenter\(\s*lngLat,\s*BULGARIA_BOUNDS,\s*keepsSouthLimit\(underlayRef\.current, clampedZoom\)\s*\?\s*\{ zoom: clampedZoom,/,
     );
     // MapLibre does not re-run the constraint on setPadding (a sheet snap).
     expect(canvas).toMatch(/const held = centreInBulgaria\(now, map\.getZoom\(\)\)\.center;/);
@@ -407,6 +410,67 @@ describe('a camera from the URL', () => {
     const phone = openingCenter(edge, BULGARIA_BOUNDS, { zoom, ...PHONE });
     expect(phone).toEqual(openingCenter(edge, BULGARIA_BOUNDS, { zoom, ...PHONE }, true));
     expect(edges(phone, zoom).south).toBeCloseTo(south, 9);
+  });
+});
+
+/**
+ * From UNDERLAY_LAYER_MAXZOOM the underlay's layers are hidden and only the
+ * national archive is drawn. Its tiles end at the tile-row edge under the
+ * box's southern edge, so with no south limit a centre dragged to that edge at
+ * street zoom left an empty band at the bottom of a laptop's map.
+ */
+describe('desktop at street zoom', () => {
+  const [[, south]] = BULGARIA_BOUNDS;
+  /** An 870 px tall map area (1512×870, list open or closed). */
+  const halfHeight = 870 / 2;
+  const world = (zoom: number) => 512 * 2 ** zoom;
+  /** Latitude of the visible frame's bottom for a camera centre at `lat`. */
+  const bottomAt = (lat: number, zoom: number) =>
+    latitudeAt(mercatorY(lat) + halfHeight / world(zoom));
+  /** The bottom edge of the national tile row that holds the box's southern edge. */
+  const tileEdge = (z: number) => latitudeAt((Math.floor(mercatorY(south) * 2 ** z) + 1) / 2 ** z);
+  /** Empty background below the national tiles, in CSS px. */
+  const bandPx = (lat: number, zoom: number) =>
+    Math.max(
+      0,
+      (mercatorY(bottomAt(lat, zoom)) - mercatorY(tileEdge(Math.floor(zoom)))) * world(zoom),
+    );
+  /** The frame the desktop canvas passes `clampCenter` at `zoom`. */
+  const desktopFrame = (zoom: number) =>
+    keepsSouthLimit(true, zoom) ? { zoom, halfHeight } : undefined;
+  // A drag south across the border, into Greece.
+  const greece = { lng: 23.37, lat: 40.6 };
+
+  it('the regression, as arithmetic: with no frame the bottom ran past the tiles', () => {
+    const centre = clampCenter(greece, BULGARIA_BOUNDS);
+    expect(centre.lat).toBe(south);
+    expect(tileEdge(11)).toBeCloseTo(40.98, 2);
+    expect(bandPx(centre.lat, 11)).toBeGreaterThan(300);
+    expect(bandPx(centre.lat, 13)).toBeGreaterThan(100);
+  });
+
+  it('keeps the bottom of the frame on the box’s southern edge from UNDERLAY_LAYER_MAXZOOM', () => {
+    for (const zoom of [UNDERLAY_LAYER_MAXZOOM, 12, 13, 14, 16]) {
+      const centre = clampCenter(greece, BULGARIA_BOUNDS, desktopFrame(zoom));
+      expect(bottomAt(centre.lat, zoom)).toBeCloseTo(south, 9);
+      expect(bandPx(centre.lat, zoom)).toBe(0);
+    }
+  });
+
+  it('passes no frame below it: the underlay draws south of the box', () => {
+    for (const zoom of [5.5, 8, 10, UNDERLAY_LAYER_MAXZOOM - 0.01]) {
+      expect(desktopFrame(zoom)).toBeUndefined();
+    }
+  });
+
+  it('a camera from the URL at street zoom opens as before: its frame is already in the box', () => {
+    const edge = { lng: 23.37, lat: south };
+    for (const zoom of [UNDERLAY_LAYER_MAXZOOM, 13, 16]) {
+      const frame = { zoom, halfWidth: 1052 / 2, halfHeight };
+      const open = openingCenter(edge, BULGARIA_BOUNDS, frame, keepsSouthLimit(true, zoom));
+      expect(open).toEqual(openingCenter(edge, BULGARIA_BOUNDS, frame, false));
+      expect(bandPx(open.lat, zoom)).toBe(0);
+    }
   });
 });
 

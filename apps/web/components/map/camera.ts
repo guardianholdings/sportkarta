@@ -127,11 +127,13 @@ export function southLimitLat(southLat: number, frame: VisibleFrame): number {
  * and LAST, so it wins over the box's northern edge: when the frame is taller
  * than the room between the tile edge and the box's top (a phone with the sheet
  * collapsed), the centre goes north of the box rather than letting the frame's
- * bottom off the tiles. Desktop passes no frame: it draws the regional
- * underlay, so the frame may run past the box on every side and the country
- * stays centred in it. From 10 Oct to 2 Nov desktop passed its frame too, and
+ * bottom off the tiles. Desktop passes no frame while it draws the regional
+ * underlay (below `UNDERLAY_LAYER_MAXZOOM`, see `keepsSouthLimit`), so the
+ * frame may run past the box on every side and the country stays centred in
+ * it. From 10 Oct to 2 Nov desktop passed its frame too, and
  * every map area narrower than the box's shape (the list open on a laptop)
  * showed the country at the bottom with the empty background above Romania.
+ * From that zoom the underlay is hidden, and desktop passes its frame again.
  */
 export function clampCenter(
   center: { lng: number; lat: number },
@@ -166,8 +168,9 @@ export interface VisibleFrameSize extends VisibleFrame {
  * until it does, and an axis already inside is returned exactly as it came.
  * Where the frame is larger than the box, the frame is centred on it. The
  * south limit applies last, as in `clampCenter`, so the result is a centre
- * `clampCenter` keeps; a map with the regional underlay passes
- * `southLimit: false`, as it passes `clampCenter` no frame.
+ * `clampCenter` keeps; a map drawing the regional underlay passes
+ * `southLimit: false` below `UNDERLAY_LAYER_MAXZOOM`, as it passes
+ * `clampCenter` no frame there (`keepsSouthLimit`).
  */
 export function openingCenter(
   center: { lng: number; lat: number },
