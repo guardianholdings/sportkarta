@@ -7,16 +7,18 @@ import { Reveal } from '@/components/motion/reveal';
 import { SectionHead } from '@/components/home/section-head';
 import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
+import { numbersFigures, numbersWideColumns } from '@/lib/home/numbers';
 import type { NationalStats } from '@/lib/stats-data';
 import { cn } from '@/lib/utils';
 
 /**
  * «Живата карта в числа» — the figures the platform already publishes on
  * /statistika (mv_national_stats) and the two pulses the hero computes, as
- * four rolling counters. Nothing here is person-derived: places, municipalities
+ * rolling counters. Nothing here is person-derived: places, municipalities
  * with data, public игри in the next seven days, awarded contributions
  * in the last thirty days. A figure that failed to load is left out rather
- * than shown as zero.
+ * than shown as zero, and so is the games figure while there are none
+ * (numbersFigures).
  */
 export async function NumbersBand({
   places,
@@ -28,16 +30,18 @@ export async function NumbersBand({
   /** The free places the hero counts (the dot map's figure), so one number is told once. */
   places: number | null;
   numbers: NationalStats | null;
+  /** Shown only while above 0 (numbersFigures). */
   gamesThisWeek: number | null;
   contributions: number | null;
   locale: string;
 }) {
   const t = await getTranslations('Home.numbers');
-  const figures: { key: string; value: number }[] = [];
-  if (places !== null) figures.push({ key: 'places', value: places });
-  if (numbers) figures.push({ key: 'municipalities', value: numbers.municipalitiesCovered });
-  if (gamesThisWeek !== null) figures.push({ key: 'games', value: gamesThisWeek });
-  if (contributions !== null) figures.push({ key: 'contributions', value: contributions });
+  const figures = numbersFigures(
+    places,
+    numbers?.municipalitiesCovered ?? null,
+    gamesThisWeek,
+    contributions,
+  );
   if (figures.length === 0) return null;
 
   return (
@@ -76,7 +80,12 @@ export async function NumbersBand({
         {/* dt before dd, as the dl content model asks; the CSS order flips the visual.
             InViewKey re-mounts the figures where they are seen, so the roll plays then. */}
         <InViewKey>
-          <dl className="mt-10 grid grid-cols-2 gap-x-6 gap-y-8 lg:grid-cols-4">
+          <dl
+            className={cn(
+              'mt-10 grid grid-cols-2 gap-x-6 gap-y-8',
+              numbersWideColumns(figures.length),
+            )}
+          >
             {figures.map((figure) => (
               <div key={figure.key} data-reveal className="flex flex-col gap-1">
                 <dt className="order-2 text-body-sm text-paper/75">{t(figure.key)}</dt>
