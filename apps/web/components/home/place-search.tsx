@@ -45,14 +45,20 @@ export async function PlaceSearch({ locale }: { locale: string }) {
       </form>
 
       <div className="flex flex-wrap gap-2">
-        <Link
-          href="/karta?blizo=1"
-          className={buttonVariants({ variant: 'secondary' })}
-          data-umami-event={ANALYTICS_EVENTS.nearMeOpen}
-        >
-          <LocateFixed size={18} aria-hidden="true" />
-          {t('hero.nearMe')}
-        </Link>
+        {/*
+         * The event sits on a wrapper, not on the link. Umami's tracker takes
+         * over a click on an <a> that carries the attribute itself: it cancels
+         * the click, sends the event, then loads the address as a full page.
+         * On any other element it only sends, so the link keeps its
+         * client-side navigation. `contents` keeps the wrapper out of the
+         * layout: the link is still the flex item.
+         */}
+        <span className="contents" data-umami-event={ANALYTICS_EVENTS.nearMeOpen}>
+          <Link href="/karta?blizo=1" className={buttonVariants({ variant: 'secondary' })}>
+            <LocateFixed size={18} aria-hidden="true" />
+            {t('hero.nearMe')}
+          </Link>
+        </span>
         <Link href="/karta" className={cn(buttonVariants({ variant: 'ghost' }), 'max-sm:px-1.5')}>
           {t('hero.openMap')}
           <ArrowRight size={18} aria-hidden="true" />
