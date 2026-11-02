@@ -20,3 +20,12 @@ export async function directoryView(
   if (!filtered) return 'emptyCatalogue';
   return (await countAll()) > 0 ? 'noMatch' : 'emptyCatalogue';
 }
+
+/**
+ * Whether the page ends with its «Имате зала, студио или клуб?» box. The
+ * invitation already carries the box's two buttons, so while it shows, the box
+ * would repeat them one screen lower (operator, 2026-11-02).
+ */
+export function showsApplyBox(view: DirectoryView): boolean {
+  return view !== 'emptyCatalogue';
+}

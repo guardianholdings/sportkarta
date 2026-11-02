@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it, vi } from 'vitest';
 
-import { directoryView } from '../lib/clubs/directory-view';
+import { directoryView, showsApplyBox } from '../lib/clubs/directory-view';
 import bg from '../messages/bg.json';
 import en from '../messages/en.json';
 
@@ -30,6 +32,27 @@ describe('the directory view', () => {
 
   it('invites the first club on a filtered link too while nothing is published', async () => {
     expect(await directoryView(0, true, async () => 0)).toBe('emptyCatalogue');
+  });
+});
+
+describe('the closing apply box', () => {
+  // The invitation carries the same two buttons, so the box would repeat them
+  // one screen lower (operator, 2026-11-02).
+  it('is left out while the invitation shows', () => {
+    expect(showsApplyBox('emptyCatalogue')).toBe(false);
+  });
+
+  it('stays below a list and below the no-match line', () => {
+    expect(showsApplyBox('clubs')).toBe(true);
+    expect(showsApplyBox('noMatch')).toBe(true);
+  });
+
+  it('is rendered only where showsApplyBox allows it', () => {
+    const page = readFileSync(new URL('../app/[locale]/klubove/page.tsx', import.meta.url), 'utf8');
+    expect(page).toMatch(
+      /\{showsApplyBox\(view\) && \(\s*<section[^>]*>\s*<h2[^>]*>\{t\('applyTitle'\)\}/,
+    );
+    expect(page.split("t('applyTitle')")).toHaveLength(2);
   });
 });
 

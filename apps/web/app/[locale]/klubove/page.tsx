@@ -8,7 +8,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { Link } from '@/i18n/navigation';
 import { requireClubsEnabled } from '@/lib/clubs/club-session';
-import { directoryView } from '@/lib/clubs/directory-view';
+import { directoryView, showsApplyBox } from '@/lib/clubs/directory-view';
 import { clubSportLabeler, clubSportOptions } from '@/lib/clubs/labels';
 import { clubMunicipalities, publicClubDirectory } from '@/lib/clubs/public';
 import { cityDisplayName, loadCityCatalog } from '@/lib/places';
@@ -87,7 +87,8 @@ export default async function ClubDirectoryPage({
 
         {view === 'emptyCatalogue' ? (
           // No club is published yet: an invitation in place of the filter and
-          // the no-match line (operator, 2026-11-01).
+          // the no-match line (operator, 2026-11-01), and the closing apply box
+          // is left out (showsApplyBox).
           <section
             aria-labelledby="clubs-empty"
             className="space-y-3 rounded-card border border-dashed border-line-strong p-6 text-center"
@@ -185,20 +186,22 @@ export default async function ClubDirectoryPage({
           </ul>
         )}
 
-        <section className="space-y-2 rounded-card border border-dashed border-line-strong p-4">
-          <h2 className="text-body font-bold text-ink">{t('applyTitle')}</h2>
-          <p className="max-w-prose text-body-sm text-ink-soft">
-            {t('applyBody', { days: CLUB_TRIAL_DAYS })}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Link href="/klubove/zayavka" className={buttonVariants({ variant: 'secondary' })}>
-              {t('apply')}
-            </Link>
-            <Link href="/za-klubove" className={buttonVariants({ variant: 'ghost' })}>
-              {t('applyMore')}
-            </Link>
-          </div>
-        </section>
+        {showsApplyBox(view) && (
+          <section className="space-y-2 rounded-card border border-dashed border-line-strong p-4">
+            <h2 className="text-body font-bold text-ink">{t('applyTitle')}</h2>
+            <p className="max-w-prose text-body-sm text-ink-soft">
+              {t('applyBody', { days: CLUB_TRIAL_DAYS })}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/klubove/zayavka" className={buttonVariants({ variant: 'secondary' })}>
+                {t('apply')}
+              </Link>
+              <Link href="/za-klubove" className={buttonVariants({ variant: 'ghost' })}>
+                {t('applyMore')}
+              </Link>
+            </div>
+          </section>
+        )}
       </main>
     </AppShell>
   );
