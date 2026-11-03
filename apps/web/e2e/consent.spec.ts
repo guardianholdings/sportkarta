@@ -12,7 +12,8 @@ import en from '../messages/en.json';
  * Every hit it tries to send — to google-analytics.com/g/collect, or to any
  * other Google host — is recorded here and aborted, so no test data reaches
  * Google Analytics. Each test attaches what it recorded (event, address,
- * referrer, and the tab's own address when the hit left).
+ * referrer, the page whose document sent the hit as Chrome records it, and
+ * the tab's own address when the hit was handled here).
  */
 
 const GA = 'G-XRJS0YRT3Q';
@@ -36,8 +37,10 @@ function personalAt(at: string) {
 
 interface Hit {
   step: string;
-  /** The tab's own address when the request left. */
+  /** The tab's own address when the hit was handled here: by then it can be the next page's. */
   at: string;
+  /** The collect request the hit came in. */
+  url: string;
   en: string;
   dl: string;
   dr: string;
@@ -49,6 +52,8 @@ interface Google {
   /** Every script fetched from googletagmanager.com/gtag/, by step. */
   loads: { step: string; url: string }[];
   hits: Hit[];
+  /** The page whose document sent each collect request, as Chrome records it, by request URL. */
+  sentBy: Record<string, string[]>;
   /** Any other request to a Google host. */
   other: string[];
 }
@@ -56,6 +61,15 @@ interface Google {
 function pathOf(url: string) {
   const u = new URL(url);
   return u.pathname + u.search;
+}
+
+/** Path and query of an absolute address, or '' for anything else. */
+function pathIn(url: string) {
+  try {
+    return pathOf(url);
+  } catch {
+    return '';
+  }
 }
 
 /** Every event in one collect request: the shared query, then each line of the body. */
@@ -88,7 +102,8 @@ test.afterEach(async () => {
       `scripts: ${google.loads.map((load) => `${load.step}: ${load.url}`).join('; ') || 'none'}`,
       `other: ${google.other.join('; ') || 'none'}`,
       ...google.hits.map(
-        (hit) => `${hit.step} | at ${hit.at} | en=${hit.en} | dl=${hit.dl} | dr=${hit.dr}`,
+        (hit) =>
+          `${hit.step} | at ${hit.at} | sent by ${sentFrom(google, hit).join(' + ')} | en=${hit.en} | dl=${hit.dl} | dr=${hit.dr}`,
       ),
     ].join('\n'),
   });
@@ -96,8 +111,18 @@ test.afterEach(async () => {
 
 /** Lets Google's tag script through; records and aborts everything else Google. */
 async function watchGoogle(page: Page): Promise<Google> {
-  const google: Google = { step: 'start', loads: [], hits: [], other: [] };
+  const google: Google = { step: 'start', loads: [], hits: [], sentBy: {}, other: [] };
   watched = google;
+  // Chrome's own record of the document each request is sent for. It follows the router's
+  // history.pushState, and a page's hit as it is left keeps that page; the route handler below
+  // can run after the tab has loaded the next page, so its `at` can name a page that sent nothing.
+  const cdp = await page.context().newCDPSession(page);
+  cdp.on('Network.requestWillBeSent', ({ request, documentURL }) => {
+    if (/\/g\/collect/.test(request.url) && pathIn(documentURL)) {
+      (google.sentBy[request.url] ??= []).push(pathIn(documentURL));
+    }
+  });
+  await cdp.send('Network.enable');
   await page.context().route(GOOGLE, async (route) => {
     const request = route.request();
     const url = request.url();
@@ -108,7 +133,7 @@ async function watchGoogle(page: Page): Promise<Google> {
     if (/\/g\/collect/.test(url)) {
       const at = pathOf(page.url());
       for (const event of eventsOf(url, request.postData())) {
-        google.hits.push({ step: google.step, at, ...event });
+        google.hits.push({ step: google.step, at, url, ...event });
       }
     } else {
       google.other.push(`${google.step}: ${request.method()} ${url.slice(0, 160)}`);
@@ -116,6 +141,20 @@ async function watchGoogle(page: Page): Promise<Google> {
     return route.abort();
   });
   return google;
+}
+
+/** The page whose document sent the hit, as Chrome recorded it; the tab's address if it kept no record. */
+function sentFrom(google: Google, hit: Hit) {
+  const docs = google.sentBy[hit.url] ?? [];
+  return docs.length ? docs : [hit.at];
+}
+
+/** Sent while a personal page was the open document, whatever its dl says, or a personal page as its dl or dr. */
+function personalHit(google: Google, hit: Hit) {
+  return (
+    sentFrom(google, hit).some(personalAt) ||
+    [hit.dl, hit.dr].some((url) => url !== '' && personalAt(pathIn(url)))
+  );
 }
 
 /** The steps that fetched gtag.js itself. */
@@ -341,6 +380,10 @@ test.describe('Google Analytics behind the card', () => {
     await expect(page).toHaveURL(`${origin}/statistika`);
     const fromSignIn = await pageView(google, '/statistika', mark);
     expect(fromSignIn.dr).not.toMatch(SECRET);
+    // GA4 sends a page it leaves a user_engagement once that page was in focus for a second or
+    // more, and the hit can reach the route handler after the tab has loaded the next page. Stay
+    // on /statistika so that hit is part of every run: it must be filed under the page that sent it.
+    await page.waitForTimeout(3_000);
 
     // Out of a personal page by a real link (the router).
     google.step = 'a page load of /en/klasirane';
@@ -352,11 +395,18 @@ test.describe('Google Analytics behind the card', () => {
     const link = await pageView(google, '/en/usloviya', mark);
     expect(link.dr).not.toContain('klasirane');
 
+    // Chrome's record of a request can come in after the hit; without one the tab's address counts.
+    for (let wait = 0; wait < 20 && google.hits.some((hit) => !google.sentBy[hit.url]); wait++) {
+      await page.waitForTimeout(100);
+    }
     expect(
       google.hits
-        .filter((hit) => personalAt(hit.at))
-        .map((hit) => `${hit.step}: ${hit.en} at ${hit.at}`),
-      'nothing sent while on a personal page',
+        .filter((hit) => personalHit(google, hit))
+        .map(
+          (hit) =>
+            `${hit.step}: ${hit.en} sent by ${sentFrom(google, hit).join(' + ')} (tab at ${hit.at}, dl=${hit.dl}, dr=${hit.dr})`,
+        ),
+      'nothing sent from a personal page, and no personal page in what is sent',
     ).toEqual([]);
     for (const hit of google.hits) {
       expect.soft(`${hit.dl} ${hit.dr}`, `${hit.step} ${hit.en}`).not.toMatch(SECRET);
