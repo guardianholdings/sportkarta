@@ -79,6 +79,28 @@ SELECT 'since=' || to_char(now() AT TIME ZONE 'UTC' - make_interval(hours => :ho
   FROM website w JOIN website_event e ON e.website_id = w.website_id
  WHERE w.domain = :'domain' AND w.deleted_at IS NULL
    AND e.created_at >= now() - make_interval(hours => :hours);
+-- Distinct visits per campaign tag. Anyone can open the site with any utm_*
+-- value, and this output reaches a public log, so a value prints only when it
+-- has the shape of our own tags; anything else prints as "other", none as "-".
+SELECT 'utm source=' || src || ' campaign=' || cmp || ' content=' || cnt
+    || ' visits=' || count(DISTINCT visit_id)
+  FROM (
+    SELECT e.visit_id,
+           CASE WHEN e.utm_source ~ '^[a-z0-9]{1,40}$' THEN e.utm_source
+                WHEN coalesce(e.utm_source, '') = '' THEN '-' ELSE 'other' END AS src,
+           CASE WHEN e.utm_campaign ~ '^[a-z0-9]{1,40}$' THEN e.utm_campaign
+                WHEN coalesce(e.utm_campaign, '') = '' THEN '-' ELSE 'other' END AS cmp,
+           CASE WHEN e.utm_content ~ '^([A-Z]{1,3}[0-9]{1,2}[A-Z]?|s[0-9]{1,2})$' THEN e.utm_content
+                WHEN coalesce(e.utm_content, '') = '' THEN '-' ELSE 'other' END AS cnt
+      FROM website w JOIN website_event e ON e.website_id = w.website_id
+     WHERE w.domain = :'domain' AND w.deleted_at IS NULL
+       AND e.created_at >= now() - make_interval(hours => :hours)
+       AND e.event_type = 1
+       AND (coalesce(e.utm_source, '') <> '' OR coalesce(e.utm_campaign, '') <> ''
+            OR coalesce(e.utm_content, '') <> '')
+  ) t
+ GROUP BY src, cmp, cnt
+ ORDER BY count(DISTINCT visit_id) DESC, src, cmp, cnt;
 SQL
     } | sql
   ) || die "Umami's database refused the read (see above)"
@@ -88,6 +110,7 @@ SQL
   counts=$(printf '%s\n' "$out" | grep '^since=' || true)
   [ -n "$counts" ] || die "no counts came back"
   echo "$counts${tag:+ (utm_source=$tag)}"
+  printf '%s\n' "$out" | grep '^utm ' || true
   exit 0
 fi
 
