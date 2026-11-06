@@ -32,6 +32,32 @@ export function rowState(
   };
 }
 
+/** One figure of the audience band on /za-klubove. */
+export interface AudienceFigure {
+  key: 'places' | 'municipalities' | 'games';
+  value: number;
+}
+
+/**
+ * The audience band's figures (/za-klubove), in the platform's own numbers. A
+ * figure with no number is left out, and so is the games figure while there
+ * are no games this week (operator, 2026-11-01): «0 игри тази седмица» on a
+ * page that sells the audience reads as an empty platform.
+ */
+export function audienceFigures(
+  places: number | null,
+  municipalities: number | null,
+  gamesThisWeek: number | null,
+): AudienceFigure[] {
+  const figures: AudienceFigure[] = [];
+  if (places !== null) figures.push({ key: 'places', value: places });
+  if (municipalities !== null) figures.push({ key: 'municipalities', value: municipalities });
+  if (gamesThisWeek !== null && gamesThisWeek > 0) {
+    figures.push({ key: 'games', value: gamesThisWeek });
+  }
+  return figures;
+}
+
 /**
  * The rows every tier has in the pricing grid (/za-klubove) — copy rows above
  * the tier matrix, in this order. A row that depends on an outside service
