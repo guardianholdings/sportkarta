@@ -1,6 +1,7 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { ClubStateBadge } from '@/components/clubs/club-state-badge';
+import { ScrollStrip } from '@/components/ui/scroll-strip';
 import { Link } from '@/i18n/navigation';
 import { requireRole } from '@/lib/auth-session';
 import { cityDisplayName } from '@/lib/city-names';
@@ -57,7 +58,7 @@ export default async function AdminClubsPage({
         </p>
       )}
 
-      <nav aria-label={t('title')} className="-mx-4 overflow-x-auto px-4">
+      <ScrollStrip as="nav" aria-label={t('title')} activeKey={tab}>
         <ul className="flex gap-1">
           {ADMIN_CLUB_FILTERS.map((filter) => {
             const active = filter === tab;
@@ -79,7 +80,7 @@ export default async function AdminClubsPage({
             );
           })}
         </ul>
-      </nav>
+      </ScrollStrip>
 
       {rows.length === 0 ? (
         <p className="rounded-card border border-dashed border-line-strong p-6 text-center text-body-sm text-text-muted">

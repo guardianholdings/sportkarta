@@ -57,6 +57,8 @@ export const CLUB_MAIL_KINDS = [
   'club_lapsed',
   'club_suspended',
   'club_contract_renewing',
+  'club_payments_revoked',
+  'renewal_payment_failed',
 ] as const;
 export type ClubMailKind = (typeof CLUB_MAIL_KINDS)[number];
 

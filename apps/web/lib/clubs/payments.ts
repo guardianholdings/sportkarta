@@ -1336,10 +1336,38 @@ export async function stopProviderSubscriptions(
   return ok;
 }
 
-/** A purged club's connection is let go at Stripe too (best effort). */
-export async function releaseClubAccount(clubId: string): Promise<void> {
+/** What became of a purged club's Stripe grant — recorded with the purge. */
+export type ReleaseOutcome = 'released' | 'failed' | 'none';
+
+/**
+ * A purged club's connection is let go at Stripe — BEFORE the purge (review
+ * 2026-10-31): club_payment_accounts cascades with the club, so once the rows
+ * are gone there is no account_ref left to deauthorize, and POPS would keep a
+ * live read_write grant on every purged club's account. Best effort: a Stripe
+ * outage never blocks the deletion the club is owed, but the outcome is
+ * recorded with the purge in admin_actions (and logged) so a grant left
+ * behind is a known fact the operator can release by hand.
+ */
+export async function releaseClubAccount(clubId: string): Promise<ReleaseOutcome> {
   const live = await clubPaymentAccount(clubId);
-  if (!live || live.provider !== 'stripe' || paymentProvider() !== 'stripe') return;
-  const { client, settings } = stripe();
-  await client.oauthDeauthorize(settings.connectClientId, live.accountRef).catch(() => undefined);
+  if (!live || live.provider !== 'stripe') return 'none';
+  if (paymentProvider() !== 'stripe') {
+    console.warn(
+      '[clubs] purge: Stripe is not configured, the grant stays (recorded in admin_actions)',
+    );
+    return 'failed';
+  }
+  try {
+    const { client, settings } = stripe();
+    await client.oauthDeauthorize(settings.connectClientId, live.accountRef);
+    return 'released';
+  } catch (error: unknown) {
+    // The error's name only — never an account id.
+    console.warn(
+      `[clubs] purge: Stripe deauthorize failed (${
+        error instanceof Error ? error.name : 'error'
+      }); recorded in admin_actions`,
+    );
+    return 'failed';
+  }
 }

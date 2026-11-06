@@ -59,6 +59,7 @@ export {
   receiptCandidates,
   recordPaymentEvent,
   recordProviderRefund,
+  recordRenewalPaymentFailed,
   recordUnappliedRenewal,
   setPaymentAccountState,
   stopSubscription,
@@ -67,8 +68,10 @@ export {
 export type {
   CheckoutOutcome,
   PaidCheckout,
+  PaymentAccountGone,
   PaymentEvent,
   ReceiptCandidate,
+  RenewalPaymentFailure,
 } from './clubs/payments.js';
 export {
   DATED_NOTIFICATION_KINDS,
@@ -98,6 +101,7 @@ export {
   memberRecipient,
   operatorRecipients,
   recordClubMonthlyActivity,
+  renewalFailureForMail,
   setInviteTokenHash,
   staffRecipients,
   trainerClassesOn,

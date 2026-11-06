@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
-import { InvalidPhotoError, MAX_PHOTO_BYTES, processReportPhoto } from '../image';
+import {
+  InvalidPhotoError,
+  MAX_PHOTO_BYTES,
+  PhotoTooLargeError,
+  processReportPhoto,
+} from '../image';
 import { getStorage } from '../storage';
 
 import { ContributionError } from './errors';
@@ -31,6 +36,7 @@ export async function storeContributionPhoto(
   try {
     processed = await processReportPhoto(new Uint8Array(await file.arrayBuffer()));
   } catch (error) {
+    if (error instanceof PhotoTooLargeError) throw new ContributionError('photo_too_large');
     if (error instanceof InvalidPhotoError) throw new ContributionError('invalid_photo');
     throw error;
   }

@@ -437,6 +437,13 @@
       "breakpoints": true
     },
     {
+      "idx": 62,
+      "version": "7",
+      "when": 1785220800000,
+      "tag": "0062_club_payment_failures",
+      "breakpoints": true
+    },
+    {
       "idx": 63,
       "version": "7",
       "when": 1785224400000,

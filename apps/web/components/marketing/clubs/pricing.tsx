@@ -1,4 +1,4 @@
-import { Check, Minus } from 'lucide-react';
+import { Check, CircleDashed, Minus } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 
 import { SectionHead } from '@/components/home/section-head';
@@ -6,8 +6,7 @@ import { Reveal } from '@/components/motion/reveal';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
-import { clubSwitchOn, serviceFor } from '@/lib/clubs/features';
-import { PRICING_INCLUDED, rowState } from '@/lib/clubs/landing';
+import { type GridMark, PRICING_INCLUDED, gridMark, rowState } from '@/lib/clubs/landing';
 import { cn } from '@/lib/utils';
 import {
   CLUB_CONTRACT_MONTHS,
@@ -16,7 +15,6 @@ import {
   CLUB_TIERS,
   CLUB_TRIAL_DAYS,
   COMMUNITY_MEMBER_CAP,
-  clubHasFeature,
   formatEuro,
 } from '@sportkarta/lib/clubs';
 
@@ -26,19 +24,66 @@ function sentenceCase(label: string, locale: string): string {
 }
 
 /**
+ * One cell of the grid. The included tick is drawn in exactly one place, and
+ * only for `gridMark === 'included'` — a «скоро» row prints «скоро» in every
+ * tier's cell instead (DR-02), the dash stays for a tier without the feature.
+ */
+function GridCell({
+  mark,
+  words,
+}: {
+  mark: GridMark;
+  words: { yes: string; no: string; soon: string };
+}) {
+  if (mark === 'included') {
+    return (
+      <td className="px-3 py-2.5 text-center text-brand">
+        <Check size={18} aria-hidden="true" className="inline" />
+        <span className="sr-only">{words.yes}</span>
+      </td>
+    );
+  }
+  if (mark === 'soon') {
+    return (
+      <td className="px-3 py-2.5 text-center">
+        {/* A phone shows the hollow mark alone (the row's own «скоро» chip says
+            the word); from `sm` the word stands beside it. */}
+        <span className="inline-flex items-center gap-1 text-caption font-medium text-text-muted">
+          <CircleDashed size={14} aria-hidden="true" />
+          <span className="max-sm:sr-only">{words.soon}</span>
+        </span>
+      </td>
+    );
+  }
+  return (
+    <td className="px-3 py-2.5 text-center text-text-faint">
+      <Minus size={18} aria-hidden="true" className="inline" />
+      <span className="sr-only">{words.no}</span>
+    </td>
+  );
+}
+
+/**
  * «Цени» — three cards from ONE price table (lib/src/clubs/pricing-public.ts)
- * and a grid whose ticks come from the tier matrix itself
- * (lib/src/clubs/features.ts), so the page cannot promise a tier something
- * the matrix does not give it. A feature behind a switched-off service reads
- * «скоро» here as in the catalogue.
+ * and a grid whose marks come from the tier matrix itself through gridMark
+ * (lib/clubs/landing.ts), so the page cannot promise a tier something the
+ * matrix does not give it. A feature behind a switched-off service reads
+ * «скоро» here as in the catalogue — in the row's name AND in its cells.
+ *
+ * The section carries `data-sticky-cta-hide`: the floating «Започнете
+ * безплатно» (StickyCta) steps aside for the whole of it (DR-01), so it never
+ * covers a card's own button or the «Про» column — and on a phone, where the
+ * cards stack, it does not flicker on and off between them.
  */
 export async function Pricing({ locale }: { locale: string }) {
   const [t, tClub] = await Promise.all([getTranslations('ClubsLanding'), getTranslations('Club')]);
+  const words = { yes: t('pricing.yes'), no: t('pricing.no'), soon: t('catalogue.soon') };
   return (
     <section
       id="ceni"
       aria-labelledby="clubs-pricing"
       className="scroll-mt-16 border-t border-line bg-surface"
+      data-sticky-cta-hide
     >
       <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
         <SectionHead
@@ -143,16 +188,13 @@ export async function Pricing({ locale }: { locale: string }) {
                     </span>
                   </th>
                   {CLUB_TIERS.map((tier) => (
-                    <td key={tier} className="px-3 py-2.5 text-center text-brand">
-                      <Check size={18} aria-hidden="true" className="inline" />
-                      <span className="sr-only">{t('pricing.yes')}</span>
-                    </td>
+                    <GridCell key={tier} mark={gridMark(row, tier)} words={words} />
                   ))}
                 </tr>
               ))}
               {CLUB_FEATURES.map((feature) => {
-                const service = serviceFor(feature);
-                const soon = service !== undefined && !clubSwitchOn(service);
+                const row = { feature };
+                const soon = rowState(row).soon;
                 return (
                   <tr key={feature} className="border-b border-line">
                     <th scope="row" className="py-2.5 pr-4 text-left font-medium text-ink">
@@ -165,19 +207,9 @@ export async function Pricing({ locale }: { locale: string }) {
                         )}
                       </span>
                     </th>
-                    {CLUB_TIERS.map((tier) =>
-                      clubHasFeature(tier, feature) ? (
-                        <td key={tier} className="px-3 py-2.5 text-center text-brand">
-                          <Check size={18} aria-hidden="true" className="inline" />
-                          <span className="sr-only">{t('pricing.yes')}</span>
-                        </td>
-                      ) : (
-                        <td key={tier} className="px-3 py-2.5 text-center text-text-faint">
-                          <Minus size={18} aria-hidden="true" className="inline" />
-                          <span className="sr-only">{t('pricing.no')}</span>
-                        </td>
-                      ),
-                    )}
+                    {CLUB_TIERS.map((tier) => (
+                      <GridCell key={tier} mark={gridMark(row, tier)} words={words} />
+                    ))}
                   </tr>
                 );
               })}
