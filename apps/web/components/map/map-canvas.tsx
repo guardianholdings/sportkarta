@@ -11,9 +11,20 @@ import { useEffect, useRef, useState } from 'react';
 import { useMaplibreLocale } from '@/lib/map/controls-locale';
 import { DEFAULT_LAYER, type ExternalMapLayer } from '@/lib/map/layers';
 import { ensurePmtilesProtocol } from '@/lib/map/pmtiles';
-import { buildMapStyle, externalLayerIds, mapAssetUrls } from '@/lib/map/style';
+import {
+  buildMapStyle,
+  externalLayerIds,
+  mapAssetUrls,
+  NATIONAL_FIRST_LAYER,
+  UNDERLAY_LAYER_IDS,
+  UNDERLAY_SOURCE,
+  underlayStyle,
+  underlayUrl,
+} from '@/lib/map/style';
+import { keepsSouthLimit } from '@/lib/map/underlay';
 
 import {
+  boxMiddle,
   clampCenter,
   FIT_MARGIN_PX,
   insideVisibleFrame,
@@ -146,6 +157,19 @@ interface MapCanvasProps {
    */
   unrestricted?: boolean;
   /**
+   * Draw the regional underlay (lib/map/underlay.ts) under the national
+   * basemap: real map around Bulgaria instead of the flat background where the
+   * national tiles stop. The home map's DESKTOP layout only (operator request 2026-11-02):
+   * a phone keeps its camera, and its canvas runs on under the sheet, where the
+   * underlay would only download tiles nobody sees.
+   *
+   * It also decides the south limit (`southLimitLat`): that limit exists
+   * because nothing was drawn south of the box, so a map with the underlay
+   * centres the country in its frame instead, and one without keeps the limit
+   * (the phone, and the place listings, exactly as before).
+   */
+  underlay?: boolean;
+  /**
    * Cooperative gestures: one finger scrolls the PAGE and the wheel scrolls it
    * too; two fingers (or Ctrl/⌘ + wheel) move the map. For maps embedded in a
    * scrolling page (the /igrishta listings), where a swipe meant to read on
@@ -239,6 +263,7 @@ export default function MapCanvas({
   onBoundsChange = () => undefined,
   padding = {},
   unrestricted = false,
+  underlay = false,
   cooperative = false,
 }: MapCanvasProps) {
   // Read once, at init: MapLibre takes its locale only in the constructor.
@@ -301,6 +326,10 @@ export default function MapCanvas({
   nearMeRef.current = nearMe;
   const unrestrictedRef = useRef(unrestricted);
   unrestrictedRef.current = unrestricted;
+  const underlayRef = useRef(underlay);
+  underlayRef.current = underlay;
+  /** Set once the style has loaded: only then may sources and layers be added. */
+  const styleReadyRef = useRef(false);
 
   function reportBounds() {
     const map = mapRef.current;
@@ -330,6 +359,26 @@ export default function MapCanvas({
         'visibility',
         ext.id === activeLayerRef.current ? 'visible' : 'none',
       );
+    }
+  }
+
+  // Show the regional underlay on the layouts that ask for it, hide it on the
+  // rest. It is in the first style when the canvas starts on such a layout;
+  // otherwise it is added under the national layers the first time one asks
+  // (the explorer measures its layout after the canvas may have started). A
+  // hidden layer fetches no tiles, so a phone never downloads the underlay.
+  function syncUnderlay() {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    if (underlayRef.current && !map.getSource(UNDERLAY_SOURCE)) {
+      const { source, layers } = underlayStyle(underlayUrl(window.location.origin));
+      map.addSource(UNDERLAY_SOURCE, source);
+      for (const layer of layers) map.addLayer(layer, NATIONAL_FIRST_LAYER);
+    }
+    if (!map.getSource(UNDERLAY_SOURCE)) return;
+    for (const id of UNDERLAY_LAYER_IDS) {
+      if (!map.getLayer(id)) continue;
+      map.setLayoutProperty(id, 'visibility', underlayRef.current ? 'visible' : 'none');
     }
   }
 
@@ -449,6 +498,7 @@ export default function MapCanvas({
         container: containerRef.current,
         style: buildMapStyle({
           ...mapAssetUrls(window.location.origin),
+          underlayUrl: underlayRef.current ? underlayUrl(window.location.origin) : undefined,
           externalLayers: externalLayersRef.current,
         }),
         // With no view asked for, open on the box's centre; `applyPadding` below
@@ -476,12 +526,26 @@ export default function MapCanvas({
       return;
     }
     mapRef.current = map;
+    // Automated browsers only: navigator.webdriver is true under Playwright and
+    // never in a person's browser. The e2e camera case projects through it.
+    if (navigator.webdriver) Object.assign(window, { __mapForTests: map });
 
-    // Only a GESTURE carries an `originalEvent`: re-framing (setPadding), a
-    // container resize and the fit itself all fire `movestart` too, and none of
-    // them may end the automatic fit.
+    map.on('style.load', () => {
+      styleReadyRef.current = true;
+      syncUnderlay();
+    });
+
+    // Only a GESTURE ends the automatic fit. A drag, a pinch, the keyboard and
+    // a double-click start their move with an `originalEvent`; the wheel does
+    // not (MapLibre 5 runs the scroll zoom from a render frame and starts the
+    // move without one), so it is read off the scroll-zoom handler, active
+    // from the first wheel event to the end of its easing. Re-framing
+    // (setPadding), a container resize and the fit itself fire `movestart`
+    // too, with neither, and none of them may end the automatic fit. Until
+    // 2 Nov a wheel zoom never ended it: the next list toggle or resize threw
+    // the member's view away and re-fitted the country.
     map.on('movestart', (e) => {
-      if (!e.originalEvent) return;
+      if (!e.originalEvent && !map.scrollZoom.isActive()) return;
       autoFitRef.current = false;
       urlCameraRef.current = false;
     });
@@ -522,11 +586,18 @@ export default function MapCanvas({
     // the part of the canvas the member can actually SEE. Fitting it into the
     // full canvas is what put a third of the country behind the list panel.
     const countryCamera = () => map.cameraForBounds(BG_BOUNDS, { padding: FIT_MARGIN_PX });
+    // Desktop (the regional underlay) opens with the box's middle at the
+    // centre, at the fit's zoom; the phone keeps the fit's own centre.
+    const fitMiddle = boxMiddle(BULGARIA_BOUNDS);
 
     // The pan limit, on every layout: pin the camera centre inside the box (see
-    // `clampCenter` for why the centre and not the viewport), and keep the
-    // bottom of the visible frame on the basemap's southern edge (see
-    // `southLimitLat`: below it there are no tiles, only the background). A
+    // `clampCenter` for why the centre and not the viewport). Without the
+    // regional underlay, also keep the bottom of the visible frame on the
+    // basemap's southern edge (see `southLimitLat`: below it there are no
+    // tiles, only the background). With it there is map on every side below
+    // UNDERLAY_LAYER_MAXZOOM, so the country stays centred in the frame — on
+    // desktop, list open or closed; from that zoom its layers are hidden and
+    // the south limit applies again (`keepsSouthLimit`). A
     // transform constraint REPLACES MapLibre's default one, including its zoom
     // clamp, so the min/max zoom is re-applied here — first, because the south
     // limit depends on the zoom it is computed for.
@@ -543,10 +614,13 @@ export default function MapCanvas({
     };
     const centreInBulgaria = (lngLat: maplibregl.LngLat, zoom: number) => {
       const clampedZoom = Math.min(Math.max(zoom, map.getMinZoom()), map.getMaxZoom());
-      const centre = clampCenter(lngLat, BULGARIA_BOUNDS, {
-        zoom: clampedZoom,
-        halfHeight: frameHalfHeight(),
-      });
+      const centre = clampCenter(
+        lngLat,
+        BULGARIA_BOUNDS,
+        keepsSouthLimit(underlayRef.current, clampedZoom)
+          ? { zoom: clampedZoom, halfHeight: frameHalfHeight() }
+          : undefined,
+      );
       return {
         center: new maplibregl.LngLat(centre.lng, centre.lat),
         zoom: clampedZoom,
@@ -615,11 +689,16 @@ export default function MapCanvas({
       // from the URL's view on every re-frame until something moves the
       // camera, for the same reason as the fit below.
       if (urlCameraRef.current && initialView) {
-        const open = openingCenter(initialView, BULGARIA_BOUNDS, {
-          zoom: map.getZoom(),
-          halfWidth: frameHalfWidth(),
-          halfHeight: frameHalfHeight(),
-        });
+        const open = openingCenter(
+          initialView,
+          BULGARIA_BOUNDS,
+          {
+            zoom: map.getZoom(),
+            halfWidth: frameHalfWidth(),
+            halfHeight: frameHalfHeight(),
+          },
+          keepsSouthLimit(underlayRef.current, map.getZoom()),
+        );
         const at = map.getCenter();
         if (open.lat !== at.lat || open.lng !== at.lng) {
           map.jumpTo({ center: [open.lng, open.lat] });
@@ -632,7 +711,7 @@ export default function MapCanvas({
       // provisional frame would open the map off-centre.
       if (autoFitRef.current) {
         const cam = countryCamera();
-        if (cam) map.jumpTo(cam);
+        if (cam) map.jumpTo(underlayRef.current ? { ...cam, center: fitMiddle } : cam);
       }
     };
     applyPadding();
@@ -693,6 +772,9 @@ export default function MapCanvas({
       });
 
       loadedRef.current = true;
+      // 'style.load' comes first; this covers a listener that missed it.
+      styleReadyRef.current = true;
+      syncUnderlay();
       applyLayerVisibility();
       reportBounds();
       syncMarkers();
@@ -759,8 +841,9 @@ export default function MapCanvas({
    * on every render.
    */
   useEffect(() => {
+    syncUnderlay();
     paddingApplyRef.current?.();
-  }, [padding.top, padding.right, padding.bottom, padding.left, unrestricted]);
+  }, [padding.top, padding.right, padding.bottom, padding.left, unrestricted, underlay]);
 
   /**
    * Bring a newly selected facility into the VISIBLE part of the map.

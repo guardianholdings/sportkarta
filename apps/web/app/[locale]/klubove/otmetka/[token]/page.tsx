@@ -28,7 +28,12 @@ type PageParams = Promise<{ locale: string; token: string }>;
 export async function generateMetadata({ params }: { params: PageParams }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'ClubKiosk.redeem' });
-  return { title: t('title'), robots: { index: false, follow: false } };
+  return {
+    title: t('title'),
+    robots: { index: false, follow: false },
+    // The token stays out of the next page's referrer.
+    referrer: 'no-referrer',
+  };
 }
 
 export default async function ClubRedeemPage({

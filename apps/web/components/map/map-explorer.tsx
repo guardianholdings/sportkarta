@@ -854,6 +854,11 @@ export function MapExplorer({
           // stays inside Bulgaria, and the bottom of the visible map stays on
           // the basemap's southern edge (map-canvas.tsx, `clampCenter`).
           unrestricted={!viewport.desktop}
+          // Desktop draws the regional underlay, so there is real map around
+          // the country on every side and the fit centres it in the visible
+          // map, list open or closed (operator request 2026-11-02). The phone does not:
+          // its camera stays as it was, and its canvas runs on under the sheet.
+          underlay={viewport.desktop}
           onMoveEnd={(v) => onMoveEndRef.current(v)}
           externalLayers={externalLayers}
           activeLayer={activeLayer}
@@ -1279,6 +1284,12 @@ function MapLegalLinks() {
       <Link href="/signal" className={link}>
         {t('notice')}
       </Link>
+      {/* The footer's cookie-settings link, for the page that hides the footer.
+          A plain anchor: /consent.js reopens its card on any link ending in
+          #cookie-settings. */}
+      <a href="#cookie-settings" className={link}>
+        {t('cookieSettings')}
+      </a>
     </nav>
   );
 }

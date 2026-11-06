@@ -87,4 +87,16 @@ describe('links from when the map was the front page', () => {
     expect(legacyMapHref({})).toBeNull();
     expect(legacyMapHref({ utm_source: 'newsletter' })).toBeNull();
   });
+
+  it('sends the near-me hand-off from printed QR codes to /karta, campaign tags intact', () => {
+    expect(legacyMapHref({ blizo: '1' })).toBe('/karta?blizo=1');
+    expect(
+      legacyMapHref({
+        blizo: '1',
+        utm_source: 'sticker',
+        utm_medium: 'offline',
+        utm_content: 's1',
+      }),
+    ).toBe('/karta?blizo=1&utm_source=sticker&utm_medium=offline&utm_content=s1');
+  });
 });

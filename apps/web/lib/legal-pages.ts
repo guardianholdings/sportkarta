@@ -16,6 +16,9 @@ import type { ClubSwitch } from '@/lib/clubs/features';
 export const PRIVACY_ACTIVITIES = [
   'browsing',
   'analytics',
+  // Google Analytics (Google's own tag, gtag.js), only after a yes in the
+  // consent card (public/consent.js).
+  'googleAnalytics',
   'account',
   // Printed only while at least one of Google, Apple or Facebook is switched
   // on (PRIVACY_PROVIDER_ONLY): the page describes what the site really does.
@@ -42,6 +45,7 @@ export const PRIVACY_ACTIVITIES = [
 export const PRIVACY_RECIPIENTS = [
   'hosting',
   'network',
+  'googleAnalytics',
   'mail',
   // Printed only while CLUB_PAYMENTS_ENABLED is on: a member paying a club
   // online pays into the club's own Stripe account.
@@ -111,6 +115,7 @@ export const PRIVACY_RETENTION = [
   'notices',
   'logs',
   'errors',
+  'googleAnalytics',
   'backups',
   // Printed only while CLUBS_ENABLED is on (PRIVACY_SWITCH_ONLY).
   'clubs',
