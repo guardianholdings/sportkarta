@@ -458,10 +458,11 @@ and, where an outside service is involved, by an env switch as well.
       - **Secrets**: rotating `AUTH_SECRET` silently orphans every push
         subscription and every webhook signing secret (deploy.yml derives
         both from it) — members re-enable push, integrators rotate keys.
-      - **Dependencies**: `better-auth` 1.6.23 carries a critical advisory
-        (an OAuth state usable as a magic link) reachable only with a social
-        provider ON — keep `AUTH_GOOGLE/APPLE/FACEBOOK_ENABLED=false` until
-        the bump to ≥ 1.7.7 is tested; `nodemailer` ≥ 10.1.4 likewise.
+      - **Dependencies**: done. `better-auth` 1.7.14 (the critical
+        OAuth-state advisory, GHSA-965c-763c-88jm) shipped with #47, so the
+        social flags no longer need holding off for it; `nodemailer` 10.3.1
+        followed (the addressparser advisories fixed in 10.1.4, and the high
+        GHSA-prgh-xp8r-p3m5), proven over a STARTTLS-only sink.
     - [ ] **Later:** «service» is the club's own label — a club could call an
       offer a service message and reach members without consent. The terms
       forbid it; give the operator a view of service messages by volume and
