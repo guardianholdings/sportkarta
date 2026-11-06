@@ -44,7 +44,7 @@
     "@types/node": "^22.10.0",
     "fast-check": "^4.9.0",
     "typescript": "^5.8.0",
-    "vitest": "^3.0.0"
+    "vitest": "^5.0.5"
   },
   "dependencies": {
     "nodemailer": "^10.3.1"
