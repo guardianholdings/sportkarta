@@ -26,6 +26,14 @@ vi.mock('@/lib/admin-boss', () => ({
   recordEnqueueFailure: vi.fn(),
 }));
 vi.mock('@/lib/clubs/access', () => ({ clubsEnabled: () => true }));
+// The Connect callback's later checks (who is signed in, their role) are not
+// under test here; the gate in front of them is.
+vi.mock('@/lib/auth-session', () => ({ getCurrentUser: async () => null }));
+vi.mock('@/lib/clubs/club-session', () => ({
+  requireClubStaff: async () => {
+    throw new Error('unreachable');
+  },
+}));
 
 const WEBHOOK_SECRET = 'whsec_test0123456789abcdef';
 
@@ -48,11 +56,13 @@ function signed(body: string, secret = WEBHOOK_SECRET, headers: Record<string, s
   });
 }
 
-function event(type: string, id = 'evt_test_0001') {
+/** `livemode: 'absent'` builds a body with no livemode field at all. */
+function event(type: string, id = 'evt_test_0001', livemode: boolean | 'absent' = false) {
   return JSON.stringify({
     id,
     type,
     account: 'acct_test_route01',
+    ...(livemode === 'absent' ? {} : { livemode }),
     data: { object: { id: 'cs_test_route01' } },
   });
 }
@@ -117,6 +127,38 @@ describe('the Stripe webhook route', () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 
+  it('drops an event whose livemode disagrees with the test key, recording nothing', async () => {
+    const { POST } = await import('../app/api/clubs/stripe/webhook/route');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    // The two events acted on from the signed body alone are the ones that
+    // matter most: a live deauthorisation must not end a test connection.
+    const live = await POST(
+      signed(event('account.application.deauthorized', 'evt_test_0002', true)),
+    );
+    expect(live.status).toBe(200);
+    const unsaid = await POST(signed(event('checkout.session.expired', 'evt_test_0003', 'absent')));
+    expect(unsaid.status).toBe(200);
+    expect(recordPaymentEvent).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
+  it('records a failed renewal invoice for the worker to act on', async () => {
+    const { POST } = await import('../app/api/clubs/stripe/webhook/route');
+    recordPaymentEvent.mockResolvedValueOnce(43);
+    expect((await POST(signed(event('invoice.payment_failed', 'evt_test_0004')))).status).toBe(200);
+    expect(recordPaymentEvent).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ type: 'invoice.payment_failed', eventId: 'evt_test_0004' }),
+    );
+    expect(send).toHaveBeenCalledWith(
+      'club.payment_event',
+      { eventId: 43 },
+      { singletonKey: '43' },
+    );
+  });
+
   it('refuses an oversized body before reading it', async () => {
     const { POST } = await import('../app/api/clubs/stripe/webhook/route');
     const response = await POST(
@@ -126,6 +168,27 @@ describe('the Stripe webhook route', () => {
     );
     expect(response.status).toBe(413);
     expect(recordPaymentEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe('the Connect OAuth callback', () => {
+  beforeEach(stripeEnv);
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('is 404 until the operator switches payments on — gated like checkout', async () => {
+    vi.stubEnv('PAYMENT_PROVIDER', 'stripe');
+    vi.stubEnv('CLUB_PAYMENTS_ENABLED', 'false');
+    const { GET } = await import('../app/api/clubs/stripe/connect/route');
+    const url = 'http://localhost/api/clubs/stripe/connect?state=not-ours&code=ac_test_0123456789';
+    expect((await GET(new Request(url))).status).toBe(404);
+    // Switch on: past the gate, a forged state is refused with the redirect
+    // the owner is sent back on — not a 404.
+    vi.stubEnv('CLUB_PAYMENTS_ENABLED', 'true');
+    const response = await GET(new Request(url));
+    expect(response.status).toBe(303);
+    expect(response.headers.get('location')).toContain('plashtaniya=connect_failed');
   });
 });
 

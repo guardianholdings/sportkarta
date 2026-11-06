@@ -173,6 +173,11 @@ export default async function AdminHealthPage({ params }: { params: Promise<{ lo
           {(
             [
               ['clubPendingEvents', clubs.pendingPaymentEvents, clubs.pendingPaymentEvents > 0],
+              [
+                'clubSubscriptionsAtStripe',
+                clubs.subscriptionsLeftAtStripe30d,
+                clubs.subscriptionsLeftAtStripe30d > 0,
+              ],
               ['clubEndpointsDisabled', clubs.endpointsDisabled7d, clubs.endpointsDisabled7d > 0],
               ['clubBroadcastsWaiting', clubs.broadcastsWaiting, clubs.broadcastsWaiting > 0],
               ['clubSmsCapped', clubs.clubsAtSmsCap, clubs.clubsAtSmsCap > 0],

@@ -39,7 +39,11 @@ function text(value: unknown): string | null {
 async function systemAudit(
   db: SqlRunner,
   clubId: string,
-  action: 'online_payment_received' | 'online_refund_issued',
+  action:
+    | 'online_payment_received'
+    | 'online_refund_issued'
+    | 'online_payment_failed'
+    | 'payment_account_disconnected',
   memberId: string | null,
   detail: SQL,
 ): Promise<void> {
@@ -65,6 +69,12 @@ export interface PaidCheckout {
   /** The payment's reference at the provider (a PaymentIntent, or an invoice). */
   paymentRef: string;
   amountCents: number;
+  /**
+   * The provider's currency for the amount. Every checkout is opened in EUR,
+   * so anything else is money the books cannot compare — `unapplied`, like a
+   * wrong amount. Omitted by the fake provider, which has no currency.
+   */
+  currency?: string | null;
   subscriptionRef: string | null;
 }
 
@@ -72,7 +82,12 @@ export type CheckoutOutcome =
   | { applied: true; checkoutId: string; clubId: string; memberId: string | null }
   | {
       applied: false;
-      reason: 'unknown_or_done' | 'amount_mismatch' | 'charge_settled' | 'session_closed';
+      reason:
+        | 'unknown_or_done'
+        | 'amount_mismatch'
+        | 'currency_mismatch'
+        | 'charge_settled'
+        | 'session_closed';
       /**
        * Money that will not be applied but whose subscription is live at the
        * provider: the caller cancels it, or the card is billed every month
@@ -118,7 +133,7 @@ export async function applyCheckoutPaid(
     const checkoutId = String(row.id);
     const clubId = String(row.club_id);
     const memberId = text(row.member_id);
-    const fail = async (reason: 'amount_mismatch' | 'charge_settled') => {
+    const fail = async (reason: 'amount_mismatch' | 'currency_mismatch' | 'charge_settled') => {
       await tx.execute(sql`
         UPDATE club_checkouts SET status = 'unapplied', completed_at = now(),
                payment_ref = ${paid.paymentRef}, subscription_ref = ${paid.subscriptionRef}
@@ -126,6 +141,8 @@ export async function applyCheckoutPaid(
       `);
       return { applied: false, reason, subscriptionRef: paid.subscriptionRef } as const;
     };
+    // The currency before the amount: 4500 of anything but EUR is not 45,00 €.
+    if (paid.currency !== undefined && paid.currency !== 'eur') return fail('currency_mismatch');
     if (Number(row.amount_cents) !== paid.amountCents) return fail('amount_mismatch');
 
     let chargeId = text(row.charge_id);
@@ -278,17 +295,20 @@ export async function applySubscriptionInvoice(
     subscriptionRef: string;
     paymentRef: string;
     amountCents: number;
+    /** As on a checkout: the chain was opened in EUR, anything else is refused. */
+    currency?: string | null;
   },
   today: IsoDate = sofiaToday(),
 ): Promise<
   | { applied: true; clubId: string; memberId: string }
   | {
       applied: false;
-      reason: 'duplicate' | 'no_chain' | 'not_renewing' | 'after_notice';
+      reason: 'duplicate' | 'no_chain' | 'not_renewing' | 'after_notice' | 'currency_mismatch';
       /**
        * The chain the money was billed for when no period is appended
-       * (not_renewing, after_notice): what recordUnappliedRenewal needs to
-       * list the money for the office — Stripe took it, the books refuse it.
+       * (not_renewing, after_notice, currency_mismatch): what
+       * recordUnappliedRenewal needs to list the money for the office —
+       * Stripe took it, the books refuse it.
        */
       chain?: { clubId: string; memberId: string; planId: string; startsOn: IsoDate };
     }
@@ -325,6 +345,10 @@ export async function applySubscriptionInvoice(
     const after = addDaysIso(String(tail.effective_ends_on), 1);
     const startsOn = after < today ? today : after;
     const chain = { clubId, memberId, planId: String(tail.plan_id), startsOn };
+    // Not the currency the chain was opened in: no period is priced in it.
+    if (invoice.currency !== undefined && invoice.currency !== 'eur') {
+      return { applied: false, reason: 'currency_mismatch', chain } as const;
+    }
     // The office stopped renewing, or the member's notice ends before this
     // period: no period is appended; the caller lists the money for the
     // office (recordUnappliedRenewal) and ends the subscription.
@@ -601,21 +625,174 @@ export async function setPaymentAccountState(
   `);
 }
 
-/** The club revoked our access from its own Stripe dashboard. */
+export interface PaymentAccountGone {
+  clubId: string;
+  /** Open checkouts on that account, closed here: their pages can no longer reach the books. */
+  checkoutsExpired: number;
+  /**
+   * Renewing chains opened on that account, now `renews = false`: Stripe will
+   * keep billing them, but POPS can neither hear about it nor end them — the
+   * club must, in its own dashboard. What the owners are told.
+   */
+  subscriptions: number;
+  /**
+   * False when THIS event had already done the work — a retry after the run
+   * died between the commit and the owners' notice. The counts are then read
+   * back from the audit row the first run wrote (it carries the event id), so
+   * the notice can still go; the notifications ledger dedupes a double.
+   */
+  fresh: boolean;
+}
+
 /**
- * The club revoked access at Stripe. Only a connection made BEFORE the event
- * arrived is ended — a club that reconnected meanwhile stays connected.
+ * The club revoked access at Stripe (account.application.deauthorized). Only a
+ * connection made BEFORE the event arrived is ended — a club that reconnected
+ * meanwhile stays connected, and nothing else here happens either.
+ *
+ * Ending the connection is not enough (review 2026-10-31): after it the
+ * platform hears NOTHING from that account, so in the same transaction
+ *   - that account's open checkouts are expired locally — a member still on a
+ *     live Checkout page may pay, but the event would never arrive; the return
+ *     page then says the payment was not completed, and should the event come
+ *     after all, applyCheckoutPaid lists the money as `unapplied`;
+ *   - every chain whose subscription was opened on that account stops
+ *     renewing in the books — Stripe may bill it, no period would be recorded;
+ *   - the club's audit log gets the disconnect, by 'system', with both counts
+ *     and the event's id.
+ * The caller tells the owners (club.notify) with the subscription count. Asked
+ * again by the SAME event (a retry), the audit row answers with the counts and
+ * `fresh: false`; by any other event once the connection is gone, null.
  */
 export async function markPaymentAccountGone(
-  db: SqlRunner,
+  db: TransactionalDb,
   accountRef: string,
   eventReceivedAt: Date,
-): Promise<void> {
-  await db.execute(sql`
-    UPDATE club_payment_accounts SET disconnected_at = now(), charges_enabled = false
-     WHERE account_ref = ${accountRef} AND disconnected_at IS NULL
-       AND connected_at < ${eventReceivedAt.toISOString()}::timestamptz
-  `);
+  eventId: number,
+): Promise<PaymentAccountGone | null> {
+  return db.transaction(async (tx) => {
+    const gone = await tx.execute(sql`
+      UPDATE club_payment_accounts SET disconnected_at = now(), charges_enabled = false
+       WHERE account_ref = ${accountRef} AND disconnected_at IS NULL
+         AND connected_at < ${eventReceivedAt.toISOString()}::timestamptz
+      RETURNING club_id
+    `);
+    const clubId = text(gone.rows[0]?.club_id);
+    if (!clubId) {
+      // Nothing to end now. If THIS event ended it on an earlier run that died
+      // before the notice went, its audit row says so — and what to tell.
+      const earlier = (
+        await tx.execute(sql`
+          SELECT a.club_id, a.detail FROM club_audit a
+           WHERE a.action = 'payment_account_disconnected' AND a.actor_kind = 'system'
+             AND a.detail->>'eventId' = ${String(eventId)}
+           ORDER BY a.acted_at DESC
+           LIMIT 1
+        `)
+      ).rows[0];
+      if (!earlier) return null;
+      const detail = (
+        typeof earlier.detail === 'string' ? JSON.parse(earlier.detail) : (earlier.detail ?? {})
+      ) as Record<string, unknown>;
+      return {
+        clubId: String(earlier.club_id),
+        checkoutsExpired: Number(detail.checkoutsExpired ?? 0),
+        subscriptions: Number(detail.subscriptionsAtStripe ?? 0),
+        fresh: false,
+      };
+    }
+    // Checkouts first, then the chains: applyCheckoutPaid's order (checkout →
+    // charge → membership), so a payment landing at this moment never
+    // deadlocks with the revoke.
+    const expired = await tx.execute(sql`
+      UPDATE club_checkouts SET status = 'expired', completed_at = now()
+       WHERE club_id = ${clubId}::uuid AND account_ref = ${accountRef} AND status = 'open'
+      RETURNING id
+    `);
+    const stopped = await tx.execute(sql`
+      UPDATE club_memberships ms SET renews = false
+       WHERE ms.club_id = ${clubId}::uuid AND ms.renews AND ms.provider_subscription_ref IS NOT NULL
+         AND EXISTS (SELECT 1 FROM club_checkouts k
+                      WHERE k.club_id = ms.club_id AND k.account_ref = ${accountRef}
+                        AND k.subscription_ref = ms.provider_subscription_ref)
+      RETURNING ms.provider_subscription_ref
+    `);
+    const subscriptions = new Set(stopped.rows.map((row) => String(row.provider_subscription_ref)))
+      .size;
+    await systemAudit(
+      tx,
+      clubId,
+      'payment_account_disconnected',
+      null,
+      sql`jsonb_build_object('provider', 'stripe', 'by', 'provider',
+                             'checkoutsExpired', ${expired.rows.length}::int,
+                             'subscriptionsAtStripe', ${subscriptions}::int,
+                             'eventId', ${eventId}::bigint)`,
+    );
+    return { clubId, checkoutsExpired: expired.rows.length, subscriptions, fresh: true };
+  });
+}
+
+// ─── Failed renewals ───────────────────────────────────────────────────────
+
+export interface RenewalPaymentFailure {
+  clubId: string;
+  memberId: string;
+  membershipId: string;
+  /** False when this invoice's failure was already on record (Stripe's retry). */
+  recorded: boolean;
+}
+
+/**
+ * invoice.payment_failed for a renewal cycle (0062): Stripe could not collect
+ * the next period, and will retry on its own dunning schedule. Nothing in the
+ * books changes — no money, no period — but the FACT is recorded on the chain
+ * as an audit row naming the membership and the invoice, once per invoice,
+ * so the office sees why a period never came and the worker can tell both
+ * sides. Null when no chain of ours carries the subscription (the club's own
+ * business at Stripe).
+ */
+export async function recordRenewalPaymentFailed(
+  db: TransactionalDb,
+  failure: {
+    provider: 'stripe' | 'fake';
+    subscriptionRef: string;
+    invoiceRef: string;
+    amountCents: number;
+    /** The invoice's currency, stored beside the figure so no reader prints a foreign number as euros. */
+    currency: string;
+  },
+): Promise<RenewalPaymentFailure | null> {
+  return db.transaction(async (tx) => {
+    const tail = (
+      await tx.execute(sql`
+        SELECT ms.id, ms.club_id, ms.member_id
+          FROM club_memberships ms
+         WHERE ms.provider_subscription_ref = ${failure.subscriptionRef} AND ms.cancelled_at IS NULL
+           AND NOT EXISTS (SELECT 1 FROM club_memberships nx WHERE nx.renewal_of = ms.id)
+         ORDER BY ms.starts_on DESC
+         LIMIT 1
+           FOR UPDATE OF ms
+      `)
+    ).rows[0];
+    if (!tail) return null;
+    const clubId = String(tail.club_id);
+    const memberId = String(tail.member_id);
+    const membershipId = String(tail.id);
+    const written = await tx.execute(sql`
+      INSERT INTO club_audit (club_id, actor_kind, actor_id, action, subject_member_id, detail)
+      SELECT ${clubId}::uuid, 'system', NULL, 'online_payment_failed', ${memberId}::uuid,
+             jsonb_build_object('membershipId', ${membershipId}::text,
+                                'invoiceRef', ${failure.invoiceRef}::text,
+                                'provider', ${failure.provider}::text,
+                                'amountCents', ${failure.amountCents}::int,
+                                'currency', ${failure.currency}::text)
+       WHERE NOT EXISTS (SELECT 1 FROM club_audit a
+                          WHERE a.club_id = ${clubId}::uuid AND a.action = 'online_payment_failed'
+                            AND a.detail->>'invoiceRef' = ${failure.invoiceRef})
+      RETURNING id
+    `);
+    return { clubId, memberId, membershipId, recorded: written.rows.length > 0 };
+  });
 }
 
 // ─── The webhook ledger ────────────────────────────────────────────────────
