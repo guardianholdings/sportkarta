@@ -168,7 +168,7 @@ export const TERMS_SECTIONS: readonly TermsSection[] = [
  * flips it to false (this one line) and bumps CLUB_TERMS_VERSION to the
  * approval date.
  */
-export const CLUB_TERMS_VERSION = '2026-10-31';
+export const CLUB_TERMS_VERSION = '2026-11-06';
 export const CLUB_TERMS_DRAFT = true;
 
 /**

@@ -3890,7 +3890,7 @@
     "contract": {
       "title": "Contract, prices and payment",
       "term": "To continue after the trial, the club signs a contract with the association for a term of at least {months} months. The contract renews automatically for a further {months} months unless the club notifies the association in writing, at least {notice, plural, one {one month} other {# months}} before the end of the current term, that it does not wish to renew.",
-      "invoicing": "The price is the monthly price of the chosen plan as published on the public POPS clubs page on the day the contract is signed or renewed. At the club’s choice it is invoiced monthly or once a year for the whole term. Payment is by bank transfer within the period stated on the invoice. Invoices are issued by the association, with the details given under “Parties and subject matter”.",
+      "invoicing": "The price is the monthly price of the chosen plan as published on the public POPS clubs page on the day the contract is signed or renewed. Published prices exclude VAT; the association is VAT-registered and adds VAT at the applicable rate on the invoice. At the club’s choice it is invoiced monthly or once a year for the whole term. Payment is by bank transfer within the period stated on the invoice. Invoices are issued by the association, with the details given under “Parties and subject matter”.",
       "nonPayment": "If an invoice is not paid on time, access continues for a further {grace} days with a warning on the platform; after that the platform becomes read-only and the club’s public page stops being shown until the debt is settled. Suspension does not release the club from the amounts due for the whole contract term."
     },
     "service": {
