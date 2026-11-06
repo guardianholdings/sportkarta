@@ -222,7 +222,8 @@ export async function forcePassportPrivate(
  * End every session — "my phone was stolen", or the first half of a
  * suspension done by hand.
  *
- * On its own this is bounded by the session cookie cache (lib/auth.ts): a
+ * On its own this is bounded by the session cookie cache
+ * (SESSION_COOKIE_CACHE_SECONDS in lib/auth-options.ts): a
  * device holding a fresh signed cookie keeps working for up to five minutes.
  * Suspension does not have that window, because it is checked against the row
  * on every request; that is the tool for "stop this person now".

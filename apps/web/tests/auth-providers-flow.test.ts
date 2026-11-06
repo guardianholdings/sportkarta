@@ -5,7 +5,7 @@ import { memoryAdapter } from 'better-auth/adapters/memory';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveSignInProviders, type AuthEnv } from '@/lib/auth-config';
-import { authOptions } from '@/lib/auth-options';
+import { authOptions, SESSION_COOKIE_CACHE_SECONDS } from '@/lib/auth-options';
 import { APPLE_ORIGIN } from '@/lib/auth-providers';
 import { OTP_TTL_SECONDS } from '@/lib/auth-surface';
 
@@ -256,6 +256,41 @@ describe('the email code', () => {
     const expired = await auth.api.createVerificationOTP({ body: { email, type: 'sign-in' } });
     vi.setSystemTime(Date.now() + (OTP_TTL_SECONDS + 60) * 1000);
     await expect(auth.api.signInEmailOTP({ body: { email, otp: expired } })).rejects.toThrow();
+  });
+});
+
+describe('the session cookie cache', () => {
+  /** The session as the signed cookie alone reports it, as most requests read it. */
+  async function cachedSessionUser(auth: Auth, cookie: string) {
+    const session = await auth.api.getSession({ headers: new Headers({ cookie }) });
+    return session?.user ?? null;
+  }
+
+  it(`vouches for a revoked session for ${SESSION_COOKIE_CACHE_SECONDS / 60} minutes and not a minute longer`, async () => {
+    // A promise to members and operators ("within five minutes"), not just a
+    // setting: widening the window has to fail here, not only move with it.
+    expect(SESSION_COOKIE_CACHE_SECONDS).toBeLessThanOrEqual(5 * 60);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const { auth } = makeAuth();
+    const signedIn = await codeSignIn(auth, 'member@example.org');
+    const cookie = cookiesFrom(signedIn.headers);
+    // The code sign-in sets the signed cache next to the session token.
+    expect(cookie).toMatch(/session_data=/);
+    expect((await cachedSessionUser(auth, cookie))?.id).toBe(signedIn.response.user.id);
+
+    // Revoked in the store while the account lives on (revokeSessions, the
+    // pre-hijack guard; erasure and suspension remove the users row instead,
+    // which lib/auth-session.ts reads on every request): the database says
+    // so at once...
+    const context = await auth.$context;
+    await context.internalAdapter.deleteUserSessions(signedIn.response.user.id);
+    expect(await sessionUser(auth, cookie)).toBeNull();
+
+    // ...while the cookie may still vouch, inside its window and never past it.
+    vi.setSystemTime(Date.now() + (SESSION_COOKIE_CACHE_SECONDS - 60) * 1000);
+    expect((await cachedSessionUser(auth, cookie))?.id).toBe(signedIn.response.user.id);
+    vi.setSystemTime(Date.now() + 2 * 60 * 1000);
+    expect(await cachedSessionUser(auth, cookie)).toBeNull();
   });
 });
 
