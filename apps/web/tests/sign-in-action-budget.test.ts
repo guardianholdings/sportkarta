@@ -20,7 +20,8 @@ const h = vi.hoisted(() => {
     ip: '203.0.113.9',
     reserve: vi.fn<() => Promise<{ release(): Promise<void> } | null>>(),
     release: vi.fn<() => Promise<void>>(),
-    sendSignInCode: vi.fn<(email: string, locale: string) => Promise<SignInCodeOutcome>>(),
+    sendSignInCode:
+      vi.fn<(email: string, locale: string, slot?: unknown) => Promise<SignInCodeOutcome>>(),
   };
 });
 
@@ -41,7 +42,8 @@ vi.mock('@/i18n/navigation', () => ({
 }));
 vi.mock('@/lib/auth', () => ({
   getAuth: () => ({ api: { signInEmailOTP: vi.fn(), signOut: vi.fn() } }),
-  sendSignInCode: (email: string, locale: string) => h.sendSignInCode(email, locale),
+  sendSignInCode: (email: string, locale: string, slot?: unknown) =>
+    h.sendSignInCode(email, locale, slot),
 }));
 vi.mock('@/lib/mail-budget', () => ({
   reserveSignInCodeMail: () => h.reserve(),
@@ -95,24 +97,27 @@ describe('the sign-in code share', () => {
     expect(h.sendSignInCode).not.toHaveBeenCalled();
   });
 
-  it('spends the slot only on a code that went, and gives it back when the send failed', async () => {
+  it('hands the slot to the sender, which alone decides whether it comes back', async () => {
+    // The action never releases: lib/sign-in-code.ts gives the slot back when
+    // nothing left (a refusing relay, an unminted code) and keeps it after a
+    // timeout, when the mail may still arrive (sign-in-code.test.ts).
     expect(await signInAction(START, form({ step: 'email', email: 'went@example.org' }))).toEqual({
       step: 'code',
       email: 'went@example.org',
       error: null,
     });
+    expect(h.sendSignInCode).toHaveBeenCalledWith(
+      'went@example.org',
+      'bg',
+      expect.objectContaining({ release: expect.any(Function) }),
+    );
     expect(h.release).not.toHaveBeenCalled();
 
     h.sendSignInCode.mockResolvedValue('mail_unavailable');
     expect(await signInAction(START, form({ step: 'email', email: 'failed@example.org' }))).toEqual(
       { step: 'email', email: 'failed@example.org', error: 'mail_unavailable' },
     );
-    expect(h.release).toHaveBeenCalledOnce();
-
-    // A code that could not be minted sent nothing either.
-    h.sendSignInCode.mockResolvedValue('unknown');
-    await signInAction(START, form({ step: 'email', email: 'unminted@example.org' }));
-    expect(h.release).toHaveBeenCalledTimes(2);
+    expect(h.release).not.toHaveBeenCalled();
   });
 
   it('asks the budget only after the in-memory limiters have let the request through', async () => {

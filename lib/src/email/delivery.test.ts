@@ -4,6 +4,7 @@ import {
   assertDelivered,
   deliverEach,
   emptyDeliveryReport,
+  isMailRunHeld,
   isMailTransportDown,
   mailFailureCategory,
   MailRunIncompleteError,
@@ -185,5 +186,20 @@ describe('the day’s mail budget', () => {
     expect(() => {
       assertDelivered('digest.weekly', report);
     }).toThrow(/0 failed, 1 held, 1 unattempted of 3 \(mail budget spent\)/);
+  });
+});
+
+describe('isMailRunHeld', () => {
+  it('is true only for a run that threw because of the budget alone', async () => {
+    const held = (await run(['sent', new MailBudgetExhaustedError('notice', 40, '2026-11-06')]))
+      .report;
+    const failedToo = (
+      await run([BOUNCE, new MailBudgetExhaustedError('notice', 40, '2026-11-06')])
+    ).report;
+    const down = (await run([QUOTA])).report;
+    expect(isMailRunHeld(new MailRunIncompleteError('digest.weekly', held))).toBe(true);
+    expect(isMailRunHeld(new MailRunIncompleteError('digest.weekly', failedToo))).toBe(false);
+    expect(isMailRunHeld(new MailRunIncompleteError('digest.weekly', down))).toBe(false);
+    expect(isMailRunHeld(new Error('anything'))).toBe(false);
   });
 });

@@ -86,6 +86,9 @@ services:
       MAIL_DAILY_QUOTA: ${MAIL_DAILY_QUOTA:-}
       MAIL_OTP_SHARE: ${MAIL_OTP_SHARE:-}
       MAIL_NOTICE_SHARE: ${MAIL_NOTICE_SHARE:-}
+      # The club bulk cap can LOWER the budget's bulk share (never raise it). The
+      # web reads it too, so /admin/zdrave shows the share the worker really has.
+      CLUB_BULK_MAIL_DAILY_LIMIT: ${CLUB_BULK_MAIL_DAILY_LIMIT:-60}
       # Caddy sits in front on the compose network; trusting it lets the rate
       # limiter resolve the real client IP (used in memory only, never stored).
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32}

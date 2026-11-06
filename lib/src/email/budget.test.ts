@@ -37,6 +37,10 @@ describe('resolveMailBudget', () => {
       expect(resolveMailBudget({ MAIL_DAILY_QUOTA: quota }).quota).toBe(100);
     }
     expect(resolveMailBudget({ MAIL_OTP_SHARE: '140' })).toMatchObject({ otp: 40 });
+    // A code share of 0 would switch sign-in off for everybody: not a setting.
+    expect(resolveMailBudget({ MAIL_OTP_SHARE: '0' })).toMatchObject({ otp: 40 });
+    expect(resolveMailBudget({ MAIL_OTP_SHARE: '1' })).toMatchObject({ otp: 1 });
+    expect(resolveMailBudget({ MAIL_NOTICE_SHARE: '0' })).toMatchObject({ notice: 0, bulk: 60 });
     expect(resolveMailBudget({ CLUB_BULK_MAIL_DAILY_LIMIT: 'lots' }).bulk).toBe(20);
   });
 

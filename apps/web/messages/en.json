@@ -317,7 +317,7 @@
     },
     "budgetState": {
       "ok": "fine",
-      "warning": "over 80 %",
+      "warning": "over {percent} %",
       "spent": "spent"
     },
     "clubsTitle": "Clubs",

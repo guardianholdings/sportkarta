@@ -317,7 +317,7 @@
     },
     "budgetState": {
       "ok": "в норма",
-      "warning": "над 80 %",
+      "warning": "над {percent} %",
       "spent": "изчерпан"
     },
     "clubsTitle": "Клубове",

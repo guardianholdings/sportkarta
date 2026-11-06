@@ -444,7 +444,11 @@ export async function runClubBroadcasts(
     broadcasts += 1;
     const refusedBefore = budget.refused;
     const { report, cancelled, otherFailed } = await sendBroadcast(broadcast, options, budget);
-    if (!otherFailed && !report.transportDown) otherChannelsDone.add(broadcast.id);
+    // A durable hold stops the run with SMS and push still unattempted: they
+    // do not wait for the e-mail allowance, so the message is re-read next time.
+    if (!otherFailed && !report.transportDown && report.held === 0) {
+      otherChannelsDone.add(broadcast.id);
+    }
     addInto(total, report);
     // Held by the run's allowance, or by the budget's bulk share behind it
     // (the budgeted mailer threw; the claim rolled back): the same thing to

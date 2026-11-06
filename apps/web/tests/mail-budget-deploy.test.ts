@@ -21,6 +21,11 @@ const envExample = readFileSync(join(REPO_ROOT, '.env.example'), 'utf8');
 const webAdapter = readFileSync(join(REPO_ROOT, 'apps', 'web', 'lib', 'mail-budget.ts'), 'utf8');
 
 const SETTINGS = ['MAIL_DAILY_QUOTA', 'MAIL_OTP_SHARE', 'MAIL_NOTICE_SHARE'] as const;
+/**
+ * Folded into the bulk share by resolveMailBudget, so the web must read it too
+ * or /admin/zdrave would show a bulk share the worker does not have.
+ */
+const BULK_CAP = 'CLUB_BULK_MAIL_DAILY_LIMIT';
 /** What deploy.yml renders when the repository variable is unset. */
 const RENDERED_DEFAULTS = {
   MAIL_DAILY_QUOTA: '100',
@@ -63,7 +68,7 @@ describe('the mail budget settings reach every reader', () => {
       const keys = serviceEnvKeys(service);
       expect(keys, `${service}: the scanner found the service`).toContain('DATABASE_URL');
       expect(
-        SETTINGS.filter((key) => !keys.includes(key)),
+        [...SETTINGS, BULK_CAP].filter((key) => !keys.includes(key)),
         `${service} is missing mail budget settings`,
       ).toEqual([]);
     }

@@ -1,3 +1,4 @@
+import { isMailRunHeld } from '@sportkarta/lib/email';
 import {
   createErrorReporter,
   reportFailures,
@@ -25,6 +26,11 @@ export const reporter: ErrorReporter = createErrorReporter({
  * `boss.work`, with every handler failure reported before pg-boss records it.
  * Same two call shapes as pg-boss's own; the queue name travels as a tag, and
  * the error is re-thrown so retries and the `failed` state are unchanged.
+ *
+ * Except a run the day's mail budget held (isMailRunHeld): the throw is what
+ * makes pg-boss retry a dated job within its day, and up to a dozen retries
+ * before midnight would each be an "error" about a budget the health page
+ * already shows as spent. Those are re-thrown unreported.
  */
 export function reportingWork(boss: PgBoss) {
   function work<T>(name: string, handler: PgBoss.WorkHandler<T>): Promise<string>;
@@ -41,14 +47,18 @@ export function reportingWork(boss: PgBoss) {
     if (typeof optionsOrHandler === 'function') {
       return boss.work<T>(
         name,
-        reportFailures(reporter, { tags: { queue: name } }, optionsOrHandler),
+        reportFailures(
+          reporter,
+          { tags: { queue: name }, ignore: isMailRunHeld },
+          optionsOrHandler,
+        ),
       );
     }
     if (!maybeHandler) throw new Error(`work(${name}): handler is required`);
     return boss.work<T>(
       name,
       optionsOrHandler,
-      reportFailures(reporter, { tags: { queue: name } }, maybeHandler),
+      reportFailures(reporter, { tags: { queue: name }, ignore: isMailRunHeld }, maybeHandler),
     );
   }
   return work;

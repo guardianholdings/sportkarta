@@ -231,6 +231,8 @@ describe.skipIf(!hasDb)('mail_budget (requires running database)', () => {
       // transaction before the send, exactly as the worker does it.
       const limits = { ...LIMITS, bulk: 0 };
       const mailer = wrapped(new MemoryMailer(), limits);
+      const today = (await mailBudgetToday(db, limits)).day;
+      const before = await counts('bulk', today);
       const caller = await connect();
       try {
         await expect(
@@ -244,6 +246,11 @@ describe.skipIf(!hasDb)('mail_budget (requires running database)', () => {
         expect(await counts('notice', OLD_DAY)).toEqual({ sent: 0, refused: 0 });
       } finally {
         await caller.end();
+        // The refusal was counted on the real day: put it back as the siblings do.
+        await client.query(
+          `UPDATE mail_budget SET sent = $2, refused = $3 WHERE sofia_day = $1::date AND kind = 'bulk'`,
+          [today, before.sent, before.refused],
+        );
       }
     });
   });

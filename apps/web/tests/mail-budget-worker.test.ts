@@ -23,6 +23,7 @@ const messagesJob = source('../../worker/src/club-messages-job.ts');
 const clubJob = source('../../worker/src/club-mail-job.ts');
 const moderationJob = source('../../worker/src/moderation-mail-job.ts');
 const action = source('../app/[locale]/vhod/actions.ts');
+const signInCode = source('../lib/sign-in-code.ts');
 
 describe('every worker mail spends the day’s budget', () => {
   it('wraps the one relay mailer in the notice share, and bulk mail in the bulk share', () => {
@@ -60,7 +61,11 @@ describe('a held notice is deferred, not dropped', () => {
     expect(index).toMatch(
       /if \(outcome === 'held'\) \{\s*await deferHeld\(MODERATION_NOTIFY_QUEUE/,
     );
-    expect(index).toMatch(/const startAfter = nextMailBudgetDay\(\);/);
+    // A minute past the worker's midnight: the counter's day is the database's.
+    expect(index).toMatch(
+      /const startAfter = new Date\(nextMailBudgetDay\(\)\.getTime\(\) \+ 60_000\);/,
+    );
+    expect(index).toMatch(/if \(id === null\) \{/);
     expect(index).toMatch(/await boss\.send\(queue, data, \{ startAfter \}\);/);
   });
 
@@ -72,8 +77,10 @@ describe('a held notice is deferred, not dropped', () => {
     expect(sessionJob).toMatch(/if \(report\.transportDown \|\| report\.held > 0\) break;/);
     expect(clubJob).toMatch(/if \(out\[kind\]\.transportDown \|\| out\[kind\]\.held > 0\) break;/);
     expect(messagesJob).toMatch(/if \(report\.transportDown \|\| report\.held > 0\) break;/);
-    // The sweep's totals carry the hold, so a held broadcast stays `sending`.
+    // The sweep's totals carry the hold, so a held broadcast stays `sending`,
+    // and its SMS and push do not wait for the e-mail share.
     expect(messagesJob).toMatch(/'failed', 'held', 'unattempted'\] as const/);
+    expect(messagesJob).toMatch(/!report\.transportDown && report\.held === 0/);
   });
 
   it('prunes the day counters nightly, with the expired codes', () => {
@@ -85,13 +92,19 @@ describe('the sign-in code share', () => {
   it('is asked after the in-memory limiters and before a code is minted', () => {
     const globalCap = action.indexOf('otpGlobalSendLimiter.check(GLOBAL_SEND_KEY)');
     const reserve = action.indexOf('await reserveSignInCodeMail()');
-    const send = action.indexOf('await sendSignInCode(email, locale)');
+    const send = action.indexOf('await sendSignInCode(email, locale, slot)');
     expect(globalCap).toBeGreaterThan(-1);
     expect(reserve).toBeGreaterThan(globalCap);
     expect(send).toBeGreaterThan(reserve);
   });
 
-  it('gives the slot back when no code went out', () => {
-    expect(action).toMatch(/if \(outcome !== 'sent'\) await slot\.release\(\);/);
+  it('hands the slot to the sender, which gives it back only when nothing left', () => {
+    expect(action).toMatch(/await sendSignInCode\(email, locale, slot\)/);
+    // Released on an unminted code and on a refusing relay; kept after a
+    // timeout, when the relay may still deliver.
+    expect(signInCode.match(/await delivery\.slot\?\.release\(\)/g)).toHaveLength(2);
+    expect(signInCode).toMatch(
+      /if \(!\(error instanceof MailSendTimeoutError\)\) await delivery\.slot\?\.release\(\);/,
+    );
   });
 });

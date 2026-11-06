@@ -33,6 +33,7 @@ import {
 import {
   assertDelivered,
   createMailer,
+  emptyDeliveryReport,
   nextMailBudgetDay,
   resolveMailBudget,
 } from '@sportkarta/lib/email';
@@ -359,8 +360,17 @@ async function main(): Promise<void> {
     report: { held: number; unattempted: number },
   ): Promise<boolean> {
     if (report.held === 0) return false;
-    const startAfter = nextMailBudgetDay();
-    await boss.send(queue, data, { startAfter });
+    // A minute past the worker's midnight: the counter's day is the DATABASE's
+    // clock, and a worker a few seconds ahead would be held again and defer a
+    // further day.
+    const startAfter = new Date(nextMailBudgetDay().getTime() + 60_000);
+    const id = await boss.send(queue, data, { startAfter });
+    if (id === null) {
+      // A queue policy refused the job (none of these three has one today):
+      // say so rather than lose the notice in silence, and let the queue retry.
+      console.error(`[mail] budget_deferred_refused job=${queue}`);
+      return false;
+    }
     console.warn(
       `[mail] budget_deferred job=${queue} held=${String(report.held)} ` +
         `unattempted=${String(report.unattempted)} until=${startAfter.toISOString()}`,
@@ -821,8 +831,11 @@ async function main(): Promise<void> {
     CLUB_EXPIRY_QUEUE,
     logged(CLUB_EXPIRY_QUEUE, async () => {
       const out = await runClubExpiry(clubMail);
-      // The club's own standing (0059), to its owners, in the same run.
-      const standing = await runClubLifecycle(clubMail);
+      // The club's own standing (0059), to its owners, in the same run — unless
+      // the notice share is already spent, when one more take would only be
+      // refused (the queue's retry runs both again).
+      const expiryHeld = Object.values(out).some((report) => report.held > 0);
+      const standing = expiryHeld ? emptyDeliveryReport() : await runClubLifecycle(clubMail);
       for (const [kind, report] of [...Object.entries(out), ['club_standing', standing] as const]) {
         console.log(
           `[worker] ${CLUB_EXPIRY_QUEUE} ${kind}: ${String(report.sent)} sent, ` +

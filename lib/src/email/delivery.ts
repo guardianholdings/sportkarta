@@ -207,6 +207,9 @@ export async function deliverEach<T>(
 
 /** Thrown to make pg-boss retry a run that left somebody unreached. */
 export class MailRunIncompleteError extends Error {
+  /** The run's counts, so a reporter can tell a hold from a failure. */
+  readonly report: DeliveryReport;
+
   constructor(job: string, report: DeliveryReport) {
     const why = report.transportDown
       ? ' (transport down)'
@@ -219,7 +222,23 @@ export class MailRunIncompleteError extends Error {
         `${String(report.unattempted)} unattempted of ${String(report.candidates)}${why}`,
     );
     this.name = 'MailRunIncompleteError';
+    this.report = { ...report };
   }
+}
+
+/**
+ * A run that threw ONLY because the day's mail budget held it: nobody failed,
+ * the relay is fine, and the queue's retry is the point. Not worth an error
+ * report on every retry (apps/worker/src/reporting.ts skips these); the
+ * health page shows the hold.
+ */
+export function isMailRunHeld(error: unknown): boolean {
+  return (
+    error instanceof MailRunIncompleteError &&
+    error.report.held > 0 &&
+    error.report.failed === 0 &&
+    !error.report.transportDown
+  );
 }
 
 /**

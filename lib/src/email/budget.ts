@@ -69,11 +69,14 @@ function integerFrom(raw: string | undefined, min: number, max: number): number 
  * shares are whole per cents and may not sum past 100 (then both revert to
  * their defaults); the bulk share is what they leave, lowered further by
  * CLUB_BULK_MAIL_DAILY_LIMIT when that is smaller — the club cap keeps
- * working, but it can no longer exceed its share.
+ * working, but it can no longer exceed its share. The code share is never
+ * below 1 %; the notice share may be 0 (notices off, held day after day).
  */
 export function resolveMailBudget(env: MailBudgetEnv = process.env): MailBudgetLimits {
   const quota = integerFrom(env.MAIL_DAILY_QUOTA, 1, 1_000_000) ?? DEFAULT_MAIL_DAILY_QUOTA;
-  let otpShare = integerFrom(env.MAIL_OTP_SHARE, 0, 100) ?? DEFAULT_MAIL_OTP_SHARE;
+  // Never 0: a code share of nothing is sign-in switched off for everybody,
+  // which no setting should do by accident. A notice share of 0 is allowed.
+  let otpShare = integerFrom(env.MAIL_OTP_SHARE, 1, 100) ?? DEFAULT_MAIL_OTP_SHARE;
   let noticeShare = integerFrom(env.MAIL_NOTICE_SHARE, 0, 100) ?? DEFAULT_MAIL_NOTICE_SHARE;
   if (otpShare + noticeShare > 100) {
     otpShare = DEFAULT_MAIL_OTP_SHARE;

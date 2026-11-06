@@ -144,10 +144,11 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
     if (!slot) return { step: resend ? 'code' : 'email', email, error: 'mail_unavailable' };
 
     // The code is mailed HERE, not by better-auth, so a failed send reaches the
-    // member as an error instead of «Изпратихме код» for a code that never left
-    // — and gives its slot back, so a relay outage cannot burn the share.
-    const outcome = await sendSignInCode(email, locale);
-    if (outcome !== 'sent') await slot.release();
+    // member as an error instead of «Изпратихме код» for a code that never left.
+    // The slot travels with it and comes back when nothing left (a relay that
+    // refused, a code that could not be minted) — so a relay outage cannot burn
+    // the share — but not after a timeout, when the mail may still arrive.
+    const outcome = await sendSignInCode(email, locale, slot);
     return outcome === 'sent'
       ? { step: 'code', email, error: null, ...(resend ? { resent: true } : {}) }
       : { step: 'email', email, error: outcome };

@@ -1,5 +1,5 @@
 import { getDb, mailBudgetToday, type MailBudgetKindToday } from '@sportkarta/db';
-import { mailBudgetWarnAt } from '@sportkarta/lib/email';
+import { MAIL_BUDGET_WARN_AT, mailBudgetWarnAt } from '@sportkarta/lib/email';
 import { parseDsn } from '@sportkarta/lib/error-report';
 import { getLocale, getTranslations, setRequestLocale } from 'next-intl/server';
 
@@ -63,6 +63,9 @@ const BUDGET_TONE: Record<BudgetState, BadgeTone> = {
   warning: 'warning',
   spent: 'danger',
 };
+
+/** The badge names the same mark the warning line fires at. */
+const BUDGET_WARN_PERCENT = Math.round(MAIL_BUDGET_WARN_AT * 100);
 
 export default async function AdminHealthPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
@@ -218,7 +221,9 @@ export default async function AdminHealthPage({ params }: { params: Promise<{ lo
                       {row.refused}
                     </td>
                     <td className="py-2 pr-3">
-                      <Badge tone={BUDGET_TONE[state]}>{t(`budgetState.${state}`)}</Badge>
+                      <Badge tone={BUDGET_TONE[state]}>
+                        {t(`budgetState.${state}`, { percent: BUDGET_WARN_PERCENT })}
+                      </Badge>
                     </td>
                   </tr>
                 );
