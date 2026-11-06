@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
+import { hasLocale } from 'next-intl';
 import { getTranslations } from 'next-intl/server';
 
 import { AppShell } from '@/components/shell/app-shell';
 import { PopsMark } from '@/components/shell/pops-mark';
 import { Link } from '@/i18n/navigation';
+import { routing } from '@/i18n/routing';
 
 /**
  * The localized «not found» page for every route under a locale: a facility
@@ -23,8 +25,20 @@ import { Link } from '@/i18n/navigation';
  * components/shell/route-loading.tsx). This file only decides what it looks
  * like, and it renders the same whichever status the response carries.
  */
-export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations('NotFound');
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  // The locale comes from the segment params, never from the request: Next
+  // hands a not-found file's generateMetadata the same params as its layout.
+  // Without an explicit locale next-intl falls back to reading the request
+  // headers, a dynamic API, and on a 404 inside an ISR route (/igrishta,
+  // /sedmitsata) Next answered that read with a 500 ("Page changed from static
+  // to dynamic at runtime") instead of the 404.
+  const { locale: requested } = await params;
+  const locale = hasLocale(routing.locales, requested) ? requested : routing.defaultLocale;
+  const t = await getTranslations({ locale, namespace: 'NotFound' });
   return { title: t('metaTitle'), robots: { index: false, follow: false } };
 }
 

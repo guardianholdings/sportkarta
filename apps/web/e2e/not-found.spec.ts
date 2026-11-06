@@ -24,12 +24,26 @@ const MISSING = [
   '/pasport/nyama-takav-profil-e2e',
   '/igrishta/nyama-takav-grad',
   '/igrishta/sofia/nyama-takav-sport',
+  // A real sport with fewer than MIN_LISTING_FACILITIES places (the seed has one in Sofia).
+  '/igrishta/sofia/football',
   '/obshtina/nyama-takava-obshtina',
   '/sedmitsata/nyama-takav-grad',
   '/nyama-takava-stranitsa',
   '/en/no-such-page',
   '/en/obekt/nyama-takav-obekt-e2e',
+  // The English twins of the statically generated listings. Their not-found once
+  // answered 500: its metadata read the request headers inside a static render.
+  '/en/igrishta/nyama-takav-grad',
+  '/en/igrishta/sofia/nyama-takav-sport',
+  '/en/igrishta/sofia/football',
+  '/en/sedmitsata/nyama-takav-grad',
 ];
+
+// One missing listing per locale: the not-found page speaks the URL's language.
+const MISSING_LISTINGS = [
+  { path: '/igrishta/sofia/nyama-takav-sport', locale: 'bg', words: bg.NotFound },
+  { path: '/en/igrishta/sofia/nyama-takav-sport', locale: 'en', words: en.NotFound },
+] as const;
 
 test.describe('missing pages are real 404s', () => {
   for (const path of MISSING) {
@@ -51,6 +65,16 @@ test.describe('missing pages are real 404s', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     await expect(page.getByRole('heading', { level: 1, name: en.NotFound.title })).toBeVisible();
   });
+
+  for (const { path, locale, words } of MISSING_LISTINGS) {
+    test(`a missing listing renders in its own language: ${path}`, async ({ page, request }) => {
+      // The served HTML carries the localized title, which is what crawlers and link previews read.
+      expect(await (await request.get(path)).text()).toContain(`<title>${words.metaTitle}`);
+      await page.goto(path);
+      await expect(page.locator('html')).toHaveAttribute('lang', locale);
+      await expect(page.getByRole('heading', { level: 1, name: words.title })).toBeVisible();
+    });
+  }
 });
 
 test('the language switch keeps the page and changes the locale', async ({ page }) => {
