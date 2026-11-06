@@ -1,5 +1,6 @@
 'use client';
 
+import { MINIMUM_ACCOUNT_AGE } from '@sportkarta/lib/age';
 import { useLocale, useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
@@ -50,7 +51,9 @@ export function ProfileForm({
           // Never pre-filled: the value is not stored anywhere to fill it from.
           autoComplete="off"
         />
-        <span className="text-caption text-text-muted">{t('dateOfBirthHint')}</span>
+        <span className="text-caption text-text-muted">
+          {t('dateOfBirthHint', { age: MINIMUM_ACCOUNT_AGE })}
+        </span>
       </label>
 
       {/*
@@ -67,7 +70,7 @@ export function ProfileForm({
 
       {state.error && (
         <p role="alert" className="text-body-sm text-danger">
-          {t(`error_${state.error}`)}
+          {t(`error_${state.error}`, { age: MINIMUM_ACCOUNT_AGE })}
         </p>
       )}
       {state.saved && (
@@ -115,7 +118,7 @@ export function DeleteAccountForm({
       </label>
       {state.error && (
         <p role="alert" className="text-body-sm text-danger">
-          {t(`error_${state.error}`)}
+          {t(`error_${state.error}`, { age: MINIMUM_ACCOUNT_AGE })}
         </p>
       )}
       <Button type="submit" variant="danger" disabled={pending}>

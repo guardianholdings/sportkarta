@@ -131,7 +131,9 @@ describe('the terms of use', () => {
 
 describe('the contact page and the notice form', () => {
   it('labels every identity field', () => {
-    for (const field of ['legalName', 'eik', 'address']) expectString(`Contact.label.${field}`);
+    for (const field of ['legalName', 'eik', 'vatNumber', 'address']) {
+      expectString(`Contact.label.${field}`);
+    }
   });
 
   it('labels every notice category and every error the action can return', () => {

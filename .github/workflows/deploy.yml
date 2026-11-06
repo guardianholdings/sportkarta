@@ -325,6 +325,8 @@ jobs:
           ORG_LEGAL_NAME=${{ vars.ORG_LEGAL_NAME }}
           ORG_EIK=${{ vars.ORG_EIK }}
           ORG_ADDRESS=${{ vars.ORG_ADDRESS }}
+          # true when the association is registered under ЗДДС: prints BG+ЕИК.
+          ORG_VAT_REGISTERED=${{ vars.ORG_VAT_REGISTERED }}
           EOF
       # Values computed from other secrets rather than stored separately.
       # Written single-quoted: compose interpolates `$` in unquoted .env values.

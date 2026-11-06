@@ -15,6 +15,7 @@ import {
   CLUB_TIER_PRICE_CENTS,
   CLUB_TIERS,
   CLUB_TRIAL_DAYS,
+  CLUB_VAT_RATE_PERCENT,
   COMMUNITY_MEMBER_CAP,
   clubHasFeature,
   formatEuro,
@@ -102,7 +103,11 @@ export async function Pricing({ locale }: { locale: string }) {
           </ul>
         </Reveal>
         <p className="mt-4 text-caption text-text-muted">
-          {t('pricing.vatNote', { days: CLUB_TRIAL_DAYS, months: CLUB_CONTRACT_MONTHS })}
+          {t('pricing.vatNote', {
+            days: CLUB_TRIAL_DAYS,
+            months: CLUB_CONTRACT_MONTHS,
+            vat: CLUB_VAT_RATE_PERCENT,
+          })}
         </p>
 
         <div

@@ -385,6 +385,18 @@ evidence='qr_verified')`, enforced by trigger + CHECK, never points.
 - No PII in logs; no identifiable people in photos
 - Date of birth is derived to `is_minor` and discarded — never a column, never a
   log line (`lib/src/age.ts`, proven by `apps/web/tests/dob-not-persisted.test.ts`)
+- Minimum account age is 14 (operator decision 2026-11-06 — the Bulgarian
+  digital-consent age, ЗЗЛД чл. 25в, so no parental-consent flow):
+  `MINIMUM_ACCOUNT_AGE` in `lib/src/age.ts`, attested in the sign-in note and
+  enforced wherever a date of birth is actually entered (`buildProfileUpdate`
+  refuses a younger one, the date still unstored). `is_minor` (<18) still gates
+  nothing. The number is always templated as `{age}`, never typed into a string
+- Club prices are FLAT per tier (member caps are ceilings, not meters) and NET
+  of VAT — the association is registered under ЗДДС (operator decision
+  2026-11-06). Every surface that prints a tier price says «без ДДС»
+  (`apps/web/tests/clubs-pricing-vat.test.ts`); the identity block prints the
+  VAT number as BG+ЕИК behind `ORG_VAT_REGISTERED`. Invoices to clubs are issued
+  by the administrator from the accounting system, never by this code
 - Session IPs are never persisted (CHECK-enforced on `sessions.ip_address`)
 - GDPR erasure removes the profile and anonymises contributions, but
   `facility_edits` is append-only and stays intact — erased actors render as the

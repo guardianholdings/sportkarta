@@ -1,5 +1,5 @@
 import { sql, type SQL } from '@sportkarta/db';
-import { deriveIsMinor, InvalidDateOfBirthError } from '@sportkarta/lib/age';
+import { deriveIsMinor, InvalidDateOfBirthError, MINIMUM_ACCOUNT_AGE } from '@sportkarta/lib/age';
 
 /**
  * Minimal member profile (docs/ROADMAP.md §5).
@@ -41,7 +41,8 @@ export type ProfileError =
   | 'display_name_required'
   | 'display_name_too_long'
   | 'home_city_too_long'
-  | 'invalid_date_of_birth';
+  | 'invalid_date_of_birth'
+  | 'under_minimum_age';
 
 export class ProfileValidationError extends Error {
   constructor(readonly code: ProfileError) {
@@ -65,11 +66,19 @@ export function buildProfileUpdate(input: ProfileFormInput, now: Date = new Date
   if (!dateOfBirth) return { displayName, homeCity };
 
   try {
-    // The one and only use of the date. `isMinor` is all that survives this line.
-    return { displayName, homeCity, isMinor: deriveIsMinor(dateOfBirth, now) };
+    // The one and only use of the date. `isMinor` is all that survives this
+    // line — and an account is for MINIMUM_ACCOUNT_AGE and up (operator
+    // decision 2026-11-06), so a younger date is refused here, unstored.
+    return {
+      displayName,
+      homeCity,
+      isMinor: deriveIsMinor(dateOfBirth, now, { minimumAge: MINIMUM_ACCOUNT_AGE }),
+    };
   } catch (error) {
     if (error instanceof InvalidDateOfBirthError) {
-      throw new ProfileValidationError('invalid_date_of_birth');
+      throw new ProfileValidationError(
+        error.reason === 'under_minimum_age' ? 'under_minimum_age' : 'invalid_date_of_birth',
+      );
     }
     throw error;
   }
