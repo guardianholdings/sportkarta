@@ -9,7 +9,9 @@ import { classifyActionFailure } from '../lib/form-action-failure';
  * usable answer, Next throws in the client and the page fell through to the
  * error screen, even when the facility HAD been saved. The forms now catch that
  * throw and say what happened. Two cases must be told apart:
- * - a stale form after a deploy (404 + `x-nextjs-action-not-found`): nothing ran;
+ * - a stale form (404 + `x-nextjs-action-not-found`: the server no longer knows
+ *   the action id — a renamed or moved action, a key rotation; an ordinary
+ *   deploy keeps the ids since PR #50): nothing ran;
  * - a lost answer (cut connection, a 502 page): the action may have run.
  * Next's own control-flow throws must still pass through, or a successful add
  * would stop navigating to its thanks page.

@@ -12,9 +12,10 @@ import type { ActionFailure } from '@/lib/form-action-failure';
  * - `no_answer`: the form's own line (`noAnswer`). The action may have run, and
  *   sending again is safe: the add action refuses a second copy of the same
  *   facility, and a contribution doesn't count its points twice.
- * - `stale_form`: the site was deployed while the form was open. Nothing ran,
- *   and only a reload brings the new action ids, so the line comes with a
- *   reload button.
+ * - `stale_form`: the server no longer knows the form's action id (a renamed
+ *   or moved action, a key rotation; an ordinary deploy keeps the ids since
+ *   PR #50). Nothing ran, and only a reload brings the new action ids, so the
+ *   line comes with a reload button.
  */
 export function FormFailure({
   failure,

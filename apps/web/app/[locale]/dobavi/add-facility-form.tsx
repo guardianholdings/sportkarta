@@ -100,8 +100,9 @@ export function AddFacilityForm({
   const [pinPlaced, setPinPlaced] = useState(initiallyPlaced);
   const [access, setAccess] = useState<string>('free');
   const [missing, setMissing] = useState<Missing | null>(null);
-  // B2: a form left open across a deploy has to reload; what the member chose
-  // and typed comes back after it. A kept pin re-keys the picker so the map is
+  // B2: a form whose action the server no longer knows has to reload
+  // (lib/form-action-failure.ts); what the member chose and typed comes back
+  // after it. A kept pin re-keys the picker so the map is
   // built at that spot, placed, as a deliberate choice: moving the old map from
   // here would race its own mount (and StrictMode's re-run of it in dev).
   const [keptPin, setKeptPin] = useState<{ lon: number; lat: number } | null>(null);

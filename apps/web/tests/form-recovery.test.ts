@@ -9,8 +9,9 @@ import {
 } from '../lib/form-recovery';
 
 /**
- * B2: a form left open across a deploy has to reload before it can send again
- * (FormRecovery.staleForm). What the member typed is carried across that reload
+ * B2: a form whose action the server no longer knows has to reload before it
+ * can send again (FormRecovery.staleForm; the safety net behind PR #50's
+ * stable Server Actions key). What the member typed is carried across that reload
  * in sessionStorage, through an allowlist per form: never the photo (a file
  * can't survive), never the member's own GPS fix (positionLat/positionLon, the
  * proof of being on the spot, re-shared instead of replayed), never a hidden

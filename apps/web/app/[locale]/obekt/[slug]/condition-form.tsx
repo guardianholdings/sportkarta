@@ -44,8 +44,9 @@ export function ConditionForm({ slug }: { slug: string }) {
   const [state, formProps, pending, failure] = useFormAction(reportConditionAction, INITIAL, {
     resetWhen: (next) => next.status === 'ok',
   });
-  // B2: a form left open across a deploy has to reload; the chosen state and
-  // tags come back after it, and line 10 says the photo has to be chosen again.
+  // B2: a form whose action the server no longer knows has to reload
+  // (lib/form-action-failure.ts); the chosen state and tags come back after
+  // it, and line 10 says the photo has to be chosen again.
   const saveAndReload = useFormRecovery('condition', CONDITION_FIELDS, (entries) => {
     if (formProps.ref.current) restoreFields(formProps.ref.current, entries, CONDITION_FIELDS);
   });

@@ -59,8 +59,8 @@ export function VerifyForm(props: VerifyFormProps) {
   // useFormAction: an error must not reset the checklist (lib/use-form-action.ts).
   const [state, formProps, pending, failure] = useFormAction(verifyFacilityAction, INITIAL);
   const [exists, setExists] = useState(true);
-  // B2: a form left open across a deploy has to reload; the answers come back
-  // after it. With «не» kept, the detail fields stay hidden, as they were.
+  // B2: a form whose action the server no longer knows has to reload
+  // (lib/form-action-failure.ts); the answers come back after it. With «не» kept, the detail fields stay hidden, as they were.
   const saveAndReload = useFormRecovery('verify', VERIFY_FIELDS, (entries) => {
     const kept = entries.find(([name]) => name === 'exists');
     if (kept) setExists(kept[1] !== 'no');

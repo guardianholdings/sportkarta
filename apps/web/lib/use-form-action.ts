@@ -48,8 +48,8 @@ export function useFormAction<State>(
   failure: ActionFailure | null,
 ] {
   // B2. A call that gets no usable answer (a cut connection, the proxy's 502
-  // during a deploy, a form left open across a deploy) used to throw into the
-  // error page, even when the facility HAD been saved. The wrapper catches it
+  // during a deploy, an action id the server no longer knows) used to throw
+  // into the error page, even when the facility HAD been saved. The wrapper catches it
   // and reports which case it was; Next's own redirect/notFound throws pass
   // through (lib/form-action-failure.ts).
   //

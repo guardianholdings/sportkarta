@@ -66,11 +66,13 @@ function freshPoint(): { lon: string; lat: string } {
 }
 
 /**
- * Answer the form's server-action calls the way a server redeployed while the
- * form was open does: 404 with Next's `x-nextjs-action-not-found` header (the
- * action id no longer exists). Everything else passes. Returns the undo.
+ * Answer the form's server-action calls the way a server that no longer knows
+ * the action id does: 404 with Next's `x-nextjs-action-not-found` header. An
+ * ordinary deploy keeps the ids (PR #50 pins the Server Actions key); this is
+ * what a renamed or moved action, or a key rotation, looks like from the
+ * browser. Everything else passes. Returns the undo.
  */
-async function deployWhileOpen(page: Page, url: string): Promise<() => Promise<void>> {
+async function staleFormWhileOpen(page: Page, url: string): Promise<() => Promise<void>> {
   const handler = async (route: Route) => {
     const request = route.request();
     if (request.method() === 'POST' && request.headers()['next-action']) {
@@ -134,7 +136,7 @@ test.describe('add-facility errors (B)', () => {
     );
   });
 
-  test('a form left open across a deploy keeps the pin, sports, access and text through the reload', async ({
+  test('a stale form keeps the pin, sports, access and text through the reload', async ({
     page,
   }, testInfo) => {
     await signIn(page, memberEmail(testInfo), /\/profil/);
@@ -143,7 +145,7 @@ test.describe('add-facility errors (B)', () => {
     const name = `E2E B форма ${Date.now()}`;
     await fillAddForm(page, name);
 
-    const undo = await deployWhileOpen(page, '**/dobavi**');
+    const undo = await staleFormWhileOpen(page, '**/dobavi**');
     await page.getByRole('button', { name: SUBMIT }).click();
     const failure = page.getByRole('alert').filter({ hasText: bg.FormRecovery.staleForm });
     await expect(failure).toBeVisible();
@@ -237,7 +239,7 @@ test.describe('add-facility errors (B)', () => {
     await form.locator('input[name="covered"]').check({ force: true });
     await form.locator('input[name="sportTypes"][value="football"]').check({ force: true });
 
-    const undo = await deployWhileOpen(page, '**/obekt/**');
+    const undo = await staleFormWhileOpen(page, '**/obekt/**');
     await form.getByRole('button', { name: bg.Contribute.verifySubmit, exact: true }).click();
     const failure = staleIn(form);
     await expect(failure).toBeVisible();
@@ -272,7 +274,7 @@ test.describe('add-facility errors (B)', () => {
     }).toPass({ timeout: 15_000 });
     await expect(form.locator('select[name="access"]')).toHaveCount(0);
 
-    const undo = await deployWhileOpen(page, '**/obekt/**');
+    const undo = await staleFormWhileOpen(page, '**/obekt/**');
     await form.getByRole('button', { name: bg.Contribute.verifySubmit, exact: true }).click();
     const failure = staleIn(form);
     await expect(failure).toBeVisible();
@@ -294,7 +296,7 @@ test.describe('add-facility errors (B)', () => {
     await form.locator('input[name="state"][value="poor"]').check({ force: true });
     await form.locator('input[name="tags"][value="litter"]').check({ force: true });
 
-    const undo = await deployWhileOpen(page, '**/obekt/**');
+    const undo = await staleFormWhileOpen(page, '**/obekt/**');
     const submit = form.getByRole('button', { name: bg.Contribute.conditionSubmit, exact: true });
     await submit.click();
     const failure = staleIn(form);
