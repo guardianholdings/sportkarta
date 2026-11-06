@@ -28,6 +28,7 @@ const HANDLED = new Set([
   'checkout.session.async_payment_failed',
   'checkout.session.expired',
   'invoice.paid',
+  'invoice.payment_failed',
   'customer.subscription.deleted',
   'charge.refunded',
   'account.updated',
@@ -39,9 +40,12 @@ function reply(status: number): Response {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  // Not gated on CLUBS_ENABLED: money events arrive whenever a club's Stripe
-  // account is connected, and Stripe gives up on a 404 after three days. The
-  // keys decide; the worker applies events only while payments are on.
+  // Not gated on CLUBS_ENABLED or CLUB_PAYMENTS_ENABLED: money events arrive
+  // whenever a club's Stripe account is connected, and Stripe gives up on a
+  // 404 after three days. The keys decide. The worker applies EVERY recorded
+  // event whatever the payments switch says — by design: a refund, a revoked
+  // account or a renewal billed while the switch is off must still reach the
+  // books; the switch only stops NEW checkouts and connections from starting.
   const settings = stripeSettings(process.env);
   if (!settings) return reply(404);
   // Read at most 1 MB, cancelling the stream past it — a chunked body never
@@ -59,6 +63,7 @@ export async function POST(request: Request): Promise<Response> {
     id?: unknown;
     type?: unknown;
     account?: unknown;
+    livemode?: unknown;
     data?: { object?: { id?: unknown } };
   };
   try {
@@ -69,6 +74,16 @@ export async function POST(request: Request): Promise<Response> {
   const type = typeof event.type === 'string' ? event.type : '';
   const eventId = typeof event.id === 'string' ? event.id : '';
   if (!HANDLED.has(type) || !/^evt_[A-Za-z0-9_]{4,255}$/.test(eventId)) return reply(200);
+  // The event's mode must be the key's mode: a test event reaching a live
+  // endpoint (or the reverse) is acknowledged, dropped and logged — never
+  // recorded. It matters most for the two events the worker acts on from the
+  // signed body alone, with no re-fetch to catch the mix-up
+  // (account.application.deauthorized, checkout.session.expired).
+  const liveKey = /^(sk|rk)_live_/.test(settings.secretKey);
+  if (typeof event.livemode !== 'boolean' || event.livemode !== liveKey) {
+    console.warn(`[stripe webhook] ${type}: livemode disagrees with the key — dropped`);
+    return reply(200);
+  }
   const account =
     typeof event.account === 'string' && /^acct_[A-Za-z0-9_]{4,64}$/.test(event.account)
       ? event.account

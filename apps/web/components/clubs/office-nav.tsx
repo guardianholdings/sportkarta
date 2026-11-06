@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-
+import { ScrollStrip } from '@/components/ui/scroll-strip';
 import { Link, usePathname } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
 
@@ -20,8 +19,9 @@ export interface OfficeNavHub {
  * Labels arrive resolved.
  *
  * Longest-prefix match across every section, so /abonamenti/prodazhba lights
- * Абонаменти and its hub. On a phone the hub row is sticky and scrolls
- * sideways if it must; every target is 44px.
+ * Абонаменти and its hub. Both rows are ScrollStrips: on a phone they scroll
+ * sideways with the current hub and page brought into view, the hub row stays
+ * stuck to the top, and every target is 44px.
  */
 export function OfficeNav({
   hubs,
@@ -31,7 +31,6 @@ export function OfficeNav({
   labels: { hubs: string; sections: string };
 }) {
   const pathname = usePathname();
-  const rowsRef = useRef<HTMLDivElement>(null);
   const under = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   let current: string | null = null;
@@ -47,15 +46,6 @@ export function OfficeNav({
     hubs.find((hub) => hub.also.some(under)) ??
     null;
 
-  // On a phone the rows scroll sideways, and «Пари» or «Настройки» starts out
-  // of sight: bring the current hub and page into view (without moving the
-  // page itself — `nearest` on the block axis).
-  useEffect(() => {
-    for (const el of rowsRef.current?.querySelectorAll<HTMLElement>('[aria-current]') ?? []) {
-      el.scrollIntoView({ block: 'nearest', inline: 'center' });
-    }
-  }, [pathname]);
-
   const pill = (active: boolean) =>
     cn(
       'inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-pill px-3.5 text-body-sm font-semibold',
@@ -65,10 +55,12 @@ export function OfficeNav({
     );
 
   return (
-    <div ref={rowsRef} className="mt-3">
-      <nav
+    <div className="mt-3">
+      <ScrollStrip
+        as="nav"
         aria-label={labels.hubs}
-        className="scrollbar-none -mx-4 flex gap-1 overflow-x-auto bg-paper px-4 py-1 max-sm:sticky max-sm:top-0 max-sm:z-30"
+        activeKey={pathname}
+        className="bg-paper py-1 max-sm:sticky max-sm:top-0 max-sm:z-30"
       >
         {hubs.map((hub) => {
           const active = hub === activeHub;
@@ -83,11 +75,13 @@ export function OfficeNav({
             </Link>
           );
         })}
-      </nav>
+      </ScrollStrip>
       {activeHub && activeHub.items.length > 1 && (
-        <nav
+        <ScrollStrip
+          as="nav"
           aria-label={labels.sections}
-          className="scrollbar-none -mx-4 mt-1 flex gap-1 overflow-x-auto border-t border-line px-4 pt-2"
+          activeKey={pathname}
+          className="mt-1 border-t border-line pt-2"
         >
           {activeHub.items.map((item) => {
             const active = item.href === current;
@@ -107,7 +101,7 @@ export function OfficeNav({
               </Link>
             );
           })}
-        </nav>
+        </ScrollStrip>
       )}
     </div>
   );

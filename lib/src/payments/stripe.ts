@@ -73,6 +73,8 @@ export interface Invoice {
   id: string;
   status: string;
   amount_paid: number;
+  /** What the invoice asks for — the figure of a failed collection. */
+  amount_due: number;
   currency: string;
   subscription: string | null;
   payment_intent: string | null;
@@ -93,6 +95,7 @@ export interface Subscription {
 export interface Refund {
   id: string;
   amount: number;
+  currency: string;
   status: string;
   payment_intent: string | null;
 }
@@ -182,12 +185,23 @@ export function createStripeClient(options: {
       ...(body === undefined ? {} : { body }),
       signal: AbortSignal.timeout(15_000),
     });
-    const json = (await response.json().catch(() => ({}))) as {
+    interface StripeBody {
       error?: { type?: string; code?: string };
-    };
-    if (!response.ok) {
-      throw new StripeError(response.status, json.error?.code ?? json.error?.type ?? 'unknown');
     }
+    let json: StripeBody | null = null;
+    try {
+      json = (await response.json()) as StripeBody;
+    } catch {
+      json = null;
+    }
+    if (!response.ok) {
+      throw new StripeError(response.status, json?.error?.code ?? json?.error?.type ?? 'unknown');
+    }
+    // A 2xx whose body is not JSON (a proxy page, a truncated stream) is NOT an
+    // empty object: treated as one, a webhook event would be marked processed
+    // with nothing applied. A coded error propagates, so the event is retried.
+    if (json === null || typeof json !== 'object')
+      throw new StripeError(response.status, 'bad_json');
     return json as T;
   }
 

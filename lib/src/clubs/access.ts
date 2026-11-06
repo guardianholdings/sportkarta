@@ -25,6 +25,12 @@ import { addDaysIso, daysBetween, type IsoDate } from './dates.js';
 
 export const CLUB_GRACE_DAYS = 14;
 export const CLUB_TRIAL_DAYS = 30;
+/**
+ * How long an ARCHIVED club's data is kept for the owner to export before the
+ * nightly purge deletes it (apps/web/lib/clubs/admin.ts) — the figure the
+ * clubs terms and the privacy notice print, so it lives beside the other two.
+ */
+export const CLUB_PURGE_AFTER_DAYS = 90;
 
 export const CLUB_STATUSES = ['pending', 'active', 'suspended', 'archived'] as const;
 export type ClubStatus = (typeof CLUB_STATUSES)[number];

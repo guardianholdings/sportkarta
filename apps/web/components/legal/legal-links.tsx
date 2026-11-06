@@ -10,10 +10,17 @@ const LINK = 'font-medium text-link hover:text-link-hover';
  * these. One table, so /privacy, /usloviya and /kontakt link the same words to
  * the same places, and a message can never smuggle in an arbitrary href — the
  * tag NAME picks the destination, from this list only.
+ *
+ * `clubTerms` is the third legal document (/usloviya-klubove): the terms and
+ * the privacy notice refer to it by name, and it refers back to both.
+ * `clubsPage` points at a route that 404s while CLUBS_ENABLED is off, so the
+ * page that uses it (/usloviya-klubove) swaps it for plain text then.
  */
 const DESTINATIONS = {
   privacy: '/privacy',
   terms: '/usloviya',
+  clubTerms: '/usloviya-klubove',
+  clubsPage: '/za-klubove',
   contact: '/kontakt',
   form: '/signal',
   profile: '/profil',
