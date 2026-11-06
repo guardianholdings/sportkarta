@@ -5,7 +5,7 @@ import { resolveMailBudget } from '@sportkarta/lib/email';
 import { describe, expect, it } from 'vitest';
 
 /**
- * The mail budget's settings (0062) must reach BOTH services and be rendered
+ * The mail budget's settings (0063) must reach BOTH services and be rendered
  * by the deploy. The web app spends the code share and the worker the notice
  * and bulk shares, out of ONE table — a service reading other numbers than
  * the other (the defaults, say, while the other read the operator's) would

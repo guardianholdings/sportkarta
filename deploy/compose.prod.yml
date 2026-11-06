@@ -77,7 +77,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
-      # The daily mail budget (0062): the relay's sends per DAY, shared out
+      # The daily mail budget (0063): the relay's sends per DAY, shared out
       # between sign-in codes, notices and club bulk mail by per-cent shares,
       # counted in ONE database table by web and worker alike. Empty = the
       # defaults sized to Migadu Mini (lib/src/email/budget.ts: 100 a day;
@@ -251,7 +251,7 @@ services:
       # master. Unset, nothing is claimed and the queue waits.
       CLUB_API_ENABLED: ${CLUB_API_ENABLED:-}
       CLUB_WEBHOOK_SECRET: ${CLUB_WEBHOOK_SECRET:-}
-      # The daily mail budget (0062), the same three numbers as web: every
+      # The daily mail budget (0063), the same three numbers as web: every
       # notice from here spends the notice share, every broadcast or
       # automation the bulk share, and the code share is the web's alone.
       MAIL_DAILY_QUOTA: ${MAIL_DAILY_QUOTA:-}

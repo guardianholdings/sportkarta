@@ -279,7 +279,7 @@ jobs:
           SMTP_USER=${{ secrets.SMTP_USER }}
           SMTP_PASS=${{ secrets.SMTP_PASS }}
           SMTP_FROM=${{ secrets.SMTP_FROM }}
-          # The daily mail budget (0062): repository VARIABLES, defaults sized to
+          # The daily mail budget (0063): repository VARIABLES, defaults sized to
           # Migadu Mini — 100 a day, 40 % kept for sign-in codes, 40 % for
           # notices, the rest for club bulk mail (lib/src/email/budget.ts).
           # Read by BOTH services; the in-memory OTP caps stay in front of it.

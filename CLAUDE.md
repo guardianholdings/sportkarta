@@ -372,7 +372,7 @@ evidence='qr_verified')`, enforced by trigger + CHECK, never points.
 - Mail: `Mailer` interface in `lib/src/email` (smtp | file | console | memory).
   Production without SMTP sends nothing — a one-time code must never fall back
   to a log or a file. Locally, codes land in `apps/web/var/mail`
-- Mail budget (0062, `lib/src/email/budget.ts` + `db/src/mail-budget.ts`):
+- Mail budget (0063, `lib/src/email/budget.ts` + `db/src/mail-budget.ts`):
   the relay allows so many sends a DAY (Migadu Mini: 100), so every send
   first takes a slot of its KIND from ONE table keyed by civil Sofia day:
   `otp` (the web action, before a code is minted), `notice` (every worker

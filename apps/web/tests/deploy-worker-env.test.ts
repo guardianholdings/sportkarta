@@ -90,7 +90,7 @@ const SMS_FAMILY = ['SMS_TRANSPORT', 'SMS_API_KEY', 'SMS_SENDER_ID'];
 const PAYMENT_PROVIDER_FAMILY = ['PAYMENT_PROVIDER', ...STRIPE_FAMILY];
 const PUSH_FAMILY = ['PUSH_VAPID_SECRET', 'CONTACT_EMAIL', 'NEXT_PUBLIC_SITE_URL'];
 /**
- * Keys read by `resolveMailBudget(env)` (lib/src/email/budget.ts, 0062) — the
+ * Keys read by `resolveMailBudget(env)` (lib/src/email/budget.ts, 0063) — the
  * same whole-env handoff. The worker spends the notice and bulk shares of the
  * day's mail budget; given other numbers than the web app, the two would not
  * be sharing one relay quota at all.

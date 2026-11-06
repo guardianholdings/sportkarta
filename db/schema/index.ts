@@ -2826,7 +2826,7 @@ export type NewAccountAccessLogRow = typeof accountAccessLog.$inferInsert;
 export type AccountAccessScopeValue = (typeof accountAccessScope.enumValues)[number];
 
 /**
- * The daily mail budget (0062; launch-readiness audit 2026-10-31, B-05): how
+ * The daily mail budget (0063; launch-readiness audit 2026-10-31, B-05): how
  * many messages were handed to the relay per civil Sofia day and per KIND —
  * sign-in codes, notices, club bulk mail — and how many attempts were turned
  * away. The limits are NOT here: they come from MAIL_DAILY_QUOTA and the

@@ -265,7 +265,7 @@ async function main(): Promise<void> {
   // is reused across jobs instead of re-logging in to the relay per message.
   const relayMailer = createMailer(process.env);
   // The day's mail budget (lib/src/email/budget.ts; the counter is
-  // db/src/mail-budget.ts, migration 0062). The relay allows so many sends a
+  // db/src/mail-budget.ts, migration 0063). The relay allows so many sends a
   // DAY, shared with the sign-in codes the web app sends, so every message
   // from here spends a slot of ITS kind first: notices — session mail,
   // digests, moderation and club mail — from the notice share, a club's

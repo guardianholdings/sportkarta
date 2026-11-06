@@ -10,7 +10,7 @@ import {
 import { sql, type SQL } from 'drizzle-orm';
 
 /**
- * The daily mail budget's COUNTER (migration 0062). The shares, the
+ * The daily mail budget's COUNTER (migration 0063). The shares, the
  * environment and the error live in lib/src/email/budget.ts; this file is
  * the one place a slot is taken, given back or read.
  *

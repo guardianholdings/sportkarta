@@ -17,7 +17,7 @@ import {
 } from './mail-budget.js';
 
 /**
- * The mail budget's counter (migration 0062, db/src/mail-budget.ts) against a
+ * The mail budget's counter (migration 0063, db/src/mail-budget.ts) against a
  * real Postgres: the share is granted exactly, two senders racing for the
  * last slot get one between them, a slot comes back when the relay refuses,
  * and the budgeted mailer's throw rolls the caller's claim back with it.

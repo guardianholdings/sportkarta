@@ -1,4 +1,4 @@
--- 0062_mail_budget: a durable daily mail budget with a reserve for sign-in
+-- 0063_mail_budget: a durable daily mail budget with a reserve for sign-in
 -- codes (launch-readiness audit 2026-10-31, finding B-05). Hand-written; do
 -- not regenerate.
 --

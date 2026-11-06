@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 /**
- * The worker's side of the daily mail budget (0062), asserted at the source
+ * The worker's side of the daily mail budget (0063), asserted at the source
  * level like session-mail-worker.test.ts — the worker package has no test
  * runner, and these are the properties that regress silently: a job handed
  * the bare relay mailer would spend no share and could still exhaust the
