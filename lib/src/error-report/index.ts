@@ -369,14 +369,24 @@ export function createErrorReporter(options: ReporterOptions): ErrorReporter {
  */
 export function reportFailures<A extends unknown[], R>(
   reporter: ErrorReporter,
-  context: { tags?: ReportContext; extra?: ReportContext },
+  context: {
+    tags?: ReportContext;
+    extra?: ReportContext;
+    /**
+     * True for a rejection NOT worth a report — still re-thrown unchanged. The
+     * worker passes a mail run the day's budget held: the queue retries it
+     * anyway, nobody failed, and the health page already shows the hold.
+     */
+    ignore?: (error: unknown) => boolean;
+  },
   fn: (...args: A) => Promise<R>,
 ): (...args: A) => Promise<R> {
+  const { ignore, ...capture } = context;
   return async (...args: A): Promise<R> => {
     try {
       return await fn(...args);
     } catch (error: unknown) {
-      await reporter.captureException(error, context);
+      if (!ignore?.(error)) await reporter.captureException(error, capture);
       throw error;
     }
   };

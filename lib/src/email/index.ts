@@ -13,6 +13,7 @@ export { brandEmailHtml } from './html.js';
 export * from './weekly-digest.js';
 export * from './session-mail.js';
 export * from './club-mail.js';
+export * from './budget.js';
 export * from './delivery.js';
 export * from './moderation-mail.js';
 export * from './sign-in-mail.js';

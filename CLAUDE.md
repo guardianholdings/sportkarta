@@ -372,6 +372,23 @@ evidence='qr_verified')`, enforced by trigger + CHECK, never points.
 - Mail: `Mailer` interface in `lib/src/email` (smtp | file | console | memory).
   Production without SMTP sends nothing — a one-time code must never fall back
   to a log or a file. Locally, codes land in `apps/web/var/mail`
+- Mail budget (0063, `lib/src/email/budget.ts` + `db/src/mail-budget.ts`):
+  the relay allows so many sends a DAY (Migadu Mini: 100), so every send
+  first takes a slot of its KIND from ONE table keyed by civil Sofia day:
+  `otp` (the web action, before a code is minted), `notice` (every worker
+  mail) or `bulk` (club broadcasts/automations). The take is a single upsert
+  whose `DO UPDATE` carries `WHERE sent < limit` and a `RETURNING`, so two
+  senders at the edge get one slot between them. Shares come from
+  `MAIL_DAILY_QUOTA`, `MAIL_OTP_SHARE` and `MAIL_NOTICE_SHARE` (defaults
+  100 / 40 % / 40 %, bulk the rest; `CLUB_BULK_MAIL_DAILY_LIMIT` may only
+  lower bulk) and are never stored. A kind cannot borrow from another: the
+  code reserve is the point. The worker sends only through `budgetedMailer`,
+  which THROWS instead of sending once the share is spent; the job's claim
+  rolls back, `deliverEach` counts the recipient as `held` (not failed),
+  sweeps retry on their next tick and the one-off notice queues are
+  re-enqueued for the next Sofia day (`deferHeld`) — deferred, never dropped.
+  A failed relay send gives its slot back. The in-memory limiters in
+  `apps/web/lib/auth-rate-limit.ts` stay in front as the first line
 - Tiles: self-served pmtiles at /tiles; MapLibre style lives in apps/web (Stage 2)
 - i18n: next-intl; NEVER hardcode UI strings; `apps/web/messages/bg.json` is the
   source of truth, en mirrors it (parity enforced by `apps/web/tests/i18n.test.ts`);

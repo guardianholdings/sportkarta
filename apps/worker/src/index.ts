@@ -1,10 +1,12 @@
 import {
+  budgetedMailer,
   eraseExpiredNotifierContacts,
   getDb,
   getPool,
   materializeClubClasses,
   materializeSessions,
   pruneClubRetention,
+  pruneMailBudget,
   refreshStats,
 } from '@sportkarta/db';
 import {
@@ -28,7 +30,13 @@ import {
   type ClubNotifyJob,
   type ClubPaymentEventJob,
 } from '@sportkarta/lib/clubs';
-import { assertDelivered, createMailer } from '@sportkarta/lib/email';
+import {
+  assertDelivered,
+  createMailer,
+  emptyDeliveryReport,
+  nextMailBudgetDay,
+  resolveMailBudget,
+} from '@sportkarta/lib/email';
 import { createPushSender } from '@sportkarta/lib/push';
 import { createSmsSender } from '@sportkarta/lib/sms';
 import { runImport } from '@sportkarta/import-osm';
@@ -253,9 +261,22 @@ async function main(): Promise<void> {
     console.error(`[db-pool] idle client error: ${jobFailureCategory(error)}`);
   });
 
-  // ONE mailer for the life of the process, so the SMTP transport's pool is
-  // reused across jobs instead of re-logging in to the relay per message.
-  const mailer = createMailer(process.env);
+  // ONE relay mailer for the life of the process, so the SMTP transport's pool
+  // is reused across jobs instead of re-logging in to the relay per message.
+  const relayMailer = createMailer(process.env);
+  // The day's mail budget (lib/src/email/budget.ts; the counter is
+  // db/src/mail-budget.ts, migration 0063). The relay allows so many sends a
+  // DAY, shared with the sign-in codes the web app sends, so every message
+  // from here spends a slot of ITS kind first: notices — session mail,
+  // digests, moderation and club mail — from the notice share, a club's
+  // broadcasts and automations from the bulk share. A spent share THROWS
+  // instead of sending; the job's claim rolls back with it, deliverEach counts
+  // the recipient as held, and the retry is the next tick (a sweep), the next
+  // day (deferHeld below, for the one-off notices) or the queue's own (a dated
+  // job). The code share is never touched from here: that is the point.
+  const mailBudget = resolveMailBudget(process.env);
+  const mailer = budgetedMailer(relayMailer, { db: getDb(), kind: 'notice', limits: mailBudget });
+  const bulkMailer = budgetedMailer(relayMailer, { db: getDb(), kind: 'bulk', limits: mailBudget });
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 
   // SMS and push for club messages (0051). A channel is attempted only when
@@ -282,13 +303,15 @@ async function main(): Promise<void> {
     },
   };
   // Bulk club e-mail (broadcasts + automations) per Sofia day across every
-  // club — below the relay's own daily quota, which sign-in codes share. The
-  // default leaves a 100-a-day relay (Migadu's smallest plan) room for the
-  // codes; the operator raises it with the plan.
-  const bulkLimitRaw = (process.env.CLUB_BULK_MAIL_DAILY_LIMIT ?? '').trim();
+  // club: the budget's BULK share — what the quota leaves after the code and
+  // notice shares, lowered further by CLUB_BULK_MAIL_DAILY_LIMIT when that is
+  // smaller, never raised by it. The sweep's own fair-share allowance
+  // (club-messages-job.ts) is sized from the same number; the bulk mailer is
+  // the hard line behind it.
   const clubMessages = {
     ...clubMail,
-    bulkMailDailyLimit: /^\d{1,6}$/.test(bulkLimitRaw) ? Number(bulkLimitRaw) : 60,
+    mailer: bulkMailer,
+    bulkMailDailyLimit: mailBudget.bulk,
   };
 
   // Separate pool for REFRESH MATERIALIZED VIEW CONCURRENTLY (pg-boss owns its
@@ -320,6 +343,39 @@ async function main(): Promise<void> {
   ): Promise<void> {
     await boss.createQueue(name, { name, ...options });
     if (options) await boss.updateQueue(name, { name, ...options });
+  }
+
+  /**
+   * A one-off notice the day's mail budget held — session.notify, club.notify
+   * and moderation.notify are enqueued ONCE per event — is DEFERRED, never
+   * dropped: the same job is sent again for the moment the shares reset
+   * (Sofia midnight), and the ledger makes that run mail only those not
+   * reached today. The queue's own retries (MAIL_RETRY: about half an hour)
+   * would have failed it for good long before then. True when deferred, so
+   * the handler returns instead of asserting delivery. Counts only in the log.
+   */
+  async function deferHeld(
+    queue: string,
+    data: object,
+    report: { held: number; unattempted: number },
+  ): Promise<boolean> {
+    if (report.held === 0) return false;
+    // A minute past the worker's midnight: the counter's day is the DATABASE's
+    // clock, and a worker a few seconds ahead would be held again and defer a
+    // further day.
+    const startAfter = new Date(nextMailBudgetDay().getTime() + 60_000);
+    const id = await boss.send(queue, data, { startAfter });
+    if (id === null) {
+      // A queue policy refused the job (none of these three has one today):
+      // say so rather than lose the notice in silence, and let the queue retry.
+      console.error(`[mail] budget_deferred_refused job=${queue}`);
+      return false;
+    }
+    console.warn(
+      `[mail] budget_deferred job=${queue} held=${String(report.held)} ` +
+        `unattempted=${String(report.unattempted)} until=${startAfter.toISOString()}`,
+    );
+    return true;
   }
 
   await ensureQueue(HEALTH_QUEUE);
@@ -418,9 +474,12 @@ async function main(): Promise<void> {
     // A notifier's name and address are kept to answer them about their notice
     // (0034), and erased once the retention printed on /privacy has run out.
     const notifierContacts = await eraseExpiredNotifierContacts(getDb());
+    // The mail budget's day counters hold no personal data; 90 days is plenty
+    // of history for the health page and a dispute with the relay.
+    const budgetDays = await pruneMailBudget(getDb());
     // Counts only — never the addresses themselves (no PII in logs).
     console.log(
-      `[worker] ${AUTH_CLEANUP_QUEUE} removed ${verifications.rowCount ?? 0} expired code(s), ${sessions.rowCount ?? 0} expired session(s), ${String(notifierContacts)} notifier contact(s)`,
+      `[worker] ${AUTH_CLEANUP_QUEUE} removed ${verifications.rowCount ?? 0} expired code(s), ${sessions.rowCount ?? 0} expired session(s), ${String(notifierContacts)} notifier contact(s), ${String(budgetDays)} mail budget row(s)`,
     );
   });
   await boss.schedule(AUTH_CLEANUP_QUEUE, '17 3 * * *');
@@ -489,6 +548,7 @@ async function main(): Promise<void> {
             `${String(report.unattempted)} unattempted`,
         );
         await reportMailFailures(SESSION_NOTIFY_QUEUE, report);
+        if (await deferHeld(SESSION_NOTIFY_QUEUE, data, report)) return;
         assertDelivered(SESSION_NOTIFY_QUEUE, report);
       });
       return last;
@@ -543,6 +603,11 @@ async function main(): Promise<void> {
         const data = (job.data ?? {}) as ModerationNotifyJobData;
         const outcome = await runModerationNotify(data, { mailer, siteUrl, contactEmail });
         console.log(`[worker] ${MODERATION_NOTIFY_QUEUE} job ${job.id}: ${outcome}`);
+        // The notice share is spent: the claim rolled back, the same job goes
+        // again once the shares reset.
+        if (outcome === 'held') {
+          await deferHeld(MODERATION_NOTIFY_QUEUE, data, { held: 1, unattempted: 0 });
+        }
       }
     }),
   );
@@ -735,6 +800,7 @@ async function main(): Promise<void> {
             `${String(report.failed)} failed, ${String(report.unattempted)} unattempted`,
         );
         await reportMailFailures(CLUB_NOTIFY_QUEUE, report);
+        if (await deferHeld(CLUB_NOTIFY_QUEUE, job.data, report)) return;
         assertDelivered(CLUB_NOTIFY_QUEUE, report);
       });
     }),
@@ -765,8 +831,11 @@ async function main(): Promise<void> {
     CLUB_EXPIRY_QUEUE,
     logged(CLUB_EXPIRY_QUEUE, async () => {
       const out = await runClubExpiry(clubMail);
-      // The club's own standing (0059), to its owners, in the same run.
-      const standing = await runClubLifecycle(clubMail);
+      // The club's own standing (0059), to its owners, in the same run — unless
+      // the notice share is already spent, when one more take would only be
+      // refused (the queue's retry runs both again).
+      const expiryHeld = Object.values(out).some((report) => report.held > 0);
+      const standing = expiryHeld ? emptyDeliveryReport() : await runClubLifecycle(clubMail);
       for (const [kind, report] of [...Object.entries(out), ['club_standing', standing] as const]) {
         console.log(
           `[worker] ${CLUB_EXPIRY_QUEUE} ${kind}: ${String(report.sent)} sent, ` +

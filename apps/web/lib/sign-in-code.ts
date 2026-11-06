@@ -67,6 +67,13 @@ export interface SignInCodeDelivery {
   /** Development wants the whole error; production must not have it (it can name the address). */
   verboseErrors: boolean;
   timeoutMs?: number;
+  /**
+   * The slot of the day's code share this request holds (lib/mail-budget.ts),
+   * given back when no mail left: a code that could not be minted, a relay
+   * that refused. NOT on a timeout — the relay may still deliver the message,
+   * so the slot stays spent (over-counting by one can only send less).
+   */
+  slot?: { release(): Promise<void> };
 }
 
 const ERROR_CODE = /^[A-Z][A-Z0-9_]{0,31}$/;
@@ -122,6 +129,7 @@ export async function deliverSignInCode(delivery: SignInCodeDelivery): Promise<S
     code = await delivery.issueCode();
   } catch (error) {
     delivery.log('[auth] issuing a sign-in code failed:', detail(error));
+    await delivery.slot?.release();
     return 'unknown';
   }
 
@@ -148,6 +156,8 @@ export async function deliverSignInCode(delivery: SignInCodeDelivery): Promise<S
     } else {
       delivery.log('[auth] sending a sign-in code failed:', detail(error));
     }
+    // A relay that never answered may still deliver: that slot stays spent.
+    if (!(error instanceof MailSendTimeoutError)) await delivery.slot?.release();
     return 'mail_unavailable';
   }
 }

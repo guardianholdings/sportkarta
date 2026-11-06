@@ -954,7 +954,7 @@ export async function runClubExpiry(
       },
       { job: 'club.expiry' },
     );
-    if (out[kind].transportDown) break;
+    if (out[kind].transportDown || out[kind].held > 0) break;
   }
   return out;
 }
@@ -1176,30 +1176,31 @@ export async function runClubPolicies(
     },
     { job: 'club.policies' },
   );
-  const feeMail = renewalMail.transportDown
-    ? emptyDeliveryReport()
-    : await deliverEach(
-        await feeMailCandidates(db()),
-        async (candidate) => {
-          const club = await clubForMail(db(), candidate.clubId);
-          const locale = club?.locale ?? 'bg';
-          return sendToMember(
-            {
-              kind: 'fee_charged',
-              clubId: candidate.clubId,
-              memberId: candidate.memberId,
-              key: dedupeKey({ kind: 'fee_charged', chargeId: candidate.chargeId }),
-              values: {
-                label: candidate.label,
-                amount: formatEuro(candidate.amountCents, locale),
-                date: formatCivilDate(candidate.dueOn, locale),
+  const feeMail =
+    renewalMail.transportDown || renewalMail.held > 0
+      ? emptyDeliveryReport()
+      : await deliverEach(
+          await feeMailCandidates(db()),
+          async (candidate) => {
+            const club = await clubForMail(db(), candidate.clubId);
+            const locale = club?.locale ?? 'bg';
+            return sendToMember(
+              {
+                kind: 'fee_charged',
+                clubId: candidate.clubId,
+                memberId: candidate.memberId,
+                key: dedupeKey({ kind: 'fee_charged', chargeId: candidate.chargeId }),
+                values: {
+                  label: candidate.label,
+                  amount: formatEuro(candidate.amountCents, locale),
+                  date: formatCivilDate(candidate.dueOn, locale),
+                },
               },
-            },
-            options,
-          );
-        },
-        { job: 'club.policies' },
-      );
+              options,
+            );
+          },
+          { job: 'club.policies' },
+        );
   return { ...renewals, fees, renewalMail, feeMail };
 }
 

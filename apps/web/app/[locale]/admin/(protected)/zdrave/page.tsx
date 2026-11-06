@@ -1,4 +1,5 @@
-import { getDb } from '@sportkarta/db';
+import { getDb, mailBudgetToday, type MailBudgetKindToday } from '@sportkarta/db';
+import { MAIL_BUDGET_WARN_AT, mailBudgetWarnAt } from '@sportkarta/lib/email';
 import { parseDsn } from '@sportkarta/lib/error-report';
 import { getLocale, getTranslations, setRequestLocale } from 'next-intl/server';
 
@@ -6,6 +7,7 @@ import { Badge, type BadgeTone } from '@/components/ui/badge';
 import { enqueueFailures } from '@/lib/admin-boss';
 import { requireRole } from '@/lib/auth-session';
 import { describeCron, weekdayName } from '@/lib/cron-words';
+import { mailBudgetLimits } from '@/lib/mail-budget';
 import {
   HEARTBEAT_STALE_SECONDS,
   MAIL_WINDOW_DAYS,
@@ -45,19 +47,41 @@ const WORKER_TONE: Record<WorkerStatus, BadgeTone> = {
   unknown: 'warning',
 };
 
+/**
+ * Where a mail budget share stands today (db/src/mail-budget.ts): the same
+ * 80 % mark the worker and the web warn at once, and spent when the kind's
+ * next send would be refused.
+ */
+type BudgetState = 'ok' | 'warning' | 'spent';
+
+function budgetState(row: MailBudgetKindToday): BudgetState {
+  if (row.sent >= row.limit) return 'spent';
+  return row.sent >= mailBudgetWarnAt(row.limit) ? 'warning' : 'ok';
+}
+
+const BUDGET_TONE: Record<BudgetState, BadgeTone> = {
+  ok: 'success',
+  warning: 'warning',
+  spent: 'danger',
+};
+
+/** The badge names the same mark the warning line fires at. */
+const BUDGET_WARN_PERCENT = Math.round(MAIL_BUDGET_WARN_AT * 100);
+
 export default async function AdminHealthPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
   await requireRole('admin');
 
   const db = getDb();
-  const [t, activeLocale, heartbeat, queues, schedules, mail, clubs] = await Promise.all([
+  const [t, activeLocale, heartbeat, queues, schedules, mail, budget, clubs] = await Promise.all([
     getTranslations('AdminHealth'),
     getLocale(),
     readWorkerHeartbeat(db, process.uptime()),
     queueHealth(db),
     scheduleHealth(db),
     mailOutcomes(db),
+    mailBudgetToday(db, mailBudgetLimits()),
     clubOpsHealth(db),
   ]);
   const enqueue = enqueueFailures();
@@ -69,6 +93,9 @@ export default async function AdminHealthPage({ params }: { params: Promise<{ lo
     timeZone: 'Europe/Sofia',
   });
   const when = (iso: string | null): string => (iso ? dateFmt.format(new Date(iso)) : t('never'));
+  // A civil Sofia day (YYYY-MM-DD), shown as a date and never shifted by a zone.
+  const dayFmt = new Intl.DateTimeFormat(activeLocale, { dateStyle: 'long', timeZone: 'UTC' });
+  const budgetDay = budget.day ? dayFmt.format(new Date(`${budget.day}T00:00:00Z`)) : '—';
   const age = (seconds: number | null): string => {
     if (seconds === null) return '—';
     if (seconds < 90) return t('ageSeconds', { n: seconds });
@@ -220,6 +247,50 @@ export default async function AdminHealthPage({ params }: { params: Promise<{ lo
           </table>
         </div>
         <p className="mt-2 max-w-prose text-caption text-text-muted">{t('mailHelp')}</p>
+      </section>
+
+      <section aria-labelledby="budget-h" className={card}>
+        <h2 id="budget-h" className="t-overline mb-3">
+          {t('budgetTitle', { day: budgetDay })}
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-body-sm">
+            <thead>
+              <tr className="border-b border-line-strong text-caption text-text-muted">
+                <th className={th}>{t('colKind')}</th>
+                <th className={th}>{t('colBudgetSent')}</th>
+                <th className={th}>{t('colBudgetShare')}</th>
+                <th className={th}>{t('colBudgetRefused')}</th>
+                <th className={th}>{t('colBudgetState')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {budget.kinds.map((row) => {
+                const state = budgetState(row);
+                return (
+                  <tr key={row.kind} className="border-b border-line">
+                    <td className="py-2 pr-3">{t(`budgetKind.${row.kind}`)}</td>
+                    <td className="py-2 pr-3 tabular-nums">{row.sent}</td>
+                    <td className="py-2 pr-3 tabular-nums">{row.limit}</td>
+                    <td
+                      className={`py-2 pr-3 tabular-nums ${row.refused > 0 ? 'font-semibold text-danger' : ''}`}
+                    >
+                      {row.refused}
+                    </td>
+                    <td className="py-2 pr-3">
+                      <Badge tone={BUDGET_TONE[state]}>
+                        {t(`budgetState.${state}`, { percent: BUDGET_WARN_PERCENT })}
+                      </Badge>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-2 max-w-prose text-caption text-text-muted">
+          {t('budgetHelp', { quota: budget.quota })}
+        </p>
       </section>
 
       <section aria-labelledby="clubs-h" className={card}>

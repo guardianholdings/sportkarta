@@ -4,11 +4,13 @@ import {
   assertDelivered,
   deliverEach,
   emptyDeliveryReport,
+  isMailRunHeld,
   isMailTransportDown,
   mailFailureCategory,
   MailRunIncompleteError,
   type DeliveryOutcome,
 } from './delivery.js';
+import { MailBudgetExhaustedError } from './budget.js';
 import { MailNotConfiguredError } from './mailer.js';
 
 /**
@@ -154,5 +156,50 @@ describe('assertDelivered', () => {
     } catch (error) {
       expect(String(error)).not.toContain('@');
     }
+  });
+});
+
+describe('the day’s mail budget', () => {
+  const HELD = new MailBudgetExhaustedError('notice', 40, '2026-11-06');
+
+  it('stops the run at the first held recipient, as a hold rather than a failure', async () => {
+    const { report, logs, tried } = await run(['sent', HELD, 'sent', 'sent']);
+    expect(tried).toEqual([0, 1]);
+    expect(report).toEqual({
+      ...emptyDeliveryReport(4),
+      sent: 1,
+      held: 1,
+      unattempted: 2,
+    });
+    expect(logs).toEqual([
+      '[mail] budget_held job=digest.weekly kind=notice limit=40 day=2026-11-06 sent=1 unattempted=2',
+    ]);
+  });
+
+  it('is classified by kind, and is not the transport', () => {
+    expect(mailFailureCategory(HELD)).toBe('mail_budget_notice');
+    expect(isMailTransportDown(HELD)).toBe(false);
+  });
+
+  it('still makes a run that nobody deferred retryable', async () => {
+    const { report } = await run(['sent', HELD, 'sent']);
+    expect(() => {
+      assertDelivered('digest.weekly', report);
+    }).toThrow(/0 failed, 1 held, 1 unattempted of 3 \(mail budget spent\)/);
+  });
+});
+
+describe('isMailRunHeld', () => {
+  it('is true only for a run that threw because of the budget alone', async () => {
+    const held = (await run(['sent', new MailBudgetExhaustedError('notice', 40, '2026-11-06')]))
+      .report;
+    const failedToo = (
+      await run([BOUNCE, new MailBudgetExhaustedError('notice', 40, '2026-11-06')])
+    ).report;
+    const down = (await run([QUOTA])).report;
+    expect(isMailRunHeld(new MailRunIncompleteError('digest.weekly', held))).toBe(true);
+    expect(isMailRunHeld(new MailRunIncompleteError('digest.weekly', failedToo))).toBe(false);
+    expect(isMailRunHeld(new MailRunIncompleteError('digest.weekly', down))).toBe(false);
+    expect(isMailRunHeld(new Error('anything'))).toBe(false);
   });
 });
