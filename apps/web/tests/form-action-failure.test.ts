@@ -10,11 +10,13 @@ import { classifyActionFailure } from '../lib/form-action-failure';
  * error screen, even when the facility HAD been saved. The forms now catch that
  * throw and say what happened. Two cases must be told apart:
  * - a stale form (404 + `x-nextjs-action-not-found`: the server no longer knows
- *   the action id — a renamed or moved action, a key rotation; an ordinary
- *   deploy keeps the ids since PR #50): nothing ran;
+ *   the action id — every deploy without a fixed Server Actions key, else a
+ *   renamed or moved action or a key rotation, see PR #50): nothing ran;
  * - a lost answer (cut connection, a 502 page): the action may have run.
  * Next's own control-flow throws must still pass through, or a successful add
- * would stop navigating to its thanks page.
+ * would stop navigating to its thanks page; and an error the action itself
+ * threw (it carries a `digest`) must still reach the error page, because
+ * sending again would only fail again.
  */
 function thrownBy(fn: () => unknown): unknown {
   try {
@@ -51,5 +53,12 @@ describe('classifyActionFailure', () => {
   it('rethrows notFound', () => {
     const error = thrownBy(() => notFound());
     expect(() => classifyActionFailure(error)).toThrow('NEXT_HTTP_ERROR_FALLBACK');
+  });
+
+  it('rethrows an error the action itself threw (it carries a digest), so it still reaches the error page', () => {
+    const error = Object.assign(new Error('An error occurred in the Server Components render.'), {
+      digest: '2839471002',
+    });
+    expect(() => classifyActionFailure(error)).toThrow(error);
   });
 });

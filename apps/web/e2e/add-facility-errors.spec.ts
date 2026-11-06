@@ -67,10 +67,10 @@ function freshPoint(): { lon: string; lat: string } {
 
 /**
  * Answer the form's server-action calls the way a server that no longer knows
- * the action id does: 404 with Next's `x-nextjs-action-not-found` header. An
- * ordinary deploy keeps the ids (PR #50 pins the Server Actions key); this is
- * what a renamed or moved action, or a key rotation, looks like from the
- * browser. Everything else passes. Returns the undo.
+ * the action id does: 404 with Next's `x-nextjs-action-not-found` header.
+ * Without a fixed Server Actions key that is every deploy; with PR #50's
+ * stable key it is what a renamed or moved action, or a key rotation, looks
+ * like from the browser. Everything else passes. Returns the undo.
  */
 async function staleFormWhileOpen(page: Page, url: string): Promise<() => Promise<void>> {
   const handler = async (route: Route) => {

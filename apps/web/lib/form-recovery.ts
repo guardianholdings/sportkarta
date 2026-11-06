@@ -2,9 +2,9 @@
  * Carrying what a member typed across a forced reload (B2).
  *
  * A form whose action the server no longer knows (lib/form-action-failure.ts,
- * `stale_form`) can't send any more, and only a reload fixes that. Since PR #50
- * pinned the Server Actions key, an ordinary deploy keeps the ids, so this is
- * the safety net for a renamed or moved action and a key rotation. Before
+ * `stale_form`) can't send any more, and only a reload fixes that. Without a
+ * fixed Server Actions key that is every deploy; with the stable key of PR #50
+ * it is the safety net for a renamed or moved action and a key rotation. Before
  * reloading, the form keeps a copy of its fields in sessionStorage (this tab
  * only, gone when the tab closes) and puts them back once, after the new page
  * has hydrated.

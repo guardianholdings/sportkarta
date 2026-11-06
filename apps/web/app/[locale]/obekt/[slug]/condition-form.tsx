@@ -43,6 +43,7 @@ export function ConditionForm({ slug }: { slug: string }) {
   // to throw away the photo the member had just taken (lib/use-form-action.ts).
   const [state, formProps, pending, failure] = useFormAction(reportConditionAction, INITIAL, {
     resetWhen: (next) => next.status === 'ok',
+    catchFailure: true,
   });
   // B2: a form whose action the server no longer knows has to reload
   // (lib/form-action-failure.ts); the chosen state and tags come back after

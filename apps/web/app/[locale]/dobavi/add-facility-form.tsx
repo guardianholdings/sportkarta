@@ -44,7 +44,7 @@ const ADD_DOM_FIELDS = ['name', 'quarter'] as const;
 /**
  * B line 4 when the member's OWN duplicate is hidden from the public (paid):
  * true = savedHiddenBody under it, so they know why the map won't show it;
- * false = line 4 alone. Open with the CEO (17:48); one line either way.
+ * false = line 4 alone. Decided in review (#36): true; one line either way.
  */
 const OWN_HIDDEN_SHOWS_WHY = true;
 
@@ -80,7 +80,9 @@ export function AddFacilityForm({
   const tAccess = useTranslations('Access');
   // useFormAction, not useActionState: a server-side error must not wipe the
   // photo, the name and the access choice (lib/use-form-action.ts).
-  const [state, formProps, pending, failure] = useFormAction(addFacilityAction, INITIAL);
+  const [state, formProps, pending, failure] = useFormAction(addFacilityAction, INITIAL, {
+    catchFailure: true,
+  });
   // A saved place thanked on this same page comes back as a URL, loaded as a
   // new page (actions.ts, lib/scripted-submit.ts). Until it goes, the button
   // stays on «Изпращаме…» so the place cannot be sent twice.

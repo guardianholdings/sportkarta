@@ -62,6 +62,8 @@ export function sniffImageType(bytes: Uint8Array): SniffedImage | null {
 }
 
 export class InvalidPhotoError extends Error {}
+/** A valid photo with more than MAX_INPUT_PIXELS: refused at decode as too large. */
+export class PhotoTooLargeError extends Error {}
 
 export interface ProcessedPhoto {
   data: Buffer;
@@ -116,7 +118,12 @@ export async function processReportPhoto(input: Uint8Array): Promise<ProcessedPh
       })
       .webp({ quality: 80 })
       .toBuffer();
-  } catch {
+  } catch (error) {
+    // sharp enforces limitInputPixels here, not in metadata(): a valid but
+    // huge photo is «too large», not «not a photo».
+    if (error instanceof Error && /pixel limit/i.test(error.message)) {
+      throw new PhotoTooLargeError('too many pixels');
+    }
     throw new InvalidPhotoError('not a valid image');
   }
 

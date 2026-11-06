@@ -57,7 +57,9 @@ export function VerifyForm(props: VerifyFormProps) {
   const tSurface = useTranslations('Surface');
   const locale = useLocale();
   // useFormAction: an error must not reset the checklist (lib/use-form-action.ts).
-  const [state, formProps, pending, failure] = useFormAction(verifyFacilityAction, INITIAL);
+  const [state, formProps, pending, failure] = useFormAction(verifyFacilityAction, INITIAL, {
+    catchFailure: true,
+  });
   const [exists, setExists] = useState(true);
   // B2: a form whose action the server no longer knows has to reload
   // (lib/form-action-failure.ts); the answers come back after it. With «не» kept, the detail fields stay hidden, as they were.

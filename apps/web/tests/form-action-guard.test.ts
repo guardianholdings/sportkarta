@@ -65,6 +65,33 @@ describe('forms keep what the member typed when the server says no', () => {
     }
   });
 
+  // B2: catching a failed call is opt-in (`catchFailure`), and only a form that
+  // SHOWS the report may opt in. Any other form would re-enable its button and
+  // nothing would happen (an admin decision, a till sale), where the error page
+  // shows a retry and reports the error.
+  it('catches a failed call only in a form that renders FormFailure, and reads it there', () => {
+    const hook = readFileSync(path.join(WEB_ROOT, 'lib/use-form-action.ts'), 'utf8');
+    expect(hook).toMatch(/typeof window === 'undefined' \|\| !catchFailure \? action : guarded/);
+    let optedIn = 0;
+    for (const file of files) {
+      const source = readFileSync(file, 'utf8');
+      if (!/\buseFormAction\s*\(/.test(source)) continue;
+      const optsIn = /\bcatchFailure:\s*true\b/.test(source);
+      const readsFailure = /const \[\s*\w+,\s*\w+,\s*\w+,\s*\w+\s*\]\s*=\s*useFormAction\s*\(/.test(
+        source,
+      );
+      const shows = /<FormFailure\b/.test(source);
+      expect({ file: rel(file), optsIn, readsFailure, shows }).toEqual({
+        file: rel(file),
+        optsIn,
+        readsFailure: optsIn,
+        shows: optsIn,
+      });
+      if (optsIn) optedIn += 1;
+    }
+    expect(optedIn).toBe(3);
+  });
+
   it('keeps the action prop and dispatches without React’s reset', () => {
     const hook = readFileSync(path.join(WEB_ROOT, 'lib/use-form-action.ts'), 'utf8');
     expect(hook).toMatch(/event\.preventDefault\(\);/);

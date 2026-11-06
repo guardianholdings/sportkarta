@@ -26,10 +26,7 @@ export function unexpectedFailure(
   const code = constantCode(error);
   const frames =
     error instanceof Error && typeof error.stack === 'string'
-      ? error.stack
-          .split('\n')
-          .filter((line) => /^\s+at /.test(line))
-          .slice(0, 8)
+      ? stackFrames(error.stack, error.message)
       : [];
   log(
     [
@@ -52,9 +49,37 @@ export function newReference(): string {
   return reference;
 }
 
-/** An error code that is a constant (SQLSTATE 23505, ECONNRESET), never free text. */
+/**
+ * The stack's frames, which are code locations. V8 writes the message first
+ * and the frames after it, so the message is skipped by its own line count:
+ * a message line that happens to start with "at " can never pass as a frame
+ * (drizzle's message is the query and its parameters).
+ */
+function stackFrames(stack: string, message: string): string[] {
+  const header = message === '' ? 1 : message.split('\n').length;
+  return stack
+    .split('\n')
+    .slice(header)
+    .filter((line) => /^\s+at /.test(line))
+    .slice(0, 8);
+}
+
+/**
+ * An error code that is a constant (SQLSTATE 23505, ECONNRESET), never free
+ * text. drizzle wraps a database failure (DrizzleQueryError) and keeps pg's own
+ * error, with the SQLSTATE, on `cause`; the wrapper's message is the query and
+ * its parameters, one more reason the message is never logged.
+ */
 function constantCode(error: unknown): string | null {
+  return codeOf(error) ?? codeOf(causeOf(error));
+}
+
+function codeOf(error: unknown): string | null {
   if (typeof error !== 'object' || error === null || !('code' in error)) return null;
   const { code } = error;
   return typeof code === 'string' && /^[0-9A-Z_]{2,32}$/.test(code) ? code : null;
+}
+
+function causeOf(error: unknown): unknown {
+  return typeof error === 'object' && error !== null && 'cause' in error ? error.cause : undefined;
 }

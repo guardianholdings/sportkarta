@@ -40,7 +40,15 @@ export interface FormActionProps {
 export function useFormAction<State>(
   action: (state: Awaited<State>, payload: FormData) => State | Promise<State>,
   initialState: Awaited<State>,
-  options: { resetWhen?: (state: Awaited<State>) => boolean } = {},
+  options: {
+    resetWhen?: (state: Awaited<State>) => boolean;
+    /**
+     * Catch a call that got no usable answer and report it in `failure`
+     * instead of letting it reach the error page. ONLY for a form that renders
+     * the report (components/facility/form-failure.tsx); see below.
+     */
+    catchFailure?: boolean;
+  } = {},
 ): [
   state: Awaited<State>,
   formProps: FormActionProps,
@@ -49,14 +57,23 @@ export function useFormAction<State>(
 ] {
   // B2. A call that gets no usable answer (a cut connection, the proxy's 502
   // during a deploy, an action id the server no longer knows) used to throw
-  // into the error page, even when the facility HAD been saved. The wrapper catches it
-  // and reports which case it was; Next's own redirect/notFound throws pass
-  // through (lib/form-action-failure.ts).
+  // into the error page, even when the facility HAD been saved. With
+  // `catchFailure` the wrapper catches it and reports which case it was; Next's
+  // own redirect/notFound throws pass through, and so does an error the action
+  // itself threw (lib/form-action-failure.ts).
+  //
+  // OPT-IN ON PURPOSE. Only a form that renders the report
+  // (components/facility/form-failure.tsx) may catch: for every other form the
+  // rejection still reaches the error page, with its retry and its error
+  // report, because a form that swallowed it would re-enable its button and
+  // nothing would happen (an admin decision, a till sale).
+  // tests/form-action-guard.test.ts holds the two halves together.
   //
   // The SERVER render keeps the raw server action: React emits the native form
   // action (the pre-hydration POST described above) only for a server
   // reference. React takes the latest action on every render, so the wrapper
   // takes over once the page has hydrated.
+  const { catchFailure = false } = options;
   const [failure, setFailure] = useState<ActionFailure | null>(null);
   const guarded = useCallback(
     async (prev: Awaited<State>, payload: FormData): Promise<State> => {
@@ -70,7 +87,7 @@ export function useFormAction<State>(
     [action],
   );
   const [state, dispatch, pending] = useActionState(
-    typeof window === 'undefined' ? action : guarded,
+    typeof window === 'undefined' || !catchFailure ? action : guarded,
     initialState,
   );
   const ref = useRef<HTMLFormElement>(null);

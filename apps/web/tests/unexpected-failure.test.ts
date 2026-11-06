@@ -52,6 +52,29 @@ describe('unexpectedFailure', () => {
     expect(logged).toMatch(/\n\s+at /);
   });
 
+  it('reads the SQLSTATE from the cause when drizzle wraps the database error', () => {
+    const cause = Object.assign(new Error('duplicate key value violates unique constraint'), {
+      code: '23505',
+    });
+    const error = Object.assign(
+      new Error('Failed query: insert into facilities … params: Игрище на Иван, 42.6977'),
+      { name: 'DrizzleQueryError', cause },
+    );
+    const lines: string[] = [];
+    unexpectedFailure('add-facility', error, (line) => lines.push(line));
+    expect(lines[0]).toContain('DrizzleQueryError');
+    expect(lines[0]).toContain('code=23505');
+    expect(lines.join('\n')).not.toContain('Иван');
+  });
+
+  it('never takes a message line for a stack frame', () => {
+    const error = new Error('first line\n    at Игрище на Иван (42.6977, 23.3219)');
+    const lines: string[] = [];
+    unexpectedFailure('add-facility', error, (line) => lines.push(line));
+    expect(lines.join('\n')).not.toContain('Иван');
+    expect(lines.join('\n')).toMatch(/\n\s+at /);
+  });
+
   it('logs no code that could be free text', () => {
     const error = Object.assign(new Error('x'), { code: 'value was Иван, 42.69' });
     const lines: string[] = [];
