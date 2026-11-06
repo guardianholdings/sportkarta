@@ -279,6 +279,13 @@ jobs:
           SMTP_USER=${{ secrets.SMTP_USER }}
           SMTP_PASS=${{ secrets.SMTP_PASS }}
           SMTP_FROM=${{ secrets.SMTP_FROM }}
+          # The daily mail budget (0062): repository VARIABLES, defaults sized to
+          # Migadu Mini — 100 a day, 40 % kept for sign-in codes, 40 % for
+          # notices, the rest for club bulk mail (lib/src/email/budget.ts).
+          # Read by BOTH services; the in-memory OTP caps stay in front of it.
+          MAIL_DAILY_QUOTA=${{ vars.MAIL_DAILY_QUOTA || '100' }}
+          MAIL_OTP_SHARE=${{ vars.MAIL_OTP_SHARE || '40' }}
+          MAIL_NOTICE_SHARE=${{ vars.MAIL_NOTICE_SHARE || '40' }}
           # Public, non-secret settings: GitHub repository VARIABLES (Settings →
           # Secrets and variables → Actions → Variables). Empty = feature off.
           CONTACT_EMAIL=${{ vars.CONTACT_EMAIL }}

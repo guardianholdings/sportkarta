@@ -8,6 +8,7 @@ import {
   type ModerationNotificationSubject,
 } from '@sportkarta/db';
 import {
+  isMailBudgetExhausted,
   renderModerationMail,
   type Mailer,
   type ModerationMailData,
@@ -129,7 +130,7 @@ export interface ModerationNotifyJobData {
   noticeId?: string;
 }
 
-export type ModerationNotifyOutcome = 'sent' | 'already_sent' | 'nobody' | 'invalid';
+export type ModerationNotifyOutcome = 'sent' | 'already_sent' | 'nobody' | 'invalid' | 'held';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -227,10 +228,19 @@ export async function runModerationNotify(
   if (!composed) return 'nobody';
 
   const strings = moderationMailStrings(options.locale ?? 'bg');
-  return getDb().transaction(async (tx) => {
-    if (!(await claimModerationNotification(tx, subject))) return 'already_sent';
-    const message = renderModerationMail(composed.data, strings);
-    await options.mailer.send({ ...message, to: composed.to });
-    return 'sent';
-  });
+  try {
+    return await getDb().transaction(async (tx) => {
+      if (!(await claimModerationNotification(tx, subject))) return 'already_sent';
+      const message = renderModerationMail(composed.data, strings);
+      await options.mailer.send({ ...message, to: composed.to });
+      return 'sent';
+    });
+  } catch (error: unknown) {
+    // The day's notice share is spent (the budgeted mailer threw instead of
+    // sending): the claim rolled back with the transaction, and the handler
+    // defers the job to the next day. Anything else is the relay's or the
+    // database's and throws for MAIL_RETRY, as before.
+    if (isMailBudgetExhausted(error)) return 'held';
+    throw error;
+  }
 }

@@ -2825,6 +2825,42 @@ export type AccountAccessLogRow = typeof accountAccessLog.$inferSelect;
 export type NewAccountAccessLogRow = typeof accountAccessLog.$inferInsert;
 export type AccountAccessScopeValue = (typeof accountAccessScope.enumValues)[number];
 
+/**
+ * The daily mail budget (0062; launch-readiness audit 2026-10-31, B-05): how
+ * many messages were handed to the relay per civil Sofia day and per KIND —
+ * sign-in codes, notices, club bulk mail — and how many attempts were turned
+ * away. The limits are NOT here: they come from MAIL_DAILY_QUOTA and the
+ * shares in the environment (lib/src/email/budget.ts), so the counter is the
+ * only thing this table knows.
+ *
+ * Written by exactly one statement (db/src/mail-budget.ts): INSERT … ON
+ * CONFLICT DO UPDATE SET sent = sent + 1 WHERE sent < limit RETURNING, so a
+ * slot is granted or refused atomically and two senders at the edge get one
+ * slot between them. The day is computed on the DATABASE clock — every
+ * process agrees which day it is, whatever its own TZ says.
+ *
+ * No personal data: a date and two counts. The worker's nightly auth.cleanup
+ * prunes rows older than 90 days.
+ */
+export const mailBudget = pgTable(
+  'mail_budget',
+  {
+    /** The civil Sofia day the counts belong to. */
+    sofiaDay: date('sofia_day').notNull(),
+    kind: text('kind').notNull(),
+    sent: integer('sent').notNull().default(0),
+    refused: integer('refused').notNull().default(0),
+  },
+  (t) => [
+    primaryKey({ name: 'mail_budget_pkey', columns: [t.sofiaDay, t.kind] }),
+    // The TypeScript twin is MAIL_BUDGET_KINDS in lib/src/email/budget.ts.
+    check('mail_budget_kind_known', sql`${t.kind} IN ('otp', 'notice', 'bulk')`),
+    check('mail_budget_counts_nonnegative', sql`${t.sent} >= 0 AND ${t.refused} >= 0`),
+  ],
+);
+
+export type MailBudgetRow = typeof mailBudget.$inferSelect;
+
 // The «Клубове» add-on (0039–0044), in its own file for size; re-exported so
 // `@sportkarta/db/schema` stays the one import.
 export * from './clubs.js';

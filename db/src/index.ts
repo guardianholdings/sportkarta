@@ -1,4 +1,19 @@
 export { getDb, getPool } from './client.js';
+export {
+  budgetedMailer,
+  MAIL_BUDGET_RETENTION_DAYS,
+  mailBudgetToday,
+  pruneMailBudget,
+  releaseMailBudget,
+  takeMailBudget,
+} from './mail-budget.js';
+export type {
+  BudgetedMailerOptions,
+  MailBudgetKindToday,
+  MailBudgetOutcome,
+  MailBudgetSlot,
+  MailBudgetToday,
+} from './mail-budget.js';
 export { checkDbHealth } from './health.js';
 export type { DbHealth } from './health.js';
 export {

@@ -77,6 +77,15 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      # The daily mail budget (0062): the relay's sends per DAY, shared out
+      # between sign-in codes, notices and club bulk mail by per-cent shares,
+      # counted in ONE database table by web and worker alike. Empty = the
+      # defaults sized to Migadu Mini (lib/src/email/budget.ts: 100 a day;
+      # 40 % codes, 40 % notices, the rest bulk). The web spends the code
+      # share; it must know the same numbers as the worker.
+      MAIL_DAILY_QUOTA: ${MAIL_DAILY_QUOTA:-}
+      MAIL_OTP_SHARE: ${MAIL_OTP_SHARE:-}
+      MAIL_NOTICE_SHARE: ${MAIL_NOTICE_SHARE:-}
       # Caddy sits in front on the compose network; trusting it lets the rate
       # limiter resolve the real client IP (used in memory only, never stored).
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32}
@@ -239,8 +248,14 @@ services:
       # master. Unset, nothing is claimed and the queue waits.
       CLUB_API_ENABLED: ${CLUB_API_ENABLED:-}
       CLUB_WEBHOOK_SECRET: ${CLUB_WEBHOOK_SECRET:-}
-      # Club broadcasts and automations per Sofia day, across every club —
-      # kept under the relay's own daily quota, which sign-in codes share.
+      # The daily mail budget (0062), the same three numbers as web: every
+      # notice from here spends the notice share, every broadcast or
+      # automation the bulk share, and the code share is the web's alone.
+      MAIL_DAILY_QUOTA: ${MAIL_DAILY_QUOTA:-}
+      MAIL_OTP_SHARE: ${MAIL_OTP_SHARE:-}
+      MAIL_NOTICE_SHARE: ${MAIL_NOTICE_SHARE:-}
+      # Club broadcasts and automations per Sofia day, across every club. It
+      # can LOWER the budget's bulk share, never raise it above the share.
       CLUB_BULK_MAIL_DAILY_LIMIT: ${CLUB_BULK_MAIL_DAILY_LIMIT:-60}
     volumes:
       - uploads:/data/uploads

@@ -303,6 +303,23 @@
     "reportingOff": "Off — GLITCHTIP_DSN is not set. Server and worker errors are not reported anywhere.",
     "mailTitle": "Mail over the last {days} days",
     "mailHelp": "“Failed” counts recipients the message could not be sent to — the job still completes, which is why they are counted separately. “Failed jobs” are jobs that stopped entirely. Moderation decision mail is one message per job and reports no recipients: there, a failed job is an unsent message.",
+    "budgetTitle": "Daily mail budget — {day}",
+    "budgetHelp": "The mail relay allows {quota} messages a day (MAIL_DAILY_QUOTA), shared by sign-in codes, notices and club group messages. Each kind has its own share and cannot borrow from another’s: sign-in codes keep a reserve that no notice or club message can use up. The counter lives in the database and resets at midnight Sofia time; the shares are set as percentages with MAIL_OTP_SHARE and MAIL_NOTICE_SHARE, and group messages get the rest. “Refused” counts send attempts a spent share turned away.",
+    "colKind": "Kind",
+    "colBudgetSent": "Sent today",
+    "colBudgetShare": "Share",
+    "colBudgetRefused": "Refused",
+    "colBudgetState": "Status",
+    "budgetKind": {
+      "otp": "Sign-in codes",
+      "notice": "Notices",
+      "bulk": "Club group messages"
+    },
+    "budgetState": {
+      "ok": "fine",
+      "warning": "over 80 %",
+      "spent": "spent"
+    },
     "clubsTitle": "Clubs",
     "clubsHelp": "Stripe events the worker has not applied yet (a key, access to the account); webhook endpoints switched off after three failing days; group messages waiting more than an hour past their time (the daily mail limit); clubs that used up their monthly SMS allowance.",
     "clubPendingEvents": "Unapplied Stripe events: {count}{count, plural, =0 {} other { · the oldest from {age} ago}}",

@@ -89,6 +89,18 @@ const SMS_FAMILY = ['SMS_TRANSPORT', 'SMS_API_KEY', 'SMS_SENDER_ID'];
  */
 const PAYMENT_PROVIDER_FAMILY = ['PAYMENT_PROVIDER', ...STRIPE_FAMILY];
 const PUSH_FAMILY = ['PUSH_VAPID_SECRET', 'CONTACT_EMAIL', 'NEXT_PUBLIC_SITE_URL'];
+/**
+ * Keys read by `resolveMailBudget(env)` (lib/src/email/budget.ts, 0062) — the
+ * same whole-env handoff. The worker spends the notice and bulk shares of the
+ * day's mail budget; given other numbers than the web app, the two would not
+ * be sharing one relay quota at all.
+ */
+const MAIL_BUDGET_FAMILY = [
+  'MAIL_DAILY_QUOTA',
+  'MAIL_OTP_SHARE',
+  'MAIL_NOTICE_SHARE',
+  'CLUB_BULK_MAIL_DAILY_LIMIT',
+];
 
 function walk(dir: string): string[] {
   let out: string[] = [];
@@ -224,6 +236,16 @@ describe('deploy/compose.prod.yml — worker environment', () => {
     expect(
       missing,
       'apps/worker/src sends SMS/push from the whole env but compose.prod.yml withholds:\n' +
+        missing.map((k) => `  ${k}`).join('\n'),
+    ).toEqual([]);
+  });
+
+  it('declares the mail budget family, because the worker resolves the shares from the whole env', () => {
+    if (!/resolveMailBudget\(\s*process\.env\s*\)/.test(workerSource)) return;
+    const missing = MAIL_BUDGET_FAMILY.filter((k) => !workerEnv.includes(k));
+    expect(
+      missing,
+      'apps/worker/src calls resolveMailBudget(process.env) but compose.prod.yml withholds:\n' +
         missing.map((k) => `  ${k}`).join('\n'),
     ).toEqual([]);
   });
