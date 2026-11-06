@@ -1,3 +1,5 @@
+import { TOKENISED_PATH_SOURCES } from '@/lib/tokenised-paths';
+
 interface UmamiAnalyticsProps {
   src: string;
   websiteId: string;
@@ -26,6 +28,11 @@ export const CAMPAIGN_PARAMS = [
  * the query string removed, as `data-exclude-search` makes it. Without this the
  * launch links' utm_* never reach Umami and no visit can be tied to a post.
  *
+ * It also rewrites the path segments of lib/tokenised-paths.ts in every
+ * pageview's `url` and `referrer`: `data-exclude-search` strips the query, but
+ * an invite, an unsubscribe link, a check-in token or a passport handle lives in
+ * the PATH, and the analytics database must hold none of them.
+ *
  * Plain ES2017 in a string on purpose: this is exactly what ships, and
  * tests/umami-snippet.test.ts runs this very string.
  */
@@ -39,6 +46,14 @@ export const CAMPAIGN_HOOK_SCRIPT = `(function (w) {
   }
   var query = campaign.toString();
   var pending = query !== '';
+  var tokenPaths = ${JSON.stringify(TOKENISED_PATH_SOURCES)}.map(function (source) {
+    return new RegExp(source, 'g');
+  });
+  function scrub(value) {
+    if (typeof value !== 'string') return value;
+    for (var j = 0; j < tokenPaths.length; j++) value = value.replace(tokenPaths[j], '$1[token]');
+    return value;
+  }
   w[${JSON.stringify(BEFORE_SEND_GLOBAL)}] = function (type, payload) {
     if (pending && type === 'event' && payload && !payload.name && typeof payload.url === 'string') {
       pending = false;
@@ -47,6 +62,10 @@ export const CAMPAIGN_HOOK_SCRIPT = `(function (w) {
         url.search = query;
         payload.url = url.toString();
       } catch (e) {}
+    }
+    if (payload) {
+      payload.url = scrub(payload.url);
+      payload.referrer = scrub(payload.referrer);
     }
     return payload;
   };
