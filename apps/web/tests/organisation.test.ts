@@ -63,7 +63,7 @@ describe('organisation', () => {
     expect(organisation({ ORG_EIK: '123456789', ORG_VAT_REGISTERED: 'true' }).vatNumber).toBe(
       'BG123456789',
     );
-    expect(organisation({ ORG_EIK: '123456789', ORG_VAT_REGISTERED: ' Да ' }).vatNumber).toBe(
+    expect(organisation({ ORG_EIK: '123456789', ORG_VAT_REGISTERED: ' Yes ' }).vatNumber).toBe(
       'BG123456789',
     );
     expect(

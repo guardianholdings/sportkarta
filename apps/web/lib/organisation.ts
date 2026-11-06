@@ -40,8 +40,9 @@ type Env = Record<string, string | undefined>;
 /** Deliberately loose: rejects blanks, placeholders and pasted phone numbers, not RFC edge cases. */
 const EMAIL_SHAPE = /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/;
 const EIK_SHAPE = /^(\d{9}|\d{13})$/;
-const VAT_YES = new Set(['1', 'true', 'yes', 'да']);
-const VAT_NO = new Set(['0', 'false', 'no', 'не']);
+// The flag is configuration, not copy: Latin tokens only (the i18n gate scans this file).
+const VAT_YES = new Set(['1', 'true', 'yes']);
+const VAT_NO = new Set(['0', 'false', 'no']);
 const MAX_NAME = 200;
 const MAX_ADDRESS = 300;
 
