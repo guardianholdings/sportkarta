@@ -312,6 +312,58 @@
   }
 }
 
+/* A table that becomes a stack of cards under `sm` (the admin lists on a
+   phone, UX audit 2026-10-31 V-28/V-29). The head goes; each row is a card;
+   the row header is its title; each cell prints its column's name from
+   data-label before its value; and a cell marked data-empty (nothing, a
+   zero, a «never») is left out. From `sm` up the table is a table. */
+@media (width < 40rem) {
+  .sk-card-table,
+  .sk-card-table > tbody,
+  .sk-card-table > tbody > tr {
+    display: block;
+    min-width: 0;
+  }
+  .sk-card-table > thead {
+    display: none;
+  }
+  .sk-card-table > tbody > tr {
+    margin-bottom: var(--space-2);
+    padding: var(--space-3);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    background: var(--surface);
+  }
+  .sk-card-table > tbody > tr > th[scope='row'] {
+    display: block;
+    margin-bottom: var(--space-2);
+    padding: 0 0 var(--space-2);
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+  }
+  .sk-card-table > tbody > tr > td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-4);
+    padding: var(--space-1) 0;
+    text-align: right;
+    white-space: normal;
+  }
+  .sk-card-table > tbody > tr > td::before {
+    content: attr(data-label);
+    flex: none;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: var(--fs-caption);
+    font-weight: 500;
+    text-align: left;
+  }
+  .sk-card-table > tbody > tr > td[data-empty] {
+    display: none;
+  }
+}
+
 @utility animate-marker-drop {
   animation: marker-drop var(--dur-base) var(--ease-trail) both;
 }

@@ -2,6 +2,7 @@ import { formatEuro } from '@sportkarta/lib/clubs';
 import { Link2, Search, Target, Upload, UserPlus } from 'lucide-react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
+import { ScrollStrip } from '@/components/ui/scroll-strip';
 import { StatusBadge, memberKind } from '@/components/clubs/club-state-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -119,7 +120,7 @@ export default async function ClubMembersPage({
         </Button>
       </form>
 
-      <nav aria-label={t('title')} className="-mx-4 overflow-x-auto px-4">
+      <ScrollStrip as="nav" aria-label={t('title')} activeKey={filter}>
         <ul className="flex gap-2 pb-1">
           {MEMBER_FILTERS.map((value) => (
             <li key={value}>
@@ -133,8 +134,8 @@ export default async function ClubMembersPage({
             </li>
           ))}
         </ul>
-      </nav>
-      <div className="-mx-4 overflow-x-auto px-4">
+      </ScrollStrip>
+      <ScrollStrip activeKey={segment ?? undefined}>
         <ul className="flex gap-2 pb-1" aria-label={t('segmentsLabel')}>
           {MEMBER_SEGMENTS.map((value) => (
             <li key={value}>
@@ -148,7 +149,7 @@ export default async function ClubMembersPage({
             </li>
           ))}
         </ul>
-      </div>
+      </ScrollStrip>
 
       {result.rows.length === 0 ? (
         <p className="rounded-card border border-dashed border-line-strong p-6 text-center text-body-sm text-text-muted">

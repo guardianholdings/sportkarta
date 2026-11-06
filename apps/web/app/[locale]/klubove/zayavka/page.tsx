@@ -77,6 +77,8 @@ export default async function ClubApplicationPage({ params }: { params: PagePara
               })),
               sports: t('sports'),
               sportOptions: sports,
+              sportsShowAll: t('sportsShowAll', { count: sports.length }),
+              sportsShowFewer: t('sportsShowFewer'),
               website: t('website'),
               description: t('description'),
               acceptTerms: {

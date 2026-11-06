@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
+import { ScrollStrip } from '@/components/ui/scroll-strip';
 import { Select } from '@/components/ui/select';
 import { cityDisplayName } from '@/lib/city-names';
 import { requireClubStaff } from '@/lib/clubs/club-session';
@@ -252,11 +253,9 @@ export default async function ClubSettingsPage({
       <h1 className="text-h2 font-extrabold tracking-tight text-ink">{t('title')}</h1>
 
       {/* One page of ~ten forms (UX audit N9): a jump menu instead of a scroll
-          hunt. Anchors only — no form moved. */}
-      <nav
-        aria-label={t('jump.label')}
-        className="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4"
-      >
+          hunt. Anchors only — no form moved. The same strip as the hubs above
+          it (ScrollStrip), so the three rows read as one family (V-31). */}
+      <ScrollStrip as="nav" aria-label={t('jump.label')} gap="gap-1.5">
         {jumps.map(([id, key]) => (
           <a
             key={id}
@@ -266,7 +265,7 @@ export default async function ClubSettingsPage({
             {t(`jump.${key}`)}
           </a>
         ))}
-      </nav>
+      </ScrollStrip>
 
       <section id="stranitsa" className={section}>
         <h2 className="text-h4 font-bold text-ink">{t('publishTitle')}</h2>
@@ -298,6 +297,8 @@ export default async function ClubSettingsPage({
             descriptionEn: t('descriptionEn'),
             sports: t('sports'),
             sportOptions,
+            sportsShowAll: t('sportsShowAll', { count: sportOptions.length }),
+            sportsShowFewer: t('sportsShowFewer'),
             city: t('city'),
             cityNone: t('cityNone'),
             cities: cities.map((c) => ({

@@ -2,6 +2,7 @@ import {
   type CatalogueRow,
   type ClubService,
   type ClubTier,
+  clubHasFeature,
   lowestTierWith,
 } from '@sportkarta/lib/clubs';
 
@@ -30,6 +31,25 @@ export function rowState(
     tier: tier === 'community' ? null : tier,
     soon: service !== undefined && !switchOn(service),
   };
+}
+
+/** What one cell of the pricing grid prints for a row and a tier. */
+export type GridMark = 'included' | 'soon' | 'excluded';
+
+/**
+ * The pricing grid's cell (UX audit 2026-10-31, DR-02): a tier without the
+ * row's feature prints the dash; a row that is «скоро» prints «скоро» in
+ * EVERY tier's cell and never the included tick, so the grid cannot say that
+ * something the operator has not switched on is included today. Derived from
+ * rowState, so the chip beside the row's name and its cells cannot disagree.
+ */
+export function gridMark(
+  row: Pick<CatalogueRow, 'feature' | 'service'>,
+  tier: ClubTier,
+  switchOn: (service: ClubService) => boolean = clubSwitchOn,
+): GridMark {
+  if (row.feature !== undefined && !clubHasFeature(tier, row.feature)) return 'excluded';
+  return rowState(row, switchOn).soon ? 'soon' : 'included';
 }
 
 /**

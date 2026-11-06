@@ -291,6 +291,11 @@ export async function scheduleHealth(db: SqlRunner): Promise<Schedules> {
   };
 }
 
+/** A queue name to its `AdminHealth.queue.*` key: `club.payment_event` → `clubPaymentEvent`. */
+export function queueKey(name: string): string {
+  return name.replace(/[._-](\w)/g, (_, c: string) => c.toUpperCase());
+}
+
 /**
  * The queues that send mail. The first three return a per-recipient report;
  * `moderation.notify` (the statement of reasons after a refusal, 0034) sends

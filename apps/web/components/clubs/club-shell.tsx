@@ -24,6 +24,13 @@ import { OfficeNav } from './office-nav';
  * you are in (OfficeNav). Filtering here is for RENDERING only: every page
  * gates itself with requireClubStaff and every statement carries its own
  * scope.
+ *
+ * On a phone (UX audit 2026-10-31, V-30) the club's name has a line of its
+ * own under the mark instead of being truncated to «Твоя…», the role chip
+ * waits for a wider screen, the map and profile links shrink to their icons,
+ * and the access state is said ONCE: by the banner when there is one, by the
+ * chip otherwise. The H1 of every office screen is then inside the first
+ * viewport of a 390px phone.
  */
 
 export async function ClubShell({
@@ -83,7 +90,7 @@ export async function ClubShell({
     <div className="mx-auto max-w-6xl px-4 py-4">
       <header className="mb-6 border-b border-line pb-4">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex min-w-0 flex-1 items-center gap-2.5">
             <BrandMark label={tNav('navBrand')} />
             {club.logoPath && (
               // eslint-disable-next-line @next/next/no-img-element -- the row-decides logo route
@@ -95,11 +102,15 @@ export async function ClubShell({
                 className="size-6 shrink-0 rounded-sm object-contain"
               />
             )}
-            <span className="truncate text-body font-bold text-ink">{name}</span>
-            <Badge tone="neutral">{actor.role ? tClub(`role.${actor.role}`) : t('ngoAdmin')}</Badge>
-            <ClubStateBadge state={state} label={tClub(`state.${state}`)} />
+            <span className="hidden min-w-0 truncate text-body font-bold text-ink sm:inline">
+              {name}
+            </span>
+            <Badge tone="neutral" className="max-sm:hidden">
+              {actor.role ? tClub(`role.${actor.role}`) : t('ngoAdmin')}
+            </Badge>
+            {!banner && <ClubStateBadge state={state} label={tClub(`state.${state}`)} />}
           </div>
-          <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div className="flex items-center gap-x-1 sm:gap-x-3">
             {otherClubs.length > 0 && (
               <details className="relative">
                 <summary className="inline-flex min-h-11 cursor-pointer list-none items-center rounded-pill px-3 text-caption font-semibold text-ink-soft hover:bg-surface-2">
@@ -121,19 +132,24 @@ export async function ClubShell({
             )}
             <Link
               href="/karta"
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-pill border border-line-strong bg-surface px-3 text-caption font-semibold text-ink-soft hover:bg-surface-2"
+              title={t('map')}
+              className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-pill border border-line-strong bg-surface px-3 text-caption font-semibold text-ink-soft hover:bg-surface-2"
             >
               <MapIcon size={15} aria-hidden="true" />
-              {t('map')}
+              <span className="max-sm:sr-only">{t('map')}</span>
             </Link>
             <Link
               href="/profil"
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-pill px-3 text-caption font-semibold text-ink-soft hover:bg-surface-2"
+              title={t('profile')}
+              className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-pill px-3 text-caption font-semibold text-ink-soft hover:bg-surface-2"
             >
               <User size={15} aria-hidden="true" />
-              {t('profile')}
+              <span className="max-sm:sr-only">{t('profile')}</span>
             </Link>
           </div>
+          {/* The club's own name, whole, on its own line — a phone has no room
+              for it beside the mark, the chips and the links. */}
+          <p className="basis-full text-h4 font-bold leading-tight text-ink sm:hidden">{name}</p>
         </div>
         <OfficeNav hubs={hubs} labels={{ hubs: t('hubsLabel'), sections: t('sectionsLabel') }} />
         {banner && (

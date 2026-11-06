@@ -7,9 +7,9 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import { PinPicker, type PinPickerHandle } from '@/components/map/pin-picker';
 import { Button } from '@/components/ui/button';
-import { Chip } from '@/components/ui/chip';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { SportPicker } from '@/components/ui/sport-picker';
 import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
 import { SPORT_VISUALS } from '@/lib/design/sport-visuals';
 import { inReadingOrder } from '@/lib/format';
@@ -140,16 +140,6 @@ export function AddFacilityForm({
     [locale, tSport],
   );
 
-  function toggleSport(s: CanonicalSport) {
-    setSports((prev) => {
-      const next = new Set(prev);
-      if (next.has(s)) next.delete(s);
-      else next.add(s);
-      return next;
-    });
-    if (missing === 'sports') setMissing(null);
-  }
-
   /**
    * The two things the server would reject AFTER the member has picked a photo
    * and filled the form in — no point on the map, no sport — are caught here,
@@ -223,25 +213,30 @@ export function AddFacilityForm({
         aria-describedby={missing === 'sports' ? 'add-sports-missing' : undefined}
       >
         <legend className={`mb-1 ${LEGEND}`}>{t('sportsLegend')}</legend>
-        <div className="flex flex-wrap gap-2">
-          {sportsInOrder.map((sport) => {
+        <SportPicker
+          name="sportTypes"
+          options={sportsInOrder.map((sport) => {
             const v = SPORT_VISUALS[sport];
-            return (
-              <Chip
-                key={sport}
-                color={v.color}
-                selected={sports.has(sport)}
-                icon={<v.Icon size={15} />}
-                onClick={() => toggleSport(sport)}
-              >
-                {tSport(sport)}
-              </Chip>
-            );
+            return {
+              value: sport,
+              label: tSport(sport),
+              color: v.color,
+              icon: <v.Icon size={15} />,
+            };
           })}
-        </div>
-        {[...sports].map((s) => (
-          <input key={s} type="hidden" name="sportTypes" value={s} />
-        ))}
+          selected={sports}
+          // All of them, always: the sport is required here, and an
+          // alphabetical fold would hide «футбол» behind a button.
+          visibleCount={sportsInOrder.length}
+          onChange={(next) => {
+            setSports(next as Set<CanonicalSport>);
+            if (missing === 'sports') setMissing(null);
+          }}
+          labels={{
+            showAll: t('sportsShowAll', { count: sportsInOrder.length }),
+            showFewer: t('sportsShowFewer'),
+          }}
+        />
         {missing === 'sports' && (
           <p id="add-sports-missing" role="alert" className="text-body-sm text-danger">
             {t('error_sports_required')}
