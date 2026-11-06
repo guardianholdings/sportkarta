@@ -15,6 +15,16 @@
  */
 export const MINOR_AGE = 18;
 
+/**
+ * The youngest person who may hold a POPS account (operator decision
+ * 2026-11-06). It is the Bulgarian digital-consent age — ЗЗЛД чл. 25в, the
+ * national transposition of GDPR Art. 8 — so a member of this age consents to
+ * the service on their own and no parental-consent flow is needed. The sign-in
+ * note attests it; wherever a date of birth is actually entered,
+ * deriveIsMinor refuses a younger one (the date is still never kept).
+ */
+export const MINIMUM_ACCOUNT_AGE = 14;
+
 /** Civil timezone the product reasons in — the same one Stage 4 schedules in. */
 export const APP_TIME_ZONE = 'Europe/Sofia';
 
@@ -22,7 +32,9 @@ const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MAX_AGE_YEARS = 120;
 
 export class InvalidDateOfBirthError extends Error {
-  constructor(readonly reason: 'format' | 'not_a_date' | 'future' | 'implausible') {
+  constructor(
+    readonly reason: 'format' | 'not_a_date' | 'future' | 'implausible' | 'under_minimum_age',
+  ) {
     // No date value in the message: this string can reach a log.
     super(`invalid date of birth (${reason})`);
     this.name = 'InvalidDateOfBirthError';
@@ -85,11 +97,26 @@ export function completedYears(birth: CivilDate, today: CivilDate): number {
  * completedYears treats "today >= (month, day)" as had-birthday, so 03-01 in a
  * non-leap year is already past 02-29.
  */
-export function deriveIsMinor(dateOfBirth: string, now: Date = new Date()): boolean {
+export function deriveIsMinor(
+  dateOfBirth: string,
+  now: Date = new Date(),
+  options: {
+    /**
+     * Refuse (with reason `under_minimum_age`) anyone younger than this. Only
+     * the account path (apps/web/lib/profile.ts) calls this function today, and
+     * it passes MINIMUM_ACCOUNT_AGE; the option is opt-in so that a caller
+     * which merely categorises (never an account) can leave it out.
+     */
+    minimumAge?: number;
+  } = {},
+): boolean {
   const birth = parseCivil(dateOfBirth);
   const today = civilToday(now);
   const age = completedYears(birth, today);
   if (age < 0) throw new InvalidDateOfBirthError('future');
   if (age > MAX_AGE_YEARS) throw new InvalidDateOfBirthError('implausible');
+  if (options.minimumAge !== undefined && age < options.minimumAge) {
+    throw new InvalidDateOfBirthError('under_minimum_age');
+  }
   return age < MINOR_AGE;
 }

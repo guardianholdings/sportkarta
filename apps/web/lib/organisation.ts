@@ -6,7 +6,7 @@
  * ЕИК and seat address are operator data: they change without a deploy, they
  * were not known when this was written, and a guessed value on a legal page is
  * worse than none. So every field is optional and read at request time
- * (ORG_LEGAL_NAME, ORG_EIK, ORG_ADDRESS, CONTACT_EMAIL — plumbed through
+ * (ORG_LEGAL_NAME, ORG_EIK, ORG_ADDRESS, ORG_VAT_REGISTERED, CONTACT_EMAIL — plumbed through
  * deploy/compose.prod.yml and the deploy.yml heredoc as repository variables).
  *
  * FAIL CLOSED, FIELD BY FIELD, the donations recipe (lib/donations.ts): an unset
@@ -22,6 +22,15 @@ export interface Organisation {
   eik: string | null;
   /** Seat and address of management, one line. */
   address: string | null;
+  /**
+   * The VAT identification number, printed beside the ЕИК when the association
+   * is registered under ЗДДС (operator decision 2026-11-06: it is). A Bulgarian
+   * legal entity's VAT number IS its 9-digit ЕИК with the BG prefix, so the
+   * operator sets one boolean (ORG_VAT_REGISTERED) and never types the number
+   * twice. A 13-digit branch БУЛСТАТ has no VAT number of its own, so it prints
+   * none rather than one VIES would reject.
+   */
+  vatNumber: string | null;
   /** Monitored inbox for users, rights holders and authorities. */
   contactEmail: string | null;
 }
@@ -31,6 +40,9 @@ type Env = Record<string, string | undefined>;
 /** Deliberately loose: rejects blanks, placeholders and pasted phone numbers, not RFC edge cases. */
 const EMAIL_SHAPE = /^[^\s@<>"']+@[^\s@<>"']+\.[^\s@<>"']+$/;
 const EIK_SHAPE = /^(\d{9}|\d{13})$/;
+// The flag is configuration, not copy: Latin tokens only (the i18n gate scans this file).
+const VAT_YES = new Set(['1', 'true', 'yes']);
+const VAT_NO = new Set(['0', 'false', 'no']);
 const MAX_NAME = 200;
 const MAX_ADDRESS = 300;
 
@@ -70,10 +82,22 @@ export function organisation(env: Env = process.env): Organisation {
     else warn('ORG_EIK', 'not a 9- or 13-digit EIK');
   }
 
+  const vatFlag = clean(env.ORG_VAT_REGISTERED).toLowerCase();
+  let vatNumber: string | null = null;
+  if (vatFlag) {
+    if (VAT_YES.has(vatFlag)) {
+      if (eik && eik.length === 9) vatNumber = `BG${eik}`;
+      else warn('ORG_VAT_REGISTERED', 'needs a 9-digit ORG_EIK');
+    } else if (!VAT_NO.has(vatFlag)) {
+      warn('ORG_VAT_REGISTERED', 'not true/false');
+    }
+  }
+
   return {
     legalName: text(env, 'ORG_LEGAL_NAME', MAX_NAME),
     eik,
     address: text(env, 'ORG_ADDRESS', MAX_ADDRESS),
+    vatNumber,
     contactEmail,
   };
 }

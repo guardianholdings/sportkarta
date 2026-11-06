@@ -1,4 +1,5 @@
 import { NOTIFIER_CONTACT_RETENTION_DAYS } from '@sportkarta/db';
+import { MINIMUM_ACCOUNT_AGE } from '@sportkarta/lib/age';
 import { CLUB_PURGE_AFTER_DAYS } from '@sportkarta/lib/clubs';
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
@@ -97,6 +98,7 @@ export default async function PrivacyPage({ params }: { params: PageParams }) {
   const printed = (key: string) => privacyKeyPrinted(key, switches);
   const rich = {
     ...legalLinks,
+    age: MINIMUM_ACCOUNT_AGE,
     days: NOTIFIER_CONTACT_RETENTION_DAYS,
     minutes: OTP_TTL_SECONDS / 60,
     providers: providerNames,
@@ -185,7 +187,7 @@ export default async function PrivacyPage({ params }: { params: PageParams }) {
         </Section>
 
         <Section id="minors" title={t('minors.title')}>
-          <p className="text-ink-soft">{t('minors.body')}</p>
+          <p className="text-ink-soft">{t('minors.body', { age: MINIMUM_ACCOUNT_AGE })}</p>
         </Section>
 
         <Section id="automated" title={t('automated.title')}>

@@ -6,6 +6,7 @@ import {
   civilToday,
   deriveIsMinor,
   InvalidDateOfBirthError,
+  MINIMUM_ACCOUNT_AGE,
   MINOR_AGE,
 } from './age.js';
 
@@ -85,5 +86,40 @@ describe('deriveIsMinor', () => {
         },
       ),
     );
+  });
+});
+
+describe('deriveIsMinor with a minimum age (the account path)', () => {
+  const now = sofiaNoon('2026-07-22');
+  const opts = { minimumAge: MINIMUM_ACCOUNT_AGE };
+
+  it('is 14, the Bulgarian digital-consent age', () => {
+    expect(MINIMUM_ACCOUNT_AGE).toBe(14);
+  });
+
+  it('admits someone from their 14th birthday and refuses the day before', () => {
+    expect(deriveIsMinor('2012-07-22', now, opts)).toBe(true); // 14 today, still under 18
+    expect(deriveIsMinor('2012-07-21', now, opts)).toBe(true);
+    expect(() => deriveIsMinor('2012-07-23', now, opts)).toThrow(InvalidDateOfBirthError);
+  });
+
+  it('names the reason and never the date', () => {
+    try {
+      deriveIsMinor('2015-01-01', now, opts);
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(InvalidDateOfBirthError);
+      expect((error as InvalidDateOfBirthError).reason).toBe('under_minimum_age');
+      expect((error as Error).message).not.toContain('2015');
+    }
+  });
+
+  it('still rejects the impossible dates before it looks at the age', () => {
+    expect(() => deriveIsMinor('2027-01-01', now, opts)).toThrow(/future/);
+    expect(() => deriveIsMinor('1800-01-01', now, opts)).toThrow(/implausible/);
+  });
+
+  it('is opt-in: without the option a younger date is only categorised', () => {
+    expect(deriveIsMinor('2015-01-01', now)).toBe(true);
   });
 });

@@ -19,6 +19,7 @@ export async function OrganisationDetails({ org }: { org: Organisation }) {
     [
       ['legalName', org.legalName],
       ['eik', org.eik],
+      ['vatNumber', org.vatNumber],
       ['address', org.address],
     ] as const
   ).filter((row): row is readonly [(typeof row)[0], string] => row[1] !== null);

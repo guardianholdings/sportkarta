@@ -707,7 +707,7 @@
     "back": "← Home",
     "title": "Privacy",
     "metaDescription": "What personal data POPS (“More than just sport”) processes, why and on what legal basis, who receives it, how long it is kept and what your rights are.",
-    "updated": "Last updated: 1 November 2026",
+    "updated": "Last updated: 6 November 2026",
     "intro": "POPS (“More than just sport”) is a non-profit project. This page explains what personal data we process, why and on what legal basis, who we share it with, how long we keep it and what your rights are. We collect as little data as possible and do not track users without their consent.",
     "introClubTracking": "The one exception is statistics and advertising tools that a club may add to its own pages, which load only if you accept them there (see “Cookies and data in your browser” below).",
     "controller": {
@@ -729,12 +729,12 @@
       },
       "googleAnalytics": {
         "title": "Google Analytics, only with your consent",
-        "body": "If you answer “Yes” in the analytics notice, your browser loads Google Analytics directly from Google and sends Google the pages you open, so we can see which places and features get used. What Google receives includes the page address and title, the referring address, your browser and device type, your language, your screen size and a random identifier stored in the _ga cookies in your browser, which lets Google Analytics recognise repeat visits. The page address is sent with all the parameters in it: on the map, these are its centre and zoom level (after “Find me” or “Around me”, the centre matches your location), and when you search, the words you type. Because your browser connects to Google directly, Google also receives your IP address. According to Google, it is used only to work out an approximate location and is then discarded immediately, and the IP addresses of users in the EU are not logged or stored. In Google Analytics we have switched off Google signals and ads personalisation. We do not send Google your name, your email address or any other data from your account. Google Analytics does not run in the admin panel, on personal links for unsubscribing and checking in, or on pages that show a person’s name, such as public passports. Until you answer “Yes”, Google Analytics does not load and leaves no cookies or other data in your browser. The cookieless analytics described above (Umami) runs whatever you answer. If you are under 14, the consent has to be given by your parent or guardian. You can withdraw your consent at any time, as easily as you gave it: under “Cookie settings” at the bottom of the pages, and on the map at the end of the facilities list.",
+        "body": "If you answer “Yes” in the analytics notice, your browser loads Google Analytics directly from Google and sends Google the pages you open, so we can see which places and features get used. What Google receives includes the page address and title, the referring address, your browser and device type, your language, your screen size and a random identifier stored in the _ga cookies in your browser, which lets Google Analytics recognise repeat visits. The page address is sent with all the parameters in it: on the map, these are its centre and zoom level (after “Find me” or “Around me”, the centre matches your location), and when you search, the words you type. Because your browser connects to Google directly, Google also receives your IP address. According to Google, it is used only to work out an approximate location and is then discarded immediately, and the IP addresses of users in the EU are not logged or stored. In Google Analytics we have switched off Google signals and ads personalisation. We do not send Google your name, your email address or any other data from your account. Google Analytics does not run in the admin panel, on personal links for unsubscribing and checking in, or on pages that show a person’s name, such as public passports. Until you answer “Yes”, Google Analytics does not load and leaves no cookies or other data in your browser. The cookieless analytics described above (Umami) runs whatever you answer. If you are under {age}, the consent has to be given by your parent or guardian. You can withdraw your consent at any time, as easily as you gave it: under “Cookie settings” at the bottom of the pages, and on the map at the end of the facilities list.",
         "basis": "Basis: consent (Art. 6(1)(a) GDPR), which you withdraw under “Cookie settings”. Article 4a of the Bulgarian Electronic Commerce Act also applies to storing and reading data in your browser."
       },
       "account": {
         "title": "Account and sign-in",
-        "body": "If you create an account: your email address (for sign-in with a one-time code), a display name, an optional city and whether you are under 18. Your date of birth, if you enter it in your profile, is used once to work out that category and is never stored. While you are signed in, we keep your browser type (user agent) with the session, but not your IP address.",
+        "body": "If you create an account: your email address (for sign-in with a one-time code), a display name, an optional city and whether you are under 18. Your date of birth, if you enter it in your profile, is used once to check that you are {age} or older and to work out that category, and is never stored. While you are signed in, we keep your browser type (user agent) with the session, but not your IP address.",
         "basis": "Basis: contract — the <terms>Terms of use</terms> you accept when you sign in (Art. 6(1)(b))."
       },
       "signInProviders": {
@@ -851,7 +851,7 @@
     },
     "minors": {
       "title": "Minors",
-      "body": "We have not set a minimum age for an account. Your date of birth, if you enter it, is used once to note whether you are under 18 and is not stored; at present that flag restricts nothing. Our age policy is under review and we will update this page when it is adopted."
+      "body": "An account is for people aged {age} or over — the age from which a child in Bulgaria may consent to an online service on their own (Art. 25c of the Personal Data Protection Act). If you enter your date of birth it is used once: we check that you are {age} or older and note whether you are under 18; the date itself is not stored. The under-18 flag restricts nothing. An account of a person under {age} is subject to closure once we establish it."
     },
     "automated": {
       "title": "Automated decisions",
@@ -909,7 +909,7 @@
     "oauthError_cancelled": "Signing in with {provider} was cancelled. Try again or sign in with an email code.",
     "oauthError_failed": "Signing in with {provider} did not work. Try again or sign in with an email code.",
     "oauthError_failed_unnamed": "Signing in did not work. Try again or sign in with an email code.",
-    "privacyNote": "By signing in you accept the <terms>Terms of use</terms>. How we process your data: <privacy>Privacy</privacy>. We do not store IP addresses.",
+    "privacyNote": "By signing in you confirm that you are {age} or older and accept the <terms>Terms of use</terms>. How we process your data: <privacy>Privacy</privacy>. We do not store IP addresses.",
     "error_invalid_email": "Check the email address.",
     "error_invalid_code": "The code is wrong or expired. Try again, or ask for a new code.",
     "resent": "We sent a new code. Only the newest one works.",
@@ -961,7 +961,7 @@
     "displayNameLabel": "Display name",
     "homeCityLabel": "City",
     "dateOfBirthLabel": "Date of birth (optional)",
-    "dateOfBirthHint": "Used only to determine your age category. We do not keep it — only whether you are under 18 is stored.",
+    "dateOfBirthHint": "Used only to check that you are {age} or older and to determine your age category. We do not keep it — only whether you are under 18 is stored.",
     "categoryMinor": "Age category: under 18. The category does not limit anything you can take part in.",
     "categoryAdult": "Age category: 18 or over.",
     "submit": "Save",
@@ -981,6 +981,7 @@
     "error_display_name_too_long": "That name is too long (60 characters max).",
     "error_home_city_too_long": "That city is too long (80 characters max).",
     "error_invalid_date_of_birth": "Check the date of birth.",
+    "error_under_minimum_age": "An account is for people aged {age} or over.",
     "error_confirmation_mismatch": "The confirmation does not match.",
     "trainingLink": "Training log",
     "exportTitle": "Your data",
@@ -3028,9 +3029,9 @@
       "title": "Three plans, one platform",
       "lead": "Every plan includes the whole base platform. The higher ones add tools — not a higher place in the directory.",
       "popular": "Recommended",
-      "perMonth": "per month",
+      "perMonth": "per month excl. VAT",
       "trialNote": "{days} days free, then a contract for at least {months} months.",
-      "vatNote": "Prices are per month. Every plan starts with a free {days}-day trial. After it, the contract runs for at least {months} months and renews every year; invoices are paid by bank transfer — monthly or once a year, as you choose.",
+      "vatNote": "Prices are per month and exclude VAT; VAT at the applicable rate ({vat} %) is added on the invoice. Every plan starts with a free {days}-day trial. After it, the contract runs for at least {months} months and renews every year; invoices are paid by bank transfer — monthly or once a year, as you choose.",
       "gridTitle": "What each plan includes",
       "yes": "included",
       "no": "not included",
@@ -3844,7 +3845,7 @@
     "back": "← Home",
     "title": "Terms of use",
     "metaDescription": "The terms for using POPS (“More than just sport”): accounts, content, the licence for your contributions, moderation, notices and liability.",
-    "updated": "In force from 31 October 2026",
+    "updated": "In force from 6 November 2026",
     "intro": "These terms govern the use of POPS (“More than just sport”). Browsing the map needs no account; by signing in you accept these terms. How we process your personal data is described separately under <privacy>Privacy</privacy>.",
     "who": {
       "title": "Who we are",
@@ -3857,7 +3858,7 @@
     "account": {
       "title": "Your account",
       "body": "You sign in with your email address and a one-time code. The account is personal: do not share it and do not create one in someone else's name. You are responsible for what is done from your account and for access to your email. You can delete your account at any time from <profile>My profile</profile>.",
-      "age": "We have not set a minimum age for an account; our age policy is under review."
+      "age": "An account is for people aged {age} or over. By signing in you confirm that you are {age} or older; an account of a younger person is subject to closure once we establish it."
     },
     "content": {
       "title": "What may be published",
@@ -4015,6 +4016,7 @@
     "label": {
       "legalName": "Registered name",
       "eik": "UIC/BULSTAT",
+      "vatNumber": "VAT number",
       "address": "Registered office"
     },
     "identityPending": "The association's registered name, UIC and address have not been published here yet.",
@@ -5857,9 +5859,9 @@
     "kind": "Type",
     "tier": "Plan",
     "tierHint": {
-      "community": "{price} a month. For trainers and small clubs, up to {cap} active members. {days} days free trial, then a contract for at least {months} months.",
-      "standard": "{price} a month. For gyms and studios with a desk and a till. {days} days free trial, then a contract for at least {months} months.",
-      "pro": "{price} a month. For chains, large clubs and anyone connecting their own systems. {days} days free trial, then a contract for at least {months} months."
+      "community": "{price} a month excl. VAT. For trainers and small clubs, up to {cap} active members. {days} days free trial, then a contract for at least {months} months.",
+      "standard": "{price} a month excl. VAT. For gyms and studios with a desk and a till. {days} days free trial, then a contract for at least {months} months.",
+      "pro": "{price} a month excl. VAT. For chains, large clubs and anyone connecting their own systems. {days} days free trial, then a contract for at least {months} months."
     },
     "city": "Municipality",
     "cityNone": "— choose —",

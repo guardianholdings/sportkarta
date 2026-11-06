@@ -99,6 +99,7 @@ services:
       ORG_LEGAL_NAME: ${ORG_LEGAL_NAME:-}
       ORG_EIK: ${ORG_EIK:-}
       ORG_ADDRESS: ${ORG_ADDRESS:-}
+      ORG_VAT_REGISTERED: ${ORG_VAT_REGISTERED:-}
       # Analytics & error monitoring — read at runtime, empty defaults = disabled.
       # Self-hosted cookieless Umami (set both to enable the snippet).
       UMAMI_SRC: ${UMAMI_SRC:-}
