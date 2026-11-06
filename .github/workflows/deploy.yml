@@ -118,12 +118,31 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # Server Actions key, derived from AUTH_SECRET under its own label like the
+      # runtime secrets in "Render derived settings" below, as the 32 raw bytes
+      # in base64 that Next expects. `next build` bakes it into the build (see
+      # the Dockerfile), so it travels as a BuildKit secret file, never as a
+      # build arg. No AUTH_SECRET: an empty file, and the build keeps Next's
+      # per-build random key (today's behaviour).
+      - name: Derive the Server Actions key
+        env:
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+        run: |
+          set -euo pipefail
+          umask 077
+          if [ -n "${AUTH_SECRET:-}" ]; then
+            printf '%s' 'pops/server-actions/v1' | openssl dgst -sha256 -hmac "$AUTH_SECRET" -binary | base64 -w0 > "$RUNNER_TEMP/next_server_actions_key"
+          else
+            : > "$RUNNER_TEMP/next_server_actions_key"
+          fi
       - name: Build and push web
         uses: docker/build-push-action@v6
         with:
           context: .
           target: web
           push: true
+          secret-files: |
+            next_server_actions_key=${{ runner.temp }}/next_server_actions_key
           tags: |
             ${{ env.IMAGE_BASE }}-web:${{ env.DEPLOY_SHA }}
             ${{ env.IMAGE_BASE }}-web:latest
@@ -135,6 +154,8 @@ jobs:
           context: .
           target: worker
           push: true
+          secret-files: |
+            next_server_actions_key=${{ runner.temp }}/next_server_actions_key
           tags: |
             ${{ env.IMAGE_BASE }}-worker:${{ env.DEPLOY_SHA }}
             ${{ env.IMAGE_BASE }}-worker:latest
@@ -145,6 +166,8 @@ jobs:
           context: .
           target: migrate
           push: true
+          secret-files: |
+            next_server_actions_key=${{ runner.temp }}/next_server_actions_key
           tags: |
             ${{ env.IMAGE_BASE }}-migrate:${{ env.DEPLOY_SHA }}
             ${{ env.IMAGE_BASE }}-migrate:latest
@@ -372,6 +395,16 @@ jobs:
           if [ -z "$webhooks" ] && [ -n "${AUTH_SECRET:-}" ]; then
             webhooks=$(printf '%s' 'pops/club-webhooks/v1' | openssl dgst -sha256 -hmac "$AUTH_SECRET" -r | cut -d' ' -f1)
           fi
+          # Server Actions: the SAME key the build-push job baked into the image
+          # (derivation and label identical), so the runtime value and the
+          # action ids in the build agree, and a rebuilt image after an
+          # AUTH_SECRET rotation agrees with the new .env. Next reads the
+          # environment first and falls back to the build's key, so an empty
+          # value (no AUTH_SECRET) changes nothing.
+          actions_key=""
+          if [ -n "${AUTH_SECRET:-}" ]; then
+            actions_key=$(printf '%s' 'pops/server-actions/v1' | openssl dgst -sha256 -hmac "$AUTH_SECRET" -binary | base64 -w0)
+          fi
           # The Umami and GlitchTip dashboards sit behind HTTP basic auth
           # (user "admin"). With no ADMIN_TOOLS_PASSWORD secret the hash is of a
           # random throwaway, so the dashboards are CLOSED to everyone — the
@@ -400,6 +433,7 @@ jobs:
             printf "CHECKIN_TOKEN_SECRET='%s'\n" "$checkin"
             printf "PUSH_VAPID_SECRET='%s'\n" "$vapid"
             printf "CLUB_WEBHOOK_SECRET='%s'\n" "$webhooks"
+            printf "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY='%s'\n" "$actions_key"
             printf "ADMIN_TOOLS_HASH='%s'\n" "$hash"
             printf "GLITCHTIP_EMAIL_URL='%s'\n" "$gt_mail"
             printf "GLITCHTIP_FROM_EMAIL='%s'\n" "${SMTP_FROM:-}"
