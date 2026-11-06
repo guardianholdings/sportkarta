@@ -94,7 +94,8 @@ test.describe('email OTP sign-in', () => {
     await page.getByLabel(/име за показване|display name/i).fill('E2E тест');
     await page.getByLabel(/дата на раждане|date of birth/i).fill(yearsAgo(10));
     await page.getByRole('button', { name: /запази|save/i }).click();
-    await expect(page.getByRole('alert')).toContainText(/14/);
+    // Next.js keeps its own role="alert" route announcer on every page, so pick the form's.
+    await expect(page.getByRole('alert').filter({ hasText: /14/ })).toBeVisible();
     await expect(page.getByRole('status')).toHaveCount(0);
 
     // Between 14 and 18: saved, categorised as a minor, the date itself gone.
