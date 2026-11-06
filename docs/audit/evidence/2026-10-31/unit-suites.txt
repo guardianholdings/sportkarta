@@ -1,0 +1,8 @@
+lib test:  Test Files  43 passed (43)
+lib test:       Tests  1260 passed (1260)
+scripts/import-osm test:  Test Files  7 passed (7)
+scripts/import-osm test:       Tests  60 passed (60)
+db test:  Test Files  17 passed | 43 skipped (60)
+db test:       Tests  68 passed | 537 skipped (605)
+apps/web test:  Test Files  162 passed | 16 skipped (178)
+apps/web test:       Tests  2230 passed | 102 skipped (2332)

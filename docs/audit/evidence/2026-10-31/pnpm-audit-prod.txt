@@ -1,0 +1,28 @@
+moderate	esbuild	GHSA-67mh-4wv8-2f99	esbuild enables any website to send any requests to the development server and read the re
+moderate	postcss	GHSA-qx2v-qp2m-jg93	PostCSS has XSS via Unescaped </style> in its CSS Stringify Output
+high	postcss	GHSA-6g55-p6wh-862q	PostCSS: Arbitrary file read and information disclosure via attacker-controlled sourceMapp
+moderate	postcss	GHSA-fxqj-rqcc-2cmp	PostCSS: incomplete fix of GHSA-6g55-p6wh-862q — attacker-controlled sourceMappingURL read
+high	nanoid	GHSA-2v37-7h3g-55p8	nanoid: custom generators can loop indefinitely when size is zero
+high	postcss	GHSA-r28c-9q8g-f849	PostCSS: Path Traversal in Previous Source Map Auto-Loading (sourceMappingURL) leads to Ar
+critical	maplibre-gl	GHSA-jrc7-96c5-q579	MapLibre GL JS: XSS Sanitizer Bypass in DOM.sanitize() via Live NamedNodeMap Removal Skip
+moderate	vitest	GHSA-82fw-gwwq-j7x9	Vitest: Path Traversal / Arbitrary File Read via @vitest/mocker Redirect Mock
+moderate	@vitest/mocker	GHSA-82fw-gwwq-j7x9	Vitest: Path Traversal / Arbitrary File Read via @vitest/mocker Redirect Mock
+moderate	nodemailer	GHSA-6vj9-mwq6-2f5v	Nodemailer: Process-global DNS cache reuses TLS `servername` across transports, enabling c
+moderate	nodemailer	GHSA-8vvx-rff5-p5rq	Nodemailer: Nested structured recipient arrays bypass the parser depth limit and cause sta
+moderate	nodemailer	GHSA-g57g-f23g-4646	Nodemailer: Quoted local-part can produce malformed envelope recipient through RFC 5322 co
+high	nodemailer	GHSA-v53p-9fqp-m79j	Nodemailer: Quadratic backtracking in the addressparser free-text fallback allows remote d
+high	source-map-js	GHSA-68fv-2mgg-jv7q	source-map-js allows event-loop denial of service through indexed source-map section offse
+high	nodemailer	GHSA-prgh-xp8r-p3m5	Nodemailer addressparser: O(n^2) on comment-joined addresses enables a remote DoS (reachab
+moderate	vite	GHSA-698v-4r3x-3vcv	launch-editor: escapeCmdArgs() omits % escaping on Windows
+moderate	vite	GHSA-r825-w8mm-5pxw	launch-editor: Editor CLI flag misinterpretation causing arbitrary command execution for s
+high	vite	GHSA-587h-7wmj-h5pm	launch-editor: `fs.existsSync()` existence check can be bypassed on Windows
+low	vite	GHSA-9jrq-w75r-8gcw	Vite: Cross origin script execution through Vite custom middleware
+moderate	vite	GHSA-rq7h-c2jc-7f22	Vite: Files outside `server.fs.allow` could be served when project paths match system path
+moderate	@vitest/mocker	GHSA-qxg6-89mg-rqv8	Vitest: Code injection via unauthenticated manual mock registration
+moderate	nodemailer	GHSA-39m8-27wv-hr27	Nodemailer: Quadratic (O(n^2)) DKIM header unfolding lets a large folded header cause remo
+moderate	nodemailer	GHSA-8c8m-p3m8-cjg8	Nodemailer: A nested comment ends early in addressparser, releasing the rest of the commen
+moderate	nodemailer	GHSA-m943-m63m-w62w	Nodemailer: A ";" inside a quoted string or comment ends an address group early in address
+moderate	nodemailer	GHSA-85x2-q946-cp5h	Nodemailer: A ">" inside a quoted local part ends an angle-addr early in addressparser, de
+moderate	nodemailer	GHSA-4ffr-jq9g-5ffx	Nodemailer: Quadratic backtracking in SMTP AUTH mechanism detection regexes allows pre-aut
+moderate	nodemailer	GHSA-g73g-hqqh-jr95	Nodemailer: RFC 5322 comment inside an angle-bracket address is never stripped
+moderate	nodemailer	GHSA-4g23-2xm8-66gc	Nodemailer: Quadratic (O(n^2)) SMTP client reply parsing lets a malicious server or MITM c
