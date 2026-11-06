@@ -25,9 +25,10 @@ name: Restore rehearsal
 # (deploy/RESTORE.md §7 says where to look).
 #
 # What it does NOT prove, and deploy/RESTORE.md says how to cover: the umami
-# and glitchtip dumps, the uploads volume, and an OFF-BOX copy (restic), which
-# does not exist yet — every dump it restores sits on the same disk as the
-# database it protects.
+# and glitchtip dumps and a restore of the uploads volume. The OFF-BOX copy
+# (restic, configured 2026-11-07) is covered by the last step: the repository
+# must hold at least one snapshot and pass `restic check`, so a night on which
+# the push silently stopped turns this run red.
 on:
   schedule:
     # Tuesdays 05:20 UTC: after the 03:30 Sofia nightly dump, outside peak use.
@@ -192,6 +193,44 @@ jobs:
           [ "$facilities" -ge 1 ] || fail "the restored copy has no facilities"
           rm -f "$log"
           echo "Restore rehearsal passed: $dump restores cleanly and answers the health query."
+          REMOTE
+
+      # The off-box copy: restic must be configured on the server, hold at least
+      # one snapshot, and pass a structural check. Printed here: the compact
+      # snapshot table (ids, times, host, root paths) and verdicts — restic's
+      # own error text can quote the repository address, so stderr goes to the
+      # server-side log like everything else.
+      - name: Off-box copy — snapshots exist and the repository checks out
+        env:
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          ssh vps "bash -s -- $RUN_ID" <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          logdir="$HOME/restore-rehearsal"
+          log="$logdir/$1-offbox.log"
+          mkdir -p "$logdir"
+          : > "$log"
+          fail() {
+            echo "::error::OFF-BOX COPY CHECK FAILED: $*"
+            [ -s "$log" ] && echo "restic's own output is on the server in $log (deploy/RESTORE.md §5)."
+            exit 1
+          }
+          cd /opt/sportkarta
+          C="docker compose -f compose.prod.yml"
+          restic() {
+            $C run --rm --no-deps -T --entrypoint restic backup "$@" 2>>"$log"
+          }
+          configured=$($C run --rm --no-deps -T --entrypoint sh backup -c \
+            '[ -n "${RESTIC_REPOSITORY:-}" ] && [ -n "${RESTIC_PASSWORD:-}" ] && echo yes || echo no' 2>>"$log" | tr -d '\r')
+          [ "$configured" = "yes" ] || fail "restic is not configured on the server (RESTIC_REPOSITORY / RESTIC_PASSWORD empty) — nothing leaves the box"
+          table=$(restic snapshots --compact) || fail "restic snapshots errored — wrong passphrase, missing bucket or no credentials"
+          count=$(printf '%s\n' "$table" | grep -c -E '^[0-9a-f]{8} ' || true)
+          [ "$count" -ge 1 ] || fail "the repository holds no snapshot — the nightly push has never completed"
+          printf '%s\n' "$table"
+          restic check >>"$log" 2>&1 || fail "restic check found problems in the repository"
+          rm -f "$log"
+          echo "Off-box copy ok: $count snapshot(s), repository check passed."
           REMOTE
 
       # Belt and braces: if the SSH session died before its own trap ran, no
