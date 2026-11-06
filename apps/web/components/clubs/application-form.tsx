@@ -5,6 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Link } from '@/i18n/navigation';
 import type { ClubFormMessages } from '@/lib/clubs/form-labels';
 import { useFormAction } from '@/lib/use-form-action';
 
@@ -14,6 +15,10 @@ import { FormFeedback } from './form-feedback';
  * The club application (/klubove/zayavka). The signed-in account becomes the
  * owner; the club starts `pending` and the operator approves it. Field names
  * match parseApplication in apps/web/lib/clubs/input.ts.
+ *
+ * The acceptance box names the clubs terms (/usloviya-klubove) and links them
+ * in a new tab, so the text is one click away without losing the form; the
+ * server records which version was accepted (lib/clubs/apply.ts).
  */
 
 export interface ApplyState {
@@ -38,7 +43,8 @@ export interface ApplicationFormLabels {
   sportOptions: { value: string; label: string }[];
   website: string;
   description: string;
-  acceptTerms: string;
+  /** «Приемам» + the linked document's name + the rest of the sentence. */
+  acceptTerms: { before: string; link: string; after: string };
   submit: string;
 }
 
@@ -131,7 +137,25 @@ export function ApplicationForm({
         </label>
         <Textarea id="a-desc" name="description" maxLength={2000} rows={4} />
       </div>
-      <Checkbox name="acceptTerms" required label={labels.acceptTerms} />
+      <Checkbox
+        name="acceptTerms"
+        required
+        className="items-start"
+        label={
+          <>
+            {labels.acceptTerms.before}{' '}
+            <Link
+              href="/usloviya-klubove"
+              target="_blank"
+              rel="noopener"
+              className="font-medium text-link hover:text-link-hover"
+            >
+              {labels.acceptTerms.link}
+            </Link>{' '}
+            {labels.acceptTerms.after}
+          </>
+        }
+      />
       <Button type="submit" disabled={pending}>
         {labels.submit}
       </Button>

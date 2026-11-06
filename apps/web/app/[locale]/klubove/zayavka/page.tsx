@@ -79,7 +79,11 @@ export default async function ClubApplicationPage({ params }: { params: PagePara
               sportOptions: sports,
               website: t('website'),
               description: t('description'),
-              acceptTerms: t('acceptTerms'),
+              acceptTerms: {
+                before: t('acceptTermsBefore'),
+                link: t('acceptTermsLink'),
+                after: t('acceptTermsAfter'),
+              },
               submit: t('submit'),
             }}
           />

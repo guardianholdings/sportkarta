@@ -7,7 +7,9 @@ import { addDaysIso, addMonthsIso, membershipEndsOn, type IsoDate } from './date
  * nobody; to continue after it the club signs a contract for at least
  * CLUB_CONTRACT_MONTHS, invoiced monthly or yearly as the club chooses, that
  * renews for another CLUB_CONTRACT_MONTHS unless the club gives notice at
- * least CLUB_CONTRACT_NOTICE_MONTHS before the end of the running term.
+ * least CLUB_CONTRACT_NOTICE_MONTHS before the end of the running term. The
+ * notice is the CLUB's: the association does not decline a renewal, and its
+ * own exits are the suspension grounds of /usloviya-klubove (0061).
  *
  * The contract is signed offline; the operator records three facts on the
  * club (0061): the day it starts, the invoicing choice, and the day notice
