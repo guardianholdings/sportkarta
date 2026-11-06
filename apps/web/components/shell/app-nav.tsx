@@ -156,12 +156,15 @@ export function BottomNav({
   active,
   labelFor,
   className,
+  showAdd = true,
   signedIn = true,
   fromMap = false,
 }: {
   active?: ActiveHref | null;
   labelFor: (key: NavKey) => string;
   className?: string;
+  /** As on NavRail: false leaves the «+» (and its slot) out of the bar. */
+  showAdd?: boolean;
   /** As on NavRail: false swaps «Профил» for «Вход». */
   signedIn?: boolean;
   /** On /karta: «Добави съоръжение» opens the pin where the map is looking. */
@@ -182,15 +185,17 @@ export function BottomNav({
       {tabs.slice(0, 2).map((n) => (
         <TabLink key={n.key} item={n} active={isActive(n, active)} label={labelFor(n.key)} />
       ))}
-      <div className="w-14" />
+      {showAdd && <div className="w-14" />}
       {tabs.slice(2).map((n) => (
         <TabLink key={n.key} item={n} active={isActive(n, active)} label={labelFor(n.key)} />
       ))}
-      <QuickActions
-        variant="tab"
-        fromMap={fromMap}
-        className="absolute left-1/2 top-[-22px] -translate-x-1/2"
-      />
+      {showAdd && (
+        <QuickActions
+          variant="tab"
+          fromMap={fromMap}
+          className="absolute left-1/2 top-[-22px] -translate-x-1/2"
+        />
+      )}
     </nav>
   );
 }

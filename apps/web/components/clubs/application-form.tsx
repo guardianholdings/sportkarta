@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { SportPicker } from '@/components/ui/sport-picker';
 import { Textarea } from '@/components/ui/textarea';
 import type { ClubFormMessages } from '@/lib/clubs/form-labels';
 import { useFormAction } from '@/lib/use-form-action';
@@ -36,6 +37,8 @@ export interface ApplicationFormLabels {
   cities: { id: number; name: string }[];
   sports: string;
   sportOptions: { value: string; label: string }[];
+  sportsShowAll: string;
+  sportsShowFewer: string;
   website: string;
   description: string;
   acceptTerms: string;
@@ -119,11 +122,11 @@ export function ApplicationForm({
       </fieldset>
       <fieldset className="space-y-2">
         <legend className={label}>{labels.sports}</legend>
-        <div className="flex max-h-56 flex-wrap gap-x-4 gap-y-1 overflow-y-auto rounded-card border border-line p-3">
-          {labels.sportOptions.map((sport) => (
-            <Checkbox key={sport.value} name="sports" value={sport.value} label={sport.label} />
-          ))}
-        </div>
+        <SportPicker
+          name="sports"
+          options={labels.sportOptions}
+          labels={{ showAll: labels.sportsShowAll, showFewer: labels.sportsShowFewer }}
+        />
       </fieldset>
       <div className="space-y-1">
         <label className={label} htmlFor="a-desc">

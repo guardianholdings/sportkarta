@@ -1,15 +1,21 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
   CLUB_CATALOGUE,
   CLUB_FEATURES,
   CLUB_SERVICES,
+  CLUB_TIERS,
+  type ClubFeature,
   type ClubService,
+  clubHasFeature,
   lowestTierWith,
 } from '@sportkarta/lib/clubs';
 
 import { serviceFor } from '../lib/clubs/features';
-import { PRICING_INCLUDED, platformFeeFree, rowState } from '../lib/clubs/landing';
+import { PRICING_INCLUDED, gridMark, platformFeeFree, rowState } from '../lib/clubs/landing';
 import bg from '../messages/bg.json';
 import en from '../messages/en.json';
 
@@ -63,6 +69,51 @@ describe('the pricing grid base rows', () => {
     expect(Object.keys(included).filter((k) => !PRICING_INCLUDED.some((r) => r.key === k))).toEqual(
       [],
     );
+  });
+});
+
+describe('the pricing grid never ticks a «скоро» row', () => {
+  // UX audit 2026-10-31, DR-02: a row tagged «скоро» carried the green
+  // «включено» tick in all three plan columns. Every cell now comes from
+  // gridMark, which reads the same rowState as the chip beside the row.
+  const grid: { key: string; feature?: ClubFeature; service?: ClubService }[] = [
+    ...PRICING_INCLUDED,
+    ...CLUB_FEATURES.map((feature) => ({ key: feature, feature })),
+  ];
+
+  it('prints «скоро», never the included mark, in every cell of a row behind a switched-off service', () => {
+    const soonRows = grid.filter((row) => rowState(row, OFF).soon);
+    expect(soonRows.length).toBeGreaterThan(2);
+    for (const row of soonRows) {
+      for (const tier of CLUB_TIERS) {
+        const mark = gridMark(row, tier, OFF);
+        expect(mark, `${row.key}/${tier}`).not.toBe('included');
+        const has = row.feature === undefined || clubHasFeature(tier, row.feature);
+        expect(mark, `${row.key}/${tier}`).toBe(has ? 'soon' : 'excluded');
+      }
+    }
+  });
+
+  it('ticks exactly the cells the tier matrix includes once every service is on', () => {
+    for (const row of grid) {
+      for (const tier of CLUB_TIERS) {
+        const has = row.feature === undefined || clubHasFeature(tier, row.feature);
+        expect(gridMark(row, tier, ON), `${row.key}/${tier}`).toBe(has ? 'included' : 'excluded');
+      }
+    }
+  });
+
+  it('is the only way the page draws a cell', () => {
+    const pricing = readFileSync(
+      path.join(__dirname, '..', 'components', 'marketing', 'clubs', 'pricing.tsx'),
+      'utf8',
+    );
+    expect(pricing).toMatch(/gridMark\(row, tier\)/);
+    // No cell decides on its own from the matrix or the switches.
+    expect(pricing).not.toMatch(/clubHasFeature\(|clubSwitchOn\(/);
+    // The included tick is drawn once, inside the 'included' branch.
+    expect(pricing.match(/<Check\b/g)).toHaveLength(1);
+    expect(pricing).toMatch(/mark === 'included'[\s\S]{0,200}<Check\b/);
   });
 });
 
