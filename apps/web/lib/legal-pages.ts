@@ -162,14 +162,15 @@ export const TERMS_SECTIONS: readonly TermsSection[] = [
  * into the club's audit row with the acceptance time, so a later edition can
  * never blur what a club agreed to: change the words, bump the date.
  *
- * DRAFT. The text was written by the team from how the code behaves and is
- * awaiting the association's lawyer. While CLUB_TERMS_DRAFT is true the page
- * prints ClubTerms.draftNotice above the text; after approval the operator
- * flips it to false (this one line) and bumps CLUB_TERMS_VERSION to the
- * approval date.
+ * DRAFT. The text was written by the team from how the code behaves. While
+ * CLUB_TERMS_DRAFT is true the page prints ClubTerms.draftNotice above the
+ * text. The operator read and approved the text themself on 2026-11-07
+ * (decision of 2026-11-06: no lawyer), so the flag is false and the version is
+ * the approval date; a later edition bumps the date again and, if the words
+ * are only proposed, may set the flag back to true.
  */
-export const CLUB_TERMS_VERSION = '2026-11-06';
-export const CLUB_TERMS_DRAFT = true;
+export const CLUB_TERMS_VERSION = '2026-11-07';
+export const CLUB_TERMS_DRAFT = false;
 
 /**
  * How many days ahead a change to the clubs terms, or to the sub-processor
