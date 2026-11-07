@@ -1,0 +1,124 @@
+name: Backup now
+
+# Runs the nightly backup immediately: the same image, the same script and the
+# same variables as the 03:30 Sofia cron (deploy/backup/backup.sh) — pg_dump of
+# the three databases into the backups volume, then the restic push off-box,
+# then the retention rule. For: the FIRST push after the restic secrets are set
+# (that run creates the repository), a copy right before a risky change, or a
+# push the night skipped. It replaces the hand-run server command that
+# deploy/RESTORE.md §5 used to describe — nobody runs commands on the server.
+#
+# WHAT IT PRINTS. Only backup.sh's own "[backup] …" lines and restic's counts
+# (files, bytes, the snapshot id). Everything else — restic's error text, which
+# quotes the repository address, and pg_dump's — stays in a file on the server
+# that only `deploy` can read; this repository and its logs are public. On
+# failure the job names the CLASS of the error (dump step / passphrase /
+# bucket / credentials / endpoint / not initialised), never the text.
+#
+# WHAT IT DOES NOT DO. It restores nothing and touches the live database only
+# through pg_dump's reads. Proof that the copy is usable is the Restore
+# rehearsal workflow, whose last step lists the snapshots and checks the
+# repository.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Its own group: never deploy.yml's (a queued deploy must not be replaced by
+# this) and never two at once (two pushes would race the prune).
+concurrency:
+  group: backup-now
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # Identical to deploy.yml — see the note there on why the host key is
+      # pinned and what to do if the server is ever rebuilt.
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo 'sportkarta-prod ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAIqKmg1U69CxDz2Nd7YQHozf1wU3t/Wx3r7BI1RhVlt' > ~/.ssh/known_hosts
+          {
+            echo "Host vps"
+            echo "  HostName ${{ secrets.DEPLOY_HOST }}"
+            echo "  HostKeyAlias sportkarta-prod"
+            echo "  User deploy"
+            echo "  IdentityFile ~/.ssh/deploy_key"
+            echo "  StrictHostKeyChecking yes"
+            echo "  UserKnownHostsFile ~/.ssh/known_hosts"
+          } > ~/.ssh/config
+
+      - name: Run the nightly backup now — dump, off-box push, retention
+        env:
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          # The remote script is bash's stdin, so every docker call closes its
+          # own stdin (</dev/null) and cannot read the script, and the runner
+          # refuses a session that never printed its verdict line
+          # (restore-test.yml learnt this from run 42348005947).
+          rc=0
+          out=$(ssh vps "bash -s -- $RUN_ID" <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          logdir="$HOME/backup-now"
+          log="$logdir/$1.log"
+          mkdir -p "$logdir"
+          find "$logdir" -name '*.log' -mtime +14 -delete
+          : > "$log"
+          fail() {
+            echo "::error::BACKUP NOW FAILED: $*"
+            [ -s "$log" ] && echo "The full output is on the server in $log (deploy/RESTORE.md §5)."
+            exit 1
+          }
+          # Name the CLASS of the failure without quoting the log: restic's text
+          # carries the repository address. Order matters — an unknown bucket
+          # also says "does not exist".
+          why() {
+            if grep -q '^\[backup\] ERROR' "$log"; then
+              echo "the dump step failed before restic ran (see the [backup] lines above)"
+            elif grep -q -i -E 'wrong password|no key found' "$log"; then
+              echo "wrong RESTIC_PASSWORD for an existing repository"
+            elif grep -q -i -E 'NoSuchBucket|bucket does not exist' "$log"; then
+              echo "the bucket named in RESTIC_REPOSITORY does not exist at that endpoint"
+            elif grep -q -i -E 'InvalidAccessKeyId|SignatureDoesNotMatch|AccessDenied|status code: 403|Forbidden' "$log"; then
+              echo "S3 rejected the credentials (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY, or the signing region AWS_DEFAULT_REGION)"
+            elif grep -q -i -E 'no such host|dial tcp|i/o timeout|connection refused|certificate' "$log"; then
+              echo "the endpoint in RESTIC_REPOSITORY is unreachable from the server"
+            elif grep -q -i -E 'Is there a repository|specified key does not exist|config file' "$log"; then
+              echo "the repository is not initialised and restic init did not complete"
+            else
+              echo "an unclassified error"
+            fi
+          }
+          cd /opt/sportkarta
+          C="docker compose -f compose.prod.yml"
+          # Never beside the cron's own run: two pushes would race the prune.
+          # The cron's job lives inside the long-running backup container; this
+          # run is a `run --rm` sibling, so look for the script in there first.
+          if $C exec -T backup pgrep -f /usr/local/bin/backup.sh </dev/null >/dev/null 2>>"$log"; then
+            fail "the nightly backup is running on the server right now — run this again in a few minutes"
+          fi
+          rc=0
+          $C run --rm --no-deps -T backup /usr/local/bin/backup.sh </dev/null >"$log" 2>&1 || rc=$?
+          # The public part: backup.sh's own lines and restic's counts.
+          grep -E '^\[backup\] |^(Files:|Dirs:|Added to the repo|processed [0-9]|snapshot [0-9a-f]+ saved)' "$log" || true
+          [ "$rc" -eq 0 ] || fail "backup.sh exited $rc — $(why)"
+          grep -q '^\[backup\] restic push complete' "$log" \
+            || fail "the dumps succeeded but nothing was pushed off-box — restic is not configured on the server (RESTIC_REPOSITORY / RESTIC_PASSWORD empty)"
+          rm -f "$log"
+          echo "Backup now ok: dumped, pushed off-box, retention applied."
+          REMOTE
+          ) || rc=$?
+          printf '%s\n' "$out"
+          [ "$rc" -eq 0 ] || exit "$rc"
+          case "$out" in
+            *"Backup now ok:"*) ;;
+            *) echo "::error::BACKUP NOW FAILED: the session ended before its verdict line — the script did not run to the end"; exit 1 ;;
+          esac
