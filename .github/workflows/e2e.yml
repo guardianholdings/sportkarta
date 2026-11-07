@@ -100,6 +100,11 @@ jobs:
             echo "OTP_RATE_LIMIT_IP=200"
             echo "OTP_RATE_LIMIT_EMAIL=50"
             echo "OTP_SEND_LIMIT_PER_HOUR=1000"
+            # The durable daily mail budget (migration 0063) counts sign-in
+            # codes per civil day in the database: in production 40 % of the
+            # relay's 100 a day. The suite signs in far more often than that in
+            # one run, so the quota is raised here (playwright.config.ts too).
+            echo "MAIL_DAILY_QUOTA=100000"
           } > .env
           pnpm db:migrate
           pnpm db:seed
