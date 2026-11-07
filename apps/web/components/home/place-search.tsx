@@ -28,6 +28,10 @@ export async function PlaceSearch({ locale }: { locale: string }) {
         </label>
         <div className="sk-home-search flex items-center gap-2 rounded-pill border border-line-strong bg-surface p-1.5 pl-4 shadow-sm">
           <Search size={20} aria-hidden="true" className="shrink-0 text-text-muted" />
+          {/* While the field is empty, the browser's clear (×) button keeps its room even though it is
+              hidden, so it is dropped until something is typed, and the hint is set at the smaller body
+              size; typed text stays 16 px, so phones don't zoom in on focus. Both keep the hint whole on
+              narrow phones. */}
           <input
             id="home-q"
             name="q"
@@ -35,7 +39,7 @@ export async function PlaceSearch({ locale }: { locale: string }) {
             autoComplete="off"
             enterKeyHint="search"
             placeholder={t('hero.searchPlaceholder')}
-            className="h-11 min-w-0 flex-1 bg-transparent text-body text-ink placeholder:text-text-faint focus:outline-none"
+            className="h-11 min-w-0 flex-1 bg-transparent text-body text-ink placeholder:text-body-sm placeholder:text-text-faint focus:outline-none [&:placeholder-shown::-webkit-search-cancel-button]:hidden"
           />
           <button type="submit" className={buttonVariants({ variant: 'primary' })}>
             {t('hero.searchSubmit')}
