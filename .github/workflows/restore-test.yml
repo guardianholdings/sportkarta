@@ -224,6 +224,24 @@ jobs:
             [ -s "$log" ] && echo "restic's own output is on the server in $log (deploy/RESTORE.md §5)."
             exit 1
           }
+          # Name the CLASS of restic's error without quoting it: the raw text
+          # carries the repository address (bucket + endpoint), and this log is
+          # public. Order matters — an unknown bucket also says "does not exist".
+          why() {
+            if grep -q -i -E 'wrong password|no key found' "$log"; then
+              echo "wrong RESTIC_PASSWORD for an existing repository"
+            elif grep -q -i -E 'NoSuchBucket|bucket does not exist' "$log"; then
+              echo "the bucket named in RESTIC_REPOSITORY does not exist at that endpoint"
+            elif grep -q -i -E 'InvalidAccessKeyId|SignatureDoesNotMatch|AccessDenied|status code: 403|Forbidden' "$log"; then
+              echo "S3 rejected the credentials (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY, or the signing region AWS_DEFAULT_REGION)"
+            elif grep -q -i -E 'no such host|dial tcp|i/o timeout|connection refused|certificate' "$log"; then
+              echo "the endpoint in RESTIC_REPOSITORY is unreachable from the server"
+            elif grep -q -i -E 'Is there a repository|specified key does not exist|config file' "$log"; then
+              echo "the repository is not initialised — the nightly push has never completed its restic init"
+            else
+              echo "an unclassified restic error"
+            fi
+          }
           cd /opt/sportkarta
           C="docker compose -f compose.prod.yml"
           restic() {
@@ -232,11 +250,11 @@ jobs:
           configured=$($C run --rm --no-deps -T --entrypoint sh backup -c \
             '[ -n "${RESTIC_REPOSITORY:-}" ] && [ -n "${RESTIC_PASSWORD:-}" ] && echo yes || echo no' </dev/null 2>>"$log" | tr -d '\r')
           [ "$configured" = "yes" ] || fail "restic is not configured on the server (RESTIC_REPOSITORY / RESTIC_PASSWORD empty) — nothing leaves the box"
-          table=$(restic snapshots --compact) || fail "restic snapshots errored — wrong passphrase, missing bucket or no credentials"
+          table=$(restic snapshots --compact) || fail "restic snapshots errored: $(why)"
           count=$(printf '%s\n' "$table" | grep -c -E '^[0-9a-f]{8} ' || true)
           [ "$count" -ge 1 ] || fail "the repository holds no snapshot — the nightly push has never completed"
           printf '%s\n' "$table"
-          restic check >>"$log" 2>&1 || fail "restic check found problems in the repository"
+          restic check >>"$log" 2>&1 || fail "restic check found problems in the repository ($(why))"
           rm -f "$log"
           echo "Off-box copy ok: $count snapshot(s), repository check passed."
           REMOTE
