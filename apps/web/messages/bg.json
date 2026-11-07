@@ -3566,6 +3566,7 @@
     "textDivision": "{tier}: място {rank} тази седмица.",
     "textLegend": "{place}: най-редовният тук е идвал {days, plural, one {# ден} other {# дни}}.",
     "textFacility": "{place} — безплатно спортно съоръжение в POPS.",
+    "textFacilityNeutral": "{place} — спортно съоръжение в POPS.",
     "textSession": "{title} — {day}. Ела и ти.",
     "textCampaign": "{title} — включи се."
   },
