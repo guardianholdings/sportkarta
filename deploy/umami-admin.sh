@@ -82,25 +82,44 @@ SELECT 'since=' || to_char(now() AT TIME ZONE 'UTC' - make_interval(hours => :ho
 -- Distinct visits per campaign tag. Anyone can open the site with any utm_*
 -- value, and this output reaches a public log, so a value prints only when it
 -- has the shape of our own tags; anything else prints as "other", none as "-".
-SELECT 'utm source=' || src || ' campaign=' || cmp || ' content=' || cnt
-    || ' visits=' || count(DISTINCT visit_id)
-  FROM (
-    SELECT e.visit_id,
-           CASE WHEN e.utm_source ~ '^[a-z0-9]{1,40}$' THEN e.utm_source
-                WHEN coalesce(e.utm_source, '') = '' THEN '-' ELSE 'other' END AS src,
-           CASE WHEN e.utm_campaign ~ '^[a-z0-9]{1,40}$' THEN e.utm_campaign
-                WHEN coalesce(e.utm_campaign, '') = '' THEN '-' ELSE 'other' END AS cmp,
-           CASE WHEN e.utm_content ~ '^([A-Z]{1,3}[0-9]{1,2}[A-Z]?|s[0-9]{1,2})$' THEN e.utm_content
-                WHEN coalesce(e.utm_content, '') = '' THEN '-' ELSE 'other' END AS cnt
-      FROM website w JOIN website_event e ON e.website_id = w.website_id
-     WHERE w.domain = :'domain' AND w.deleted_at IS NULL
-       AND e.created_at >= now() - make_interval(hours => :hours)
-       AND e.event_type = 1
-       AND (coalesce(e.utm_source, '') <> '' OR coalesce(e.utm_campaign, '') <> ''
-            OR coalesce(e.utm_content, '') <> '')
-  ) t
- GROUP BY src, cmp, cnt
- ORDER BY count(DISTINCT visit_id) DESC, src, cmp, cnt;
+-- Labels print only for a group that 3 or more distinct sessions share, so a
+-- value one person typed stays out of the log; the smaller groups share one
+-- "small-groups" line with their number and their distinct visits.
+WITH t AS (
+  SELECT e.visit_id, e.session_id,
+         CASE WHEN e.utm_source ~ '^[a-z0-9]{1,40}$' THEN e.utm_source
+              WHEN coalesce(e.utm_source, '') = '' THEN '-' ELSE 'other' END AS src,
+         CASE WHEN e.utm_campaign ~ '^[a-z0-9]+(-[a-z0-9]+)*$'
+                   AND length(e.utm_campaign) <= 40 THEN e.utm_campaign
+              WHEN coalesce(e.utm_campaign, '') = '' THEN '-' ELSE 'other' END AS cmp,
+         CASE WHEN e.utm_content ~ '^([A-Z]{1,3}[0-9]{1,2}[A-Z]?|s[0-9]{1,2})$'
+                   OR e.utm_content IN ('reply', 'gore-728x90', 'gore-320x100') THEN e.utm_content
+              WHEN coalesce(e.utm_content, '') = '' THEN '-' ELSE 'other' END AS cnt
+    FROM website w JOIN website_event e ON e.website_id = w.website_id
+   WHERE w.domain = :'domain' AND w.deleted_at IS NULL
+     AND e.created_at >= now() - make_interval(hours => :hours)
+     AND e.event_type = 1
+     AND (coalesce(e.utm_source, '') <> '' OR coalesce(e.utm_campaign, '') <> ''
+          OR coalesce(e.utm_content, '') <> '')
+), g AS (
+  SELECT src, cmp, cnt, count(DISTINCT visit_id) AS visits,
+         count(DISTINCT session_id) AS sessions
+    FROM t
+   GROUP BY src, cmp, cnt
+)
+SELECT line FROM (
+  SELECT 0 AS part, visits, src, cmp, cnt,
+         'utm source=' || src || ' campaign=' || cmp || ' content=' || cnt
+         || ' visits=' || visits AS line
+    FROM g WHERE sessions >= 3
+  UNION ALL
+  SELECT 1, 0, '', '', '',
+         'utm small-groups=' || (SELECT count(*) FROM g WHERE sessions < 3)
+         || ' visits=' || (SELECT count(DISTINCT t.visit_id)
+                             FROM t JOIN g ON g.src = t.src AND g.cmp = t.cmp AND g.cnt = t.cnt
+                            WHERE g.sessions < 3)
+) r
+ ORDER BY part, visits DESC, src, cmp, cnt;
 SQL
     } | sql
   ) || die "Umami's database refused the read (see above)"
