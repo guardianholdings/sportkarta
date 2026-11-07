@@ -28,6 +28,8 @@ const RATE_LIMITS = {
   OTP_RATE_LIMIT_IP: process.env.OTP_RATE_LIMIT_IP ?? '200',
   OTP_RATE_LIMIT_EMAIL: process.env.OTP_RATE_LIMIT_EMAIL ?? '50',
   OTP_SEND_LIMIT_PER_HOUR: process.env.OTP_SEND_LIMIT_PER_HOUR ?? '1000',
+  // The daily mail budget (0063) would refuse the 41st sign-in code of the day.
+  MAIL_DAILY_QUOTA: process.env.MAIL_DAILY_QUOTA ?? '100000',
 };
 
 const productionServer = {
