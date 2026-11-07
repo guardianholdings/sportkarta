@@ -204,7 +204,15 @@ jobs:
         env:
           RUN_ID: ${{ github.run_id }}
         run: |
-          ssh vps "bash -s -- $RUN_ID" <<'REMOTE'
+          # The remote script IS bash's stdin, and `docker compose run` keeps
+          # the container's stdin attached even with -T: without </dev/null the
+          # first compose call reads the rest of the script and bash exits 0
+          # having checked nothing (run 42348005947 "passed" in 3 s with no
+          # output). So every compose call closes stdin, the session's output
+          # is captured, and the runner refuses one that never printed its
+          # verdict line.
+          rc=0
+          out=$(ssh vps "bash -s -- $RUN_ID" <<'REMOTE'
           set -euo pipefail
           umask 077
           logdir="$HOME/restore-rehearsal"
@@ -219,10 +227,10 @@ jobs:
           cd /opt/sportkarta
           C="docker compose -f compose.prod.yml"
           restic() {
-            $C run --rm --no-deps -T --entrypoint restic backup "$@" 2>>"$log"
+            $C run --rm --no-deps -T --entrypoint restic backup "$@" </dev/null 2>>"$log"
           }
           configured=$($C run --rm --no-deps -T --entrypoint sh backup -c \
-            '[ -n "${RESTIC_REPOSITORY:-}" ] && [ -n "${RESTIC_PASSWORD:-}" ] && echo yes || echo no' 2>>"$log" | tr -d '\r')
+            '[ -n "${RESTIC_REPOSITORY:-}" ] && [ -n "${RESTIC_PASSWORD:-}" ] && echo yes || echo no' </dev/null 2>>"$log" | tr -d '\r')
           [ "$configured" = "yes" ] || fail "restic is not configured on the server (RESTIC_REPOSITORY / RESTIC_PASSWORD empty) — nothing leaves the box"
           table=$(restic snapshots --compact) || fail "restic snapshots errored — wrong passphrase, missing bucket or no credentials"
           count=$(printf '%s\n' "$table" | grep -c -E '^[0-9a-f]{8} ' || true)
@@ -232,6 +240,13 @@ jobs:
           rm -f "$log"
           echo "Off-box copy ok: $count snapshot(s), repository check passed."
           REMOTE
+          ) || rc=$?
+          printf '%s\n' "$out"
+          [ "$rc" -eq 0 ] || exit "$rc"
+          case "$out" in
+            *"Off-box copy ok:"*) ;;
+            *) echo "::error::OFF-BOX COPY CHECK FAILED: the session ended before its verdict line — the script did not run to the end"; exit 1 ;;
+          esac
 
       # Belt and braces: if the SSH session died before its own trap ran, no
       # rehearsal container may be left running beside production.
