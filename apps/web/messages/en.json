@@ -8515,7 +8515,7 @@
         },
         "location": {
           "q": "What happens to my location?",
-          "a": "It is used at the moment you share it: for the map around you and to check that you are on site. We do not keep it — for a confirmation, a report or a check-in we record only the distance to the place. When you add a place, we record the point of the place itself together with your contribution."
+          "a": "It is used at the moment you share it: for the map around you and to check that you are on site. For a confirmation, a report or a check-in we record only the distance to the place. When you add a place, we record the point of the place itself together with your contribution."
         },
         "gone": {
           "q": "A place is no longer there. What do I do?",
