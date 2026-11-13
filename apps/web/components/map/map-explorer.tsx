@@ -41,14 +41,13 @@ import {
   type PublicFilters,
 } from '@/lib/filters';
 import { NAV_PROVIDERS } from '@/lib/directions';
+import { feedMustBeFresh, loadFacilityFeed } from '@/lib/map/feed';
 import { inReadingOrder } from '@/lib/format';
 import { formatKm } from '@/lib/geo';
 import { DEFAULT_LAYER, type ExternalMapLayer } from '@/lib/map/layers';
 import { parseView } from '@/lib/map/view';
 import { Link } from '@/i18n/navigation';
 import { CANONICAL_SPORTS, CANONICAL_SURFACES, type CanonicalSport } from '@sportkarta/lib/sports';
-
-import type { FacilityFeatureCollection } from '@/lib/public-data';
 
 import {
   facilitySearchText,
@@ -324,6 +323,13 @@ export function MapExplorer({
   const moveFocusRef = useRef(false);
   const lastSelectedRef = useRef<string | null>(initialSelected);
   /**
+   * The facility this visit was SENT to (`?selected=` in the link), until the
+   * first load has looked for it. A copy of the feed that does not contain it
+   * is asked for again past the cache (lib/map/feed.ts) — once, for the link's
+   * facility only: a pin tapped later is in the feed by construction.
+   */
+  const linkedSlugRef = useRef<string | null>(initialSelected);
+  /**
    * Bumped to fetch the SAME filters again. «Опитай пак» used to re-apply the
    * current filters, which left `filterKey` unchanged — so the effect below
    * never re-ran and the button did nothing at all.
@@ -352,12 +358,17 @@ export function MapExplorer({
     setLoadError(false);
     const params = new URLSearchParams(filterKey);
     params.set('locale', locale);
-    fetch(`/api/facilities?${params.toString()}`, { signal: controller.signal })
-      .then((r) => {
-        if (!r.ok) throw new Error(`facilities ${String(r.status)}`);
-        return r.json() as Promise<FacilityFeatureCollection>;
-      })
+    loadFacilityFeed({
+      url: `/api/facilities?${params.toString()}`,
+      signal: controller.signal,
+      wanted: linkedSlugRef.current,
+      // The member has just added a place in this tab: read past the cache.
+      fresh: feedMustBeFresh(),
+    })
       .then((fc) => {
+        // Cleared only once a load has LANDED, so an aborted first run (a
+        // filter changed mid-flight, a dev double-mount) still looks for it.
+        linkedSlugRef.current = null;
         setPoints(
           fc.features.map((f) => ({
             slug: f.properties.slug,
