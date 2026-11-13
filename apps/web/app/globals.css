@@ -368,6 +368,34 @@
   animation: marker-drop var(--dur-base) var(--ease-trail) both;
 }
 
+/* Map facility card (components/map/facility-card.tsx). Its blocks rise into
+   place as the details arrive, and the no-photo hero answers like a pin being
+   found. Core UI, so both ease out and neither bounces. Under reduced motion
+   the rule in design-tokens/motion.css ends each at once: the blocks simply
+   stand where they belong and the travelling ring is gone. */
+@keyframes sk-card-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+@keyframes sk-card-ping {
+  0% {
+    opacity: 0.5;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2);
+  }
+}
+@utility animate-card-rise {
+  animation: sk-card-rise var(--dur-slow) var(--ease-out) both;
+}
+@utility animate-card-ping {
+  animation: sk-card-ping 2.6s var(--ease-out) infinite both;
+}
+
 /* Map markers — the POPS smile pin, built imperatively by
    components/map/markers.ts. State lives in the --pin-fill custom property:
    free = green (default), selected = coral („твоят спот"); the busy/grey

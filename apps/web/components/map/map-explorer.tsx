@@ -3,12 +3,9 @@
 import {
   PanelLeftClose,
   PanelLeftOpen,
-  ArrowLeft,
   Layers,
   LocateFixed,
   MapPin,
-  Navigation,
-  ChevronRight,
   Search,
   SlidersHorizontal,
   WifiOff,
@@ -18,7 +15,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react';
-import type { Dispatch, KeyboardEvent, RefObject, SetStateAction } from 'react';
+import type { Dispatch, KeyboardEvent, MouseEvent, RefObject, SetStateAction } from 'react';
 
 import { AdCreative } from '@/components/ads/ad-creative';
 import { BottomNav, NavRail } from '@/components/shell/app-nav';
@@ -31,8 +28,7 @@ import { Chip } from '@/components/ui/chip';
 import { IconButton } from '@/components/ui/icon-button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { facilityFamily, FAMILY_COLOR } from '@/lib/design/families';
-import { SPORT_VISUALS } from '@/lib/design/sport-visuals';
+import { facilityVisual, SPORT_VISUALS } from '@/lib/design/sport-visuals';
 import {
   ACCESS_OPTIONS,
   filtersToSearchParams,
@@ -40,15 +36,16 @@ import {
   parsePublicFilters,
   type PublicFilters,
 } from '@/lib/filters';
-import { NAV_PROVIDERS } from '@/lib/directions';
+import { FacilityCardMissing, loadFacilityCard, rememberedCard } from '@/lib/map/card';
 import { feedMustBeFresh, loadFacilityFeed } from '@/lib/map/feed';
 import { inReadingOrder } from '@/lib/format';
-import { formatKm } from '@/lib/geo';
+import { distanceKm, formatKm } from '@/lib/geo';
 import { DEFAULT_LAYER, type ExternalMapLayer } from '@/lib/map/layers';
 import { parseView } from '@/lib/map/view';
 import { Link } from '@/i18n/navigation';
 import { CANONICAL_SPORTS, CANONICAL_SURFACES, type CanonicalSport } from '@sportkarta/lib/sports';
 
+import { FacilityCard, type CardDetails } from './facility-card';
 import {
   facilitySearchText,
   facilitySubtitle,
@@ -140,6 +137,13 @@ const PREVIEW_PX = {
   full: (viewport: number) => viewport,
 } as const;
 
+/**
+ * How long a followed link silences the map's address-bar writes (see
+ * `noteLeaving`). Longer than a camera flight and a slow page; short enough
+ * that a map the member never left is recording its position again at once.
+ */
+const LEAVING_MS = 8000;
+
 interface MapExplorerProps {
   /**
    * The server's first-paint seed for the URL's filters. The filters, the
@@ -164,13 +168,6 @@ interface MapExplorerProps {
 
 function toggle(list: string[], value: string): string[] {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
-}
-
-function primaryVisual(sports: string[]) {
-  const s = sports.find((x): x is CanonicalSport => x in SPORT_VISUALS);
-  if (s) return SPORT_VISUALS[s];
-  const family = facilityFamily(sports);
-  return { color: FAMILY_COLOR[family], Icon: SPORT_VISUALS.multi.Icon, family };
 }
 
 export function MapExplorer({
@@ -447,8 +444,46 @@ export function MapExplorer({
     if (slug) setSnap((s) => (s === 'peek' ? 'half' : s));
   }
 
+  /**
+   * The map writes its position into the address bar when it stops moving —
+   * and it can stop moving AFTER the member has followed a link out of here:
+   * a pin was just tapped and the camera is still flying to it, or the canvas
+   * is being torn down. Two things went wrong then. A write that landed while
+   * the next page was still loading told the router the address was the map's
+   * again, and the click did nothing. One that landed after it had loaded put
+   * `?z=…&lat=…&lng=…` on the facility page and dropped its `#anchor`.
+   *
+   * So the map remembers the path it lives at, and whether a link away from it
+   * has just been followed, and keeps its position to itself in both cases.
+   * The second is forgotten after a few seconds, in case the page never came
+   * (no connection): a map that stayed goes on recording where it is.
+   */
+  const mapPathRef = useRef<string | null>(null);
+  const leavingRef = useRef(false);
+  useEffect(() => {
+    mapPathRef.current = window.location.pathname;
+  }, []);
+
+  function noteLeaving(event: MouseEvent<HTMLDivElement>) {
+    // A click the browser handles itself (new tab, download) leaves this page
+    // where it is.
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
+    const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
+    if (!(link instanceof HTMLAnchorElement)) return;
+    if (link.target === '_blank' || link.origin !== window.location.origin) return;
+    if (link.pathname === window.location.pathname) return;
+    leavingRef.current = true;
+    window.setTimeout(() => {
+      leavingRef.current = false;
+    }, LEAVING_MS);
+  }
+
   const onMoveEndRef = useRef((view: MapView) => {
     if (typeof window === 'undefined') return;
+    if (leavingRef.current) return;
+    if (mapPathRef.current !== null && window.location.pathname !== mapPathRef.current) return;
     const sp = new URLSearchParams(window.location.search);
     sp.set('z', view.zoom.toFixed(2));
     sp.set('lat', view.lat.toFixed(5));
@@ -582,6 +617,49 @@ export function MapExplorer({
     () => (selectedSlug ? (points.find((p) => p.slug === selectedSlug) ?? null) : null),
     [selectedSlug, points],
   );
+
+  /**
+   * The open card's details (lib/map/card.ts), read HERE and not inside the
+   * card: the card is rendered twice — the desktop panel and the phone sheet,
+   * one of them display:none — and two readers would ask twice for every pin.
+   *
+   * Tagged with the slug they belong to. The moment the selection moves, the
+   * previous place's facts are nobody's: the new card shows its placeholders
+   * rather than another pitch's surface under its own name.
+   */
+  const [card, setCard] = useState<{ slug: string; details: CardDetails } | null>(null);
+  const [cardAttempt, setCardAttempt] = useState(0);
+  useEffect(() => {
+    if (!selectedSlug) return;
+    const slug = selectedSlug;
+    const kept = rememberedCard(slug);
+    if (kept) {
+      setCard({ slug, details: { status: 'ready', data: kept } });
+      return;
+    }
+    const controller = new AbortController();
+    setCard({ slug, details: { status: 'loading', data: null } });
+    loadFacilityCard({ slug, signal: controller.signal })
+      .then((data) => {
+        // An answer that lands after the selection has moved belongs to
+        // nobody: written now, it would replace the NEW pin's card with the
+        // old one's, and the new one would show placeholders for good.
+        if (controller.signal.aborted) return;
+        setCard({ slug, details: { status: 'ready', data } });
+      })
+      .catch((e: unknown) => {
+        if (controller.signal.aborted) return;
+        if (e instanceof DOMException && e.name === 'AbortError') return;
+        // A place that is gone will not come back for asking again.
+        const retry = !(e instanceof FacilityCardMissing);
+        setCard({ slug, details: { status: 'error', data: null, retry } });
+      });
+    return () => {
+      controller.abort();
+    };
+  }, [selectedSlug, cardAttempt]);
+  const cardDetails: CardDetails =
+    card?.slug === selectedSlug ? card.details : { status: 'loading', data: null };
 
   /**
    * Focus follows the preview: into it when the member opens one, back to the
@@ -757,26 +835,37 @@ export function MapExplorer({
   );
 
   const selectedTitle = selected ? facilityTitle(selected, labelStrings) : '';
+  // «на 0,4 км» on the open card too, once the member has located themselves
+  // — the list row says it, and the card is where they decide to go.
+  const selectedDistance =
+    selected && userLocation
+      ? t('distanceKm', { km: formatKm(distanceKm(userLocation, selected), locale) })
+      : null;
+  // Keyed by the facility: moving from one pin to the next is a NEW card — its
+  // photos start at the first, its entrance plays, nothing of the last one stays.
   const detailPanel = (compact: boolean) =>
     selected && (
-      <FacilityPreview
+      <FacilityCard
+        key={selected.slug}
         point={selected}
         title={selectedTitle}
         subtitle={facilitySubtitle(selected, labelStrings)}
         compact={compact}
+        distance={selectedDistance}
+        details={cardDetails}
+        onRetry={() => setCardAttempt((n) => n + 1)}
         onClose={() => select(null)}
-        labels={{
-          directionsWith: (app: string) => t('directionsWith', { app }),
-          viewDetails: t('viewDetails'),
-          close: t('close'),
-          club: t('clubChip'),
-          clubMany: t('clubChipMany'),
-        }}
+        onExpand={compact ? () => setPreviewFull(true) : undefined}
       />
     );
 
   return (
-    <div className="relative h-[100dvh] w-full overflow-hidden bg-paper">
+    <div
+      className="relative h-[100dvh] w-full overflow-hidden bg-paper"
+      // Capture, so it is noted before the link's own handler starts the
+      // navigation the map must then not write over (`noteLeaving`).
+      onClickCapture={noteLeaving}
+    >
       {/*
         TWO skip links, one per breakpoint, because there are two list panels and
         both are always in the DOM — the other is merely display:none. They
@@ -880,7 +969,10 @@ export function MapExplorer({
 
       {/* Floating map controls — top-right on mobile so the bottom sheet can
           never occlude them (audit P1); bottom-right on desktop, no sheet there. */}
-      <div className="absolute right-3 top-3 z-20 flex flex-col gap-2 lg:top-auto lg:bottom-6">
+      {/* `lg:z-30`: the layer menu opens UPWARD from here, into the corner the
+          facility card now fills on a laptop. The card's layer comes later in
+          the tree at the same level, so without this it painted over the menu. */}
+      <div className="absolute right-3 top-3 z-20 flex flex-col gap-2 lg:top-auto lg:bottom-6 lg:z-30">
         <IconButton
           aria-label={locating ? t('locating') : t('locate')}
           variant="floating"
@@ -1037,7 +1129,10 @@ export function MapExplorer({
             ref={desktopPreviewRef}
             data-preview
             onKeyDown={onPreviewKeyDown}
-            className="pointer-events-auto absolute right-4 top-4 w-[380px] rounded-sheet border border-line bg-surface shadow-float"
+            // Bounded from below: the locate and layer controls live in this
+            // corner's foot, and a card with photos, игри and a club is taller
+            // than a laptop screen. Its body scrolls; its actions stay put.
+            className="pointer-events-auto absolute right-4 top-4 flex max-h-[calc(100dvh-10rem)] w-[380px] flex-col overflow-hidden rounded-sheet border border-line bg-surface shadow-float"
           >
             {detailPanel(false)}
           </aside>
@@ -1204,7 +1299,7 @@ function ResultCard({
   onSelect: (slug: string) => void;
   onHover: Dispatch<SetStateAction<string | null>>;
 }) {
-  const v = primaryVisual(point.sports);
+  const v = facilityVisual(point.sports);
   return (
     <button
       type="button"
@@ -1302,114 +1397,6 @@ function MapLegalLinks() {
         {t('cookieSettings')}
       </a>
     </nav>
-  );
-}
-
-// ── Facility preview (map selection) ──────────────────────────────────────
-
-function FacilityPreview({
-  point,
-  title,
-  subtitle,
-  compact,
-  onClose,
-  labels,
-}: {
-  point: MapPoint;
-  /** facilityTitle — the name, or sport + place for the 91% with none. */
-  title: string;
-  subtitle: string;
-  /**
-   * The phone's half-height preview: no decorative hero, the close control
-   * beside the heading instead, so the heading, where it is, and the three
-   * actions all fit above the tab bar with the map still visible above.
-   */
-  compact: boolean;
-  onClose: () => void;
-  labels: {
-    directionsWith: (app: string) => string;
-    viewDetails: string;
-    close: string;
-    club: string;
-    clubMany: string;
-  };
-}) {
-  const v = primaryVisual(point.sports);
-  return (
-    <div className="flex h-full flex-col overflow-hidden lg:rounded-sheet">
-      {!compact && (
-        <div
-          className="relative flex h-36 shrink-0 items-center justify-center"
-          style={{
-            background: `radial-gradient(circle at 50% 42%, color-mix(in srgb, ${v.color} 18%, var(--surface)), var(--surface) 72%)`,
-            color: v.color,
-          }}
-        >
-          <v.Icon size={64} className="opacity-25" />
-          <div className="absolute left-3 top-3 flex gap-2">
-            <IconButton aria-label={labels.close} variant="floating" round onClick={onClose}>
-              <ArrowLeft size={19} />
-            </IconButton>
-          </div>
-        </div>
-      )}
-      <div
-        className={`flex min-h-0 flex-1 items-start gap-3 overflow-y-auto ${compact ? 'px-4 pt-1 pb-3' : 'p-4'}`}
-      >
-        <div className="min-w-0 flex-1">
-          {/* Where focus lands when the preview opens (the explorer's focus
-            effect): the facility's name is the first thing announced. */}
-          <h2
-            tabIndex={-1}
-            data-preview-heading
-            className="text-h3 font-extrabold tracking-tight text-ink"
-          >
-            {title}
-          </h2>
-          {subtitle && <p className="mt-1 text-body-sm text-text-muted">{subtitle}</p>}
-          {/* A link, not a label (UX audit N6): the club's page when one club
-              is here, the facility's club block when several are. */}
-          {point.club && (
-            <p className="mt-2">
-              <Link
-                href={point.clubSlug ? `/klub/${point.clubSlug}` : `/obekt/${point.slug}#klubove`}
-                className="inline-flex min-h-11 items-center gap-1 rounded-pill border border-line-strong px-3.5 text-body-sm font-semibold text-ink-soft hover:border-brand-border hover:text-brand focus-visible:shadow-[var(--ring)]"
-              >
-                {point.clubSlug ? labels.club : labels.clubMany}
-                <ChevronRight size={14} aria-hidden />
-              </Link>
-            </p>
-          )}
-        </div>
-        {compact && (
-          <IconButton aria-label={labels.close} variant="surface" round onClick={onClose}>
-            <X size={18} />
-          </IconButton>
-        )}
-      </div>
-      {/* `pb-8` below lg clears the tab bar's centre «+», which stands 22px
-          proud of the bar and sat on the lower edge of «Виж детайли». */}
-      <div className="flex shrink-0 flex-col gap-2.5 border-t border-line p-3 pb-8 lg:pb-3">
-        <div className="flex items-center gap-2.5">
-          {NAV_PROVIDERS.map((provider) => (
-            <Button
-              key={provider.id}
-              block
-              iconLeft={<Navigation size={19} />}
-              aria-label={labels.directionsWith(provider.brand)}
-              onClick={() => {
-                window.open(provider.href(point.lat, point.lon), '_blank', 'noopener');
-              }}
-            >
-              {provider.brand}
-            </Button>
-          ))}
-        </div>
-        <Button variant="secondary" asChild block>
-          <Link href={`/obekt/${point.slug}`}>{labels.viewDetails}</Link>
-        </Button>
-      </div>
-    </div>
   );
 }
 

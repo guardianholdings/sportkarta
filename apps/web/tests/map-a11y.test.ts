@@ -30,7 +30,12 @@ describe('the result cards survive a re-render', () => {
 
 describe('focus follows the preview', () => {
   it('moves into the preview when the member opens one', () => {
-    expect(explorer).toMatch(/data-preview-heading/);
+    // The heading lives in the card now; the explorer still does the focusing.
+    const card = readFileSync(
+      path.join(__dirname, '..', 'components', 'map', 'facility-card.tsx'),
+      'utf8',
+    );
+    expect(card).toMatch(/<h2\s+tabIndex=\{-1\}\s+data-preview-heading/);
     expect(explorer).toMatch(/querySelector<HTMLElement>\('\[data-preview-heading\]'\)/);
   });
 
