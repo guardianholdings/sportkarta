@@ -10,6 +10,7 @@ import { buildShare } from '@sportkarta/lib/share';
 import { FacilityDetailView } from '@/components/facility/facility-detail-view';
 import { FacilityLegendBlock } from '@/components/facility/facility-legend';
 import { facilityTitle, type LabelStrings } from '@/components/map/facility-label';
+import { FreshMapFeed } from '@/components/map/fresh-feed';
 import { ShareSheet } from '@/components/share/share-sheet';
 import { facilitySharePlace } from '@/lib/share/facility-place';
 import { siteUrl } from '@/lib/seo';
@@ -28,6 +29,7 @@ import { thanksMessage } from '@/lib/contributions/feedback';
 import { isFacilityAuthor } from '@/lib/contributions/verify-facility';
 import { issueFormToken } from '@/lib/form-token';
 import { placeLabel } from '@/lib/geo';
+import { facilityMapHref } from '@/lib/map/facility-link';
 import { serializeJsonLd } from '@/lib/json-ld';
 import { buildAlternates } from '@/lib/seo';
 import { photoUrl } from '@/lib/photo-url';
@@ -65,11 +67,6 @@ function headingOf(facility: FacilityDetail, labels: LabelStrings): string {
     },
     labels,
   );
-}
-
-/** The map, opened on this facility with its card — not the country view. */
-function mapHref(facility: FacilityDetail): string {
-  return `/karta?selected=${encodeURIComponent(facility.slug)}&z=16&lat=${facility.lat.toFixed(5)}&lng=${facility.lon.toFixed(5)}`;
 }
 
 export async function generateMetadata({ params }: { params: PageParams }): Promise<Metadata> {
@@ -200,6 +197,9 @@ export default async function FacilityPage({
             role="status"
             className="mb-4 rounded-card border border-accent-border bg-accent-subtle p-4"
           >
+            {/* The member's next look at the map is for THIS place: it must not
+                come from a copy cached before they added it (lib/map/feed.ts). */}
+            <FreshMapFeed />
             <p className="text-h4 font-bold text-accent-active">
               {addedThanks.key === 'thanksWithPoints'
                 ? tContribute('thanksWithPoints', { points: addedThanks.points })
@@ -216,7 +216,7 @@ export default async function FacilityPage({
         {/* Back to where the member came from in spirit: the map, on this
             facility — not the country view with every filter reset. */}
         <Link
-          href={mapHref(facility)}
+          href={facilityMapHref(facility)}
           className="mb-2 inline-flex min-h-11 items-center gap-1.5 text-body-sm font-medium text-ink-soft hover:text-brand"
         >
           {t('backToMap')}
@@ -290,7 +290,7 @@ export default async function FacilityPage({
               <MiniMapLoader lon={facility.lon} lat={facility.lat} label={name} />
             </div>
             <Link
-              href={mapHref(facility)}
+              href={facilityMapHref(facility)}
               className="mt-2 inline-flex min-h-11 items-center text-body-sm font-medium text-link hover:text-link-hover"
             >
               {t('openOnMap')}
