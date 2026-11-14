@@ -583,7 +583,31 @@
       "cooperativeMobile": "Use two fingers to move the map"
     },
     "clubChip": "A club at this facility",
-    "clubChipMany": "Clubs at this facility"
+    "clubChipMany": "Clubs at this facility",
+    "card": {
+      "access": {
+        "free": "Free to use",
+        "paid": "Paid access",
+        "restricted": "Restricted access",
+        "school": "School yard"
+      },
+      "verifiedOn": "Checked on {date}",
+      "conditionIs": "Condition: {condition}",
+      "photos": "Photos of {name}",
+      "photoOf": "Photo {n} of {total}: {name}",
+      "photoCount": "{n} / {total}",
+      "prevPhoto": "Previous photo",
+      "nextPhoto": "Next photo",
+      "share": "Share",
+      "shareCopied": "Link copied",
+      "copyCoords": "Copy the coordinates",
+      "coordsCopied": "Coordinates copied",
+      "coordinates": "Coordinates",
+      "verifyNudge": "Been here? Help us confirm the details.",
+      "detailsError": "The details did not load.",
+      "games": "Upcoming games here",
+      "places": "{going}/{capacity}"
+    }
   },
   "Facility": {
     "directions": "Directions",

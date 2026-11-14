@@ -85,6 +85,9 @@ test.describe('public map — find nearest free football pitch', () => {
     await firstItem.click();
     const sheet = page.getByRole('dialog', { name: PITCH.name });
     await expect(sheet.getByRole('heading', { level: 2 })).toHaveText(PITCH.name);
+    // The card reads this one facility's facts as it opens (lib/map/card.ts):
+    // who may use the pitch is on the card itself, before any page is opened.
+    await expect(sheet.getByText(bg.Map.card.access.free, { exact: true })).toBeVisible();
     const detailsLink = sheet.getByRole('link', { name: bg.Map.viewDetails });
     await expect(detailsLink).toHaveAttribute('href', `/obekt/${PITCH.slug}`);
     await detailsLink.click();

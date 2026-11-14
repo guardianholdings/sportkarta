@@ -583,7 +583,31 @@
       "cooperativeMobile": "Използвайте два пръста, за да местите картата"
     },
     "clubChip": "Клуб на това съоръжение",
-    "clubChipMany": "Клубове на това съоръжение"
+    "clubChipMany": "Клубове на това съоръжение",
+    "card": {
+      "access": {
+        "free": "Свободен достъп",
+        "paid": "Платен достъп",
+        "restricted": "Ограничен достъп",
+        "school": "Училищен двор"
+      },
+      "verifiedOn": "Проверено на {date}",
+      "conditionIs": "Състояние: {condition}",
+      "photos": "Снимки на {name}",
+      "photoOf": "Снимка {n} от {total}: {name}",
+      "photoCount": "{n} / {total}",
+      "prevPhoto": "Предишна снимка",
+      "nextPhoto": "Следваща снимка",
+      "share": "Сподели",
+      "shareCopied": "Връзката е копирана",
+      "copyCoords": "Копирай координатите",
+      "coordsCopied": "Координатите са копирани",
+      "coordinates": "Координати",
+      "verifyNudge": "Били ли сте тук? Помогнете да потвърдим данните.",
+      "detailsError": "Подробностите не се заредиха.",
+      "games": "Предстоящи игри тук",
+      "places": "{going}/{capacity}"
+    }
   },
   "Facility": {
     "directions": "Упъти ме",

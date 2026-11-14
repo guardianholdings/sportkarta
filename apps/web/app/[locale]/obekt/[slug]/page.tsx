@@ -10,6 +10,7 @@ import { buildShare } from '@sportkarta/lib/share';
 import { FacilityDetailView } from '@/components/facility/facility-detail-view';
 import { FacilityLegendBlock } from '@/components/facility/facility-legend';
 import { facilityTitle, type LabelStrings } from '@/components/map/facility-label';
+import { FreshFacilityCard } from '@/components/map/fresh-card';
 import { FreshMapFeed } from '@/components/map/fresh-feed';
 import { ShareSheet } from '@/components/share/share-sheet';
 import { facilitySharePlace } from '@/lib/share/facility-place';
@@ -111,9 +112,21 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
   };
 }
 
-function SectionCard({ title, children }: { title?: string; children: React.ReactNode }) {
+function SectionCard({
+  title,
+  id,
+  children,
+}: {
+  title?: string;
+  /** An anchor other surfaces link to (the map card's «Били ли сте тук?»). */
+  id?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="rounded-card border border-line bg-surface p-4 shadow-sm sm:p-5">
+    <section
+      id={id}
+      className="scroll-mt-4 rounded-card border border-line bg-surface p-4 shadow-sm sm:p-5"
+    >
       {title && <h2 className="mb-3 text-h4 font-bold text-ink">{title}</h2>}
       {children}
     </section>
@@ -191,6 +204,9 @@ export default async function FacilityPage({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
         />
+        {/* What the map remembered about this place is out of date the moment
+            the member is here, where they can change it (lib/map/card.ts). */}
+        <FreshFacilityCard slug={facility.slug} />
 
         {addedThanks !== null && (
           <div
@@ -297,7 +313,7 @@ export default async function FacilityPage({
             </Link>
           </SectionCard>
 
-          <SectionCard title={tContribute('title')}>
+          <SectionCard title={tContribute('title')} id="prinos">
             {currentUser ? (
               <div className="flex flex-col gap-6">
                 <div>
