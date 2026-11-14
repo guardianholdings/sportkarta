@@ -84,7 +84,11 @@ export default async function ClubDeskPage({
       : null;
   const markedToday = new Set(today.map((row) => row.memberId));
   const canAddMember = actorCan(actor, 'members.manage');
-  const tone = query.rezultat ? OUTCOME_TONE[query.rezultat] : undefined;
+  // An own key only: `?rezultat=constructor` must miss, not find Object.
+  const tone =
+    query.rezultat && Object.hasOwn(OUTCOME_TONE, query.rezultat)
+      ? OUTCOME_TONE[query.rezultat]
+      : undefined;
   const subject = isUuid(query.chlen)
     ? (today.find((row) => row.memberId === query.chlen)?.displayName ??
       results.find((row) => row.id === query.chlen)?.displayName ??
