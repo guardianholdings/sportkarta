@@ -2303,7 +2303,6 @@
     "metaDescription": "Members, memberships, timetable, bookings, QR attendance, payments, events, messaging and a page on the national map. {days} days free.",
     "cta": "Start for free",
     "hero": {
-      "overline": "For gyms, studios, clubs and trainers",
       "title": "Run your club on POPS",
       "lead": "Members, memberships, timetable and attendance in one business management platform. The club page sits on the national map — where people already look for somewhere to play.",
       "leadPayments": "Payments go through your own Stripe.",
@@ -2337,7 +2336,6 @@
       "export": "Export of all your data at any time"
     },
     "audiences": {
-      "overline": "Who it is for",
       "title": "One platform for every kind of club",
       "lead": "The same tools, arranged around what does the work for you.",
       "gym": "Auto-renewing memberships, attendance at the desk and by QR code, retention reports.",
@@ -2346,7 +2344,6 @@
       "trainer": "Hourly bookings at your prices, a client portal, a page on the map without a website of your own."
     },
     "audience": {
-      "overline": "Where people find you",
       "title": "Your club stands in front of the people already looking for somewhere to play",
       "lead": "POPS is the national sports map. Your club is on it — not on a separate site nobody visits.",
       "places": "places for sport on the map",
@@ -2369,7 +2366,6 @@
       "directoryCta": "Browse the directory"
     },
     "catalogue": {
-      "overline": "Every function",
       "title": "What the business management platform can do",
       "lead": "Everything the module does — function by function, nothing left out. The label says from which plan it is included; “soon” means the service is not switched on for everybody yet.",
       "legend": "No label: included in every plan.",
@@ -3037,7 +3033,6 @@
       }
     },
     "edges": {
-      "overline": "Only on POPS",
       "title": "What you will not find elsewhere",
       "lead": "A business management platform — plus the map where people already look for somewhere to play.",
       "found": {
@@ -3066,7 +3061,6 @@
       }
     },
     "pricing": {
-      "overline": "Prices",
       "title": "Three plans, one platform",
       "lead": "Every plan includes the whole base platform. The higher ones add tools — not a higher place in the directory.",
       "popular": "Recommended",
@@ -3106,7 +3100,6 @@
       }
     },
     "steps": {
-      "overline": "How it works",
       "title": "From the application to the first invoice",
       "lead": "No salesperson, no sales call. You fill in an application, we review it, the platform is yours.",
       "apply": {
@@ -3143,7 +3136,6 @@
       }
     },
     "faq": {
-      "overline": "Questions before you start",
       "title": "What owners ask",
       "money": {
         "q": "Who holds the money from payments?",
@@ -3194,7 +3186,6 @@
       "contact": "Have a question? Write to us"
     },
     "day": {
-      "overline": "A day at the club",
       "title": "From opening to the report",
       "lead": "What the platform does while you run sessions — hour by hour. Every label opens the area that does it.",
       "openLabel": "Open the area",
@@ -8022,7 +8013,6 @@
       "checkinCta": "Scan the code"
     },
     "games": {
-      "overline": "Games",
       "title": "Join a game",
       "lead": "Open games at public places around the country. They are free — sign up and come along.",
       "today": "today",
@@ -8038,7 +8028,6 @@
       "next": "Forward"
     },
     "numbers": {
-      "overline": "The living map",
       "title": "The map in numbers",
       "lead": "The data is open — every figure can be checked on the statistics page and downloaded under a free licence.",
       "places": "free places for sport",
@@ -8049,7 +8038,6 @@
       "openData": "Open data"
     },
     "contribute": {
-      "overline": "Contribute",
       "title": "The map is made by people like you",
       "lead": "Every place here was added, confirmed or updated by someone. Your contribution shows at once — and earns you points and badges.",
       "addTitle": "Add a place",
@@ -8066,13 +8054,11 @@
       "campaignCta": "Go to the campaign"
     },
     "clubs": {
-      "overline": "For gyms, studios, clubs and trainers",
       "title": "Run your club on POPS",
       "lead": "Members, timetable, payments and attendance — and a page people find on the map. {days} days free.",
       "cta": "Everything for clubs"
     },
     "principles": {
-      "overline": "Why POPS",
       "title": "A platform you can trust",
       "ngo": {
         "title": "An association, not a company",
@@ -8106,7 +8092,6 @@
         "more": "More"
       },
       "intro": {
-        "overline": "How it works",
         "title": "Five things you do on POPS",
         "lead": "They are shown with real phone screens, step by step, and the rules with pictures. Tap a step to see it, or let the recording play on its own.",
         "find": "Find somewhere to play — near you or in another town.",
@@ -8238,7 +8223,6 @@
         }
       },
       "find": {
-        "overline": "Find",
         "title": "Find somewhere to play",
         "lead": "{count, plural, one {# free place} other {# free places}} for sport — pitches, outdoor gyms, tracks and courts. Here is how you get from “where can I play?” to the place itself.",
         "leadNoCount": "Free places for sport — pitches, outdoor gyms, tracks and courts. Here is how you get from “where can I play?” to the place itself.",
@@ -8264,7 +8248,6 @@
         "cta": "Open the map"
       },
       "contribute": {
-        "overline": "Contribute",
         "title": "The map is kept up by the people who play there",
         "lead": "A pitch missing? A hoop without a net? Anyone with an account can add a place, confirm it or update its condition — and earns points for it.",
         "tabs": {
@@ -8331,7 +8314,6 @@
         "cta": "Add a place"
       },
       "play": {
-        "overline": "Play",
         "title": "Open games at public places",
         "lead": "Free games — basketball, football, table tennis and more. You sign up with one tap and check in with the organiser’s QR code.",
         "note": "The games in the recording are examples.",
@@ -8377,7 +8359,6 @@
         }
       },
       "passport": {
-        "overline": "Passport",
         "title": "Your sports passport",
         "lead": "Everything you do on POPS gathers here: points, badges and streaks. The passport is private until you decide otherwise.",
         "note": "The passport in the recording is an example. Its points come from the steps in the recordings above.",
@@ -8447,7 +8428,6 @@
         "start": "Start your passport"
       },
       "ranking": {
-        "overline": "Rankings",
         "title": "Rankings where everyone has a chance",
         "lead": "Only members with a public passport appear on the leaderboards — under the name they chose. Here is what there is and how it is ordered.",
         "boards": {
@@ -8497,7 +8477,6 @@
         "cta": "See the leaderboard"
       },
       "more": {
-        "overline": "More",
         "title": "More on POPS",
         "stats": {
           "title": "Statistics",
@@ -8529,7 +8508,6 @@
         }
       },
       "faq": {
-        "overline": "Questions",
         "title": "Frequently asked questions",
         "free": {
           "q": "Is it free?",

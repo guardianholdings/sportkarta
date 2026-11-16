@@ -2,7 +2,6 @@ import { Check, CircleDashed, Minus } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 
 import { SectionHead } from '@/components/home/section-head';
-import { Reveal } from '@/components/motion/reveal';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
@@ -87,20 +86,14 @@ export async function Pricing({ locale }: { locale: string }) {
       data-sticky-cta-hide
     >
       <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
-        <SectionHead
-          id="clubs-pricing"
-          overline={t('pricing.overline')}
-          title={t('pricing.title')}
-          lead={t('pricing.lead')}
-        />
-        <Reveal stagger={0.12}>
+        <SectionHead id="clubs-pricing" title={t('pricing.title')} lead={t('pricing.lead')} />
+        <div>
           <ul className="mt-8 grid gap-4 lg:grid-cols-3">
             {CLUB_TIERS.map((tier) => {
               const featured = tier === 'standard';
               return (
                 <li
                   key={tier}
-                  data-reveal
                   className={cn(
                     'flex flex-col gap-4 rounded-card border bg-paper p-6',
                     featured ? 'border-accent-border shadow-md' : 'border-line',
@@ -146,8 +139,8 @@ export async function Pricing({ locale }: { locale: string }) {
               );
             })}
           </ul>
-        </Reveal>
-        <p className="mt-4 text-caption text-text-muted">
+        </div>
+        <p className="mt-4 max-w-prose text-caption text-text-muted">
           {t('pricing.vatNote', {
             days: CLUB_TRIAL_DAYS,
             months: CLUB_CONTRACT_MONTHS,

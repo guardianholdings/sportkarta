@@ -35,7 +35,7 @@ export async function Faq({ paymentsOn, smsOn }: { paymentsOn: boolean; smsOn: b
   return (
     <section aria-labelledby="clubs-faq" className="border-t border-line bg-surface">
       <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
-        <SectionHead id="clubs-faq" overline={t('overline')} title={t('title')} />
+        <SectionHead id="clubs-faq" title={t('title')} />
         <div className="mt-8 grid gap-3 lg:grid-cols-2">
           {keys.map((key) => (
             <details key={key} className="group rounded-card border border-line bg-paper p-5">

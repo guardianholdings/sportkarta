@@ -40,10 +40,9 @@ export async function AudienceBand({
     <section aria-labelledby="clubs-audience" className="bg-ink text-paper">
       <div className="mx-auto grid max-w-6xl gap-x-14 gap-y-10 px-4 py-14 sm:px-6 lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] lg:px-8 lg:py-20">
         <div className="min-w-0">
-          <p className="sk-overline sk-overline--dark">{t('overline')}</p>
           <h2
             id="clubs-audience"
-            className="mt-3 text-h2 font-extrabold leading-tight tracking-tight text-paper sm:text-h1"
+            className="text-h2 font-extrabold leading-tight tracking-tight text-paper sm:text-h1"
           >
             {t('title')}
           </h2>

@@ -30,6 +30,9 @@ import { cn } from '@/lib/utils';
 
 type Variant = 'tab' | 'rail' | 'floating';
 
+/** The «+» glyph's turn between «add» and «close». */
+const GLYPH = 'transition-transform duration-200 ease-out';
+
 function focusables(root: HTMLElement | null): HTMLElement[] {
   if (!root) return [];
   return Array.from(root.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'));
@@ -138,17 +141,17 @@ export function QuickActions({
           className,
         )}
       >
+        {/* One glyph, two states: the plus turns an eighth and IS the close
+            cross — a transition, so a second tap mid-turn simply turns back. */}
         {variant === 'rail' ? (
           <>
             <span className="grid size-9 place-items-center rounded-full bg-accent text-on-accent shadow-xs">
-              {open ? <X size={20} /> : <Plus size={20} />}
+              <Plus size={20} className={cn(GLYPH, open && 'rotate-45')} />
             </span>
             {t('navAdd')}
           </>
-        ) : open ? (
-          <X size={26} />
         ) : (
-          <Plus size={26} />
+          <Plus size={26} className={cn(GLYPH, open && 'rotate-45')} />
         )}
       </button>
       {open &&
@@ -158,7 +161,11 @@ export function QuickActions({
             <div
               aria-hidden
               onClick={() => setOpen(false)}
-              className={cn('absolute inset-0', variant === 'tab' && 'bg-overlay-scrim')}
+              className={cn(
+                'absolute inset-0',
+                variant === 'tab' &&
+                  'bg-overlay-scrim transition-opacity duration-200 ease-out starting:opacity-0',
+              )}
             />
             <div
               ref={panelRef}
@@ -166,11 +173,17 @@ export function QuickActions({
               aria-modal="true"
               aria-labelledby={titleId}
               style={variant === 'tab' ? undefined : place}
+              // The card arrives from where it was asked for: on a phone it
+              // rises from the bar as a sheet; beside the rail and over the
+              // map it grows out of the «+» (its corner nearest the button).
+              // Entrance only — closing is immediate, the answer to a tap.
               className={cn(
                 'absolute flex flex-col gap-1 bg-surface p-3 shadow-float',
                 variant === 'tab'
-                  ? 'inset-x-0 bottom-0 rounded-t-xl pb-[calc(env(safe-area-inset-bottom)+1rem)]'
-                  : 'w-[320px] rounded-sheet border border-line',
+                  ? 'inset-x-0 bottom-0 rounded-t-xl pb-[calc(env(safe-area-inset-bottom)+1rem)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] starting:translate-y-full'
+                  : 'w-[320px] rounded-sheet border border-line transition-[opacity,transform] duration-150 ease-out starting:scale-[0.96] starting:opacity-0',
+                variant === 'rail' && 'origin-top-left',
+                variant === 'floating' && 'origin-bottom-left',
               )}
             >
               {/* A close button inside: a screen reader on a phone has no Escape

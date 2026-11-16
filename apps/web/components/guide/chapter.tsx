@@ -14,7 +14,7 @@ export const GUIDE_CHAPTERS = [
 export type GuideChapterKey = (typeof GUIDE_CHAPTERS)[number]['key'];
 
 /**
- * One chapter of the front page's guide: the dotted shirt number, the
+ * One chapter of the front page's guide: the shirt number, the
  * heading, and the chapter's own recording and pictures under it. Chapters
  * alternate between the paper and a raised surface so the long page reads as
  * stops on a route rather than one scroll.
@@ -22,7 +22,6 @@ export type GuideChapterKey = (typeof GUIDE_CHAPTERS)[number]['key'];
 export function Chapter({
   id,
   number,
-  overline,
   title,
   lead,
   raised = false,
@@ -30,7 +29,6 @@ export function Chapter({
 }: {
   id: string;
   number: number;
-  overline: string;
   title: string;
   lead: string;
   raised?: boolean;
@@ -48,10 +46,9 @@ export function Chapter({
             {String(number).padStart(2, '0')}
           </span>
           <div className="max-w-2xl">
-            <p className="sk-overline">{overline}</p>
             <h2
               id={`${id}-title`}
-              className="mt-3 text-h2 font-extrabold leading-tight tracking-tight text-ink sm:text-h1"
+              className="text-h2 font-extrabold leading-tight tracking-tight text-ink sm:text-h1"
             >
               {title}
             </h2>

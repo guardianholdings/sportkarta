@@ -94,7 +94,10 @@ export default async function PublicClubPage({ params }: { params: PageParams })
           { kind: 'plan', id: plan.id, unitPriceCents: plan.priceCents, quantity: 1 },
           today,
         );
-  const section = 'space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm';
+  // A section is a ruled part of one page, not a card: the tiles inside it
+  // (a plan, a service, a trainer) are the only boxes, so nothing is a box
+  // inside a box.
+  const section = 'space-y-3 border-t border-line pt-6';
   const trialClasses = club.classes.filter((c) => c.trialAllowed);
   // The club's accent (0045): one of the design system's scales, never a value
   // the club typed — a band over the header, nothing that carries meaning.
@@ -106,11 +109,9 @@ export default async function PublicClubPage({ params }: { params: PageParams })
 
   return (
     <AppShell active={null}>
-      <main className="mx-auto max-w-3xl space-y-5 p-4">
+      <main className="mx-auto max-w-3xl space-y-8 p-4 pb-12">
         <ClubTrackingSlot clubId={club.id} clubName={club.name} slug={slug} locale={locale} />
-        <header
-          className={`flex flex-wrap items-start gap-4 rounded-card border-t-4 border-b border-b-line pb-4 pt-4 ${accentBand}`}
-        >
+        <header className={`flex flex-wrap items-start gap-4 border-t-4 pb-2 pt-5 ${accentBand}`}>
           {club.hasLogo && (
             // eslint-disable-next-line @next/next/no-img-element -- the row-decides logo route
             <img
@@ -228,7 +229,7 @@ export default async function PublicClubPage({ params }: { params: PageParams })
           ) : (
             <ul className="grid gap-2 sm:grid-cols-2">
               {club.plans.map((plan) => (
-                <li key={plan.id} className="rounded-card border border-line p-3">
+                <li key={plan.id} className="rounded-card border border-line bg-surface p-3">
                   <p className="flex items-baseline justify-between gap-2">
                     <span className="font-semibold text-ink">{plan.name}</span>
                     <span className="font-mono tabular-nums text-ink">
@@ -284,7 +285,7 @@ export default async function PublicClubPage({ params }: { params: PageParams })
             </h2>
             <ul className="grid gap-2 sm:grid-cols-2">
               {services.map((service) => (
-                <li key={service.id} className="rounded-card border border-line p-3">
+                <li key={service.id} className="rounded-card border border-line bg-surface p-3">
                   <p className="flex items-baseline justify-between gap-2">
                     <span className="font-semibold text-ink">{service.name}</span>
                     <span className="font-mono tabular-nums text-ink">
@@ -322,7 +323,7 @@ export default async function PublicClubPage({ params }: { params: PageParams })
             </h2>
             <ul className="grid gap-2 sm:grid-cols-2">
               {events.map((event) => (
-                <li key={event.id} className="rounded-card border border-line p-3">
+                <li key={event.id} className="rounded-card border border-line bg-surface p-3">
                   <p className="flex items-baseline justify-between gap-2">
                     <span className="font-semibold text-ink">{event.title}</span>
                     {event.fromCents !== null && (
@@ -355,7 +356,7 @@ export default async function PublicClubPage({ params }: { params: PageParams })
             </h2>
             <ul className="grid gap-3 sm:grid-cols-2">
               {club.trainers.map((trainer) => (
-                <li key={trainer.name} className="rounded-card border border-line p-3">
+                <li key={trainer.name} className="rounded-card border border-line bg-surface p-3">
                   <p className="font-semibold text-ink">{trainer.name}</p>
                   {trainer.bio && (
                     <p className="mt-1 whitespace-pre-line text-caption text-ink-soft">

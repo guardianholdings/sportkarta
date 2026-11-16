@@ -235,10 +235,47 @@
   a {
     color: var(--link);
     text-decoration: none;
+    /* Where a link IS underlined, the line sits clear of the descenders and
+       takes the face's own weight instead of the browser's default. */
+    text-underline-offset: 0.2em;
+    text-decoration-thickness: from-font;
     transition: color var(--dur-fast) var(--ease-standard);
   }
   a:hover {
     color: var(--link-hover);
+  }
+
+  /* The parts the browser draws belong to the palette too: the scrollbar's
+     thumb is the control edge on whatever sits behind it, the caret in a
+     field is the mark's coral (the step that clears contrast on a surface),
+     and figures in a table line up in columns. */
+  html {
+    scrollbar-color: var(--border-strong) transparent;
+  }
+  input,
+  textarea,
+  [contenteditable] {
+    caret-color: var(--accent-active);
+  }
+  td,
+  th {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* An arrow beside a label points where the control leads, and leans that
+     way when the pointer is on the control. Pointer devices only: a touch
+     would leave it leaning after the tap. */
+  svg.lucide-arrow-right,
+  svg.lucide-arrow-left {
+    transition: transform var(--dur-fast) var(--ease-out);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    :is(a, button):hover svg.lucide-arrow-right {
+      transform: translateX(3px);
+    }
+    :is(a, button):hover svg.lucide-arrow-left {
+      transform: translateX(-3px);
+    }
   }
 
   ::selection {
@@ -476,9 +513,10 @@
 .sk-marker.is-selected .sk-marker__body {
   transform: scale(1.22);
 }
+/* Selected: the pin stands taller, so its shadow falls further — depth, not a
+   coloured halo. */
 .sk-marker.is-selected .sk-marker__pin {
-  filter: drop-shadow(0 3px 6px color-mix(in srgb, var(--ink) 34%, transparent))
-    drop-shadow(0 0 8px color-mix(in srgb, var(--pin-active) 55%, transparent));
+  filter: drop-shadow(0 4px 7px color-mix(in srgb, var(--ink) 38%, transparent));
 }
 
 /*
@@ -645,6 +683,61 @@
   }
 }
 
+/* The mark in the navigation runs one lap when the pointer finds it — the
+   loading mark's own choreography, once and quicker (components/shell/
+   app-nav.tsx: BrandMark; the hooks are on PopsMark's full variant). At rest,
+   on touch and under reduced motion it is the drawn mark. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .sk-brand:hover .sk-mark__lane {
+    stroke-dasharray: 100;
+    animation: sk-mark-lap 640ms var(--ease-out) backwards;
+  }
+  .sk-brand:hover .sk-mark__lane--inner {
+    animation-delay: 110ms;
+  }
+  .sk-brand:hover .sk-mark__eye {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: sk-mark-eye 420ms var(--ease-out) 380ms backwards;
+  }
+  .sk-brand:hover .sk-mark__eye--right {
+    animation-delay: 460ms;
+  }
+}
+@keyframes sk-mark-lap {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes sk-mark-eye {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+/* A bar in a chart grows from its axis when the chart arrives — a list of
+   bars appearing as a list, each a beat after the one above (--bar-i is set
+   by the row). Width is the data; only the transform moves. */
+.sk-bar {
+  transform-origin: left center;
+  animation: sk-bar-grow 720ms var(--ease-out) backwards;
+  animation-delay: calc(var(--bar-i, 0) * 45ms);
+}
+@keyframes sk-bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sk-bar {
+    animation-delay: 0s;
+  }
+}
+
 /* Neutral striped placeholder — stands in for photography (seed motif). Real,
    warm photography of Bulgarian landscapes replaces this in production. */
 @utility stripe-placeholder {
@@ -664,18 +757,61 @@
    hand opacity and transform back to the cascade (the hover
    dimming below depends on it).
    ============================================================ */
-.sk-home-hero {
-  background:
-    radial-gradient(
-      60% 70% at 80% 45%,
-      color-mix(in srgb, var(--green-100) 60%, transparent),
-      transparent 70%
-    ),
-    radial-gradient(
-      45% 55% at 5% 0%,
-      color-mix(in srgb, var(--coral-100) 50%, transparent),
-      transparent 70%
-    );
+/* The first screen arrives once, on load (hero.tsx, landing-hero.tsx): the
+   heading is written top to bottom, then what follows it rises into place.
+   Keyframes with a `backwards` fill, so the resting state is the server's own
+   markup: with no CSS animation, in print and under reduced motion the hero
+   simply stands. The page's ground is flat paper (the seed's rule) — the
+   picture on the right is the only thing that carries colour. */
+.sk-enter > * {
+  animation: sk-enter-rise 560ms var(--ease-out) backwards;
+  animation-delay: calc(140ms + var(--enter-i, 0) * 70ms);
+}
+.sk-enter > :nth-child(2) {
+  --enter-i: 1;
+}
+.sk-enter > :nth-child(3) {
+  --enter-i: 2;
+}
+.sk-enter > :nth-child(4) {
+  --enter-i: 3;
+}
+.sk-enter > :nth-child(n + 5) {
+  --enter-i: 4;
+}
+.sk-enter > :is(h1, .sk-enter__title) {
+  animation: sk-enter-write 760ms var(--ease-out) backwards;
+}
+.sk-enter-media {
+  animation: sk-enter-settle 900ms var(--ease-out) backwards;
+}
+@keyframes sk-enter-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+}
+@keyframes sk-enter-write {
+  from {
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(0.5rem);
+  }
+  to {
+    clip-path: inset(0 0 -0.2em 0);
+  }
+}
+@keyframes sk-enter-settle {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+/* The global reduced-motion rule ends an animation at once but keeps its
+   delay, and a `backwards` fill would hold the first frame for that long. */
+@media (prefers-reduced-motion: reduce) {
+  .sk-enter > * {
+    animation-delay: 0s;
+  }
 }
 
 /* A screenshot in a drawn window: a bar of three dots over the picture, the
@@ -704,27 +840,6 @@
 .sk-home-search:focus-within {
   border-color: var(--brand);
   box-shadow: var(--ring);
-}
-
-.sk-overline {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: var(--fs-overline);
-  font-weight: 600;
-  letter-spacing: var(--ls-overline);
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-.sk-overline::before {
-  content: '';
-  width: 1.25rem;
-  height: 0.1875rem;
-  border-radius: 999px;
-  background: var(--accent);
-}
-.sk-overline--dark {
-  color: color-mix(in srgb, var(--paper) 75%, transparent);
 }
 
 /* ---- The dot map ---- */
@@ -819,7 +934,9 @@
   height: 0.5rem;
   border-radius: 999px;
   background: var(--brand);
-  animation: sk-live 2s var(--ease-standard) infinite;
+  /* Three beats, then still: «live» is said once, not blinked beside the
+     text for as long as the page is open (WCAG 2.2.2). */
+  animation: sk-live 2s var(--ease-standard) 3;
 }
 
 /* ---- The rolling number ---- */
@@ -915,8 +1032,9 @@
 
 /* ---- The guide: the front page's five chapters ---- */
 
-/* The chapter number: the dot map's dots, in coral, inside an ink outline —
-   a shirt number drawn in the map's own grain. */
+/* The chapter number: a shirt number — one solid block of the mark's coral,
+   the way a number sits on a jersey. Decorative (aria-hidden); the chapter's
+   heading and the chapter bar carry the sequence. */
 .sk-chapter-num {
   display: block;
   font-family: var(--font-display);
@@ -924,11 +1042,8 @@
   font-size: clamp(4.5rem, 12vw, 8.5rem);
   line-height: 0.82;
   letter-spacing: -0.04em;
-  color: transparent;
-  -webkit-text-stroke: 2px var(--ink);
-  background: radial-gradient(circle, var(--accent) 1.7px, transparent 1.9px) 0 0 / 7px 7px;
-  -webkit-background-clip: text;
-  background-clip: text;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
 }
 
 /* While the sticky chapter bar is on the page, scrolling to an anchor or to
@@ -990,9 +1105,11 @@
 .sk-guide-nav__link[aria-current='location'] {
   color: var(--ink);
 }
+/* A numeral on coral is TEXT, so the fill is the step that carries text
+   (--accent-active, white ≥4.5:1) — the raw coral is for icons and the mark. */
 .sk-guide-nav__link[aria-current='location'] .sk-guide-nav__stop {
-  border-color: var(--accent);
-  background: var(--accent);
+  border-color: var(--accent-active);
+  background: var(--accent-active);
   color: var(--text-on-accent);
 }
 .sk-guide-nav__progress {
@@ -1012,11 +1129,6 @@
   place-items: center;
   width: 100%;
   padding: 1.5rem 0;
-  background: radial-gradient(
-    55% 50% at 50% 50%,
-    color-mix(in srgb, var(--green-100) 85%, transparent),
-    transparent 72%
-  );
 }
 .sk-phone {
   position: relative;
@@ -1119,9 +1231,7 @@
   position: absolute;
   border: 3px solid var(--accent);
   border-radius: 0.75rem;
-  box-shadow:
-    0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent),
-    0 0 26px color-mix(in srgb, var(--accent) 35%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
   pointer-events: none;
 }
 /* A touch, as a phone's "show touches" draws one. */
@@ -1217,8 +1327,8 @@
   color: var(--ink-soft);
 }
 .sk-rec-step[aria-current='step'] .sk-rec-step__num {
-  border-color: var(--accent);
-  background: var(--accent);
+  border-color: var(--accent-active);
+  background: var(--accent-active);
   color: var(--text-on-accent);
 }
 .sk-rec-step__track {
@@ -1282,15 +1392,12 @@
     .sk-rec-steps > li {
       min-height: clamp(17rem, calc(var(--rec-s) * 3rem), 34rem);
     }
+    /* The steps that are not playing stay fully legible: the one that is
+       has the card, the filled number and the progress line. Dimming the
+       others to half took their text below 3:1. */
     .sk-rec-step {
       position: sticky;
       top: 35svh;
-    }
-    .sk-rec-step:not([aria-current='step']) {
-      opacity: 0.5;
-    }
-    .sk-rec-step:hover {
-      opacity: 1;
     }
   }
 
@@ -1377,7 +1484,8 @@
     color var(--dur-fast) var(--ease-standard);
 }
 .sk-route__stop:hover .sk-route__dot {
-  background: var(--accent);
+  border-color: var(--accent-active);
+  background: var(--accent-active);
   color: var(--text-on-accent);
 }
 @media (min-width: 1024px) {

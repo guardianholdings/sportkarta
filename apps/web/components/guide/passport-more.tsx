@@ -77,7 +77,7 @@ export async function PassportMore({ signedIn }: { signedIn: boolean }) {
 
       <GuideCard title={t('privacy.title')} icon={<Lock size={18} aria-hidden="true" />}>
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-lg border border-line bg-paper p-3.5">
+          <div className="rounded-lg bg-paper-sunk p-3.5">
             <span className="flex items-center gap-1.5 text-body-sm font-bold text-ink">
               <Lock size={15} aria-hidden="true" />
               {t('privacy.private.title')}
@@ -86,7 +86,7 @@ export async function PassportMore({ signedIn }: { signedIn: boolean }) {
               {t('privacy.private.body')}
             </span>
           </div>
-          <div className="rounded-lg border border-accent-border bg-accent-subtle p-3.5">
+          <div className="rounded-lg bg-accent-subtle p-3.5">
             <span className="flex items-center gap-1.5 text-body-sm font-bold text-accent-active">
               <Globe size={15} aria-hidden="true" />
               {t('privacy.public.title')}

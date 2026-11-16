@@ -93,16 +93,16 @@ export async function Hero({
     : [];
 
   return (
-    <section aria-labelledby="home-title" className="sk-home-hero">
+    <section aria-labelledby="home-title">
       <div className="mx-auto grid max-w-6xl items-center gap-x-14 gap-y-10 px-4 pb-14 pt-8 sm:px-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:px-8 lg:pb-20 lg:pt-16">
-        <div className="flex min-w-0 flex-col gap-6">
+        <div className="sk-enter flex min-w-0 flex-col gap-6">
           <p className="flex items-center gap-2 text-body-sm font-semibold text-ink-soft">
             <PopsMark size={22} className="text-accent" />
             {t('hero.overline')}
           </p>
           <h1
             id="home-title"
-            className="text-h1 font-extrabold leading-tight tracking-tight text-ink sm:text-display-lg"
+            className="text-h1 font-extrabold leading-tight tracking-tight text-ink sm:text-display-lg xl:text-display-xl"
           >
             {t('hero.title')}
           </h1>

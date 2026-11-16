@@ -35,7 +35,7 @@ export async function PlaceSearch({ locale }: { locale: string }) {
             autoComplete="off"
             enterKeyHint="search"
             placeholder={t('hero.searchPlaceholder')}
-            className="h-11 min-w-0 flex-1 bg-transparent text-body text-ink placeholder:text-text-faint focus:outline-none"
+            className="h-11 min-w-0 flex-1 bg-transparent text-body text-ink placeholder:text-text-muted focus:outline-none"
           />
           <button type="submit" className={buttonVariants({ variant: 'primary' })}>
             {t('hero.searchSubmit')}

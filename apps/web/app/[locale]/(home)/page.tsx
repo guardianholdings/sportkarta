@@ -119,7 +119,6 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     return {
       id: GUIDE_CHAPTERS[index]?.id ?? key,
       number: index + 1,
-      overline: t(`${key}.overline`),
       title: t(`${key}.title`),
     };
   };

@@ -15,7 +15,7 @@ export async function Steps() {
       aria-labelledby="clubs-steps"
       className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20"
     >
-      <SectionHead id="clubs-steps" overline={t('overline')} title={t('title')} lead={t('lead')} />
+      <SectionHead id="clubs-steps" title={t('title')} lead={t('lead')} />
       <Reveal stagger={0.12}>
         <ol className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {STEPS.map((key, index) => (
@@ -26,7 +26,7 @@ export async function Steps() {
             >
               <span
                 aria-hidden="true"
-                className="grid size-8 place-items-center rounded-full bg-accent font-mono text-body-sm font-bold text-on-accent"
+                className="grid size-8 place-items-center rounded-full bg-accent-active font-mono text-body-sm font-bold text-on-accent"
               >
                 {index + 1}
               </span>
