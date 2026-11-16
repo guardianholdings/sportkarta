@@ -213,7 +213,7 @@ export function OfficeExplorer({
               setQuery(event.target.value);
             }}
             placeholder={labels.searchPlaceholder}
-            className="h-11 w-full rounded-pill border border-line-strong bg-surface pl-10 pr-4 text-body-sm text-ink placeholder:text-text-faint focus:border-brand focus:outline-none focus:shadow-[var(--ring)]"
+            className="h-11 w-full rounded-pill border border-line-strong bg-surface pl-10 pr-4 text-body-sm text-ink placeholder:text-text-muted focus:border-brand focus:outline-none focus:shadow-[var(--ring)]"
           />
         </label>
         <p className="font-mono text-caption text-text-muted">{labels.total}</p>
@@ -251,7 +251,7 @@ export function OfficeExplorer({
                   <span
                     className={cn(
                       'font-mono text-caption tabular-nums',
-                      selected ? 'text-paper/70' : 'text-text-faint',
+                      selected ? 'text-paper/70' : 'text-text-muted',
                     )}
                   >
                     {area.rows.length}

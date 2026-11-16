@@ -2,17 +2,19 @@ import type { ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
-/** The front page's section heading: a coral-ruled overline, the title, a lead. */
+/**
+ * A section's heading on the marketing pages: the title, a lead. No label
+ * above it — the title names the section, and a second line saying so in
+ * small capitals only delayed it.
+ */
 export function SectionHead({
   id,
-  overline,
   title,
   lead,
   tone = 'light',
   children,
 }: {
   id: string;
-  overline: string;
   title: string;
   lead?: string;
   tone?: 'light' | 'dark';
@@ -22,11 +24,10 @@ export function SectionHead({
   return (
     <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
       <div className="max-w-2xl">
-        <p className={cn('sk-overline', tone === 'dark' && 'sk-overline--dark')}>{overline}</p>
         <h2
           id={id}
           className={cn(
-            'mt-3 text-h2 font-extrabold leading-tight tracking-tight sm:text-h1',
+            'text-h2 font-extrabold leading-tight tracking-tight sm:text-h1',
             tone === 'dark' ? 'text-paper' : 'text-ink',
           )}
         >

@@ -26,7 +26,7 @@ export async function GamesSection({ games, locale }: { games: SessionSummary[];
       aria-labelledby="home-games"
       className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20"
     >
-      <SectionHead id="home-games" overline={t('overline')} title={t('title')} lead={t('lead')}>
+      <SectionHead id="home-games" title={t('title')} lead={t('lead')}>
         <div className="flex flex-wrap gap-2">
           <Link href="/igri" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
             {t('all')}

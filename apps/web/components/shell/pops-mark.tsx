@@ -30,10 +30,20 @@ export function PopsMark({
       />
     </svg>
   ) : (
+    // The class hooks and pathLength draw nothing by themselves: a parent with
+    // `.sk-brand` runs the mark's lap on hover (globals.css).
     <svg viewBox="0 0 100 100" width={size} height={size} className={className} aria-hidden="true">
-      <circle cx="31" cy="22" r="9" fill="currentColor" />
-      <circle cx="69" cy="22" r="9" fill="currentColor" />
+      <circle className="sk-mark__eye" cx="31" cy="22" r="9" fill="currentColor" />
+      <circle
+        className="sk-mark__eye sk-mark__eye--right"
+        cx="69"
+        cy="22"
+        r="9"
+        fill="currentColor"
+      />
       <path
+        className="sk-mark__lane"
+        pathLength="100"
         d="M8 44 A42 42 0 0 0 92 44"
         fill="none"
         stroke="currentColor"
@@ -41,6 +51,8 @@ export function PopsMark({
         strokeLinecap="round"
       />
       <path
+        className="sk-mark__lane sk-mark__lane--inner"
+        pathLength="100"
         d="M24 44 A26 26 0 0 0 76 44"
         fill="none"
         stroke="currentColor"

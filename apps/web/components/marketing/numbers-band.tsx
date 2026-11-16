@@ -3,7 +3,6 @@ import { getTranslations } from 'next-intl/server';
 
 import { Odometer } from '@/components/home/odometer';
 import { InViewKey } from '@/components/motion/in-view-key';
-import { Reveal } from '@/components/motion/reveal';
 import { SectionHead } from '@/components/home/section-head';
 import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
@@ -42,14 +41,8 @@ export async function NumbersBand({
 
   return (
     <section aria-labelledby="home-numbers" className="bg-ink text-paper">
-      <Reveal className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
-        <SectionHead
-          id="home-numbers"
-          overline={t('overline')}
-          title={t('title')}
-          lead={t('lead')}
-          tone="dark"
-        >
+      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
+        <SectionHead id="home-numbers" title={t('title')} lead={t('lead')} tone="dark">
           <div className="flex flex-wrap gap-2">
             <Link
               href="/statistika"
@@ -78,7 +71,7 @@ export async function NumbersBand({
         <InViewKey>
           <dl className="mt-10 grid grid-cols-2 gap-x-6 gap-y-8 lg:grid-cols-4">
             {figures.map((figure) => (
-              <div key={figure.key} data-reveal className="flex flex-col gap-1">
+              <div key={figure.key} className="flex flex-col gap-1">
                 <dt className="order-2 text-body-sm text-paper/75">{t(figure.key)}</dt>
                 <dd className="order-1 font-mono text-display-lg font-bold tabular-nums leading-none text-paper">
                   <Odometer value={figure.value} locale={locale} />
@@ -87,7 +80,7 @@ export async function NumbersBand({
             ))}
           </dl>
         </InViewKey>
-      </Reveal>
+      </div>
     </section>
   );
 }

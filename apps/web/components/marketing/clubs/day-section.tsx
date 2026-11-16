@@ -1,7 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 
 import { SectionHead } from '@/components/home/section-head';
-import { Reveal } from '@/components/motion/reveal';
 
 import { DayInClub, type DayMoment } from './day-in-club';
 
@@ -32,19 +31,14 @@ export async function DaySection({ paymentsOn }: { paymentsOn: boolean }) {
   }));
   return (
     <section aria-labelledby="clubs-day" className="border-t border-line bg-paper">
-      <Reveal className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
-        <div data-reveal>
-          <SectionHead
-            id="clubs-day"
-            overline={t('day.overline')}
-            title={t('day.title')}
-            lead={t('day.lead')}
-          />
+      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
+        <div>
+          <SectionHead id="clubs-day" title={t('day.title')} lead={t('day.lead')} />
         </div>
-        <div className="mt-10" data-reveal>
+        <div className="mt-10">
           <DayInClub moments={moments} openLabel={t('day.openLabel')} />
         </div>
-      </Reveal>
+      </div>
     </section>
   );
 }

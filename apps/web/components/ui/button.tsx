@@ -24,7 +24,10 @@ import { cn } from '@/lib/utils';
 // variant already carried its own focus shadow, which is why it was the only
 // one that worked.
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-pill font-semibold leading-none select-none transition-[background-color,color,box-shadow,transform] duration-150 ease-standard focus-visible:shadow-[var(--ring)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
+  // Hover steps the button up a pixel, press sinks it back and tightens it:
+  // two distinct answers, so the control is felt before the page responds.
+  // `hover:` is pointer-only in Tailwind v4, so a tap never leaves it raised.
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-pill font-semibold leading-none select-none transition-[background-color,color,box-shadow,transform] duration-150 ease-out focus-visible:shadow-[var(--ring)] hover:-translate-y-px active:translate-y-0 active:scale-[0.97] active:duration-100 disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
   {
     variants: {
       variant: {

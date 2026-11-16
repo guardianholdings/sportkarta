@@ -6,8 +6,12 @@
    ============================================================ */
 
 :root {
-  --shadow-xs: 0 1px 2px rgba(16, 20, 24, 0.06);
-  --shadow-sm: 0 1px 2px rgba(16, 20, 24, 0.05), 0 2px 6px rgba(16, 20, 24, 0.05);
+  /* The two resting steps are an EDGE, not a halo: a card on paper is a sheet
+     lying on a sheet, so it shows a hard line of shade under its bottom edge
+     and nothing around it. The border does the separating (the seed's rule);
+     blur starts at --shadow-md, for things that actually lift or float. */
+  --shadow-xs: 0 1px 0 rgba(16, 20, 24, 0.05);
+  --shadow-sm: 0 1px 0 rgba(16, 20, 24, 0.07), 0 1px 1px rgba(16, 20, 24, 0.03);
   --shadow-md: 0 2px 4px rgba(16, 20, 24, 0.05), 0 6px 16px rgba(16, 20, 24, 0.08);
   --shadow-lg: 0 4px 8px rgba(16, 20, 24, 0.05), 0 16px 32px rgba(16, 20, 24, 0.1);
   --shadow-xl: 0 8px 16px rgba(16, 20, 24, 0.06), 0 28px 56px rgba(16, 20, 24, 0.14);

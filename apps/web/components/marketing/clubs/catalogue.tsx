@@ -1,7 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 
 import { SectionHead } from '@/components/home/section-head';
-import { Reveal } from '@/components/motion/reveal';
 import { rowState } from '@/lib/clubs/landing';
 import { CLUB_CATALOGUE } from '@sportkarta/lib/clubs';
 
@@ -44,17 +43,16 @@ export async function Catalogue() {
       aria-labelledby="clubs-catalogue"
       className="scroll-mt-16 border-t border-line bg-surface"
     >
-      <Reveal className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
-        <div data-reveal>
+      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
+        <div>
           <SectionHead
             id="clubs-catalogue"
-            overline={t('catalogue.overline')}
             title={t('catalogue.title')}
             lead={t('catalogue.lead')}
           />
-          <p className="mt-4 text-caption text-text-muted">{t('catalogue.legend')}</p>
+          <p className="mt-4 max-w-prose text-caption text-text-muted">{t('catalogue.legend')}</p>
         </div>
-        <div className="mt-8" data-reveal>
+        <div className="mt-8">
           <OfficeExplorer
             areas={areas}
             labels={{
@@ -73,7 +71,7 @@ export async function Catalogue() {
             }}
           />
         </div>
-      </Reveal>
+      </div>
     </section>
   );
 }

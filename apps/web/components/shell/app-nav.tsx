@@ -75,7 +75,11 @@ function isActive(item: RailItem, active: ActiveHref | null | undefined): boolea
  */
 export function BrandMark({ label }: { label: string }) {
   return (
-    <Link href="/" aria-label={label} className="grid size-11 place-items-center text-accent">
+    <Link
+      href="/"
+      aria-label={label}
+      className="sk-brand grid size-11 place-items-center text-accent"
+    >
       <PopsMark size={40} />
     </Link>
   );
@@ -142,8 +146,8 @@ function NavRailItem({ item, active, label }: { item: RailItem; active: boolean;
     <Link
       href={item.href}
       aria-current={active ? 'page' : undefined}
-      className={`flex flex-col items-center gap-1 rounded-md px-2 py-2 text-center text-overline font-semibold leading-tight ${
-        active ? 'bg-brand-subtle text-brand' : 'text-ink-soft hover:bg-surface-2'
+      className={`flex flex-col items-center gap-1 rounded-md px-2 py-2 text-center text-overline font-semibold leading-tight transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.96] ${
+        active ? 'bg-brand-subtle text-brand' : 'text-ink-soft hover:bg-surface-2 hover:text-ink'
       }`}
     >
       <Icon size={22} />

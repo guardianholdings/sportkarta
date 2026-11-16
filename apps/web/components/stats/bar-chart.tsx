@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 import { Link } from '@/i18n/navigation';
 
 // Server-rendered horizontal bar chart — no client JS, no chart library (keeps
@@ -73,9 +75,18 @@ export function BarChart({ title, bars, color = 'var(--brand)', emptyLabel }: Ba
                 <span className="truncate text-ink-soft">{b.label}</span>
               )}
               <span aria-hidden className="block h-4">
+                {/* Grows from the axis as the chart arrives, a beat after the
+                    bar above (globals.css: .sk-bar); the beat is capped so a
+                    long chart is not still arriving a second later. */}
                 <span
-                  className="block h-full rounded-xs"
-                  style={{ width: `${String(width)}%`, background: color }}
+                  className="sk-bar block h-full rounded-xs"
+                  style={
+                    {
+                      width: `${String(width)}%`,
+                      background: color,
+                      '--bar-i': Math.min(i, 10),
+                    } as CSSProperties
+                  }
                 />
               </span>
               <span className="text-right font-mono text-ink-soft tabular-nums">{b.display}</span>

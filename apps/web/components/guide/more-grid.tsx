@@ -39,7 +39,7 @@ export async function MoreGrid({ locale }: { locale: string }) {
       aria-labelledby="guide-more"
       className="mx-auto max-w-6xl scroll-mt-14 px-4 py-16 sm:px-6 lg:px-8 lg:py-24"
     >
-      <SectionHead id="guide-more" overline={t('overline')} title={t('title')} />
+      <SectionHead id="guide-more" title={t('title')} />
       <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {items.map(({ key, icon: Icon, href, locale: target }) => {
           const body = (

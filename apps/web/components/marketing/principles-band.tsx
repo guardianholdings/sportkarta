@@ -2,7 +2,6 @@ import { ArrowRight, Database, EyeOff, HeartHandshake, UserCheck } from 'lucide-
 import { getTranslations } from 'next-intl/server';
 
 import { SectionHead } from '@/components/home/section-head';
-import { Reveal } from '@/components/motion/reveal';
 import { Link } from '@/i18n/navigation';
 
 const PRINCIPLES = [
@@ -27,11 +26,11 @@ export async function PrinciplesBand({ signedIn }: { signedIn: boolean }) {
       aria-labelledby="home-principles"
       className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20"
     >
-      <SectionHead id="home-principles" overline={t('overline')} title={t('title')} />
-      <Reveal>
+      <SectionHead id="home-principles" title={t('title')} />
+      <div>
         <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {PRINCIPLES.map((item) => (
-            <li key={item.key} data-reveal>
+            <li key={item.key}>
               <Link
                 href={item.key === 'yourData' && !signedIn ? '/privacy' : item.href}
                 className="group flex h-full flex-col gap-3 rounded-card border border-line bg-surface p-5 transition-[border-color,box-shadow] duration-150 ease-standard hover:border-brand-border hover:shadow-sm focus-visible:shadow-[var(--ring)]"
@@ -51,7 +50,7 @@ export async function PrinciplesBand({ signedIn }: { signedIn: boolean }) {
             </li>
           ))}
         </ul>
-      </Reveal>
+      </div>
     </section>
   );
 }

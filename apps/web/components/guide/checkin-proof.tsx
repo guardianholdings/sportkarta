@@ -222,7 +222,7 @@ export function CheckinProof({ labels }: { labels: CheckinProofLabels }) {
       <p className="mt-5 flex items-center gap-3 rounded-lg bg-accent-subtle px-4 py-3 text-body font-bold text-accent-active">
         <span
           aria-hidden="true"
-          className="grid size-10 shrink-0 place-items-center rounded-full bg-accent font-mono text-body-sm text-on-accent"
+          className="grid size-10 shrink-0 place-items-center rounded-full bg-accent-active font-mono text-body-sm text-on-accent"
         >
           {labels.points}
         </span>

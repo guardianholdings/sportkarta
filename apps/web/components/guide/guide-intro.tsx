@@ -17,12 +17,7 @@ export async function GuideIntro() {
       aria-labelledby="guide-intro"
       className="mx-auto max-w-6xl px-4 pb-4 pt-14 sm:px-6 lg:px-8 lg:pt-20"
     >
-      <SectionHead
-        id="guide-intro"
-        overline={t('intro.overline')}
-        title={t('intro.title')}
-        lead={t('intro.lead')}
-      />
+      <SectionHead id="guide-intro" title={t('intro.title')} lead={t('intro.lead')} />
       <Reveal stagger={0.08}>
         <ol className="sk-route mt-10 grid gap-2 sm:grid-cols-2 lg:grid-cols-5 lg:gap-4">
           {GUIDE_CHAPTERS.map((chapter, index) => (

@@ -1,7 +1,6 @@
 import { Check } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 
-import { Reveal } from '@/components/motion/reveal';
 import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
 import { cn } from '@/lib/utils';
@@ -38,18 +37,17 @@ export async function LandingHero({
   const t = await getTranslations('ClubsLanding');
   const shot = SHOTS.hero;
   return (
-    <section id={CLUBS_HERO_ID} aria-labelledby="clubs-title" className="sk-home-hero">
+    <section id={CLUBS_HERO_ID} aria-labelledby="clubs-title">
       <div
         className={cn(
           'mx-auto grid max-w-6xl items-center gap-x-14 gap-y-10 px-4 pb-14 pt-10 sm:px-6 lg:px-8 lg:pb-20 lg:pt-16',
           shot && 'lg:grid-cols-[minmax(0,6fr)_minmax(0,6fr)]',
         )}
       >
-        <div className="flex min-w-0 flex-col gap-6">
-          <p className="sk-overline">{t('hero.overline')}</p>
+        <div className="sk-enter flex min-w-0 flex-col gap-6">
           <h1
             id="clubs-title"
-            className="text-h1 font-extrabold leading-tight tracking-tight text-ink sm:text-display-lg"
+            className="text-h1 font-extrabold leading-tight tracking-tight text-ink sm:text-display-lg xl:text-display-xl"
           >
             {t('hero.title')}
           </h1>
@@ -87,7 +85,7 @@ export async function LandingHero({
           </ul>
         </div>
         {shot && (
-          <Reveal y={40}>
+          <div className="sk-enter-media">
             {/* Clipped: the notices slide in from outside the frame. */}
             <div className="relative overflow-hidden rounded-card">
               <DeviceFrame shot={shot} alt={t('hero.shotAlt')} eager />
@@ -102,7 +100,7 @@ export async function LandingHero({
                 }))}
               />
             </div>
-          </Reveal>
+          </div>
         )}
       </div>
     </section>

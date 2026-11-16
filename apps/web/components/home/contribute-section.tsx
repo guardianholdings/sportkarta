@@ -3,7 +3,6 @@ import { getTranslations } from 'next-intl/server';
 import type { ReactNode } from 'react';
 
 import { CampaignSponsor } from '@/components/campaigns/campaign-sponsor';
-import { Reveal } from '@/components/motion/reveal';
 import { Link } from '@/i18n/navigation';
 import { localizedText } from '@/lib/campaigns';
 import type { ContributionPulse } from '@/lib/home/sections';
@@ -24,7 +23,7 @@ function Action({
   body: string;
 }) {
   return (
-    <li data-reveal>
+    <li>
       <Link
         href={href}
         className="group flex h-full flex-col gap-3 rounded-card border border-line bg-paper p-5 transition-[border-color,box-shadow] duration-150 ease-standard hover:border-brand-border hover:shadow-sm focus-visible:shadow-[var(--ring)]"
@@ -67,13 +66,8 @@ export async function ContributeSection({
 
   return (
     <section aria-labelledby="home-contribute" className="border-y border-line bg-surface">
-      <Reveal className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
-        <SectionHead
-          id="home-contribute"
-          overline={t('overline')}
-          title={t('title')}
-          lead={t('lead')}
-        >
+      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
+        <SectionHead id="home-contribute" title={t('title')} lead={t('lead')}>
           {pulse && (
             <p className="inline-flex items-center gap-2 rounded-pill bg-brand-subtle px-3.5 py-1.5 font-mono text-caption font-medium tabular-nums text-brand">
               <span aria-hidden="true" className="sk-live-dot" />
@@ -101,13 +95,13 @@ export async function ContributeSection({
             body={t('reportBody')}
           />
         </ul>
-        <p className="mt-4 text-caption text-text-muted">{t('howTo')}</p>
+        <p className="mt-4 max-w-prose text-caption text-text-muted">{t('howTo')}</p>
 
         {campaign && (
           <div className="mt-8 flex flex-col gap-3 rounded-card border border-accent-border bg-accent-subtle p-5 sm:flex-row sm:items-center sm:gap-6">
             <div className="min-w-0 flex-1">
               <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="sk-overline">{t('campaign')}</span>
+                <span className="text-caption font-semibold text-ink-soft">{t('campaign')}</span>
                 <span className="font-mono text-caption font-medium text-accent-active">
                   {t('campaignLeft', { count: daysRemaining(campaign.window) })}
                 </span>
@@ -129,7 +123,7 @@ export async function ContributeSection({
             </Link>
           </div>
         )}
-      </Reveal>
+      </div>
     </section>
   );
 }
