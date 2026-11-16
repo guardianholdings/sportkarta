@@ -1,11 +1,15 @@
 import {
   CLUB_CONTRACT_REMINDER_DAYS,
   CLUB_GRACE_DAYS,
+  addDaysIso,
   clubContractTerm,
   daysBetween,
 } from '@sportkarta/lib/clubs';
 import type { ClubChannel, ClubNotificationKind, ClubRole, IsoDate } from '@sportkarta/lib/clubs';
 import { sql, type SQL } from 'drizzle-orm';
+
+import { MEMBER_AT_RISK } from './audience.js';
+import { MEMBERSHIP_LAST_VALID_DAY, MEMBERSHIP_WAS_EVER_VALID } from './validity.js';
 
 /**
  * Who a club mail goes to, and what we already told them (0044
@@ -15,10 +19,14 @@ import { sql, type SQL } from 'drizzle-orm';
  *
  * THE RECIPIENT RULES (docs/ROADMAP.md Stage 9, plan §5.6):
  *   - a LINKED member is mailed at their POPS address, unless they switched
- *     club mail off on their link (`notify_email`);
+ *     club mail off on their link (`notify_email`) — or the receiving record
+ *     opted out by the one-click link (`email_opt_out_at`): a link in a mail
+ *     sent before the account was linked still means what its page says;
  *   - an UNLINKED record is mailed only when the club told us to
  *     (`clubs.mail_unlinked_members`), only if it has an address, and never
  *     after a one-click opt-out — and that mail carries the opt-out link;
+ *   - no member mail ignores either switch: every kind resolves here (or in
+ *     messaging.ts, which reads the same two);
  *   - a MINOR is never addressed: the mail goes to the guardian's record by
  *     the same two rules, or to nobody;
  *   - a club that is not `active` sends no member mail at all.
@@ -116,7 +124,7 @@ export async function memberRecipient(
   };
   if (row.user_id) {
     const email = text(row.user_email);
-    if (row.notify_email !== true || !email) return null;
+    if (row.notify_email !== true || row.opted_out === true || !email) return null;
     return {
       ...base,
       recipientName: text(row.user_name) || String(row.target_name),
@@ -389,10 +397,45 @@ export interface ExpiryCandidate {
   endsOn: IsoDate;
 }
 
+/** «Изтича» is said this many days ahead. */
+const EXPIRY_WARNING_DAYS = 7;
+
+/**
+ * SQL: the period `ms` (club_memberships; `mb` its balance row, `c` its club)
+ * will be followed by a next one without anybody selling it — the twin of
+ * what appends that period, condition for condition:
+ *   - renewClubMemberships (policies.ts): it renews and was not cancelled;
+ *     the member's notice, if any, has not run out by the day after it ends
+ *     (renewsInto); the plan is neither archived nor a trial and the member
+ *     is not archived (each of which ENDS the chain instead); and the club
+ *     may write (`writable` — a lapsed club neither renews nor charges);
+ *   - a card subscription (payments.ts, the paid invoice): it renews and the
+ *     notice has not run out — Stripe bills it, the job never touches it.
+ * Use it as `(…) IS NOT TRUE`: a club that never paid has NULL coverage, and
+ * NULL is not «will renew».
+ */
+function renewsItselfSql(today: IsoDate): SQL {
+  return sql`(ms.renews AND ms.cancelled_at IS NULL
+    AND (ms.renewal_ends_on IS NULL OR mb.effective_ends_on + 1 <= ms.renewal_ends_on)
+    AND (ms.provider_subscription_ref IS NOT NULL
+         OR (greatest(c.paid_until, c.trial_ends_on) + ${CLUB_GRACE_DAYS}::int >= ${today}::date
+             AND EXISTS (SELECT 1 FROM club_plans rp
+                          WHERE rp.club_id = ms.club_id AND rp.id = ms.plan_id
+                            AND rp.archived_at IS NULL AND rp.kind <> 'trial')
+             AND EXISTS (SELECT 1 FROM club_members rm
+                          WHERE rm.club_id = ms.club_id AND rm.id = ms.member_id
+                            AND rm.archived_at IS NULL))))`;
+}
+
 /**
  * Abonnements ending within a week (`expiring`) or that ended in the last
  * three days (`expired`, the catch-up window for a worker that was down) —
  * unless the member already holds a later one, and unless already told.
+ *
+ * «Expiring» tells the member to renew at the desk, so it is not said of a
+ * period that renews itself (renewsItselfSql — a chain that was stopped still
+ * gets it), nor of a pass whose whole length is within the warning's own
+ * week: a day pass or a 7-day trial sold today would be «expiring» at once.
  */
 export async function expiryCandidates(
   db: SqlRunner,
@@ -401,12 +444,16 @@ export async function expiryCandidates(
 ): Promise<ExpiryCandidate[]> {
   const window =
     kind === 'membership_expiring'
-      ? sql`mb.state = 'active' AND mb.effective_ends_on BETWEEN ${today}::date AND ${today}::date + 7`
+      ? sql`mb.state = 'active'
+            AND mb.effective_ends_on BETWEEN ${today}::date AND ${today}::date + ${EXPIRY_WARNING_DAYS}::int
+            AND mb.ends_on - mb.starts_on + 1 > ${EXPIRY_WARNING_DAYS}::int
+            AND ${renewsItselfSql(today)} IS NOT TRUE`
       : sql`mb.state = 'expired' AND mb.effective_ends_on BETWEEN ${today}::date - 3 AND ${today}::date - 1`;
   const result = await db.execute(sql`
     SELECT mb.club_id, mb.member_id, mb.membership_id, mb.plan_name,
            to_char(mb.effective_ends_on, 'YYYY-MM-DD') AS ends_on
       FROM club_membership_balances mb
+      JOIN club_memberships ms ON ms.id = mb.membership_id
       JOIN clubs c ON c.id = mb.club_id AND c.status = 'active'
      WHERE ${window}
        AND NOT EXISTS (SELECT 1 FROM club_memberships nx
@@ -455,7 +502,12 @@ export interface ClubLifecycleCandidate {
  * that ended in the last three days (read-only, public page hidden), a
  * suspension in the last three days. Three days is the catch-up window for
  * a worker that was down; the ledger key (kind, owner, milestone) keeps
- * each mail to one. The trial-ending mail asks the club to sign, so a club
+ * each mail to one. The trial's two warnings have it too: the week warning
+ * is listed while the trial ends in 7, 6 or 5 days, the last-day one while it
+ * ends tomorrow or today (after that «изтича» is false, and the past-due mail
+ * speaks). Each keeps ONE anchor — `<last day>:7` and `<last day>:1`, the keys
+ * the exact-day rule wrote — so a warning listed on three days is sent once.
+ * The trial-ending mail asks the club to sign, so a club
  * with a recorded contract does not get it. Every tier pays (2026-10-31), so every tier is listed.
  *
  * And a contract that renews (0061): CLUB_CONTRACT_REMINDER_DAYS before its
@@ -477,13 +529,15 @@ export async function clubLifecycleCandidates(
     )
     SELECT 'club_trial_ending' AS kind, id AS club_id,
            to_char(trial_ends_on, 'YYYY-MM-DD') AS date,
-           to_char(trial_ends_on, 'YYYY-MM-DD') || ':' || (trial_ends_on - ${today}::date)::text AS anchor
+           to_char(trial_ends_on, 'YYYY-MM-DD') || ':'
+             || CASE WHEN trial_ends_on >= ${today}::date + 5 THEN '7' ELSE '1' END AS anchor
       FROM paying
      WHERE status = 'active' AND (paid_until IS NULL OR paid_until <= trial_ends_on)
        -- A club that has signed is past deciding: the mail's «ако не продължите,
        -- не дължите нищо» would be false for it (0061).
        AND contract_starts_on IS NULL
-       AND trial_ends_on IN (${today}::date + 7, ${today}::date + 1)
+       AND (trial_ends_on BETWEEN ${today}::date + 5 AND ${today}::date + 7
+            OR trial_ends_on BETWEEN ${today}::date AND ${today}::date + 1)
     UNION ALL
     SELECT 'club_past_due', id, to_char(coverage, 'YYYY-MM-DD'), to_char(coverage, 'YYYY-MM-DD')
       FROM paying
@@ -601,9 +655,14 @@ export async function clubWeekFigures(db: SqlRunner, monday: IsoDate): Promise<C
       (SELECT coalesce(sum(p.amount_cents), 0)::bigint FROM club_payments p WHERE p.club_id = c.id
           AND p.method <> 'wallet'
           AND p.received_on >= ${monday}::date AND p.received_on < ${monday}::date + 7) AS revenue,
-      (SELECT count(*)::int FROM club_membership_balances mb WHERE mb.club_id = c.id
-          AND mb.state = 'active'
-          AND mb.effective_ends_on BETWEEN ${monday}::date + 7 AND ${monday}::date + 14) AS expiring,
+      -- «Expiring next week» is work for the desk, so — like the member's own
+      -- warning (expiryCandidates) — not a period that renews itself. The mail
+      -- goes out on the Monday after the week it reports: that day is "today".
+      (SELECT count(*)::int FROM club_membership_balances mb
+         JOIN club_memberships ms ON ms.id = mb.membership_id
+        WHERE mb.club_id = c.id AND mb.state = 'active'
+          AND mb.effective_ends_on BETWEEN ${monday}::date + 7 AND ${monday}::date + 14
+          AND ${renewsItselfSql(addDaysIso(monday, 7))} IS NOT TRUE) AS expiring,
       (SELECT count(*)::int FROM club_charge_balances cb WHERE cb.club_id = c.id
           AND cb.status = 'overdue') AS overdue,
       (SELECT count(*)::int FROM club_member_links l WHERE l.club_id = c.id
@@ -636,7 +695,7 @@ export interface ClubMonthFigures {
   newMembers: number;
   /** Valid in the previous month, not in this one. */
   churned: number;
-  /** Today: a live abonnement and no visit for 21 days. */
+  /** Today: a live abonnement begun 21+ days ago and no visit for 21 days (MEMBER_AT_RISK). */
   atRisk: number;
   /** The best-filled class of the month (≥ 2 occurrences), if any. */
   topClass: { title: string; fill: number } | null;
@@ -655,11 +714,11 @@ export async function clubMonthFigures(db: SqlRunner, month: IsoDate): Promise<C
     )
     SELECT c.id,
       (SELECT count(DISTINCT mb.member_id)::int FROM club_membership_balances mb
-        WHERE mb.club_id = c.id AND mb.cancelled_at IS NULL
-          AND mb.starts_on < span.next AND mb.effective_ends_on >= span.first) AS members_now,
+        WHERE mb.club_id = c.id AND ${MEMBERSHIP_WAS_EVER_VALID}
+          AND mb.starts_on < span.next AND ${MEMBERSHIP_LAST_VALID_DAY} >= span.first) AS members_now,
       (SELECT count(DISTINCT mb.member_id)::int FROM club_membership_balances mb
-        WHERE mb.club_id = c.id AND mb.cancelled_at IS NULL
-          AND mb.starts_on < span.first AND mb.effective_ends_on >= span.prev) AS members_then,
+        WHERE mb.club_id = c.id AND ${MEMBERSHIP_WAS_EVER_VALID}
+          AND mb.starts_on < span.first AND ${MEMBERSHIP_LAST_VALID_DAY} >= span.prev) AS members_then,
       (SELECT coalesce(sum(p.amount_cents), 0)::bigint FROM club_payments p
         WHERE p.club_id = c.id AND p.method <> 'wallet'
           AND p.received_on >= span.first AND p.received_on < span.next) AS rev_now,
@@ -675,20 +734,17 @@ export async function clubMonthFigures(db: SqlRunner, month: IsoDate): Promise<C
           AND (m.created_at AT TIME ZONE 'Europe/Sofia')::date < span.next) AS new_members,
       (SELECT count(*)::int FROM (
          SELECT mb.member_id FROM club_membership_balances mb
-          WHERE mb.club_id = c.id AND mb.cancelled_at IS NULL
-            AND mb.starts_on < span.first AND mb.effective_ends_on >= span.prev
+          WHERE mb.club_id = c.id AND ${MEMBERSHIP_WAS_EVER_VALID}
+            AND mb.starts_on < span.first AND ${MEMBERSHIP_LAST_VALID_DAY} >= span.prev
          EXCEPT
          SELECT mb.member_id FROM club_membership_balances mb
-          WHERE mb.club_id = c.id AND mb.cancelled_at IS NULL
-            AND mb.starts_on < span.next AND mb.effective_ends_on >= span.first) gone) AS churned,
-      -- Distinct MEMBERS: a member holding two live abonnements is one person
-      -- at risk, not two.
-      (SELECT count(DISTINCT mb.member_id)::int FROM club_membership_balances mb
-        WHERE mb.club_id = c.id AND mb.state = 'active'
-          AND mb.starts_on <= (now() AT TIME ZONE 'Europe/Sofia')::date - 21
-          AND NOT EXISTS (SELECT 1 FROM club_checkins ci
-                           WHERE ci.club_id = mb.club_id AND ci.member_id = mb.member_id
-                             AND ci.sofia_day > (now() AT TIME ZONE 'Europe/Sofia')::date - 21))
+          WHERE mb.club_id = c.id AND ${MEMBERSHIP_WAS_EVER_VALID}
+            AND mb.starts_on < span.next AND ${MEMBERSHIP_LAST_VALID_DAY} >= span.first) gone) AS churned,
+      -- MEMBERS (a member holding two live abonnements is one person at risk,
+      -- not two), by the one definition the members list and a broadcast to
+      -- «at risk» use — so the figure is the number of people that list shows.
+      (SELECT count(*)::int FROM club_members m
+        WHERE m.club_id = c.id AND m.archived_at IS NULL AND ${MEMBER_AT_RISK})
         AS at_risk,
       (SELECT k.title || '|' || (sum(g.going)::float / nullif(sum(g.capacity), 0))::text
          FROM (SELECT o.class_id, coalesce(o.capacity, kk.capacity) AS capacity,
@@ -745,8 +801,8 @@ export async function recordClubMonthlyActivity(
     ),
     held AS (
       SELECT mb.club_id, mb.member_id FROM club_membership_balances mb, bounds
-       WHERE mb.cancelled_at IS NULL AND mb.starts_on < bounds.next
-         AND mb.effective_ends_on >= bounds.first
+       WHERE ${MEMBERSHIP_WAS_EVER_VALID} AND mb.starts_on < bounds.next
+         AND ${MEMBERSHIP_LAST_VALID_DAY} >= bounds.first
        GROUP BY mb.club_id, mb.member_id
     ),
     visited AS (

@@ -22,8 +22,9 @@ import type { ClubMailClub } from './mail.js';
  *
  * THE CHANNEL RULES, on top of 0044's recipient rules (mail.ts):
  *   - e-mail: as every club mail — a linked member at their POPS address
- *     unless they muted the club; an unlinked record only if the club mails
- *     unlinked clients and the record never opted out;
+ *     unless they muted the club or the record opted out by the one-click
+ *     link; an unlinked record only if the club mails unlinked clients and
+ *     the record never opted out;
  *   - SMS: the receiving record's own phone, unless it opted out of SMS;
  *   - push: a linked member's devices, unless they muted this club's push;
  *   - MARKETING additionally needs the receiving record's consent timestamp
@@ -96,8 +97,9 @@ function channelsQuery(clubId: string, memberIds: readonly string[]): SQL {
 
 function toChannels(row: Record<string, unknown>): MemberChannels {
   const linked = row.user_id !== null && row.user_id !== undefined;
+  // The record's one-click opt-out holds for a linked member too (mail.ts).
   const email = linked
-    ? row.notify_email === true
+    ? row.notify_email === true && row.opted_out !== true
       ? text(row.user_email)
       : null
     : row.mail_unlinked_members === true && row.opted_out !== true

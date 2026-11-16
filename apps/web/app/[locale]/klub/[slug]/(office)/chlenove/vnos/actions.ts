@@ -2,6 +2,7 @@
 
 import { getDb } from '@sportkarta/db';
 import { CLUB_IMPORT_FIELDS } from '@sportkarta/lib/clubs';
+import { decodeCsvBytes } from '@sportkarta/lib/csv';
 import { revalidatePath } from 'next/cache';
 
 import { readColumnMapping } from '@/lib/admin-csv';
@@ -43,7 +44,9 @@ async function readCsv(formData: FormData): Promise<string> {
   if (file instanceof File && file.size > 0) {
     // 2 MB is far beyond 2000 members and keeps a stray upload out of memory.
     if (file.size > 2_000_000) throw new ClubImportFileError('too_many_rows');
-    return file.text();
+    // The BYTES, not file.text(): Excel on a Bulgarian Windows saves a CSV in
+    // Windows-1251, and text() would read it as UTF-8 (decodeCsvBytes).
+    return decodeCsvBytes(new Uint8Array(await file.arrayBuffer()));
   }
   return String(formData.get('csv') ?? '');
 }

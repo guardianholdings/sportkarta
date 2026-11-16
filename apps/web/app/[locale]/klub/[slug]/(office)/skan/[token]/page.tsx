@@ -111,17 +111,21 @@ export default async function ClubScanPage({ params }: { params: PageParams }) {
               )}
             </p>
           </div>
-          {marked ? (
-            <Badge tone="success">{t('markedToday')}</Badge>
-          ) : (
-            <form action={scanCheckinAction}>
-              <input type="hidden" name="slug" value={slug} />
-              <input type="hidden" name="token" value={token} />
-              <Button type="submit" block className="min-h-12 text-body">
-                {t('scan.confirm')}
-              </Button>
-            </form>
-          )}
+          {/* Already in today: the scan can still tick a second booked
+              class, and a tick that changes nothing says so (prisastviya). */}
+          {marked && <Badge tone="success">{t('markedToday')}</Badge>}
+          <form action={scanCheckinAction}>
+            <input type="hidden" name="slug" value={slug} />
+            <input type="hidden" name="token" value={token} />
+            <Button
+              type="submit"
+              block
+              variant={marked ? 'secondary' : 'primary'}
+              className="min-h-12 text-body"
+            >
+              {marked ? t('markAgain') : t('scan.confirm')}
+            </Button>
+          </form>
           <Link
             href={`/klub/${slug}/chlenove/${member.id}`}
             className="inline-flex min-h-11 items-center text-body-sm font-semibold text-link hover:text-link-hover"

@@ -6,6 +6,9 @@ import {
   CLUB_PAYMENT_METHODS_ALL,
   CLUB_TIERS,
 } from '@sportkarta/lib/clubs';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import bg from '../messages/bg.json';
@@ -32,6 +35,65 @@ describe('i18n message parity', () => {
 
   it('en declares no keys that are missing from bg', () => {
     expect([...enKeys].filter((key) => !bgKeys.has(key))).toEqual([]);
+  });
+});
+
+/**
+ * A key written twice in one object is legal JSON: the parser keeps the LAST
+ * one and says nothing, so the parity test above — which reads the parsed
+ * catalogue — cannot see it. The string a page gets is then whichever line
+ * came later, and a newly added key silently loses to an older one of the same
+ * name (found 2026-11-14: a new `card.refund` button printed the older
+ * `card.refund` row label). So this reads the files as TEXT.
+ */
+describe('no message key is written twice in one object', () => {
+  function repeatedKeys(text: string): string[] {
+    const repeated: string[] = [];
+    // One entry per open container: the keys seen so far (an object), or null
+    // (an array, whose strings are values).
+    const open: (Set<string> | null)[] = [];
+    const path: string[] = [];
+    let i = 0;
+    while (i < text.length) {
+      const ch = text[i];
+      if (ch === '{') {
+        open.push(new Set());
+        path.push('');
+      } else if (ch === '[') {
+        open.push(null);
+        path.push('');
+      } else if (ch === '}' || ch === ']') {
+        open.pop();
+        path.pop();
+      } else if (ch === '"') {
+        let end = i + 1;
+        while (text[end] !== '"') end += text[end] === '\\' ? 2 : 1;
+        const literal = text.slice(i + 1, end);
+        i = end;
+        // A string followed by a colon is a key of the innermost object.
+        let after = end + 1;
+        while (/\s/.test(text[after] ?? '')) after += 1;
+        const keys = open.at(-1);
+        if (keys && text[after] === ':') {
+          if (keys.has(literal)) repeated.push([...path.slice(0, -1), literal].join(' → '));
+          keys.add(literal);
+          path[path.length - 1] = literal;
+        }
+      }
+      i += 1;
+    }
+    return repeated;
+  }
+
+  it('the scanner itself sees a repeat, and only a repeat', () => {
+    expect(
+      repeatedKeys('{"a": {"x": 1, "y": "x", "x": 2}, "b": ["x", "x"], "a2": {"x": 1}}'),
+    ).toEqual(['a → x']);
+  });
+
+  it.each(['bg', 'en'])('%s.json repeats no key', (locale) => {
+    const text = readFileSync(join(__dirname, '..', 'messages', `${locale}.json`), 'utf8');
+    expect(repeatedKeys(text)).toEqual([]);
   });
 });
 

@@ -4,6 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Link } from '@/i18n/navigation';
 import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
 import { listPlans } from '@/lib/clubs/sales';
@@ -113,9 +114,21 @@ export default async function ClubPlansPage({
                         name="archived"
                         value={plan.archived ? 'false' : 'true'}
                       />
-                      <Button type="submit" variant="ghost" size="sm">
-                        {plan.archived ? t('restore') : t('archive')}
-                      </Button>
+                      {/* Archiving ends the plan's renewing chains for good
+                          (the renewals job), so it asks first when anyone
+                          holds it; an unused plan archives in one click. */}
+                      {!plan.archived && plan.liveCount > 0 ? (
+                        <ConfirmButton
+                          className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+                          message={t('archiveConfirm')}
+                        >
+                          {t('archive')}
+                        </ConfirmButton>
+                      ) : (
+                        <Button type="submit" variant="ghost" size="sm">
+                          {plan.archived ? t('restore') : t('archive')}
+                        </Button>
+                      )}
                     </form>
                   </>
                 )}

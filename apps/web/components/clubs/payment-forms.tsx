@@ -47,6 +47,7 @@ export function PaymentForm({
   charges,
   today,
   defaultChargeId,
+  defaultKind = 'payment',
 }: {
   action: Action;
   slug: string;
@@ -55,6 +56,8 @@ export function PaymentForm({
   charges: { id: string; label: string; due: string }[];
   today: string;
   defaultChargeId: string | null;
+  /** «Възстановяване» preselected: the form was opened to give money back. */
+  defaultKind?: 'payment' | 'refund';
 }) {
   const [state, formProps, pending] = useFormAction(action, INITIAL, {
     resetWhen: (s) => s.saved === true,
@@ -89,7 +92,7 @@ export function PaymentForm({
           <label className={label} htmlFor="pay-kind">
             {labels.kind}
           </label>
-          <Select id="pay-kind" name="kind" defaultValue="payment">
+          <Select id="pay-kind" name="kind" defaultValue={defaultKind}>
             <option value="payment">{labels.payment}</option>
             <option value="refund">{labels.refund}</option>
           </Select>

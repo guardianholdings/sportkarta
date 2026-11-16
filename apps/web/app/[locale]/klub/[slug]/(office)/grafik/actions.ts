@@ -12,12 +12,14 @@ import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
 import { isUuid, parseClass } from '@/lib/clubs/input';
 import { enqueueClubMaterialize, enqueueClubNotify } from '@/lib/clubs/notify';
 import {
+  ClassCapacityTaken,
   ClassRoomElsewhere,
   ClassRoomTaken,
   cancelClass,
   cancelOccurrence,
   classById,
   saveClass,
+  type ClassSaveReport,
 } from '@/lib/clubs/schedule';
 import { revalidateClubSurfaces } from '@/lib/clubs/surfaces';
 import { formatDateTime } from '@/lib/format';
@@ -52,9 +54,17 @@ export async function saveClassAction(
   const parsed = parseClass(formData, sofiaToday(), editing?.startsAtLocal.slice(0, 10) ?? null);
   if (!parsed.ok) return { error: 'invalid', errors: parsed.errors };
   let classId: string | null;
+  // More places seat people off the waiting list by arithmetic alone — no
+  // booking row changes — so the save says who moved up and they are told.
+  const seats: ClassSaveReport = { promoted: [] };
   try {
-    classId = await saveClass(getDb(), actor, editing?.id ?? null, parsed.value);
+    classId = await saveClass(getDb(), actor, editing?.id ?? null, parsed.value, seats);
   } catch (error: unknown) {
+    // Fewer places than people already going on a coming date: refused, so
+    // nobody with a confirmation is moved to the waiting list in silence.
+    if (error instanceof ClassCapacityTaken) {
+      return { error: 'capacity_taken', errors: ['capacity_taken'] };
+    }
     // 0048: the room is taken on some of the class's dates — say which.
     if (error instanceof ClassRoomTaken) {
       const locale = await getLocale();
@@ -70,6 +80,13 @@ export async function saveClassAction(
     throw error;
   }
   if (!classId) return { error: 'readOnly' };
+  // A job carries at most 500 ids (lib/src/clubs/jobs.ts).
+  for (let at = 0; at < seats.promoted.length; at += 500) {
+    await enqueueClubNotify({
+      kind: 'booking_promoted',
+      bookingIds: seats.promoted.slice(at, at + 500),
+    });
+  }
   // The week fills in now, not at the top of the hour.
   await enqueueClubMaterialize(classId);
   revalidatePath(`/klub/${slug}/grafik`);
@@ -139,6 +156,11 @@ export async function rosterOpAction(formData: FormData): Promise<void> {
       if (!isUuid(bookingId)) return;
       const result = await cancelBooking(db, { kind: 'staff', actor }, bookingId);
       outcome = result.cancelled ? (result.late ? 'cancelled_late' : 'cancelled') : 'not_found';
+      // The place was taken away by the club, not given up: its holder is
+      // told (the worker sends it only while the booking is still cancelled).
+      if (result.cancelled) {
+        await enqueueClubNotify({ kind: 'booking_cancelled', bookingId });
+      }
       if (result.promoted.length > 0) {
         await enqueueClubNotify({ kind: 'booking_promoted', bookingIds: result.promoted });
       }

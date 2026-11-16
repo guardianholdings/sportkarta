@@ -19,7 +19,7 @@ import { isUuid } from '@/lib/clubs/input';
 import { memberChoices } from '@/lib/clubs/members';
 import { unappliedCheckouts } from '@/lib/clubs/payments';
 import { refundsDue } from '@/lib/clubs/reservations';
-import { openCharges, paymentLedger } from '@/lib/clubs/sales';
+import { openCharges, paidCharge, paymentLedger } from '@/lib/clubs/sales';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -45,6 +45,7 @@ export default async function ClubPaymentsPage({
     zadalzhenie?: string;
     chlen?: string;
     rezultat?: string;
+    vrashtane?: string;
   }>;
 }) {
   const { locale, slug } = await params;
@@ -72,6 +73,13 @@ export default async function ClubPaymentsPage({
   ]);
   const outcome =
     isOutcomeCode(query.rezultat) && t.has(`outcome.${query.rezultat}`) ? query.rezultat : null;
+  // Money back on a charge that is no longer owed — paid in full, or void with
+  // a payment still on it. Such a charge is not among `open`, so the client's
+  // card sends its id here («Върни сума») and it joins the form's choices.
+  const giveBack =
+    canRecord && query.vrashtane === '1' && isUuid(query.zadalzhenie)
+      ? await paidCharge(actor, query.zadalzhenie)
+      : null;
   const methods: Record<string, string> = {
     ...Object.fromEntries(CLUB_PAYMENT_METHODS.map((m) => [m, tClub(`method.${m}`)])),
     card_online: tClub('method.card_online'),
@@ -218,25 +226,46 @@ export default async function ClubPaymentsPage({
           <section className={section}>
             <h2 className="text-h4 font-bold text-ink">{t('record')}</h2>
             <PaymentForm
+              // A new subject is a new form: its chosen charge and amount are state.
+              key={giveBack?.id ?? 'pay'}
               action={recordPaymentAction}
               slug={slug}
               messages={{ ...messages, saved: t('recorded') }}
               today={today}
+              defaultKind={giveBack ? 'refund' : 'payment'}
               defaultChargeId={
-                isUuid(query.zadalzhenie)
-                  ? query.zadalzhenie
-                  : open.length === 1
-                    ? (open[0]?.id ?? null)
-                    : null
+                giveBack
+                  ? giveBack.id
+                  : isUuid(query.zadalzhenie)
+                    ? query.zadalzhenie
+                    : open.length === 1
+                      ? (open[0]?.id ?? null)
+                      : null
               }
-              charges={open.map((charge) => ({
-                id: charge.id,
-                label: `${charge.memberName ?? '—'} · ${charge.label} · ${t('due', {
-                  amount: formatEuro(charge.dueCents, locale),
-                  date: formatDate(charge.dueOn, locale),
-                })}`,
-                due: euroInputValue(charge.dueCents, locale),
-              }))}
+              charges={[
+                ...(giveBack
+                  ? [
+                      {
+                        id: giveBack.id,
+                        label: `${giveBack.memberName ?? '—'} · ${giveBack.label} · ${t('paid', {
+                          amount: formatEuro(giveBack.paidCents, locale),
+                        })}`,
+                        // What can go back: everything paid on it.
+                        due: euroInputValue(giveBack.paidCents, locale),
+                      },
+                    ]
+                  : []),
+                ...open
+                  .filter((charge) => charge.id !== giveBack?.id)
+                  .map((charge) => ({
+                    id: charge.id,
+                    label: `${charge.memberName ?? '—'} · ${charge.label} · ${t('due', {
+                      amount: formatEuro(charge.dueCents, locale),
+                      date: formatDate(charge.dueOn, locale),
+                    })}`,
+                    due: euroInputValue(charge.dueCents, locale),
+                  })),
+              ]}
               labels={{
                 charge: t('charge'),
                 chargePick: t('chargePick'),

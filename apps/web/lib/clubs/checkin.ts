@@ -8,7 +8,7 @@ import {
 } from '@sportkarta/lib/clubs';
 import { sha256Hex } from '@sportkarta/lib/clubs/secrets';
 
-import { clubWritableSql } from './access';
+import { SOFIA_TODAY_SQL, clubWritableSql } from './access';
 import { recordClubAudit } from './audit';
 import { clubActorMay, clubScope, type ClubActor } from './scope';
 
@@ -29,7 +29,9 @@ import { clubActorMay, clubScope, type ClubActor } from './scope';
  * THE ALGORITHM:
  *   1. resolve the client record (and refuse a staff actor out of scope);
  *   2. resolve the class: the one given (roster), else the client's booking
- *      at this location that is about to start or running, else none — an
+ *      at this location that is about to start or running — one not ticked
+ *      yet before one that is, so somebody booked into two classes back to
+ *      back is ticked into the second by their second scan — else none: an
  *      open-gym visit. A kiosk scan never guesses a class the client did not
  *      book;
  *   3. LOCK the client's memberships (FOR NO KEY UPDATE) before counting, so
@@ -43,8 +45,32 @@ import { clubActorMay, clubScope, type ClubActor } from './scope';
  *      CONSENTED, the client's own training_logs row (source 'club', evidence
  *      'qr_verified'); the database re-checks all of that (0043 trigger).
  *
+ * ONE ARRIVAL, ONE ROW, ONE VISIT. The desk ticking a walk-in and the trainer
+ * ticking the roster are the same person coming through the same door once,
+ * so they must not spend two visits of a card:
+ *   - a class tick for somebody who already has the open-gym row of THE
+ *     CLASS'S DAY at the class's location takes that row over (its occurrence
+ *     is set) instead of adding a second. The visit stays where it was when
+ *     that abonnement covers the class too; it moves to the one that does
+ *     when the class accepts only certain plans; and when the hall visit was
+ *     paid and nothing covers the class, the two stay apart — a paid hall
+ *     visit and an unpaid class — so neither truth is lost;
+ *   - an open-gym tick for somebody already ticked into a class of TODAY at
+ *     that location answers 'already'.
+ * The day is the class's own (Sofia), never the day of the tick: the desk
+ * catching up on yesterday's roster today is not today's arrival. A row taken
+ * over by a scan becomes a scan (method, recorded_by), which is what lets it
+ * reach the passport; the diary entry an earlier scan already wrote is the
+ * member's own and is left as it is.
+ *
  * NEVER A REFUSAL. An expired, exhausted or unpaid client is RECORDED with
- * covered = false and the desk is told so in words (0014's principle).
+ * covered = false and the desk is told so in words (0014's principle). The
+ * one exception is a DOOR, which may stay shut — and then records nothing:
+ * under 'covered' for a client nothing covers, and under either rule for a
+ * record its holder made for themselves (a trial, an inquiry, a court booked
+ * online) that the club has never handled — no abonnement ever sold to it,
+ * no card issued. Signing up on the club's page is not being let in. A door
+ * never locks out somebody who is already in today.
  */
 
 interface SqlRunner {
@@ -145,6 +171,7 @@ export async function clubCheckIn(
     let linkUserId: string | null = null;
     let doorRule: string | null = null;
     let doorLocation: string | null = null;
+    let doorStranger = false;
     if (request.method === 'door') {
       // The controller is live, a door, and this club's — in this transaction.
       const device = await tx.execute(sql`
@@ -156,13 +183,23 @@ export async function clubCheckIn(
       doorLocation = text(device.rows[0]?.location_id);
       if (!doorRule || !doorLocation) return { status: 'not_allowed' };
       const credential = request.credential;
+      // `stranger`: a record its holder made for themselves (ensureSelfRecord:
+      // a trial, an inquiry, an online booking) that the club has never
+      // handled — a «lead» by the module's one definition (club_member_status:
+      // no abonnement ever sold to it) with no card issued by the desk. A
+      // client the desk keeps is never one, with or without an abonnement.
       const found = await tx.execute(sql`
-        SELECT id, display_name, archived_at FROM club_members
-         WHERE club_id = ${clubId}::uuid
+        SELECT m.id, m.display_name, m.archived_at,
+               (m.source = 'self' AND m.card_token_hash IS NULL
+                AND EXISTS (SELECT 1 FROM club_member_status st
+                             WHERE st.club_id = m.club_id AND st.member_id = m.id
+                               AND st.status = 'lead')) AS stranger
+          FROM club_members m
+         WHERE m.club_id = ${clubId}::uuid
            AND ${
              credential.kind === 'card'
-               ? sql`card_token_hash = ${sha256Hex(credential.cardKey)}`
-               : sql`id = ${credential.memberId}::uuid`
+               ? sql`m.card_token_hash = ${sha256Hex(credential.cardKey)}`
+               : sql`m.id = ${credential.memberId}::uuid`
            }
       `);
       const record = found.rows[0];
@@ -176,6 +213,7 @@ export async function clubCheckIn(
         };
       }
       memberId = String(record.id);
+      doorStranger = record.stranger === true;
       const link = await tx.execute(sql`
         SELECT user_id FROM club_member_links
          WHERE club_id = ${clubId}::uuid AND member_id = ${memberId}::uuid AND status = 'active'
@@ -255,10 +293,14 @@ export async function clubCheckIn(
       `);
       if (location.rows.length === 0) return { status: 'not_found' };
     }
+    // Among the client's bookings that are "now", one not ticked yet comes
+    // first: the earliest alone would answer 'already' for the first of two
+    // classes back to back until it ended, and never reach the second.
     const occurrence = await tx.execute(sql`
       SELECT o.id, o.starts_at, o.ends_at, k.title, k.sport, k.location_id, k.covers_all_plans,
              k.id AS class_id,
-             o.starts_at <= now() + make_interval(mins => ${CHECKIN_EARLY_MINUTES}::int) AS open
+             o.starts_at <= now() + make_interval(mins => ${CHECKIN_EARLY_MINUTES}::int) AS open,
+             to_char(o.starts_at AT TIME ZONE 'Europe/Sofia', 'YYYY-MM-DD') AS sofia_day
         FROM club_class_occurrences o
         JOIN club_classes k ON k.id = o.class_id
        WHERE o.club_id = ${clubId}::uuid AND o.status = 'scheduled'
@@ -272,7 +314,10 @@ export async function clubCheckIn(
                    AND o.ends_at > now()
                    ${requestedLocation ? sql`AND k.location_id = ${requestedLocation}::uuid` : sql``}`
          }
-       ORDER BY o.starts_at
+       ORDER BY EXISTS (SELECT 1 FROM club_checkins seen
+                         WHERE seen.club_id = o.club_id AND seen.occurrence_id = o.id
+                           AND seen.member_id = ${memberId}::uuid),
+                o.starts_at
        LIMIT 1
     `);
     const occ = occurrence.rows[0];
@@ -312,64 +357,6 @@ export async function clubCheckIn(
     `);
     const cover = coverage.rows[0];
 
-    // A door under the 'covered' rule stays shut for a client with nothing
-    // that covers this visit — and since nobody came in, nothing is recorded.
-    // Unless they are ALREADY in: the scan that let them in may have spent a
-    // pack's last visit (the pack is then 'exhausted'), and a second scan for
-    // the same class or open-gym day — a slow turnstile, a trip to the car —
-    // is the same visit, answered 'already' below.
-    const alreadyIn =
-      request.method === 'door' && doorRule === 'covered' && !cover
-        ? await tx.execute(sql`
-            SELECT 1 FROM club_checkins
-             WHERE club_id = ${clubId}::uuid AND member_id = ${memberId}::uuid
-               AND ${
-                 occ
-                   ? sql`occurrence_id = ${String(occ.id)}::uuid`
-                   : sql`occurrence_id IS NULL AND location_id = ${locationId}::uuid
-                         AND sofia_day = (now() AT TIME ZONE 'Europe/Sofia')::date`
-               }
-          `)
-        : null;
-    if (alreadyIn !== null && alreadyIn.rows.length === 0) {
-      return {
-        status: 'denied',
-        denial: 'not_covered',
-        memberId,
-        memberName: String(member.rows[0]?.display_name ?? ''),
-        isMinor,
-        covered: false,
-        membership: null,
-      };
-    }
-
-    // 5. The record — once per class, once per open-gym day. Nobody at the
-    // desk vouched for a kiosk scan, an integration's call or a door.
-    const recordedBy =
-      request.method === 'qr_kiosk' || request.method === 'api' || request.method === 'door'
-        ? null
-        : request.actor.userId;
-    const inserted = await tx.execute(sql`
-      INSERT INTO club_checkins (club_id, member_id, occurrence_id, location_id, method, recorded_by,
-                                 consumed_membership_id, covered, sofia_day)
-      VALUES (${clubId}::uuid, ${memberId}::uuid, ${occ ? String(occ.id) : null}::uuid,
-              ${locationId}::uuid, ${request.method}, ${recordedBy},
-              ${cover ? String(cover.membership_id) : null}::uuid, ${Boolean(cover)},
-              (now() AT TIME ZONE 'Europe/Sofia')::date)
-      ON CONFLICT DO NOTHING
-      RETURNING id, sofia_day::text AS sofia_day
-    `);
-    const membership = cover
-      ? {
-          planName: String(cover.plan_name),
-          kind: String(cover.kind),
-          visitsRemaining:
-            cover.visits_remaining === null
-              ? null
-              : Math.max(0, Number(cover.visits_remaining) - (inserted.rows.length > 0 ? 1 : 0)),
-          endsOn: String(cover.effective_ends_on),
-        }
-      : null;
     const base = {
       memberId,
       memberName: String(member.rows[0]?.display_name ?? ''),
@@ -377,33 +364,194 @@ export async function clubCheckIn(
       classTitle: occ ? String(occ.title) : null,
       classStart: occ ? iso(occ.starts_at) : null,
     };
-    const row = inserted.rows[0];
-    if (!row) {
-      const existing = await tx.execute(sql`
+    /** An abonnement as the desk is told of it; `spent` when this tick takes a visit of it. */
+    const describe = (
+      balance: Record<string, unknown> | undefined,
+      spent: boolean,
+    ): CheckinOutcome['membership'] =>
+      balance
+        ? {
+            planName: String(balance.plan_name),
+            kind: String(balance.kind),
+            visitsRemaining:
+              balance.visits_remaining === null
+                ? null
+                : Math.max(0, Number(balance.visits_remaining) - (spent ? 1 : 0)),
+            endsOn: String(balance.effective_ends_on),
+          }
+        : null;
+    const already = (checkinId: string | null): CheckinOutcome => ({
+      status: 'already',
+      checkinId: checkinId ?? undefined,
+      ...base,
+      covered: Boolean(cover),
+      membership: describe(cover, false),
+      passport: false,
+    });
+
+    // 5. The record — once per class, once per arrival (see the header).
+    // First, what is on the books already.
+    /** The client's row for one class. */
+    const rowOfClass = async (occurrenceId: string): Promise<string | null> => {
+      const found = await tx.execute(sql`
         SELECT id FROM club_checkins
          WHERE club_id = ${clubId}::uuid AND member_id = ${memberId}::uuid
-           AND ${
-             occ
-               ? sql`occurrence_id = ${String(occ.id)}::uuid`
-               : sql`occurrence_id IS NULL AND location_id = ${locationId}::uuid
-                     AND sofia_day = (now() AT TIME ZONE 'Europe/Sofia')::date`
-           }
+           AND occurrence_id = ${occurrenceId}::uuid
       `);
-      return {
-        status: 'already',
-        checkinId: text(existing.rows[0]?.id) ?? undefined,
-        ...base,
-        covered: Boolean(cover),
-        membership,
-        passport: false,
-      };
-    }
-    const checkinId = String(row.id);
+      return text(found.rows[0]?.id);
+    };
+    /**
+     * The client's arrival TODAY at this location: the open-gym row, or the
+     * row of a class that is today's — by the class's own day, since a late
+     * tick for an older class is recorded today without being today's visit.
+     */
+    const rowOfToday = async (): Promise<string | null> => {
+      const found = await tx.execute(sql`
+        SELECT ci.id FROM club_checkins ci
+          LEFT JOIN club_class_occurrences co
+                 ON co.club_id = ci.club_id AND co.id = ci.occurrence_id
+         WHERE ci.club_id = ${clubId}::uuid AND ci.member_id = ${memberId}::uuid
+           AND ci.location_id = ${locationId}::uuid
+           AND CASE WHEN ci.occurrence_id IS NULL THEN ci.sofia_day = ${SOFIA_TODAY_SQL}
+                    ELSE (co.starts_at AT TIME ZONE 'Europe/Sofia')::date = ${SOFIA_TODAY_SQL} END
+         ORDER BY ci.checked_in_at DESC, ci.id
+         LIMIT 1
+      `);
+      return text(found.rows[0]?.id);
+    };
+    const existingId = occ ? await rowOfClass(String(occ.id)) : await rowOfToday();
 
-    // 6. The passport bridge.
-    let passport = false;
+    // A door may stay shut: under 'covered' for a client with nothing that
+    // covers this visit, under either rule for a record the club has never
+    // handled — and since nobody came in, nothing is recorded. Unless they
+    // are ALREADY in today: the scan that let them in may have spent a pack's
+    // last visit (the pack is then 'exhausted'), and a second scan — a slow
+    // turnstile, a trip to the car, a next class the spent card does not
+    // cover — opens the door for the visit they are on and records nothing
+    // new.
+    if (request.method === 'door' && ((doorRule === 'covered' && !cover) || doorStranger)) {
+      const inside = existingId ?? (occ ? await rowOfToday() : null);
+      if (!inside) {
+        return {
+          status: 'denied',
+          denial: 'not_covered',
+          memberId,
+          memberName: base.memberName,
+          isMinor,
+          covered: false,
+          membership: null,
+        };
+      }
+      // Let through on another row than this class's: the class is not ticked.
+      return inside === existingId
+        ? already(inside)
+        : { ...already(inside), classTitle: null, classStart: null };
+    }
+    if (existingId) return already(existingId);
+
+    // Nobody at the desk vouched for a kiosk scan, an integration's call or a
+    // door.
+    const recordedBy =
+      request.method === 'qr_kiosk' || request.method === 'api' || request.method === 'door'
+        ? null
+        : request.actor.userId;
     const method: ClubCheckinMethod = request.method;
-    if (linkUserId && PASSPORT_CHECKIN_METHODS.includes(method)) {
+    const scanned = PASSPORT_CHECKIN_METHODS.includes(method);
+
+    let checkinId: string | null = null;
+    let sofiaDay = '';
+    let covered = Boolean(cover);
+    let membership = describe(cover, true);
+    let joined = false;
+    let hasLog = false;
+
+    // A class tick takes over the open-gym row of the class's day here, when
+    // there is one: the same arrival (see the header). Locked, so a second
+    // tick arriving with this one finds the row already a class row.
+    if (occ) {
+      const open = await tx.execute(sql`
+        SELECT ci.id, ci.method, ci.consumed_membership_id, ci.covered, ci.training_log_id,
+               ci.sofia_day::text AS sofia_day,
+               EXISTS (SELECT 1 FROM club_memberships ms
+                        WHERE ms.club_id = ci.club_id AND ms.id = ci.consumed_membership_id
+                          AND (${occ.covers_all_plans === true}
+                               OR EXISTS (SELECT 1 FROM club_class_plans cp
+                                           WHERE cp.class_id = ${String(occ.class_id)}::uuid
+                                             AND cp.plan_id = ms.plan_id))) AS keeps
+          FROM club_checkins ci
+         WHERE ci.club_id = ${clubId}::uuid AND ci.member_id = ${memberId}::uuid
+           AND ci.occurrence_id IS NULL AND ci.location_id = ${locationId}::uuid
+           AND ci.sofia_day = ${String(occ.sofia_day)}::date
+           FOR UPDATE OF ci
+      `);
+      const arrival = open.rows[0];
+      // The visit stays on the abonnement it was counted against when that
+      // one covers the class too; else it moves to the one that does. A paid
+      // hall visit and a class nothing covers stay two rows: joining them
+      // would either hand the visit back or call the class paid.
+      const keeps = arrival?.keeps === true;
+      const apart = !keeps && !cover && arrival?.covered === true;
+      if (arrival && !apart) {
+        const paidBy = keeps
+          ? String(arrival.consumed_membership_id)
+          : cover
+            ? String(cover.membership_id)
+            : null;
+        // Taken over by a scan, the row is a scan: that is what the passport
+        // bridge (and its database guard) asks of a check-in.
+        const becomesScan =
+          scanned &&
+          !PASSPORT_CHECKIN_METHODS.includes(String(arrival.method) as ClubCheckinMethod);
+        const taken = await tx.execute(sql`
+          UPDATE club_checkins ci
+             SET occurrence_id = ${String(occ.id)}::uuid,
+                 consumed_membership_id = ${paidBy}::uuid, covered = ${paidBy !== null}
+                 ${becomesScan ? sql`, method = ${method}, recorded_by = ${recordedBy}` : sql``}
+           WHERE ci.id = ${String(arrival.id)}::uuid AND ci.occurrence_id IS NULL
+          RETURNING ci.id
+        `);
+        if (taken.rows.length > 0) {
+          checkinId = String(arrival.id);
+          sofiaDay = String(arrival.sofia_day);
+          covered = paidBy !== null;
+          joined = true;
+          hasLog = arrival.training_log_id !== null && arrival.training_log_id !== undefined;
+          if (keeps) {
+            // No new visit: the one already counted stands.
+            const kept = await tx.execute(sql`
+              SELECT b.plan_name, b.kind, b.visits_remaining,
+                     to_char(b.effective_ends_on, 'YYYY-MM-DD') AS effective_ends_on
+                FROM club_membership_balances b
+               WHERE b.club_id = ${clubId}::uuid AND b.membership_id = ${paidBy}::uuid
+            `);
+            membership = describe(kept.rows[0], false);
+          }
+        }
+      }
+    }
+
+    if (checkinId === null) {
+      const inserted = await tx.execute(sql`
+        INSERT INTO club_checkins (club_id, member_id, occurrence_id, location_id, method, recorded_by,
+                                   consumed_membership_id, covered, sofia_day)
+        VALUES (${clubId}::uuid, ${memberId}::uuid, ${occ ? String(occ.id) : null}::uuid,
+                ${locationId}::uuid, ${request.method}, ${recordedBy},
+                ${cover ? String(cover.membership_id) : null}::uuid, ${Boolean(cover)},
+                ${SOFIA_TODAY_SQL})
+        ON CONFLICT DO NOTHING
+        RETURNING id, sofia_day::text AS sofia_day
+      `);
+      const row = inserted.rows[0];
+      // The same tick, a moment earlier, on another connection.
+      if (!row) return already(occ ? await rowOfClass(String(occ.id)) : await rowOfToday());
+      checkinId = String(row.id);
+      sofiaDay = String(row.sofia_day);
+    }
+
+    // 6. The passport bridge. A row that already carries a diary entry — an
+    // earlier scan's — keeps that one.
+    let passport = false;
+    if (linkUserId && scanned && !hasLog) {
       const clubSports = club.rows[0]?.sports;
       const rawSport = occ
         ? String(occ.sport)
@@ -427,7 +575,7 @@ export async function clubCheckIn(
         INSERT INTO training_logs (user_id, sport, started_at, sofia_day, duration_s, facility_id,
                                    municipality_id, source, evidence, external_id)
         SELECT ${linkUserId}, ${sport}, ${occ ? iso(occ.starts_at) : sql`now()`}::timestamptz,
-               ${String(row.sofia_day)}::date, ${durationS}, l.facility_id,
+               ${sofiaDay}::date, ${durationS}, l.facility_id,
                coalesce(f.municipality_id, c.municipality_id), 'club', 'qr_verified', ${checkinId}
           FROM club_locations l
           JOIN clubs c ON c.id = l.club_id
@@ -455,13 +603,13 @@ export async function clubCheckIn(
             : { kind: 'staff', actor: request.actor },
       action: 'checkin_recorded',
       subjectMemberId: memberId,
-      detail: { method, covered: Boolean(cover), passport },
+      detail: { method, covered, passport, ...(joined ? { joined: true } : {}) },
     });
     return {
       status: 'recorded',
       checkinId,
       ...base,
-      covered: Boolean(cover),
+      covered,
       membership,
       passport,
     };

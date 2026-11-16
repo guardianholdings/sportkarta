@@ -193,6 +193,40 @@ export async function setPlanArchived(
 
 // ─── The sale ──────────────────────────────────────────────────────────────
 
+/**
+ * SQL: the client (`member` alias, a club_members row) holds the plan (`plan`
+ * alias, a club_plans row) as the tail of a chain the renewals job will carry
+ * on — renewClubMemberships' own candidates (db/src/clubs/policies.ts): it
+ * renews, was not cancelled, no notice is running, and no next period exists
+ * yet. The period's state is deliberately not asked: a tail that ended
+ * yesterday is renewed by tomorrow's run all the same.
+ */
+export function renewingTailSql(member: 'm', plan: 'p'): SQL {
+  const m = sql.raw(member);
+  const p = sql.raw(plan);
+  return sql`EXISTS (SELECT 1 FROM club_memberships rt
+                      WHERE rt.club_id = ${m}.club_id AND rt.member_id = ${m}.id
+                        AND rt.plan_id = ${p}.id AND rt.renews AND rt.cancelled_at IS NULL
+                        AND rt.renewal_ends_on IS NULL
+                        AND NOT EXISTS (SELECT 1 FROM club_memberships nx
+                                         WHERE nx.renewal_of = rt.id))`;
+}
+
+/**
+ * SQL: the membership `ms` (a club_memberships row; `b` is its
+ * club_membership_balances row) will be followed by a next period without
+ * anyone selling one — it renews, and its notice, if any, has not run out by
+ * the day after it ends. Such a period is not "expiring": telling the client
+ * or the desk to renew it is how a second chain gets sold.
+ */
+export function renewsItselfSql(ms: 'ms', b: 'b'): SQL {
+  const m = sql.raw(ms);
+  const bal = sql.raw(b);
+  return sql`(${m}.renews AND ${m}.cancelled_at IS NULL
+              AND (${m}.renewal_ends_on IS NULL
+                   OR ${bal}.effective_ends_on + 1 <= ${m}.renewal_ends_on))`;
+}
+
 export type SaleResult =
   { ok: true; membershipId: string; chargeId: string | null } | { ok: false; error: string };
 
@@ -232,7 +266,8 @@ export async function sellMembership(
                    AND b.state IN ('active', 'paused', 'upcoming')) AS live_members,
                (SELECT count(*)::int FROM club_membership_balances b
                  WHERE b.club_id = c.id AND b.member_id = m.id
-                   AND b.state IN ('active', 'paused', 'upcoming')) AS member_live
+                   AND b.state IN ('active', 'paused', 'upcoming')) AS member_live,
+               ${renewingTailSql('m', 'p')} AS renewing_same
           FROM club_plans p
           JOIN club_members m ON m.club_id = p.club_id AND m.id = ${input.memberId}::uuid
           JOIN clubs c ON c.id = p.club_id
@@ -250,12 +285,20 @@ export async function sellMembership(
       if (cap !== null && Number(plan.member_live) === 0 && Number(plan.live_members) >= cap) {
         return { ok: false, error: 'member_cap_reached' } as const;
       }
+      // The client already holds this plan on auto-renewal: the renewals job
+      // will append its next period and raise its charge whatever is sold
+      // here, so a second sale would bill every period twice from now on.
+      if (plan.renewing_same === true) return { ok: false, error: 'already_renewing' } as const;
       const endsOn = membershipEndsOn(
         input.startsOn,
         plan.validity_days !== null
           ? { days: Number(plan.validity_days) }
           : { months: Number(plan.validity_months) },
       );
+      // A mistyped year: the period would be over before it was sold. The
+      // client would be paid up and uncovered, and a renewing plan would be
+      // restarted — and charged again — by the next renewals run.
+      if (endsOn < sofiaToday()) return { ok: false, error: 'starts_on_invalid' } as const;
       // The offer, if any (0049): decided here, in this transaction, on the
       // plan's list price — the desk never computes a discount by hand.
       const listCents = Number(plan.price_cents);
@@ -380,13 +423,15 @@ export async function previewMembershipSale(
 ): Promise<SalePreview> {
   const found = (
     await db.execute(sql`
-      SELECT p.price_cents FROM club_plans p
+      SELECT p.price_cents, ${renewingTailSql('m', 'p')} AS renewing_same FROM club_plans p
         JOIN club_members m ON m.club_id = p.club_id AND m.id = ${input.memberId}::uuid
        WHERE ${clubScope(actor, 'sales.manage', 'p')} AND p.id = ${input.planId}::uuid
          AND p.archived_at IS NULL AND m.archived_at IS NULL
     `)
   ).rows[0];
   if (!found) return { ok: false, error: 'plan_unavailable' };
+  // Said before the desk takes the money, not after (sellMembership refuses it).
+  if (found.renewing_same === true) return { ok: false, error: 'already_renewing' };
   const listCents = Number(found.price_cents);
   const offer = await previewOffer(
     db,
@@ -835,6 +880,18 @@ export async function paymentLedger(
   method: string | null,
 ): Promise<{ rows: LedgerRow[]; totalCents: number; byMethod: Record<string, number> }> {
   const from = `${month}-01`;
+  const inMonth = sql`pay.received_on >= ${from}::date
+       AND pay.received_on < (${from}::date + interval '1 month')
+       ${method ? sql`AND pay.method = ${method}` : sql``}`;
+  // The sums come from the database, over EVERY row of the month: the table
+  // below is capped, and a figure added up from a capped list would fall short
+  // of the monthly report in a busy club without saying so.
+  const sums = await getDb().execute(sql`
+    SELECT pay.method, sum(pay.amount_cents)::bigint AS cents
+      FROM club_payments pay
+     WHERE ${clubScope(actor, 'payments.view', 'pay')} AND ${inMonth}
+     GROUP BY pay.method
+  `);
   const rows = await getDb().execute(sql`
     SELECT pay.id, to_char(pay.received_on, 'YYYY-MM-DD') AS received_on, pay.member_id,
            m.display_name AS member_name, ch.label, pay.kind, pay.method, pay.amount_cents,
@@ -844,9 +901,7 @@ export async function paymentLedger(
       LEFT JOIN club_members m ON m.club_id = pay.club_id AND m.id = pay.member_id
       LEFT JOIN users u ON u.id = pay.recorded_by
       LEFT JOIN club_staff st ON st.club_id = pay.club_id AND st.user_id = pay.recorded_by
-     WHERE ${clubScope(actor, 'payments.view', 'pay')}
-       AND pay.received_on >= ${from}::date AND pay.received_on < (${from}::date + interval '1 month')
-       ${method ? sql`AND pay.method = ${method}` : sql``}
+     WHERE ${clubScope(actor, 'payments.view', 'pay')} AND ${inMonth}
      ORDER BY pay.received_on DESC, pay.id DESC
      LIMIT 2000
   `);
@@ -863,11 +918,13 @@ export async function paymentLedger(
   }));
   const byMethod: Record<string, number> = {};
   let totalCents = 0;
-  for (const row of ledger) {
+  for (const row of sums.rows) {
+    const paidBy = String(row.method);
+    const cents = Number(row.cents);
     // Money received: paying with credit (0050) is not new money — it came
     // in once, as the top-up. It keeps its own line in byMethod.
-    if (row.method !== 'wallet') totalCents += row.amountCents;
-    byMethod[row.method] = (byMethod[row.method] ?? 0) + row.amountCents;
+    if (paidBy !== 'wallet') totalCents += cents;
+    byMethod[paidBy] = cents;
   }
   return { rows: ledger, totalCents, byMethod };
 }
@@ -910,4 +967,40 @@ export async function openCharges(
     dueOn: String(row.due_on),
     status: String(row.status),
   }));
+}
+
+/**
+ * One charge with money on it, whatever its state — the payment form's choice
+ * when the desk gives money BACK. A charge that is fully paid, or void with a
+ * payment still on it, is not owed and so is not among `openCharges`; without
+ * this it could not be chosen and a paid sale could never be refunded. Top-ups
+ * are left out: credit is paid back by its own path (wallet.ts).
+ */
+export async function paidCharge(
+  actor: ClubActor,
+  chargeId: string,
+): Promise<(OpenCharge & { paidCents: number }) | null> {
+  const row = (
+    await getDb().execute(sql`
+      SELECT cb.charge_id, cb.member_id, m.display_name, cb.label, cb.amount_cents, cb.due_cents,
+             cb.paid_cents, to_char(cb.due_on, 'YYYY-MM-DD') AS due_on, cb.status
+        FROM club_charge_balances cb
+        LEFT JOIN club_members m ON m.club_id = cb.club_id AND m.id = cb.member_id
+       WHERE cb.club_id = ${actor.clubId}::uuid
+         AND ${clubActorMay(actor, 'payments.view', { write: false })}
+         AND cb.charge_id = ${chargeId}::uuid AND cb.paid_cents > 0 AND cb.kind <> 'wallet'
+    `)
+  ).rows[0];
+  if (!row) return null;
+  return {
+    id: String(row.charge_id),
+    memberId: text(row.member_id),
+    memberName: text(row.display_name),
+    label: String(row.label),
+    amountCents: Number(row.amount_cents),
+    dueCents: Number(row.due_cents),
+    dueOn: String(row.due_on),
+    status: String(row.status),
+    paidCents: Number(row.paid_cents),
+  };
 }

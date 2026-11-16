@@ -16,13 +16,30 @@ import { HORIZON_WEEKS } from '../sessions/materialize.js';
  *
  * Reconciling an edited rule never touches an occurrence that has started, and
  * never deletes one with a booking or a check-in: those are cancelled instead,
- * so the bookers are told and the attendance record survives.
+ * so the attendance record survives — and the report NAMES the cancelled ones
+ * somebody was booked on (`cancelledOccurrenceIds`), because that is the only
+ * way the worker can tell the bookers (it enqueues `class_cancelled` for them).
+ *
+ * The dates the rule STILL has are reconciled too:
+ *   - a duration edit reaches the occurrences already on the calendar
+ *     (`ends_at`, and with it the room's claim);
+ *   - a date this job cancelled for an earlier edit (scope 'series') and that
+ *     the rule has again — the time was changed back — is put back on ONLY
+ *     when nobody is booked on it and nobody was told it is off: a booker who
+ *     was told keeps believing it, and the notice ledger sends a date's
+ *     cancellation to a person once (its key is the occurrence and the
+ *     member — lib/src/clubs/vocab.ts `dedupeKey`), so a date brought back
+ *     after its notice could never announce a second cancellation to them.
+ *     Those dates stay off. A date the office cancelled by hand (scope
+ *     'occurrence') is a decision and is never brought back, and a cancelled
+ *     CLASS never gets here at all (only a scheduled class is materialized).
  *
  * A class in a ROOM (0048) claims it per occurrence, so the order matters:
  * the reconcile runs FIRST (a class moved from 18:00 to 18:30 must let go of
- * its 18:00 claims before claiming 18:30), and each new occurrence is inserted
- * under its own savepoint — one that collides with a booking or a closure is
- * skipped and reported (`conflicts`), never allowed to stall the whole class.
+ * its 18:00 claims before claiming 18:30), and each occurrence is inserted,
+ * re-timed or put back on under its own savepoint — one that collides with a
+ * booking or a closure is skipped and reported (`conflicts`), never allowed to
+ * stall the whole class.
  */
 
 const LOOKBACK_MS = 24 * 60 * 60 * 1000;
@@ -40,7 +57,19 @@ export interface ClubMaterializeReport {
   occurrencesCreated: number;
   occurrencesCancelled: number;
   occurrencesRemoved: number;
-  /** Occurrences not created because their room was taken (0048). */
+  /** Dates an earlier edit had cancelled, back in the rule and on again. */
+  occurrencesReinstated: number;
+  /** Occurrences whose end followed the class's edited duration. */
+  occurrencesRetimed: number;
+  /**
+   * Of the cancelled, those somebody was booked on — the bookers are owed a
+   * `class_cancelled` notice, which the caller enqueues. Ids only.
+   */
+  cancelledOccurrenceIds: string[];
+  /**
+   * Occurrences not created — or not given their new end, or not put back on —
+   * because their room was taken (0048).
+   */
   conflicts: { classId: string; startsAt: string }[];
   failures: { classId: string; code: string }[];
 }
@@ -74,6 +103,9 @@ export async function materializeClubClasses(
     occurrencesCreated: 0,
     occurrencesCancelled: 0,
     occurrencesRemoved: 0,
+    occurrencesReinstated: 0,
+    occurrencesRetimed: 0,
+    cancelledOccurrenceIds: [],
     conflicts: [],
     failures: [],
   };
@@ -153,16 +185,24 @@ async function materializeOne(
 
     const keep = occurrences.map((o) => o.startsAt.toISOString());
     const bounds = [classId, from.toISOString(), horizon.toISOString(), keep];
-    const cancelled = await client.query(
+    const cancelled = await client.query<{ id: string; booked: boolean }>(
       `UPDATE club_class_occurrences o
           SET status = 'cancelled', cancelled_at = now(), cancellation_scope = 'series'
         WHERE o.class_id = $1::uuid AND o.status = 'scheduled'
           AND o.starts_at >= greatest($2::timestamptz, now()) AND o.starts_at < $3::timestamptz
           AND o.starts_at <> ALL($4::timestamptz[])
           AND (EXISTS (SELECT 1 FROM club_bookings b WHERE b.occurrence_id = o.id AND b.state = 'active')
-               OR EXISTS (SELECT 1 FROM club_checkins c WHERE c.occurrence_id = o.id))`,
+               OR EXISTS (SELECT 1 FROM club_checkins c WHERE c.occurrence_id = o.id))
+        RETURNING o.id,
+                  EXISTS (SELECT 1 FROM club_bookings b
+                           WHERE b.occurrence_id = o.id AND b.state = 'active') AS booked`,
       bounds,
     );
+    // Only a date somebody is booked on is anybody's news (one kept for its
+    // check-in alone has nobody to tell).
+    for (const gone of cancelled.rows) {
+      if (gone.booked) report.cancelledOccurrenceIds.push(gone.id);
+    }
     const removed = await client.query(
       `DELETE FROM club_class_occurrences o
         WHERE o.class_id = $1::uuid AND o.status = 'scheduled'
@@ -173,6 +213,55 @@ async function materializeOne(
     );
     report.occurrencesCancelled += cancelled.rowCount ?? 0;
     report.occurrencesRemoved += removed.rowCount ?? 0;
+
+    // The dates the rule still has, not yet begun, that no longer agree with
+    // it (see the header): a scheduled one whose end is not the class's
+    // duration any more, and one an earlier edit cancelled that nobody is
+    // booked on and nobody was told about. Row by row under a savepoint —
+    // putting a date back on, or making it longer, re-claims its room, and a
+    // room taken at one date must skip that date, not the class.
+    const stale = await client.query<{ id: string; starts_at: Date; reinstate: boolean }>(
+      `SELECT o.id, o.starts_at, (o.status = 'cancelled') AS reinstate
+         FROM club_class_occurrences o
+         JOIN unnest($4::timestamptz[], $5::timestamptz[]) AS w(s, e) ON w.s = o.starts_at
+        WHERE o.class_id = $1::uuid
+          AND o.starts_at >= greatest($2::timestamptz, now()) AND o.starts_at < $3::timestamptz
+          AND ((o.status = 'scheduled' AND o.ends_at <> w.e)
+               OR (o.status = 'cancelled' AND o.cancellation_scope = 'series'
+                   AND NOT EXISTS (SELECT 1 FROM club_bookings b
+                                    WHERE b.occurrence_id = o.id AND b.state = 'active')
+                   AND NOT EXISTS (SELECT 1 FROM club_bookings b
+                                     JOIN club_notifications n
+                                       ON n.club_id = b.club_id
+                                      AND n.dedupe_key = 'class_cancelled:' || b.occurrence_id::text
+                                                         || ':' || b.member_id::text
+                                    WHERE b.occurrence_id = o.id)))
+        ORDER BY o.starts_at`,
+      [...bounds, occurrences.map((o) => o.endsAt.toISOString())],
+    );
+    const endOf = new Map(occurrences.map((o) => [o.startsAt.getTime(), o.endsAt.toISOString()]));
+    for (const row of stale.rows) {
+      const startsAt = new Date(row.starts_at);
+      const endsAt = endOf.get(startsAt.getTime());
+      if (!endsAt) continue;
+      await client.query('SAVEPOINT occurrence');
+      try {
+        await client.query(
+          `UPDATE club_class_occurrences
+              SET status = 'scheduled', cancelled_at = NULL, cancellation_scope = NULL,
+                  ends_at = $2::timestamptz
+            WHERE id = $1::uuid`,
+          [row.id, endsAt],
+        );
+        await client.query('RELEASE SAVEPOINT occurrence');
+        if (row.reinstate) report.occurrencesReinstated += 1;
+        else report.occurrencesRetimed += 1;
+      } catch (error: unknown) {
+        await client.query('ROLLBACK TO SAVEPOINT occurrence');
+        if (errorCode(error) !== '23P01') throw error;
+        report.conflicts.push({ classId, startsAt: startsAt.toISOString() });
+      }
+    }
 
     // After the reconcile (see the header): one savepoint per occurrence, so a
     // room taken at one date skips that date and reports it.

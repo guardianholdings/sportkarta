@@ -764,6 +764,12 @@ async function main(): Promise<void> {
   // A club's rolling occurrence window — the session materializer's twin, at
   // :11 so the two hourly scans do not start together. Also sent with a
   // classId right after a class is saved.
+  //
+  // An edited class can leave behind dates it no longer has; the ones somebody
+  // was booked on are cancelled by the reconcile, and their bookers are told
+  // here — the same `class_cancelled` job the office's own cancellation sends
+  // (ids only; club-mail-job.ts reads who is still booked, and the ledger
+  // makes a second job for the same date mail nobody twice).
   await work(CLUB_MATERIALIZE_QUEUE, { batchSize: 1 }, async (jobs) => {
     for (const job of jobs) {
       const data = (job.data ?? {}) as ClubMaterializeJob;
@@ -772,7 +778,12 @@ async function main(): Promise<void> {
         // Counts only; a class id is a club's object, logged only on failure.
         console.log(
           `[worker] ${CLUB_MATERIALIZE_QUEUE} job ${job.id}: ${String(report.classesProcessed)} class(es), ` +
-            `+${String(report.occurrencesCreated)} created, ${String(report.failures.length)} failed, ` +
+            `+${String(report.occurrencesCreated)} created, ` +
+            `${String(report.occurrencesCancelled)} cancelled ` +
+            `(${String(report.cancelledOccurrenceIds.length)} with bookings), ` +
+            `${String(report.occurrencesRemoved)} removed, ` +
+            `${String(report.occurrencesReinstated)} reinstated, ` +
+            `${String(report.occurrencesRetimed)} re-timed, ${String(report.failures.length)} failed, ` +
             `${String(report.conflicts.length)} skipped (room taken)`,
         );
       }
@@ -780,6 +791,28 @@ async function main(): Promise<void> {
         console.error(
           `[worker] ${CLUB_MATERIALIZE_QUEUE} class ${failure.classId}: ${failure.code}`,
         );
+      }
+      // A job carries at most 500 ids (lib/src/clubs/jobs.ts).
+      const cancelled = report.cancelledOccurrenceIds;
+      for (let at = 0; at < cancelled.length; at += 500) {
+        const notice: ClubNotifyJob = {
+          kind: 'class_cancelled',
+          occurrenceIds: cancelled.slice(at, at + 500),
+        };
+        try {
+          await boss.send(CLUB_NOTIFY_QUEUE, notice);
+        } catch (error: unknown) {
+          // The cancellation is committed, so a retry of this job finds
+          // nothing left to cancel and nothing to tell: the ids (these and
+          // the chunks not reached) are the only way anybody can still send
+          // the notice by hand. Occurrence ids are a club's objects, not
+          // personal data.
+          console.error(
+            `[worker] ${CLUB_MATERIALIZE_QUEUE} job ${job.id}: class_cancelled notice not enqueued ` +
+              `for occurrence(s) ${cancelled.slice(at).join(', ')}`,
+          );
+          throw error;
+        }
       }
     }
   });

@@ -521,6 +521,22 @@ export default async function MemberCardPage({
                             {charge.invoiceId ? t('card.invoiceOpen') : t('card.invoiceIssue')}
                           </Link>
                         )}
+                      {/* Money back on a paid charge: it is no longer owed, so
+                          the payment form would not list it without this. */}
+                      {charge.paidCents > 0 &&
+                        charge.kind !== 'wallet' &&
+                        !charge.invoiceId &&
+                        actorCan(actor, 'payments.record') && (
+                          <Link
+                            href={{
+                              pathname: `${base}/plashtaniya`,
+                              query: { zadalzhenie: charge.id, vrashtane: '1' },
+                            }}
+                            className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+                          >
+                            {t('card.giveBack')}
+                          </Link>
+                        )}
                       {charge.status !== 'void' &&
                         charge.kind !== 'wallet' &&
                         actorCan(actor, 'charges.void') && (
