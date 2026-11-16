@@ -21,6 +21,7 @@ import { generateCardKey, sha256Hex } from '@sportkarta/lib/clubs/secrets';
 
 import { recordClubAudit } from './audit';
 import type { MemberInput } from './input';
+import { liveInvoiceFor } from './invoices';
 import { clubActorMay, clubScope, clubWriteScope, type ClubActor } from './scope';
 
 /**
@@ -91,13 +92,18 @@ const DERIVED_COLUMNS = MEMBER_DERIVED_COLUMNS;
 const filterSql = memberFilterSql;
 const segmentSql = memberSegmentSql;
 
-/** Pure: which derived segments a row belongs to (unit-tested with the SQL above). */
+/**
+ * Pure: which derived segments a row belongs to (the chips beside a name).
+ * «At risk» is not re-derived here: it needs the abonnement's start, so the
+ * row carries the segment's own SQL answer (MEMBER_AT_RISK, the `at_risk`
+ * column) and the chip can never disagree with the filter.
+ */
 export function segmentsFor(row: {
   visits30: number;
   createdDaysAgo: number;
   status: MemberStatus;
   owedCents: number;
-  daysSinceVisit: number | null;
+  atRisk: boolean;
 }): MemberSegment[] {
   const out: MemberSegment[] = [];
   if (row.visits30 >= 8) out.push('top');
@@ -105,12 +111,7 @@ export function segmentsFor(row: {
   if (row.createdDaysAgo < 30) out.push('new');
   if (row.status === 'trial') out.push('trial');
   if (row.owedCents > 0) out.push('owes');
-  if (
-    row.status === 'active' &&
-    (row.daysSinceVisit === null || row.daysSinceVisit > AT_RISK_DAYS)
-  ) {
-    out.push('at_risk');
-  }
+  if (row.atRisk) out.push('at_risk');
   return out;
 }
 
@@ -120,7 +121,9 @@ function toListRow(row: Record<string, unknown>, now: number): MemberListRow {
   const owedCents = Number(row.owed_cents ?? 0);
   const visits30 = Number(row.visits30 ?? 0);
   const createdDaysAgo = (now - new Date(String(row.created_at)).getTime()) / 86_400_000;
-  const daysSinceVisit = lastVisit ? (now - new Date(lastVisit).getTime()) / 86_400_000 : null;
+  // An archived client is nobody to win back (audienceSql and the list's
+  // default filter leave them out of the segment as well).
+  const atRisk = row.at_risk === true && status !== 'archived';
   return {
     id: String(row.id),
     displayName: String(row.display_name),
@@ -136,7 +139,7 @@ function toListRow(row: Record<string, unknown>, now: number): MemberListRow {
     lastVisit,
     visits30,
     tags: Array.isArray(row.tags) ? row.tags.map(String) : [],
-    segments: segmentsFor({ visits30, createdDaysAgo, status, owedCents, daysSinceVisit }),
+    segments: segmentsFor({ visits30, createdDaysAgo, status, owedCents, atRisk }),
     linkStatus:
       row.link_status === 'active' || row.link_status === 'pending' ? row.link_status : null,
     erasureRequested: row.erasure_requested_at !== null && row.erasure_requested_at !== undefined,
@@ -509,6 +512,16 @@ export async function updateMember(
         error: input.guardianMemberId ? 'guardian_invalid' : 'not_allowed',
       } as const;
     }
+    // An open invitation was sent to the address the record carried THEN. If
+    // the desk has just corrected it (a typo that reached a stranger), that
+    // token must stop working now — in this transaction, not at its expiry.
+    // An edit that leaves the address alone revokes nothing.
+    await tx.execute(sql`
+      UPDATE club_member_invites i SET revoked_at = now()
+       WHERE i.member_id = ${memberId}::uuid AND i.accepted_at IS NULL AND i.revoked_at IS NULL
+         AND i.email IS DISTINCT FROM ${input.email}
+         AND ${clubWriteScope(actor, 'members.manage', 'i')}
+    `);
     await recordClubAudit(tx, {
       clubId: actor.clubId,
       by: { kind: 'staff', actor },
@@ -541,6 +554,13 @@ export async function setMemberArchived(
          WHERE ms.member_id = ${memberId}::uuid AND ms.renews
            AND ${clubWriteScope(actor, 'members.manage', 'ms')}
       `);
+      // …and is no longer invited: an open invitation to a record that was
+      // archived would still open its portal to whoever holds the token.
+      await tx.execute(sql`
+        UPDATE club_member_invites i SET revoked_at = now()
+         WHERE i.member_id = ${memberId}::uuid AND i.accepted_at IS NULL AND i.revoked_at IS NULL
+           AND ${clubWriteScope(actor, 'members.manage', 'i')}
+      `);
     }
     await recordClubAudit(tx, {
       clubId: actor.clubId,
@@ -561,6 +581,16 @@ export async function setMemberArchived(
  * because an erasure obligation does not lapse with an invoice. Refused while
  * the client still has prepaid credit (0050): that is the client's money, to
  * be paid back first — erased, it would belong to nobody.
+ *
+ * WHAT THEY STILL OWED IS VOIDED HERE, in the same transaction: a charge
+ * outlives its client with member_id cleared, and the only place a charge is
+ * voided is the client's card — which will not exist. Left open it would sit
+ * in «Дължат», the dashboard's unpaid count and the owner's weekly mail for
+ * good. The void is the desk's own (sales.ts voidCharge: `voided_at`, a
+ * `charge_voided` audit row) under its own refusals — never a till sale's
+ * charge (that is reversed, with its stock), never one with a live invoice
+ * (the credit note comes first), never credit — and only a charge with no
+ * money on it: whatever was paid stays in the books, anonymised, as before.
  */
 export async function eraseMember(
   db: TransactionalDb,
@@ -582,6 +612,28 @@ export async function eraseMember(
        WHERE w.club_id = ${actor.clubId}::uuid AND w.member_id = ${memberId}::uuid
     `);
     if (Number(credit.rows[0]?.credit) > 0) return 'credit_left' as const;
+    // After the lock as well: a payment names the client, so none can land on
+    // these charges between this statement and the DELETE below.
+    const voided = await tx.execute(sql`
+      UPDATE club_charges ch SET voided_at = now()
+       WHERE ch.member_id = ${memberId}::uuid AND ch.voided_at IS NULL AND ch.kind <> 'wallet'
+         AND ${clubScope(actor, 'members.erase', 'ch')}
+         AND coalesce((SELECT sum(pp.amount_cents) FROM club_payments pp
+                        WHERE pp.charge_id = ch.id), 0) = 0
+         AND NOT EXISTS (SELECT 1 FROM club_sales sa
+                          WHERE sa.club_id = ch.club_id AND sa.charge_id = ch.id)
+         AND NOT ${liveInvoiceFor(sql`ch.club_id`, sql`ch.id`)}
+      RETURNING ch.id
+    `);
+    for (const row of voided.rows) {
+      await recordClubAudit(tx, {
+        clubId: actor.clubId,
+        by: { kind: 'staff', actor },
+        action: 'charge_voided',
+        subjectMemberId: memberId,
+        detail: { chargeId: String(row.id), reason: 'member_erased' },
+      });
+    }
     await recordClubAudit(tx, {
       clubId: actor.clubId,
       by: { kind: 'staff', actor },

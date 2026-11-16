@@ -26,6 +26,9 @@
 export const ROOT_CLIENT_NAMESPACES = [
   'Access',
   'Ads',
+  // The map card's «Състояние: добро» (components/map/facility-card.tsx). The
+  // map is the home page, so what its card reads is sent everywhere.
+  'Condition',
   // The error boundary (app/[locale]/error.tsx) can render on any page.
   'ErrorPage',
   'Facility',
@@ -36,6 +39,8 @@ export const ROOT_CLIENT_NAMESPACES = [
   'Nav',
   // The DSA notice form (/signal) has no layout of its own.
   'Notice',
+  // The map card's provenance line, like `Condition` above.
+  'Source',
   'Sport',
   'Surface',
 ] as const;
@@ -52,12 +57,15 @@ export const CLIENT_SCOPES = {
       'AdminVerify',
     ],
   },
-  addFacility: { dir: 'app/[locale]/dobavi', namespaces: ['AddFacility', 'Contribute'] },
+  addFacility: {
+    dir: 'app/[locale]/dobavi',
+    namespaces: ['AddFacility', 'Contribute', 'FormRecovery'],
+  },
   checkin: { dir: 'app/[locale]/otmetka', namespaces: ['Checkin', 'Contribute'] },
   designSystem: { dir: 'app/[locale]/design-system', namespaces: ['DesignSystem'] },
   facility: {
     dir: 'app/[locale]/obekt',
-    namespaces: ['Condition', 'ConditionTag', 'Contribute', 'Report'],
+    namespaces: ['ConditionTag', 'Contribute', 'FormRecovery', 'Report'],
   },
   passport: { dir: 'app/[locale]/pasport', namespaces: ['Share'] },
   profile: { dir: 'app/[locale]/profil', namespaces: ['Profile'] },

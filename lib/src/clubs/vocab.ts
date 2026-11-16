@@ -65,6 +65,7 @@ export const CLUB_AUDIT_ACTIONS = [
   'checkout_started',
   'online_payment_received',
   'online_refund_issued',
+  'online_payment_failed',
   'resource_saved',
   'resource_archived',
   'hours_saved',
@@ -237,6 +238,8 @@ export const CLUB_NOTIFICATION_KINDS = [
   'club_lapsed',
   'club_suspended',
   'club_contract_renewing',
+  'club_payments_revoked',
+  'renewal_payment_failed',
 ] as const;
 export type ClubNotificationKind = (typeof CLUB_NOTIFICATION_KINDS)[number];
 
@@ -324,7 +327,18 @@ export type DedupeInput =
   | {
       kind: 'event_registered' | 'event_promoted' | 'event_cancelled';
       registrationId: string;
-    };
+    }
+  /**
+   * The club revoked POPS's access in its Stripe dashboard (0062): each owner
+   * once per revocation, anchored on the Sofia day it was learnt.
+   */
+  | { kind: 'club_payments_revoked'; clubId: string; userId: string; anchor: string }
+  /**
+   * Stripe could not collect a renewal (0062): the member once per invoice,
+   * and each owner once per invoice (userId set) — Stripe's own retries of
+   * the same invoice raise the same event again and are told once.
+   */
+  | { kind: 'renewal_payment_failed'; membershipId: string; invoiceRef: string; userId?: string };
 
 export function dedupeKey(input: DedupeInput): string {
   switch (input.kind) {
@@ -380,5 +394,11 @@ export function dedupeKey(input: DedupeInput): string {
     case 'event_promoted':
     case 'event_cancelled':
       return `${input.kind}:${input.registrationId}`;
+    case 'club_payments_revoked':
+      return `${input.kind}:${input.clubId}:${input.userId}:${input.anchor}`;
+    case 'renewal_payment_failed':
+      return `${input.kind}:${input.membershipId}:${input.invoiceRef}${
+        input.userId ? `:${input.userId}` : ''
+      }`;
   }
 }

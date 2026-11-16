@@ -23,9 +23,11 @@ import {
   operatorRecipients,
   receiptCandidates,
   recordClubMonthlyActivity,
+  renewalFailureForMail,
   renewalMailCandidates,
   renewClubMemberships,
   setInviteTokenHash,
+  sql,
   staffRecipients,
   trainerClassesOn,
   type ClubBookingMail,
@@ -550,6 +552,38 @@ async function staffOf(clubId: string, roles: readonly ClubRole[]) {
   return staffRecipients(db(), clubId, roles);
 }
 
+/**
+ * The Sofia day a message OPENED a conversation its member started — a new
+ * thread from the portal or an enquiry from the club's page — or null for
+ * any other message (an answer in a thread, anything the club wrote).
+ *
+ * Why it matters: every opened thread mailed every owner, manager and desk of
+ * the club out of the SHARED notice share of the day's mail budget
+ * (lib/src/email/budget.ts), and the caps on threads (NEW_THREADS_PER_DAY,
+ * INQUIRIES_PER_DAY) count threads, not mails — eight openings at one club
+ * were eight mails to each member of staff. So an opening's notice is keyed
+ * by (member record, that day) instead of by message: each member of staff
+ * hears once a day that this client started a conversation; the later ones
+ * are in the office inbox, unread, where the notice sends them anyway. The
+ * day is the MESSAGE's, not the run's, so a job retried after midnight claims
+ * the same key. Answers keep their per-message key: they are sent only when
+ * the office had read the thread (inbox.ts `notify`), which no member can
+ * make happen by themselves.
+ */
+async function threadOpenedOn(messageId: string): Promise<string | null> {
+  const result = await db().execute(sql`
+    SELECT to_char(tm.created_at AT TIME ZONE 'Europe/Sofia', 'YYYY-MM-DD') AS day
+      FROM club_thread_messages tm
+      JOIN club_threads t ON t.club_id = tm.club_id AND t.id = tm.thread_id
+     WHERE tm.id = ${messageId}::uuid AND tm.author = 'member' AND t.started_by = 'member'
+       AND NOT EXISTS (SELECT 1 FROM club_thread_messages earlier
+                        WHERE earlier.club_id = tm.club_id AND earlier.thread_id = tm.thread_id
+                          AND (earlier.created_at, earlier.id) < (tm.created_at, tm.id))
+  `);
+  const day = result.rows[0]?.day;
+  return typeof day === 'string' ? day : null;
+}
+
 // ─── club.notify ────────────────────────────────────────────────────────────
 
 /**
@@ -734,6 +768,13 @@ export async function runClubNotify(
               ...(notice.partySize !== null ? [line('party', { count: notice.partySize })] : []),
             ]
           : [];
+      // One notice per member of staff per client per day for conversations
+      // the client OPENED (threadOpenedOn); per message for everything else.
+      // The ledger's builder has no (record, day) shape of its own, so the
+      // pair rides where the message id does — the key stays
+      // `inbox_message:<…>:<userId>`, built by the one builder.
+      const openedOn = await threadOpenedOn(notice.messageId);
+      const about = openedOn === null ? notice.messageId : `${notice.memberId}:${openedOn}`;
       return {
         kind: job.kind,
         report: await deliverEach(
@@ -746,7 +787,7 @@ export async function runClubNotify(
                 recipient,
                 key: dedupeKey({
                   kind: 'inbox_message',
-                  messageId: notice.messageId,
+                  messageId: about,
                   userId: recipient.userId,
                 }),
                 ledgerUserId: recipient.userId,
@@ -759,6 +800,108 @@ export async function runClubNotify(
           run,
         ),
       };
+    }
+    case 'club_payments_revoked': {
+      // The club revoked POPS's access in its Stripe dashboard (0062): each
+      // owner, once per revocation (the Sofia day it was learnt), with how
+      // many renewing subscriptions they must now end in Stripe themselves.
+      const club = await clubForMail(db(), job.clubId);
+      if (!club) return { kind: job.kind, report: emptyDeliveryReport() };
+      // Anchored on the event that learnt it: a retry across midnight mails
+      // nobody twice, two revocations in one day both inform.
+      const anchor = String(job.eventId);
+      return {
+        kind: job.kind,
+        report: await deliverEach(
+          await staffOf(club.clubId, ['owner']),
+          (recipient) =>
+            sendToStaff(
+              {
+                kind: job.kind,
+                club,
+                recipient,
+                key: dedupeKey({
+                  kind: job.kind,
+                  clubId: club.clubId,
+                  userId: recipient.userId,
+                  anchor,
+                }),
+                ledgerUserId: recipient.userId,
+                actionUrl: `${base(club)}/nastroyki#plashtaniya`,
+                values: {
+                  count: job.subscriptions,
+                  contact: options.contactEmail ?? `${siteBase(options, club.locale)}/kontakt`,
+                },
+              },
+              options,
+            ),
+          run,
+        ),
+      };
+    }
+    case 'renewal_payment_failed': {
+      // Stripe could not collect a renewal (0062): the member (or guardian),
+      // then each owner — once per invoice each; Stripe's retries of the same
+      // invoice raise the same event again and are told once.
+      const chain = await renewalFailureForMail(db(), job.membershipId, job.invoiceRef);
+      const club = chain ? await clubForMail(db(), chain.clubId) : null;
+      if (!chain || !club) return { kind: job.kind, report: emptyDeliveryReport() };
+      // The invoice's own figure, in its own currency — euros formatted as
+      // euros, anything else with its code, and no line at all without a
+      // figure. Never the chain's price: Stripe asked for what it asked for.
+      const amount =
+        chain.amountCents === null
+          ? null
+          : chain.currency === 'eur'
+            ? formatEuro(chain.amountCents, club.locale)
+            : `${(chain.amountCents / 100).toFixed(2)} ${(chain.currency ?? '').toUpperCase()}`;
+      const amountLine =
+        amount === null ? [] : [{ key: 'renewalFailedAmount', values: { amount } }];
+      const sends: (() => Promise<DeliveryOutcome>)[] = [
+        () =>
+          sendToMember(
+            {
+              kind: job.kind,
+              clubId: chain.clubId,
+              memberId: chain.memberId,
+              key: dedupeKey({
+                kind: job.kind,
+                membershipId: job.membershipId,
+                invoiceRef: job.invoiceRef,
+              }),
+              values: { label: chain.planName },
+              detailLines: amountLine,
+              // The portal lists each record's abonnements under its own
+              // heading (az/page.tsx `r-<memberId>`): «Към абонамента» lands there.
+              portalPath: `#r-${chain.memberId}`,
+            },
+            options,
+          ),
+        ...(await staffOf(club.clubId, ['owner'])).map(
+          (recipient) => () =>
+            sendToStaff(
+              {
+                kind: job.kind,
+                club,
+                recipient,
+                key: dedupeKey({
+                  kind: job.kind,
+                  membershipId: job.membershipId,
+                  invoiceRef: job.invoiceRef,
+                  userId: recipient.userId,
+                }),
+                ledgerUserId: recipient.userId,
+                actionUrl: `${base(club)}/chlenove/${chain.memberId}`,
+                values: { label: chain.planName, name: chain.memberName },
+                details: amountLine.map((line) =>
+                  fillClubTemplate(pick(club.locale, line.key), line.values),
+                ),
+              },
+              options,
+            ),
+        ),
+      ];
+      return { kind: job.kind, report: await deliverEach(sends, (send) => send(), run) };
     }
     case 'claim_pending':
     case 'erasure_requested': {
@@ -851,7 +994,7 @@ export async function runClubExpiry(
       },
       { job: 'club.expiry' },
     );
-    if (out[kind].transportDown) break;
+    if (out[kind].transportDown || out[kind].held > 0) break;
   }
   return out;
 }
@@ -1073,30 +1216,31 @@ export async function runClubPolicies(
     },
     { job: 'club.policies' },
   );
-  const feeMail = renewalMail.transportDown
-    ? emptyDeliveryReport()
-    : await deliverEach(
-        await feeMailCandidates(db()),
-        async (candidate) => {
-          const club = await clubForMail(db(), candidate.clubId);
-          const locale = club?.locale ?? 'bg';
-          return sendToMember(
-            {
-              kind: 'fee_charged',
-              clubId: candidate.clubId,
-              memberId: candidate.memberId,
-              key: dedupeKey({ kind: 'fee_charged', chargeId: candidate.chargeId }),
-              values: {
-                label: candidate.label,
-                amount: formatEuro(candidate.amountCents, locale),
-                date: formatCivilDate(candidate.dueOn, locale),
+  const feeMail =
+    renewalMail.transportDown || renewalMail.held > 0
+      ? emptyDeliveryReport()
+      : await deliverEach(
+          await feeMailCandidates(db()),
+          async (candidate) => {
+            const club = await clubForMail(db(), candidate.clubId);
+            const locale = club?.locale ?? 'bg';
+            return sendToMember(
+              {
+                kind: 'fee_charged',
+                clubId: candidate.clubId,
+                memberId: candidate.memberId,
+                key: dedupeKey({ kind: 'fee_charged', chargeId: candidate.chargeId }),
+                values: {
+                  label: candidate.label,
+                  amount: formatEuro(candidate.amountCents, locale),
+                  date: formatCivilDate(candidate.dueOn, locale),
+                },
               },
-            },
-            options,
-          );
-        },
-        { job: 'club.policies' },
-      );
+              options,
+            );
+          },
+          { job: 'club.policies' },
+        );
   return { ...renewals, fees, renewalMail, feeMail };
 }
 

@@ -24,7 +24,7 @@ import {
 
 import { type CanonicalSport } from '@sportkarta/lib/sports';
 
-import { FAMILY_COLOR, SPORT_FAMILY as FAMILY, type SportFamily } from './families';
+import { facilityFamily, FAMILY_COLOR, SPORT_FAMILY as FAMILY, type SportFamily } from './families';
 import { HockeyGlyph, RacketGlyph, SkateboardGlyph } from './glyphs';
 
 /**
@@ -89,3 +89,26 @@ export function sportVisual(sport: CanonicalSport): SportVisual {
 export const SPORT_VISUALS: Record<CanonicalSport, SportVisual> = Object.fromEntries(
   (Object.keys(FAMILY) as CanonicalSport[]).map((s) => [s, sportVisual(s)]),
 ) as Record<CanonicalSport, SportVisual>;
+
+/**
+ * How a FACILITY looks: the visual of the first sport it lists that we draw,
+ * or — when it lists none — its family's colour over the multi-sport mark.
+ * The map's list row, the map card and the facility page all show the same
+ * place, and each had its own copy of these four lines.
+ */
+export function facilityVisual(sports: readonly string[]): Pick<SportVisual, 'color' | 'Icon'> {
+  const sport = sports.find((s): s is CanonicalSport => s in SPORT_VISUALS);
+  if (sport) return SPORT_VISUALS[sport];
+  return { color: FAMILY_COLOR[facilityFamily(sports)], Icon: SPORT_VISUALS.multi.Icon };
+}
+
+/**
+ * An activity hue as TEXT. The raw hues are graphics colours: as small labels
+ * on the surface they measured 2.6–4.5:1 (bike, calisthenics, swimming,
+ * running, rackets all under AA), and the Chip primitive darkens its label by
+ * the same 35% for the same reason (components/ui/chip.tsx). The dot, the icon
+ * and the tint keep the raw colour.
+ */
+export function readableHue(color: string): string {
+  return `color-mix(in oklab, ${color}, black 35%)`;
+}

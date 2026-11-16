@@ -1,0 +1,5 @@
+db exit=0
+public-data-db exit=0
+journeys exit=0
+build exit=0
+e2e exit=1

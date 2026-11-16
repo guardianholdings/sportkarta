@@ -216,25 +216,41 @@ export async function availability(
       resourceBusy.set(String(row.resource_id), list);
     }
   }
-  const resourceSlots = new Map<string, Slot[]>(
+  // When each resource cannot be had: its claims, or — for a pool — the
+  // stretches where every unit is taken.
+  const resourceTaken = new Map<string, BusyInterval[]>(
     service.resources.map((r) => [
       r.id,
-      availableSlots({
-        ...base,
-        hours,
-        bufferMinutes: service.bufferMinutes,
-        busy: saturatedIntervals(resourceBusy.get(r.id) ?? [], r.quantity),
-      }),
+      saturatedIntervals(resourceBusy.get(r.id) ?? [], r.quantity),
     ]),
   );
-  const freeResourceAt = (local: string): string | null =>
-    service.resources.find((r) => resourceSlots.get(r.id)?.some((s) => s.local === local))?.id ??
-    null;
+  // A resource free for one session and its buffer. Asked of the resource's
+  // BUSY TIME, never of its own slot grid: a trainer's starts step from the
+  // trainer's opening time, the location's from the location's, and two grids
+  // that are not a whole step apart share no start at all — matching them by
+  // label offered nothing whenever a trainer began at a quarter past. The
+  // session is already inside the location's hours (the trainer's window is
+  // cut to them), so the claims are all that is left to ask.
+  const freeResourceFor = (slot: Slot): string | null => {
+    const start = slot.startsAt.getTime();
+    const claimEnd = slot.endsAt.getTime() + service.bufferMinutes * 60_000;
+    return (
+      service.resources.find(
+        (r) => !(resourceTaken.get(r.id) ?? []).some((b) => b.start < claimEnd && start < b.end),
+      )?.id ?? null
+    );
+  };
 
   const offered = new Map<string, Omit<AvailableSlot, 'priceCents'>>();
   if (service.kind === 'rental') {
     for (const r of service.resources) {
-      for (const slot of resourceSlots.get(r.id) ?? []) {
+      const slots = availableSlots({
+        ...base,
+        hours,
+        bufferMinutes: service.bufferMinutes,
+        busy: resourceTaken.get(r.id) ?? [],
+      });
+      for (const slot of slots) {
         if (!offered.has(slot.local)) {
           offered.set(slot.local, {
             local: slot.local,
@@ -286,7 +302,7 @@ export async function availability(
         .map((r) => ({ start: Date.parse(iso(r.s)), end: Date.parse(iso(r.e)) }));
       for (const slot of availableSlots({ ...base, hours: window, bufferMinutes: 0, busy })) {
         if (offered.has(slot.local)) continue;
-        const resourceId = service.resources.length > 0 ? freeResourceAt(slot.local) : null;
+        const resourceId = service.resources.length > 0 ? freeResourceFor(slot) : null;
         if (service.resources.length > 0 && resourceId === null) continue;
         offered.set(slot.local, {
           local: slot.local,

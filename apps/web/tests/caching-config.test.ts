@@ -4,6 +4,7 @@ import path from 'node:path';
 import { getPathMatch } from 'next/dist/shared/lib/router/utils/path-match';
 import { describe, expect, it } from 'vitest';
 
+import { UNDERLAY_PATH } from '@/lib/map/underlay';
 import { PARTNER_SURFACES } from '@/lib/partner-surfaces';
 
 import nextConfig from '../next.config';
@@ -165,6 +166,13 @@ describe('static asset cache headers', () => {
     const font = await headersFor('/fonts/og/golos-text-cyrillic-400-normal.woff');
     expect(font.get('content-type')).toBeUndefined();
     expect(maxAge(font.get('cache-control'))).toBeGreaterThan(0);
+  });
+
+  it('lets browsers keep the regional map underlay for a month', async () => {
+    // Its file name carries the build date (lib/map/underlay.ts): a rebuild is a new URL.
+    const underlay = await headersFor(UNDERLAY_PATH);
+    expect(UNDERLAY_PATH).toMatch(/^\/basemap\/region-\d{8}\.pmtiles$/);
+    expect(maxAge(underlay.get('cache-control'))).toBeGreaterThanOrEqual(30 * 24 * 3600);
   });
 
   it('caches app icons for a day, with a background refresh', async () => {

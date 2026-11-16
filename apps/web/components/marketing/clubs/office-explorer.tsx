@@ -240,7 +240,7 @@ export function OfficeExplorer({
                 }}
                 onKeyDown={(event) => onTabKey(event, index)}
                 className={cn(
-                  'relative shrink-0 overflow-hidden rounded-pill px-3.5 py-2 text-left text-body-sm font-semibold transition-[background-color,color] duration-150 ease-standard lg:rounded-md',
+                  'relative min-h-11 shrink-0 overflow-hidden rounded-pill px-3.5 py-2 text-left text-body-sm font-semibold transition-[background-color,color] duration-150 ease-standard lg:rounded-md',
                   selected
                     ? 'bg-ink text-paper'
                     : 'bg-transparent text-ink-soft hover:bg-surface-2 hover:text-ink',

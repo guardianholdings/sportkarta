@@ -132,6 +132,25 @@ export class ClassRoomElsewhere extends Error {
   }
 }
 
+/**
+ * Fewer places than people already going on one of the class's coming dates.
+ * Seats are derived from the order of booking against the capacity, so saving
+ * it would move the last ones booked to the waiting list — with their
+ * confirmation still in their inbox and nobody told. The office is refused
+ * instead, as an event's tickets are (club_events_capacity_taken).
+ */
+export class ClassCapacityTaken extends Error {
+  constructor(readonly going: number) {
+    super('more people going than places');
+  }
+}
+
+/** What saving a class did to people's seats — for the caller to tell them. */
+export interface ClassSaveReport {
+  /** Bookings that moved from the waiting list to a place (more places). */
+  promoted: string[];
+}
+
 const ROOM_HORIZON_MS = 8 * 7 * 24 * 60 * 60 * 1000;
 
 async function roomConflicts(
@@ -152,8 +171,11 @@ async function roomConflicts(
     { from: now, to: new Date(now.getTime() + ROOM_HORIZON_MS) },
   );
   if (occurrences.length === 0) return [];
-  // A date of THIS class whose occurrence was cancelled holds no claim and
-  // will not be re-created by the materializer — it cannot clash.
+  // A date of THIS class whose occurrence was cancelled holds no claim and is
+  // not re-created by the materializer — it cannot clash here. (The one case
+  // the materializer puts back on, a date an earlier edit cancelled that
+  // nobody was booked on, claims its room under a savepoint there: taken, it
+  // is skipped and reported, never a failed save.)
   const clashes = await tx.execute(sql`
     SELECT DISTINCT w.s AS at
       FROM unnest(${sql.param(occurrences.map((o) => o.startsAt.toISOString()))}::timestamptz[],
@@ -181,11 +203,12 @@ export async function saveClass(
   actor: ClubActor,
   classId: string | null,
   input: ClassInput,
+  report?: ClassSaveReport,
 ): Promise<string | null> {
   try {
-    return await saveClassOnce(db, actor, classId, input);
+    return await saveClassOnce(db, actor, classId, input, report);
   } catch (error: unknown) {
-    if (error instanceof ClassRoomTaken) throw error;
+    if (error instanceof ClassRoomTaken || error instanceof ClassCapacityTaken) throw error;
     const constraint = violatedConstraint(error);
     if (constraint === 'club_classes_resource_fk') throw new ClassRoomElsewhere();
     // The room trigger re-claims the class's future dates on save.
@@ -199,15 +222,49 @@ export async function saveClass(
   }
 }
 
+/**
+ * SQL: who holds a place on the class's coming dates — the dates that follow
+ * the class's own capacity (one with its own number is not moved by this).
+ */
+function comingSeats(actor: ClubActor, classId: string): SQL {
+  return sql`club_booking_positions bp
+     WHERE bp.club_id = ${actor.clubId}::uuid AND bp.class_id = ${classId}::uuid
+       AND bp.occurrence_status = 'scheduled' AND bp.starts_at > now()
+       AND bp.booking_status = 'going'
+       AND EXISTS (SELECT 1 FROM club_class_occurrences co
+                    WHERE co.id = bp.occurrence_id AND co.capacity IS NULL)
+       AND ${clubActorMay(actor, 'schedule.manage', { write: false })}`;
+}
+
 async function saveClassOnce(
   db: TransactionalDb,
   actor: ClubActor,
   classId: string | null,
   input: ClassInput,
+  report?: ClassSaveReport,
 ): Promise<string | null> {
   return db.transaction(async (tx) => {
     const taken = await roomConflicts(tx, actor.clubId, classId, input);
     if (taken.length > 0) throw new ClassRoomTaken(taken);
+    // Seats are arithmetic (club_booking_positions), so a new capacity re-seats
+    // every coming date at once. Fewer places than people going is refused;
+    // more places are remembered, so those who moved up can be told.
+    let seatedBefore: Set<string> | null = null;
+    if (classId) {
+      const before = await tx.execute(sql`
+        SELECT bp.booking_id, bp.occurrence_id FROM ${comingSeats(actor, classId)}
+      `);
+      if (input.capacity !== null) {
+        const perDate = new Map<string, number>();
+        for (const row of before.rows) {
+          const date = String(row.occurrence_id);
+          perDate.set(date, (perDate.get(date) ?? 0) + 1);
+        }
+        const fullest = Math.max(0, ...perDate.values());
+        if (fullest > input.capacity) throw new ClassCapacityTaken(fullest);
+      }
+      seatedBefore = new Set(before.rows.map((row) => String(row.booking_id)));
+    }
     const fields = sql`${input.locationId}::uuid, ${input.title}, ${input.description}, ${input.sport},
       ${input.instructorUserId}, ${input.resourceId}::uuid, ${input.startsAtLocal}::timestamp, ${input.rrule},
       ${input.durationMinutes}, ${input.capacity}, ${input.bookingOpensHours},
@@ -246,6 +303,15 @@ async function saveClassOnce(
         SELECT ${actor.clubId}::uuid, ${id}::uuid, p
           FROM unnest(${sql.param(input.planIds)}::uuid[]) AS p
       `);
+    }
+    if (report && seatedBefore) {
+      const after = await tx.execute(sql`
+        SELECT bp.booking_id FROM ${comingSeats(actor, id)}
+      `);
+      const held = seatedBefore;
+      report.promoted = after.rows
+        .map((row) => String(row.booking_id))
+        .filter((bookingId) => !held.has(bookingId));
     }
     await recordClubAudit(tx, {
       clubId: actor.clubId,

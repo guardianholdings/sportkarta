@@ -195,6 +195,11 @@ export interface CancelResult {
  * memberSelfScope admits. `by` says which. Never once the class has started:
  * the places held at the start are what a no-show is judged by, and a
  * cancellation afterwards would move someone else onto a class that is over.
+ *
+ * The desk's cancellation is a WRITE by the club, so it needs the club's
+ * entitlement like cancelReservation and cancelEventPlace: a lapsed or
+ * suspended club's office is read-only. The member's own is deliberately not
+ * gated — leaving a class is never held hostage to the club's account.
  */
 export async function cancelBooking(
   db: TransactionalDb,
@@ -210,7 +215,7 @@ export async function cancelBooking(
        WHERE b.id = ${bookingId}::uuid AND b.club_id = ${clubId}::uuid AND b.state = 'active'
          AND ${
            by.kind === 'staff'
-             ? clubActorMay(by.actor, 'bookings.manage', { write: false })
+             ? clubActorMay(by.actor, 'bookings.manage', { write: true })
              : memberSelfScope(by.userId, clubId, 'm')
          }
          -- A booking the person has already attended is a fact, not a plan:
@@ -337,6 +342,12 @@ export async function ensureSelfRecord(
  * desk follows up. Never a duplicate: when the club already keeps an
  * unclaimed record with this verified address, the person is sent to claim
  * it instead. One trial per person per club.
+ *
+ * A trial is for a PROSPECT. A trial booking snapshots no fee and counts no
+ * strike (0047) and passes no strike block, so a record that has ever held an
+ * abonnement of its own — running, paused or long over; a trial abonnement or
+ * one sold by mistake aside — is refused: the page never offers them the
+ * form, and a form posted by hand must not be a way round the class's rules.
  */
 export async function bookTrial(
   db: TransactionalDb,
@@ -358,6 +369,13 @@ export async function bookTrial(
       if (!self.ok) return self;
       const memberId = self.memberId;
 
+      const held = await tx.execute(sql`
+        SELECT 1 FROM club_memberships ms
+         WHERE ms.club_id = ${clubId}::uuid AND ms.member_id = ${memberId}::uuid
+           AND ms.kind <> 'trial' AND ms.cancel_reason IS DISTINCT FROM 'mistake'
+         LIMIT 1
+      `);
+      if (held.rows.length > 0) return { ok: false, error: 'not_allowed' } as const;
       const tried = await tx.execute(sql`
         SELECT 1 FROM club_bookings
          WHERE club_id = ${clubId}::uuid AND member_id = ${memberId}::uuid AND is_trial

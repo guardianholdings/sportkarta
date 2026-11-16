@@ -8,6 +8,7 @@ import {
 } from '@sportkarta/lib/clubs';
 import { getTranslations } from 'next-intl/server';
 
+import { ScrollStrip } from '@/components/ui/scroll-strip';
 import { SmsTextarea } from '@/components/clubs/sms-textarea';
 import { Button } from '@/components/ui/button';
 import { chipClass } from '@/components/ui/chip';
@@ -41,7 +42,7 @@ export async function MessagesTabs({
       : []),
   ];
   return (
-    <nav aria-label={t('tabs.label')} className="-mx-4 overflow-x-auto px-4">
+    <ScrollStrip as="nav" aria-label={t('tabs.label')} activeKey={current}>
       <ul className="flex gap-2 pb-1">
         {tabs.map((tab) => (
           <li key={tab.key}>
@@ -55,7 +56,7 @@ export async function MessagesTabs({
           </li>
         ))}
       </ul>
-    </nav>
+    </ScrollStrip>
   );
 }
 

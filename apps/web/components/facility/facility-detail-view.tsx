@@ -6,24 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Stat } from '@/components/ui/stat';
 import { ANALYTICS_EVENTS } from '@/lib/analytics-events';
-import { facilityFamily, FAMILY_COLOR } from '@/lib/design/families';
-import { SPORT_VISUALS } from '@/lib/design/sport-visuals';
+import { FAMILY_COLOR } from '@/lib/design/families';
+import { facilityVisual, readableHue, SPORT_VISUALS } from '@/lib/design/sport-visuals';
 import { NAV_PROVIDERS } from '@/lib/directions';
 import { formatDate } from '@/lib/format';
 import { placeLabel } from '@/lib/geo';
 import { photoUrl } from '@/lib/photo-url';
 import type { CanonicalSport } from '@sportkarta/lib/sports';
-
-/**
- * An activity hue as TEXT. The raw hues are graphics colours: as 13px labels on
- * the surface they measured 2.6–4.5:1 (bike, calisthenics, swimming, running,
- * rackets all under AA), and the Chip primitive darkens its label by the same
- * 35% for the same reason (components/ui/chip.tsx). The dot, the icon and the
- * tint keep the raw colour.
- */
-function readableOn(color: string): string {
-  return `color-mix(in oklab, ${color}, black 35%)`;
-}
 
 /** The read-only public detail; the source of truth is lib/public-data. */
 export interface FacilityDetailData {
@@ -47,12 +36,6 @@ export interface FacilityDetailData {
   condition: string | null;
   /** Approved photo ids (lib/public-data.ts), rendered through lib/photo-url.ts. */
   photoIds: string[];
-}
-
-function primaryVisual(sports: string[]) {
-  const s = sports.find((x): x is CanonicalSport => x in SPORT_VISUALS);
-  if (s) return SPORT_VISUALS[s];
-  return { color: FAMILY_COLOR[facilityFamily(sports)], Icon: SPORT_VISUALS.multi.Icon };
 }
 
 /**
@@ -92,7 +75,7 @@ export function FacilityDetailView({
     },
   );
   const named = Boolean(facility.name?.trim());
-  const v = primaryVisual(facility.sportTypes);
+  const v = facilityVisual(facility.sportTypes);
   const photo = facility.photoIds[0];
 
   const lighting =
@@ -131,7 +114,7 @@ export function FacilityDetailView({
         {facility.sportTypes.length > 0 && (
           <span
             className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-pill bg-surface px-2.5 py-1 text-caption font-semibold shadow-sm"
-            style={{ color: readableOn(v.color) }}
+            style={{ color: readableHue(v.color) }}
           >
             <span className="size-2 rounded-full" style={{ background: v.color }} />
             {tSport(facility.sportTypes[0] ?? '')}
@@ -199,7 +182,7 @@ export function FacilityDetailView({
                   className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-caption font-medium"
                   style={{
                     background: `color-mix(in srgb, ${color} 12%, var(--surface))`,
-                    color: readableOn(color),
+                    color: readableHue(color),
                   }}
                 >
                   <Icon size={13} />

@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
+import { ScrollStrip } from '@/components/ui/scroll-strip';
 import { chipClass } from '@/components/ui/chip';
 import { Link } from '@/i18n/navigation';
 import { requireClubStaff } from '@/lib/clubs/club-session';
@@ -47,7 +48,7 @@ export default async function ClubRatingsPage({
         <p className="mt-1.5 max-w-prose text-body-sm text-ink-soft">{t('intro')}</p>
       </div>
       {sports.length > 1 && (
-        <nav aria-label={t('title')} className="-mx-4 overflow-x-auto px-4">
+        <ScrollStrip as="nav" aria-label={t('title')} activeKey={sport ?? undefined}>
           <ul className="flex gap-2 pb-1">
             {sports.map((value) => (
               <li key={value}>
@@ -61,7 +62,7 @@ export default async function ClubRatingsPage({
               </li>
             ))}
           </ul>
-        </nav>
+        </ScrollStrip>
       )}
       <section className="rounded-card border border-line bg-surface p-4 shadow-sm">
         {rows.length === 0 ? (

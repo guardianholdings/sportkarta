@@ -84,6 +84,12 @@ describe('static.xml', () => {
     expect(src, `${p} declares no canonical`).toContain(`buildAlternates('${p}'`);
   });
 
+  it('lists the three legal documents and the contact page', () => {
+    for (const p of ['/privacy', '/usloviya', '/usloviya-klubove', '/kontakt']) {
+      expect(STATIC_SITEMAP_PATHS).toContain(p);
+    }
+  });
+
   it('keeps the internal component catalogue out', () => {
     expect(STATIC_SITEMAP_PATHS as readonly string[]).not.toContain('/design-system');
   });

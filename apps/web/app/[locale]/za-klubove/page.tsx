@@ -70,7 +70,7 @@ export default async function ClubsLandingPage({ params }: { params: PageParams 
   const smsOn = clubSwitchOn('sms');
 
   return (
-    <AppShell active="/za-klubove">
+    <AppShell active="/za-klubove" quickActions={false}>
       <main>
         <LandingHero feeFree={feeFree} paymentsOn={paymentsOn} />
         <Audiences />

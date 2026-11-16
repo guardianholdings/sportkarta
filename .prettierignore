@@ -15,3 +15,7 @@ pnpm-lock.yaml
 db/migrations
 next-env.d.ts
 .claude
+
+# The consent card (a browser script, not app code), kept in the shape of the
+# source it was reviewed as, so a diff against that source stays short
+apps/web/public/consent.js

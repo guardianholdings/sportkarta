@@ -1,6 +1,6 @@
 /**
  * The per-recipient send loop every worker mail job shares (Stage 4.2 session
- * mail, Stage 4.4 digest), and the three rules it exists to hold in one place.
+ * mail, Stage 4.4 digest), and the four rules it exists to hold in one place.
  *
  *  1. ONE RECIPIENT'S FAILURE DOES NOT ABANDON THE REST. A bounced address is a
  *     fact about that address; everyone after it is still owed their mail.
@@ -13,7 +13,17 @@
  *     stops, says so on one structured line, and leaves the rest unclaimed for
  *     the retry.
  *
- *  3. NO ADDRESS IN ANY LOG LINE. An SMTP rejection reads "550 5.1.1
+ *  3. A SPENT MAIL BUDGET STOPS THE RUN TOO — but it is not a failure. The
+ *     budgeted mailer (db/src/mail-budget.ts) throws MailBudgetExhaustedError
+ *     instead of sending once the day's share for this kind of mail is used
+ *     up (lib/src/email/budget.ts). The recipient it refused is HELD: their
+ *     claim rolls back with the transaction, nobody after them is tried, and
+ *     the report says so in its own count so the caller can decide what the
+ *     retry is — the next tick for a sweep, the next Sofia day for a one-off
+ *     notice (apps/worker/src/index.ts defers those), the queue's own retries
+ *     for a dated job. Nothing is dropped: the ledger still says "not told".
+ *
+ *  4. NO ADDRESS IN ANY LOG LINE. An SMTP rejection reads "550 5.1.1
  *     <ivan@example.org>: Recipient address rejected", so `error.message` is
  *     never logged — only a category built from the error's code and the reply's
  *     numeric status, both of which are digits and letters by construction.
@@ -24,6 +34,7 @@
  * report with failures into a throw so pg-boss schedules that re-run.
  */
 
+import { isMailBudgetExhausted } from './budget.js';
 import { MailNotConfiguredError } from './mailer.js';
 
 const SAFE_TOKEN = /^[A-Za-z0-9_]{1,32}$/;
@@ -61,6 +72,7 @@ function smtpStatus(error: unknown): { reply: number | null; enhanced: string | 
  */
 export function mailFailureCategory(error: unknown): string {
   if (error instanceof MailNotConfiguredError) return 'mail_not_configured';
+  if (isMailBudgetExhausted(error)) return `mail_budget_${error.kind}`;
   const { code } = fields(error);
   const base = typeof code === 'string' && SAFE_TOKEN.test(code) ? code : 'send_failed';
   const { reply, enhanced } = smtpStatus(error);
@@ -92,7 +104,8 @@ const TRANSPORT_DOWN_STATUSES = new Set([
 
 /**
  * True when the failure is the transport's, not the recipient's — so the run
- * must stop rather than try everybody else against the same wall.
+ * must stop rather than try everybody else against the same wall. A spent
+ * budget is NOT the transport (see rule 3): it has its own branch below.
  */
 export function isMailTransportDown(error: unknown): boolean {
   if (error instanceof MailNotConfiguredError) return true;
@@ -112,14 +125,27 @@ export interface DeliveryReport {
   /** Already told (the ledger refused the claim), or nothing to say. */
   skipped: number;
   failed: number;
-  /** Never attempted, because the transport went down first. */
+  /**
+   * Refused by the day's mail budget: the claim rolled back, the run stopped
+   * here. Not a failure — "not yet", not "could not".
+   */
+  held: number;
+  /** Never attempted, because the transport went down or the budget ran out first. */
   unattempted: number;
   /** The run stopped early on a transport-level failure. */
   transportDown: boolean;
 }
 
 export function emptyDeliveryReport(candidates = 0): DeliveryReport {
-  return { candidates, sent: 0, skipped: 0, failed: 0, unattempted: 0, transportDown: false };
+  return {
+    candidates,
+    sent: 0,
+    skipped: 0,
+    failed: 0,
+    held: 0,
+    unattempted: 0,
+    transportDown: false,
+  };
 }
 
 export interface DeliverOptions {
@@ -130,9 +156,10 @@ export interface DeliverOptions {
 }
 
 /**
- * Send to each item in order; count, categorise, and stop on a down transport.
- * `send` claims, renders and hands off one message, returning whether it went
- * or was skipped; a throw is a failure.
+ * Send to each item in order; count, categorise, and stop on a down transport
+ * or a spent budget. `send` claims, renders and hands off one message,
+ * returning whether it went or was skipped; a throw is a failure — except the
+ * budget's, which is a hold.
  */
 export async function deliverEach<T>(
   items: readonly T[],
@@ -147,6 +174,18 @@ export async function deliverEach<T>(
       if ((await send(item)) === 'sent') report.sent += 1;
       else report.skipped += 1;
     } catch (error: unknown) {
+      if (isMailBudgetExhausted(error)) {
+        // Rule 3. Everyone after this recipient would be refused the same way,
+        // and the share frees only at midnight: stop, and say so once per run
+        // — the kind, the limit and the day; never an address.
+        report.held += 1;
+        report.unattempted = items.length - index - 1;
+        logError(
+          `[mail] budget_held job=${options.job} kind=${error.kind} limit=${String(error.limit)} ` +
+            `day=${error.day} sent=${String(report.sent)} unattempted=${String(report.unattempted)}`,
+        );
+        break;
+      }
       report.failed += 1;
       const category = mailFailureCategory(error);
       logError(`[worker] ${options.job} recipient failed: ${category}`);
@@ -168,21 +207,48 @@ export async function deliverEach<T>(
 
 /** Thrown to make pg-boss retry a run that left somebody unreached. */
 export class MailRunIncompleteError extends Error {
+  /** The run's counts, so a reporter can tell a hold from a failure. */
+  readonly report: DeliveryReport;
+
   constructor(job: string, report: DeliveryReport) {
+    const why = report.transportDown
+      ? ' (transport down)'
+      : report.held > 0
+        ? ' (mail budget spent)'
+        : '';
     super(
-      `${job}: ${String(report.failed)} failed, ${String(report.unattempted)} unattempted ` +
-        `of ${String(report.candidates)}${report.transportDown ? ' (transport down)' : ''}`,
+      `${job}: ${String(report.failed)} failed, ` +
+        (report.held > 0 ? `${String(report.held)} held, ` : '') +
+        `${String(report.unattempted)} unattempted of ${String(report.candidates)}${why}`,
     );
     this.name = 'MailRunIncompleteError';
+    this.report = { ...report };
   }
 }
 
 /**
- * Throw when anybody was left unreached, so the queue retries the job. The
- * message is counts only — pg-boss stores it in the job row.
+ * A run that threw ONLY because the day's mail budget held it: nobody failed,
+ * the relay is fine, and the queue's retry is the point. Not worth an error
+ * report on every retry (apps/worker/src/reporting.ts skips these); the
+ * health page shows the hold.
+ */
+export function isMailRunHeld(error: unknown): boolean {
+  return (
+    error instanceof MailRunIncompleteError &&
+    error.report.held > 0 &&
+    error.report.failed === 0 &&
+    !error.report.transportDown
+  );
+}
+
+/**
+ * Throw when anybody was left unreached — failed, held or unattempted — so
+ * the queue retries the job. A caller that DEFERS a held run to the next day
+ * (apps/worker/src/index.ts) does not call this. The message is counts only;
+ * pg-boss stores it in the job row.
  */
 export function assertDelivered(job: string, report: DeliveryReport): void {
-  if (report.failed > 0 || report.unattempted > 0) {
+  if (report.failed > 0 || report.held > 0 || report.unattempted > 0) {
     throw new MailRunIncompleteError(job, report);
   }
 }

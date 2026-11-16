@@ -18,7 +18,20 @@ RUN pnpm install --frozen-lockfile
 FROM deps AS build
 COPY . .
 # "worker..." also builds its workspace dependencies (@sportkarta/import-osm).
-RUN pnpm --filter @sportkarta/web build && pnpm --filter "@sportkarta/worker..." build
+#
+# Server Actions: `next build` bakes NEXT_SERVER_ACTIONS_ENCRYPTION_KEY into
+# the server-reference manifest and, with none set, mints a fresh random key
+# per build. Every deploy then invalidates the actions of pages that were open
+# during it: the form posts to an id the new build does not know (404,
+# x-nextjs-action-not-found) and the member's answers are gone. deploy.yml
+# derives a stable key from AUTH_SECRET and hands it in as a BuildKit SECRET
+# (a build arg would land in the image history). Exported only when present
+# and non-empty, so a local build without it keeps the per-build key.
+RUN --mount=type=secret,id=next_server_actions_key \
+    if [ -s /run/secrets/next_server_actions_key ]; then \
+      export NEXT_SERVER_ACTIONS_ENCRYPTION_KEY="$(cat /run/secrets/next_server_actions_key)"; \
+    fi \
+    && pnpm --filter @sportkarta/web build && pnpm --filter "@sportkarta/worker..." build
 
 # ── web: slim Next.js standalone runtime ─────────────────────────────────────
 FROM node:24-alpine AS web

@@ -167,3 +167,45 @@ describe('log redaction', () => {
     expect(JSON.stringify(redacted)).not.toContain(ADDRESS);
   });
 });
+
+describe('the code share slot', () => {
+  function slot() {
+    return { release: vi.fn<() => Promise<void>>().mockResolvedValue(undefined) };
+  }
+
+  it('is left spent when the code went', async () => {
+    const held = slot();
+    expect(await deliverSignInCode(delivery({ slot: held }))).toBe('sent');
+    expect(held.release).not.toHaveBeenCalled();
+  });
+
+  it('is given back when the relay refuses', async () => {
+    const held = slot();
+    expect(
+      await deliverSignInCode(
+        delivery({ mailer: rejectingMailer(envelopeRejection()), slot: held }),
+      ),
+    ).toBe('mail_unavailable');
+    expect(held.release).toHaveBeenCalledOnce();
+  });
+
+  it('is given back when no code could be minted', async () => {
+    const held = slot();
+    expect(
+      await deliverSignInCode(
+        delivery({ issueCode: () => Promise.reject(new Error('insert failed')), slot: held }),
+      ),
+    ).toBe('unknown');
+    expect(held.release).toHaveBeenCalledOnce();
+  });
+
+  it('stays spent after a timeout: the relay may still deliver the message', async () => {
+    const held = slot();
+    expect(
+      await deliverSignInCode(
+        delivery({ mailer: { send: () => new Promise<void>(vi.fn()) }, timeoutMs: 20, slot: held }),
+      ),
+    ).toBe('mail_unavailable');
+    expect(held.release).not.toHaveBeenCalled();
+  });
+});

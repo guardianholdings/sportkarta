@@ -1,5 +1,5 @@
 import type { AbstractIntlMessages } from 'next-intl';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * The public card routes answer a junk id with 404, not 500.
@@ -35,6 +35,17 @@ vi.mock('next-intl/server', async () => {
 const JUNK = ['not-a-uuid', '1', "x' OR 1=1 --", '00000000-0000-0000-0000-00000000000'];
 const VALID = '00000000-0000-4000-8000-000000000000';
 
+// The first import of a route module loads the OG renderer (satori, resvg) and
+// the bundled fonts: 3–4 s inside a parallel vitest run, over 10 s with the
+// machine under load (measured 2026-11-06) — against vitest's 5 s default
+// per-test timeout. Each describe below warms its route ONCE in a beforeAll,
+// so no timed case pays for the import, and the hook carries the render
+// cases' 30 s budget because the default 10 s hookTimeout has been exceeded
+// too. Only the clock moves: every assertion is unchanged, and beforeEach
+// resets occurrenceView after the warm-up, so loading the module can never
+// pass for a query.
+const ROUTE_IMPORT_TIMEOUT = 30_000;
+
 beforeEach(() => {
   occurrenceView.mockReset();
   occurrenceView.mockImplementation(() => {
@@ -43,8 +54,13 @@ beforeEach(() => {
 });
 
 describe('session link-preview card', () => {
+  let GET: typeof import('../app/og/[locale]/[kind]/[slug]/card.png/route').GET;
+
+  beforeAll(async () => {
+    ({ GET } = await import('../app/og/[locale]/[kind]/[slug]/card.png/route'));
+  }, ROUTE_IMPORT_TIMEOUT);
+
   it.each(JUNK)('404s %j without querying', async (slug) => {
-    const { GET } = await import('../app/og/[locale]/[kind]/[slug]/card.png/route');
     const res = await GET(new Request('http://localhost/og'), {
       params: Promise.resolve({ locale: 'bg', kind: 'igra', slug }),
     });
@@ -55,7 +71,6 @@ describe('session link-preview card', () => {
   it('still looks up a well-formed id, and 404s one that does not exist', async () => {
     occurrenceView.mockReset();
     occurrenceView.mockResolvedValue(null);
-    const { GET } = await import('../app/og/[locale]/[kind]/[slug]/card.png/route');
     const res = await GET(new Request('http://localhost/og'), {
       params: Promise.resolve({ locale: 'bg', kind: 'igra', slug: VALID }),
     });
@@ -65,8 +80,13 @@ describe('session link-preview card', () => {
 });
 
 describe('session story image', () => {
+  let GET: typeof import('../app/og/[locale]/story/[kind]/[slug]/story.png/route').GET;
+
+  beforeAll(async () => {
+    ({ GET } = await import('../app/og/[locale]/story/[kind]/[slug]/story.png/route'));
+  }, ROUTE_IMPORT_TIMEOUT);
+
   it.each(JUNK)('404s %j without querying', async (slug) => {
-    const { GET } = await import('../app/og/[locale]/story/[kind]/[slug]/story.png/route');
     const res = await GET(new Request('http://localhost/og'), {
       params: Promise.resolve({ locale: 'bg', kind: 'session', slug }),
     });

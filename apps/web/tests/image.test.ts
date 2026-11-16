@@ -162,3 +162,42 @@ describe('the pre-auth parser surface', () => {
     await expect(processReportPhoto(forgedJpeg)).rejects.toBeInstanceOf(InvalidPhotoError);
   });
 });
+
+/**
+ * B3: metadata() reads only the header, so a cut-off JPEG or a PNG with broken
+ * image data passes it and used to fail later, in the full decode, with a plain
+ * sharp error: the member got the error page instead of «Файлът не изглежда
+ * като снимка.» (invalid_photo).
+ */
+describe('broken image data behind a valid header', () => {
+  // Deterministic noise, so the compressed data is long enough to break.
+  async function noise(format: 'jpeg' | 'png'): Promise<Buffer> {
+    const width = 128;
+    const height = 128;
+    const pixels = Buffer.alloc(width * height * 3);
+    let seed = 42;
+    for (let i = 0; i < pixels.length; i += 1) {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      pixels[i] = seed >>> 24;
+    }
+    const image = sharp(pixels, { raw: { width, height, channels: 3 } });
+    return format === 'jpeg' ? image.jpeg({ quality: 90 }).toBuffer() : image.png().toBuffer();
+  }
+
+  it('refuses a truncated JPEG as an invalid photo, not a crash', async () => {
+    const whole = await noise('jpeg');
+    const truncated = whole.subarray(0, Math.floor(whole.length / 2));
+    // Setup sanity: the header survives, so this really reaches the full decode.
+    await expect(sharp(truncated).metadata()).resolves.toMatchObject({ format: 'jpeg' });
+    await expect(processReportPhoto(truncated)).rejects.toBeInstanceOf(InvalidPhotoError);
+  });
+
+  it('refuses a PNG with corrupt image data as an invalid photo, not a crash', async () => {
+    const corrupt = Buffer.from(await noise('png'));
+    // Well past the header, inside the image data: its checksum no longer matches.
+    const middle = Math.floor(corrupt.length / 2);
+    corrupt.fill(0, middle, middle + 64);
+    await expect(sharp(corrupt).metadata()).resolves.toMatchObject({ format: 'png' });
+    await expect(processReportPhoto(corrupt)).rejects.toBeInstanceOf(InvalidPhotoError);
+  });
+});

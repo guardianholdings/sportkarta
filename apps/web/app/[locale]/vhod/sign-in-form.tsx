@@ -1,5 +1,6 @@
 'use client';
 
+import { MINIMUM_ACCOUNT_AGE } from '@sportkarta/lib/age';
 import { useLocale, useTranslations } from 'next-intl';
 import { useActionState, useId, useState } from 'react';
 
@@ -213,9 +214,12 @@ export function SignInForm({
       )}
 
       {/* Signing in is when the account contract starts (GDPR Art. 6(1)(b)), so
-          it is where the terms are named — with the privacy notice beside them. */}
+          it is where the terms are named — with the privacy notice beside them —
+          and where the member attests the minimum age (operator decision
+          2026-11-06: 14, the Bulgarian digital-consent age). */}
       <p className="text-caption text-text-muted">
         {t.rich('privacyNote', {
+          age: MINIMUM_ACCOUNT_AGE,
           terms: (chunks) => (
             <Link href="/usloviya" className="font-medium text-link hover:text-link-hover">
               {chunks}

@@ -4,7 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { SportPicker } from '@/components/ui/sport-picker';
 import { Textarea } from '@/components/ui/textarea';
+import { Link } from '@/i18n/navigation';
 import type { ClubFormMessages } from '@/lib/clubs/form-labels';
 import { useFormAction } from '@/lib/use-form-action';
 
@@ -14,6 +16,10 @@ import { FormFeedback } from './form-feedback';
  * The club application (/klubove/zayavka). The signed-in account becomes the
  * owner; the club starts `pending` and the operator approves it. Field names
  * match parseApplication in apps/web/lib/clubs/input.ts.
+ *
+ * The acceptance box names the clubs terms (/usloviya-klubove) and links them
+ * in a new tab, so the text is one click away without losing the form; the
+ * server records which version was accepted (lib/clubs/apply.ts).
  */
 
 export interface ApplyState {
@@ -36,9 +42,12 @@ export interface ApplicationFormLabels {
   cities: { id: number; name: string }[];
   sports: string;
   sportOptions: { value: string; label: string }[];
+  sportsShowAll: string;
+  sportsShowFewer: string;
   website: string;
   description: string;
-  acceptTerms: string;
+  /** «Приемам» + the linked document's name + the rest of the sentence. */
+  acceptTerms: { before: string; link: string; after: string };
   submit: string;
 }
 
@@ -119,11 +128,11 @@ export function ApplicationForm({
       </fieldset>
       <fieldset className="space-y-2">
         <legend className={label}>{labels.sports}</legend>
-        <div className="flex max-h-56 flex-wrap gap-x-4 gap-y-1 overflow-y-auto rounded-card border border-line p-3">
-          {labels.sportOptions.map((sport) => (
-            <Checkbox key={sport.value} name="sports" value={sport.value} label={sport.label} />
-          ))}
-        </div>
+        <SportPicker
+          name="sports"
+          options={labels.sportOptions}
+          labels={{ showAll: labels.sportsShowAll, showFewer: labels.sportsShowFewer }}
+        />
       </fieldset>
       <div className="space-y-1">
         <label className={label} htmlFor="a-desc">
@@ -131,7 +140,25 @@ export function ApplicationForm({
         </label>
         <Textarea id="a-desc" name="description" maxLength={2000} rows={4} />
       </div>
-      <Checkbox name="acceptTerms" required label={labels.acceptTerms} />
+      <Checkbox
+        name="acceptTerms"
+        required
+        className="items-start"
+        label={
+          <>
+            {labels.acceptTerms.before}{' '}
+            <Link
+              href="/usloviya-klubove"
+              target="_blank"
+              rel="noopener"
+              className="font-medium text-link hover:text-link-hover"
+            >
+              {labels.acceptTerms.link}
+            </Link>{' '}
+            {labels.acceptTerms.after}
+          </>
+        }
+      />
       <Button type="submit" disabled={pending}>
         {labels.submit}
       </Button>

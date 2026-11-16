@@ -39,12 +39,21 @@ function outcomeCode(result: CheckinOutcome): string {
   return result.status;
 }
 
-async function back(slug: string, outcome: string, memberId?: string, locationId?: string) {
+async function back(
+  slug: string,
+  outcome: string,
+  memberId?: string,
+  locationId?: string,
+  via?: 'card',
+) {
   revalidatePath(`/klub/${slug}/prisastviya`);
   revalidatePath(`/klub/${slug}/tablo`);
   const query: Record<string, string> = { rezultat: outcome };
   if (memberId) query.chlen = memberId;
   if (locationId) query.lokatsiya = locationId;
+  // Which field the desk is working from, so the cursor goes back to it: a
+  // card reader types its next read wherever the cursor is.
+  if (via === 'card') query.kak = 'karta';
   return redirect({
     href: { pathname: `/klub/${slug}/prisastviya`, query },
     locale: await getLocale(),
@@ -59,9 +68,9 @@ export async function deskCheckinAction(formData: FormData): Promise<void> {
   const db = getDb();
   if (str(formData, 'op') === 'card') {
     const cardKey = str(formData, 'cardKey').trim();
-    if (!isCardKeyShape(cardKey)) return back(slug, 'card_invalid', undefined, locationId);
+    if (!isCardKeyShape(cardKey)) return back(slug, 'card_invalid', undefined, locationId, 'card');
     const result = await clubCheckIn(db, { method: 'card', actor, cardKey, locationId });
-    return back(slug, outcomeCode(result), result.memberId, locationId);
+    return back(slug, outcomeCode(result), result.memberId, locationId, 'card');
   }
   const memberId = str(formData, 'memberId');
   if (!isUuid(memberId)) return back(slug, 'not_found', undefined, locationId);

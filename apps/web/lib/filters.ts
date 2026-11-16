@@ -53,6 +53,19 @@ export function isDefaultAccess(access: string[]): boolean {
   return access.length === 1 && access[0] === 'free';
 }
 
+/**
+ * The access selection that is certain to include a facility of this kind: the
+ * default (free), widened by its own kind when that is something else.
+ *
+ * The map opens on free places only, on purpose. So a link that opens the map
+ * ON one facility has to bring that facility's kind with it, or it opens the
+ * right street with no pin and no card — which is what «Покажи на голямата
+ * карта» did for every restricted, school and paid place.
+ */
+export function accessIncluding(access: string): string[] {
+  return access === 'free' || !ACCESS_VALUES.has(access) ? ['free'] : ['free', access];
+}
+
 /** Serialize filters to URLSearchParams, omitting defaults (clean URLs). */
 export function filtersToSearchParams(f: PublicFilters): URLSearchParams {
   const params = new URLSearchParams();

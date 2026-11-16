@@ -372,6 +372,23 @@ evidence='qr_verified')`, enforced by trigger + CHECK, never points.
 - Mail: `Mailer` interface in `lib/src/email` (smtp | file | console | memory).
   Production without SMTP sends nothing — a one-time code must never fall back
   to a log or a file. Locally, codes land in `apps/web/var/mail`
+- Mail budget (0063, `lib/src/email/budget.ts` + `db/src/mail-budget.ts`):
+  the relay allows so many sends a DAY (Migadu Mini: 100), so every send
+  first takes a slot of its KIND from ONE table keyed by civil Sofia day:
+  `otp` (the web action, before a code is minted), `notice` (every worker
+  mail) or `bulk` (club broadcasts/automations). The take is a single upsert
+  whose `DO UPDATE` carries `WHERE sent < limit` and a `RETURNING`, so two
+  senders at the edge get one slot between them. Shares come from
+  `MAIL_DAILY_QUOTA`, `MAIL_OTP_SHARE` and `MAIL_NOTICE_SHARE` (defaults
+  100 / 40 % / 40 %, bulk the rest; `CLUB_BULK_MAIL_DAILY_LIMIT` may only
+  lower bulk) and are never stored. A kind cannot borrow from another: the
+  code reserve is the point. The worker sends only through `budgetedMailer`,
+  which THROWS instead of sending once the share is spent; the job's claim
+  rolls back, `deliverEach` counts the recipient as `held` (not failed),
+  sweeps retry on their next tick and the one-off notice queues are
+  re-enqueued for the next Sofia day (`deferHeld`) — deferred, never dropped.
+  A failed relay send gives its slot back. The in-memory limiters in
+  `apps/web/lib/auth-rate-limit.ts` stay in front as the first line
 - Tiles: self-served pmtiles at /tiles; MapLibre style lives in apps/web (Stage 2)
 - i18n: next-intl; NEVER hardcode UI strings; `apps/web/messages/bg.json` is the
   source of truth, en mirrors it (parity enforced by `apps/web/tests/i18n.test.ts`);
@@ -385,6 +402,18 @@ evidence='qr_verified')`, enforced by trigger + CHECK, never points.
 - No PII in logs; no identifiable people in photos
 - Date of birth is derived to `is_minor` and discarded — never a column, never a
   log line (`lib/src/age.ts`, proven by `apps/web/tests/dob-not-persisted.test.ts`)
+- Minimum account age is 14 (operator decision 2026-11-06 — the Bulgarian
+  digital-consent age, ЗЗЛД чл. 25в, so no parental-consent flow):
+  `MINIMUM_ACCOUNT_AGE` in `lib/src/age.ts`, attested in the sign-in note and
+  enforced wherever a date of birth is actually entered (`buildProfileUpdate`
+  refuses a younger one, the date still unstored). `is_minor` (<18) still gates
+  nothing. The number is always templated as `{age}`, never typed into a string
+- Club prices are FLAT per tier (member caps are ceilings, not meters) and NET
+  of VAT — the association is registered under ЗДДС (operator decision
+  2026-11-06). Every surface that prints a tier price says «без ДДС»
+  (`apps/web/tests/clubs-pricing-vat.test.ts`); the identity block prints the
+  VAT number as BG+ЕИК behind `ORG_VAT_REGISTERED`. Invoices to clubs are issued
+  by the administrator from the accounting system, never by this code
 - Session IPs are never persisted (CHECK-enforced on `sessions.ip_address`)
 - GDPR erasure removes the profile and anonymises contributions, but
   `facility_edits` is append-only and stays intact — erased actors render as the

@@ -50,6 +50,7 @@ const DATA_DRIVEN = new Set([
   'app/[locale]/admin/(protected)/redakcii/page.tsx :: field', // facility_edits.field
   'app/[locale]/admin/(protected)/zdrave/page.tsx :: queueKey(name)', // pg-boss queue name
   'app/[locale]/klub/[slug]/(office)/prodazhbi/[saleId]/page.tsx :: method', // payment method
+  'components/map/facility-card.tsx :: data.access', // facilities.access via the card API
 ]);
 
 function walk(dir: string): string[] {

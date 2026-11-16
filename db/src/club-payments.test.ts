@@ -13,6 +13,7 @@ import {
   prunePaymentEvents,
   recordPaymentEvent,
   recordProviderRefund,
+  recordRenewalPaymentFailed,
   recordUnappliedRenewal,
   stopSubscription,
   subscriptionCancelOwed,
@@ -42,7 +43,11 @@ import {
  *   - a settled checkout is final, one open checkout per charge, one live
  *     account per club; erasing the client keeps the attempt, anonymised;
  *   - the webhook ledger dedupes a re-delivered event and forgets processed
- *     events after 90 days.
+ *     events after 90 days;
+ *   - money in any currency but EUR is never compared, only listed;
+ *   - a revoke from the club's own Stripe dashboard closes that account's
+ *     open checkouts and stops its chains renewing, in one transaction;
+ *   - a failed renewal is recorded on the chain once per invoice.
  *
  * Integration test against the dev/CI database; skips without DATABASE_URL.
  */
@@ -600,6 +605,143 @@ describe.skipIf(!hasDb)('club online payments (requires running database)', () =
     expect(await recordProviderRefund(getDb(), refund, null)).toBe(false);
   });
 
+  it('refuses money in any currency but EUR before comparing amounts', async () => {
+    const id = await chargeCheckout(await openCharge());
+    expect(
+      await applyCheckoutPaid(getDb(), {
+        checkoutId: id,
+        provider: 'fake',
+        paymentRef: 'pi_test_bgn',
+        amountCents: 4500,
+        currency: 'bgn',
+        subscriptionRef: null,
+      }),
+    ).toMatchObject({ applied: false, reason: 'currency_mismatch' });
+    expect(await checkout(id)).toEqual({ status: 'unapplied', payment_ref: 'pi_test_bgn' });
+    const subscriptionRef = `sub_test_${randomUUID().slice(0, 8)}`;
+    await subscribed(subscriptionRef);
+    expect(
+      await applySubscriptionInvoice(getDb(), {
+        provider: 'fake',
+        subscriptionRef,
+        paymentRef: 'pi_test_bgn_2',
+        amountCents: 4500,
+        currency: 'bgn',
+      }),
+    ).toMatchObject({ applied: false, reason: 'currency_mismatch', chain: { planId } });
+    const periods = await client.query(
+      `SELECT count(*)::int AS n FROM club_memberships WHERE member_id = $1`,
+      [memberId],
+    );
+    expect(periods.rows[0]?.n).toBe(1);
+  });
+
+  it('a revoke from the club dashboard closes the money paths on that account', async () => {
+    await client.query(
+      `INSERT INTO club_payment_accounts (club_id, provider, account_ref, charges_enabled)
+       VALUES ($1, 'fake', $2, true)`,
+      [club.clubId, ACCOUNT],
+    );
+    const subscriptionRef = `sub_test_${randomUUID().slice(0, 8)}`;
+    await subscribed(subscriptionRef);
+    const open = await chargeCheckout(await openCharge());
+    // A checkout opened on another account of the club is not this revoke's.
+    const elsewhere = await client.query<{ id: string }>(
+      `INSERT INTO club_checkouts (club_id, purpose, member_id, charge_id, amount_cents, provider, account_ref)
+       VALUES ($1, 'charge', $2, $3, 4500, 'fake', 'acct_test_elsewhere') RETURNING id`,
+      [club.clubId, memberId, await openCharge()],
+    );
+    const after = new Date(Date.now() + 60_000);
+    const gone = await markPaymentAccountGone(getDb(), ACCOUNT, after, 9001);
+    expect(gone).toEqual({
+      clubId: club.clubId,
+      checkoutsExpired: 1,
+      subscriptions: 1,
+      fresh: true,
+    });
+    expect((await checkout(open))?.status).toBe('expired');
+    expect((await checkout(elsewhere.rows[0]?.id ?? ''))?.status).toBe('open');
+    const renewing = await client.query(
+      `SELECT count(*)::int AS n FROM club_memberships WHERE member_id = $1 AND renews`,
+      [memberId],
+    );
+    expect(renewing.rows[0]?.n).toBe(0);
+    const audit = await client.query<{ actor_kind: string; detail: Record<string, unknown> }>(
+      `SELECT actor_kind, detail FROM club_audit
+        WHERE club_id = $1 AND action = 'payment_account_disconnected'`,
+      [club.clubId],
+    );
+    expect(audit.rows).toEqual([
+      {
+        actor_kind: 'system',
+        detail: {
+          provider: 'stripe',
+          by: 'provider',
+          checkoutsExpired: 1,
+          subscriptionsAtStripe: 1,
+          eventId: 9001,
+        },
+      },
+    ]);
+    // A disconnect is final. The SAME event asking again (a retry after the
+    // run died before the owners' notice went) gets the counts back from the
+    // audit row, not fresh — the notice can still go; another event gets nothing.
+    expect(await markPaymentAccountGone(getDb(), ACCOUNT, after, 9001)).toEqual({
+      ...gone,
+      fresh: false,
+    });
+    expect(await markPaymentAccountGone(getDb(), ACCOUNT, after, 9002)).toBeNull();
+  });
+
+  it('records a failed renewal on the chain once per invoice', async () => {
+    const subscriptionRef = `sub_test_${randomUUID().slice(0, 8)}`;
+    await subscribed(subscriptionRef);
+    const failure = {
+      provider: 'fake' as const,
+      subscriptionRef,
+      invoiceRef: 'in_test_failed',
+      amountCents: 4500,
+      currency: 'eur',
+    };
+    const first = await recordRenewalPaymentFailed(getDb(), failure);
+    expect(first).toMatchObject({ clubId: club.clubId, memberId, recorded: true });
+    // Stripe's retry of the same invoice raises the event again: on record already.
+    expect(await recordRenewalPaymentFailed(getDb(), failure)).toEqual({
+      ...first,
+      recorded: false,
+    });
+    const audit = await client.query<{ detail: Record<string, unknown> }>(
+      `SELECT detail FROM club_audit WHERE club_id = $1 AND action = 'online_payment_failed'`,
+      [club.clubId],
+    );
+    expect(audit.rows).toEqual([
+      {
+        detail: {
+          membershipId: first?.membershipId,
+          invoiceRef: 'in_test_failed',
+          provider: 'fake',
+          amountCents: 4500,
+          currency: 'eur',
+        },
+      },
+    ]);
+    // Nothing in the books moved: one period, nothing owed, still renewing —
+    // the next invoice.paid appends the period, invoice.payment_failed never does.
+    const chain = await client.query<{ n: number; renewing: number }>(
+      `SELECT count(*)::int AS n, count(*) FILTER (WHERE renews)::int AS renewing
+         FROM club_memberships WHERE member_id = $1`,
+      [memberId],
+    );
+    expect(chain.rows[0]).toEqual({ n: 1, renewing: 1 });
+    // A subscription no chain of ours carries is the club's own business.
+    expect(
+      await recordRenewalPaymentFailed(getDb(), {
+        ...failure,
+        subscriptionRef: 'sub_test_foreign',
+      }),
+    ).toBeNull();
+  });
+
   it('keeps a reconnected account when an older deauthorisation arrives', async () => {
     const before = new Date(Date.now() - 60_000);
     await client.query(
@@ -607,12 +749,17 @@ describe.skipIf(!hasDb)('club online payments (requires running database)', () =
        VALUES ($1, 'fake', 'acct_test_reconnect', true)`,
       [club.clubId],
     );
-    await markPaymentAccountGone(getDb(), 'acct_test_reconnect', before);
+    await markPaymentAccountGone(getDb(), 'acct_test_reconnect', before, 9003);
     const still = await client.query(
       `SELECT disconnected_at FROM club_payment_accounts WHERE account_ref = 'acct_test_reconnect'`,
     );
     expect(still.rows[0]?.disconnected_at).toBeNull();
-    await markPaymentAccountGone(getDb(), 'acct_test_reconnect', new Date(Date.now() + 60_000));
+    await markPaymentAccountGone(
+      getDb(),
+      'acct_test_reconnect',
+      new Date(Date.now() + 60_000),
+      9004,
+    );
     const gone = await client.query(
       `SELECT disconnected_at FROM club_payment_accounts WHERE account_ref = 'acct_test_reconnect'`,
     );

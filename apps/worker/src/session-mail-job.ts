@@ -304,10 +304,11 @@ export async function runSessionReminders(
       job: 'session.reminders',
     });
     out[kind] = report;
-    // The relay is refusing us: do not open the 2 h batch against the same
-    // wall. This sweep does not throw — its next tick, ten minutes on, is the
-    // retry, and everyone not reached is still "not yet told".
-    if (report.transportDown) break;
+    // The relay is refusing us, or the day's notice share is spent: do not
+    // open the 2 h batch against the same wall. This sweep does not throw —
+    // its next tick, ten minutes on, is the retry, and everyone not reached
+    // is still "not yet told".
+    if (report.transportDown || report.held > 0) break;
   }
   return out;
 }

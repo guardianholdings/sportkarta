@@ -97,12 +97,21 @@ export interface MemberInvitePreview {
   usable: boolean;
 }
 
+/**
+ * SQL: the record `m` is still the one the invitation `i` was sent for — not
+ * archived, and carrying the invited address NOW. An invitation is the club
+ * choosing an address; once the desk corrects that address (a typo that
+ * reached a stranger) or archives the record, the token is worth nothing,
+ * whether or not it was revoked (updateMember and setMemberArchived do).
+ */
+const INVITE_RECORD_UNCHANGED = sql`(m.archived_at IS NULL AND m.email = i.email)`;
+
 export async function memberInviteByToken(token: string): Promise<MemberInvitePreview | null> {
   if (!/^[A-Za-z0-9_-]{20,100}$/.test(token)) return null;
   const result = await getDb().execute(sql`
     SELECT c.slug, c.name_bg, m.display_name, i.email,
            (i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > now()
-            AND c.status = 'active') AS usable
+            AND c.status = 'active' AND ${INVITE_RECORD_UNCHANGED}) AS usable
       FROM club_member_invites i
       JOIN clubs c ON c.id = i.club_id
       JOIN club_members m ON m.club_id = i.club_id AND m.id = i.member_id
@@ -129,6 +138,9 @@ export async function acceptMemberInvite(
 ): Promise<AcceptLinkResult> {
   if (!/^[A-Za-z0-9_-]{20,100}$/.test(token)) return { ok: false, error: 'invalid' };
   return db.transaction(async (tx) => {
+    // Only the invitation is locked: the desk correcting the address or
+    // archiving the record revokes it (members.ts), which waits on this lock
+    // and then finds it accepted — so the two go one after the other.
     const invite = await tx.execute(sql`
       SELECT i.id, i.club_id, i.member_id, c.slug,
              (u.email_verified AND lower(u.email) = i.email) AS matches,
@@ -137,10 +149,11 @@ export async function acceptMemberInvite(
                         AND l.status <> 'declined' AND l.member_id <> i.member_id) AS other_record
         FROM club_member_invites i
         JOIN clubs c ON c.id = i.club_id
+        JOIN club_members m ON m.club_id = i.club_id AND m.id = i.member_id
         JOIN users u ON u.id = ${userId}
        WHERE i.token_hash = ${sha256Hex(token)}
          AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > now()
-         AND c.status = 'active'
+         AND c.status = 'active' AND ${INVITE_RECORD_UNCHANGED}
        FOR UPDATE OF i
     `);
     const row = invite.rows[0];
@@ -149,14 +162,22 @@ export async function acceptMemberInvite(
     if (row.other_record === true) return { ok: false, error: 'already_linked' } as const;
     const clubId = String(row.club_id);
     const memberId = String(row.member_id);
-    await tx.execute(sql`
+    // An answered claim (pending, declined) gives way to the invitation; an
+    // ACTIVE link of another account never does — the rule is in the upsert
+    // itself, so no interleaving can take a portal from the person who holds it.
+    const linked = await tx.execute(sql`
       INSERT INTO club_member_links (member_id, club_id, user_id, status, method)
       VALUES (${memberId}::uuid, ${clubId}::uuid, ${userId}, 'active', 'invite')
       ON CONFLICT (member_id) DO UPDATE
          SET user_id = EXCLUDED.user_id, status = 'active', method = 'invite',
              passport_consent_at = CASE WHEN club_member_links.user_id = EXCLUDED.user_id
                                         THEN club_member_links.passport_consent_at END
+       WHERE club_member_links.status <> 'active'
+          OR club_member_links.user_id = EXCLUDED.user_id
+      RETURNING member_id
     `);
+    // The record belongs to another account by now: the invitation offers nothing.
+    if (linked.rows.length === 0) return { ok: false, error: 'invalid' } as const;
     await tx.execute(
       sql`UPDATE club_member_invites SET accepted_at = now() WHERE id = ${String(row.id)}::uuid`,
     );
@@ -269,7 +290,14 @@ export async function decideClaim(
   });
 }
 
-/** Unlink — the member from the portal, or the desk. Nothing else changes. */
+/**
+ * Unlink — the member from the portal, or the desk. One thing goes with the
+ * link: the member's «no» to club mail. The switch lives on the link row
+ * (`notify_email`), and with the row gone a club that mails clients without
+ * an account would write to the record's own address again — so a muted link
+ * leaves the record opted out (`email_opt_out_at`, which every mail path
+ * reads; the first timestamp is kept). Nothing else changes.
+ */
 export async function unlinkRecord(
   db: TransactionalDb,
   by: { kind: 'staff'; actor: ClubActor } | { kind: 'member'; userId: string },
@@ -282,13 +310,21 @@ export async function unlinkRecord(
             DELETE FROM club_member_links l
              WHERE l.member_id = ${memberId}::uuid AND ${clubScope(by.actor, 'members.manage', 'l')}
                AND ${clubActorMay(by.actor, 'members.manage', { write: false })}
-             RETURNING l.club_id`)
+             RETURNING l.club_id, l.notify_email`)
         : await tx.execute(sql`
             DELETE FROM club_member_links l
              WHERE l.member_id = ${memberId}::uuid AND l.user_id = ${by.userId}
-             RETURNING l.club_id`);
+             RETURNING l.club_id, l.notify_email`);
     const clubId = text(removed.rows[0]?.club_id);
     if (!clubId) return false;
+    if (removed.rows[0]?.notify_email === false) {
+      // The record of the link just removed, in the club it was removed from:
+      // the DELETE above is this statement's authority.
+      await tx.execute(sql`
+        UPDATE club_members m SET email_opt_out_at = coalesce(m.email_opt_out_at, now())
+         WHERE m.id = ${memberId}::uuid AND m.club_id = ${clubId}::uuid
+      `);
+    }
     await recordClubAudit(tx, {
       clubId,
       by:
@@ -306,6 +342,13 @@ export async function unlinkRecord(
  * The member's own switches on their link: the passport bridge (consent, a
  * timestamp — the obligation is to demonstrate it) and club mail. Target
  * state, own active link only.
+ *
+ * Club mail has a second «no» — the record's one-click opt-out
+ * (`email_opt_out_at`: the link in a mail, or a muted link that was removed),
+ * and mail needs both to agree. Switching club mail ON here is the member's
+ * own signed-in yes for this club, so it lifts that opt-out too: without it a
+ * member who muted, unlinked and linked again would see the switch on and
+ * never get a reminder. The lift is logged, like the opt-out was.
  */
 export async function setLinkPreference(
   userId: string,
@@ -319,12 +362,36 @@ export async function setLinkPreference(
       : preference === 'push'
         ? sql`notify_push = ${on}`
         : sql`notify_email = ${on}`;
-  const updated = await getDb().execute(sql`
-    UPDATE club_member_links SET ${set}
-     WHERE member_id = ${memberId}::uuid AND user_id = ${userId} AND status = 'active'
-     RETURNING member_id
-  `);
-  return updated.rows.length > 0;
+  return getDb().transaction(async (tx) => {
+    const updated = await tx.execute(sql`
+      UPDATE club_member_links SET ${set}
+       WHERE member_id = ${memberId}::uuid AND user_id = ${userId} AND status = 'active'
+       RETURNING member_id, club_id
+    `);
+    const link = updated.rows[0];
+    if (!link) return false;
+    if (preference === 'notify' && on) {
+      // The record of the caller's OWN active link — the same WHERE as above.
+      const lifted = await tx.execute(sql`
+        UPDATE club_members m SET email_opt_out_at = NULL
+         WHERE m.id = ${memberId}::uuid AND m.email_opt_out_at IS NOT NULL
+           AND EXISTS (SELECT 1 FROM club_member_links own
+                        WHERE own.member_id = m.id AND own.user_id = ${userId}
+                          AND own.status = 'active')
+         RETURNING m.id
+      `);
+      if (lifted.rows.length > 0) {
+        await recordClubAudit(tx, {
+          clubId: String(link.club_id),
+          by: { kind: 'member', userId },
+          action: 'member_updated',
+          subjectMemberId: memberId,
+          detail: { mailOptOut: false },
+        });
+      }
+    }
+    return true;
+  });
 }
 
 /**

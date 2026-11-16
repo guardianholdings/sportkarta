@@ -63,6 +63,16 @@ export function latitudeAt(y: number): number {
   return (Math.atan(Math.sinh(Math.PI * (1 - 2 * y))) * 180) / Math.PI;
 }
 
+/**
+ * The middle of the box in degrees (25.5° E, 42.75° N for Bulgaria's): the
+ * point the desktop fit puts at the centre of the visible map (operator
+ * request 2026-11-02). `cameraForBounds` centres the box's Mercator middle
+ * instead, which lies at 42.775° N, 4 to 9 px north of it at desktop zooms.
+ */
+export function boxMiddle(bounds: Bounds): { lng: number; lat: number } {
+  return { lng: (bounds[0][0] + bounds[1][0]) / 2, lat: (bounds[0][1] + bounds[1][1]) / 2 };
+}
+
 /** The part of the canvas the member can see, as the phone pan limit needs it. */
 export interface VisibleFrame {
   /** The camera zoom (MapLibre's 512px world). */
@@ -88,6 +98,10 @@ export interface VisibleFrame {
  * frame's bottom on the box's southern edge sends all of the spare room north,
  * where map exists. The box's edge rather than the exact tile edge: it is
  * covered at every zoom, whichever way the tile rows fall.
+ *
+ * Only a map WITHOUT the regional underlay (lib/map/underlay.ts) needs it: the
+ * phone, and the place listings. Desktop draws the underlay, which has real
+ * map south of the box, so it centres the country instead (operator request 2026-11-02).
  */
 export function southLimitLat(southLat: number, frame: VisibleFrame): number {
   const worldSize = 512 * 2 ** frame.zoom;
@@ -113,8 +127,13 @@ export function southLimitLat(southLat: number, frame: VisibleFrame): number {
  * and LAST, so it wins over the box's northern edge: when the frame is taller
  * than the room between the tile edge and the box's top (a phone with the sheet
  * collapsed), the centre goes north of the box rather than letting the frame's
- * bottom off the tiles. Desktop passes its frame too: `maxBounds` cropped the
- * country on any map area narrower than Bulgaria is wide (UX audit 2026-10-10).
+ * bottom off the tiles. Desktop passes no frame while it draws the regional
+ * underlay (below `UNDERLAY_LAYER_MAXZOOM`, see `keepsSouthLimit`), so the
+ * frame may run past the box on every side and the country stays centred in
+ * it. From 10 Oct to 2 Nov desktop passed its frame too, and
+ * every map area narrower than the box's shape (the list open on a laptop)
+ * showed the country at the bottom with the empty background above Romania.
+ * From that zoom the underlay is hidden, and desktop passes its frame again.
  */
 export function clampCenter(
   center: { lng: number; lat: number },
@@ -149,12 +168,15 @@ export interface VisibleFrameSize extends VisibleFrame {
  * until it does, and an axis already inside is returned exactly as it came.
  * Where the frame is larger than the box, the frame is centred on it. The
  * south limit applies last, as in `clampCenter`, so the result is a centre
- * `clampCenter` keeps.
+ * `clampCenter` keeps; a map drawing the regional underlay passes
+ * `southLimit: false` below `UNDERLAY_LAYER_MAXZOOM`, as it passes
+ * `clampCenter` no frame there (`keepsSouthLimit`).
  */
 export function openingCenter(
   center: { lng: number; lat: number },
   bounds: Bounds,
   frame: VisibleFrameSize,
+  southLimit = true,
 ): { lng: number; lat: number } {
   const worldSize = 512 * 2 ** frame.zoom;
   const fit = (value: number, lo: number, hi: number, half: number) =>
@@ -167,6 +189,7 @@ export function openingCenter(
   const fy = fit(y, mercatorY(bounds[1][1]), mercatorY(bounds[0][1]), frame.halfHeight / worldSize);
   const lng = fx === x ? center.lng : fx * 360 - 180;
   const lat = fy === y ? center.lat : latitudeAt(fy);
+  if (!southLimit) return { lng, lat };
   return { lng, lat: Math.max(lat, southLimitLat(bounds[0][1], frame)) };
 }
 

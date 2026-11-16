@@ -5,7 +5,12 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth-session';
 import { clubsEnabled } from '@/lib/clubs/access';
 import { requireClubStaff } from '@/lib/clubs/club-session';
-import { connectAccount, paymentProvider, verifyConnectState } from '@/lib/clubs/payments';
+import {
+  connectAccount,
+  paymentProvider,
+  paymentsReady,
+  verifyConnectState,
+} from '@/lib/clubs/payments';
 import { siteUrl } from '@/lib/seo';
 
 /**
@@ -18,6 +23,11 @@ import { siteUrl } from '@/lib/seo';
  *   3. that person still holds settings.manage at that club (requireClubStaff,
  *      and connectAccount embeds the scope again in its statement).
  * Only then is the code exchanged, and only the account id is kept.
+ *
+ * Gated like checkout (paymentsReady: the operator's switch AND a working
+ * provider), not on the keys alone: while CLUB_PAYMENTS_ENABLED is off nobody
+ * can connect an account, so the first live connection is a decision the
+ * operator made, never a callback that happened to arrive.
  */
 
 export const dynamic = 'force-dynamic';
@@ -32,7 +42,7 @@ function back(_request: Request, slug: string | null, outcome: string): NextResp
 }
 
 export async function GET(request: Request): Promise<Response> {
-  if (!clubsEnabled() || paymentProvider() !== 'stripe') {
+  if (!clubsEnabled() || !paymentsReady() || paymentProvider() !== 'stripe') {
     return new Response('Not found', { status: 404 });
   }
   const url = new URL(request.url);

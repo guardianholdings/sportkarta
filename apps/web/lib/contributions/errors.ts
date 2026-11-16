@@ -17,6 +17,11 @@ export type ContributionErrorCode =
   | 'duplicate_nearby'
   /** A duplicate exists, but the public cannot see it (e.g. a hidden paid venue). */
   | 'duplicate_hidden'
+  /**
+   * The duplicate is the member's OWN facility, sent again (a lost answer, a
+   * second tap): saved already, and theirs, not somebody else's.
+   */
+  | 'duplicate_own'
   | 'invalid_state'
   | 'facility_not_found'
   /** You cannot verify a facility you added yourself. */

@@ -4,26 +4,33 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
- * The admin nav on a phone (UX audit 2026-10-10, A-17): sixteen links wrapped
- * into five rows above every screen. Below `sm` they are one row that scrolls
- * sideways, each link a 44px target.
+ * The admin nav on a phone (UX audit 2026-10-10 A-17, then 2026-10-31 V-27):
+ * sixteen links wrapped into five rows above every screen; then one row that
+ * scrolled sideways but never brought the current tab into view. Below `sm`
+ * it is one ScrollStrip — scrolls, fades, centres the current tab — with
+ * every link a 44px target; from `sm` the links wrap as before.
  */
 describe('the admin nav', () => {
+  const nav = readFileSync(path.join(process.cwd(), 'components/shell/admin-nav.tsx'), 'utf8');
   const layout = readFileSync(
     path.join(process.cwd(), 'app/[locale]/admin/(protected)/layout.tsx'),
     'utf8',
   );
-  const wrapper = layout.slice(0, layout.indexOf('<AdminNav'));
-  const classes = wrapper.slice(wrapper.lastIndexOf('className="'));
 
-  it('is one sideways-scrolling row on a phone', () => {
-    expect(classes).toMatch(/\boverflow-x-auto\b/);
-    expect(classes).toMatch(/max-sm:\[&>nav\]:flex-nowrap/);
-    expect(classes).toMatch(/max-sm:\[&_a\]:whitespace-nowrap/);
-    expect(classes).toMatch(/max-sm:\[&_a\]:shrink-0/);
+  it('is one ScrollStrip that follows the pathname and wraps from sm', () => {
+    expect(nav).toMatch(/<ScrollStrip[^>]*\bas="nav"/);
+    expect(nav).toMatch(/activeKey=\{pathname\}/);
+    expect(nav).toMatch(/wrapFrom="sm"/);
   });
 
-  it('gives every link a 44px target there', () => {
-    expect(classes).toMatch(/max-sm:\[&_a\]:min-h-11/);
+  it('gives every link a 44px target on a phone', () => {
+    expect(nav).toMatch(/\bmin-h-11\b/);
+    expect(nav).toMatch(/\bwhitespace-nowrap\b/);
+    expect(nav).toMatch(/\bshrink-0\b/);
+  });
+
+  it('leaves the layout without a scroll wrapper of its own', () => {
+    expect(layout).not.toMatch(/overflow-x-auto/);
+    expect(layout).toMatch(/<AdminNav[\s\S]*?label=\{t\('title'\)\}/);
   });
 });

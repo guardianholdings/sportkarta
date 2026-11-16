@@ -28,6 +28,7 @@ describe('organisation', () => {
       legalName: null,
       eik: null,
       address: null,
+      vatNumber: null,
       contactEmail: null,
     });
     expect(hasIdentity(organisation({}))).toBe(false);
@@ -45,6 +46,7 @@ describe('organisation', () => {
       legalName: 'Сдружение „Повече от просто спорт“',
       eik: '123456789',
       address: 'гр. София 1000, ул. „Примерна“ 1',
+      vatNumber: null,
       contactEmail: 'hello@pops.bg',
     });
     expect(hasIdentity(org)).toBe(true);
@@ -54,6 +56,37 @@ describe('organisation', () => {
     quiet();
     expect(organisation({ ORG_EIK: '1234567890123' }).eik).toBe('1234567890123');
     expect(organisation({ ORG_EIK: 'BG123456789' }).eik).toBe('123456789');
+  });
+
+  it('prints the VAT number as BG + ЕИК only when the operator says the association is registered', () => {
+    const warn = quiet();
+    expect(organisation({ ORG_EIK: '123456789', ORG_VAT_REGISTERED: 'true' }).vatNumber).toBe(
+      'BG123456789',
+    );
+    expect(organisation({ ORG_EIK: '123456789', ORG_VAT_REGISTERED: ' Yes ' }).vatNumber).toBe(
+      'BG123456789',
+    );
+    expect(
+      organisation({ ORG_EIK: '123456789', ORG_VAT_REGISTERED: 'false' }).vatNumber,
+    ).toBeNull();
+    expect(organisation({ ORG_EIK: '123456789' }).vatNumber).toBeNull();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('cannot invent a VAT number: no valid ЕИК or an unreadable flag prints nothing and warns', () => {
+    const warn = quiet();
+    expect(organisation({ ORG_VAT_REGISTERED: 'true' }).vatNumber).toBeNull();
+    expect(organisation({ ORG_EIK: '12345', ORG_VAT_REGISTERED: 'true' }).vatNumber).toBeNull();
+    // A branch БУЛСТАТ is a valid ЕИК but has no VAT number of its own.
+    expect(
+      organisation({ ORG_EIK: '1234567890123', ORG_VAT_REGISTERED: 'true' }).vatNumber,
+    ).toBeNull();
+    expect(
+      organisation({ ORG_EIK: '123456789', ORG_VAT_REGISTERED: 'maybe' }).vatNumber,
+    ).toBeNull();
+    const logged = warn.mock.calls.flat().join(' ');
+    expect(logged).toContain('ORG_VAT_REGISTERED');
+    expect(logged).not.toContain('maybe');
   });
 
   it('drops a malformed ЕИК rather than printing a number nobody can look up', () => {

@@ -8,11 +8,13 @@ import { Link } from '@/i18n/navigation';
 import { TERMS_SECTIONS } from '@/lib/legal-pages';
 import { organisation } from '@/lib/organisation';
 import { buildAlternates } from '@/lib/seo';
+import { MINIMUM_ACCOUNT_AGE } from '@sportkarta/lib/age';
 import { CLUB_CONTRACT_MONTHS, CLUB_CONTRACT_NOTICE_MONTHS } from '@sportkarta/lib/clubs';
 
 /** The links, and the club contract's terms (lib/src/clubs/contract.ts) for «Услугата». */
 const TERMS_VALUES = {
   ...legalLinks,
+  age: MINIMUM_ACCOUNT_AGE,
   months: CLUB_CONTRACT_MONTHS,
   notice: CLUB_CONTRACT_NOTICE_MONTHS,
 };

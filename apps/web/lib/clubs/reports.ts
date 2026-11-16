@@ -1,4 +1,9 @@
-import { getDb, sql } from '@sportkarta/db';
+import {
+  MEMBERSHIP_LAST_VALID_DAY as LAST_VALID_DAY,
+  MEMBERSHIP_WAS_EVER_VALID as WAS_EVER_VALID,
+  getDb,
+  sql,
+} from '@sportkarta/db';
 import { engagementBand, engagementScore } from '@sportkarta/lib/clubs';
 
 import { clubScope, type ClubActor } from './scope';
@@ -22,6 +27,10 @@ export const AT_RISK_DAYS = 21;
 const MONTHS = 12;
 const FILL_WEEKS = 4;
 
+// When a membership WAS valid — for every figure here that looks back in time —
+// is one definition shared with the owner's mails and the frozen monthly
+// activity: WAS_EVER_VALID / LAST_VALID_DAY (db/src/clubs/validity.ts).
+
 export interface MonthFigure {
   /** `YYYY-MM` */
   month: string;
@@ -40,8 +49,8 @@ export async function activeByMonth(actor: ClubActor): Promise<MonthFigure[]> {
       (SELECT count(*)::int FROM (
          SELECT mb.member_id FROM club_membership_balances mb
           WHERE ${clubScope(actor, 'reports.view', 'mb')}
-            AND mb.cancelled_at IS NULL AND mb.starts_on < (mo.first + interval '1 month')::date
-            AND mb.effective_ends_on >= mo.first
+            AND ${WAS_EVER_VALID} AND mb.starts_on < (mo.first + interval '1 month')::date
+            AND ${LAST_VALID_DAY} >= mo.first
          UNION
          SELECT ci.member_id FROM club_checkins ci
           WHERE ${clubScope(actor, 'reports.view', 'ci')}
@@ -215,7 +224,7 @@ export async function retentionCohorts(actor: ClubActor): Promise<Cohort[]> {
     WITH firsts AS (
       SELECT mb.member_id, min(mb.starts_on) AS first_on
         FROM club_membership_balances mb
-       WHERE ${clubScope(actor, 'reports.view', 'mb')} AND mb.cancelled_at IS NULL
+       WHERE ${clubScope(actor, 'reports.view', 'mb')} AND ${WAS_EVER_VALID}
          AND mb.kind <> 'trial'
        GROUP BY mb.member_id
     ), cohorts AS (
@@ -228,9 +237,9 @@ export async function retentionCohorts(actor: ClubActor): Promise<Cohort[]> {
                                              SELECT 1 FROM club_membership_balances mb
                                               WHERE mb.club_id = ${actor.clubId}::uuid
                                                 AND mb.member_id = m.member_id
-                                                AND mb.cancelled_at IS NULL
+                                                AND ${WAS_EVER_VALID}
                                                 AND mb.starts_on <= m.at
-                                                AND mb.effective_ends_on >= m.at)))::float
+                                                AND ${LAST_VALID_DAY} >= m.at)))::float
                                           / count(*) END
                            FROM (SELECT cc.member_id,
                                         (cc.first_on + make_interval(months => k))::date AS at
@@ -259,8 +268,8 @@ export async function churnByMonth(actor: ClubActor): Promise<MonthFigure[]> {
       SELECT mo.first, mb.member_id
         FROM months mo
         JOIN club_membership_balances mb
-          ON ${clubScope(actor, 'reports.view', 'mb')} AND mb.cancelled_at IS NULL
-         AND mb.starts_on < (mo.first + interval '1 month')::date AND mb.effective_ends_on >= mo.first
+          ON ${clubScope(actor, 'reports.view', 'mb')} AND ${WAS_EVER_VALID}
+         AND mb.starts_on < (mo.first + interval '1 month')::date AND ${LAST_VALID_DAY} >= mo.first
        GROUP BY mo.first, mb.member_id
     )
     SELECT to_char(mo.first, 'YYYY-MM') AS month,

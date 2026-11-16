@@ -20,6 +20,9 @@ export const dynamic = 'force-dynamic';
 
 const MAX_BODY_BYTES = 64 * 1024;
 
+/** The most messages one batch may carry; the rest are refused, each by name. */
+const MAX_BATCH = 20;
+
 function rpcId(message: unknown): string | number | null {
   const id = (message as { id?: unknown } | null)?.id;
   return typeof id === 'string' || typeof id === 'number' ? id : null;
@@ -73,8 +76,24 @@ export async function POST(request: Request): Promise<Response> {
   // own error — the writes before it have happened and are reported.
   if (Array.isArray(message)) {
     const replies: JsonRpcReply[] = [];
-    for (const [index, one] of message.slice(0, 20).entries()) {
+    for (const [index, one] of message.entries()) {
       const id = rpcId(one);
+      // Past the batch limit nothing runs — and the caller is TOLD so, per
+      // message. Dropping them in silence left a client waiting on replies
+      // that never come, unable to tell whether those writes had happened.
+      if (index >= MAX_BATCH) {
+        if (id !== null) {
+          replies.push({
+            jsonrpc: '2.0',
+            id,
+            error: {
+              code: -32000,
+              message: `Not run: a batch holds at most ${MAX_BATCH} messages.`,
+            },
+          });
+        }
+        continue;
+      }
       if (index > 0 && !clubApiKeyLimiter.check(key.keyId).allowed) {
         replies.push({ jsonrpc: '2.0', id, error: { code: -32000, message: 'Rate limited.' } });
         continue;

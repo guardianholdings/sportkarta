@@ -9,7 +9,7 @@ import { CLUB_TRIAL_DAYS } from '@sportkarta/lib/clubs';
 export async function FinalCta() {
   const t = await getTranslations('ClubsLanding.final');
   return (
-    <section aria-labelledby="clubs-final" className="bg-ink text-paper">
+    <section aria-labelledby="clubs-final" className="bg-ink text-paper" data-sticky-cta-hide>
       <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-14 sm:px-6 lg:px-8 lg:py-20">
         <h2
           id="clubs-final"

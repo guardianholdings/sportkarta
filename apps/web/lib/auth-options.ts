@@ -37,6 +37,13 @@ export interface AuthOptionsInput {
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 
+/**
+ * How long the signed session cookie may vouch for a session without a
+ * database read — and so how long a revoked session can linger.
+ * tests/auth-providers-flow.test.ts pins both edges.
+ */
+export const SESSION_COOKIE_CACHE_SECONDS = 5 * 60;
+
 /** The endpoint a code is redeemed through (in-process, from the sign-in action). */
 const EMAIL_CODE_SIGN_IN_PATH = '/sign-in/email-otp';
 
@@ -64,7 +71,7 @@ export function authOptions(input: AuthOptionsInput) {
       updateAge: 60 * 60 * 24,
       // Short-lived signed cookie cache: most requests then need no session
       // SELECT, while a revoked session still dies within five minutes.
-      cookieCache: { enabled: true, maxAge: 5 * 60 },
+      cookieCache: { enabled: true, maxAge: SESSION_COOKIE_CACHE_SECONDS },
     },
     account: accountOptions(),
     verification: { modelName: 'verifications' },

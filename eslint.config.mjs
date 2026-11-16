@@ -23,6 +23,9 @@ export default tseslint.config(
       // Node asset-generation + service-worker scripts (own runtime, not app code).
       'apps/web/scripts/**',
       'apps/web/public/sw.js',
+      // The consent card, another browser-runtime script: kept in the shape of
+      // the source it was reviewed as, so a diff against that source stays short.
+      'apps/web/public/consent.js',
       // Seed design handoff — read-only reference bundle (browser-runtime .js /
       // .jsx prototype, not our source). Authority for the design system; never
       // linted, typechecked, or built. See docs/design/RECONCILIATION.md.

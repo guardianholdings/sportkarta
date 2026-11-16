@@ -1,5 +1,5 @@
 import { getDb, getPool, sql } from '@sportkarta/db';
-import { MemoryMailer } from '@sportkarta/lib/email';
+import { MailBudgetExhaustedError, MemoryMailer } from '@sportkarta/lib/email';
 import { MemoryPushSender } from '@sportkarta/lib/push';
 import { MemorySmsSender } from '@sportkarta/lib/sms';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -294,6 +294,29 @@ describe.skipIf(!hasDb)('club messages journey (requires running database)', () 
     const still = await db.execute(sql`SELECT status FROM club_broadcasts WHERE id = ${id}::uuid`);
     // Started (its SMS and push would not wait), its e-mail held; still cancellable.
     expect(still.rows[0]?.status).toBe('sending');
+    const resumed = await runClubBroadcasts(options);
+    expect(resumed.finished).toBe(1);
+    expect(mailer.sent).toHaveLength(3);
+  });
+
+  it('holds a message when the budget’s bulk share is spent, and resumes it after', async () => {
+    // The durable line behind the allowance above (db/src/mail-budget.ts):
+    // the worker's bulk mailer THROWS instead of sending once the day's share
+    // is gone. The claim rolls back with it, the message stays `sending`, and
+    // nothing is a failure — the next run with room sends to everybody.
+    const id = await newBroadcast({ subject: 'Нов терен' });
+    await due(id);
+    reset();
+    const spent = {
+      send: () => Promise.reject(new MailBudgetExhaustedError('bulk', 20, '2026-11-06')),
+    };
+    const held = await runClubBroadcasts({ ...options, mailer: spent });
+    expect(held.held).toBe(true);
+    expect(held.finished).toBe(0);
+    expect(held.report).toMatchObject({ held: 1, failed: 0, transportDown: false });
+    const still = await db.execute(sql`SELECT status FROM club_broadcasts WHERE id = ${id}::uuid`);
+    expect(still.rows[0]?.status).toBe('sending');
+    // Nobody was recorded as told: the resumed run reaches all three.
     const resumed = await runClubBroadcasts(options);
     expect(resumed.finished).toBe(1);
     expect(mailer.sent).toHaveLength(3);

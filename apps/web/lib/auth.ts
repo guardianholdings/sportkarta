@@ -16,7 +16,12 @@ import {
 } from './auth-config';
 import { authOptions, type BetterAuthLogLevel } from './auth-options';
 import { syncAdminRole } from './roles';
-import { deliverSignInCode, redactLogArgs, type SignInCodeOutcome } from './sign-in-code';
+import {
+  deliverSignInCode,
+  redactLogArgs,
+  type SignInCodeDelivery,
+  type SignInCodeOutcome,
+} from './sign-in-code';
 
 /**
  * better-auth, self-hosted in our own Postgres (docs/ROADMAP.md §0/§5).
@@ -158,11 +163,16 @@ let mailer: Mailer | undefined;
  * createVerificationOTP (hashed, OTP_TTL_SECONDS, 3 attempts) and never leaves
  * this function except inside the mail.
  */
-export async function sendSignInCode(email: string, locale: string): Promise<SignInCodeOutcome> {
+export async function sendSignInCode(
+  email: string,
+  locale: string,
+  slot?: SignInCodeDelivery['slot'],
+): Promise<SignInCodeOutcome> {
   const auth = requireAuth();
   mailer ??= createMailer(process.env);
   return deliverSignInCode({
     email,
+    slot,
     issueCode: () => auth.api.createVerificationOTP({ body: { email, type: 'sign-in' } }),
     locale,
     mailer,

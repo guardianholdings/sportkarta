@@ -166,16 +166,26 @@ export async function topUpWallet(
     return await db.transaction(async (tx) => {
       const member = (
         await tx.execute(sql`
-          SELECT ${input.nonce ? alreadyDone(actor.clubId, input.memberId, input.nonce) : sql`false`}
-                   AS done
-            FROM club_members m
+          SELECT m.id FROM club_members m
            WHERE m.id = ${input.memberId}::uuid AND m.archived_at IS NULL
              AND ${clubWriteScope(actor, 'payments.record', 'm')}
              FOR NO KEY UPDATE
         `)
       ).rows[0];
       if (!member) return { ok: false, error: 'not_allowed' } as const;
-      if (member.done === true) return { ok: true } as const;
+      // The repeat check is a statement of its OWN, after the lock. In the
+      // locking statement it would read the snapshot taken before the wait
+      // (READ COMMITTED), so two copies of one form in flight together — a
+      // double tap before the page reacts, a retried request — would both
+      // miss the other's audit row and both load the credit.
+      if (input.nonce) {
+        const repeat = (
+          await tx.execute(
+            sql`SELECT ${alreadyDone(actor.clubId, input.memberId, input.nonce)} AS done`,
+          )
+        ).rows[0];
+        if (repeat?.done === true) return { ok: true } as const;
+      }
       const charge = await tx.execute(sql`
         INSERT INTO club_charges (club_id, member_id, kind, label, amount_cents, issued_on, due_on,
                                   created_by)

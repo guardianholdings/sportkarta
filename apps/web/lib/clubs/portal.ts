@@ -192,7 +192,12 @@ export async function portalView(
 
   const linkRow = (
     await db.execute(sql`
-      SELECT l.member_id, l.status, (l.passport_consent_at IS NOT NULL) AS consent, l.notify_email,
+      SELECT l.member_id, l.status, (l.passport_consent_at IS NOT NULL) AS consent,
+             -- Club mail needs BOTH switches: the link's own and the record's
+             -- one-click opt-out (db/src/clubs/mail.ts). The portal shows what
+             -- is true — «off» after an unsubscribe link — so switching it on
+             -- here (setLinkPreference lifts the opt-out) is what restores mail.
+             (l.notify_email AND m.email_opt_out_at IS NULL) AS notify_email,
              l.notify_push,
              (m.erasure_requested_at IS NOT NULL) AS erasure
         FROM club_member_links l

@@ -1,6 +1,7 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Badge } from '@/components/ui/badge';
+import { ScrollStrip } from '@/components/ui/scroll-strip';
 import { buttonVariants } from '@/components/ui/button';
 import { chipClass } from '@/components/ui/chip';
 import { Link } from '@/i18n/navigation';
@@ -56,7 +57,7 @@ export default async function ClubEventsPage({
         </div>
       </div>
 
-      <nav aria-label={t('title')} className="-mx-4 overflow-x-auto px-4">
+      <ScrollStrip as="nav" aria-label={t('title')} activeKey={filter}>
         <ul className="flex gap-2 pb-1">
           {EVENT_FILTERS.map((value) => (
             <li key={value}>
@@ -70,7 +71,7 @@ export default async function ClubEventsPage({
             </li>
           ))}
         </ul>
-      </nav>
+      </ScrollStrip>
 
       <section className="rounded-card border border-line bg-surface p-4 shadow-sm">
         {events.length === 0 ? (

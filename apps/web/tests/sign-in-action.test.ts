@@ -45,6 +45,11 @@ vi.mock('@/lib/auth', () => ({
   getAuth: () => ({ api: { signInEmailOTP: h.signInEmailOTP, signOut: h.signOut } }),
   sendSignInCode: (email: string, locale: string) => h.sendSignInCode(email, locale),
 }));
+// The day's code share always has room here; sign-in-action-budget.test.ts
+// is where it runs out.
+vi.mock('@/lib/mail-budget', () => ({
+  reserveSignInCodeMail: () => Promise.resolve({ release: () => Promise.resolve() }),
+}));
 
 const { signInAction, signOutAction } = await import('@/app/[locale]/vhod/actions');
 

@@ -178,6 +178,32 @@ describe('the Stripe client', () => {
     await expect(client.retrieveCheckoutSession('cs_1', {})).rejects.toBeInstanceOf(StripeError);
   });
 
+  it('treats an unparsable 2xx as an error to retry, never as an empty object', async () => {
+    // A proxy page or a truncated stream with a 200: read as `{}` it would
+    // make the worker mark a webhook event processed with nothing applied.
+    const upstream = createStripeClient({
+      secretKey: 'sk_test_abcdefghijklmnop',
+      fetch: (async () =>
+        new Response('<html>upstream</html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html' },
+        })) as unknown as typeof fetch,
+    });
+    await expect(
+      upstream.retrieveInvoice('in_1', { account: 'acct_1234567890' }),
+    ).rejects.toMatchObject({ status: 200, code: 'bad_json' });
+    // An error status without a JSON body keeps its status and an unknown code.
+    const gateway = createStripeClient({
+      secretKey: 'sk_test_abcdefghijklmnop',
+      fetch: (async () =>
+        new Response('gateway timeout', { status: 504 })) as unknown as typeof fetch,
+    });
+    await expect(gateway.retrieveInvoice('in_1', {})).rejects.toMatchObject({
+      status: 504,
+      code: 'unknown',
+    });
+  });
+
   it('recognises connected account ids', () => {
     expect(isStripeAccountId('acct_1Nv0FGQ9RKHgCVdK')).toBe(true);
     expect(isStripeAccountId('acct_')).toBe(false);

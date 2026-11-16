@@ -58,10 +58,13 @@ import { clubMailStrings, pick, siteBase, type ClubMailOptions } from './club-ma
  * per batch (membersChannels / channelAllowed). A member who opted out after
  * the message was scheduled does not get it.
  *
- * VOLUME: bulk e-mail (broadcasts and automations together) stops at
- * CLUB_BULK_MAIL_DAILY_LIMIT per Sofia day across all clubs — the relay's
- * own daily limit is what a too-big run would trip, and a tripped relay
- * takes the sign-in codes down with it. The allowance is spent only on a
+ * VOLUME: bulk e-mail (broadcasts and automations together) stops at the
+ * mail budget's BULK share per Sofia day across all clubs (`bulkMailDailyLimit`,
+ * lib/src/email/budget.ts) — the relay's own daily limit is what a too-big
+ * run would trip, and a tripped relay takes the sign-in codes down with it.
+ * The mailer this job is given spends that share durably (db/src/mail-budget.ts)
+ * and throws once it is gone; the allowance below is the fair-share scheduler
+ * in front of it. The allowance is spent only on a
  * message that actually goes (after its claim), never on somebody already
  * reached, and it is SHARED: broadcasts may use BROADCAST_SHARE_OF_BULK of
  * it (the rest is kept for the automations), each club at most
@@ -277,7 +280,7 @@ async function channelsOf(clubId: string, memberIds: readonly string[]) {
 }
 
 function addInto(total: DeliveryReport, report: DeliveryReport): void {
-  for (const field of ['candidates', 'sent', 'skipped', 'failed', 'unattempted'] as const) {
+  for (const field of ['candidates', 'sent', 'skipped', 'failed', 'held', 'unattempted'] as const) {
     total[field] += report[field];
   }
   total.transportDown ||= report.transportDown;
@@ -441,15 +444,22 @@ export async function runClubBroadcasts(
     broadcasts += 1;
     const refusedBefore = budget.refused;
     const { report, cancelled, otherFailed } = await sendBroadcast(broadcast, options, budget);
-    if (!otherFailed && !report.transportDown) otherChannelsDone.add(broadcast.id);
+    // A durable hold stops the run with SMS and push still unattempted: they
+    // do not wait for the e-mail allowance, so the message is re-read next time.
+    if (!otherFailed && !report.transportDown && report.held === 0) {
+      otherChannelsDone.add(broadcast.id);
+    }
     addInto(total, report);
-    const limited = budget.refused > refusedBefore;
+    // Held by the run's allowance, or by the budget's bulk share behind it
+    // (the budgeted mailer threw; the claim rolled back): the same thing to
+    // the message — it stays `sending` and carries on tomorrow.
+    const limited = budget.refused > refusedBefore || report.held > 0;
     held ||= limited;
     const givenUp = Date.now() - broadcast.startedAt.getTime() > GIVE_UP_AFTER_MS;
     if (!cancelled && !limited && !report.transportDown && (report.failed === 0 || givenUp)) {
       if (await finishBroadcast(db(), broadcast.id)) finished += 1;
     }
-    if (report.transportDown) break;
+    if (report.transportDown || report.held > 0) break;
   }
   return { broadcasts, finished, stale, held, report: total };
 }
@@ -550,8 +560,8 @@ export async function runClubAutomations(
     const report = await runAutomation(automation, candidates, options, first, held);
     addInto(total, report);
     if (held.length > 0) short.push({ automation, held });
-    if (report.transportDown) {
-      return { automations: automations.length, held: first.refused > 0, report: total };
+    if (report.transportDown || report.held > 0) {
+      return { automations: automations.length, held: true, report: total };
     }
   }
   // What the equal parts left over, to the clubs whose answers were held.
@@ -562,11 +572,16 @@ export async function runClubAutomations(
     total.skipped += report.skipped - report.candidates;
     total.sent += report.sent;
     total.failed += report.failed;
+    total.held += report.held;
     total.unattempted += report.unattempted;
-    if (report.transportDown) {
-      total.transportDown = true;
+    if (report.transportDown || report.held > 0) {
+      total.transportDown ||= report.transportDown;
       break;
     }
   }
-  return { automations: automations.length, held: second.refused > 0, report: total };
+  return {
+    automations: automations.length,
+    held: second.refused > 0 || total.held > 0,
+    report: total,
+  };
 }

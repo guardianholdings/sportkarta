@@ -72,6 +72,25 @@ function stripBom(text: string): string {
 }
 
 /**
+ * The text of an uploaded CSV, from its BYTES. A file is not always UTF-8:
+ * Excel on a Bulgarian Windows saves «CSV (разделител — запетая)» in the
+ * system code page, Windows-1251, and read as UTF-8 every Cyrillic letter of
+ * it becomes U+FFFD — a members list of question marks. So UTF-8 is decoded
+ * STRICTLY, and bytes that are not UTF-8 are read as Windows-1251 (the one
+ * legacy encoding a Bulgarian spreadsheet arrives in; Cyrillic text in it is
+ * practically never valid UTF-8 by accident, and plain ASCII reads the same
+ * either way). A UTF-8 byte-order mark is dropped by the decoder, and
+ * parseCsv strips one again for callers that hand it text of their own.
+ */
+export function decodeCsvBytes(bytes: Uint8Array): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder('windows-1251').decode(bytes);
+  }
+}
+
+/**
  * Parse CSV into a header row plus data rows.
  *
  * Rows are normalised to the header's width: a short row is padded with empty
@@ -213,6 +232,18 @@ const FORMULA_PREFIX = /^[=+\-@\t\r]/;
 function quoteCell(cell: string, delimiter: string, formulaSafe: boolean): string {
   const safe = formulaSafe && FORMULA_PREFIX.test(cell) ? `'${cell}` : cell;
   return quoteIfNeeded(safe, delimiter);
+}
+
+/**
+ * Undo the export guard on the way back IN — and exactly the guard: one
+ * leading apostrophe directly followed by a character the guard guards.
+ * Without it our own export does not import: every `+359…` phone leaves as
+ * `'+359…` and fails the importer's phone rule. An apostrophe before anything
+ * else is the person's own text and stays. The export is not weakened — what
+ * was read back is guarded again the next time it leaves.
+ */
+export function stripFormulaGuard(cell: string): string {
+  return cell.startsWith("'") && FORMULA_PREFIX.test(cell.slice(1)) ? cell.slice(1) : cell;
 }
 
 function quoteIfNeeded(cell: string, delimiter: string): string {

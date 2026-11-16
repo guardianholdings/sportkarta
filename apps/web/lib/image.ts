@@ -62,6 +62,8 @@ export function sniffImageType(bytes: Uint8Array): SniffedImage | null {
 }
 
 export class InvalidPhotoError extends Error {}
+/** A valid photo with more than MAX_INPUT_PIXELS: refused at decode as too large. */
+export class PhotoTooLargeError extends Error {}
 
 export interface ProcessedPhoto {
   data: Buffer;
@@ -100,16 +102,30 @@ export async function processReportPhoto(input: Uint8Array): Promise<ProcessedPh
     throw new InvalidPhotoError(`unsupported image format: ${String(format)}`);
   }
 
-  const data = await pipeline
-    .rotate() // apply EXIF orientation before it is stripped
-    .resize({
-      width: MAX_DIMENSION,
-      height: MAX_DIMENSION,
-      fit: 'inside',
-      withoutEnlargement: true,
-    })
-    .webp({ quality: 80 })
-    .toBuffer();
+  // metadata() reads only the header, so a cut-off JPEG or a PNG with broken
+  // image data gets this far; the full decode below is where `failOn` refuses
+  // it. That refusal is the member's „Файлът не изглежда като снимка.“
+  // (invalid_photo via photo-upload.ts), not the error page (B3).
+  let data: Buffer;
+  try {
+    data = await pipeline
+      .rotate() // apply EXIF orientation before it is stripped
+      .resize({
+        width: MAX_DIMENSION,
+        height: MAX_DIMENSION,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 80 })
+      .toBuffer();
+  } catch (error) {
+    // sharp enforces limitInputPixels here, not in metadata(): a valid but
+    // huge photo is «too large», not «not a photo».
+    if (error instanceof Error && /pixel limit/i.test(error.message)) {
+      throw new PhotoTooLargeError('too many pixels');
+    }
+    throw new InvalidPhotoError('not a valid image');
+  }
 
   return { data, contentType: 'image/webp', extension: 'webp' };
 }

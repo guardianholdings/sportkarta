@@ -15,6 +15,7 @@ for when data is actually wrong or gone.
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
 | App database `sportkarta` (map, accounts, points, sessions) | Nightly `pg_dump` at 03:30 Sofia into the server's `backups` volume, `/backups/pg/sportkarta-YYYYMMDD-HHMMSS.dump`; checked readable every night | 14 days (3 once off-box copies work) |
 | `umami`, `glitchtip` databases                              | Same, `umami-….dump`, `glitchtip-….dump`                                                                                                         | same                                 |
+| App database right before each deploy's migrations          | `pg_dump` by the Deploy workflow into the same volume, `/backups/pg/premigrate-sportkarta-YYYYMMDDTHHMMSSZ.dump`, checked readable               | pruned with the nightlies            |
 | Uploads volume (facility photos, open-data dumps)           | **Only** in the off-box restic copy — which is not configured yet                                                                                | —                                    |
 | Map tiles volume                                            | Nowhere; rebuilt from source (`deploy/tiles/README.md`)                                                                                          | —                                    |
 | Secrets                                                     | GitHub Actions secrets (the source of truth); rendered into `/opt/sportkarta/.env` on every deploy                                               | —                                    |
@@ -173,10 +174,14 @@ To set it up again (a new bucket, rotated keys):
    us-east-1, which Hetzner rejects).
 3. Deploy — merge anything to `main`, or run **Deploy** with `rollback_to` =
    main HEAD — so the server gets them.
-4. Claude runs the job once by hand (`C exec -T backup /usr/local/bin/backup.sh`),
-   looks for `restic push complete`, and runs
-   `C run --rm backup restic snapshots`. From then on local dumps are kept for
-   3 days and the history lives off-box (14 daily + 8 weekly snapshots).
+4. Run **Backup now** (Actions → Backup now → Run workflow; Claude dispatches
+   it on your word). It runs the nightly script at once with the new secrets —
+   the first run creates the repository and pushes — and prints
+   `[backup] restic push complete` and the snapshot id; on failure it names the
+   class of the error (passphrase, bucket, credentials, endpoint) without the
+   text. From then on local dumps are kept for 3 days and the history lives
+   off-box (14 daily + 8 weekly snapshots). Then run **Restore rehearsal**:
+   its last step lists the snapshots and runs `restic check`.
 5. Once, to prove it: Claude restores the newest restic snapshot of
    `/backups/pg` into a scratch directory on the server and runs the rehearsal
    commands against that dump.

@@ -303,9 +303,27 @@
     "reportingOff": "Off — GLITCHTIP_DSN is not set. Server and worker errors are not reported anywhere.",
     "mailTitle": "Mail over the last {days} days",
     "mailHelp": "“Failed” counts recipients the message could not be sent to — the job still completes, which is why they are counted separately. “Failed jobs” are jobs that stopped entirely. Moderation decision mail is one message per job and reports no recipients: there, a failed job is an unsent message.",
+    "budgetTitle": "Daily mail budget — {day}",
+    "budgetHelp": "The mail relay allows {quota} messages a day (MAIL_DAILY_QUOTA), shared by sign-in codes, notices and club group messages. Each kind has its own share and cannot borrow from another’s: sign-in codes keep a reserve that no notice or club message can use up. The counter lives in the database and resets at midnight Sofia time; the shares are set as percentages with MAIL_OTP_SHARE and MAIL_NOTICE_SHARE, and group messages get the rest. “Refused” counts send attempts a spent share turned away.",
+    "colKind": "Kind",
+    "colBudgetSent": "Sent today",
+    "colBudgetShare": "Share",
+    "colBudgetRefused": "Refused",
+    "colBudgetState": "Status",
+    "budgetKind": {
+      "otp": "Sign-in codes",
+      "notice": "Notices",
+      "bulk": "Club group messages"
+    },
+    "budgetState": {
+      "ok": "fine",
+      "warning": "over {percent} %",
+      "spent": "spent"
+    },
     "clubsTitle": "Clubs",
-    "clubsHelp": "Stripe events the worker has not applied yet (a key, access to the account); webhook endpoints switched off after three failing days; group messages waiting more than an hour past their time (the daily mail limit); clubs that used up their monthly SMS allowance.",
+    "clubsHelp": "Stripe events the worker has not applied yet (a key, access to the account); webhook endpoints switched off after three failing days; group messages waiting more than an hour past their time (the daily mail limit); clubs that used up their monthly SMS allowance. Subscriptions a club left renewing at Stripe after revoking POPS's access to its account — the platform can no longer see them or record their payments; the club must end them itself.",
     "clubPendingEvents": "Unapplied Stripe events: {count}{count, plural, =0 {} other { · the oldest from {age} ago}}",
+    "clubSubscriptionsAtStripe": "Subscriptions left renewing at Stripe after a revoked connection (30 days): {count}",
     "clubEndpointsDisabled": "Webhook endpoints switched off (7 days): {count}",
     "clubBroadcastsWaiting": "Group messages waiting over an hour: {count}",
     "clubSmsCapped": "Clubs out of SMS this month: {count}",
@@ -348,7 +366,31 @@
       "passportEvaluate": "Passport badges",
       "badgesBackfill": "Backdated badges",
       "streaksFreeze": "Streak freezes",
-      "divisionsRollover": "Weekly divisions"
+      "divisionsRollover": "Weekly divisions",
+      "clubMaterialize": "Scheduled club classes",
+      "clubNotify": "Club mail",
+      "clubReminders": "Club class reminders",
+      "clubExpiry": "Expiring memberships",
+      "clubDigest": "Trainers' daily digest",
+      "clubLeads": "Prospects to call today",
+      "clubWeekly": "Owner's weekly numbers",
+      "clubActivity": "Monthly club counts (invoicing basis)",
+      "clubPolicies": "Renewals and no-show fees",
+      "clubHealth": "Owner's monthly report",
+      "clubPaymentEvent": "Stripe events",
+      "clubBroadcasts": "Club broadcasts",
+      "clubAutomations": "Club automations",
+      "clubWebhooks": "Club webhooks",
+      "clubIntegrationsPrune": "Webhook log cleanup"
+    },
+    "cron": {
+      "everyMinute": "every minute",
+      "everyMinutes": "every {n} minutes",
+      "hourly": "hourly at hh:{minute}",
+      "daily": "daily at {time}",
+      "weekly": "weekly on {weekday} at {time}",
+      "monthly": "monthly on day {day} at {time}",
+      "inUtc": "{words} (UTC)"
     }
   },
   "AdminCrowdEdits": {
@@ -541,7 +583,31 @@
       "cooperativeMobile": "Use two fingers to move the map"
     },
     "clubChip": "A club at this facility",
-    "clubChipMany": "Clubs at this facility"
+    "clubChipMany": "Clubs at this facility",
+    "card": {
+      "access": {
+        "free": "Free to use",
+        "paid": "Paid access",
+        "restricted": "Restricted access",
+        "school": "School yard"
+      },
+      "verifiedOn": "Checked on {date}",
+      "conditionIs": "Condition: {condition}",
+      "photos": "Photos of {name}",
+      "photoOf": "Photo {n} of {total}: {name}",
+      "photoCount": "{n} / {total}",
+      "prevPhoto": "Previous photo",
+      "nextPhoto": "Next photo",
+      "share": "Share",
+      "shareCopied": "Link copied",
+      "copyCoords": "Copy the coordinates",
+      "coordsCopied": "Coordinates copied",
+      "coordinates": "Coordinates",
+      "verifyNudge": "Been here? Help us confirm the details.",
+      "detailsError": "The details did not load.",
+      "games": "Upcoming games here",
+      "places": "{going}/{capacity}"
+    }
   },
   "Facility": {
     "directions": "Directions",
@@ -682,8 +748,8 @@
     "back": "← Home",
     "title": "Privacy",
     "metaDescription": "What personal data POPS (“More than just sport”) processes, why and on what legal basis, who receives it, how long it is kept and what your rights are.",
-    "updated": "Last updated: 9 October 2026",
-    "intro": "POPS (“More than just sport”) is a non-profit project. This page explains what personal data we process, why and on what legal basis, who we share it with, how long we keep it and what your rights are. We collect as little data as possible and do not track users.",
+    "updated": "Last updated: 6 November 2026",
+    "intro": "POPS (“More than just sport”) is a non-profit project. This page explains what personal data we process, why and on what legal basis, who we share it with, how long we keep it and what your rights are. We collect as little data as possible and do not track users without their consent.",
     "introClubTracking": "The one exception is statistics and advertising tools that a club may add to its own pages, which load only if you accept them there (see “Cookies and data in your browser” below).",
     "controller": {
       "title": "Who is responsible for your data",
@@ -699,12 +765,17 @@
       },
       "analytics": {
         "title": "Visit statistics and errors",
-        "body": "We use self-hosted, cookieless analytics (Umami). It records the page visited (without the parameters in its address, except the campaign tags utm_source, utm_medium, utm_campaign, utm_content and utm_term on the first page of a visit that starts from a link carrying them, which tell us which post or campaign a visit came from), the referring site, the type of browser, operating system and device, the language, and an approximate country and city derived from the IP address, which is not stored. We also record the kind of some actions — for example that someone asked for directions, sent a contribution or opened a share sheet — without who did it or which facility, game, training, check-in or network it concerned. If an error occurs in your browser, our self-hosted GlitchTip receives the error message, the page address (which, on the map, includes the map's centre) and the browser type, with no data from your profile. We build no profiles and do not track people across sites.",
+        "body": "We use self-hosted, cookieless analytics (Umami). It records the page visited (without the parameters in its address, except the campaign tags utm_source, utm_medium, utm_campaign, utm_content and utm_term on the first page of a visit that starts from a link carrying them, which tell us which post or campaign a visit came from), the referring site, the type of browser, operating system and device, the language, and an approximate country and city derived from the IP address, which is not stored. We also record the kind of some actions — for example that someone asked for directions, sent a contribution or opened a share sheet — without who did it or which facility, game, training, check-in or network it concerned. If an error occurs in your browser, our self-hosted GlitchTip receives the error message, the page address (which, on the map, includes the map's centre) and the browser type, with no data from your profile. With Umami and GlitchTip we build no profiles and do not track people across sites.",
         "basis": "Basis: legitimate interest in knowing what is used and what is broken (Art. 6(1)(f))."
+      },
+      "googleAnalytics": {
+        "title": "Google Analytics, only with your consent",
+        "body": "If you answer “Yes” in the analytics notice, your browser loads Google Analytics directly from Google and sends Google the pages you open, so we can see which places and features get used. What Google receives includes the page address and title, the referring address, your browser and device type, your language, your screen size and a random identifier stored in the _ga cookies in your browser, which lets Google Analytics recognise repeat visits. The page address is sent with all the parameters in it: on the map, these are its centre and zoom level (after “Find me” or “Around me”, the centre matches your location), and when you search, the words you type. Because your browser connects to Google directly, Google also receives your IP address. According to Google, it is used only to work out an approximate location and is then discarded immediately, and the IP addresses of users in the EU are not logged or stored. In Google Analytics we have switched off Google signals and ads personalisation. We do not send Google your name, your email address or any other data from your account. Google Analytics does not run in the admin panel, on personal links for unsubscribing and checking in, or on pages that show a person’s name, such as public passports. Until you answer “Yes”, Google Analytics does not load and leaves no cookies or other data in your browser. The cookieless analytics described above (Umami) runs whatever you answer. If you are under {age}, the consent has to be given by your parent or guardian. You can withdraw your consent at any time, as easily as you gave it: under “Cookie settings” at the bottom of the pages, and on the map at the end of the facilities list.",
+        "basis": "Basis: consent (Art. 6(1)(a) GDPR), which you withdraw under “Cookie settings”. Article 4a of the Bulgarian Electronic Commerce Act also applies to storing and reading data in your browser."
       },
       "account": {
         "title": "Account and sign-in",
-        "body": "If you create an account: your email address (for sign-in with a one-time code), a display name, an optional city and whether you are under 18. Your date of birth, if you enter it in your profile, is used once to work out that category and is never stored. While you are signed in, we keep your browser type (user agent) with the session, but not your IP address.",
+        "body": "If you create an account: your email address (for sign-in with a one-time code), a display name, an optional city and whether you are under 18. Your date of birth, if you enter it in your profile, is used once to check that you are {age} or older and to work out that category, and is never stored. While you are signed in, we keep your browser type (user agent) with the session, but not your IP address.",
         "basis": "Basis: contract — the <terms>Terms of use</terms> you accept when you sign in (Art. 6(1)(b))."
       },
       "signInProviders": {
@@ -719,7 +790,7 @@
       },
       "location": {
         "title": "Location",
-        "body": "If you allow it, your browser uses your location to show the map and the nearest facilities around you; this happens in the browser itself and the coordinates are not sent to the server. When you contribute, report a problem or check in at a game, the coordinates arrive with the form; the server works out the distance to the facility and stores only that, never the coordinates themselves.",
+        "body": "If you allow it, your browser uses your location to show the map and the nearest facilities around you; this happens in the browser itself and the coordinates are not sent to the server. If you answer “Yes” in the analytics notice, the page address is also sent to Google Analytics, and on the map it includes the map’s centre (after “Find me”, your location). When you contribute, report a problem or check in at a game, the coordinates arrive with the form; the server works out the distance to the facility and stores only that, never the coordinates themselves.",
         "basis": "Basis: contract and legitimate interest in protecting points and data from abuse (Art. 6(1)(b) and (f))."
       },
       "passport": {
@@ -761,6 +832,16 @@
         "title": "Calendar and open-data keys",
         "body": "If you create them: a personal address through which your calendar follows the games you signed up for, and an open-data API key, of which we keep only a fingerprint (hash) — the key itself is not stored.",
         "basis": "Basis: contract (Art. 6(1)(b))."
+      },
+      "clubs": {
+        "title": "The “Clubs” module",
+        "body": "Gyms, studios and sports clubs use POPS as a management platform for their members. The records a club keeps there (names, contact details, memberships, attendance, documents, messages) are the club’s: the club is the controller of that data and we process it on the club’s behalf under the <clubTerms>POPS Clubs terms</clubTerms> and their Annex A (data processing agreement). If you are a club member, turn to the club about those records; we follow its instructions and help it answer you. Your own POPS account — the map, the passport, the games — is separate and our responsibility. Linking it to a club serves only the member portal and notifications; it gives the club no access to your passport, training log or games.",
+        "basis": "Basis: for the club’s records we process on the controller’s behalf under Art. 28 GDPR — the basis is the club’s; for the link between your account and the club — contract (Art. 6(1)(b))."
+      },
+      "push": {
+        "title": "Notifications on your phone (push)",
+        "body": "If you turn notifications on from your club’s portal, your browser creates a notification address and two keys, which we keep on your account so we can deliver the club’s messages — a booking confirmed, a class cancelled, a reminder, a membership about to expire, a reply from the club. The content passes through your browser’s notification service (for example Google’s, Apple’s or Mozilla’s). You turn them off in the same place or in your browser settings; an address that no longer answers is deleted.",
+        "basis": "Basis: consent (Art. 6(1)(a)), which you withdraw by turning notifications off."
       }
     },
     "recipients": {
@@ -768,7 +849,9 @@
       "intro": "We do not sell data and do not use it for advertising. We share it only with the following recipients, and only as far as needed:",
       "hosting": "Hetzner Online GmbH (Germany) — hosting and backups. The server and the database are in a data centre in Finland (EU); once off-server backups are switched on, encrypted copies of the database and the uploaded photos are kept in a separate Hetzner data centre in Germany (EU).",
       "network": "Cloudflare, Inc. (USA) — network protection and delivery. Every visit to the site passes through Cloudflare’s network on its way to our server, so Cloudflare processes your IP address and the requests themselves (including which pages you open) to deliver the site and protect it from attacks, and keeps technical logs of this for a limited time under its own terms. It keeps copies only of the site’s design files, fonts and icons, which are the same for everyone — never of pages, photos or anything about you.",
+      "googleAnalytics": "Google Ireland Limited (Ireland) — visit statistics through Google Analytics, only if you have agreed. It receives the data described under “Google Analytics, only with your consent” directly from your browser and may transfer it to the United States (see “Transfers outside the EU”).",
       "mail": "Migadu-Mail GmbH (Switzerland) — our email. The site’s messages to you (sign-in codes, game confirmations and reminders, decisions on your contributions) are sent through Migadu, so your address and their content pass through it; messages you write to us are kept in our mailbox there until we delete them — write to us if you want yours deleted.",
+      "payments": "Stripe Payments Europe, Ltd. (Ireland) — online payments to clubs. If you pay a club online, you pay on a Stripe page into the club’s own account; we receive only a confirmation, the amount and a payment identifier, never your card details. Stripe processes data under its own privacy policy, including in the United States, under the safeguards of Chapter V GDPR.",
       "people": "People at POPS: a game organiser sees the display names of those signed up; ambassadors (volunteer moderators for their municipality) see the contributions and facility reports there; administrators can use the admin panel, and every time they open an account it is recorded.",
       "external": "External services you choose. The default map is served entirely from our own server, but if you pick an external map layer (CyclOSM, Thunderforest Transport, Tracestrack Topo), your browser loads tiles directly from that provider, and the “Directions” button opens Waze or Google Maps at the facility. They see your IP address, as they would if you visited their site.",
       "signInProviders": "{providers}, if you choose to sign in with them. The service learns that you are signing in to POPS and handles that under its own privacy policy; we send it no data about you.",
@@ -776,7 +859,9 @@
     },
     "transfers": {
       "title": "Transfers outside the EU",
-      "body": "Your data is stored in the EU. It can leave the EU through Cloudflare, whose network every visit to the site passes through and which also processes data in the United States under the EU-U.S. Data Privacy Framework; through our email provider Migadu, a Swiss company — the EU recognises Switzerland as ensuring an adequate level of data protection; and through the external services you choose yourself."
+      "body": "The data we keep is stored in the EU. Data about you can leave the EU through Cloudflare, whose network every visit to the site passes through and which also processes data in the United States under the EU-U.S. Data Privacy Framework; through Google, which receives the Google Analytics data if you have agreed to analytics and may transfer it to the United States under the same framework; through our email provider Migadu, a Swiss company — the EU recognises Switzerland as ensuring an adequate level of data protection; and through the external services you choose yourself.",
+      "payments": "If you pay a club online, Stripe also processes the payment in the United States, under the safeguards of Chapter V GDPR.",
+      "push": "If you turn on notifications on your phone, their content passes through your browser’s notification service (Google, Apple or Mozilla), which may process it outside the EU."
     },
     "retention": {
       "title": "How long we keep data",
@@ -787,25 +872,27 @@
       "notices": "The name and email in a content notice — up to {days} days after the decision on it; the notice itself and the decision are kept as a record.",
       "logs": "Records of administrators opening accounts — with no time limit, so that every such access can be checked.",
       "errors": "Error reports in GlitchTip — up to 90 days.",
-      "backups": "Backups — of the database for up to 14 days on the server, and of the database and uploaded photos for about 8 weeks in a separate data centre, once that is switched on. A deleted account or photo disappears from them as the copies expire."
+      "googleAnalytics": "Google Analytics data linked to the identifier in your browser — up to 14 months from your last visit. This does not affect aggregated reports, such as how many times each page was opened.",
+      "backups": "Backups — of the database for up to 14 days on the server, and of the database and uploaded photos for about 8 weeks in a separate data centre, once that is switched on. A deleted account or photo disappears from them as the copies expire.",
+      "clubs": "Your records as a club member — for as long as the club keeps them, under its own rules. When a club is archived on POPS, its data is deleted {purgeDays} days after that, unless the law requires individual documents to be kept longer. To have a record deleted earlier, turn to the club."
     },
     "rights": {
       "title": "Your rights",
       "body": "You have the right to access your data and receive a copy, to rectification, to erasure, to restriction of processing, to data portability and to object to processing based on legitimate interest. You can withdraw consent at any time, without affecting the lawfulness of processing before that.",
-      "self": "You can do much of this yourself from <profile>My profile</profile>: change your name and city, make your passport private, unsubscribe from the digest and delete your account.",
-      "ask": "For anything else — for example a copy of your data — write to the address under “Who is responsible for your data” or on the <contact>Contact</contact> page. We reply within one month.",
+      "self": "You can do much of this yourself from <profile>My profile</profile>: download a copy of all your data as a file (JSON), change your name and city, make your passport private, unsubscribe from the digest and delete your account.",
+      "ask": "For anything else — or if you cannot sign in to your account — write to the address under “Who is responsible for your data” or on the <contact>Contact</contact> page. We reply within one month.",
       "complaint": "You have the right to lodge a complaint with the Bulgarian Commission for Personal Data Protection (<cpdp>www.cpdp.bg</cpdp>)."
     },
     "cookies": {
       "title": "Cookies and data in your browser",
-      "body": "We use no analytics or advertising cookies, and the site sets no language cookie. When you sign in, your browser keeps a session cookie (up to 30 days) and a short-lived signed cookie (5 minutes) so we do not have to look the session up on every request. They are strictly necessary for signing in and are deleted when you sign out.",
+      "body": "We use no advertising cookies, and the site sets no language cookie. Only if you agree to analytics does Google Analytics store the _ga and _ga_XRJS0YRT3Q cookies in your browser (a random identifier and session data); they are kept for up to 13 months from your last visit. Your answer in the analytics notice is kept in the hcc_v1 entry in your browser so we do not ask again. When you sign in, your browser keeps a session cookie (up to 30 days) and a short-lived signed cookie (5 minutes) so we do not have to look the session up on every request. They are strictly necessary for signing in and are deleted when you sign out.",
       "providers": "If you sign in with {providers}, your browser also keeps a short signed cookie (up to 5 minutes) during the sign-in itself, which links your request to the service's answer. It is strictly necessary too.",
       "clubTracking": "One exception: a club on the Start or Pro plan may add its own Google Analytics or Meta Pixel to its own public pages on POPS. They load only on that club's pages, only if you accept them in the banner there — each separately, since statistics and advertising are different purposes — and stop as soon as you leave those pages. Google or Meta then set their own cookies (such as _ga and _fbp) and receive data about the visit, which they may also process outside the EU, including in the United States; Meta also uses it for advertising. We are responsible jointly with the club for loading these tools and for asking for your consent; what Google and Meta do with the data afterwards is the responsibility of the club and the vendor, as described in the club's privacy notice, which the banner links to. You can direct a request about this data to the club or to us. Your answer is kept in your browser only, separately for each club, for 12 months, and you can change it at any time from the same banner.",
       "cache": "So that the map works offline, your browser caches the app's files and icons, an offline page and the map tiles you viewed last. They contain no data about you and you can clear them in your browser settings."
     },
     "minors": {
       "title": "Minors",
-      "body": "We have not set a minimum age for an account. Your date of birth, if you enter it, is used once to note whether you are under 18 and is not stored; at present that flag restricts nothing. Our age policy is under review and we will update this page when it is adopted."
+      "body": "An account is for people aged {age} or over — the age from which a child in Bulgaria may consent to an online service on their own (Art. 25c of the Personal Data Protection Act). If you enter your date of birth it is used once: we check that you are {age} or older and note whether you are under 18; the date itself is not stored. The under-18 flag restricts nothing. An account of a person under {age} is subject to closure once we establish it."
     },
     "automated": {
       "title": "Automated decisions",
@@ -863,7 +950,7 @@
     "oauthError_cancelled": "Signing in with {provider} was cancelled. Try again or sign in with an email code.",
     "oauthError_failed": "Signing in with {provider} did not work. Try again or sign in with an email code.",
     "oauthError_failed_unnamed": "Signing in did not work. Try again or sign in with an email code.",
-    "privacyNote": "By signing in you accept the <terms>Terms of use</terms>. How we process your data: <privacy>Privacy</privacy>. We do not store IP addresses.",
+    "privacyNote": "By signing in you confirm that you are {age} or older and accept the <terms>Terms of use</terms>. How we process your data: <privacy>Privacy</privacy>. We do not store IP addresses.",
     "error_invalid_email": "Check the email address.",
     "error_invalid_code": "The code is wrong or expired. Try again, or ask for a new code.",
     "resent": "We sent a new code. Only the newest one works.",
@@ -915,7 +1002,7 @@
     "displayNameLabel": "Display name",
     "homeCityLabel": "City",
     "dateOfBirthLabel": "Date of birth (optional)",
-    "dateOfBirthHint": "Used only to determine your age category. We do not keep it — only whether you are under 18 is stored.",
+    "dateOfBirthHint": "Used only to check that you are {age} or older and to determine your age category. We do not keep it — only whether you are under 18 is stored.",
     "categoryMinor": "Age category: under 18. The category does not limit anything you can take part in.",
     "categoryAdult": "Age category: 18 or over.",
     "submit": "Save",
@@ -935,6 +1022,7 @@
     "error_display_name_too_long": "That name is too long (60 characters max).",
     "error_home_city_too_long": "That city is too long (80 characters max).",
     "error_invalid_date_of_birth": "Check the date of birth.",
+    "error_under_minimum_age": "An account is for people aged {age} or over.",
     "error_confirmation_mismatch": "The confirmation does not match.",
     "trainingLink": "Training log",
     "exportTitle": "Your data",
@@ -976,6 +1064,8 @@
     "photoLabel": "Photo (required)",
     "photoHint": "Photograph the facility, not people. All metadata, including GPS, is stripped. By uploading you confirm the photo is yours and let us show it on POPS.",
     "sportsLegend": "Sports",
+    "sportsShowAll": "Show all ({count})",
+    "sportsShowFewer": "Show fewer",
     "accessLabel": "Access",
     "paidHiddenHint": "Paid facilities are not shown on the public map for now. We will save this one, but it will not appear there.",
     "nameLabel": "Name (optional)",
@@ -983,7 +1073,8 @@
     "quarterLabel": "Neighbourhood (optional)",
     "submit": "Add facility",
     "submitting": "Sending…",
-    "moderationNote": "The new facility appears on the map straight away — before another member or a moderator has checked it. The data becomes part of the open data under the ODbL licence (see the Terms of use).",
+    "moderationNoteMap": "The new facility appears on the map straight away — before another member or a moderator has checked it.",
+    "moderationNoteData": "The data becomes part of the open data under the ODbL licence (see the Terms of use).",
     "savedHiddenBody": "Paid facilities are not shown on the public map for now, so you will not see it there. If that changes, it will appear automatically.",
     "addAnother": "Add another facility",
     "photoPendingNote": "The photo will appear once a moderator has reviewed it.",
@@ -999,11 +1090,21 @@
     "error_invalid_coordinates": "Choose a point on the map.",
     "error_outside_bulgaria": "That point is outside Bulgaria.",
     "error_duplicate_nearby": "There is already such a facility nearby.",
-    "error_duplicate_hidden": "A facility for the same sport is already recorded here but is not shown publicly (for example, a paid one). If it is actually free, write to us.",
+    "error_duplicate_hidden": "A facility for the same sport is already recorded here but is not shown publicly (for example, a paid one). If it is actually free, <contact>write to us</contact>.",
+    "error_duplicate_own": "You've already added this facility.",
+    "toFacility": "Go to the facility",
+    "error_unexpected": "Something went wrong on our side and the facility wasn't saved. Try again in a moment — what you filled in stays.",
+    "errorReference": "Reference code: {code}",
     "error_invalid_state": "Choose a condition.",
     "error_facility_not_found": "Facility not found.",
     "error_rate_limited": "Too many additions in a short time. Try again later.",
-    "error_own_facility": "You already added this facility; it needs confirmation from someone else."
+    "error_own_facility": "You already added this facility; it needs confirmation from someone else.",
+    "error_no_answer": "The connection dropped, so we can't tell whether the facility was saved. Press “Add facility” again — if it's already saved, we'll tell you, and it won't be added twice."
+  },
+  "FormRecovery": {
+    "staleForm": "We updated the site while this form was open, so it needs to reload. Nothing was saved.",
+    "reload": "Reload the form",
+    "photoAgain": "What you've filled in will stay, but you'll need to choose the photo again."
   },
   "Contribute": {
     "title": "Help with the data",
@@ -1047,6 +1148,7 @@
     "error_duplicate_nearby": "There is already such a facility nearby.",
     "error_name_too_long": "That text is too long.",
     "error_unknown": "Something went wrong. Try again.",
+    "error_no_answer": "The connection dropped, so we can't tell whether your contribution was recorded. If you send it again, the points won't be counted twice.",
     "error_own_facility": "You cannot confirm a facility you added yourself — another member has to.",
     "locationIdle": "If you are at the facility, share your location: only contributions made on the spot earn points. Without it your contribution is still accepted, but it will wait for review.",
     "locating": "Finding your location… If nothing happens within a few seconds, tap the button again.",
@@ -2180,6 +2282,7 @@
     "terms": "Terms of use",
     "contact": "Contact",
     "notice": "Report content",
+    "cookieSettings": "Cookie settings",
     "tagline": "The national sports map. A non-profit association.",
     "columns": {
       "platform": "Platform",
@@ -2967,9 +3070,9 @@
       "title": "Three plans, one platform",
       "lead": "Every plan includes the whole base platform. The higher ones add tools — not a higher place in the directory.",
       "popular": "Recommended",
-      "perMonth": "per month",
+      "perMonth": "per month excl. VAT",
       "trialNote": "{days} days free, then a contract for at least {months} months.",
-      "vatNote": "Prices are per month. Every plan starts with a free {days}-day trial. After it, the contract runs for at least {months} months and renews every year; invoices are paid by bank transfer — monthly or once a year, as you choose.",
+      "vatNote": "Prices are per month and exclude VAT; VAT at the applicable rate ({vat} %) is added on the invoice. Every plan starts with a free {days}-day trial. After it, the contract runs for at least {months} months and renews every year; invoices are paid by bank transfer — monthly or once a year, as you choose.",
       "gridTitle": "What each plan includes",
       "yes": "included",
       "no": "not included",
@@ -3219,7 +3322,7 @@
     "fundsTitle": "What a donation pays for",
     "fundsBody": "Hosting on our own server in the European Union, map layers and backups; on-the-ground verification and work with municipalities; maintaining the open data anybody can download for free.",
     "bankTitle": "Bank transfer",
-    "bankIntro": "We accept donations by bank transfer. There is no card form on the site: payment providers load third-party scripts and tracking cookies, and our promise is the opposite — see the Privacy page.",
+    "bankIntro": "We accept donations by bank transfer. There is no card form on the site: payment providers load third-party scripts and tracking cookies, and we do not track users without their consent — see the Privacy page.",
     "bankBeneficiary": "Beneficiary",
     "bankIban": "IBAN",
     "bankBic": "BIC",
@@ -3783,7 +3886,7 @@
     "back": "← Home",
     "title": "Terms of use",
     "metaDescription": "The terms for using POPS (“More than just sport”): accounts, content, the licence for your contributions, moderation, notices and liability.",
-    "updated": "In force from 31 October 2026",
+    "updated": "In force from 6 November 2026",
     "intro": "These terms govern the use of POPS (“More than just sport”). Browsing the map needs no account; by signing in you accept these terms. How we process your personal data is described separately under <privacy>Privacy</privacy>.",
     "who": {
       "title": "Who we are",
@@ -3791,12 +3894,12 @@
     },
     "service": {
       "title": "The service",
-      "body": "POPS is a free map of the publicly accessible sports facilities in Bulgaria, with open games, a sports passport, leaderboards and open data. There are no paid features for people who play. The «Clubs» module is a service for gyms, studios and sports clubs: a club uses it under the terms accepted when applying and, after the free trial, under a contract for at least {months} months that renews every year unless the club ends it with at least {notice, plural, one {one month’s} other {# months’}} notice before the term ends. The service is paid for by invoice. We may change, temporarily suspend or discontinue parts of the service, including for maintenance."
+      "body": "POPS is a free map of the publicly accessible sports facilities in Bulgaria, with open games, a sports passport, leaderboards and open data. There are no paid features for people who play. The «Clubs» module is a service for gyms, studios and sports clubs: a club uses it under the <clubTerms>POPS Clubs terms</clubTerms>, which it accepts when applying, and, after the free trial, under a contract for at least {months} months that renews every year unless the club ends it with at least {notice, plural, one {one month’s} other {# months’}} notice before the term ends. The service is paid for by invoice. We may change, temporarily suspend or discontinue parts of the service, including for maintenance."
     },
     "account": {
       "title": "Your account",
       "body": "You sign in with your email address and a one-time code. The account is personal: do not share it and do not create one in someone else's name. You are responsible for what is done from your account and for access to your email. You can delete your account at any time from <profile>My profile</profile>.",
-      "age": "We have not set a minimum age for an account; our age policy is under review."
+      "age": "An account is for people aged {age} or over. By signing in you confirm that you are {age} or older; an account of a younger person is subject to closure once we establish it."
     },
     "content": {
       "title": "What may be published",
@@ -3846,6 +3949,105 @@
       "body": "Bulgarian law applies. Disputes are settled by the competent Bulgarian court, without limiting your rights as a consumer."
     }
   },
+  "ClubTerms": {
+    "back": "← Home",
+    "title": "POPS Clubs terms",
+    "metaDescription": "The terms on which a gym, studio or sports club uses the “POPS Clubs” management platform: trial, contract, payment, duties, termination, and Annex A — the data processing agreement under Art. 28 GDPR.",
+    "updated": "Version of {date}",
+    "draftNotice": "Draft: this text was prepared by the POPS team and is awaiting review by the association’s lawyer. Until it is approved it shows what we offer and how the platform works, but it may change.",
+    "intro": "These terms (the “Terms”) govern the use of the “Clubs” module of POPS (“More than just sport”) — the management platform for gyms, studios and sports clubs. They supplement the POPS <terms>Terms of use</terms>, which apply to people’s accounts, and <privacy>Privacy</privacy>, which describes how we process POPS members’ data. Annex A — the data processing agreement — is an integral part of the Terms.",
+    "who": {
+      "title": "Parties and subject matter",
+      "subject": "The subject matter of the Terms is the club’s access to the management platform: members, memberships, timetable, bookings, attendance, documents, messages and reports, and a club page on the POPS map.",
+      "club": "The “club” is the legal person or sole trader named in the application. The application is submitted by a natural person with a POPS account who, by submitting it, declares that they are entitled to represent the club and to bind it to the Terms. That person’s account becomes the owner’s account on the platform.",
+      "association": "The platform is provided by the non-profit association that runs POPS (the “association”, “we”):"
+    },
+    "trial": {
+      "title": "Application and trial",
+      "apply": "The club applies through POPS. The association reviews the application and may approve or decline it without giving reasons; until approval the platform is open for viewing only.",
+      "trial": "Approval starts a free trial of {days} days with full access under the chosen plan. The trial commits the club to nothing: if no contract is signed, access becomes read-only {grace} days after it ends and the data can be downloaded.",
+      "features": "What each plan includes is described on the <clubsPage>clubs page</clubsPage>. Rows marked there as “soon” depend on an outside service that is not yet switched on and are not a promise of a date."
+    },
+    "contract": {
+      "title": "Contract, prices and payment",
+      "term": "To continue after the trial, the club signs a contract with the association for a term of at least {months} months. The contract renews automatically for a further {months} months unless the club notifies the association in writing, at least {notice, plural, one {one month} other {# months}} before the end of the current term, that it does not wish to renew.",
+      "invoicing": "The price is the monthly price of the chosen plan as published on the public POPS clubs page on the day the contract is signed or renewed. Published prices exclude VAT; the association is VAT-registered and adds VAT at the applicable rate on the invoice. At the club’s choice it is invoiced monthly or once a year for the whole term. Payment is by bank transfer within the period stated on the invoice. Invoices are issued by the association, with the details given under “Parties and subject matter”.",
+      "nonPayment": "If an invoice is not paid on time, access continues for a further {grace} days with a warning on the platform; after that the platform becomes read-only and the club’s public page stops being shown until the debt is settled. Suspension does not release the club from the amounts due for the whole contract term."
+    },
+    "service": {
+      "title": "What the platform is, and what it is not",
+      "what": "The platform gives the club tools to keep members, memberships and plans, a timetable and bookings, attendance, documents and signatures, messages to members and reports, plus a public club page and a place on the POPS map. The functions of each plan are described on the public clubs page.",
+      "not": "The platform is not a payment institution and holds no funds; it is not a fiscal device and issues no fiscal receipts; it is not an accounting service and does not replace an accountant or a tax adviser. Reports are an aid, not primary accounting documents.",
+      "availability": "We keep the platform available on a reasonable-effort basis, with no guarantee of uninterrupted operation. Planned maintenance is announced in advance on the platform or by email to the owners and scheduled, as far as possible, outside busy hours.",
+      "support": "The club gets help by email at the address under “Parties and subject matter”, on working days."
+    },
+    "clubDuties": {
+      "title": "The club’s duties",
+      "body": "The club:",
+      "items": {
+        "lawful": "collects its members’ data lawfully and tells them how it is processed — including that POPS processes it on the club’s behalf;",
+        "consents": "obtains consent for marketing messages itself where the law requires it, and records it on the platform;",
+        "accurate": "keeps its records accurate and up to date, and corrects or deletes data at a member’s request where the law requires;",
+        "messaging": "sends messages, SMS and notifications only to its own members and only for the club’s purposes — not for unsolicited advertising and not to people outside the club;",
+        "fiscal": "is solely responsible for its fiscal, tax and accounting obligations, including receipts and invoices to members;",
+        "content": "publishes no content that breaks the law or third-party rights, and is responsible for its page, documents and messages;",
+        "staff": "gives platform access only to staff and trainers who use it for their work, and removes it when they leave."
+      }
+    },
+    "dataRoles": {
+      "title": "Roles in processing personal data",
+      "records": "For the records of the club’s members — names, contact details, memberships, attendance, documents, messages — the club is the controller and the association is a processor acting on its behalf under Annex A.",
+      "accounts": "For people’s own POPS accounts — the map, the sports passport, the games — the association is the controller, as described under <privacy>Privacy</privacy>. When a POPS member links to a club, the club sees only what the member shared with it or what the club entered in its own records.",
+      "limits": "The club may not use data of POPS members beyond its own records. For example, it may not collect names from the map, the games or the leaderboards, nor write to people who are not its members."
+    },
+    "payments": {
+      "title": "Online payments",
+      "own": "When online payments are switched on, members pay the club through the club’s own account with the payment provider (Stripe Connect), which the club connects itself. The association never holds the club’s funds and never sees card data.",
+      "fee": "If the association retains a fee from online payments, its amount is published on the public clubs page before the club switches payments on. The payment provider’s fees are borne by the club under its contract with the provider.",
+      "refunds": "Refunding amounts, payment disputes (chargebacks) and receipts and invoices to members are the club’s responsibility."
+    },
+    "termination": {
+      "title": "Termination",
+      "notice": "The club may end the contract at the end of the current term by written notice as described under “Contract, prices and payment”. During the trial the club may withdraw at any time, owing nothing. The association does not decline renewal; it may end the contract early only on the suspension grounds below.",
+      "suspension": "The association may suspend the club’s access for non-payment, for use in breach of the law or of the Terms, or for a breach of members’ data security caused by the club. Where possible, the association first warns by email and gives a period to remedy.",
+      "end": "On termination the club is archived: the platform stays open for viewing only and the club can download all of its data in CSV format. The club’s data is deleted for good {purgeDays} days after archiving, unless the law requires individual records (for example accounting documents) to be kept longer.",
+      "accounts": "Termination does not affect people’s own POPS accounts: their link to the club is removed, and their accounts, passports and game participation remain."
+    },
+    "liability": {
+      "title": "Liability",
+      "cap": "The association’s liability to the club for damage under the Terms is limited to the amounts the club paid for the {capMonths} months preceding the event. The limit does not apply to intent or gross negligence, or where the law does not allow a limit.",
+      "exclusions": "The association is not liable for the content the club publishes, for its members’ conduct, for the accuracy of the data the club enters, or for outside services — the payment provider, the delivery of email, SMS and notifications — beyond its control. Nor is it liable for lost profit."
+    },
+    "changes": {
+      "title": "Changes to the Terms",
+      "body": "We may change the Terms and Annex A. A change is announced at least {noticeDays} days ahead by email to the club’s owners and on this page, with the date from which it applies. If the club continues to use the platform after that date, it accepts the change. If a change is materially adverse to the club, the club may terminate the contract as of the date it takes effect, without notice."
+    },
+    "law": {
+      "title": "Governing law",
+      "body": "Bulgarian law applies. Disputes are settled by the competent court at the association’s seat. Where the Bulgarian and the English text differ, the Bulgarian text prevails."
+    },
+    "annex": {
+      "title": "Annex A — Data processing agreement (Art. 28 GDPR)",
+      "intro": "This annex governs the processing of personal data that the association (the “processor”) carries out on behalf of the club (the “controller”) through the platform. It is part of the Terms and applies for as long as the club has access to the platform and, after that, until the data is deleted under “Termination”.",
+      "items": {
+        "subject": "Subject matter and duration. The subject matter is the processing of the club’s member records on the platform. The duration coincides with the contract term, including the trial, and continues until the data is deleted under “Termination”.",
+        "nature": "Nature and purpose. Storage, structuring, retrieval, sending of messages and deletion — the functions of the platform: members, memberships, timetable and bookings, attendance, documents, messages and reports. The processor does not use the data for its own purposes.",
+        "data": "Types of data. Names; email and phone; a minor flag and parent or guardian; memberships, plans and payment status (never card data); attendance and bookings; signed documents; messages; ratings and feedback; the club’s notes.",
+        "subjects": "Categories of data subjects. Club members; parents and guardians; prospective members and enquirers; the club’s staff and trainers.",
+        "instructions": "Instructions. The processor processes the data only on the controller’s documented instructions. The instructions are the platform’s functions and the settings the club chooses in it; further instructions are given in writing. If the processor considers an instruction unlawful, it informs the controller.",
+        "confidentiality": "Confidentiality. The persons who handle the data on the processor’s behalf are bound to confidentiality and receive access only as far as needed to maintain the platform.",
+        "security": "Security (Art. 32). Encryption in transit; role-based access set by the club; daily backups; the processor’s own access only for operating the service; actions in the platform are logged.",
+        "rights": "Data subjects’ rights. The processor assists the controller in answering members’ requests — access, rectification, erasure, portability — through the platform’s functions (download, editing, deletion). A request that reaches the processor directly is forwarded to the controller.",
+        "dpia": "Impact assessments. The processor provides the information available to it so that the controller can carry out a data protection impact assessment and consult the supervisory authority where needed.",
+        "breach": "Personal data breaches. The processor notifies the controller of a personal data breach without undue delay and no later than {breachHours} hours after becoming aware of it, with the available information on its nature, the data affected and the measures taken.",
+        "end": "End of processing. On termination the controller downloads its data (CSV) and the processor deletes it within the period under “Termination”, unless the law requires retention. Backups expire on the schedule described under <privacy>Privacy</privacy>.",
+        "audit": "Demonstrating compliance. The processor makes available the information needed to demonstrate compliance with this annex and allows one audit a year by the controller or an auditor it mandates, on reasonable notice, during working hours and under confidentiality.",
+        "subprocessors": "Sub-processors. The controller gives general authorisation for the following sub-processors: Hetzner Online GmbH — hosting and backups (Germany and Finland); Cloudflare, Inc. — network protection and delivery (USA, under the EU-U.S. Data Privacy Framework); Migadu-Mail GmbH — sending email (Switzerland); Stripe Payments Europe, Ltd. — online payments (Ireland), only while they are switched on for the club. A change to the list is announced at least {noticeDays} days ahead; the controller may object and, if the objection is not resolved, terminate the contract.",
+        "transfers": "Transfers outside the EEA. The data is stored in the EU. A transfer outside the European Economic Area takes place only under the safeguards of Chapter V GDPR — an adequacy decision or standard contractual clauses.",
+        "controller": "The controller’s obligations. The controller ensures a legal basis for the processing, informs its members, keeps the data accurate, gives its instructions in writing and is responsible for the lawfulness of the data collected."
+      }
+    }
+  },
   "Contact": {
     "back": "← Home",
     "title": "Contact",
@@ -3855,6 +4057,7 @@
     "label": {
       "legalName": "Registered name",
       "eik": "UIC/BULSTAT",
+      "vatNumber": "VAT number",
       "address": "Registered office"
     },
     "identityPending": "The association's registered name, UIC and address have not been published here yet.",
@@ -4389,6 +4592,7 @@
       "trial_used": "This member has already had a trial.",
       "audience_mismatch": "This membership is not for the member's age.",
       "member_cap_reached": "Your plan's active member limit has been reached.",
+      "already_renewing": "This member already holds this plan on auto-renewal — the next period is added automatically. To sell it again, first choose “Stop renewing” on the member’s card.",
       "membership_required": "Choose a membership.",
       "reason_invalid": "Choose a reason.",
       "pause_order": "The pause ends before it starts.",
@@ -4454,6 +4658,7 @@
       "claim_first": "The club already has a record with your e-mail. Link it under “My clubs”.",
       "link_pending": "Your link with the club is awaiting approval.",
       "room_taken": "The room is taken on some of the class's dates.",
+      "capacity_taken": "On one of the coming dates more people are booked than the new number of places. Keep at least as many places as people booked, or cancel bookings first — nobody with a place is moved to the waiting list.",
       "room_location": "That room is at another location. Choose a room at the class's location.",
       "cart_empty": "Add at least one product.",
       "line_invalid": "Quantities are from 1 to 1000.",
@@ -4624,6 +4829,8 @@
     "descriptionBg": "Description (Bulgarian)",
     "descriptionEn": "Description in English (optional)",
     "sports": "Sports and activities",
+    "sportsShowAll": "Show all ({count})",
+    "sportsShowFewer": "Show fewer",
     "city": "City",
     "cityNone": "— choose —",
     "website": "Website",
@@ -5003,6 +5210,7 @@
       "noCharges": "No charges.",
       "void": "Void",
       "voidConfirm": "The charge will be voided. Anything paid on it must be refunded separately. Continue?",
+      "giveBack": "Refund",
       "payments": "Payments",
       "noPayments": "No payments recorded.",
       "refund": "refund",
@@ -5125,6 +5333,7 @@
       "checkout_started": "Online payment started",
       "online_payment_received": "Online payment received",
       "online_refund_issued": "Online payment refunded",
+      "online_payment_failed": "Online payment failed",
       "resource_saved": "Resource saved",
       "resource_archived": "Resource archived",
       "hours_saved": "Opening hours saved",
@@ -5203,6 +5412,7 @@
     "edit": "Edit",
     "archive": "Archive",
     "restore": "Restore",
+    "archiveConfirm": "Members currently hold this membership. Archiving it stops its automatic renewal for them, and restoring it later does not switch renewal back on. Archive it?",
     "planForm": {
       "titleNew": "New membership",
       "titleEdit": "Edit membership",
@@ -5284,6 +5494,7 @@
       "openTitle": "Unpaid charges",
       "noOpen": "Nothing unpaid.",
       "due": "owes {amount} by {date}",
+      "paid": "paid {amount}",
       "newCharge": "New charge",
       "chargeLabel": "What for",
       "chargeAmount": "Amount (€)",
@@ -5450,6 +5661,7 @@
     "newMember": "New member",
     "mark": "Mark",
     "markedToday": "marked today",
+    "markAgain": "Mark again",
     "location": "Location",
     "cardTitle": "Member card",
     "cardLabel": "Card code",
@@ -5694,16 +5906,20 @@
     "kind": "Type",
     "tier": "Plan",
     "tierHint": {
-      "community": "{price} a month. For trainers and small clubs, up to {cap} active members. {days} days free trial, then a contract for at least {months} months.",
-      "standard": "{price} a month. For gyms and studios with a desk and a till. {days} days free trial, then a contract for at least {months} months.",
-      "pro": "{price} a month. For chains, large clubs and anyone connecting their own systems. {days} days free trial, then a contract for at least {months} months."
+      "community": "{price} a month excl. VAT. For trainers and small clubs, up to {cap} active members. {days} days free trial, then a contract for at least {months} months.",
+      "standard": "{price} a month excl. VAT. For gyms and studios with a desk and a till. {days} days free trial, then a contract for at least {months} months.",
+      "pro": "{price} a month excl. VAT. For chains, large clubs and anyone connecting their own systems. {days} days free trial, then a contract for at least {months} months."
     },
     "city": "Municipality",
     "cityNone": "— choose —",
     "sports": "Sports and activities",
+    "sportsShowAll": "Show all ({count})",
+    "sportsShowFewer": "Show fewer",
     "website": "Website (optional)",
     "description": "Short description (optional)",
-    "acceptTerms": "I accept the terms of use of POPS Clubs. The club is the controller of its members' personal data, and POPS processes it on the club's behalf.",
+    "acceptTermsBefore": "I accept the",
+    "acceptTermsLink": "POPS Clubs terms",
+    "acceptTermsAfter": "and their Annex A (data processing agreement). The club is the controller of its members’ personal data, and POPS processes it on the club’s behalf.",
     "submit": "Send the application",
     "already_pending": "You already have an application under review.",
     "too_many": "You have reached the maximum number of clubs for one account.",
@@ -5813,7 +6029,9 @@
       "event_registered": "Registered for “{title}”",
       "event_promoted": "A place freed up — “{title}”",
       "event_cancelled": "Event cancelled: “{title}”",
-      "club_contract_renewing": "Your contract renews on {date}"
+      "club_contract_renewing": "Your contract renews on {date}",
+      "club_payments_revoked": "Your Stripe connection was revoked",
+      "renewal_payment_failed": "Payment failed: {label}"
     },
     "lead": {
       "staff_invite": "{club} invites you to join its team as {role}. The invitation is valid for 14 days.",
@@ -5849,7 +6067,9 @@
       "event_registered": "{name} is registered for “{title}” ({ticket}).",
       "event_promoted": "A place freed up for {name} at “{title}” ({ticket}).",
       "event_cancelled": "The club cancelled “{title}”. {name}’s place ({ticket}) is cancelled.",
-      "club_contract_renewing": "The contract of {club} with POPS renews on {date} for another {months} months. If you do not want it to renew, write to us by {noticeBy} at {contact}; the contract then ends at the end of the current term. If you are continuing, you need to do nothing."
+      "club_contract_renewing": "The contract of {club} with POPS renews on {date} for another {months} months. If you do not want it to renew, write to us by {noticeBy} at {contact}; the contract then ends at the end of the current term. If you are continuing, you need to do nothing.",
+      "club_payments_revoked": "POPS's access to the Stripe account of {club} was revoked from your Stripe. Online payments have stopped and open payments were closed. Auto-renewing subscriptions the platform can no longer see or record: {count}. End or manage them in your Stripe, so that no card is billed for periods that are not recorded here. To take payments again, connect Stripe anew from the settings. Questions — write to us at {contact}.",
+      "renewal_payment_failed": "Stripe could not collect the renewal payment for “{label}” ({name}). Stripe will retry over the coming days; nothing is paid until then. If the payment does not go through, the period will not be renewed and the membership will stop. If needed, the renewal can be paid at the desk."
     },
     "action": {
       "staff_invite": "Accept the invitation",
@@ -5885,10 +6105,13 @@
       "event_registered": "To the event",
       "event_promoted": "To the event",
       "event_cancelled": "My club",
-      "club_contract_renewing": "Open the settings"
+      "club_contract_renewing": "Open the settings",
+      "club_payments_revoked": "Open the settings",
+      "renewal_payment_failed": "Open the membership"
     },
     "rosterLine": "{time} {title}: {going} of {capacity} booked",
     "rosterLineOpen": "{time} {title}: {going} booked",
+    "renewalFailedAmount": "Invoice amount: {amount}",
     "week": {
       "checkins": "Visits: {count}",
       "newMembers": "New members: {count}",
@@ -5961,7 +6184,7 @@
     "title": "Reports",
     "intro": "The figures come straight from the club's records. Each one has its definition under its title.",
     "activeTitle": "Active members by month",
-    "activeDef": "An active member held a valid membership on any day of the month or checked in at least 3 times in it. The paid plan is invoiced on this figure.",
+    "activeDef": "An active member held a valid membership on any day of the month or checked in at least 3 times in it.",
     "revenueTitle": "Payments by month",
     "revenueDef": "Payments received in the month, minus refunds.",
     "atRiskTitle": "Members at risk",

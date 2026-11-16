@@ -1,4 +1,19 @@
 export { getDb, getPool } from './client.js';
+export {
+  budgetedMailer,
+  MAIL_BUDGET_RETENTION_DAYS,
+  mailBudgetToday,
+  pruneMailBudget,
+  releaseMailBudget,
+  takeMailBudget,
+} from './mail-budget.js';
+export type {
+  BudgetedMailerOptions,
+  MailBudgetKindToday,
+  MailBudgetOutcome,
+  MailBudgetSlot,
+  MailBudgetToday,
+} from './mail-budget.js';
 export { checkDbHealth } from './health.js';
 export type { DbHealth } from './health.js';
 export {
@@ -44,6 +59,7 @@ export {
   receiptCandidates,
   recordPaymentEvent,
   recordProviderRefund,
+  recordRenewalPaymentFailed,
   recordUnappliedRenewal,
   setPaymentAccountState,
   stopSubscription,
@@ -52,8 +68,10 @@ export {
 export type {
   CheckoutOutcome,
   PaidCheckout,
+  PaymentAccountGone,
   PaymentEvent,
   ReceiptCandidate,
+  RenewalPaymentFailure,
 } from './clubs/payments.js';
 export {
   DATED_NOTIFICATION_KINDS,
@@ -83,6 +101,7 @@ export {
   memberRecipient,
   operatorRecipients,
   recordClubMonthlyActivity,
+  renewalFailureForMail,
   setInviteTokenHash,
   staffRecipients,
   trainerClassesOn,
@@ -100,6 +119,7 @@ export type {
   StaffRecipient,
   TrainerClass,
 } from './clubs/mail.js';
+export { MEMBERSHIP_LAST_VALID_DAY, MEMBERSHIP_WAS_EVER_VALID } from './clubs/validity.js';
 export {
   MEMBER_DERIVED_COLUMNS,
   MEMBER_DERIVED_JOINS,

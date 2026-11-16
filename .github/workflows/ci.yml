@@ -30,8 +30,8 @@ jobs:
       - run: pnpm test
       # Known-vulnerable dependencies. What ships is `dependencies`, so only
       # those are gated, and only on CRITICAL advisories: the highs open today
-      # (drizzle-orm, nodemailer, and Next's own pinned postcss/sharp) each need
-      # a bump of their own, and a gate that tripped on them would block every
+      # (Next's own pinned postcss/sharp) each need a bump of their own, and a
+      # gate that tripped on them would block every
       # deploy — the fixes included — until all of them landed. Every advisory
       # is printed either way, and Dependabot (.github/dependabot.yml) proposes
       # the bumps weekly.

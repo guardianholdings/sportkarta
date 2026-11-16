@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ScrollStrip } from '@/components/ui/scroll-strip';
 import { ACCOUNTS_PAGE_SIZE, listAccounts, type AccountFilters } from '@/lib/account-admin';
 import { requireRole } from '@/lib/auth-session';
 import { formatDate } from '@/lib/format';
@@ -97,10 +98,11 @@ export default async function AdminAccountsPage({
     admin: t('roleAdmin'),
   };
 
+  // 44px on a phone, where the row scrolls (FilterRow); the desktop's 36px above.
   const pill = (active: boolean): string =>
     active
-      ? 'inline-flex min-h-9 items-center rounded-pill bg-brand px-3 text-caption font-semibold text-on-brand'
-      : 'inline-flex min-h-9 items-center rounded-pill border border-line-strong bg-surface px-3 text-caption font-medium text-ink-soft hover:bg-surface-2';
+      ? 'inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-pill bg-brand px-3 text-caption font-semibold text-on-brand sm:min-h-9'
+      : 'inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-pill border border-line-strong bg-surface px-3 text-caption font-medium text-ink-soft hover:bg-surface-2 sm:min-h-9';
 
   return (
     <main className="space-y-6">
@@ -146,56 +148,82 @@ export default async function AdminAccountsPage({
 
       <div className="space-y-2">
         <FilterRow label={t('filterRole')}>
-          <Link href={href(filters, { role: undefined })} className={pill(!filters.role)}>
+          <Link
+            href={href(filters, { role: undefined })}
+            className={pill(!filters.role)}
+            aria-current={!filters.role ? 'true' : undefined}
+          >
             {t('all')}
           </Link>
           {(['user', 'ambassador', 'admin'] as const).map((role) => (
-            <Link key={role} href={href(filters, { role })} className={pill(filters.role === role)}>
+            <Link
+              key={role}
+              href={href(filters, { role })}
+              className={pill(filters.role === role)}
+              aria-current={filters.role === role ? 'true' : undefined}
+            >
               {roleLabel[role]}
             </Link>
           ))}
         </FilterRow>
         <FilterRow label={t('filterVisibility')}>
-          <Link href={href(filters, { vidimost: undefined })} className={pill(!filters.visibility)}>
+          <Link
+            href={href(filters, { vidimost: undefined })}
+            className={pill(!filters.visibility)}
+            aria-current={!filters.visibility ? 'true' : undefined}
+          >
             {t('all')}
           </Link>
           <Link
             href={href(filters, { vidimost: 'public' })}
             className={pill(filters.visibility === 'public')}
+            aria-current={filters.visibility === 'public' ? 'true' : undefined}
           >
             {t('visibilityPublic')}
           </Link>
           <Link
             href={href(filters, { vidimost: 'private' })}
             className={pill(filters.visibility === 'private')}
+            aria-current={filters.visibility === 'private' ? 'true' : undefined}
           >
             {t('visibilityPrivate')}
           </Link>
         </FilterRow>
         <FilterRow label={t('filterConsent')}>
-          <Link href={href(filters, { saglasie: undefined })} className={pill(!filters.consent)}>
+          <Link
+            href={href(filters, { saglasie: undefined })}
+            className={pill(!filters.consent)}
+            aria-current={!filters.consent ? 'true' : undefined}
+          >
             {t('all')}
           </Link>
           <Link
             href={href(filters, { saglasie: 'route' })}
             className={pill(filters.consent === 'route')}
+            aria-current={filters.consent === 'route' ? 'true' : undefined}
           >
             {t('consentRoute')}
           </Link>
           <Link
             href={href(filters, { saglasie: 'health' })}
             className={pill(filters.consent === 'health')}
+            aria-current={filters.consent === 'health' ? 'true' : undefined}
           >
             {t('consentHealth')}
           </Link>
         </FilterRow>
         <FilterRow label={t('filterStatus')}>
-          <Link href={href(filters, { status: undefined })} className={pill(!filters.suspended)}>
+          <Link
+            href={href(filters, { status: undefined })}
+            className={pill(!filters.suspended)}
+            aria-current={!filters.suspended ? 'true' : undefined}
+          >
             {t('all')}
           </Link>
           <Link
             href={href(filters, { status: 'spreni' })}
             className={pill(filters.suspended === true)}
+            aria-current={filters.suspended === true ? 'true' : undefined}
           >
             {t('statusSuspended')}
           </Link>
@@ -210,7 +238,9 @@ export default async function AdminAccountsPage({
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[52rem] border-collapse text-body-sm">
+          {/* Cards under `sm` (globals.css .sk-card-table, V-28): each row a card
+              that prints its column names, empty cells left out. */}
+          <table className="sk-card-table w-full border-collapse text-body-sm sm:min-w-[52rem]">
             <thead>
               <tr className="border-b border-line text-left text-caption text-text-muted">
                 <th scope="col" className="t-overline py-2 pr-3 font-medium">
@@ -256,11 +286,11 @@ export default async function AdminAccountsPage({
                         {t('controls.suspendedBadge')}
                       </Badge>
                     )}
-                    <span className="block break-all text-caption text-text-muted">
+                    <span className="block text-caption text-text-muted [overflow-wrap:anywhere]">
                       {row.email}
                     </span>
                   </th>
-                  <td className="py-2 pr-3">
+                  <td className="py-2 pr-3" data-label={t('columnRole')}>
                     {row.role === 'user' ? (
                       <span className="text-text-muted">{roleLabel.user}</span>
                     ) : (
@@ -269,12 +299,35 @@ export default async function AdminAccountsPage({
                       </Badge>
                     )}
                   </td>
-                  <td className="py-2 pr-3 text-ink-soft">{row.homeCity ?? t('none')}</td>
-                  <td className="py-2 pr-3 text-right font-mono tabular-nums">{row.points}</td>
-                  <td className="py-2 pr-3 text-right font-mono tabular-nums">{row.edits}</td>
-                  <td className="py-2 pr-3 text-right font-mono tabular-nums">{row.trainings}</td>
-                  <td className="py-2 pr-3 text-right font-mono tabular-nums">{row.checkins}</td>
-                  <td className="py-2 pr-3 font-mono text-caption text-text-muted">
+                  <td
+                    className="py-2 pr-3 text-ink-soft"
+                    data-label={t('columnCity')}
+                    data-empty={row.homeCity ? undefined : ''}
+                  >
+                    {row.homeCity ?? t('none')}
+                  </td>
+                  {(
+                    [
+                      ['columnPoints', row.points],
+                      ['columnEdits', row.edits],
+                      ['columnTrainings', row.trainings],
+                      ['columnCheckins', row.checkins],
+                    ] as const
+                  ).map(([column, count]) => (
+                    <td
+                      key={column}
+                      className="py-2 pr-3 text-right font-mono tabular-nums"
+                      data-label={t(column)}
+                      data-empty={count ? undefined : ''}
+                    >
+                      {count}
+                    </td>
+                  ))}
+                  <td
+                    className="py-2 pr-3 font-mono text-caption text-text-muted"
+                    data-label={t('columnLastActive')}
+                    data-empty={row.lastActiveAt ? undefined : ''}
+                  >
                     {fmt(row.lastActiveAt)}
                   </td>
                 </tr>
@@ -311,11 +364,14 @@ export default async function AdminAccountsPage({
   );
 }
 
+/** A label and its pills: one row that scrolls on a phone and wraps on a desktop. */
 function FilterRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex items-center gap-2">
       <span className="t-overline w-20 shrink-0 text-text-muted">{label}</span>
-      {children}
+      <ScrollStrip wrapFrom="sm" gap="gap-2" bleed={false} className="min-w-0 flex-1">
+        {children}
+      </ScrollStrip>
     </div>
   );
 }

@@ -24,6 +24,13 @@ function dbClient(): pg.Client {
   return new pg.Client({ connectionString: url });
 }
 
+/** An ISO date exactly this many years before today — a fixture that never ages past its category. */
+function yearsAgo(years: number): string {
+  const d = new Date();
+  d.setUTCFullYear(d.getUTCFullYear() - years);
+  return d.toISOString().slice(0, 10);
+}
+
 async function query<T extends Record<string, unknown>>(
   sql: string,
   params: unknown[] = [],
@@ -82,8 +89,18 @@ test.describe('email OTP sign-in', () => {
     const MEMBER_EMAIL = memberEmail(testInfo);
     await signIn(page, MEMBER_EMAIL, /\/profil/);
 
+    // Under the minimum account age (14, operator decision 2026-11-06): the
+    // save is refused with a visible reason and nothing about the member changes.
     await page.getByLabel(/име за показване|display name/i).fill('E2E тест');
-    await page.getByLabel(/дата на раждане|date of birth/i).fill('2015-06-01');
+    await page.getByLabel(/дата на раждане|date of birth/i).fill(yearsAgo(10));
+    await page.getByRole('button', { name: /запази|save/i }).click();
+    // Next.js keeps its own role="alert" route announcer on every page, so pick the form's.
+    await expect(page.getByRole('alert').filter({ hasText: /14/ })).toBeVisible();
+    await expect(page.getByRole('status')).toHaveCount(0);
+
+    // Between 14 and 18: saved, categorised as a minor, the date itself gone.
+    await page.getByLabel(/име за показване|display name/i).fill('E2E тест');
+    await page.getByLabel(/дата на раждане|date of birth/i).fill(yearsAgo(15));
     await page.getByRole('button', { name: /запази|save/i }).click();
     await expect(page.getByRole('status')).toBeVisible();
 

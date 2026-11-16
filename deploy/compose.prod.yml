@@ -77,9 +77,31 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      # The daily mail budget (0063): the relay's sends per DAY, shared out
+      # between sign-in codes, notices and club bulk mail by per-cent shares,
+      # counted in ONE database table by web and worker alike. Empty = the
+      # defaults sized to Migadu Mini (lib/src/email/budget.ts: 100 a day;
+      # 40 % codes, 40 % notices, the rest bulk). The web spends the code
+      # share; it must know the same numbers as the worker.
+      MAIL_DAILY_QUOTA: ${MAIL_DAILY_QUOTA:-}
+      MAIL_OTP_SHARE: ${MAIL_OTP_SHARE:-}
+      MAIL_NOTICE_SHARE: ${MAIL_NOTICE_SHARE:-}
+      # The club bulk cap can LOWER the budget's bulk share (never raise it). The
+      # web reads it too, so /admin/zdrave shows the share the worker really has.
+      CLUB_BULK_MAIL_DAILY_LIMIT: ${CLUB_BULK_MAIL_DAILY_LIMIT:-60}
       # Caddy sits in front on the compose network; trusting it lets the rate
       # limiter resolve the real client IP (used in memory only, never stored).
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32}
+      # Sign-in code caps (lib/auth-rate-limit.ts). They were not passed
+      # through, so production ran the code's defaults — 200 codes an hour
+      # against a relay that allows 100 sends a DAY. deploy.yml renders them
+      # from repository variables with a production default for the hourly
+      # cap; an empty value keeps the code's default.
+      OTP_SEND_LIMIT_PER_HOUR: ${OTP_SEND_LIMIT_PER_HOUR:-}
+      OTP_RATE_LIMIT_IP: ${OTP_RATE_LIMIT_IP:-}
+      OTP_RATE_LIMIT_EMAIL: ${OTP_RATE_LIMIT_EMAIL:-}
+      OTP_VERIFY_LIMIT_EMAIL: ${OTP_VERIFY_LIMIT_EMAIL:-}
+      OTP_VERIFY_LIMIT_IP: ${OTP_VERIFY_LIMIT_IP:-}
       # The controller's contact address (GDPR Art. 13, DSA Arts. 11-12), shown
       # on /kontakt, /privacy, /usloviya, /podkrepi and /partnyori. Empty = each
       # page says no address is published yet and offers the notice form.
@@ -89,6 +111,7 @@ services:
       ORG_LEGAL_NAME: ${ORG_LEGAL_NAME:-}
       ORG_EIK: ${ORG_EIK:-}
       ORG_ADDRESS: ${ORG_ADDRESS:-}
+      ORG_VAT_REGISTERED: ${ORG_VAT_REGISTERED:-}
       # Analytics & error monitoring — read at runtime, empty defaults = disabled.
       # Self-hosted cookieless Umami (set both to enable the snippet).
       UMAMI_SRC: ${UMAMI_SRC:-}
@@ -101,6 +124,11 @@ services:
       # CHECKIN_TOKEN_SECRET secret is set. It was missing here, so production
       # showed «QR check-in is unavailable» to every organiser.
       CHECKIN_TOKEN_SECRET: ${CHECKIN_TOKEN_SECRET:-}
+      # Server Actions key (deploy.yml derives it from AUTH_SECRET and bakes the
+      # same value into the image at build time). Stable across deploys, so a
+      # form that was open during a deploy still reaches its action instead of
+      # losing the member's answers to a 404. Empty = Next's per-build key.
+      NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: ${NEXT_SERVER_ACTIONS_ENCRYPTION_KEY:-}
       # Headline partner strip (Stage 8). Ships off.
       PARTNER_STRIP_ENABLED: ${PARTNER_STRIP_ENABLED:-}
       # «Клубове» add-on (Stage 9). Ships off: every club route 404s.
@@ -239,8 +267,14 @@ services:
       # master. Unset, nothing is claimed and the queue waits.
       CLUB_API_ENABLED: ${CLUB_API_ENABLED:-}
       CLUB_WEBHOOK_SECRET: ${CLUB_WEBHOOK_SECRET:-}
-      # Club broadcasts and automations per Sofia day, across every club —
-      # kept under the relay's own daily quota, which sign-in codes share.
+      # The daily mail budget (0063), the same three numbers as web: every
+      # notice from here spends the notice share, every broadcast or
+      # automation the bulk share, and the code share is the web's alone.
+      MAIL_DAILY_QUOTA: ${MAIL_DAILY_QUOTA:-}
+      MAIL_OTP_SHARE: ${MAIL_OTP_SHARE:-}
+      MAIL_NOTICE_SHARE: ${MAIL_NOTICE_SHARE:-}
+      # Club broadcasts and automations per Sofia day, across every club. It
+      # can LOWER the budget's bulk share, never raise it above the share.
       CLUB_BULK_MAIL_DAILY_LIMIT: ${CLUB_BULK_MAIL_DAILY_LIMIT:-60}
     volumes:
       - uploads:/data/uploads

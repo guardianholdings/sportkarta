@@ -274,6 +274,21 @@ describe('reportFailures', () => {
     expect(JSON.parse(body.trim().split('\n')[2] ?? '{}').tags.queue).toBe('digest.weekly');
   });
 
+  it('re-throws without reporting when the caller says the error is not news', async () => {
+    const fetchImpl = okFetch();
+    const reporter = createErrorReporter({ dsn: DSN, component: 'worker', fetchImpl });
+    const held = new Error(
+      'digest.weekly: 0 failed, 1 held, 3 unattempted of 4 (mail budget spent)',
+    );
+    const wrapped = reportFailures(
+      reporter,
+      { tags: { queue: 'digest.weekly' }, ignore: (error) => error === held },
+      () => Promise.reject(held),
+    );
+    await expect(wrapped()).rejects.toBe(held);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it('passes results and arguments straight through', async () => {
     const fetchImpl = okFetch();
     const reporter = createErrorReporter({ dsn: DSN, component: 'worker', fetchImpl });

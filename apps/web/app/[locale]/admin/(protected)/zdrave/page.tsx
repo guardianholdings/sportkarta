@@ -1,16 +1,20 @@
-import { getDb } from '@sportkarta/db';
+import { getDb, mailBudgetToday, type MailBudgetKindToday } from '@sportkarta/db';
+import { MAIL_BUDGET_WARN_AT, mailBudgetWarnAt } from '@sportkarta/lib/email';
 import { parseDsn } from '@sportkarta/lib/error-report';
 import { getLocale, getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Badge, type BadgeTone } from '@/components/ui/badge';
 import { enqueueFailures } from '@/lib/admin-boss';
 import { requireRole } from '@/lib/auth-session';
+import { describeCron, weekdayName } from '@/lib/cron-words';
+import { mailBudgetLimits } from '@/lib/mail-budget';
 import {
   HEARTBEAT_STALE_SECONDS,
   MAIL_WINDOW_DAYS,
   clubOpsHealth,
   mailOutcomes,
   queueHealth,
+  queueKey,
   readWorkerHeartbeat,
   scheduleHealth,
   type WorkerStatus,
@@ -30,12 +34,11 @@ export const dynamic = 'force-dynamic';
  * ADMIN-ONLY (requireRole, not the panel's requireAdmin): it is operational,
  * not moderation, and it is municipality-agnostic. It shows counts, times and
  * scrubbed error messages — never a job's payload, which can name an account.
+ *
+ * On a phone the three tables are stacks of cards (globals.css
+ * .sk-card-table, UX audit 2026-10-31 V-29): each row prints its column
+ * names, and a cell with nothing to say — a zero, a «never» — is left out.
  */
-
-/** A queue name to its i18n key: `session.notify` → `sessionNotify`. */
-function queueKey(name: string): string {
-  return name.replace(/[._-](\w)/g, (_, c: string) => c.toUpperCase());
-}
 
 const WORKER_TONE: Record<WorkerStatus, BadgeTone> = {
   ok: 'success',
@@ -44,19 +47,41 @@ const WORKER_TONE: Record<WorkerStatus, BadgeTone> = {
   unknown: 'warning',
 };
 
+/**
+ * Where a mail budget share stands today (db/src/mail-budget.ts): the same
+ * 80 % mark the worker and the web warn at once, and spent when the kind's
+ * next send would be refused.
+ */
+type BudgetState = 'ok' | 'warning' | 'spent';
+
+function budgetState(row: MailBudgetKindToday): BudgetState {
+  if (row.sent >= row.limit) return 'spent';
+  return row.sent >= mailBudgetWarnAt(row.limit) ? 'warning' : 'ok';
+}
+
+const BUDGET_TONE: Record<BudgetState, BadgeTone> = {
+  ok: 'success',
+  warning: 'warning',
+  spent: 'danger',
+};
+
+/** The badge names the same mark the warning line fires at. */
+const BUDGET_WARN_PERCENT = Math.round(MAIL_BUDGET_WARN_AT * 100);
+
 export default async function AdminHealthPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
   await requireRole('admin');
 
   const db = getDb();
-  const [t, activeLocale, heartbeat, queues, schedules, mail, clubs] = await Promise.all([
+  const [t, activeLocale, heartbeat, queues, schedules, mail, budget, clubs] = await Promise.all([
     getTranslations('AdminHealth'),
     getLocale(),
     readWorkerHeartbeat(db, process.uptime()),
     queueHealth(db),
     scheduleHealth(db),
     mailOutcomes(db),
+    mailBudgetToday(db, mailBudgetLimits()),
     clubOpsHealth(db),
   ]);
   const enqueue = enqueueFailures();
@@ -68,6 +93,9 @@ export default async function AdminHealthPage({ params }: { params: Promise<{ lo
     timeZone: 'Europe/Sofia',
   });
   const when = (iso: string | null): string => (iso ? dateFmt.format(new Date(iso)) : t('never'));
+  // A civil Sofia day (YYYY-MM-DD), shown as a date and never shifted by a zone.
+  const dayFmt = new Intl.DateTimeFormat(activeLocale, { dateStyle: 'long', timeZone: 'UTC' });
+  const budgetDay = budget.day ? dayFmt.format(new Date(`${budget.day}T00:00:00Z`)) : '—';
   const age = (seconds: number | null): string => {
     if (seconds === null) return '—';
     if (seconds < 90) return t('ageSeconds', { n: seconds });
@@ -77,9 +105,37 @@ export default async function AdminHealthPage({ params }: { params: Promise<{ lo
   };
   const queueLabel = (name: string): string =>
     t.has(`queue.${queueKey(name)}`) ? t(`queue.${queueKey(name)}`) : name;
+  // The schedule in words beside its cron (V-04): «на всеки 10 минути»,
+  // «всяка седмица в понеделник в 08:00». A shape the parser does not know
+  // prints the expression alone. A Sofia schedule says nothing more; the rest
+  // run on UTC and say so.
+  const cronWords = (cron: string, timezone: string | null): string | null => {
+    const shape = describeCron(cron);
+    if (!shape) return null;
+    const words =
+      shape.kind === 'everyMinute'
+        ? t('cron.everyMinute')
+        : shape.kind === 'everyMinutes'
+          ? t('cron.everyMinutes', { n: shape.n })
+          : shape.kind === 'hourly'
+            ? t('cron.hourly', { minute: shape.minute })
+            : shape.kind === 'daily'
+              ? t('cron.daily', { time: shape.time })
+              : shape.kind === 'weekly'
+                ? t('cron.weekly', {
+                    weekday: weekdayName(shape.weekday, activeLocale),
+                    time: shape.time,
+                  })
+                : t('cron.monthly', { day: shape.day, time: shape.time });
+    return timezone === 'Europe/Sofia' ? words : t('cron.inUtc', { words });
+  };
+  /** Marks a card cell with nothing to say, so the phone leaves it out. */
+  const empty = (value: unknown) => (value ? undefined : '');
 
   const card = 'rounded-card border border-line bg-surface p-4 shadow-sm';
   const th = 't-overline py-2 pr-3 text-left';
+  const rowHead = 'py-2 pr-3 text-left font-medium text-ink';
+  const table = 'sk-card-table w-full border-collapse text-body-sm';
 
   return (
     <main className="space-y-6">
@@ -129,31 +185,59 @@ export default async function AdminHealthPage({ params }: { params: Promise<{ lo
           {t('mailTitle', { days: MAIL_WINDOW_DAYS })}
         </h2>
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-body-sm">
+          <table className={table}>
             <thead>
               <tr className="border-b border-line-strong text-caption text-text-muted">
-                <th className={th}>{t('colQueue')}</th>
-                <th className={th}>{t('colSent')}</th>
-                <th className={th}>{t('colMailFailed')}</th>
-                <th className={th}>{t('colJobs')}</th>
-                <th className={th}>{t('colJobsFailed')}</th>
+                <th scope="col" className={th}>
+                  {t('colQueue')}
+                </th>
+                <th scope="col" className={th}>
+                  {t('colSent')}
+                </th>
+                <th scope="col" className={th}>
+                  {t('colMailFailed')}
+                </th>
+                <th scope="col" className={th}>
+                  {t('colJobs')}
+                </th>
+                <th scope="col" className={th}>
+                  {t('colJobsFailed')}
+                </th>
               </tr>
             </thead>
             <tbody>
               {mail.map((row) => (
                 <tr key={row.queue} className="border-b border-line">
-                  <td className="py-2 pr-3">{queueLabel(row.queue)}</td>
+                  <th scope="row" className={rowHead}>
+                    {queueLabel(row.queue)}
+                  </th>
                   {/* — for a queue whose jobs report no recipients (one
                       message each): its failed jobs are its failed mail. */}
-                  <td className="py-2 pr-3 tabular-nums">{row.sent ?? '—'}</td>
+                  <td
+                    className="py-2 pr-3 tabular-nums"
+                    data-label={t('colSent')}
+                    data-empty={empty(row.sent)}
+                  >
+                    {row.sent ?? '—'}
+                  </td>
                   <td
                     className={`py-2 pr-3 tabular-nums ${(row.failed ?? 0) > 0 ? 'font-semibold text-danger' : ''}`}
+                    data-label={t('colMailFailed')}
+                    data-empty={empty(row.failed)}
                   >
                     {row.failed ?? '—'}
                   </td>
-                  <td className="py-2 pr-3 tabular-nums">{row.jobs}</td>
+                  <td
+                    className="py-2 pr-3 tabular-nums"
+                    data-label={t('colJobs')}
+                    data-empty={empty(row.jobs)}
+                  >
+                    {row.jobs}
+                  </td>
                   <td
                     className={`py-2 pr-3 tabular-nums ${row.failedJobs > 0 ? 'font-semibold text-danger' : ''}`}
+                    data-label={t('colJobsFailed')}
+                    data-empty={empty(row.failedJobs)}
                   >
                     {row.failedJobs}
                   </td>
@@ -165,6 +249,50 @@ export default async function AdminHealthPage({ params }: { params: Promise<{ lo
         <p className="mt-2 max-w-prose text-caption text-text-muted">{t('mailHelp')}</p>
       </section>
 
+      <section aria-labelledby="budget-h" className={card}>
+        <h2 id="budget-h" className="t-overline mb-3">
+          {t('budgetTitle', { day: budgetDay })}
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-body-sm">
+            <thead>
+              <tr className="border-b border-line-strong text-caption text-text-muted">
+                <th className={th}>{t('colKind')}</th>
+                <th className={th}>{t('colBudgetSent')}</th>
+                <th className={th}>{t('colBudgetShare')}</th>
+                <th className={th}>{t('colBudgetRefused')}</th>
+                <th className={th}>{t('colBudgetState')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {budget.kinds.map((row) => {
+                const state = budgetState(row);
+                return (
+                  <tr key={row.kind} className="border-b border-line">
+                    <td className="py-2 pr-3">{t(`budgetKind.${row.kind}`)}</td>
+                    <td className="py-2 pr-3 tabular-nums">{row.sent}</td>
+                    <td className="py-2 pr-3 tabular-nums">{row.limit}</td>
+                    <td
+                      className={`py-2 pr-3 tabular-nums ${row.refused > 0 ? 'font-semibold text-danger' : ''}`}
+                    >
+                      {row.refused}
+                    </td>
+                    <td className="py-2 pr-3">
+                      <Badge tone={BUDGET_TONE[state]}>
+                        {t(`budgetState.${state}`, { percent: BUDGET_WARN_PERCENT })}
+                      </Badge>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-2 max-w-prose text-caption text-text-muted">
+          {t('budgetHelp', { quota: budget.quota })}
+        </p>
+      </section>
+
       <section aria-labelledby="clubs-h" className={card}>
         <h2 id="clubs-h" className="t-overline mb-3">
           {t('clubsTitle')}
@@ -173,6 +301,11 @@ export default async function AdminHealthPage({ params }: { params: Promise<{ lo
           {(
             [
               ['clubPendingEvents', clubs.pendingPaymentEvents, clubs.pendingPaymentEvents > 0],
+              [
+                'clubSubscriptionsAtStripe',
+                clubs.subscriptionsLeftAtStripe30d,
+                clubs.subscriptionsLeftAtStripe30d > 0,
+              ],
               ['clubEndpointsDisabled', clubs.endpointsDisabled7d, clubs.endpointsDisabled7d > 0],
               ['clubBroadcastsWaiting', clubs.broadcastsWaiting, clubs.broadcastsWaiting > 0],
               ['clubSmsCapped', clubs.clubsAtSmsCap, clubs.clubsAtSmsCap > 0],
@@ -197,52 +330,98 @@ export default async function AdminHealthPage({ params }: { params: Promise<{ lo
           <p className="text-body-sm text-text-muted">{t('queuesEmpty')}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-body-sm">
+            <table className={table}>
               <thead>
                 <tr className="border-b border-line-strong text-caption text-text-muted">
-                  <th className={th}>{t('colQueue')}</th>
-                  <th className={th}>{t('colWaiting')}</th>
-                  <th className={th}>{t('colActive')}</th>
-                  <th className={th}>{t('colDone24h')}</th>
-                  <th className={th}>{t('colFailed24h')}</th>
-                  <th className={th}>{t('colLastDone')}</th>
-                  <th className={th}>{t('colLastFailed')}</th>
+                  <th scope="col" className={th}>
+                    {t('colQueue')}
+                  </th>
+                  <th scope="col" className={th}>
+                    {t('colWaiting')}
+                  </th>
+                  <th scope="col" className={th}>
+                    {t('colActive')}
+                  </th>
+                  <th scope="col" className={th}>
+                    {t('colDone24h')}
+                  </th>
+                  <th scope="col" className={th}>
+                    {t('colFailed24h')}
+                  </th>
+                  <th scope="col" className={th}>
+                    {t('colLastDone')}
+                  </th>
+                  <th scope="col" className={th}>
+                    {t('colLastFailed')}
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {queues.map((row) => (
                   <tr key={row.name} className="border-b border-line align-top">
-                    <td className="py-2 pr-3">
+                    <th scope="row" className={rowHead}>
                       <div>{queueLabel(row.name)}</div>
-                      <code className="text-caption text-text-muted">{row.name}</code>
-                    </td>
+                      <code className="text-caption font-normal text-text-muted">{row.name}</code>
+                    </th>
                     <td
                       className={`py-2 pr-3 tabular-nums ${row.due > 0 && (row.oldestDueSeconds ?? 0) > 15 * 60 ? 'font-semibold text-danger' : ''}`}
+                      data-label={t('colWaiting')}
+                      data-empty={empty(row.due)}
                     >
                       {row.due > 0
                         ? t('waiting', { count: row.due, age: age(row.oldestDueSeconds) })
                         : '0'}
                     </td>
-                    <td className="py-2 pr-3 tabular-nums">{row.active}</td>
-                    <td className="py-2 pr-3 tabular-nums">{row.completed24h}</td>
+                    <td
+                      className="py-2 pr-3 tabular-nums"
+                      data-label={t('colActive')}
+                      data-empty={empty(row.active)}
+                    >
+                      {row.active}
+                    </td>
+                    <td
+                      className="py-2 pr-3 tabular-nums"
+                      data-label={t('colDone24h')}
+                      data-empty={empty(row.completed24h)}
+                    >
+                      {row.completed24h}
+                    </td>
                     <td
                       className={`py-2 pr-3 tabular-nums ${row.failed24h > 0 || row.retrying > 0 ? 'font-semibold text-danger' : ''}`}
+                      data-label={t('colFailed24h')}
+                      data-empty={empty(row.failed24h || row.retrying)}
                     >
-                      {row.failed24h}
-                      {row.retrying > 0 && (
-                        <div className="text-caption font-normal">
-                          {t('retrying', { count: row.retrying })}
-                        </div>
-                      )}
+                      {/* One child per cell: on a phone the cell is a flex row
+                          of label and value (globals.css .sk-card-table). */}
+                      <div>
+                        {row.failed24h}
+                        {row.retrying > 0 && (
+                          <div className="text-caption font-normal">
+                            {t('retrying', { count: row.retrying })}
+                          </div>
+                        )}
+                      </div>
                     </td>
-                    <td className="py-2 pr-3 text-caption whitespace-nowrap">
+                    <td
+                      className="py-2 pr-3 text-caption whitespace-nowrap"
+                      data-label={t('colLastDone')}
+                      data-empty={empty(row.lastCompletedAt)}
+                    >
                       {when(row.lastCompletedAt)}
                     </td>
-                    <td className="py-2 pr-3 text-caption">
-                      <div className="whitespace-nowrap">{when(row.lastFailedAt)}</div>
-                      {row.lastError && (
-                        <div className="mt-1 max-w-xs break-words text-danger">{row.lastError}</div>
-                      )}
+                    <td
+                      className="py-2 pr-3 text-caption"
+                      data-label={t('colLastFailed')}
+                      data-empty={empty(row.lastFailedAt ?? row.lastError)}
+                    >
+                      <div>
+                        <div className="whitespace-nowrap">{when(row.lastFailedAt)}</div>
+                        {row.lastError && (
+                          <div className="mt-1 max-w-xs break-words text-danger">
+                            {row.lastError}
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -263,29 +442,47 @@ export default async function AdminHealthPage({ params }: { params: Promise<{ lo
           <p className="text-body-sm text-text-muted">{t('schedulesEmpty')}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-body-sm">
+            <table className={table}>
               <thead>
                 <tr className="border-b border-line-strong text-caption text-text-muted">
-                  <th className={th}>{t('colQueue')}</th>
-                  <th className={th}>{t('colCron')}</th>
-                  <th className={th}>{t('colLastRun')}</th>
+                  <th scope="col" className={th}>
+                    {t('colQueue')}
+                  </th>
+                  <th scope="col" className={th}>
+                    {t('colCron')}
+                  </th>
+                  <th scope="col" className={th}>
+                    {t('colLastRun')}
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {schedules.rows.map((row) => (
-                  <tr key={row.name} className="border-b border-line">
-                    <td className="py-2 pr-3">{queueLabel(row.name)}</td>
-                    <td className="py-2 pr-3">
-                      <code className="text-caption">{row.cron}</code>
-                      {row.timezone && (
-                        <span className="text-caption text-text-muted"> · {row.timezone}</span>
-                      )}
-                    </td>
-                    <td className="py-2 pr-3 text-caption whitespace-nowrap">
-                      {when(row.lastRunAt)}
-                    </td>
-                  </tr>
-                ))}
+                {schedules.rows.map((row) => {
+                  const words = cronWords(row.cron, row.timezone);
+                  return (
+                    <tr key={row.name} className="border-b border-line align-top">
+                      <th scope="row" className={rowHead}>
+                        {queueLabel(row.name)}
+                      </th>
+                      <td className="py-2 pr-3" data-label={t('colCron')}>
+                        <div>
+                          {words && <div>{words}</div>}
+                          <code className="text-caption text-text-muted">{row.cron}</code>
+                          {row.timezone && (
+                            <span className="text-caption text-text-muted"> · {row.timezone}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td
+                        className="py-2 pr-3 text-caption whitespace-nowrap"
+                        data-label={t('colLastRun')}
+                        data-empty={empty(row.lastRunAt)}
+                      >
+                        {when(row.lastRunAt)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -15,6 +15,7 @@ import {
   otpGlobalSendLimiter,
   otpIpRateLimiter,
 } from '@/lib/auth-rate-limit';
+import { reserveSignInCodeMail } from '@/lib/mail-budget';
 import { clientIpFromForwardedFor } from '@/lib/rate-limit';
 import {
   SIGN_IN_PATH,
@@ -134,9 +135,20 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
       return { step: resend ? 'code' : 'email', email, error: 'mail_unavailable' };
     }
 
+    // The durable line behind the in-memory ones (lib/mail-budget.ts): the
+    // day's share of the relay's quota kept for codes, counted in the database
+    // — so a deploy forgets nothing, and the worker's notices and a club's
+    // broadcasts cannot take it. Spent means no code can be sent today, the
+    // same answer as the hourly cap; the request is held on the step it is on.
+    const slot = await reserveSignInCodeMail();
+    if (!slot) return { step: resend ? 'code' : 'email', email, error: 'mail_unavailable' };
+
     // The code is mailed HERE, not by better-auth, so a failed send reaches the
     // member as an error instead of «Изпратихме код» for a code that never left.
-    const outcome = await sendSignInCode(email, locale);
+    // The slot travels with it and comes back when nothing left (a relay that
+    // refused, a code that could not be minted) — so a relay outage cannot burn
+    // the share — but not after a timeout, when the mail may still arrive.
+    const outcome = await sendSignInCode(email, locale, slot);
     return outcome === 'sent'
       ? { step: 'code', email, error: null, ...(resend ? { resent: true } : {}) }
       : { step: 'email', email, error: outcome };

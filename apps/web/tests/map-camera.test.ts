@@ -5,6 +5,7 @@ import { BULGARIA_BOUNDS, insideBulgaria } from '@sportkarta/lib/geo';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  boxMiddle,
   clampCenter,
   FIT_MARGIN_PX,
   insideVisibleFrame,
@@ -16,6 +17,7 @@ import {
   zoomFloor,
 } from '../components/map/camera';
 import { createCluster, createPin } from '../components/map/markers';
+import { keepsSouthLimit, UNDERLAY_LAYER_MAXZOOM } from '../lib/map/underlay';
 import { parseView } from '../lib/map/view';
 
 /**
@@ -143,23 +145,73 @@ describe('desktop fit', () => {
     expect(lonSpan(width, fittedFloor(width, height))).toBeGreaterThanOrEqual(east - west - 0.01);
   });
 
-  it('keeps the frame on the tiles there too: the south limit applies to desktop frames', () => {
-    // The fitted frame is taller than the country on these canvases, so the
-    // spare room must go north (where the archive has map), not south.
+  it('centres the fitted country on desktop: no south limit, the regional underlay draws below', () => {
+    // The fitted frame is taller than the box on these canvases. From 10 Oct to
+    // 2 Nov the south limit pushed all the spare room north, past the national
+    // archive's tiles, onto an empty band (operator request 2026-11-02). Desktop draws the
+    // regional underlay, so it passes no frame and the box's middle stays at the centre.
     const { width, height } = TABLET;
     const zoom = fittedFloor(width, height);
-    const centre = clampCenter({ lng: 25.3, lat: (south + north) / 2 }, BULGARIA_BOUNDS, {
-      zoom,
-      halfHeight: height / 2,
-    });
-    const bottom = latitudeAt(mercatorY(centre.lat) + height / 2 / (512 * 2 ** zoom));
-    expect(bottom).toBeGreaterThanOrEqual(south - 1e-6);
+    const half = height / 2 / (512 * 2 ** zoom);
+    const middle = boxMiddle(BULGARIA_BOUNDS);
+    expect(middle).toEqual({ lng: 25.5, lat: 42.75 });
+    expect(clampCenter(middle, BULGARIA_BOUNDS)).toEqual(middle);
+    // Room above and below the box, in screen pixels: both positive, and a few
+    // pixels apart only, since the box's Mercator middle lies 0.025° north.
+    const px = 512 * 2 ** zoom;
+    const above = (mercatorY(north) - (mercatorY(middle.lat) - half)) * px;
+    const below = (mercatorY(middle.lat) + half - mercatorY(south)) * px;
+    expect(above).toBeGreaterThan(0);
+    expect(below).toBeGreaterThan(0);
+    expect(Math.abs(above - below)).toBeLessThan(2 * 4);
+    const mercatorMiddle = latitudeAt((mercatorY(south) + mercatorY(north)) / 2);
+    expect(mercatorMiddle - middle.lat).toBeCloseTo(0.025, 3);
+    // With the frame, as the phone still passes it, the same fit is pushed north.
+    const framed = clampCenter(middle, BULGARIA_BOUNDS, { zoom, halfHeight: height / 2 });
+    expect(framed.lat).toBeGreaterThan(middle.lat);
+  });
+
+  it('opens desktop with the box’s middle at the centre, at the fit’s zoom; the phone keeps the fit', () => {
+    const canvas = read('components/map/map-canvas.tsx');
+    expect(canvas).toMatch(/const fitMiddle = boxMiddle\(BULGARIA_BOUNDS\);/);
+    expect(canvas).toMatch(
+      /if \(cam\) map\.jumpTo\(underlayRef\.current \? \{ \.\.\.cam, center: fitMiddle \} : cam\);/,
+    );
+  });
+
+  it('passes no frame on desktop while the underlay is drawn, in the pan limit and in the URL camera', () => {
+    const canvas = read('components/map/map-canvas.tsx');
+    expect(canvas).toMatch(
+      /keepsSouthLimit\(underlayRef\.current, clampedZoom\)\s*\?\s*\{ zoom: clampedZoom, halfHeight: frameHalfHeight\(\) \}\s*:\s*undefined/,
+    );
+    expect(canvas).toMatch(
+      /halfHeight: frameHalfHeight\(\),\s*\},\s*keepsSouthLimit\(underlayRef\.current, map\.getZoom\(\)\),\s*\);/,
+    );
+    // Only the home map's desktop layout asks for the underlay.
+    expect(read('components/map/map-explorer.tsx')).toMatch(/underlay=\{viewport\.desktop\}/);
+    expect(read('components/map/place-map.tsx')).not.toMatch(/underlay/);
+    expect(canvas).toMatch(/underlay = false,/);
   });
 
   it('computes the desktop floor from the fitted country, both axes', () => {
     const canvas = read('components/map/map-canvas.tsx');
     expect(canvas).toMatch(/const cam = unrestrictedRef\.current \? null : countryCamera\(\);/);
     expect(canvas).toMatch(/else if \(cam\?\.zoom !== undefined\)/);
+  });
+});
+
+describe('the member’s first gesture', () => {
+  // MapLibre 5 starts a wheel zoom's move without an `originalEvent`, so a
+  // check on that alone never saw the wheel: the auto-fit stayed on, and the
+  // next list toggle or resize re-fitted the country over the member's view.
+  // The e2e case in map-desktop-centre.spec.ts drives a real wheel.
+  it('ends the automatic fit for the wheel too, and for nothing the map does itself', () => {
+    const canvas = read('components/map/map-canvas.tsx');
+    const handler =
+      /map\.on\('movestart', \(e\) => \{([\s\S]*?)\n {4}\}\);/.exec(canvas)?.[1] ?? '';
+    expect(handler).toMatch(/if \(!e\.originalEvent && !map\.scrollZoom\.isActive\(\)\) return;/);
+    expect(handler).toMatch(/autoFitRef\.current = false;/);
+    expect(handler).toMatch(/urlCameraRef\.current = false;/);
   });
 });
 
@@ -278,7 +330,9 @@ describe('phone south limit', () => {
 
   it('is wired into the phone constraint, and re-applied when only the padding changes', () => {
     const canvas = read('components/map/map-canvas.tsx');
-    expect(canvas).toMatch(/clampCenter\(lngLat, BULGARIA_BOUNDS, \{\s*zoom: clampedZoom,/);
+    expect(canvas).toMatch(
+      /clampCenter\(\s*lngLat,\s*BULGARIA_BOUNDS,\s*keepsSouthLimit\(underlayRef\.current, clampedZoom\)\s*\?\s*\{ zoom: clampedZoom,/,
+    );
     // MapLibre does not re-run the constraint on setPadding (a sheet snap).
     expect(canvas).toMatch(/const held = centreInBulgaria\(now, map\.getZoom\(\)\)\.center;/);
   });
@@ -332,9 +386,91 @@ describe('a camera from the URL', () => {
     // The canvas pulls in the URL's centre at the zoom it already has.
     const canvas = read('components/map/map-canvas.tsx');
     expect(canvas).toMatch(
-      /if \(urlCameraRef\.current && initialView\) \{\s*const open = openingCenter\(initialView, BULGARIA_BOUNDS, \{\s*zoom: map\.getZoom\(\),/,
+      /if \(urlCameraRef\.current && initialView\) \{\s*const open = openingCenter\(\s*initialView,\s*BULGARIA_BOUNDS,\s*\{\s*zoom: map\.getZoom\(\),/,
     );
     expect(canvas).toMatch(/map\.jumpTo\(\{ center: \[open\.lng, open\.lat\] \}\);/);
+  });
+
+  it('on desktop keeps the frame in the box but drops the south limit; the phone is unchanged', () => {
+    // 1512×870 with the list open: the map area is 1052 px wide.
+    const DESKTOP = { halfWidth: 1052 / 2, halfHeight: 870 / 2 };
+    const zoom = 5.5;
+    const edge = { lng: 25.5, lat: north };
+    // The frame is larger than the box at this zoom: centred on it, as the fit is.
+    const desk = openingCenter(edge, BULGARIA_BOUNDS, { zoom, ...DESKTOP }, false);
+    expect(desk.lng).toBe(25.5);
+    expect(desk.lat).toBeCloseTo(latitudeAt((mercatorY(south) + mercatorY(north)) / 2), 9);
+    // Inside the box at a town's zoom, the frame is pulled in exactly as before.
+    const vidin = { lng: 22.0, lat: 43.99 };
+    const framed = { zoom: 11, ...DESKTOP };
+    expect(openingCenter(vidin, BULGARIA_BOUNDS, framed, false)).toEqual(
+      openingCenter(vidin, BULGARIA_BOUNDS, framed),
+    );
+    // The phone passes no flag: the default keeps the south limit.
+    const phone = openingCenter(edge, BULGARIA_BOUNDS, { zoom, ...PHONE });
+    expect(phone).toEqual(openingCenter(edge, BULGARIA_BOUNDS, { zoom, ...PHONE }, true));
+    expect(edges(phone, zoom).south).toBeCloseTo(south, 9);
+  });
+});
+
+/**
+ * From UNDERLAY_LAYER_MAXZOOM the underlay's layers are hidden and only the
+ * national archive is drawn. Its tiles end at the tile-row edge under the
+ * box's southern edge, so with no south limit a centre dragged to that edge at
+ * street zoom left an empty band at the bottom of a laptop's map.
+ */
+describe('desktop at street zoom', () => {
+  const [[, south]] = BULGARIA_BOUNDS;
+  /** An 870 px tall map area (1512×870, list open or closed). */
+  const halfHeight = 870 / 2;
+  const world = (zoom: number) => 512 * 2 ** zoom;
+  /** Latitude of the visible frame's bottom for a camera centre at `lat`. */
+  const bottomAt = (lat: number, zoom: number) =>
+    latitudeAt(mercatorY(lat) + halfHeight / world(zoom));
+  /** The bottom edge of the national tile row that holds the box's southern edge. */
+  const tileEdge = (z: number) => latitudeAt((Math.floor(mercatorY(south) * 2 ** z) + 1) / 2 ** z);
+  /** Empty background below the national tiles, in CSS px. */
+  const bandPx = (lat: number, zoom: number) =>
+    Math.max(
+      0,
+      (mercatorY(bottomAt(lat, zoom)) - mercatorY(tileEdge(Math.floor(zoom)))) * world(zoom),
+    );
+  /** The frame the desktop canvas passes `clampCenter` at `zoom`. */
+  const desktopFrame = (zoom: number) =>
+    keepsSouthLimit(true, zoom) ? { zoom, halfHeight } : undefined;
+  // A drag south across the border, into Greece.
+  const greece = { lng: 23.37, lat: 40.6 };
+
+  it('the regression, as arithmetic: with no frame the bottom ran past the tiles', () => {
+    const centre = clampCenter(greece, BULGARIA_BOUNDS);
+    expect(centre.lat).toBe(south);
+    expect(tileEdge(11)).toBeCloseTo(40.98, 2);
+    expect(bandPx(centre.lat, 11)).toBeGreaterThan(300);
+    expect(bandPx(centre.lat, 13)).toBeGreaterThan(100);
+  });
+
+  it('keeps the bottom of the frame on the box’s southern edge from UNDERLAY_LAYER_MAXZOOM', () => {
+    for (const zoom of [UNDERLAY_LAYER_MAXZOOM, 12, 13, 14, 16]) {
+      const centre = clampCenter(greece, BULGARIA_BOUNDS, desktopFrame(zoom));
+      expect(bottomAt(centre.lat, zoom)).toBeCloseTo(south, 9);
+      expect(bandPx(centre.lat, zoom)).toBe(0);
+    }
+  });
+
+  it('passes no frame below it: the underlay draws south of the box', () => {
+    for (const zoom of [5.5, 8, 10, UNDERLAY_LAYER_MAXZOOM - 0.01]) {
+      expect(desktopFrame(zoom)).toBeUndefined();
+    }
+  });
+
+  it('a camera from the URL at street zoom opens as before: its frame is already in the box', () => {
+    const edge = { lng: 23.37, lat: south };
+    for (const zoom of [UNDERLAY_LAYER_MAXZOOM, 13, 16]) {
+      const frame = { zoom, halfWidth: 1052 / 2, halfHeight };
+      const open = openingCenter(edge, BULGARIA_BOUNDS, frame, keepsSouthLimit(true, zoom));
+      expect(open).toEqual(openingCenter(edge, BULGARIA_BOUNDS, frame, false));
+      expect(bandPx(open.lat, zoom)).toBe(0);
+    }
   });
 });
 
