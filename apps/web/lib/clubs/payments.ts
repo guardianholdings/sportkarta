@@ -7,6 +7,7 @@ import {
   getDb,
   recordProviderRefund,
   sql,
+  stopSubscription,
   subscriptionRefsFor,
   type OnlineProvider,
   type SQL,
@@ -23,8 +24,10 @@ import {
   applicationFeeCents,
   createStripeClient,
   resolvePaymentProvider,
+  StripeError,
   stripeSettings,
   type PaymentProviderKind,
+  type StripeClient,
 } from '@sportkarta/lib/payments';
 
 import { resolveAuthSecret } from '../auth-config';
@@ -172,7 +175,70 @@ export function connectStartUrl(actor: ClubActor): string | null {
   return `https://connect.stripe.com/oauth/authorize?${params.toString()}`;
 }
 
-export type ConnectResult = 'ok' | 'not_allowed' | 'subscriptions_live';
+/**
+ * The platform lets go of a connected account at Stripe (Connect OAuth
+ * deauthorize) — what a disconnect, a replaced account and a purge owe the
+ * club: with a row gone and the grant kept, POPS would hold read_write on an
+ * account nothing here records any more. `none` for the fake provider;
+ * `failed` when Stripe did not confirm, which the caller says and audits
+ * instead of swallowing (review 2026-11-14).
+ */
+async function releaseGrant(account: {
+  provider: string;
+  accountRef: string;
+}): Promise<ReleaseOutcome> {
+  if (account.provider !== 'stripe') return 'none';
+  if (paymentProvider() !== 'stripe') return 'failed';
+  try {
+    const { client, settings } = stripe();
+    await client.oauthDeauthorize(settings.connectClientId, account.accountRef);
+    return 'released';
+  } catch {
+    return 'failed';
+  }
+}
+
+/**
+ * settings.manage on a writable club — asked BEFORE anything is touched at the
+ * provider (a checkout closed, a grant released); the statements that change
+ * the connection carry the same fragment again.
+ */
+async function mayManagePayments(actor: ClubActor): Promise<boolean> {
+  const row = await getDb().execute(sql`
+    SELECT 1 WHERE ${clubActorMay(actor, 'settings.manage', { write: true })}
+  `);
+  return row.rows.length > 0;
+}
+
+/**
+ * Whatever is still `open` on an account being let go is closed HERE, in the
+ * transaction that ends the connection — a session Stripe could not be asked
+ * about, or one opened while the owner was switching. Left open it could
+ * never be closed again (every later question about it is refused once the
+ * grant is gone), and would refuse that client's every next purchase. Money
+ * that still arrives on it is listed as `unapplied` by the worker, exactly as
+ * after a revoke from the club's own dashboard (markPaymentAccountGone).
+ */
+async function expireCheckoutsOn(
+  tx: SqlRunner,
+  actor: ClubActor,
+  accountRef: string,
+): Promise<void> {
+  await tx.execute(sql`
+    UPDATE club_checkouts SET status = 'expired', completed_at = now()
+     WHERE club_id = ${actor.clubId}::uuid AND account_ref = ${accountRef} AND status = 'open'
+       AND ${clubActorMay(actor, 'settings.manage', { write: true })}
+  `);
+}
+
+export type ConnectResult =
+  | 'ok'
+  /** Connected; Stripe did not confirm that the REPLACED account was let go. */
+  | 'ok_grant_kept'
+  | 'not_allowed'
+  | 'subscriptions_live'
+  /** A checkout on the account being replaced is paid and still being applied. */
+  | 'checkouts_in_progress';
 
 /**
  * Record the club's connected account (a reconnect replaces the live one).
@@ -181,20 +247,40 @@ export type ConnectResult = 'ok' | 'not_allowed' | 'subscriptions_live';
  * subscriptions on the live one is refused like a disconnect: those
  * subscriptions would be out of reach from here, billing cards for periods
  * nobody records. Authorising the same account again is always fine.
+ *
+ * ANOTHER account also means the old one is let go at Stripe (review
+ * 2026-11-14) — its row is disconnected here, so nothing would ever release
+ * the grant later. Like a disconnect, that comes after its open checkouts are
+ * closed and never while one of them is paid and waiting to be applied. The
+ * release happens inside the transaction, after the rows: a Stripe outage
+ * cannot stop the new connection, and the outcome is in the audit row.
  */
 export async function connectAccount(
   db: TransactionalDb,
   actor: ClubActor,
   account: { provider: 'stripe' | 'fake'; accountRef: string; chargesEnabled: boolean },
 ): Promise<ConnectResult> {
+  const before = await clubPaymentAccount(actor.clubId);
+  if (before && before.accountRef !== account.accountRef) {
+    if (!(await mayManagePayments(actor))) return 'not_allowed';
+    const open = await subscriptionRefsFor(getDb(), actor.clubId, { club: true });
+    if (open.some((subscription) => subscription.reachable)) return 'subscriptions_live';
+    if ((await closeOpenCheckouts(actor.clubId, null)) === 'in_progress') {
+      return 'checkouts_in_progress';
+    }
+  }
   return db.transaction(async (tx) => {
     const live = (
       await tx.execute(sql`
-        SELECT a.account_ref FROM club_payment_accounts a
+        SELECT a.account_ref, a.provider FROM club_payment_accounts a
          WHERE a.club_id = ${actor.clubId}::uuid AND a.disconnected_at IS NULL
       `)
     ).rows[0];
-    if (live && String(live.account_ref) !== account.accountRef) {
+    const replaced =
+      live && String(live.account_ref) !== account.accountRef
+        ? { provider: String(live.provider), accountRef: String(live.account_ref) }
+        : null;
+    if (replaced) {
       const open = await subscriptionRefsFor(tx, actor.clubId, { club: true });
       if (open.some((subscription) => subscription.reachable)) return 'subscriptions_live';
     }
@@ -211,59 +297,93 @@ export async function connectAccount(
       RETURNING id
     `);
     if (inserted.rows.length === 0) return 'not_allowed';
+    if (replaced) await expireCheckoutsOn(tx, actor, replaced.accountRef);
+    const released = replaced ? await releaseGrant(replaced) : 'none';
     await recordClubAudit(tx, {
       clubId: actor.clubId,
       by: { kind: 'staff', actor },
       action: 'payment_account_connected',
-      detail: { provider: account.provider },
+      detail: {
+        provider: account.provider,
+        ...(released === 'none' ? {} : { replaced: released }),
+      },
     });
-    return 'ok';
+    return released === 'failed' ? 'ok_grant_kept' : 'ok';
   });
 }
 
-export type DisconnectResult = 'ok' | 'not_allowed' | 'subscriptions_live';
+/** What a connect reads as on the settings page (`?plashtaniya=`) — one mapping for both doors. */
+export function connectOutcome(result: ConnectResult): string {
+  switch (result) {
+    case 'ok':
+      return 'connected';
+    case 'ok_grant_kept':
+      return 'connected_grant_kept';
+    case 'subscriptions_live':
+    case 'checkouts_in_progress':
+      return result;
+    case 'not_allowed':
+      return 'connect_failed';
+  }
+}
+
+export type DisconnectResult =
+  | 'ok'
+  /** Disconnected here; Stripe did not confirm that it let the account go. */
+  | 'ok_grant_kept'
+  | 'not_allowed'
+  | 'subscriptions_live'
+  /** A checkout is paid at the provider and still being applied. */
+  | 'checkouts_in_progress';
 
 /**
  * Disconnect the club's Stripe account. Refused while members hold renewing
  * subscriptions on it: after a disconnect the platform hears nothing from that
  * account, so Stripe would keep billing cards for periods nobody records, and
  * those members could never be cancelled or erased from here (the 0046
- * review). Open checkouts are closed at Stripe first.
+ * review). Open checkouts are closed at Stripe first — and while one of them
+ * is already PAID there, waiting for its event, the disconnect is refused
+ * (review 2026-11-14): once the account is let go that session can never be
+ * fetched again, so its money would reach no charge and no list. A session
+ * Stripe could not be asked about does not block (an outage must not keep a
+ * club connected); should it be paid after all, the worker lists it as
+ * `unapplied`.
  */
 export async function disconnectAccount(
   db: TransactionalDb,
   actor: ClubActor,
 ): Promise<DisconnectResult> {
   const live = await clubPaymentAccount(actor.clubId);
-  if (!live) return 'not_allowed';
+  if (!live || !(await mayManagePayments(actor))) return 'not_allowed';
   const subscriptions = (await subscriptionRefsFor(getDb(), actor.clubId, { club: true })).filter(
     (s) => s.reachable && s.accountRef === live.accountRef,
   );
   if (subscriptions.length > 0) return 'subscriptions_live';
-  await closeOpenCheckouts(actor.clubId, null);
-  const done = await db.transaction(async (tx) => {
+  if ((await closeOpenCheckouts(actor.clubId, null)) === 'in_progress') {
+    return 'checkouts_in_progress';
+  }
+  return db.transaction(async (tx) => {
     const updated = await tx.execute(sql`
       UPDATE club_payment_accounts a SET disconnected_at = now(), charges_enabled = false
        WHERE a.club_id = ${actor.clubId}::uuid AND a.disconnected_at IS NULL
          AND ${clubActorMay(actor, 'settings.manage', { write: true })}
       RETURNING a.id
     `);
-    if (updated.rows.length === 0) return false;
+    if (updated.rows.length === 0) return 'not_allowed';
+    await expireCheckoutsOn(tx, actor, live.accountRef);
+    // Let go at Stripe too — after our own row, so a Stripe outage cannot keep
+    // the club connected here (account.application.deauthorized follows a
+    // release). What Stripe answered goes into the audit row and back to the
+    // owner: «disconnected» is not said for a grant that is still there.
+    const grant = await releaseGrant(live);
     await recordClubAudit(tx, {
       clubId: actor.clubId,
       by: { kind: 'staff', actor },
       action: 'payment_account_disconnected',
-      detail: { provider: live.provider },
+      detail: { provider: live.provider, grant },
     });
-    return true;
+    return grant === 'failed' ? 'ok_grant_kept' : 'ok';
   });
-  // Let go at Stripe too — after our own row, so a Stripe outage cannot keep
-  // the club connected here. account.application.deauthorized follows.
-  if (done && live.provider === 'stripe' && paymentProvider() === 'stripe') {
-    const { client, settings } = stripe();
-    await client.oauthDeauthorize(settings.connectClientId, live.accountRef).catch(() => undefined);
-  }
-  return done ? 'ok' : 'not_allowed';
 }
 
 /**
@@ -272,21 +392,33 @@ export async function disconnectAccount(
  * account disconnected. A session already paid stays open for its event; if
  * it then cannot be applied it lands as `unapplied` (and its subscription is
  * cancelled by the worker), never lost.
+ *
+ * Returns the worst it met: `in_progress` when a session is paid and waiting
+ * for its event, `provider_error` when the provider could not be asked about
+ * one, `closed` when nothing payable is left.
  */
-export async function closeOpenCheckouts(clubId: string, memberId: string | null): Promise<void> {
+export async function closeOpenCheckouts(
+  clubId: string,
+  memberId: string | null,
+): Promise<'closed' | 'in_progress' | 'provider_error'> {
   const open = await getDb().execute(sql`
     SELECT id, provider, session_ref, account_ref FROM club_checkouts
      WHERE club_id = ${clubId}::uuid AND status = 'open'
        AND ${memberId === null ? sql`true` : sql`member_id = ${memberId}::uuid`}
   `);
+  let worst: 'closed' | 'in_progress' | 'provider_error' = 'closed';
   for (const row of open.rows) {
-    await closePrevious({
+    const closed = await closePrevious({
       id: String(row.id),
       provider: String(row.provider),
       sessionRef: text(row.session_ref),
       accountRef: String(row.account_ref),
     });
+    if (closed === 'in_progress' || (closed === 'provider_error' && worst === 'closed')) {
+      worst = closed;
+    }
   }
+  return worst;
 }
 
 /**
@@ -729,16 +861,18 @@ export async function startPlanCheckout(
 ): Promise<CheckoutStart> {
   const account = await liveAccount(club.id);
   if (!account) return { ok: false, error: 'unavailable' };
-  // An earlier purchase of this record still open WITH AN OFFER holds one of
-  // its uses (0049): close it first — once the provider confirms it can no
-  // longer be paid — so going back from Stripe and trying again does not find
+  // One purchase in flight per record (review 2026-11-14): an earlier one
+  // still open is closed first — once the provider confirms it can no longer
+  // be paid — and while it is paid and waiting to be applied, this one is
+  // refused. Two open attempts could both be paid: two abonnements, two
+  // subscriptions on one card. It also frees the offer an earlier attempt
+  // holds (0049), so going back from Stripe and trying again does not find
   // the voucher used up by the attempt it replaces.
   const reserved = await getDb().execute(sql`
     SELECT ck.id, ck.provider, ck.session_ref, ck.account_ref
       FROM club_checkouts ck
       JOIN club_members m ON m.club_id = ck.club_id AND m.id = ck.member_id
      WHERE ck.club_id = ${club.id}::uuid AND ck.purpose = 'membership' AND ck.status = 'open'
-       AND ck.promotion_id IS NOT NULL
        AND ${
          input.memberId !== null
            ? sql`m.id = ${input.memberId}::uuid`
@@ -768,7 +902,8 @@ export async function startPlanCheckout(
     | 'audience_mismatch'
     | 'already_renewing'
     | 'member_cap'
-    | 'terms_required';
+    | 'terms_required'
+    | 'in_progress';
   interface Created {
     checkoutId: string;
     amount: number;
@@ -837,6 +972,23 @@ export async function startPlanCheckout(
       ) {
         throw new Refused('member_cap');
       }
+      // Two first clicks at the same moment saw no earlier attempt above.
+      // The client's row is locked — as applyCheckoutPaid locks it, and
+      // BEFORE the offer below, the order a desk sale takes them in
+      // (sellMembership) — so the later one finds the earlier attempt here
+      // and stops.
+      await tx.execute(sql`
+        SELECT 1 FROM club_members m
+         WHERE m.id = ${memberId}::uuid AND ${memberSelfScope(userId, club.id, 'm')}
+           FOR NO KEY UPDATE
+      `);
+      const racing = await tx.execute(sql`
+        SELECT 1 FROM club_checkouts ck
+         WHERE ck.club_id = ${club.id}::uuid AND ck.member_id = ${memberId}::uuid
+           AND ck.purpose = 'membership' AND ck.status = 'open'
+         LIMIT 1
+      `);
+      if (racing.rows.length > 0) throw new Refused('in_progress');
       const today = sofiaToday();
       const months =
         found.auto_renew === true && found.validity_months !== null
@@ -880,8 +1032,17 @@ export async function startPlanCheckout(
       // Default start: today, or the day after the abonnement they already hold.
       const earliest = text(found.next_free) ?? today;
       const wanted = input.startsOn && isIsoDate(input.startsOn) ? input.startsOn : earliest;
+      // A card subscription starts TODAY, whatever was asked (review
+      // 2026-11-14): Stripe bills it from the moment it is bought, with no
+      // trial and no anchor, so a later start would book every period that
+      // far behind the money — and the last invoice before a notice ends
+      // would pay for a period the notice refuses.
       const startsOn =
-        wanted < today ? today : wanted > addDaysIso(today, 60) ? addDaysIso(today, 60) : wanted;
+        months !== null || wanted < today
+          ? today
+          : wanted > addDaysIso(today, 60)
+            ? addDaysIso(today, 60)
+            : wanted;
       const checkoutId = randomUUID();
       await tx.execute(sql`
       INSERT INTO club_checkouts (id, club_id, purpose, member_id, plan_id, starts_on,
@@ -1157,9 +1318,29 @@ export async function refundOnlinePayment(
   const payment = (
     await db.execute(sql`
       SELECT pay.provider, pay.provider_ref, pay.amount_cents, pay.charge_id,
-             pay.amount_cents + coalesce((SELECT sum(r.amount_cents) FROM club_payments r
-                                           WHERE r.charge_id = pay.charge_id AND r.kind = 'refund'
-                                             AND r.method = 'card_online'), 0) AS refundable,
+             -- What THIS payment has left. A refund row does not say which
+             -- payment it refunded, so an online refund counts against this
+             -- one only when it can have refunded no other: made after this
+             -- payment, while no other online payment stood on the charge.
+             -- Counting every online refund against EACH payment (review
+             -- 2026-11-14) left a second payment on a charge a partial refund
+             -- had re-opened with nothing refundable. A refund made while two
+             -- online payments stood on the charge is left to the provider,
+             -- which knows what each has left and refuses more; the books are
+             -- bound by charge_net either way.
+             pay.amount_cents + coalesce((
+               SELECT sum(r.amount_cents) FROM club_payments r
+                WHERE r.charge_id = pay.charge_id AND r.kind = 'refund'
+                  AND r.method = 'card_online' AND r.id > pay.id
+                  AND NOT EXISTS (SELECT 1 FROM club_payments o
+                                   WHERE o.charge_id = pay.charge_id AND o.kind = 'payment'
+                                     AND o.method = 'card_online' AND o.id <> pay.id
+                                     AND o.id < r.id)), 0) AS refundable,
+             -- Every online refund on the charge so far: what tells two equal
+             -- refunds of one payment apart at the provider (the key below).
+             (SELECT coalesce(sum(r.amount_cents), 0) FROM club_payments r
+               WHERE r.charge_id = pay.charge_id AND r.kind = 'refund'
+                 AND r.method = 'card_online') AS refunded_online,
              -- The MONEY still on the charge: a desk refund may already have
              -- taken part of it, and credit spent here never leaves as money
              -- (0050) — the provider's refund is recorded as a fact, so the
@@ -1215,7 +1396,13 @@ export async function refundOnlinePayment(
         { payment_intent: paymentRef, amount },
         {
           account: String(payment.account_ref),
-          idempotencyKey: `refund:${String(paymentId)}:${String(amount)}:${String(refundable)}`,
+          // The same click twice is one refund; the same amount again AFTER
+          // a refund was booked is a new one. So the key moves with every
+          // online refund on the charge — not with `refundable`, which stands
+          // still for a refund it cannot attribute.
+          idempotencyKey: `refund:${String(paymentId)}:${String(amount)}:${String(
+            -Number(payment.refunded_online),
+          )}`,
         },
       );
       return refund.id;
@@ -1287,6 +1474,14 @@ export async function refundOnlinePayment(
  * client's record). Returns false when the provider refused, so the caller
  * can stop and say so instead of erasing a record that is still billed.
  *
+ * ALREADY ENDED AT STRIPE IS STOPPED (review 2026-11-14). The club ended it in
+ * its dashboard and the event never reached the books, or an earlier attempt
+ * did land: there is nothing left to stop, and counting it as a refusal would
+ * block the erasure, the archive or the cancel for ever. The chain then stops
+ * renewing in the books, as its customer.subscription.deleted would have made
+ * it — through `db`, which is the caller's own transaction when it holds the
+ * chain locked (the member's notice), or the write would wait on that lock.
+ *
  * Callers are office actions behind requireClubStaff for THIS club, or the
  * portal after a memberSelfScope-checked write succeeded: the lookup is
  * pinned to `clubId` either way.
@@ -1295,8 +1490,9 @@ export async function stopProviderSubscriptions(
   clubId: string,
   target: { memberId: string } | { membershipId: string } | { club: true },
   when: 'now' | 'period_end' | { at: IsoDate },
+  db: SqlRunner = getDb(),
 ): Promise<boolean> {
-  const subscriptions = await subscriptionRefsFor(getDb(), clubId, target);
+  const subscriptions = await subscriptionRefsFor(db, clubId, target);
   if (subscriptions.length === 0) return true;
   let ok = true;
   for (const subscription of subscriptions) {
@@ -1309,9 +1505,9 @@ export async function stopProviderSubscriptions(
       ok = false;
       continue;
     }
+    const { client } = stripe();
+    const options = { account: subscription.accountRef };
     try {
-      const { client } = stripe();
-      const options = { account: subscription.accountRef };
       if (when === 'now') await client.cancelSubscriptionNow(subscription.subscriptionRef, options);
       else if (when === 'period_end') {
         await client.cancelSubscriptionAtPeriodEnd(subscription.subscriptionRef, options);
@@ -1329,11 +1525,40 @@ export async function stopProviderSubscriptions(
           options,
         );
       }
-    } catch {
-      ok = false;
+    } catch (error: unknown) {
+      if (await endedAtProvider(client, subscription.subscriptionRef, options, error)) {
+        await stopSubscription(db, subscription.subscriptionRef);
+      } else {
+        ok = false;
+      }
     }
   }
   return ok;
+}
+
+/**
+ * Whether a refused stop means the subscription is already over. Stripe says
+ * so outright for a cancel (404 / resource_missing); a CHANGE to an ended
+ * subscription it refuses with a plain 400, so what the subscription is NOW
+ * is asked — never read out of an error's wording. Anything Stripe did not
+ * answer (a 5xx, a timeout) is not an ending.
+ */
+async function endedAtProvider(
+  client: StripeClient,
+  subscriptionRef: string,
+  options: { account: string },
+  error: unknown,
+): Promise<boolean> {
+  const gone = (e: unknown) =>
+    e instanceof StripeError && (e.status === 404 || e.code === 'resource_missing');
+  if (gone(error)) return true;
+  if (!(error instanceof StripeError) || error.status < 400 || error.status >= 500) return false;
+  try {
+    const current = await client.retrieveSubscription(subscriptionRef, options);
+    return current.status === 'canceled' || current.status === 'incomplete_expired';
+  } catch (again: unknown) {
+    return gone(again);
+  }
 }
 
 /** What became of a purged club's Stripe grant — recorded with the purge. */

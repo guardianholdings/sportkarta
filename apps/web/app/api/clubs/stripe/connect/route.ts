@@ -7,6 +7,7 @@ import { clubsEnabled } from '@/lib/clubs/access';
 import { requireClubStaff } from '@/lib/clubs/club-session';
 import {
   connectAccount,
+  connectOutcome,
   paymentProvider,
   paymentsReady,
   verifyConnectState,
@@ -71,11 +72,7 @@ export async function GET(request: Request): Promise<Response> {
       accountRef: token.stripe_user_id,
       chargesEnabled: account.charges_enabled === true,
     });
-    return back(
-      request,
-      slug,
-      saved === 'ok' ? 'connected' : saved === 'subscriptions_live' ? saved : 'connect_failed',
-    );
+    return back(request, slug, connectOutcome(saved));
   } catch {
     return back(request, slug, 'connect_failed');
   }

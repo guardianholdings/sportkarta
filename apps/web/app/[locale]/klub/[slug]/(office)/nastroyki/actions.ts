@@ -21,6 +21,7 @@ import { createKioskDevice, newPairingCode, revokeKiosk } from '@/lib/clubs/kios
 import { saveClubTracking } from '@/lib/clubs/tracking';
 import {
   connectAccount,
+  connectOutcome,
   disconnectAccount,
   paymentProvider,
   paymentsReady,
@@ -224,11 +225,7 @@ export async function connectFakePaymentsAction(formData: FormData): Promise<voi
     chargesEnabled: true,
   });
   refresh(slug);
-  paymentsBack(
-    slug,
-    saved === 'ok' ? 'connected' : saved === 'subscriptions_live' ? saved : 'connect_failed',
-    locale,
-  );
+  paymentsBack(slug, connectOutcome(saved), locale);
 }
 
 export async function disconnectPaymentsAction(formData: FormData): Promise<void> {
@@ -239,7 +236,13 @@ export async function disconnectPaymentsAction(formData: FormData): Promise<void
   refresh(slug);
   paymentsBack(
     slug,
-    result === 'ok' ? 'disconnected' : result === 'subscriptions_live' ? result : 'read_only',
+    result === 'ok'
+      ? 'disconnected'
+      : result === 'ok_grant_kept'
+        ? 'disconnected_grant_kept'
+        : result === 'not_allowed'
+          ? 'read_only'
+          : result,
     locale,
   );
 }

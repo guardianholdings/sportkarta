@@ -44,7 +44,7 @@ const UNSCOPED_BY_DESIGN: Record<string, string> = {
   'payments.ts:openSession':
     "stores the provider's session id on the checkout row this module inserted a moment earlier, by its uuid",
   'payments.ts:closePrevious':
-    "expires one checkout by uuid after its caller proved scope — startChargeCheckout read the charge under memberSelfScope; startPlanCheckout found the buyer's open offer checkout under memberSelfScope; closeOpenCheckouts runs behind requireClubStaff (members.erase, settings.manage) or the NGO admin guard, pinned to the club id; closeChargeCheckout runs only after cancelReservation or reverseSale committed a scoped cancellation of that charge's booking or sale",
+    "expires one checkout by uuid after its caller proved scope — startChargeCheckout read the charge under memberSelfScope; startPlanCheckout found the buyer's open membership checkouts under memberSelfScope; closeOpenCheckouts runs behind requireClubStaff (members.erase, settings.manage) or the NGO admin guard, pinned to the club id; closeChargeCheckout runs only after cancelReservation or reverseSale committed a scoped cancellation of that charge's booking or sale",
   'payments.ts:fakeSettle':
     'the development-only fake provider (resolvePaymentProvider never selects it in production)',
   'promotions.ts:resolveOffer':

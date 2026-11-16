@@ -46,6 +46,7 @@ export {
   applyCheckoutPaid,
   applySubscriptionInvoice,
   expireCheckout,
+  markCheckoutUnreachable,
   markPaymentAccountGone,
   markPaymentEvent,
   paymentEventById,
