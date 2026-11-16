@@ -233,7 +233,11 @@ export async function resolveOffer(
   );
   const freshBuyer = memberId === null ? null : await buyerContext(tx, clubId, memberId);
   const again = bestPromotion(fresh, items, freshBuyer, today, code);
-  if (code !== null && again.applied?.promotion.code !== code) {
+  // «Used up» is the answer only when the locked offer WAS the typed code and
+  // it no longer applies. When a better automatic offer was the one chosen
+  // (and locked), the typed code simply lost to it — as it does on the path
+  // that needs no lock — and the purchase goes through with the better one.
+  if (code !== null && chosen.code === code && again.applied?.promotion.code !== code) {
     return { ok: false, error: 'offer_used_up' };
   }
   return { ok: true, applied: again.applied };

@@ -45,10 +45,29 @@ export const MEMBER_DERIVED_JOINS = sql`
   ) lv ON true
   LEFT JOIN club_member_links ln ON ln.member_id = m.id AND ln.status <> 'declined'`;
 
+/**
+ * AT RISK, written once (audit 2026-11-14) as a predicate on `m`: the member
+ * holds an abonnement that is active today and began at least
+ * CLUB_AT_RISK_DAYS ago, and has not come in that many days. The members
+ * list's chip and segment, a broadcast to «at risk» and the owner's monthly
+ * figure (mail.ts) all read this, and it is the reports page's own rule
+ * (apps/web/lib/clubs/reports.ts atRiskMembers). Without the first half,
+ * whoever bought today — and every member imported with an abonnement that
+ * starts today — was «at risk» before they could have come once.
+ */
+export const MEMBER_AT_RISK = sql`(
+  EXISTS (SELECT 1 FROM club_membership_balances rb
+           WHERE rb.club_id = m.club_id AND rb.member_id = m.id AND rb.state = 'active'
+             AND rb.starts_on <= (now() AT TIME ZONE 'Europe/Sofia')::date - ${CLUB_AT_RISK_DAYS}::int)
+  AND NOT EXISTS (SELECT 1 FROM club_checkins rc
+                   WHERE rc.club_id = m.club_id AND rc.member_id = m.id
+                     AND rc.sofia_day > (now() AT TIME ZONE 'Europe/Sofia')::date - ${CLUB_AT_RISK_DAYS}::int))`;
+
 export const MEMBER_DERIVED_COLUMNS = sql`
   st.status, g.display_name AS guardian_name,
   to_char(v.valid_until, 'YYYY-MM-DD') AS valid_until, v.visits_remaining,
-  o.owed_cents, o.overdue, o.partial, lv.last_visit, lv.visits30, ln.status AS link_status`;
+  o.owed_cents, o.overdue, o.partial, lv.last_visit, lv.visits30, ln.status AS link_status,
+  ${MEMBER_AT_RISK} AS at_risk`;
 
 /** The members list's filter chips. */
 export function memberFilterSql(filter: ClubMemberFilter): SQL {
@@ -90,8 +109,7 @@ export function memberSegmentSql(segment: AudienceSegment): SQL {
     case 'owes':
       return sql`o.owed_cents > 0`;
     case 'at_risk':
-      return sql`st.status = 'active'
-        AND (lv.last_visit IS NULL OR lv.last_visit < now() - make_interval(days => ${CLUB_AT_RISK_DAYS}::int))`;
+      return MEMBER_AT_RISK;
   }
 }
 

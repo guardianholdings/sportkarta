@@ -3,6 +3,7 @@ import { CreditCard, QrCode, Search, UserPlus } from 'lucide-react';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { StatusBadge, memberKind } from '@/components/clubs/club-state-badge';
+import { DeskFocus } from '@/components/clubs/desk-focus';
 import { Badge, type BadgeTone } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,7 +56,13 @@ export default async function ClubDeskPage({
   searchParams,
 }: {
   params: Promise<{ locale: string; slug: string }>;
-  searchParams: Promise<{ q?: string; rezultat?: string; chlen?: string; lokatsiya?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    rezultat?: string;
+    chlen?: string;
+    lokatsiya?: string;
+    kak?: string;
+  }>;
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
@@ -85,6 +92,9 @@ export default async function ClubDeskPage({
   const markedToday = new Set(today.map((row) => row.memberId));
   const canAddMember = actorCan(actor, 'members.manage');
   const tone = query.rezultat ? OUTCOME_TONE[query.rezultat] : undefined;
+  // The field the desk is working from: the card reader's after a card, the
+  // search otherwise. The cursor returns to it after every answer (DeskFocus).
+  const byCard = query.kak === 'karta';
   const subject = isUuid(query.chlen)
     ? (today.find((row) => row.memberId === query.chlen)?.displayName ??
       results.find((row) => row.id === query.chlen)?.displayName ??
@@ -105,7 +115,8 @@ export default async function ClubDeskPage({
         <p className="mt-1 max-w-prose text-body-sm text-ink-soft">{t('intro')}</p>
       </div>
 
-      <div role="status" aria-live="polite">
+      <DeskFocus fieldId={byCard ? 'desk-card' : 'desk-q'} outcomeId="desk-outcome" />
+      <div id="desk-outcome" role="status" aria-live="polite" className="scroll-mt-4">
         {query.rezultat && tone && (
           <p
             className={cn('rounded-card border p-3 text-body font-semibold text-ink', FLASH[tone])}
@@ -126,13 +137,15 @@ export default async function ClubDeskPage({
               <label className="min-w-0 flex-1 text-caption text-ink-soft">
                 {t('searchLabel')}
                 <Input
+                  id="desk-q"
                   type="search"
                   name="q"
                   defaultValue={q}
                   minLength={2}
                   autoComplete="off"
-                  // The desk's one job is this field.
-                  autoFocus={!query.rezultat}
+                  // The desk's one job is this field — unless it is working
+                  // from the card reader, whose field then takes the cursor.
+                  autoFocus={!byCard}
                 />
               </label>
               <Button type="submit" variant="secondary">
@@ -197,18 +210,23 @@ export default async function ClubDeskPage({
                         )}
                       </span>
                     </span>
-                    {markedToday.has(member.id) ? (
-                      <Badge tone="success">{t('markedToday')}</Badge>
-                    ) : (
-                      <form action={deskCheckinAction}>
-                        <input type="hidden" name="slug" value={slug} />
-                        <input type="hidden" name="memberId" value={member.id} />
-                        {where}
-                        <Button type="submit" className="min-h-11">
-                          {t('mark')}
-                        </Button>
-                      </form>
-                    )}
+                    {/* Someone already in today can still be ticked: they may
+                        be booked into a second class, and a tick that changes
+                        nothing answers «вече е отбелязано». Hiding the button
+                        left that second class without an arrival. */}
+                    {markedToday.has(member.id) && <Badge tone="success">{t('markedToday')}</Badge>}
+                    <form action={deskCheckinAction}>
+                      <input type="hidden" name="slug" value={slug} />
+                      <input type="hidden" name="memberId" value={member.id} />
+                      {where}
+                      <Button
+                        type="submit"
+                        variant={markedToday.has(member.id) ? 'secondary' : 'primary'}
+                        className="min-h-11"
+                      >
+                        {markedToday.has(member.id) ? t('markAgain') : t('mark')}
+                      </Button>
+                    </form>
                   </li>
                 ))}
               </ul>
@@ -228,9 +246,11 @@ export default async function ClubDeskPage({
                 <label className="block text-caption text-ink-soft">
                   {t('cardLabel')}
                   <Input
+                    id="desk-card"
                     name="cardKey"
                     required
                     autoComplete="off"
+                    autoFocus={byCard}
                     spellCheck={false}
                     aria-describedby="desk-card-hint"
                     className="font-mono"

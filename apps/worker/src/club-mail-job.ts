@@ -27,6 +27,7 @@ import {
   renewalMailCandidates,
   renewClubMemberships,
   setInviteTokenHash,
+  sql,
   staffRecipients,
   trainerClassesOn,
   type ClubBookingMail,
@@ -551,6 +552,38 @@ async function staffOf(clubId: string, roles: readonly ClubRole[]) {
   return staffRecipients(db(), clubId, roles);
 }
 
+/**
+ * The Sofia day a message OPENED a conversation its member started — a new
+ * thread from the portal or an enquiry from the club's page — or null for
+ * any other message (an answer in a thread, anything the club wrote).
+ *
+ * Why it matters: every opened thread mailed every owner, manager and desk of
+ * the club out of the SHARED notice share of the day's mail budget
+ * (lib/src/email/budget.ts), and the caps on threads (NEW_THREADS_PER_DAY,
+ * INQUIRIES_PER_DAY) count threads, not mails — eight openings at one club
+ * were eight mails to each member of staff. So an opening's notice is keyed
+ * by (member record, that day) instead of by message: each member of staff
+ * hears once a day that this client started a conversation; the later ones
+ * are in the office inbox, unread, where the notice sends them anyway. The
+ * day is the MESSAGE's, not the run's, so a job retried after midnight claims
+ * the same key. Answers keep their per-message key: they are sent only when
+ * the office had read the thread (inbox.ts `notify`), which no member can
+ * make happen by themselves.
+ */
+async function threadOpenedOn(messageId: string): Promise<string | null> {
+  const result = await db().execute(sql`
+    SELECT to_char(tm.created_at AT TIME ZONE 'Europe/Sofia', 'YYYY-MM-DD') AS day
+      FROM club_thread_messages tm
+      JOIN club_threads t ON t.club_id = tm.club_id AND t.id = tm.thread_id
+     WHERE tm.id = ${messageId}::uuid AND tm.author = 'member' AND t.started_by = 'member'
+       AND NOT EXISTS (SELECT 1 FROM club_thread_messages earlier
+                        WHERE earlier.club_id = tm.club_id AND earlier.thread_id = tm.thread_id
+                          AND (earlier.created_at, earlier.id) < (tm.created_at, tm.id))
+  `);
+  const day = result.rows[0]?.day;
+  return typeof day === 'string' ? day : null;
+}
+
 // ─── club.notify ────────────────────────────────────────────────────────────
 
 /**
@@ -735,6 +768,13 @@ export async function runClubNotify(
               ...(notice.partySize !== null ? [line('party', { count: notice.partySize })] : []),
             ]
           : [];
+      // One notice per member of staff per client per day for conversations
+      // the client OPENED (threadOpenedOn); per message for everything else.
+      // The ledger's builder has no (record, day) shape of its own, so the
+      // pair rides where the message id does — the key stays
+      // `inbox_message:<…>:<userId>`, built by the one builder.
+      const openedOn = await threadOpenedOn(notice.messageId);
+      const about = openedOn === null ? notice.messageId : `${notice.memberId}:${openedOn}`;
       return {
         kind: job.kind,
         report: await deliverEach(
@@ -747,7 +787,7 @@ export async function runClubNotify(
                 recipient,
                 key: dedupeKey({
                   kind: 'inbox_message',
-                  messageId: notice.messageId,
+                  messageId: about,
                   userId: recipient.userId,
                 }),
                 ledgerUserId: recipient.userId,

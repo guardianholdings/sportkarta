@@ -170,6 +170,9 @@
     watch();
     if (answer() === 'y' && !personal(location.pathname)) start();
     if (location.hash === '#cookie-settings') return show();
+    // A reception kiosk is a shared tablet showing one QR code: nobody standing at it can answer for the device,
+    // and Google never runs under /klub/ whatever the answer. The card does not open by itself there.
+    if (/^(\/en)?\/klub\/[^/]+\/kiosk(\/|$)/.test(location.pathname)) return;
     if (!answer()) setTimeout(show, CFG.delay || 900);
   }
   if (d.body) boot(); else d.addEventListener('DOMContentLoaded', boot);

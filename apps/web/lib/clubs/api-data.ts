@@ -376,7 +376,9 @@ export async function apiPayment(
   actor: ClubActor,
   paymentId: string,
 ): Promise<Record<string, unknown> | null> {
-  if (!/^[1-9][0-9]{0,18}$/.test(paymentId)) return null;
+  // 18 digits at most: a 19-digit number can pass a shape check and still
+  // overflow bigint, which the cast below would answer with a 500, not a 404.
+  if (!/^[1-9][0-9]{0,17}$/.test(paymentId)) return null;
   const result = await getDb().execute(sql`
     SELECT ${PAYMENT_COLUMNS}
       FROM club_payments pay

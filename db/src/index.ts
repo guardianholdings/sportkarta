@@ -119,6 +119,7 @@ export type {
   StaffRecipient,
   TrainerClass,
 } from './clubs/mail.js';
+export { MEMBERSHIP_LAST_VALID_DAY, MEMBERSHIP_WAS_EVER_VALID } from './clubs/validity.js';
 export {
   MEMBER_DERIVED_COLUMNS,
   MEMBER_DERIVED_JOINS,

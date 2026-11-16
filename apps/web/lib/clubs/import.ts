@@ -339,7 +339,11 @@ export async function commitClubImport(
         .map((row, i) => ({ row, cls: classes[i] as ImportClass }))
         .sort((a, b) => Number(a.row.isMinor) - Number(b.row.isMinor));
       // A guardian is linked only when the e-mail names ONE adult; null marks
-      // an e-mail several adults share, and the child is then left unlinked.
+      // an e-mail several adults share, and the child is then left unlinked —
+      // as is one whose guardian e-mail names nobody. The e-mail itself is
+      // not kept, so on a re-run nothing but the name ties that child to its
+      // row: classifyImportRows holds it as `name_exists` (a same-name child
+      // with no nameable guardian) instead of creating it again.
       const adultsByEmail = new Map<string, string | null>();
       const noteAdult = (email: string, id: string) =>
         adultsByEmail.set(email, adultsByEmail.has(email) ? null : id);

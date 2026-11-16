@@ -1,6 +1,7 @@
 import { getDb, sql } from '@sportkarta/db';
 import type { IsoDate } from '@sportkarta/lib/clubs';
 
+import { renewsItselfSql } from './sales';
 import { clubActorMay, type ClubActor } from './scope';
 
 /**
@@ -44,11 +45,17 @@ export async function dashboardData(actor: ClubActor): Promise<DashboardData> {
         (SELECT count(*)::int FROM club_checkins ci
           WHERE ci.club_id = ${clubId}::uuid AND ci.sofia_day = (now() AT TIME ZONE 'Europe/Sofia')::date)
           AS checkins_today,
+        -- The count the tier's cap is enforced on (sellMembership): a period
+        -- that has not started yet holds its place too, or the tile would
+        -- read 48/50 while a sale is refused as full.
         (SELECT count(DISTINCT b.member_id)::int FROM club_membership_balances b
-          WHERE b.club_id = ${clubId}::uuid AND b.state IN ('active', 'paused')) AS active_members,
+          WHERE b.club_id = ${clubId}::uuid
+            AND b.state IN ('active', 'paused', 'upcoming')) AS active_members,
         (SELECT count(*)::int FROM club_membership_balances b
+          JOIN club_memberships ms ON ms.id = b.membership_id
           WHERE b.club_id = ${clubId}::uuid AND b.state = 'active'
-            AND b.effective_ends_on <= (now() AT TIME ZONE 'Europe/Sofia')::date + 7) AS expiring,
+            AND b.effective_ends_on <= (now() AT TIME ZONE 'Europe/Sofia')::date + 7
+            AND NOT ${renewsItselfSql('ms', 'b')}) AS expiring,
         (SELECT count(*)::int FROM club_charge_balances cb
           WHERE cb.club_id = ${clubId}::uuid AND cb.status IN ('open', 'partial', 'overdue')) AS unpaid,
         EXISTS (SELECT 1 FROM club_locations l WHERE l.club_id = ${clubId}::uuid) AS has_location,
@@ -67,9 +74,13 @@ export async function dashboardData(actor: ClubActor): Promise<DashboardData> {
       SELECT b.member_id, m.display_name, b.plan_name, b.plan_id,
              to_char(b.effective_ends_on, 'YYYY-MM-DD') AS ends_on
         FROM club_membership_balances b
+        JOIN club_memberships ms ON ms.id = b.membership_id
         JOIN club_members m ON m.club_id = b.club_id AND m.id = b.member_id
        WHERE b.club_id = ${clubId}::uuid AND b.state = 'active'
          AND b.effective_ends_on <= (now() AT TIME ZONE 'Europe/Sofia')::date + 7
+         -- A period that renews by itself is not expiring: the renew button
+         -- beside it would sell a second, overlapping chain.
+         AND NOT ${renewsItselfSql('ms', 'b')}
          AND ${clubActorMay(actor, 'members.view', { write: false })}
        ORDER BY b.effective_ends_on, lower(m.display_name)
        LIMIT 10

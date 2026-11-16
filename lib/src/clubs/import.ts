@@ -1,3 +1,5 @@
+import { stripFormulaGuard } from '../csv.js';
+
 import { isIsoDate, type IsoDate } from './dates.js';
 import { parseEuroCents } from './money.js';
 
@@ -70,8 +72,15 @@ export function parseImportDate(raw: string): IsoDate | null {
   return isIsoDate(iso) ? iso : null;
 }
 
+/**
+ * A cell as typed: spaces collapsed — and the apostrophe POPS's own export
+ * puts before `+359…` (csv.ts's formula guard) taken off again, so a file
+ * exported from one club imports into another.
+ */
 function clean(value: string | undefined): string {
-  return (value ?? '').replace(/\s+/g, ' ').trim();
+  return stripFormulaGuard((value ?? '').trim())
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /** Digits only, with a leading 0 read as Bulgaria's +359 — for comparing. */
@@ -235,7 +244,16 @@ export function classifyImportRows(
         const kids = sameName.filter((m) => m.isMinor && m.guardianEmail === row.guardianEmail);
         if (kids.length === 1) return { kind: 'match', memberId: (kids[0] as ExistingMember).id };
         if (kids.length > 1) return { kind: 'conflict', reason: 'several_records' };
-        return { kind: 'new' };
+        // Nobody under that guardian — but a same-name child whose guardian
+        // cannot be named (none, or one without an e-mail) may be this child:
+        // it is what a commit leaves when the row's guardian e-mail named no
+        // single adult, and the e-mail itself is not kept. Held for a human,
+        // like the no-guardian rule below, so the same file imported again
+        // never makes a second child (with a second abonnement and charge). A
+        // namesake under ANOTHER guardian's e-mail is still a different child.
+        return sameName.some((m) => m.isMinor && m.guardianEmail === null)
+          ? { kind: 'conflict', reason: 'name_exists' }
+          : { kind: 'new' };
       }
       return sameName.some((m) => m.isMinor)
         ? { kind: 'conflict', reason: 'name_exists' }
