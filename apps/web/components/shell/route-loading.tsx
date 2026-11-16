@@ -18,6 +18,14 @@ import { LoadingMark } from '@/components/shell/loading-mark';
  * whose pages cannot 404, and tests/route-boundaries.test.ts fails the build
  * the moment one lands above a notFound().
  *
+ * NOR ON A PAGE A CRAWLER READS. The same Suspense sends the page as this mark
+ * followed by hidden blocks a script moves into place. A crawler that runs no
+ * scripts — the AI ones do not — gets the content hidden and out of order. So
+ * the front page (operator decision 2026-11-16) and the document pages
+ * (statistics, open data, privacy, partners, support) have no loading file;
+ * the map, the games list and the signed-in screens keep theirs
+ * (tests/seo-head.test.ts, tests/route-boundaries.test.ts).
+ *
  * INSIDE THE SHELL. The fallback replaces the page, and the page owns its
  * AppShell — so a full-screen mark here took the tab bar and the rail away on
  * every tab tap (all four tabs are dynamic) and put them back a moment later

@@ -46,8 +46,20 @@ export function BadgeCoins({
                 coin.slug === selected && 'is-selected',
               )}
             >
+              {/* Lazy: the coins sit four screens down the front page, and React
+                  preloads every eager <img> from the document head — fourteen
+                  requests ahead of the first paint for art nobody had scrolled
+                  to. The fixed width and height keep the row from shifting. */}
               {/* eslint-disable-next-line @next/next/no-img-element -- a static brand SVG */}
-              <img src={coin.art} alt="" width={96} height={96} className="aspect-square w-full" />
+              <img
+                src={coin.art}
+                alt=""
+                width={96}
+                height={96}
+                loading="lazy"
+                decoding="async"
+                className="aspect-square w-full"
+              />
             </button>
           </li>
         ))}

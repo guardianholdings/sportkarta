@@ -12,6 +12,8 @@ import { Link } from '@/i18n/navigation';
 import { formatNumber } from '@/lib/format';
 import { OPEN_DATA_LIMITS } from '@/lib/opendata/limits';
 import { buildAlternates, siteUrl } from '@/lib/seo';
+import { datasetNode, graph } from '@/lib/structured-data';
+import { JsonLd } from '@/components/seo/json-ld';
 import { AppShell } from '@/components/shell/app-shell';
 
 /**
@@ -74,6 +76,28 @@ export default async function OpenDataPage({ params }: { params: PageParams }) {
 
   return (
     <AppShell active="/danni">
+      {/* One Dataset per catalogue entry, so a dataset search engine lists what
+          this page documents — read from the same array as the tables below.
+          Outside <main>: its `space-y` counts children, and this is not one. */}
+      <JsonLd
+        data={graph(
+          ...EXPORT_DATASETS.map((dataset) =>
+            datasetNode({
+              id: dataset.id,
+              name: t(`datasets.${dataset.titleKey}`),
+              description: t(`datasets.${dataset.descriptionKey}`),
+              path: '/danni',
+              locale,
+              license: OPEN_DATA_LICENSE.url,
+              distributions: dataset.formats.map((format) => ({
+                format,
+                url: `${apiUrl(dataset)}?format=${format}`,
+              })),
+              variables: dataset.fields.map((field) => field.name),
+            }),
+          ),
+        )}
+      />
       <main className="mx-auto max-w-3xl space-y-10 p-4">
         <div className="space-y-3">
           <Link href="/" className="text-body-sm font-medium text-link hover:text-link-hover">

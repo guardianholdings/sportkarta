@@ -5,6 +5,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 
 import { ClubTrackingSlot } from '@/components/clubs/club-tracking-slot';
+import { JsonLd } from '@/components/seo/json-ld';
 import { AppShell } from '@/components/shell/app-shell';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
@@ -20,6 +21,7 @@ import { publicServices } from '@/lib/clubs/reservations';
 import { publicClub } from '@/lib/clubs/public';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { buildAlternates } from '@/lib/seo';
+import { clubNode, faqPage, graph } from '@/lib/structured-data';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -109,6 +111,24 @@ export default async function PublicClubPage({ params }: { params: PageParams })
 
   return (
     <AppShell active={null}>
+      {/* The club as an organisation and the questions it answers below. No
+          phone, e-mail or trainer: lib/structured-data.ts, rule 3. Outside
+          <main>: its `space-y` counts children, and this is not one. */}
+      <JsonLd
+        data={graph(
+          clubNode({
+            name: club.name,
+            description: club.description,
+            slug: club.slug,
+            locale,
+            website: club.websiteUrl,
+            addresses: club.locations.flatMap((location) =>
+              location.address ? [location.address] : [],
+            ),
+          }),
+          faqPage(club.faq),
+        )}
+      />
       <main className="mx-auto max-w-3xl space-y-8 p-4 pb-12">
         <ClubTrackingSlot clubId={club.id} clubName={club.name} slug={slug} locale={locale} />
         <header className={`flex flex-wrap items-start gap-4 border-t-4 pb-2 pt-5 ${accentBand}`}>

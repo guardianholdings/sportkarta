@@ -51,10 +51,13 @@ async function entriesFor(name: string): Promise<UrlEntry[] | null> {
         ...clubs.map((club) => ({ path: `/klub/${club.slug}` })),
       ];
     }
-    case 'static.xml': {
-      const now = new Date().toISOString();
-      return STATIC_SITEMAP_PATHS.map((path) => ({ path, lastmod: now }));
-    }
+    case 'static.xml':
+      // No lastmod. These entries used to be stamped with the moment the file
+      // was generated, i.e. "changed today" on every hourly rebuild for a
+      // privacy policy last edited months ago. A crawler that catches a date
+      // lying stops trusting dates from the whole host — including the true
+      // ones on the 6,000 facility entries, which is where they matter.
+      return STATIC_SITEMAP_PATHS.map((path) => ({ path }));
     default:
       return null;
   }
