@@ -222,19 +222,26 @@ export default async function BuyPlanPage({
                 </label>
               ))}
             </fieldset>
-            <label className="block text-body-sm font-semibold text-ink">
-              {t('startsOn')}
-              <input
-                type="date"
-                name="startsOn"
-                min={today}
-                max={addDaysIso(today, 60)}
-                className="mt-1 block min-h-11 rounded-input border border-line-strong bg-surface px-3 text-body-sm text-ink focus-visible:border-brand"
-              />
-              <span className="mt-1 block text-caption font-normal text-text-muted">
-                {t('startsOnHint')}
-              </span>
-            </label>
+            {subscription ? (
+              // No date to choose: the provider bills a card subscription from
+              // the moment it is bought, so that is the day it starts
+              // (startPlanCheckout books it so whatever a form sends).
+              <p className="text-body-sm text-ink">{t('startsToday')}</p>
+            ) : (
+              <label className="block text-body-sm font-semibold text-ink">
+                {t('startsOn')}
+                <input
+                  type="date"
+                  name="startsOn"
+                  min={today}
+                  max={addDaysIso(today, 60)}
+                  className="mt-1 block min-h-11 rounded-input border border-line-strong bg-surface px-3 text-body-sm text-ink focus-visible:border-brand"
+                />
+                <span className="mt-1 block text-caption font-normal text-text-muted">
+                  {t('startsOnHint')}
+                </span>
+              </label>
+            )}
             {termsUrl && (
               <>
                 <label className="flex items-start gap-2 text-body-sm text-ink">

@@ -65,8 +65,10 @@ export async function memberStopRenewal(
    * subscription is stopped at the provider first. If it refuses, nothing is
    * recorded and the member can simply try again (a notice written first
    * could never be resubmitted while Stripe kept billing; the 0046 review).
+   * It is handed THIS transaction, which holds the tail locked: anything it
+   * writes to the chain goes through it, or it would wait on that lock.
    */
-  beforeWrite?: (tailId: string, endsOn: IsoDate) => Promise<boolean>,
+  beforeWrite?: (tailId: string, endsOn: IsoDate, tx: SqlRunner) => Promise<boolean>,
 ): Promise<SelfServiceResult<{ endsOn: IsoDate }>> {
   return db.transaction(async (tx) => {
     // The terms are the membership's own (0047 snapshot), never the plan's
@@ -96,7 +98,7 @@ export async function memberStopRenewal(
       minTermMonths: row.min_term_months === null ? null : Number(row.min_term_months),
       termStartedOn: String(row.term_started_on),
     });
-    if (beforeWrite && !(await beforeWrite(String(row.id), endsOn))) {
+    if (beforeWrite && !(await beforeWrite(String(row.id), endsOn, tx))) {
       return { ok: false, error: 'provider_error' } as const;
     }
     await tx.execute(sql`

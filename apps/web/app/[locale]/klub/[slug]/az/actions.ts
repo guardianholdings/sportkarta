@@ -109,8 +109,8 @@ export async function portalOpAction(formData: FormData): Promise<void> {
         clubId,
         membershipId,
         sofiaToday(),
-        (tailId, endsOn) =>
-          stopProviderSubscriptions(clubId, { membershipId: tailId }, { at: endsOn }),
+        (tailId, endsOn, tx) =>
+          stopProviderSubscriptions(clubId, { membershipId: tailId }, { at: endsOn }, tx),
       );
       return back(result.ok ? 'renewal_stopped' : result.error);
     }

@@ -87,7 +87,9 @@ export type CheckoutOutcome =
         | 'amount_mismatch'
         | 'currency_mismatch'
         | 'charge_settled'
-        | 'session_closed';
+        | 'session_closed'
+        /** The client already has a renewing abonnement: a second chain is never opened. */
+        | 'already_renewing';
       /**
        * Money that will not be applied but whose subscription is live at the
        * provider: the caller cancels it, or the card is billed every month
@@ -133,7 +135,9 @@ export async function applyCheckoutPaid(
     const checkoutId = String(row.id);
     const clubId = String(row.club_id);
     const memberId = text(row.member_id);
-    const fail = async (reason: 'amount_mismatch' | 'currency_mismatch' | 'charge_settled') => {
+    const fail = async (
+      reason: 'amount_mismatch' | 'currency_mismatch' | 'charge_settled' | 'already_renewing',
+    ) => {
       await tx.execute(sql`
         UPDATE club_checkouts SET status = 'unapplied', completed_at = now(),
                payment_ref = ${paid.paymentRef}, subscription_ref = ${paid.subscriptionRef}
@@ -190,6 +194,27 @@ export async function applyCheckoutPaid(
         `)
       ).rows[0];
       if (!plan || memberId === null) return fail('amount_mismatch');
+      // One renewing chain per client (review 2026-11-14). The purchase page
+      // refuses a second one while the first runs, but two attempts opened
+      // side by side can both be paid — and the first to land makes the other
+      // a second chain, with a second subscription billing the same card. The
+      // client's row is locked, so two such payments are decided one after
+      // the other; the later one is listed for the office, and its
+      // subscription handed back for the caller to end.
+      await tx.execute(sql`
+        SELECT 1 FROM club_members m
+         WHERE m.club_id = ${clubId}::uuid AND m.id = ${memberId}::uuid
+           FOR NO KEY UPDATE
+      `);
+      const renewing = await tx.execute(sql`
+        SELECT 1 FROM club_memberships r
+          JOIN club_membership_balances rb ON rb.membership_id = r.id
+         WHERE r.club_id = ${clubId}::uuid AND r.member_id = ${memberId}::uuid AND r.renews
+           AND r.renewal_ends_on IS NULL AND r.cancelled_at IS NULL
+           AND rb.state IN ('active', 'paused', 'upcoming')
+         LIMIT 1
+      `);
+      if (renewing.rows.length > 0) return fail('already_renewing');
       const requested = String(row.starts_on);
       const startsOn = requested < today ? today : requested;
       const endsOn = membershipEndsOn(
@@ -276,6 +301,43 @@ export async function expireCheckout(db: SqlRunner, sessionRef: string): Promise
     UPDATE club_checkouts SET status = 'expired', completed_at = now()
      WHERE session_ref = ${sessionRef} AND status = 'open'
     RETURNING id
+  `);
+  return updated.rows.length > 0;
+}
+
+/**
+ * A completed Checkout Session that can no longer be fetched: the club's
+ * account stopped letting the platform in (a 403 on the re-fetch), so what the
+ * session says will never be known from here. Its checkout is listed for the
+ * office as `unapplied` — to be looked up in the club's own Stripe dashboard —
+ * instead of staying `open` for ever, shown to nobody (review 2026-11-14). The
+ * session's own reference stands in for the payment's, which cannot be
+ * fetched either. Only from the account the checkout was opened on; a
+ * checkout already settled is left exactly as it is.
+ *
+ * `unapplied` is final, so a 403 alone is not enough: either the PROVIDER
+ * said the account is gone from the platform (`providerSaysGone`), or the
+ * books already know it — no live connection of that club carries it. A
+ * refusal about the platform's own key, with the account still connected,
+ * shelves nothing: once the key is put right the money can still be applied.
+ */
+export async function markCheckoutUnreachable(
+  db: SqlRunner,
+  sessionRef: string,
+  accountRef: string,
+  providerSaysGone: boolean,
+): Promise<boolean> {
+  const updated = await db.execute(sql`
+    UPDATE club_checkouts k
+       SET status = 'unapplied', completed_at = coalesce(k.completed_at, now()),
+           payment_ref = coalesce(k.payment_ref, k.session_ref)
+     WHERE k.session_ref = ${sessionRef} AND k.account_ref = ${accountRef}
+       AND k.status IN ('open', 'expired')
+       AND (${providerSaysGone}::boolean
+            OR NOT EXISTS (SELECT 1 FROM club_payment_accounts a
+                            WHERE a.club_id = k.club_id AND a.account_ref = k.account_ref
+                              AND a.disconnected_at IS NULL))
+    RETURNING k.id
   `);
   return updated.rows.length > 0;
 }
@@ -524,6 +586,16 @@ export async function providerPaymentKnown(
  * against the same charge. Called right after the office's refund call
  * succeeds AND again from charge.refunded — the refund's own reference makes
  * the second a no-op.
+ *
+ * NEVER MORE THAN THE CHARGE HOLDS (review 2026-11-14). The club can refund in
+ * its own Stripe dashboard whatever the books say — after the desk already
+ * gave part back in cash, say. 0041's club_payments_within_charge refuses a
+ * row that takes the charge below zero, and an exception here is an event the
+ * worker retries on every sweep, for ever. So the room is read under the
+ * charge's own lock (the one that trigger takes), what fits is booked, and
+ * the rest is NOTED on the same audit row (`unappliedCents`, with the
+ * refund's reference): money that left the club and that no charge can
+ * carry. Returns whether a row was booked.
  */
 export async function recordProviderRefund(
   // A transaction of the caller's (the office refunding credit under the
@@ -550,33 +622,61 @@ export async function recordProviderRefund(
       `)
     ).rows[0];
     if (!original) return false;
+    const clubId = String(original.club_id);
+    const chargeId = String(original.charge_id);
+    // The charge first, as every money path locks it — on its own statement,
+    // so the reads below see every payment committed before the lock came.
+    await tx.execute(sql`
+      SELECT 1 FROM club_charges ch WHERE ch.id = ${chargeId}::uuid FOR NO KEY UPDATE
+    `);
     // Already booked (the office's own refund, now echoed by charge.refunded):
     // checked BEFORE the insert, because club_payments_within_charge is a
     // BEFORE trigger and would refuse the duplicate before ON CONFLICT could
     // skip it — a fully refunded charge has no room for the echo.
     const booked = await tx.execute(sql`
       SELECT 1 FROM club_payments
-       WHERE club_id = ${String(original.club_id)}::uuid AND provider = ${refund.provider}
+       WHERE club_id = ${clubId}::uuid AND provider = ${refund.provider}
          AND provider_ref = ${refund.refundRef}
     `);
     if (booked.rows.length > 0) return false;
-    const inserted = await tx.execute(sql`
-      INSERT INTO club_payments (club_id, charge_id, member_id, kind, amount_cents, method,
-                                 provider, provider_ref, received_on, recorded_by)
-      VALUES (${String(original.club_id)}::uuid, ${String(original.charge_id)}::uuid,
-              ${text(original.member_id)}::uuid, 'refund', ${-Math.abs(refund.amountCents)},
-              'card_online', ${refund.provider}, ${refund.refundRef}, ${today}::date, ${recordedBy})
-      ON CONFLICT DO NOTHING
-      RETURNING id
+    const held = await tx.execute(sql`
+      SELECT coalesce(sum(p.amount_cents), 0)::bigint AS paid FROM club_payments p
+       WHERE p.charge_id = ${chargeId}::uuid
     `);
-    if (inserted.rows.length === 0) return false;
-    await systemAudit(
-      tx,
-      String(original.club_id),
-      'online_refund_issued',
-      text(original.member_id),
-      sql`jsonb_build_object('amountCents', ${Math.abs(refund.amountCents)}::int)`,
-    );
+    const asked = Math.abs(refund.amountCents);
+    if (asked === 0) return false;
+    const fits = Math.min(asked, Math.max(Number(held.rows[0]?.paid ?? 0), 0));
+    const excess = asked - fits;
+    if (fits > 0) {
+      const inserted = await tx.execute(sql`
+        INSERT INTO club_payments (club_id, charge_id, member_id, kind, amount_cents, method,
+                                   provider, provider_ref, received_on, recorded_by)
+        VALUES (${clubId}::uuid, ${chargeId}::uuid, ${text(original.member_id)}::uuid, 'refund',
+                ${-fits}, 'card_online', ${refund.provider}, ${refund.refundRef}, ${today}::date,
+                ${recordedBy})
+        ON CONFLICT DO NOTHING
+        RETURNING id
+      `);
+      if (inserted.rows.length === 0) return false;
+    }
+    // One audit row per refund. With nothing booked there is no payment row
+    // to make a second delivery a no-op, so the note answers for itself.
+    await tx.execute(sql`
+      INSERT INTO club_audit (club_id, actor_kind, actor_id, action, subject_member_id, detail)
+      SELECT ${clubId}::uuid, 'system', NULL, 'online_refund_issued',
+             ${text(original.member_id)}::uuid,
+             ${
+               excess > 0
+                 ? sql`jsonb_build_object('amountCents', ${fits}::int,
+                                          'unappliedCents', ${excess}::int,
+                                          'refundRef', ${refund.refundRef}::text)`
+                 : sql`jsonb_build_object('amountCents', ${fits}::int)`
+             }
+       WHERE NOT EXISTS (SELECT 1 FROM club_audit a
+                          WHERE a.club_id = ${clubId}::uuid AND a.action = 'online_refund_issued'
+                            AND a.detail->>'refundRef' = ${refund.refundRef})
+    `);
+    if (fits === 0) return false;
     // The books follow 0041: a refund on a live charge makes the money owed
     // again. A refund that leaves NOTHING paid on the charge voids it here —
     // whoever made it (the office, or the club in its Stripe dashboard) — so
@@ -587,7 +687,7 @@ export async function recordProviderRefund(
     await tx.execute(sql`
       WITH v AS (
         UPDATE club_charges ch SET voided_at = now()
-         WHERE ch.id = ${String(original.charge_id)}::uuid AND ch.voided_at IS NULL
+         WHERE ch.id = ${chargeId}::uuid AND ch.voided_at IS NULL
            AND ch.kind <> 'wallet'
            AND coalesce((SELECT sum(pp.amount_cents) FROM club_payments pp
                           WHERE pp.charge_id = ch.id), 0) = 0

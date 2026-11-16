@@ -73,13 +73,16 @@ export const dynamic = 'force-dynamic';
 /** ?plashtaniya= values the connect route and the payment actions send back. */
 const PAYMENT_OUTCOMES = new Set([
   'connected',
+  'connected_grant_kept',
   'connect_cancelled',
   'connect_failed',
   'disconnected',
+  'disconnected_grant_kept',
   'terms_saved',
   'terms_invalid',
   'read_only',
   'subscriptions_live',
+  'checkouts_in_progress',
 ]);
 const GOOD_OUTCOMES = new Set(['connected', 'disconnected', 'terms_saved']);
 

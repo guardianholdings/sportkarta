@@ -5,6 +5,7 @@ import {
   expireEventHolds,
   expireReservationHolds,
   getDb,
+  markCheckoutUnreachable,
   markPaymentAccountGone,
   markPaymentEvent,
   paymentEventById,
@@ -89,6 +90,12 @@ async function endSubscription(
     throw error;
   }
 }
+
+/** The events that say a Checkout Session was completed by its buyer. */
+const PAID_CHECKOUT_EVENTS = new Set([
+  'checkout.session.completed',
+  'checkout.session.async_payment_succeeded',
+]);
 
 /**
  * How long a refund waits for the payment it refunds to reach the books (its
@@ -326,8 +333,22 @@ export async function runClubPaymentEvent(
     // event can never be processed — recorded as failed, not retried every
     // sweep for ever. An object Stripe no longer has is nothing to act on.
     // Everything else (a 5xx, a timeout) propagates: retried, then swept.
-    if (error instanceof StripeError && error.status === 403) outcome = 'failed';
-    else if (error instanceof StripeError && error.status === 404) outcome = 'ignored';
+    if (error instanceof StripeError && error.status === 403) {
+      outcome = 'failed';
+      // A completed checkout nobody can fetch any more must not stay `open`
+      // for ever, shown to nobody (review 2026-11-14): it is listed for the
+      // office as `unapplied`, to be looked up in the club's own dashboard —
+      // when Stripe says the account is gone from the platform, or the books
+      // already know it is. Any other 403 is about the platform's own key.
+      if (PAID_CHECKOUT_EVENTS.has(event.type) && event.accountRef && event.objectRef) {
+        await markCheckoutUnreachable(
+          db,
+          event.objectRef,
+          event.accountRef,
+          error.code === 'account_invalid',
+        );
+      }
+    } else if (error instanceof StripeError && error.status === 404) outcome = 'ignored';
     else throw error;
   }
   // Notices BEFORE the mark (the header's order): a refused send throws, the

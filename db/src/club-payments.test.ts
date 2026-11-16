@@ -7,6 +7,7 @@ import { getDb } from './client.js';
 import {
   applyCheckoutPaid,
   applySubscriptionInvoice,
+  markCheckoutUnreachable,
   markPaymentAccountGone,
   markPaymentEvent,
   providerPaymentKnown,
@@ -764,5 +765,202 @@ describe.skipIf(!hasDb)('club online payments (requires running database)', () =
       `SELECT disconnected_at FROM club_payment_accounts WHERE account_ref = 'acct_test_reconnect'`,
     );
     expect(gone.rows[0]?.disconnected_at).not.toBeNull();
+  });
+
+  // ─── The 2026-11-14 payment review ────────────────────────────────────────
+
+  it('opens one renewing chain per client: a second paid subscription is unapplied', async () => {
+    await client.query(`UPDATE club_plans SET auto_renew = true WHERE id = $1`, [planId]);
+    // Two purchases opened side by side (two tabs), both paid at the provider.
+    const open = async () =>
+      (
+        await client.query<{ id: string }>(
+          `INSERT INTO club_checkouts (club_id, purpose, member_id, plan_id, starts_on, amount_cents,
+                                       mode, provider, account_ref)
+           VALUES ($1, 'membership', $2, $3, current_date, 4500, 'subscription', 'fake', $4)
+           RETURNING id`,
+          [club.clubId, memberId, planId, ACCOUNT],
+        )
+      ).rows[0]?.id ?? '';
+    const first = await open();
+    const second = await open();
+    expect(
+      await applyCheckoutPaid(getDb(), {
+        checkoutId: first,
+        provider: 'fake',
+        paymentRef: 'pi_test_chain_one',
+        amountCents: 4500,
+        subscriptionRef: 'sub_test_chain_one',
+      }),
+    ).toMatchObject({ applied: true });
+    // The second money is real, so it is listed — and its subscription handed
+    // back for the caller to end, or the card is billed for it every month.
+    expect(
+      await applyCheckoutPaid(getDb(), {
+        checkoutId: second,
+        provider: 'fake',
+        paymentRef: 'pi_test_chain_two',
+        amountCents: 4500,
+        subscriptionRef: 'sub_test_chain_two',
+      }),
+    ).toEqual({
+      applied: false,
+      reason: 'already_renewing',
+      subscriptionRef: 'sub_test_chain_two',
+    });
+    expect(await checkout(second)).toEqual({
+      status: 'unapplied',
+      payment_ref: 'pi_test_chain_two',
+    });
+    const chains = await client.query<{ provider_subscription_ref: string }>(
+      `SELECT provider_subscription_ref FROM club_memberships WHERE member_id = $1`,
+      [memberId],
+    );
+    expect(chains.rows).toEqual([{ provider_subscription_ref: 'sub_test_chain_one' }]);
+    // A cancel that failed is asked for again on the event's retry.
+    expect(await subscriptionCancelOwed(getDb(), 'sub_test_chain_two')).toBe(true);
+    expect(await subscriptionCancelOwed(getDb(), 'sub_test_chain_one')).toBe(false);
+  });
+
+  it('lists a checkout whose account can no longer be asked, instead of leaving it open', async () => {
+    const withSession = async (sessionRef: string, status: 'open' | 'expired' | 'paid') => {
+      const id = await chargeCheckout(await openCharge());
+      await client.query(`UPDATE club_checkouts SET session_ref = $2 WHERE id = $1`, [
+        id,
+        sessionRef,
+      ]);
+      if (status === 'expired') {
+        await client.query(
+          `UPDATE club_checkouts SET status = 'expired', completed_at = now() WHERE id = $1`,
+          [id],
+        );
+      }
+      if (status === 'paid') {
+        await applyCheckoutPaid(getDb(), {
+          checkoutId: id,
+          provider: 'fake',
+          paymentRef: `pi_of_${sessionRef}`,
+          amountCents: 4500,
+          subscriptionRef: null,
+        });
+      }
+      return id;
+    };
+    const open = await withSession('cs_test_unreach_open', 'open');
+    const closed = await withSession('cs_test_unreach_closed', 'expired');
+    const paid = await withSession('cs_test_unreach_paid', 'paid');
+
+    // Only from the account it was opened on.
+    expect(
+      await markCheckoutUnreachable(getDb(), 'cs_test_unreach_open', 'acct_test_another1', true),
+    ).toBe(false);
+    expect((await checkout(open))?.status).toBe('open');
+
+    // The club is still connected and Stripe did not say the account is gone:
+    // a refusal about the platform's own key shelves nothing — `unapplied` is
+    // final, and this money can still be applied once the key is put right.
+    await client.query(
+      `INSERT INTO club_payment_accounts (club_id, provider, account_ref, charges_enabled)
+       VALUES ($1, 'fake', $2, true)`,
+      [club.clubId, ACCOUNT],
+    );
+    expect(await markCheckoutUnreachable(getDb(), 'cs_test_unreach_open', ACCOUNT, false)).toBe(
+      false,
+    );
+    expect((await checkout(open))?.status).toBe('open');
+
+    // Stripe says the account is gone from the platform: listed.
+    expect(await markCheckoutUnreachable(getDb(), 'cs_test_unreach_open', ACCOUNT, true)).toBe(
+      true,
+    );
+    // No payment reference can be fetched any more: the session's own stands in.
+    expect(await checkout(open)).toEqual({
+      status: 'unapplied',
+      payment_ref: 'cs_test_unreach_open',
+    });
+    // Once: a re-delivered event changes nothing.
+    expect(await markCheckoutUnreachable(getDb(), 'cs_test_unreach_open', ACCOUNT, true)).toBe(
+      false,
+    );
+    // The books know the connection ended: that is enough without Stripe's
+    // word — and a checkout this side had closed (the revoke expired it) is
+    // listed too.
+    await client.query(
+      `UPDATE club_payment_accounts SET disconnected_at = now(), charges_enabled = false
+        WHERE club_id = $1`,
+      [club.clubId],
+    );
+    expect(await markCheckoutUnreachable(getDb(), 'cs_test_unreach_closed', ACCOUNT, false)).toBe(
+      true,
+    );
+    expect((await checkout(closed))?.status).toBe('unapplied');
+    // Money already in the books stays exactly where it is.
+    expect(await markCheckoutUnreachable(getDb(), 'cs_test_unreach_paid', ACCOUNT, true)).toBe(
+      false,
+    );
+    expect(await checkout(paid)).toEqual({
+      status: 'paid',
+      payment_ref: 'pi_of_cs_test_unreach_paid',
+    });
+  });
+
+  it('books what fits of a provider refund the charge has no room for, and notes the rest', async () => {
+    const chargeId = await openCharge();
+    await applyCheckoutPaid(getDb(), {
+      checkoutId: await chargeCheckout(chargeId),
+      provider: 'fake',
+      paymentRef: 'pi_test_excess',
+      amountCents: 4500,
+      subscriptionRef: null,
+    });
+    // The desk gave 30,00 € back in cash; then the club refunds the WHOLE card
+    // payment in its Stripe dashboard. The charge holds 15,00 €, not 45,00 €.
+    await client.query(
+      `INSERT INTO club_payments (club_id, charge_id, member_id, kind, amount_cents, method,
+                                  received_on)
+       VALUES ($1, $2, $3, 'refund', -3000, 'cash', current_date)`,
+      [club.clubId, chargeId, memberId],
+    );
+    const whole = {
+      provider: 'fake' as const,
+      paymentRef: 'pi_test_excess',
+      refundRef: 're_test_excess_one',
+      amountCents: 4500,
+    };
+    // Never a throw: the worker would retry the event on every sweep, for ever.
+    expect(await recordProviderRefund(getDb(), whole, null)).toBe(true);
+    expect(await recordProviderRefund(getDb(), whole, null)).toBe(false);
+    const books = await client.query<{ kind: string; amount_cents: number; method: string }>(
+      `SELECT kind, amount_cents, method FROM club_payments WHERE charge_id = $1 ORDER BY id`,
+      [chargeId],
+    );
+    expect(books.rows).toEqual([
+      { kind: 'payment', amount_cents: 4500, method: 'card_online' },
+      { kind: 'refund', amount_cents: -3000, method: 'cash' },
+      { kind: 'refund', amount_cents: -1500, method: 'card_online' },
+    ]);
+    const notes = async () =>
+      (
+        await client.query<{ detail: Record<string, unknown> }>(
+          `SELECT detail FROM club_audit
+            WHERE club_id = $1 AND action = 'online_refund_issued' ORDER BY id`,
+          [club.clubId],
+        )
+      ).rows.map((row) => row.detail);
+    expect(await notes()).toEqual([
+      { amountCents: 1500, unappliedCents: 3000, refundRef: 're_test_excess_one' },
+    ]);
+    // Nothing is left on the charge at all: a further refund books nothing,
+    // is noted once, and still does not throw.
+    const another = { ...whole, refundRef: 're_test_excess_two', amountCents: 500 };
+    expect(await recordProviderRefund(getDb(), another, null)).toBe(false);
+    expect(await recordProviderRefund(getDb(), another, null)).toBe(false);
+    expect(
+      (await client.query(`SELECT 1 FROM club_payments WHERE charge_id = $1`, [chargeId])).rows,
+    ).toHaveLength(3);
+    expect(await notes()).toEqual([
+      { amountCents: 1500, unappliedCents: 3000, refundRef: 're_test_excess_one' },
+      { amountCents: 0, unappliedCents: 500, refundRef: 're_test_excess_two' },
+    ]);
   });
 });
