@@ -40,7 +40,7 @@ export async function NumbersBand({
   if (figures.length === 0) return null;
 
   return (
-    <section aria-labelledby="home-numbers" className="bg-ink text-paper">
+    <section aria-labelledby="home-numbers" className="sk-later bg-ink text-paper">
       <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
         <SectionHead id="home-numbers" title={t('title')} lead={t('lead')} tone="dark">
           <div className="flex flex-wrap gap-2">

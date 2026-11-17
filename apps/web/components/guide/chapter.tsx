@@ -38,7 +38,8 @@ export function Chapter({
     <section
       id={id}
       aria-labelledby={`${id}-title`}
-      className={cn('scroll-mt-14', raised && 'border-y border-line bg-surface')}
+      // sk-later: laid out when it nears the viewport (globals.css).
+      className={cn('sk-later scroll-mt-14', raised && 'border-y border-line bg-surface')}
     >
       <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-8">
