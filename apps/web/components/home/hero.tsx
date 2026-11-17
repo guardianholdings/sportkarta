@@ -1,6 +1,5 @@
 import { getTranslations } from 'next-intl/server';
 
-import { PointerParallax } from '@/components/motion/pointer-parallax';
 import { PopsMark } from '@/components/shell/pops-mark';
 import { Link } from '@/i18n/navigation';
 import { takesVav } from '@/lib/grammar';
@@ -128,7 +127,11 @@ export async function Hero({
         </div>
 
         {dots && (
-          <PointerParallax strength={8}>
+          // The map stands still under the pointer (operator, 2026-11-17: the
+          // whole block used to drift against it). min-w-0: a grid child must
+          // not let the drawing's intrinsic width widen the track — the SVG
+          // would push a phone viewport wide.
+          <div className="min-w-0">
             <HeroMap
               locale={locale}
               data={dotMapData(dots, (city) =>
@@ -167,7 +170,7 @@ export async function Hero({
                 </ul>
               }
             />
-          </PointerParallax>
+          </div>
         )}
       </div>
     </section>
