@@ -23,7 +23,13 @@ export async function generateMetadata({
   // The map used to BE the home page and so inherited the site title; at
   // /karta it names itself, and the front page (`(home)`) owns the default.
   const t = await getTranslations({ locale, namespace: 'Map' });
-  return { title: t('title'), alternates: buildAlternates('/karta', locale) };
+  return {
+    title: t('title'),
+    // Its own description: the site-wide one was printed under the front page,
+    // the map and the games list alike, and a result reads all three the same.
+    description: t('metaDescription'),
+    alternates: buildAlternates('/karta', locale),
+  };
 }
 
 type SearchParams = Record<string, string | string[] | undefined>;

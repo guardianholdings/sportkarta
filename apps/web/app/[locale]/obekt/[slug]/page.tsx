@@ -31,8 +31,9 @@ import { isFacilityAuthor } from '@/lib/contributions/verify-facility';
 import { issueFormToken } from '@/lib/form-token';
 import { placeLabel } from '@/lib/geo';
 import { facilityMapHref } from '@/lib/map/facility-link';
-import { serializeJsonLd } from '@/lib/json-ld';
-import { buildAlternates } from '@/lib/seo';
+import { JsonLd } from '@/components/seo/json-ld';
+import { buildAlternates, ogLocale } from '@/lib/seo';
+import { breadcrumbList, graph } from '@/lib/structured-data';
 import { photoUrl } from '@/lib/photo-url';
 import { getFacilityBySlug, type FacilityDetail } from '@/lib/public-data';
 import { Link } from '@/i18n/navigation';
@@ -72,11 +73,12 @@ function headingOf(facility: FacilityDetail, labels: LabelStrings): string {
 
 export async function generateMetadata({ params }: { params: PageParams }): Promise<Metadata> {
   const { locale, slug } = await params;
-  const [found, t, tSport, tAccess] = await Promise.all([
+  const [found, t, tSport, tAccess, tOg] = await Promise.all([
     facilityBySlug(slug),
     getTranslations({ locale, namespace: 'Facility' }),
     getTranslations({ locale, namespace: 'Sport' }),
     getTranslations({ locale, namespace: 'Access' }),
+    getTranslations({ locale, namespace: 'Og' }),
   ]);
   if (!found) return { title: t('notFound') };
   const facility = await withLocalizedArea(found, locale);
@@ -107,7 +109,11 @@ export async function generateMetadata({ params }: { params: PageParams }): Prom
       title,
       description,
       type: 'website',
-      images: [{ url: card, width: 1200, height: 630 }],
+      // This object replaces the layout's whole (lib/seo.ts), so the two
+      // fields a preview attributes the link with are repeated here.
+      siteName: tOg('wordmark'),
+      locale: ogLocale(locale),
+      images: [{ url: card, width: 1200, height: 630, alt: title }],
     },
   };
 }
@@ -143,16 +149,19 @@ export default async function FacilityPage({
   const { locale, slug } = await params;
   setRequestLocale(locale);
 
-  const [found, currentUser, t, tSport, tContribute, tAdd, tShareSheet, query] = await Promise.all([
-    facilityBySlug(slug),
-    getCurrentUser(),
-    getTranslations('Facility'),
-    getTranslations('Sport'),
-    getTranslations('Contribute'),
-    getTranslations('AddFacility'),
-    getTranslations('ShareSheet'),
-    searchParams,
-  ]);
+  const [found, currentUser, t, tSport, tContribute, tAdd, tShareSheet, tNav, tManifest, query] =
+    await Promise.all([
+      facilityBySlug(slug),
+      getCurrentUser(),
+      getTranslations('Facility'),
+      getTranslations('Sport'),
+      getTranslations('Contribute'),
+      getTranslations('AddFacility'),
+      getTranslations('ShareSheet'),
+      getTranslations('Nav'),
+      getTranslations('Manifest'),
+      searchParams,
+    ]);
   // A real 404: no loading boundary sits above this route (see
   // components/shell/route-loading.tsx), so this runs before the first byte.
   if (!found) notFound();
@@ -181,8 +190,7 @@ export default async function FacilityPage({
 
   // `sport` is not a SportsActivityLocation property (structured-data
   // validators reject it); the URL and an image are what the type is missing.
-  const jsonLd = {
-    '@context': 'https://schema.org',
+  const place = {
     '@type': 'SportsActivityLocation',
     name,
     url: `${origin}${locale === 'bg' ? '' : `/${locale}`}/obekt/${facility.slug}`,
@@ -194,16 +202,28 @@ export default async function FacilityPage({
       addressCountry: 'BG',
     },
     isAccessibleForFree: facility.access === 'free',
-    publicAccess: facility.access === 'free',
+    // Open to the public is not the same as free: a paid court takes anyone
+    // who pays. Only a school yard or a restricted ground is closed to a
+    // visitor — the old `access === 'free'` told a reader every paid facility
+    // was private.
+    publicAccess: facility.access === 'free' || facility.access === 'paid',
   };
+  // Where the page sits: the site, the map every facility is a point on, then
+  // the facility. No city step — a small municipality has no listing page
+  // (lib/places.ts MIN_LISTING_FACILITIES), and a crumb must not lead to a 404.
+  const trail = breadcrumbList(
+    [
+      { name: tManifest('shortName'), path: '/' },
+      { name: tNav('navMap'), path: '/karta' },
+      { name, path: `/obekt/${facility.slug}` },
+    ],
+    locale,
+  );
 
   return (
     <AppShell>
       <main className="mx-auto max-w-2xl px-4 py-5">
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
-        />
+        <JsonLd data={graph(place, trail)} />
         {/* What the map remembered about this place is out of date the moment
             the member is here, where they can change it (lib/map/card.ts). */}
         <FreshFacilityCard slug={facility.slug} />

@@ -47,6 +47,16 @@ export function buildAlternates(path: string, locale: string): Metadata['alterna
 /** Open Graph locale tags (language_TERRITORY), per app locale. */
 const OG_LOCALE: Record<string, string> = { bg: 'bg_BG', en: 'en_GB' };
 
+/**
+ * The Open Graph locale of an app locale. For the entity pages that set their
+ * own `openGraph` (a facility, a club): that object REPLACES the layout's
+ * whole, so without this they lost og:locale and og:site_name along with the
+ * brand image they meant to replace.
+ */
+export function ogLocale(locale: string): string {
+  return OG_LOCALE[locale] ?? 'bg_BG';
+}
+
 /** The brand-only share cards: `site` (app/og/[locale]/site/card.png) and the clubs page's `klubove` sibling. */
 export type SiteCard = 'site' | 'klubove';
 
@@ -75,7 +85,7 @@ export function siteSocialMetadata(
   labels: { siteName: string; imageAlt: string },
   options: { card?: SiteCard } = {},
 ): Pick<Metadata, 'openGraph' | 'twitter'> {
-  const own = OG_LOCALE[locale] ?? 'bg_BG';
+  const own = ogLocale(locale);
   return {
     openGraph: {
       type: 'website',

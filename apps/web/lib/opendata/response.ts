@@ -73,6 +73,10 @@ export function licenseHeaders(): Record<string, string> {
     // ASCII: header values are latin-1, so the `©` form arrives corrupted.
     'X-Attribution': OPEN_DATA_LICENSE.attributionAscii,
     Link: `<${absolute('/danni/litsenz')}>; rel="license"; title="${OPEN_DATA_LICENSE.name}"`,
+    // robots.txt lets a crawler READ this API (app/robots.ts); this keeps a raw
+    // GeoJSON or CSV address from being listed as a search result beside, or
+    // instead of, the page that documents it. Read, do not index.
+    'X-Robots-Tag': 'noindex',
   };
 }
 

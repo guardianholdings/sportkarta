@@ -762,10 +762,15 @@
    Keyframes with a `backwards` fill, so the resting state is the server's own
    markup: with no CSS animation, in print and under reduced motion the hero
    simply stands. The page's ground is flat paper (the seed's rule) — the
-   picture on the right is the only thing that carries colour. */
+   picture on the right is the only thing that carries colour.
+   No lead-in before the first line and a short step between lines: the
+   paragraph under the heading is the page's largest paint, a `backwards` fill
+   keeps it invisible for the whole of its delay, and at 140ms + 2 × 70ms that
+   was 280ms added to the measured load of every first visit for nothing a
+   visitor could see happening. */
 .sk-enter > * {
   animation: sk-enter-rise 560ms var(--ease-out) backwards;
-  animation-delay: calc(140ms + var(--enter-i, 0) * 70ms);
+  animation-delay: calc(var(--enter-i, 0) * 60ms);
 }
 .sk-enter > :nth-child(2) {
   --enter-i: 1;
@@ -781,6 +786,15 @@
 }
 .sk-enter > :is(h1, .sk-enter__title) {
   animation: sk-enter-write 760ms var(--ease-out) backwards;
+}
+/* The lead paragraph does not enter at all. It is the page's largest paint,
+   and a browser does not count text it first drew at opacity 0 — when it
+   counts it afterwards is the browser's own business. Measured by PageSpeed
+   on 2026-11-16: the paragraph was reported painted 1.7 s after the first
+   byte on a desktop and 2.7 s on a phone, with nothing to download for it.
+   So the paragraph stands, and the heading is written above it. */
+.sk-enter > .sk-enter__still {
+  animation: none;
 }
 .sk-enter-media {
   animation: sk-enter-settle 900ms var(--ease-out) backwards;

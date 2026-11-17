@@ -6,6 +6,7 @@ import { AdSlot } from '@/components/ads/ad-slot';
 import { FacilityList } from '@/components/places/facility-list';
 import { HeadlineStrip } from '@/components/partners/headline-strip';
 import { PlaceMap } from '@/components/map/place-map';
+import { ListingData } from '@/components/seo/listing-data';
 import { Link } from '@/i18n/navigation';
 import {
   citySportCounts,
@@ -84,6 +85,14 @@ export default async function CityPage({ params }: { params: PageParams }) {
 
   return (
     <AppShell cached>
+      {/* Outside <main>: its `space-y` counts children, and this is not one. */}
+      <ListingData
+        locale={locale}
+        name={heading}
+        trail={[{ name, path: `/igrishta/${city.slug}` }]}
+        facilities={facilities}
+        total={count}
+      />
       <main className="mx-auto max-w-3xl space-y-6 p-4">
         <Link href="/karta" className="text-body-sm font-medium text-link hover:text-link-hover">
           {t('viewAllOnMap')}

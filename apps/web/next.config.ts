@@ -28,6 +28,19 @@ const nextConfig: NextConfig = {
   images: { unoptimized: true },
   // Do not advertise the framework (and so its version family) on every response.
   poweredByHeader: false,
+  // Title, description, canonical, hreflang and the share tags go in <head>
+  // for every client that names itself. By default Next streams them into
+  // <body> on a dynamic page unless the user agent is on its own short list of
+  // bots — and that list has no AI crawler on it, so GPTBot, ClaudeBot and
+  // PerplexityBot (none of which runs scripts) were handed a front page and a
+  // map with an empty head. Our metadata is a catalogue lookup, at most the
+  // one row the page reads anyway, so holding the first byte for it costs
+  // nothing measurable. tests/seo-head.test.ts pins it.
+  //
+  // The one client this cannot reach is a request with NO User-Agent header:
+  // Next tests the pattern only when there is a value to test, so that
+  // request still gets streamed metadata. Every crawler that matters sends one.
+  htmlLimitedBots: /.*/,
   experimental: {
     // Report photos are up to 8 MB (lib/image.ts MAX_PHOTO_BYTES); the default
     // server-action body limit (1 MB) would reject real phone photos before our

@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 
 import { ADMIN_EMAIL, signIn } from './auth';
-import { rendersNotFound, softRedirectTarget } from './responses';
+import { hardRedirectTarget, rendersNotFound, softRedirectTarget } from './responses';
 
 /**
  * Per-role link crawler — the permanent regression against the audit's findings
@@ -78,8 +78,10 @@ const ADMIN_ROUTES = [...MEMBER_ROUTES, ...ADMIN_ONLY];
  * (e2e/responses.ts), and the browser leaves the moment it hydrates. Under
  * `next start` that is at once, so reading such a page's DOM races its own
  * navigation ("Execution context was destroyed") — every role's crawl failed
- * that way against the production build. So a redirect is read from the HTML,
- * held to this map in BOTH directions (an anonymous visitor who is NOT sent
+ * that way against the production build. So a redirect is read from the HTML
+ * — or, for a page with no loading boundary above it (/danni/klyuchove since
+ * the open-data section lost its loading file), from where the followed 3xx
+ * landed —, held to this map in BOTH directions (an anonymous visitor who is NOT sent
  * away from /danni/klyuchove is a leak; a signed-in member who IS sent away
  * from /profil has lost their session), and its destination is checked with
  * the links instead of being crawled for them.
@@ -97,6 +99,8 @@ interface CrawlResult {
 interface Fetched {
   status: number | 'unreachable';
   html: string;
+  /** The address the response came from, after any HTTP redirect was followed. */
+  landed: string;
 }
 
 // Locally the e2e server can be `next dev` (playwright.config.ts), which
@@ -115,12 +119,16 @@ async function fetchRoute(page: Page, url: string): Promise<Fetched> {
     try {
       const r = await page.request.get(url, { maxRedirects: 5, timeout: 30_000 });
       const html = await r.text();
-      return { status: rendersNotFound(r.status(), html) ? 404 : r.status(), html };
+      return {
+        status: rendersNotFound(r.status(), html) ? 404 : r.status(),
+        html,
+        landed: r.url(),
+      };
     } catch {
       await new Promise((r) => setTimeout(r, 500 * (attempt + 1))); // back off; the route is likely compiling
     }
   }
-  return { status: 'unreachable', html: '' };
+  return { status: 'unreachable', html: '', landed: url };
 }
 
 function isBad(status: Fetched['status']): boolean {
@@ -150,14 +158,20 @@ async function crawl(
 
   // 1. Visit each landing surface (sequential): assert it renders, collect links.
   for (const route of routes) {
-    const { status, html } = await fetchRoute(page, route);
+    const { status, html, landed } = await fetchRoute(page, route);
     if (isBad(status)) {
       res.badPages.push(`${route} → ${String(status)}`);
       continue;
     }
 
-    const sentTo = softRedirectTarget(html);
     const expected = redirects[route] ?? null;
+    // A redirect arrives one of two ways: as the marker in a streamed page, or
+    // — from a page with no loading boundary above it — as a real 3xx this
+    // request has already followed. The second counts only when it is the
+    // redirect this role is meant to get; any other landing is read as before,
+    // as the page that rendered.
+    const followed = hardRedirectTarget(route, landed);
+    const sentTo = softRedirectTarget(html) ?? (followed === expected ? followed : null);
     if (sentTo !== expected) {
       res.badPages.push(
         `${route} → ${sentTo === null ? 'rendered' : `redirected to ${sentTo}`}, expected ${

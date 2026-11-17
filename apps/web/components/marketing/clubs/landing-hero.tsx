@@ -51,7 +51,9 @@ export async function LandingHero({
           >
             {t('hero.title')}
           </h1>
-          <p className="max-w-xl text-body-lg text-ink-soft">
+          {/* The page's largest paint: it stands from the first frame
+              (globals.css, .sk-enter__still). */}
+          <p className="sk-enter__still max-w-xl text-body-lg text-ink-soft">
             {t('hero.lead')}
             {paymentsOn && <> {t('hero.leadPayments')}</>}
           </p>

@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 
 import { FacilityList } from '@/components/places/facility-list';
 import { PlaceMap } from '@/components/map/place-map';
+import { ListingData } from '@/components/seo/listing-data';
 import { Link } from '@/i18n/navigation';
 import {
   citiesForSport,
@@ -99,6 +100,20 @@ export default async function SegmentPage({ params }: { params: PageParams }) {
 
   return (
     <AppShell cached>
+      {/* Outside <main>: its `space-y` counts children, and this is not one. */}
+      <ListingData
+        locale={locale}
+        name={heading}
+        trail={[
+          { name, path: `/igrishta/${city.slug}` },
+          {
+            name: scope.kind === 'sport' ? tSport(scope.sport) : scope.quarter,
+            path: `/igrishta/${city.slug}/${segment}`,
+          },
+        ]}
+        facilities={facilities}
+        total={count}
+      />
       <main className="mx-auto max-w-3xl space-y-6 p-4">
         <Link
           href={`/igrishta/${city.slug}`}

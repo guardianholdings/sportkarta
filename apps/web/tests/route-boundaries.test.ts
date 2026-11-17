@@ -47,7 +47,17 @@ describe('loading boundaries never sit above a notFound()', () => {
     // The fix was to MOVE the boundary down, not to delete the brand moment.
     expect(LOADING_FILES.length).toBeGreaterThan(5);
     expect(existsSync(path.join(LOCALE, 'karta', 'loading.tsx')), 'the map').toBe(true);
-    expect(existsSync(path.join(LOCALE, '(home)', 'loading.tsx')), 'the front page').toBe(true);
+  });
+
+  it('the front page is not one of them', () => {
+    // Operator decision, 2026-11-16. A loading file sends the page as a
+    // loading mark followed by hidden blocks a script moves into place: fine
+    // for a person, but a crawler that runs no scripts (the AI ones do not)
+    // read the most important page on the site hidden and out of order, and
+    // the hero stood ~210 KB into the document. The front page trades the
+    // mark on navigations to `/` for plain, ordered HTML; tests/seo-head.test.ts
+    // holds the same line for the document pages.
+    expect(existsSync(path.join(LOCALE, '(home)', 'loading.tsx'))).toBe(false);
   });
 
   it.each(LOADING_FILES.map(rel))('%s wraps no route that can 404', (loading) => {

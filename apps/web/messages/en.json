@@ -4,6 +4,39 @@
     "titleTemplate": "%s — POPS",
     "description": "A national map of free public sports facilities in Bulgaria."
   },
+  "Llms": {
+    "title": "POPS — More than just sport",
+    "summary": "A national map of free public sports facilities in Bulgaria: open pitches, outdoor gyms and courts. Run by a non-profit association together with the people who use them.",
+    "about": "Every facility has its own page with its location, sports, surface, lighting, access and, where it has been checked on the ground, the date of the last check. The data comes from OpenStreetMap, from municipalities and from community members; what was checked on the ground takes precedence over what was imported.",
+    "facts": {
+      "free": "The map, the games, the passport and the leaderboards are free for everyone.",
+      "license": "The data is open under ODbL 1.0. When you use it, credit the source: “{attribution}”.",
+      "languages": "The site is in Bulgarian; the English version lives under /en.",
+      "clubs": "Clubs, gyms and studios can use a paid management platform with a {days}-day free trial."
+    },
+    "sections": {
+      "pages": "Main pages",
+      "data": "Open data",
+      "about": "About the project"
+    },
+    "labels": {
+      "cities": "Facilities by city",
+      "api": "Facilities API",
+      "sitemap": "Sitemap"
+    },
+    "links": {
+      "map": "an interactive map with filters for sport, surface, lighting and access",
+      "cities": "the list of pages by city and by sport within a city",
+      "games": "upcoming public games anyone can join",
+      "stats": "facility counts by municipality and by sport",
+      "clubs": "clubs, gyms and studios with schedules and sign-up",
+      "clubsLanding": "the club management platform: features and prices",
+      "data": "documentation for the open data and the API",
+      "dataApi": "every facility as GeoJSON; add ?format=csv for CSV",
+      "license": "the licence terms and how to credit the source",
+      "sitemap": "every page on the site"
+    }
+  },
   "Manifest": {
     "shortName": "POPS"
   },
@@ -526,6 +559,7 @@
     "directions": "Directions",
     "directionsWith": "Directions with {app}",
     "title": "Facilities map",
+    "metaDescription": "An interactive map of free public sports facilities in Bulgaria: pitches, outdoor gyms and courts. Search by place and filter by sport, surface, lighting and access.",
     "intro": "Find free public sports facilities near you.",
     "filters": "Filters",
     "filtersActive": "Filters: {count} active",
@@ -1831,6 +1865,7 @@
     },
     "indexTitle": "Games",
     "indexIntro": "Upcoming public games. Sign up and show up.",
+    "indexMetaDescription": "Upcoming public games at sports facilities in Bulgaria. See what is played, when and where, sign up and show up — open to all and free.",
     "indexEmptyTitle": "No upcoming games",
     "indexEmptyBody": "Check back soon, or explore facilities on the map.",
     "indexViewMap": "View the map",

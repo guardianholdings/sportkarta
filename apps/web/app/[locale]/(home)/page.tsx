@@ -25,6 +25,7 @@ import { PlaceSearch } from '@/components/home/place-search';
 import { PersonalStrip, PersonalStripSkeleton } from '@/components/home/personal-strip';
 import { NumbersBand } from '@/components/marketing/numbers-band';
 import { PrinciplesBand } from '@/components/marketing/principles-band';
+import { SiteIdentity } from '@/components/seo/site-identity';
 import { AppShell } from '@/components/shell/app-shell';
 import { type CurrentUser, getCurrentUser } from '@/lib/auth-session';
 import { clubsEnabled } from '@/lib/clubs/access';
@@ -126,6 +127,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   return (
     <AppShell active={null}>
       <main>
+        <SiteIdentity locale={locale} faq />
         <Hero locale={locale} dots={dots} sports={sports ?? []} numbers={numbers} />
         <div id="guide">
           <GuideNav
@@ -227,6 +229,7 @@ async function MemberHome({ user, locale }: { user: CurrentUser; locale: string 
   return (
     <AppShell active={null}>
       <main>
+        <SiteIdentity locale={locale} faq={false} />
         {/* A fixed heading: the greeting streams in behind a skeleton and may
             fail, and the page must have its h1 either way. */}
         <h1 className="sr-only">{t('personal.label')}</h1>

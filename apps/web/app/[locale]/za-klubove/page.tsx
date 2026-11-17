@@ -1,4 +1,4 @@
-import { CLUB_TRIAL_DAYS } from '@sportkarta/lib/clubs';
+import { CLUB_TIER_PRICE_CENTS, CLUB_TIERS, CLUB_TRIAL_DAYS } from '@sportkarta/lib/clubs';
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
@@ -7,12 +7,13 @@ import { Audiences } from '@/components/marketing/clubs/audiences';
 import { Catalogue } from '@/components/marketing/clubs/catalogue';
 import { DaySection } from '@/components/marketing/clubs/day-section';
 import { Edges } from '@/components/marketing/clubs/edges';
-import { Faq } from '@/components/marketing/clubs/faq';
+import { clubsFaq, Faq } from '@/components/marketing/clubs/faq';
 import { FinalCta } from '@/components/marketing/clubs/final-cta';
 import { CLUBS_HERO_ID, LandingHero } from '@/components/marketing/clubs/landing-hero';
 import { Pricing } from '@/components/marketing/clubs/pricing';
 import { Steps } from '@/components/marketing/clubs/steps';
 import { StickyCta } from '@/components/marketing/clubs/sticky-cta';
+import { JsonLd } from '@/components/seo/json-ld';
 import { AppShell } from '@/components/shell/app-shell';
 import { requireClubsEnabled } from '@/lib/clubs/club-session';
 import { clubSwitchOn } from '@/lib/clubs/features';
@@ -21,6 +22,7 @@ import { dotLayer, gamePulses } from '@/lib/home/dots';
 import { orNull } from '@/lib/home/memo';
 import { nationalNumbers } from '@/lib/home/sections';
 import { buildAlternates, siteSocialMetadata } from '@/lib/seo';
+import { clubsPlatformNode, faqPage, graph } from '@/lib/structured-data';
 
 // The «скоро» chips read the env switches at request time (a compose change,
 // no rebuild).
@@ -59,19 +61,39 @@ export default async function ClubsLandingPage({ params }: { params: PageParams 
   const { locale } = await params;
   setRequestLocale(locale);
   requireClubsEnabled();
-  const [numbers, layer, pulses, t] = await Promise.all([
+  const feeFree = platformFeeFree();
+  const paymentsOn = clubSwitchOn('payments');
+  const smsOn = clubSwitchOn('sms');
+  const [numbers, layer, pulses, t, tClub, tManifest, questions] = await Promise.all([
     orNull('national numbers', nationalNumbers),
     orNull('dot layer', () => dotLayer(null)),
     orNull('game pulses', gamePulses),
     getTranslations('ClubsLanding'),
+    getTranslations('Club'),
+    getTranslations('Manifest'),
+    clubsFaq({ paymentsOn, smsOn }),
   ]);
-  const feeFree = platformFeeFree();
-  const paymentsOn = clubSwitchOn('payments');
-  const smsOn = clubSwitchOn('sms');
 
   return (
     <AppShell active="/za-klubove" quickActions={false}>
       <main>
+        {/* What is sold and for how much, and the questions answered below —
+            the prices from the one table the pricing section reads. */}
+        <JsonLd
+          data={graph(
+            clubsPlatformNode({
+              name: `${tManifest('shortName')} ${tClub('moduleName')}`,
+              description: t('metaDescription', { days: CLUB_TRIAL_DAYS }),
+              path: '/za-klubove',
+              locale,
+              tiers: CLUB_TIERS.map((tier) => ({
+                name: tClub(`tier.${tier}`),
+                priceCents: CLUB_TIER_PRICE_CENTS[tier],
+              })),
+            }),
+            faqPage(questions),
+          )}
+        />
         <LandingHero feeFree={feeFree} paymentsOn={paymentsOn} />
         <Audiences />
         <DaySection paymentsOn={paymentsOn} />

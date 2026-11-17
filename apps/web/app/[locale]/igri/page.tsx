@@ -21,7 +21,11 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'Session' });
-  return { title: t('indexTitle'), alternates: buildAlternates('/igri', locale) };
+  return {
+    title: t('indexTitle'),
+    description: t('indexMetaDescription'),
+    alternates: buildAlternates('/igri', locale),
+  };
 }
 
 /** wall-clock 'YYYY-MM-DDTHH:MM:SS' → [localized date, HH:MM] */

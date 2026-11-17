@@ -3,7 +3,11 @@ import { getTranslations } from 'next-intl/server';
 
 import { SectionHead } from '@/components/home/section-head';
 
-const QUESTIONS = [
+/**
+ * Exported for the page's structured data: the markup lists these same keys,
+ * so a question cannot be marked up without being printed (or the reverse).
+ */
+export const GUIDE_FAQ_KEYS = [
   'free',
   'account',
   'who',
@@ -24,7 +28,7 @@ export async function Faq() {
     >
       <SectionHead id="guide-faq" title={t('title')} />
       <div className="mt-8 grid gap-x-8 lg:grid-cols-2">
-        {QUESTIONS.map((key) => (
+        {GUIDE_FAQ_KEYS.map((key) => (
           <details key={key} className="sk-faq group border-b border-line">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-body font-bold text-ink">
               {t(`${key}.q`)}
