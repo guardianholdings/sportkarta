@@ -787,6 +787,15 @@
 .sk-enter > :is(h1, .sk-enter__title) {
   animation: sk-enter-write 760ms var(--ease-out) backwards;
 }
+/* The lead paragraph does not enter at all. It is the page's largest paint,
+   and a browser does not count text it first drew at opacity 0 — when it
+   counts it afterwards is the browser's own business. Measured by PageSpeed
+   on 2026-11-16: the paragraph was reported painted 1.7 s after the first
+   byte on a desktop and 2.7 s on a phone, with nothing to download for it.
+   So the paragraph stands, and the heading is written above it. */
+.sk-enter > .sk-enter__still {
+  animation: none;
+}
 .sk-enter-media {
   animation: sk-enter-settle 900ms var(--ease-out) backwards;
 }
