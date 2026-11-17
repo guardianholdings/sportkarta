@@ -10,9 +10,13 @@
    ============================================================ */
 
 :root {
+  /* The `… Fallback` families are system faces scaled to the brand face's
+     width (app/fonts.css), so text keeps its line breaks when the web font
+     lands. They sit directly after the face they stand in for. */
   --font-sans:
-    'Golos Text', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-display: 'Unbounded', ui-sans-serif, system-ui, sans-serif;
+    'Golos Text', 'Golos Text Fallback', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    Roboto, sans-serif;
+  --font-display: 'Unbounded', 'Unbounded Fallback', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 
   /* Weights */

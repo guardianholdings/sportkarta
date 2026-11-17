@@ -4,8 +4,7 @@
    Our stack takes NO external runtime dependencies, and the app is
    Bulgarian-first — so fonts are self-hosted via the @fontsource
    packages (bundled from our own origin at build time, no CDN
-   request ever), importing only the CYRILLIC + LATIN subsets of
-   the exact weights the type scale declares.
+   request ever), in the exact weights the type scale declares.
 
    POPS brand faces (docs/design/pops-brand/HANDOFF.md):
 
@@ -13,63 +12,135 @@
      - Golos Text 400 / 500 / 600 / 700 / 800   (UI · body · labels)
      - JetBrains Mono 400 / 500 / 600 / 700     (data · stats · overline)
 
-   The cyrillic subsets of all three families carry the full
-   Bulgarian alphabet (Google's cyrillic subset spans U+0400-045F,
-   incl. ѝ U+045D); digits/ASCII come from the latin subset (both
-   imported). All three families are licensed SIL Open Font License
-   1.1, which permits self-hosting and bundling.
+   All three families are licensed SIL Open Font License 1.1, which
+   permits self-hosting and bundling.
 
-   @import order below is by subset so the browser matches by
-   unicode-range: cyrillic first, latin second — the `--font-*`
-   family stacks in design-tokens/fonts.css live-reference these.
+   IMPORT A WEIGHT, NEVER A SUBSET. The packages ship two kinds of
+   file: `800.css` declares every alphabet with its `unicode-range`,
+   `cyrillic-800.css` declares one alphabet WITHOUT a range. This
+   file used to import the second kind, four per weight — four faces
+   of the same family and weight with no range between them, so the
+   browser could not tell which file held Cyrillic. It took the last
+   one declared (latin-ext, 54 KB of letters this site never prints),
+   found no «С» in it, fetched the next, and the next: up to four
+   downloads in a row for one heading, the text redrawn at each.
+   With ranges it fetches the one file the page's letters are in
+   (13 KB for a Bulgarian heading). tests/fonts.test.ts pins it.
+
+   The `--font-*` family stacks in design-tokens/fonts.css reference
+   these families and the two fallbacks at the end of this file.
    ============================================================ */
 
 /* ---- Unbounded (display) ---- */
-@import '@fontsource/unbounded/cyrillic-700.css';
-@import '@fontsource/unbounded/cyrillic-ext-700.css';
-@import '@fontsource/unbounded/latin-700.css';
-@import '@fontsource/unbounded/latin-ext-700.css';
-@import '@fontsource/unbounded/cyrillic-800.css';
-@import '@fontsource/unbounded/cyrillic-ext-800.css';
-@import '@fontsource/unbounded/latin-800.css';
-@import '@fontsource/unbounded/latin-ext-800.css';
+@import '@fontsource/unbounded/700.css';
+
+/* Unbounded 800 — the front-page heading — is declared by hand, from a fixed
+   address, because a file can only be preloaded by a name known before the
+   build (the bundled ones are renamed with a content hash). The heading is
+   the first thing on the first screen; preloaded, its font is there when the
+   page is first drawn instead of arriving after it and reflowing the text
+   below. The two files are byte-for-byte the package's, and the ranges are
+   the package's own (tests/fonts.test.ts holds both). app/[locale]/layout.tsx
+   preloads the one the page's language needs. */
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url('/fonts/ui/unbounded-cyrillic-800-normal.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url('/fonts/ui/unbounded-latin-800-normal.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* The extended alphabets of the same weight, rarely needed (a facility name
+   with older Cyrillic or Central European letters), straight from the package. */
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url('../node_modules/@fontsource/unbounded/files/unbounded-cyrillic-ext-800-normal.woff2')
+    format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url('../node_modules/@fontsource/unbounded/files/unbounded-latin-ext-800-normal.woff2')
+    format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
 
 /* ---- Golos Text (sans) ---- */
-@import '@fontsource/golos-text/cyrillic-400.css';
-@import '@fontsource/golos-text/cyrillic-ext-400.css';
-@import '@fontsource/golos-text/latin-400.css';
-@import '@fontsource/golos-text/latin-ext-400.css';
-@import '@fontsource/golos-text/cyrillic-500.css';
-@import '@fontsource/golos-text/cyrillic-ext-500.css';
-@import '@fontsource/golos-text/latin-500.css';
-@import '@fontsource/golos-text/latin-ext-500.css';
-@import '@fontsource/golos-text/cyrillic-600.css';
-@import '@fontsource/golos-text/cyrillic-ext-600.css';
-@import '@fontsource/golos-text/latin-600.css';
-@import '@fontsource/golos-text/latin-ext-600.css';
-@import '@fontsource/golos-text/cyrillic-700.css';
-@import '@fontsource/golos-text/cyrillic-ext-700.css';
-@import '@fontsource/golos-text/latin-700.css';
-@import '@fontsource/golos-text/latin-ext-700.css';
-@import '@fontsource/golos-text/cyrillic-800.css';
-@import '@fontsource/golos-text/cyrillic-ext-800.css';
-@import '@fontsource/golos-text/latin-800.css';
-@import '@fontsource/golos-text/latin-ext-800.css';
+@import '@fontsource/golos-text/400.css';
+@import '@fontsource/golos-text/500.css';
+@import '@fontsource/golos-text/600.css';
+@import '@fontsource/golos-text/700.css';
+@import '@fontsource/golos-text/800.css';
 
 /* ---- JetBrains Mono (data / mono) ---- */
-@import '@fontsource/jetbrains-mono/cyrillic-400.css';
-@import '@fontsource/jetbrains-mono/cyrillic-ext-400.css';
-@import '@fontsource/jetbrains-mono/latin-400.css';
-@import '@fontsource/jetbrains-mono/latin-ext-400.css';
-@import '@fontsource/jetbrains-mono/cyrillic-500.css';
-@import '@fontsource/jetbrains-mono/cyrillic-ext-500.css';
-@import '@fontsource/jetbrains-mono/latin-500.css';
-@import '@fontsource/jetbrains-mono/latin-ext-500.css';
-@import '@fontsource/jetbrains-mono/cyrillic-600.css';
-@import '@fontsource/jetbrains-mono/cyrillic-ext-600.css';
-@import '@fontsource/jetbrains-mono/latin-600.css';
-@import '@fontsource/jetbrains-mono/latin-ext-600.css';
-@import '@fontsource/jetbrains-mono/cyrillic-700.css';
-@import '@fontsource/jetbrains-mono/cyrillic-ext-700.css';
-@import '@fontsource/jetbrains-mono/latin-700.css';
-@import '@fontsource/jetbrains-mono/latin-ext-700.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/jetbrains-mono/600.css';
+@import '@fontsource/jetbrains-mono/700.css';
+
+/* ---- Fallbacks that take up the same room ----
+   Until a web font arrives the text is set in a system face, and when it
+   arrives every line is measured again. Unbounded is 33–42% wider than Arial,
+   so a heading set in the fallback wrapped onto fewer lines and then pushed
+   the whole first screen down when the real face landed: a layout shift of
+   0.18 on a throttled phone, where 0.1 is the limit of "good".
+
+   These are the system's own Arial (or its metric twin on Android and Linux),
+   scaled so a line holds the same words — measured in Chromium against the
+   hero's real copy, per alphabet because Unbounded's Cyrillic is wider than
+   its Latin. Every text style here sets its line height as a number, so the
+   taller glyphs change no box. A system with none of the named faces skips
+   the family and falls through to the next in the stack, as before. */
+@font-face {
+  font-family: 'Unbounded Fallback';
+  font-weight: 700 900;
+  src:
+    local('Arial Bold'), local('Arial-BoldMT'), local('Roboto Bold'), local('Roboto-Bold'),
+    local('Liberation Sans Bold'), local('LiberationSans-Bold');
+  size-adjust: 142%;
+  unicode-range: U+0301, U+0400-052F, U+2116;
+}
+@font-face {
+  font-family: 'Unbounded Fallback';
+  font-weight: 700 900;
+  src:
+    local('Arial Bold'), local('Arial-BoldMT'), local('Roboto Bold'), local('Roboto-Bold'),
+    local('Liberation Sans Bold'), local('LiberationSans-Bold');
+  size-adjust: 133%;
+  unicode-range: U+0000-02FF, U+2000-206F, U+20AC, U+2122;
+}
+@font-face {
+  font-family: 'Golos Text Fallback';
+  font-weight: 400 500;
+  src:
+    local('Arial'), local('ArialMT'), local('Roboto'), local('Roboto-Regular'),
+    local('Liberation Sans'), local('LiberationSans');
+  size-adjust: 106%;
+}
+@font-face {
+  font-family: 'Golos Text Fallback';
+  font-weight: 600 900;
+  src:
+    local('Arial Bold'), local('Arial-BoldMT'), local('Roboto Bold'), local('Roboto-Bold'),
+    local('Liberation Sans Bold'), local('LiberationSans-Bold');
+  size-adjust: 101%;
+}
