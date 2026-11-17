@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { rendersNotFound, softRedirectTarget } from '../e2e/responses';
+import { hardRedirectTarget, rendersNotFound, softRedirectTarget } from '../e2e/responses';
 
 /**
  * The e2e suite's reading of a streamed denial (e2e/responses.ts), pinned in
@@ -70,5 +70,26 @@ describe('softRedirectTarget', () => {
     expect(softRedirectTarget('<meta http-equiv="refresh" content="30"/><main>ok</main>')).toBe(
       null,
     );
+  });
+});
+
+describe('hardRedirectTarget', () => {
+  it('reads where a followed 3xx landed, without locale or query', () => {
+    expect(
+      hardRedirectTarget(
+        '/danni/klyuchove',
+        'http://localhost:3000/vhod?next=%2Fdanni%2Fklyuchove',
+      ),
+    ).toBe('/vhod');
+    expect(hardRedirectTarget('/en/danni/klyuchove', 'http://localhost:3000/en/vhod')).toBe(
+      '/vhod',
+    );
+  });
+
+  it('is null for a request that stayed where it was asked', () => {
+    expect(hardRedirectTarget('/statistika', 'http://localhost:3000/statistika')).toBe(null);
+    expect(hardRedirectTarget('/', 'http://localhost:3000/')).toBe(null);
+    // The default locale's prefix is not a move.
+    expect(hardRedirectTarget('/karta?sport=tennis', 'http://localhost:3000/bg/karta')).toBe(null);
   });
 });

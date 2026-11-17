@@ -38,5 +38,26 @@ export function softRedirectTarget(html: string): string | null {
   const match = PAGE_REDIRECT.exec(html);
   if (!match) return null;
   const url = new URL((match[1] ?? '').replaceAll('&amp;', '&'), 'http://localhost');
-  return url.pathname.replace(/^\/(bg|en)(?=\/|$)/, '') || '/';
+  return withoutLocale(url.pathname);
+}
+
+function withoutLocale(pathname: string): string {
+  return pathname.replace(/^\/(bg|en)(?=\/|$)/, '') || '/';
+}
+
+/**
+ * Where a request that FOLLOWED its redirects ended up, as a path without a
+ * locale prefix — or null when it stayed where it was asked.
+ *
+ * The other half of softRedirectTarget. A page with no loading boundary above
+ * it answers redirect() with a real 3xx, the client follows it, and the HTML
+ * it reads is the destination's: there is no marker to find, and the page
+ * looks as if it had simply rendered. /danni/klyuchove became such a page the
+ * day the open-data section lost its loading file, and the crawl then
+ * reported the sign-in redirect it had asked for as a leak.
+ */
+export function hardRedirectTarget(requested: string, landed: string): string | null {
+  const from = withoutLocale(new URL(requested, 'http://localhost').pathname);
+  const to = withoutLocale(new URL(landed, 'http://localhost').pathname);
+  return to === from ? null : to;
 }
