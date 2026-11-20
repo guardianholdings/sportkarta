@@ -12,11 +12,12 @@ config({ path: '../../.env' });
  *
  * The unit tests prove the statements and the DB test proves the CHECKs. What
  * only a real request can prove is the GATE: that a member whose browser still
- * holds a valid session cookie — inside the five-minute cookie cache, which no
- * session DELETE can reach — is nonetheless signed out on the very next
- * request once suspended, because getCurrentUser() reads the row. And that the
- * two GDPR answers the audit found missing (a member's own export, an admin's
- * erasure on someone's behalf) work through the real routes.
+ * holds a valid session cookie — inside the signed cookie cache's window, when
+ * better-auth itself would still vouch for it — is nonetheless signed out on
+ * the very next request, whether suspended (getCurrentUser() reads the users
+ * row) or only had every session ended (it reads the sessions row too). And
+ * that the two GDPR answers the audit found missing (a member's own export, an
+ * admin's erasure on someone's behalf) work through the real routes.
  *
  * Note on fixtures: `admin_actions` and `account_access_log` are append-only,
  * so the rows these tests write stay behind — about an account that is then
@@ -25,6 +26,7 @@ config({ path: '../../.env' });
 
 const SUSPENDED_EMAIL = 'e2e-account-suspended@example.org';
 const ERASED_EMAIL = 'e2e-account-erased@example.org';
+const REVOKED_EMAIL = 'e2e-account-revoked@example.org';
 
 function dbClient(): pg.Client {
   const url = process.env.DATABASE_URL;
@@ -48,8 +50,57 @@ async function query<T extends Record<string, unknown>>(
 test.describe('operator account controls', () => {
   test.beforeEach(async () => {
     await query(`DELETE FROM users WHERE email = ANY($1::text[])`, [
-      [SUSPENDED_EMAIL, ERASED_EMAIL],
+      [SUSPENDED_EMAIL, ERASED_EMAIL, REVOKED_EMAIL],
     ]);
+  });
+
+  test('a member whose sessions an admin ended is signed out on their next request', async ({
+    page,
+    browser,
+  }) => {
+    test.setTimeout(90_000);
+
+    await signIn(page, REVOKED_EMAIL, /\/profil/);
+    const [member] = await query<{ id: string }>(`SELECT id FROM users WHERE email = $1`, [
+      REVOKED_EMAIL,
+    ]);
+    const memberId = member?.id ?? '';
+    // The signed cookie cache rides next to the token: until it expires,
+    // better-auth answers from it without looking the session up.
+    const cookies = await page.context().cookies();
+    expect(cookies.some((cookie) => cookie.name.includes('session_data'))).toBe(true);
+
+    const adminContext = await browser.newContext();
+    try {
+      const admin = await adminContext.newPage();
+      await signIn(admin, ADMIN_EMAIL, /\/profil/);
+      await admin.goto(`/admin/akaunti/${memberId}`);
+      admin.once('dialog', (dialog) => {
+        void dialog.accept();
+      });
+      await admin
+        .getByRole('button', { name: /^(прекрати всички сесии|end all sessions)$/i })
+        .click();
+      await expect
+        .poll(async () => {
+          const rows = await query<{ n: number }>(
+            `SELECT count(*)::int AS n FROM sessions WHERE user_id = $1`,
+            [memberId],
+          );
+          return rows[0]?.n;
+        })
+        .toBe(0);
+    } finally {
+      await adminContext.close();
+    }
+
+    // Not suspended, cookie cache still fresh — and signed out all the same.
+    await page.goto('/profil');
+    await expect(page).toHaveURL(/\/vhod/);
+    // A route handler behind the same gate hands back no record either.
+    const refused = await page.request.get('/api/profil/eksport', { maxRedirects: 0 });
+    expect(refused.status()).not.toBe(200);
+    expect(await refused.text()).not.toContain(REVOKED_EMAIL);
   });
 
   test('a suspended member is signed out on their next request; the admin can still export', async ({

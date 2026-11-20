@@ -3858,7 +3858,7 @@
       "makePrivate": "Make passport private",
       "makePrivateConfirm": "Make the passport private? It leaves the leaderboards; the member can publish it again.",
       "endSessions": "End all sessions",
-      "endSessionsConfirm": "End all sessions? The member is signed out of every device within 5 minutes. To stop them immediately, use “Suspend”.",
+      "endSessionsConfirm": "End all sessions? Every device the member is signed in on loses access at its next request. The member can sign in again; to keep them out, use “Suspend”.",
       "export": "Download data (JSON)",
       "exportNote": "The complete record for a GDPR Art. 15 or 20 request. The download is recorded as “Export”. No access keys, no GPS routes, no health values.",
       "eraseTitle": "Erase the account (GDPR Art. 17)",

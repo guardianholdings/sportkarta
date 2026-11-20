@@ -340,7 +340,22 @@ describe('the account controls, by source', () => {
     const code = strip(readFileSync(join(WEB_ROOT, 'lib', 'auth-session.ts'), 'utf8'));
     const body = code.slice(code.indexOf('export async function getCurrentUser'));
     const query = body.slice(0, body.indexOf('export async function requireUser'));
-    expect(query).toMatch(/FROM users WHERE id = \$\{userId\} AND suspended_at IS NULL/);
+    expect(query).toMatch(/WHERE u\.id = \$\{userId\} AND u\.suspended_at IS NULL/);
+  });
+
+  it('treats a revoked session as signed out in getCurrentUser, cookie cache or not', () => {
+    // revokeSessions deletes only `sessions` rows; the signed cookie cache
+    // would otherwise vouch for them for SESSION_COOKIE_CACHE_SECONDS. The
+    // behaviour is proven against Postgres in tests/journeys/session-revocation.
+    const code = strip(readFileSync(join(WEB_ROOT, 'lib', 'auth-session.ts'), 'utf8'));
+    const body = code.slice(code.indexOf('export async function getCurrentUser'));
+    const query = body.slice(0, body.indexOf('export async function requireUser'));
+    expect(query).toMatch(/JOIN sessions s ON s\.user_id = u\.id/);
+    expect(query).toMatch(/s\.id = \$\{sessionId\} AND s\.expires_at > now\(\)/);
+    // A cost choice, not a security property: the JOIN above already makes
+    // the session row authoritative, so turning the cache off would only add
+    // better-auth's own session read on top (see the getCurrentUser doc).
+    expect(query).not.toMatch(/disableCookieCache/);
   });
 
   it("hands an admin erasure the same enqueue hook as the member's own", () => {

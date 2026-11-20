@@ -43,8 +43,10 @@ browser) in a MANUAL STEPS list at the end of the session.
 - better-auth (self-hosted) in `apps/web/lib/auth.ts`: email OTP through the
   mail abstraction, Google behind `AUTH_GOOGLE_ENABLED` (ships off). Roles are
   `user < ambassador < admin` (`apps/web/lib/roles.ts`); the first admin comes
-  from `ADMIN_EMAILS`. Authorization reads the role from the database, never
-  from the session cookie cache. pg-boss for jobs (apps/worker)
+  from `ADMIN_EMAILS`. Authorization reads the role — and the session's own
+  row — from the database, never from the session cookie cache: `getCurrentUser`
+  joins the session id better-auth returns, so a revoked session is refused on
+  its next request. pg-boss for jobs (apps/worker)
 - Moderation is municipality-scoped: an ambassador's authority is the rows in
   `ambassador_municipalities`, not their rank, and the scope is part of every
   statement (`apps/web/lib/moderation.ts`) so an out-of-scope decision updates

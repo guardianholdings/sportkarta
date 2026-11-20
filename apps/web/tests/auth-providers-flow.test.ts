@@ -9,6 +9,8 @@ import { authOptions, SESSION_COOKIE_CACHE_SECONDS } from '@/lib/auth-options';
 import { APPLE_ORIGIN } from '@/lib/auth-providers';
 import { OTP_TTL_SECONDS } from '@/lib/auth-surface';
 
+import { BASE, codeSignIn, cookiesFrom, providerSignIn } from './auth-flow-harness';
+
 /**
  * The sign-in flows end to end, through the same options production runs
  * (lib/auth-options.ts) with better-auth's in-memory adapter in place of
@@ -17,7 +19,6 @@ import { OTP_TTL_SECONDS } from '@/lib/auth-surface';
  * the callback route, the linking rules and our hooks are all the real thing.
  */
 
-const BASE = 'http://localhost:3000';
 const ENV: AuthEnv = {
   AUTH_GOOGLE_ENABLED: 'true',
   GOOGLE_CLIENT_ID: 'google-client',
@@ -164,57 +165,12 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-/** `name=value` pairs from Set-Cookie headers, as a browser would send them back. */
-function cookiesFrom(headers: Headers, previous = ''): string {
-  const jar = new Map(
-    previous
-      .split('; ')
-      .filter(Boolean)
-      .map((pair) => [pair.split('=')[0] ?? '', pair] as const),
-  );
-  for (const line of headers.getSetCookie()) {
-    const pair = line.split(';')[0] ?? '';
-    const name = pair.split('=')[0] ?? '';
-    if (pair.endsWith('=') || /max-age=0/i.test(line)) jar.delete(name);
-    else jar.set(name, pair);
-  }
-  return [...jar.values()].join('; ');
-}
-
-/** Start a provider sign-in, come back through the real callback route. */
-async function providerSignIn(auth: Auth, provider: 'google' | 'facebook', cookie = '') {
-  const started = await auth.api.signInSocial({
-    body: {
-      provider,
-      callbackURL: '/profil',
-      errorCallbackURL: `/vhod?provider=${provider}`,
-    },
-    headers: new Headers(cookie ? { cookie } : {}),
-    returnHeaders: true,
-  });
-  const authorize = new URL(started.response.url ?? '');
-  const state = authorize.searchParams.get('state') ?? '';
-  const withState = cookiesFrom(started.headers, cookie);
-  const response = await auth.handler(
-    new Request(`${BASE}/api/auth/callback/${provider}?code=test-code&state=${state}`, {
-      headers: { cookie: withState },
-    }),
-  );
-  return {
-    location: response.headers.get('location') ?? '',
-    cookie: cookiesFrom(response.headers, withState),
-  };
-}
-
-async function codeSignIn(auth: Auth, email: string) {
-  const otp = await auth.api.createVerificationOTP({ body: { email, type: 'sign-in' } });
-  return auth.api.signInEmailOTP({ body: { email, otp }, returnHeaders: true });
-}
-
 /**
- * The session as the database has it. The 5-minute signed cookie cache is
- * skipped on purpose: it is what lets a revoked session linger for up to five
- * minutes (lib/auth-options.ts), and these tests are about the revocation.
+ * The session as the database has it. The signed cookie cache is skipped on
+ * purpose: better-auth's own getSession() would vouch from it for a revoked
+ * session for up to SESSION_COOKIE_CACHE_SECONDS (getCurrentUser does not —
+ * tests/journeys/session-revocation.test.ts), and these tests are about the
+ * revocation.
  */
 async function sessionUser(auth: Auth, cookie: string) {
   const session = await auth.api.getSession({
@@ -267,8 +223,10 @@ describe('the session cookie cache', () => {
   }
 
   it(`vouches for a revoked session for ${SESSION_COOKIE_CACHE_SECONDS / 60} minutes and not a minute longer`, async () => {
-    // A promise to members and operators ("within five minutes"), not just a
-    // setting: widening the window has to fail here, not only move with it.
+    // Authorization does not take the cookie's word for it — getCurrentUser
+    // re-reads the session row (tests/journeys/session-revocation.test.ts) —
+    // but better-auth's own /get-session still answers from it, so the window
+    // stays bounded: widening it has to fail here, not only move with it.
     expect(SESSION_COOKIE_CACHE_SECONDS).toBeLessThanOrEqual(5 * 60);
     vi.useFakeTimers({ toFake: ['Date'] });
     const { auth } = makeAuth();
@@ -279,9 +237,8 @@ describe('the session cookie cache', () => {
     expect((await cachedSessionUser(auth, cookie))?.id).toBe(signedIn.response.user.id);
 
     // Revoked in the store while the account lives on (revokeSessions, the
-    // pre-hijack guard; erasure and suspension remove the users row instead,
-    // which lib/auth-session.ts reads on every request): the database says
-    // so at once...
+    // pre-hijack guard): the database says so at once, and so does
+    // getCurrentUser, which reads that row on every request...
     const context = await auth.$context;
     await context.internalAdapter.deleteUserSessions(signedIn.response.user.id);
     expect(await sessionUser(auth, cookie)).toBeNull();

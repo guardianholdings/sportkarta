@@ -38,9 +38,12 @@ export interface AuthOptionsInput {
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 /**
- * How long the signed session cookie may vouch for a session without a
- * database read — and so how long a revoked session can linger.
- * tests/auth-providers-flow.test.ts pins both edges.
+ * How long better-auth's signed session cookie may vouch for a session without
+ * a database read. Authorization never takes its word: getCurrentUser
+ * (lib/auth-session.ts) re-reads the session row with the user row on every
+ * authenticated request, so a revoked session is refused at once. What this
+ * still bounds is better-auth's own getSession(), which /get-session answers
+ * from. tests/auth-providers-flow.test.ts pins both edges.
  */
 export const SESSION_COOKIE_CACHE_SECONDS = 5 * 60;
 
@@ -69,8 +72,9 @@ export function authOptions(input: AuthOptionsInput) {
       modelName: 'sessions',
       expiresIn: SESSION_TTL_SECONDS,
       updateAge: 60 * 60 * 24,
-      // Short-lived signed cookie cache: most requests then need no session
-      // SELECT, while a revoked session still dies within five minutes.
+      // Short-lived signed cookie cache: better-auth then needs no session
+      // SELECT of its own. It never decides whether a session is still valid:
+      // getCurrentUser checks the row, so a revoked one dies on its next request.
       cookieCache: { enabled: true, maxAge: SESSION_COOKIE_CACHE_SECONDS },
     },
     account: accountOptions(),
@@ -117,7 +121,10 @@ export function authOptions(input: AuthOptionsInput) {
            * after the code has been checked, while the account is still
            * unverified — and drops every provider link on it, then every
            * session again (one could have been minted through a link in
-           * between). The owner's own session is created after this. A member
+           * between). The owner's own session is created after this. A device
+           * of the stranger's still holding the signed cookie cache gets
+           * nothing either: getCurrentUser (lib/auth-session.ts) requires the
+           * session that cookie names to still exist. A member
            * who really did open the account through Facebook simply links it
            * again by signing in with the code, then with a provider that
            * vouches for the address; Facebook stays email-code-only for them.
