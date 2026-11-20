@@ -1597,7 +1597,7 @@ function FilterSheet({
           </FilterGroup>
         </div>
 
-        <div className="flex items-center gap-2.5 border-t border-line px-5 py-3">
+        <div className="flex flex-col gap-2.5 border-t border-line px-5 py-3 sm:flex-row sm:items-center">
           <Button block onClick={onClose}>
             {count === null ? t('apply') : t('showCount', { count })}
           </Button>
