@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
+import { preload } from 'react-dom';
 
 import { UmamiAnalytics } from '@/components/analytics/umami';
 import { ErrorMonitor } from '@/components/monitoring/error-monitor';
@@ -10,6 +11,7 @@ import { SiteFooter } from '@/components/shell/site-footer';
 import { ClientIntlProvider } from '@/i18n/client-intl-provider';
 import { routing } from '@/i18n/routing';
 import { clubsEnabled } from '@/lib/clubs/access';
+import { HEADING_FONT } from '@/lib/heading-font';
 import { siteSocialMetadata, siteUrl } from '@/lib/seo';
 
 import '../fonts.css';
@@ -71,6 +73,17 @@ export default async function LocaleLayout({
     notFound();
   }
   setRequestLocale(locale);
+
+  // The heading face, asked for with the document instead of after the
+  // stylesheet has been read: a page's <h1> is set in Unbounded 800 on all but
+  // a handful of screens, and without this its font arrived after the first
+  // paint and reflowed everything under it (app/fonts.css). One file, the one
+  // this language's letters are in — 13 KB for Bulgarian, 22 KB for English.
+  preload(HEADING_FONT[locale === 'en' ? 'en' : 'bg'], {
+    as: 'font',
+    type: 'font/woff2',
+    crossOrigin: 'anonymous',
+  });
 
   // Read at request time (non-public names so container env applies without a
   // rebuild). Empty/unset disables the feature.

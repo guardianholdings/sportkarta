@@ -37,7 +37,7 @@ export async function MoreGrid({ locale }: { locale: string }) {
     <section
       id="oshte"
       aria-labelledby="guide-more"
-      className="mx-auto max-w-6xl scroll-mt-14 px-4 py-16 sm:px-6 lg:px-8 lg:py-24"
+      className="sk-later mx-auto max-w-6xl scroll-mt-14 px-4 py-16 sm:px-6 lg:px-8 lg:py-24"
     >
       <SectionHead id="guide-more" title={t('title')} />
       <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

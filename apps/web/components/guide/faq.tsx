@@ -24,7 +24,7 @@ export async function Faq() {
   return (
     <section
       aria-labelledby="guide-faq"
-      className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24"
+      className="sk-later mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24"
     >
       <SectionHead id="guide-faq" title={t('title')} />
       <div className="mt-8 grid gap-x-8 lg:grid-cols-2">

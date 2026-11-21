@@ -24,7 +24,7 @@ export async function PrinciplesBand({ signedIn }: { signedIn: boolean }) {
   return (
     <section
       aria-labelledby="home-principles"
-      className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20"
+      className="sk-later mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-20"
     >
       <SectionHead id="home-principles" title={t('title')} />
       <div>

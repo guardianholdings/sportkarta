@@ -856,19 +856,56 @@
   box-shadow: var(--ring);
 }
 
+/* ---- Sections the page reaches by scrolling ----
+   The front page is some 3,500 elements, nine tenths of them below the first
+   screen. The browser laid all of them out before it drew the first screen,
+   and again each time a web font arrived — the largest block of main-thread
+   work in the load on a phone, for content nobody had scrolled to.
+   `content-visibility: auto` lets it skip a section's layout and paint until
+   the section is near the viewport; the content stays in the document for
+   search, find-in-page and assistive technology. The intrinsic size is a
+   stand-in height for a section not yet laid out (`auto` remembers the real
+   one once it has been), so the scrollbar is a fair guess rather than short.
+   A scroll-driven block inside one lays its section out for good before it
+   measures anything (components/motion/gsap.ts). Print lays out everything. */
+.sk-later {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 100rem;
+}
+@media print {
+  .sk-later {
+    content-visibility: visible;
+  }
+}
+
 /* ---- The dot map ---- */
-/* The map arrives as one west-to-east wipe — a mask sliding across — rather
-   than a delay per dot, which cost a style attribute on a thousand circles. */
+/* The map arrives as one west-to-east wipe rather than a delay per dot, which
+   cost a style attribute on a thousand circles.
+   The wipe is a paper-coloured cover over the frame that shrinks away to the
+   east, not a mask on the drawing. A mask is part of how the drawing is
+   painted: sliding it repainted all 1,300 shapes on every frame of the 1.4 s,
+   on the main thread, during the load — a run of long frames on a throttled
+   phone — and it stayed on the drawing afterwards, so every later repaint
+   paid for it too. A cover only moves; the drawing is painted once. The page's
+   ground is flat paper, so the two look the same. */
 .sk-dotmap {
   display: block;
   width: 100%;
   height: auto;
   overflow: visible;
   cursor: crosshair;
-  mask-image: linear-gradient(90deg, black 45%, transparent 55%);
-  mask-size: 250% 100%;
-  mask-position: 0 0;
-  animation: sk-wipe 1.4s var(--ease-out) backwards;
+}
+.sk-dotmap-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  /* A soft western edge; the overhang at the start (scaleX 1.12) is that edge. */
+  background: linear-gradient(90deg, transparent, var(--paper) 10%);
+  transform: scaleX(0);
+  transform-origin: right;
+  animation: sk-uncover 1.4s var(--ease-out) backwards;
 }
 .sk-dotmap__land {
   fill: none;
@@ -1010,9 +1047,9 @@
     opacity: 0;
   }
 }
-@keyframes sk-wipe {
+@keyframes sk-uncover {
   from {
-    mask-position: 100% 0;
+    transform: scaleX(1.12);
   }
 }
 @keyframes sk-pulse {

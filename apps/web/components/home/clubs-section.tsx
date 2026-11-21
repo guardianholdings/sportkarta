@@ -17,7 +17,7 @@ import { SectionHead } from './section-head';
 export async function ClubsSection() {
   const t = await getTranslations('Home.clubs');
   return (
-    <section aria-labelledby="home-clubs" className="border-y border-line bg-surface">
+    <section aria-labelledby="home-clubs" className="sk-later border-y border-line bg-surface">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8 lg:py-14">
         <SectionHead id="home-clubs" title={t('title')} lead={t('lead', { days: CLUB_TRIAL_DAYS })}>
           <Link href="/za-klubove" className={buttonVariants({ variant: 'accent' })}>
