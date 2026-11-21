@@ -28,7 +28,7 @@
     "jsqr": "^1.4.0",
     "lucide-react": "^1.67.0",
     "maplibre-gl": "^5.6.0",
-    "next": "^15.5.28",
+    "next": "^15.5.29",
     "next-intl": "^4.14.9",
     "pg-boss": "^10.4.2",
     "pmtiles": "^4.5.0",
