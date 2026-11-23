@@ -114,11 +114,11 @@ jobs:
     env:
       DEPLOY_SHA: ${{ needs.gate.outputs.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.DEPLOY_SHA }}
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -141,7 +141,7 @@ jobs:
             : > "$RUNNER_TEMP/next_server_actions_key"
           fi
       - name: Build and push web
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: web
@@ -154,7 +154,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Build and push worker
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: worker
@@ -166,7 +166,7 @@ jobs:
             ${{ env.IMAGE_BASE }}-worker:latest
           cache-from: type=gha
       - name: Build and push migrate
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           target: migrate
@@ -178,7 +178,7 @@ jobs:
             ${{ env.IMAGE_BASE }}-migrate:latest
           cache-from: type=gha
       - name: Build and push backup
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: deploy/backup
           push: true
@@ -206,7 +206,7 @@ jobs:
     env:
       DEPLOY_SHA: ${{ needs.gate.outputs.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.DEPLOY_SHA }}
       # The server's host key is pinned. `accept-new` on a fresh runner accepts
