@@ -5,7 +5,7 @@ import { ScrollStrip } from '@/components/ui/scroll-strip';
 import { buttonVariants } from '@/components/ui/button';
 import { chipClass } from '@/components/ui/chip';
 import { Link } from '@/i18n/navigation';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { EVENT_FILTERS, listEvents, type EventFilter } from '@/lib/clubs/events';
 import { formatDateTime } from '@/lib/format';
 
@@ -25,7 +25,7 @@ export default async function ClubEventsPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor } = await requireClubStaff(slug, 'schedule.view');
+  const { actor } = await requireClubPage(slug, 'schedule.view');
   const { f } = await searchParams;
   const filter: EventFilter = (EVENT_FILTERS as readonly string[]).includes(f ?? '')
     ? (f as EventFilter)

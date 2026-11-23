@@ -17,7 +17,7 @@ import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Link } from '@/i18n/navigation';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { eventForStaff, type EventPlace, type EventTicket } from '@/lib/clubs/events';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { isUuid } from '@/lib/clubs/input';
@@ -83,7 +83,7 @@ export default async function ClubEventPage({
   const { locale, slug, eventId } = await params;
   setRequestLocale(locale);
   if (!isUuid(eventId)) notFound();
-  const { actor } = await requireClubStaff(slug, 'schedule.view');
+  const { actor } = await requireClubPage(slug, 'schedule.view');
   const event = await eventForStaff(actor, eventId, locale);
   if (!event) notFound();
   const canManage = actorCan(actor, 'events.manage');

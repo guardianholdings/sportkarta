@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { ClassForm } from '@/components/clubs/class-form';
 import { Link } from '@/i18n/navigation';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { classFormLabels, clubFormMessages } from '@/lib/clubs/form-labels';
 import { clubSportOptions } from '@/lib/clubs/labels';
 import { listPlans } from '@/lib/clubs/sales';
@@ -22,7 +22,7 @@ export default async function NewClassPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor } = await requireClubStaff(slug, 'schedule.manage');
+  const { actor } = await requireClubPage(slug, 'schedule.manage');
   const [t, labels, messages, sports, locations, instructors, plans, settings] = await Promise.all([
     getTranslations('ClubSchedule'),
     classFormLabels(),

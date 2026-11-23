@@ -8,11 +8,13 @@ import {
   pruneClubRetention,
   pruneMailBudget,
   refreshStats,
+  seedDemoClub,
 } from '@sportkarta/db';
 import {
   CLUB_ACTIVITY_QUEUE,
   CLUB_AUTOMATIONS_QUEUE,
   CLUB_BROADCASTS_QUEUE,
+  CLUB_DEMO_REFRESH_QUEUE,
   CLUB_DIGEST_QUEUE,
   CLUB_EXPIRY_QUEUE,
   CLUB_HEALTH_QUEUE,
@@ -410,6 +412,7 @@ async function main(): Promise<void> {
   // their own retry; the daily and weekly jobs act on "today" / "the week that
   // closed" and retry within it.
   await ensureQueue(CLUB_MATERIALIZE_QUEUE);
+  await ensureQueue(CLUB_DEMO_REFRESH_QUEUE);
   await ensureQueue(CLUB_NOTIFY_QUEUE, MAIL_RETRY);
   await ensureQueue(CLUB_REMINDERS_QUEUE);
   await ensureQueue(CLUB_EXPIRY_QUEUE, WEEKLY_RETRY);
@@ -818,6 +821,32 @@ async function main(): Promise<void> {
   });
   await boss.schedule(CLUB_MATERIALIZE_QUEUE, '11 * * * *');
   await boss.send(CLUB_MATERIALIZE_QUEUE, {});
+
+  // The demo club (Boss decision #53): rebuilt at start and every Monday at 04:30 Sofia
+  // time, so its dates stay current. CLUBS_DEMO_ENABLED (exactly "true") is
+  // read on every run, so with it off a run does nothing; seedDemoClub refuses
+  // unless the one club with the demo slug or status has both. Counts only in
+  // the log.
+  await work(CLUB_DEMO_REFRESH_QUEUE, { batchSize: 1 }, async (jobs) => {
+    for (const job of jobs) {
+      if (process.env.CLUBS_DEMO_ENABLED !== 'true') {
+        console.log(
+          `[worker] ${CLUB_DEMO_REFRESH_QUEUE} job ${job.id}: the demo club is off, nothing done`,
+        );
+        continue;
+      }
+      const report = await seedDemoClub(statsPool);
+      const total = (rows: Record<string, number>): number =>
+        Object.values(rows).reduce((sum, n) => sum + n, 0);
+      console.log(
+        `[worker] ${CLUB_DEMO_REFRESH_QUEUE} job ${job.id}: run day ${report.today}, ` +
+          `${String(total(report.removed))} row(s) removed, ${String(total(report.written))} written, ` +
+          `${String(report.staffInserted)} staff account(s) inserted`,
+      );
+    }
+  });
+  await boss.schedule(CLUB_DEMO_REFRESH_QUEUE, '30 4 * * 1', {}, { tz: 'Europe/Sofia' });
+  await boss.send(CLUB_DEMO_REFRESH_QUEUE, {});
 
   // Club mail, enqueued by the web app with ids only (apps/worker/src/club-mail-job.ts).
   await work(

@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Link } from '@/i18n/navigation';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { threadForStaff } from '@/lib/clubs/inbox';
 import { isUuid } from '@/lib/clubs/input';
@@ -33,7 +33,7 @@ export default async function ClubThreadPage({
   const { locale, slug, threadId } = await params;
   setRequestLocale(locale);
   if (!isUuid(threadId)) notFound();
-  const { actor } = await requireClubStaff(slug, 'inbox.reply');
+  const { actor } = await requireClubPage(slug, 'inbox.reply');
   const thread = await threadForStaff(actor, threadId);
   if (!thread) notFound();
   const [t, messages] = await Promise.all([getTranslations('ClubInbox'), clubFormMessages()]);

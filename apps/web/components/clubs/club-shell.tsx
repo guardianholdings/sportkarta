@@ -11,6 +11,7 @@ import { groupOfficeSections, OFFICE_SECTIONS } from '@/lib/clubs/office-nav';
 import { formatDate } from '@/lib/format';
 
 import { ClubStateBadge } from './club-state-badge';
+import { DemoFormGuard } from './demo-form-guard';
 import { OfficeNav } from './office-nav';
 
 /**
@@ -72,6 +73,8 @@ export async function ClubShell({
       case 'suspended':
       case 'archived':
         return t(`banner.${state}`);
+      case 'demo':
+        return t('banner.demo');
       case 'trial':
         return club.trialEndsOn
           ? t('banner.trial', { date: formatDate(club.trialEndsOn, locale) })
@@ -156,16 +159,28 @@ export async function ClubShell({
           <p
             role="status"
             className={`mt-3 rounded-card border px-3 py-2 text-body-sm ${
-              state === 'trial'
+              state === 'trial' || state === 'demo'
                 ? 'border-brand-border bg-brand-subtle text-ink'
                 : 'border-warning-border bg-warning-bg text-ink'
             }`}
           >
-            {banner}
+            {state === 'demo' ? (
+              <>
+                {/* The short form where the full line would wrap past two lines. */}
+                <span className="sm:hidden">{t('banner.demoShort')}</span>
+                <span className="max-sm:hidden">{banner}</span>
+              </>
+            ) : (
+              banner
+            )}
           </p>
         )}
       </header>
-      {children}
+      {state === 'demo' ? (
+        <DemoFormGuard message={t('demoBlocked')}>{children}</DemoFormGuard>
+      ) : (
+        children
+      )}
     </div>
   );
 }

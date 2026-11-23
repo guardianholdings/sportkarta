@@ -133,6 +133,9 @@ services:
       PARTNER_STRIP_ENABLED: ${PARTNER_STRIP_ENABLED:-}
       # «Клубове» add-on (Stage 9). Ships off: every club route 404s.
       CLUBS_ENABLED: ${CLUBS_ENABLED:-}
+      # The view-only demo club (Boss decision #53): exactly "true", and only with
+      # CLUBS_ENABLED on, opens /klubove/demo and the demo's office pages.
+      CLUBS_DEMO_ENABLED: ${CLUBS_DEMO_ENABLED:-}
       # Club online payments (0046): each club's OWN Stripe account through
       # Connect Standard; members pay on Stripe's hosted page and POPS never
       # holds funds. Off unless CLUB_PAYMENTS_ENABLED is "true" AND
@@ -259,6 +262,9 @@ services:
       # transports fail closed in production and nothing is attempted.
       CLUB_SMS_ENABLED: ${CLUB_SMS_ENABLED:-}
       CLUB_PUSH_ENABLED: ${CLUB_PUSH_ENABLED:-}
+      # The demo club's weekly rebuild (club.demo-refresh) runs only while this
+      # is exactly "true"; read on every run.
+      CLUBS_DEMO_ENABLED: ${CLUBS_DEMO_ENABLED:-}
       PUSH_VAPID_SECRET: ${PUSH_VAPID_SECRET:-}
       SMS_TRANSPORT: ${SMS_TRANSPORT:-}
       SMS_API_KEY: ${SMS_API_KEY:-}

@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { MemberForm } from '@/components/clubs/member-form';
 import { Link } from '@/i18n/navigation';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { clubFormMessages, memberFormLabels } from '@/lib/clubs/form-labels';
 import { isUuid } from '@/lib/clubs/input';
 import { guardianChoices, memberCard } from '@/lib/clubs/members';
@@ -20,7 +20,7 @@ export default async function EditMemberPage({
   const { locale, slug, memberId } = await params;
   setRequestLocale(locale);
   if (!isUuid(memberId)) notFound();
-  const { actor } = await requireClubStaff(slug, 'members.manage');
+  const { actor } = await requireClubPage(slug, 'members.manage');
   const member = await memberCard(actor, memberId);
   if (!member) notFound();
   const [t, labels, messages, guardians] = await Promise.all([

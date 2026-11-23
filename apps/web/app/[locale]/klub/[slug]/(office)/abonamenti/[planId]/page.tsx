@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 
 import { PlanForm } from '@/components/clubs/sales-forms';
 import { Link } from '@/i18n/navigation';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { clubFormMessages, planFormLabels } from '@/lib/clubs/form-labels';
 import { isUuid } from '@/lib/clubs/input';
 import { planById } from '@/lib/clubs/sales';
@@ -21,7 +21,7 @@ export default async function EditPlanPage({
   const { locale, slug, planId } = await params;
   setRequestLocale(locale);
   if (!isUuid(planId)) notFound();
-  const { actor } = await requireClubStaff(slug, 'plans.manage');
+  const { actor } = await requireClubPage(slug, 'plans.manage');
   const plan = await planById(actor, planId);
   if (!plan) notFound();
   const [t, labels, messages] = await Promise.all([

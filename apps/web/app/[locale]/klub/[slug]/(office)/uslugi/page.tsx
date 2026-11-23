@@ -6,7 +6,7 @@ import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { clubTakesPayments } from '@/lib/clubs/payments';
 import {
@@ -47,7 +47,7 @@ export default async function ClubServicesPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor } = await requireClubStaff(slug, 'schedule.manage');
+  const { actor } = await requireClubPage(slug, 'schedule.manage');
   const [t, tClub, messages, locations, resources, services, rules, team, hours, online] =
     await Promise.all([
       getTranslations('ClubServices'),

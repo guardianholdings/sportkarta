@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Link } from '@/i18n/navigation';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { listPlans } from '@/lib/clubs/sales';
 
 import { setPlanArchivedAction } from './actions';
@@ -22,7 +22,7 @@ export default async function ClubPlansPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor } = await requireClubStaff(slug, 'sales.manage');
+  const { actor } = await requireClubPage(slug, 'sales.manage');
   const { arhiv } = await searchParams;
   const showArchived = arhiv === '1';
   const [t, tClub, plans] = await Promise.all([

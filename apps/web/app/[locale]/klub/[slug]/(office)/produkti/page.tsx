@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { featureOn } from '@/lib/clubs/features';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { CLUB_PRODUCT_CATEGORIES, CLUB_VAT_RATES } from '@/lib/clubs/input';
@@ -31,7 +31,7 @@ export default async function ClubProductsPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor, club } = await requireClubStaff(slug, 'shop.manage');
+  const { actor, club } = await requireClubPage(slug, 'shop.manage');
   const [t, tClub, messages] = await Promise.all([
     getTranslations('ClubShop'),
     getTranslations('Club'),

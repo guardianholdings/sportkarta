@@ -2,7 +2,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { PlanForm } from '@/components/clubs/sales-forms';
 import { Link } from '@/i18n/navigation';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { clubFormMessages, planFormLabels } from '@/lib/clubs/form-labels';
 
 import { savePlanAction } from '../actions';
@@ -16,7 +16,7 @@ export default async function NewPlanPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  await requireClubStaff(slug, 'plans.manage');
+  await requireClubPage(slug, 'plans.manage');
   const [t, labels, messages] = await Promise.all([
     getTranslations('ClubSales'),
     planFormLabels(),

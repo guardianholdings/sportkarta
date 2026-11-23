@@ -13,7 +13,7 @@ import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Link } from '@/i18n/navigation';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { isUuid, MAX_BOOKING_WINDOW_DAYS } from '@/lib/clubs/input';
 import { memberChoices } from '@/lib/clubs/members';
@@ -48,7 +48,7 @@ export default async function ClubCalendarPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor, club } = await requireClubStaff(slug, 'schedule.view');
+  const { actor, club } = await requireClubPage(slug, 'schedule.view');
   const query = await searchParams;
   const today = sofiaToday();
   const date =

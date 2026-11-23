@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
 import { Link } from '@/i18n/navigation';
-import { clubName, requireClubStaff } from '@/lib/clubs/club-session';
+import { clubName, requireClubPage } from '@/lib/clubs/club-session';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { isUuid } from '@/lib/clubs/input';
 import { broadcastDetail, broadcastReach, channelsOn, clubTagsInUse } from '@/lib/clubs/messages';
@@ -42,7 +42,7 @@ export default async function ClubBroadcastPage({
   const { locale, slug, broadcastId } = await params;
   setRequestLocale(locale);
   if (!isUuid(broadcastId)) notFound();
-  const { actor, club } = await requireClubStaff(slug, 'messages.send');
+  const { actor, club } = await requireClubPage(slug, 'messages.send');
   const broadcast = await broadcastDetail(actor, broadcastId);
   if (!broadcast) notFound();
   const [t, tClub, tMembers, messages, plans, classes] = await Promise.all([

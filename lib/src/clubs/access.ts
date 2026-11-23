@@ -16,6 +16,9 @@ import { addDaysIso, daysBetween, type IsoDate } from './dates.js';
  *   lapsed     the grace is over. Read-only; the public page is withdrawn.
  *   suspended  the operator stopped it. Read-only; the public page is withdrawn.
  *   archived   closed. The owner can export for 90 days, then it is purged.
+ *   demo       the one shared demo club for prospects, with made-up data.
+ *              Its office pages open view-only; nothing is writable and no
+ *              public page shows it.
  *
  * THE SQL TWIN of `canWrite` is clubWritableSql in apps/web/lib/clubs/access.ts:
  *   status = 'active' AND greatest(paid_until, trial_ends_on) + 14 >= today
@@ -32,7 +35,7 @@ export const CLUB_TRIAL_DAYS = 30;
  */
 export const CLUB_PURGE_AFTER_DAYS = 90;
 
-export const CLUB_STATUSES = ['pending', 'active', 'suspended', 'archived'] as const;
+export const CLUB_STATUSES = ['pending', 'active', 'suspended', 'archived', 'demo'] as const;
 export type ClubStatus = (typeof CLUB_STATUSES)[number];
 
 export const CLUB_TIERS = ['community', 'standard', 'pro'] as const;
@@ -42,7 +45,7 @@ export const CLUB_KINDS = ['gym', 'studio', 'club', 'trainer', 'other'] as const
 export type ClubKind = (typeof CLUB_KINDS)[number];
 
 export type ClubAccessState =
-  'pending' | 'trial' | 'active' | 'past_due' | 'lapsed' | 'suspended' | 'archived';
+  'pending' | 'trial' | 'active' | 'past_due' | 'lapsed' | 'suspended' | 'archived' | 'demo';
 
 export interface ClubAccessInput {
   status: ClubStatus;
@@ -61,6 +64,7 @@ export function clubAccessState(club: ClubAccessInput, today: IsoDate): ClubAcce
   if (club.status === 'pending') return 'pending';
   if (club.status === 'suspended') return 'suspended';
   if (club.status === 'archived') return 'archived';
+  if (club.status === 'demo') return 'demo';
   if (club.paidUntil !== null && club.paidUntil >= today) return 'active';
   if (club.trialEndsOn !== null && club.trialEndsOn >= today) return 'trial';
   const coverage = later(club.paidUntil, club.trialEndsOn);

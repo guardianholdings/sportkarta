@@ -7,7 +7,7 @@ import {
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { featureOn } from '@/lib/clubs/features';
 import { clubInvoices, invoicesOwingCredit } from '@/lib/clubs/invoices';
 import { formatDate } from '@/lib/format';
@@ -29,7 +29,7 @@ export default async function ClubInvoicesPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor, club } = await requireClubStaff(slug, 'invoices.issue');
+  const { actor, club } = await requireClubPage(slug, 'invoices.issue');
   const [t, tClub] = await Promise.all([getTranslations('ClubInvoices'), getTranslations('Club')]);
 
   // A page at a time, newest number first; `pred` is where the page starts below.

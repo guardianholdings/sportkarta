@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { EventFields } from '@/components/clubs/event-fields';
 import { Button } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { clubSportOptions } from '@/lib/clubs/labels';
 import { clubResources } from '@/lib/clubs/resources';
@@ -24,7 +24,7 @@ export default async function NewClubEventPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor } = await requireClubStaff(slug, 'events.manage');
+  const { actor } = await requireClubPage(slug, 'events.manage');
   const [t, messages, sports, locations, resources] = await Promise.all([
     getTranslations('ClubEvents'),
     clubFormMessages(),

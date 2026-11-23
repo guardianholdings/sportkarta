@@ -8,7 +8,7 @@ import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { featureOn } from '@/lib/clubs/features';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { TIME_OFF_REASONS } from '@/lib/clubs/input';
@@ -38,7 +38,7 @@ export default async function ClubTeamPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor, club } = await requireClubStaff(slug, 'staff.view');
+  const { actor, club } = await requireClubPage(slug, 'staff.view');
   const canPay = actorCan(actor, 'staff.manage') && featureOn(club, 'staff_pay');
   const [t, tClub, messages, team, timeOff] = await Promise.all([
     getTranslations('ClubTeam'),

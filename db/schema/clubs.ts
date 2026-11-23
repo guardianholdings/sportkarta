@@ -128,7 +128,10 @@ export const clubs = pgTable(
       sql`${t.slug} ~ '^[a-z0-9]+(-[a-z0-9]+)*$' AND char_length(${t.slug}) BETWEEN 3 AND 60`,
     ),
     check('clubs_tier_known', sql`${t.tier} IN ('community', 'standard', 'pro')`),
-    check('clubs_status_known', sql`${t.status} IN ('pending', 'active', 'suspended', 'archived')`),
+    check(
+      'clubs_status_known',
+      sql`${t.status} IN ('pending', 'active', 'suspended', 'archived', 'demo')`,
+    ),
     check('clubs_currency_supported', sql`${t.currency} = 'EUR'`),
     check('clubs_contract_billing_known', sql`${t.contractBilling} IN ('monthly', 'yearly')`),
     check(

@@ -2,7 +2,7 @@ import { SMS_NOTIFY_KINDS, clubHasFeature, lowestTierWith } from '@sportkarta/li
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Button } from '@/components/ui/button';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { clubSwitchOn, featureOn } from '@/lib/clubs/features';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { smsOverview } from '@/lib/clubs/messages';
@@ -27,7 +27,7 @@ export default async function ClubSmsPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor, club } = await requireClubStaff(slug, 'settings.manage');
+  const { actor, club } = await requireClubPage(slug, 'settings.manage');
   const [t, tClub, messages] = await Promise.all([
     getTranslations('ClubMessages'),
     getTranslations('Club'),

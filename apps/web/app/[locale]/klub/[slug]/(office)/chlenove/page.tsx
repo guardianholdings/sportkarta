@@ -9,7 +9,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { chipClass } from '@/components/ui/chip';
 import { Input } from '@/components/ui/input';
 import { Link } from '@/i18n/navigation';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import {
   MEMBER_FILTERS,
   MEMBER_PAGE_SIZE,
@@ -31,7 +31,7 @@ export default async function ClubMembersPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor } = await requireClubStaff(slug, 'members.view');
+  const { actor } = await requireClubPage(slug, 'members.view');
   const query = await searchParams;
   const filter: MemberFilter = (MEMBER_FILTERS as readonly string[]).includes(query.f ?? '')
     ? (query.f as MemberFilter)

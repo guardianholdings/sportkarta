@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Link } from '@/i18n/navigation';
 import { listClubApiKeys } from '@/lib/clubs/api-keys';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { listDoorDevices } from '@/lib/clubs/doors';
 import { clubSwitchOn, featureOn } from '@/lib/clubs/features';
 import { clubLocations } from '@/lib/clubs/settings';
@@ -84,7 +84,7 @@ export default async function ClubIntegrationsPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor, club } = await requireClubStaff(slug, 'api.manage');
+  const { actor, club } = await requireClubPage(slug, 'api.manage');
   const [t, tClub] = await Promise.all([
     getTranslations('ClubIntegrations'),
     getTranslations('Club'),

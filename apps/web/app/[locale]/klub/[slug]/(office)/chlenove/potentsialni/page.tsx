@@ -5,7 +5,7 @@ import { LeadCardView } from '@/components/clubs/lead-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link } from '@/i18n/navigation';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { leadBoard, leadOwners } from '@/lib/clubs/leads';
 import { formErrorText, isOutcomeCode } from '@/lib/clubs/form-error';
@@ -30,7 +30,7 @@ export default async function ClubLeadsPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor } = await requireClubStaff(slug, 'members.view');
+  const { actor } = await requireClubPage(slug, 'members.view');
   const today = sofiaToday();
   const [t, messages, cards, owners] = await Promise.all([
     getTranslations('ClubLeads'),

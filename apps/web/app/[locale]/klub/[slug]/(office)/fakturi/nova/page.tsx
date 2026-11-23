@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link, redirect } from '@/i18n/navigation';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { featureOn } from '@/lib/clubs/features';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { isUuid } from '@/lib/clubs/input';
@@ -30,7 +30,7 @@ export default async function NewInvoicePage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor, club } = await requireClubStaff(slug, 'invoices.issue');
+  const { actor, club } = await requireClubPage(slug, 'invoices.issue');
   const { zadalzhenie, rezultat } = await searchParams;
   if (!featureOn(club, 'invoices') || !isUuid(zadalzhenie)) notFound();
   const draft = await invoiceDraft(actor, zadalzhenie);

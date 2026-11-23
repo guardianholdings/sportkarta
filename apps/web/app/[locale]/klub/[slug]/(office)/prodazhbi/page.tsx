@@ -2,7 +2,7 @@ import { clubHasFeature, formatEuro, lowestTierWith } from '@sportkarta/lib/club
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { featureOn } from '@/lib/clubs/features';
 import { recentSales } from '@/lib/clubs/shop';
 import { formatDateTime } from '@/lib/format';
@@ -17,7 +17,7 @@ export default async function ClubSalesPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor, club } = await requireClubStaff(slug, 'shop.sell');
+  const { actor, club } = await requireClubPage(slug, 'shop.sell');
   const [t, tClub] = await Promise.all([getTranslations('ClubShop'), getTranslations('Club')]);
 
   if (!featureOn(club, 'shop')) {

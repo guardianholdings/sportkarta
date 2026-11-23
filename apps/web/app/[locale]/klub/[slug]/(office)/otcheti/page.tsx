@@ -4,7 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { BarChart } from '@/components/stats/bar-chart';
 import { buttonVariants } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { CLUB_EXPORT_DATASETS, exportPermission } from '@/lib/clubs/export';
 import { featureOn } from '@/lib/clubs/features';
 import {
@@ -45,7 +45,7 @@ export default async function ClubReportsPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor, club } = await requireClubStaff(slug, 'reports.view');
+  const { actor, club } = await requireClubPage(slug, 'reports.view');
   const query = await searchParams;
   const payMonth =
     query.mesec && /^(20\d{2}|2100)-(0[1-9]|1[0-2])$/.test(query.mesec)

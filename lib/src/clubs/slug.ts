@@ -16,6 +16,7 @@ export const RESERVED_CLUB_SLUGS: ReadonlySet<string> = new Set([
   'az',
   'admin',
   'api',
+  'demo',
   'eksport',
   'kiosk',
   'klub',

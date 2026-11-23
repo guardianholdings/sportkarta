@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Link } from '@/i18n/navigation';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { formErrorText } from '@/lib/clubs/form-error';
 import { clubSportLabeler, clubSportOptions } from '@/lib/clubs/labels';
@@ -32,7 +32,7 @@ export default async function ClubRanksPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor } = await requireClubStaff(slug, 'ranks.view');
+  const { actor } = await requireClubPage(slug, 'ranks.view');
   const { rezultat } = await searchParams;
   const [t, messages, ladders, ready, sportLabel, sports] = await Promise.all([
     getTranslations('ClubRanks'),

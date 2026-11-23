@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { PrintButton } from '@/components/clubs/print-button';
 import { Link } from '@/i18n/navigation';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { signatureForPrint } from '@/lib/clubs/documents';
 import { isUuid } from '@/lib/clubs/input';
 import { formatDateTime } from '@/lib/format';
@@ -23,7 +23,7 @@ export default async function ClubSignaturePrintPage({
   const { locale, slug, signatureId } = await params;
   setRequestLocale(locale);
   if (!isUuid(signatureId)) notFound();
-  const { actor } = await requireClubStaff(slug, 'members.view');
+  const { actor } = await requireClubPage(slug, 'members.view');
   const [t, signature] = await Promise.all([
     getTranslations('ClubDocuments'),
     signatureForPrint(actor, signatureId),
