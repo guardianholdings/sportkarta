@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Link } from '@/i18n/navigation';
 import { todaysCheckins } from '@/lib/clubs/checkin';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { missingFor } from '@/lib/clubs/documents';
 import { isUuid } from '@/lib/clubs/input';
 import { searchMembers } from '@/lib/clubs/members';
@@ -66,7 +66,7 @@ export default async function ClubDeskPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor } = await requireClubStaff(slug, 'attendance.record');
+  const { actor } = await requireClubPage(slug, 'attendance.record');
   const query = await searchParams;
   const q = (query.q ?? '').slice(0, 80);
   const [t, tClub, results, today, locations] = await Promise.all([

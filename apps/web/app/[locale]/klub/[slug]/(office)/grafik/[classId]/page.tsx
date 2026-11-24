@@ -6,7 +6,7 @@ import { ClassForm } from '@/components/clubs/class-form';
 import { buttonVariants } from '@/components/ui/button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Link } from '@/i18n/navigation';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { classFormLabels, classFormValues, clubFormMessages } from '@/lib/clubs/form-labels';
 import { isUuid } from '@/lib/clubs/input';
 import { clubSportOptions } from '@/lib/clubs/labels';
@@ -28,7 +28,7 @@ export default async function EditClassPage({
   const { locale, slug, classId } = await params;
   setRequestLocale(locale);
   if (!isUuid(classId)) notFound();
-  const { actor } = await requireClubStaff(slug, 'schedule.manage');
+  const { actor } = await requireClubPage(slug, 'schedule.manage');
   const cls = await classById(actor, classId);
   if (!cls) notFound();
   const [t, labels, messages, sports, locations, instructors, plans, settings] = await Promise.all([

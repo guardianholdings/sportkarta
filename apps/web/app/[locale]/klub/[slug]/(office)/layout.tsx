@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { ClubShell } from '@/components/clubs/club-shell';
-import { clubName, requireClubStaff } from '@/lib/clubs/club-session';
+import { clubName, requireClubPage } from '@/lib/clubs/club-session';
 import { clubsForStaff } from '@/lib/clubs/staff';
 
 /** «<club> — управление» in the tab; never indexed. The context lookup is cached per request. */
@@ -13,11 +13,17 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale, slug } = await params;
   const [{ club }, t] = await Promise.all([
-    requireClubStaff(slug, 'office.view'),
+    requireClubPage(slug, 'office.view'),
     getTranslations({ locale, namespace: 'ClubOffice' }),
   ]);
+  // The demo club's tab and link previews: its own title, used whole since it
+  // names the product already (no brand suffix), and a description.
+  const demo = club.status === 'demo';
   return {
-    title: t('metaTitle', { club: clubName(club, locale) }),
+    title: demo
+      ? { absolute: t('demoMetaTitle') }
+      : t('metaTitle', { club: clubName(club, locale) }),
+    ...(demo ? { description: t('demoMetaDescription') } : {}),
     robots: { index: false, follow: false },
     // Member and token paths stay out of the next page's referrer.
     referrer: 'no-referrer',
@@ -42,7 +48,7 @@ export default async function ClubOfficeLayout({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const context = await requireClubStaff(slug, 'office.view');
+  const context = await requireClubPage(slug, 'office.view');
   const mine = await clubsForStaff(context.user.id);
   const otherClubs = mine
     .filter((club) => club.slug !== slug)

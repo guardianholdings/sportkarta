@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollStrip } from '@/components/ui/scroll-strip';
 import { Select } from '@/components/ui/select';
 import { cityDisplayName } from '@/lib/city-names';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { clubSwitchOn, featureOn } from '@/lib/clubs/features';
 import { clubTrackingSettings } from '@/lib/clubs/tracking';
 import { CLUB_EXPORT_DATASETS } from '@/lib/clubs/export';
@@ -112,7 +112,7 @@ export default async function ClubSettingsPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor, club } = await requireClubStaff(slug, 'settings.manage');
+  const { actor, club } = await requireClubPage(slug, 'settings.manage');
   const settings = await clubSettings(club.id);
   if (!settings) notFound();
   const { plashtaniya, fakturi, prosledyavane } = await searchParams;

@@ -7,7 +7,7 @@ import {
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
-import { clubName, requireClubStaff } from '@/lib/clubs/club-session';
+import { clubName, requireClubPage } from '@/lib/clubs/club-session';
 import { featureOn } from '@/lib/clubs/features';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import {
@@ -40,7 +40,7 @@ export default async function ClubMessagesPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor, club } = await requireClubStaff(slug, 'messages.send');
+  const { actor, club } = await requireClubPage(slug, 'messages.send');
   const [t, tClub, messages] = await Promise.all([
     getTranslations('ClubMessages'),
     getTranslations('Club'),

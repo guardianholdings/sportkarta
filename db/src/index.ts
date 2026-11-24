@@ -36,6 +36,14 @@ export { refreshStats, STATS_MATVIEWS } from './stats.js';
 export { HORIZON_WEEKS, materializeSessions } from './sessions/materialize.js';
 export { materializeClubClasses } from './clubs/materialize.js';
 export {
+  DEMO_CLUB_SLUG,
+  DEMO_CLUB_STATUS,
+  DemoClubRefusal,
+  purgeDemoClub,
+  seedDemoClub,
+} from './clubs/demo-seed.js';
+export type { DemoPurgeReport, DemoSeedReport } from './clubs/demo-seed.js';
+export {
   chargeClubBookingFees,
   clubStrikesSql,
   feeMailCandidates,

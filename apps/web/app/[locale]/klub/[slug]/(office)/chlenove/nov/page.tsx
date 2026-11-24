@@ -2,7 +2,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { MemberForm } from '@/components/clubs/member-form';
 import { Link } from '@/i18n/navigation';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { clubFormMessages, memberFormLabels } from '@/lib/clubs/form-labels';
 import { guardianChoices } from '@/lib/clubs/members';
 
@@ -17,7 +17,7 @@ export default async function NewMemberPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor } = await requireClubStaff(slug, 'members.manage');
+  const { actor } = await requireClubPage(slug, 'members.manage');
   const [t, labels, messages, guardians] = await Promise.all([
     getTranslations('ClubMembers'),
     memberFormLabels('create'),

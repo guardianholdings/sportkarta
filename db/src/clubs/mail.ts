@@ -830,7 +830,8 @@ export async function recordClubMonthlyActivity(
       (SELECT coalesce(sum(u.parts), 0)::int FROM club_sms_usage u
         WHERE u.club_id = c.id AND u.month = bounds.first)
       FROM clubs c, bounds
-     WHERE c.status <> 'archived' AND c.applied_at < bounds.next
+     -- The demo club's members, visits and payments are made up, so it gets no row.
+     WHERE c.status NOT IN ('archived', 'demo') AND c.applied_at < bounds.next
     ON CONFLICT (club_id, month) DO NOTHING
     RETURNING id
   `);

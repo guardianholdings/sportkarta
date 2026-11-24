@@ -17,6 +17,8 @@
 
 export const CLUB_NOTIFY_QUEUE = 'club.notify';
 export const CLUB_MATERIALIZE_QUEUE = 'club.materialize';
+/** Mondays and at start, only while CLUBS_DEMO_ENABLED is on: rebuild the demo club (Boss decision #53). */
+export const CLUB_DEMO_REFRESH_QUEUE = 'club.demo-refresh';
 export const CLUB_REMINDERS_QUEUE = 'club.reminders';
 export const CLUB_EXPIRY_QUEUE = 'club.expiry';
 export const CLUB_DIGEST_QUEUE = 'club.digest';

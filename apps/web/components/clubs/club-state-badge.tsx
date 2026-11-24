@@ -6,6 +6,7 @@ import {
   CircleDashed,
   CircleX,
   Clock,
+  Eye,
   Hourglass,
   PauseCircle,
   type LucideIcon,
@@ -27,6 +28,7 @@ const CLUB_STATE: Record<ClubAccessState, { tone: BadgeTone; icon: LucideIcon }>
   lapsed: { tone: 'danger', icon: CircleX },
   suspended: { tone: 'danger', icon: Ban },
   archived: { tone: 'neutral', icon: CircleDashed },
+  demo: { tone: 'info', icon: Eye },
 };
 
 export function ClubStateBadge({ state, label }: { state: ClubAccessState; label: string }) {

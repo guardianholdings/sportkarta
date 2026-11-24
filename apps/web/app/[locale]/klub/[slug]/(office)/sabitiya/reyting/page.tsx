@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { ScrollStrip } from '@/components/ui/scroll-strip';
 import { chipClass } from '@/components/ui/chip';
 import { Link } from '@/i18n/navigation';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { clubSportLabeler } from '@/lib/clubs/labels';
 import { clubRatings, ratedSports } from '@/lib/clubs/tournaments';
 
@@ -24,7 +24,7 @@ export default async function ClubRatingsPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor } = await requireClubStaff(slug, 'members.view');
+  const { actor } = await requireClubPage(slug, 'members.view');
   const [t, sportLabel, sports] = await Promise.all([
     getTranslations('ClubEvents.ratings'),
     clubSportLabeler(),

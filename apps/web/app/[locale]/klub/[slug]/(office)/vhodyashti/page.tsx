@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollStrip } from '@/components/ui/scroll-strip';
 import { chipClass } from '@/components/ui/chip';
 import { Link } from '@/i18n/navigation';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { INBOX_FILTERS, listThreads, type InboxFilter } from '@/lib/clubs/inbox';
 import { formatDate, formatDateTime } from '@/lib/format';
 
@@ -23,7 +23,7 @@ export default async function ClubInboxPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor } = await requireClubStaff(slug, 'inbox.reply');
+  const { actor } = await requireClubPage(slug, 'inbox.reply');
   const { f } = await searchParams;
   const filter: InboxFilter = (INBOX_FILTERS as readonly string[]).includes(f ?? '')
     ? (f as InboxFilter)

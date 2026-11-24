@@ -21,6 +21,15 @@ export function clubsEnabled(): boolean {
   return process.env.CLUBS_ENABLED === 'true';
 }
 
+/**
+ * The demo club's flag. `CLUBS_DEMO_ENABLED` must be exactly "true" and counts
+ * only while CLUBS_ENABLED is on; read at request time, like it. Off, the demo
+ * entry and the demo club's office pages answer 404, and the demo club is inert.
+ */
+export function clubsDemoEnabled(): boolean {
+  return clubsEnabled() && process.env.CLUBS_DEMO_ENABLED === 'true';
+}
+
 /** Today on the Sofia calendar, in SQL. */
 export const SOFIA_TODAY_SQL: SQL = sql`(now() AT TIME ZONE 'Europe/Sofia')::date`;
 

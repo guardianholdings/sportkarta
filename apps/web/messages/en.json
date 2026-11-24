@@ -414,7 +414,8 @@
       "clubBroadcasts": "Club broadcasts",
       "clubAutomations": "Club automations",
       "clubWebhooks": "Club webhooks",
-      "clubIntegrationsPrune": "Webhook log cleanup"
+      "clubIntegrationsPrune": "Webhook log cleanup",
+      "clubDemoRefresh": "Demo club weekly refresh"
     },
     "cron": {
       "everyMinute": "every minute",
@@ -4210,7 +4211,8 @@
       "past_due": "Payment overdue",
       "lapsed": "Lapsed",
       "suspended": "Suspended",
-      "archived": "Archived"
+      "archived": "Archived",
+      "demo": "Demo"
     },
     "role": {
       "owner": "Owner",
@@ -4463,6 +4465,9 @@
   },
   "ClubOffice": {
     "metaTitle": "{club} — management",
+    "demoMetaTitle": "Demo club: running a club in POPS",
+    "demoMetaDescription": "See what running a club in POPS looks like: schedule, members, memberships, payments and attendance. Made-up data, no sign-in.",
+    "demoBlocked": "This is a demo: nothing is saved or sent.",
     "nav": {
       "dashboard": "Dashboard",
       "desk": "Check-in",
@@ -4510,6 +4515,8 @@
       "lapsed": "The trial or paid period has ended. The platform is read-only and the public page is hidden. Contact us to renew.",
       "suspended": "The club is suspended. The platform is read-only.",
       "archived": "The club is archived. You can download your data under “Settings”.",
+      "demo": "This is a demo club: the club, the people and the amounts are made up. You can look at everything, but nothing is saved or sent.",
+      "demoShort": "Demo club with made-up data. Nothing is saved.",
       "readOnly": "Read-only"
     },
     "dashboard": {

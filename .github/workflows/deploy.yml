@@ -324,6 +324,11 @@ jobs:
           GLITCHTIP_DSN=${{ vars.GLITCHTIP_DSN }}
           PARTNER_STRIP_ENABLED=${{ vars.PARTNER_STRIP_ENABLED }}
           CLUBS_ENABLED=${{ vars.CLUBS_ENABLED }}
+          # The open demo club office (0064): a VARIABLE ("true" = on), acting
+          # only with CLUBS_ENABLED. compose hands it to web and worker; without
+          # this line it is empty in production whatever the variable holds
+          # (apps/web/tests/deploy-env-render.test.ts). Empty = off.
+          CLUBS_DEMO_ENABLED=${{ vars.CLUBS_DEMO_ENABLED }}
           # Club online payments (Stage 9 v2, 0046): switch and provider are
           # VARIABLES, the Stripe platform keys are SECRETS. Empty = off.
           CLUB_PAYMENTS_ENABLED=${{ vars.CLUB_PAYMENTS_ENABLED }}

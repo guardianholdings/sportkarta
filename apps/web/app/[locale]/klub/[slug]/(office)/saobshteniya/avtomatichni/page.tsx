@@ -17,7 +17,7 @@ import { SmsTextarea } from '@/components/clubs/sms-textarea';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { featureOn } from '@/lib/clubs/features';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { channelsOn, listAutomations } from '@/lib/clubs/messages';
@@ -45,7 +45,7 @@ export default async function ClubAutomationsPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor, club } = await requireClubStaff(slug, 'messages.send');
+  const { actor, club } = await requireClubPage(slug, 'messages.send');
   const [t, tClub, messages] = await Promise.all([
     getTranslations('ClubMessages'),
     getTranslations('Club'),

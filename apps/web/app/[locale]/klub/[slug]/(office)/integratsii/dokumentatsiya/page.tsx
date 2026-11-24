@@ -6,7 +6,7 @@ import {
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { MCP_TOOLS } from '@/lib/clubs/mcp';
 import { CLUB_API_PER_MINUTE, CLUB_DOOR_PER_MINUTE } from '@/lib/clubs/rate-limit';
 import { siteUrl } from '@/lib/seo';
@@ -59,7 +59,7 @@ export default async function ClubApiDocsPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  await requireClubStaff(slug, 'api.manage');
+  await requireClubPage(slug, 'api.manage');
   const t = await getTranslations('ClubIntegrations.docs');
   const base = `${siteUrl()}/api/clubs/v1`;
   const section = 'space-y-3 rounded-card border border-line bg-surface p-4 shadow-sm';

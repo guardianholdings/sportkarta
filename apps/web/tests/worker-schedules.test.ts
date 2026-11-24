@@ -89,6 +89,7 @@ describe('worker schedules avoid the DST hour', () => {
       [
         'CLUB_ACTIVITY_QUEUE',
         'CLUB_AUTOMATIONS_QUEUE',
+        'CLUB_DEMO_REFRESH_QUEUE',
         'CLUB_DIGEST_QUEUE',
         'CLUB_EXPIRY_QUEUE',
         'CLUB_HEALTH_QUEUE',

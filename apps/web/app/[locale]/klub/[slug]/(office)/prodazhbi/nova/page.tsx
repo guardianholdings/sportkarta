@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { TillForm } from '@/components/clubs/till-form';
 import { Link } from '@/i18n/navigation';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { featureOn } from '@/lib/clubs/features';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { CLUB_PRODUCT_CATEGORIES } from '@/lib/clubs/input';
@@ -23,7 +23,7 @@ export default async function ClubTillPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor, club } = await requireClubStaff(slug, 'shop.sell');
+  const { actor, club } = await requireClubPage(slug, 'shop.sell');
   const [t, tClub, messages] = await Promise.all([
     getTranslations('ClubShop'),
     getTranslations('Club'),

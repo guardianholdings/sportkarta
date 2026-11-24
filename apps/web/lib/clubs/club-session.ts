@@ -18,7 +18,7 @@ import { cache } from 'react';
 
 import { requireUser, type CurrentUser } from '../auth-session';
 
-import { clubsEnabled } from './access';
+import { clubsDemoEnabled, clubsEnabled } from './access';
 import type { ClubActor } from './scope';
 
 /**
@@ -68,23 +68,8 @@ function textOrNull(value: unknown): string | null {
   return value === null || value === undefined ? null : String(value);
 }
 
-const loadContext = cache(async (slug: string): Promise<ClubContext | null> => {
-  const user = await requireUser();
-  const result = await getDb().execute(sql`
-    SELECT c.id, c.slug, c.name_bg, c.name_en, c.kind, c.tier, c.status, c.visible,
-           to_char(c.trial_ends_on, 'YYYY-MM-DD') AS trial_ends_on,
-           to_char(c.paid_until, 'YYYY-MM-DD') AS paid_until,
-           c.member_cap, c.logo_path, c.locale, s.role
-      FROM clubs c
-      LEFT JOIN club_staff s ON s.club_id = c.id AND s.user_id = ${user.id}
-     WHERE c.slug = ${slug}
-  `);
-  const row = result.rows[0];
-  if (!row) return null;
-  const role = isClubRole(row.role) ? row.role : null;
-  const ngoAdmin = user.role === 'admin';
-  if (role === null && !ngoAdmin) return null;
-
+/** The club columns both loaders select, as a summary with its access state. */
+function toClubSummary(row: Record<string, unknown>): ClubSummary {
   const club: ClubSummary = {
     id: String(row.id),
     slug: String(row.slug),
@@ -102,6 +87,27 @@ const loadContext = cache(async (slug: string): Promise<ClubContext | null> => {
     accessState: 'pending',
   };
   club.accessState = clubAccessState(club, sofiaToday());
+  return club;
+}
+
+const loadContext = cache(async (slug: string): Promise<ClubContext | null> => {
+  const user = await requireUser();
+  const result = await getDb().execute(sql`
+    SELECT c.id, c.slug, c.name_bg, c.name_en, c.kind, c.tier, c.status, c.visible,
+           to_char(c.trial_ends_on, 'YYYY-MM-DD') AS trial_ends_on,
+           to_char(c.paid_until, 'YYYY-MM-DD') AS paid_until,
+           c.member_cap, c.logo_path, c.locale, s.role
+      FROM clubs c
+      LEFT JOIN club_staff s ON s.club_id = c.id AND s.user_id = ${user.id}
+     WHERE c.slug = ${slug}
+  `);
+  const row = result.rows[0];
+  if (!row) return null;
+  const role = isClubRole(row.role) ? row.role : null;
+  const ngoAdmin = user.role === 'admin';
+  if (role === null && !ngoAdmin) return null;
+
+  const club = toClubSummary(row);
 
   if (role === null) {
     // The NGO admin reading a club they do not work at: logged where the
@@ -146,6 +152,68 @@ export async function requireClubStaffAny(
   if (!context) notFound();
   const { role, ngoAdmin } = context.actor;
   if (!ngoAdmin && (role === null || !permissions.some((p) => can(role, p)))) notFound();
+  return context;
+}
+
+/** The one demo club's slug, reserved in lib/src/clubs/slug.ts so no club can take it. */
+export const DEMO_CLUB_SLUG = 'demo';
+
+/**
+ * The demo club as its owner sees it: the club with slug `demo` AND status
+ * `demo`, and its owner's account (made-up, at an address that cannot sign
+ * in). No sign-in and no write: it never calls requireUser and never logs to
+ * club_audit. Only requireClubPage returns it. requireClubStaff, which every
+ * action calls, never does, and a `demo` club fails clubWritableSql in every
+ * write statement besides.
+ */
+const loadDemoContext = cache(async (): Promise<ClubContext | null> => {
+  const result = await getDb().execute(sql`
+    SELECT c.id, c.slug, c.name_bg, c.name_en, c.kind, c.tier, c.status, c.visible,
+           to_char(c.trial_ends_on, 'YYYY-MM-DD') AS trial_ends_on,
+           to_char(c.paid_until, 'YYYY-MM-DD') AS paid_until,
+           c.member_cap, c.logo_path, c.locale,
+           u.id AS user_id, u.email, u.display_name
+      FROM clubs c
+      JOIN club_staff s ON s.club_id = c.id AND s.role = 'owner'
+      JOIN users u ON u.id = s.user_id AND u.suspended_at IS NULL
+     WHERE c.slug = ${DEMO_CLUB_SLUG} AND c.status = 'demo'
+     ORDER BY s.created_at, s.user_id
+     LIMIT 1
+  `);
+  const row = result.rows[0];
+  if (!row) return null;
+  const club = toClubSummary(row);
+  const user: CurrentUser = {
+    id: String(row.user_id),
+    email: String(row.email),
+    displayName: String(row.display_name ?? ''),
+    homeCity: null,
+    isMinor: false,
+    role: 'user',
+  };
+  return {
+    user,
+    actor: { userId: user.id, clubId: club.id, role: 'owner', ngoAdmin: false },
+    club,
+  };
+});
+
+/**
+ * The office's PAGE gate: the layout and every office page.tsx call it, and no
+ * actions file may (apps/web/tests/club-page-gate.test.ts). For the demo club,
+ * while CLUBS_DEMO_ENABLED is on, anyone may view a page the owner may see,
+ * signed in or not; with the flag off it answers 404. Every other club gets
+ * exactly requireClubStaff, so nothing changes for them.
+ */
+export async function requireClubPage(
+  slug: string,
+  permission: ClubPermission,
+): Promise<ClubContext> {
+  requireClubsEnabled();
+  if (slug !== DEMO_CLUB_SLUG) return requireClubStaff(slug, permission);
+  if (!clubsDemoEnabled()) notFound();
+  const context = await loadDemoContext();
+  if (!context || !can('owner', permission)) notFound();
   return context;
 }
 

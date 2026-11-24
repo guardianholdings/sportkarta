@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { Link } from '@/i18n/navigation';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { isUuid } from '@/lib/clubs/input';
 import { clubSportLabeler } from '@/lib/clubs/labels';
 import { listClasses, weekOccurrences } from '@/lib/clubs/schedule';
@@ -31,7 +31,7 @@ export default async function ClubTimetablePage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor } = await requireClubStaff(slug, 'schedule.view');
+  const { actor } = await requireClubPage(slug, 'schedule.view');
   const query = await searchParams;
   const today = sofiaToday();
   const thisMonday = isoWeekMonday(isoWeekKey(today)) ?? today;

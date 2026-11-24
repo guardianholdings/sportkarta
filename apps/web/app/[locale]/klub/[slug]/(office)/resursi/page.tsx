@@ -6,7 +6,7 @@ import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Link } from '@/i18n/navigation';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { CLUB_RESOURCE_KINDS } from '@/lib/clubs/input';
 import {
@@ -45,7 +45,7 @@ export default async function ClubResourcesPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor } = await requireClubStaff(slug, 'settings.manage');
+  const { actor } = await requireClubPage(slug, 'settings.manage');
   const [t, tClub, messages, locations, resources, blocks] = await Promise.all([
     getTranslations('ClubResources'),
     getTranslations('Club'),

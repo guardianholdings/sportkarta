@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { SaleForm } from '@/components/clubs/sales-forms';
 import { Link } from '@/i18n/navigation';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { deskPaymentMethods, featureOn } from '@/lib/clubs/features';
 import { clubFormMessages, saleFormLabels } from '@/lib/clubs/form-labels';
 import { isUuid } from '@/lib/clubs/input';
@@ -23,7 +23,7 @@ export default async function SalePage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor, club } = await requireClubStaff(slug, 'sales.manage');
+  const { actor, club } = await requireClubPage(slug, 'sales.manage');
   const query = await searchParams;
   const [t, tClub, labels, messages, members, plans] = await Promise.all([
     getTranslations('ClubSales'),

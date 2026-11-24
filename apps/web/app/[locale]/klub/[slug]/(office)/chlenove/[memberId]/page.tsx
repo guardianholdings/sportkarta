@@ -35,7 +35,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Link } from '@/i18n/navigation';
 import { clubAuditHistory } from '@/lib/clubs/audit';
 import { memberDocuments } from '@/lib/clubs/documents';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { featureOn } from '@/lib/clubs/features';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { memberThreadsForStaff } from '@/lib/clubs/inbox';
@@ -78,7 +78,7 @@ export default async function MemberCardPage({
   const { locale, slug, memberId } = await params;
   setRequestLocale(locale);
   if (!isUuid(memberId)) notFound();
-  const { actor, club } = await requireClubStaff(slug, 'members.view');
+  const { actor, club } = await requireClubPage(slug, 'members.view');
   const member = await memberCard(actor, memberId);
   if (!member) notFound();
   const walletOn = featureOn(club, 'wallet') && actorCan(actor, 'payments.view');

@@ -10,7 +10,7 @@ import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Select } from '@/components/ui/select';
 import { Link } from '@/i18n/navigation';
 import { CHECKIN_EARLY_MINUTES } from '@/lib/clubs/checkin';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { isUuid } from '@/lib/clubs/input';
 import { clubSportLabeler } from '@/lib/clubs/labels';
 import { memberChoices } from '@/lib/clubs/members';
@@ -83,7 +83,7 @@ export default async function ClubRosterPage({
   const { locale, slug, occurrenceId } = await params;
   setRequestLocale(locale);
   if (!isUuid(occurrenceId)) notFound();
-  const { actor } = await requireClubStaff(slug, 'schedule.view');
+  const { actor } = await requireClubPage(slug, 'schedule.view');
   const full = actorCan(actor, 'roster.view');
   const roster = await occurrenceRoster(actor, occurrenceId, full);
   // A trainer who does not teach this class learns nothing, not even that it exists.

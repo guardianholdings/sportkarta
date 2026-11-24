@@ -13,7 +13,7 @@ import { PrintButton } from '@/components/clubs/print-button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
 import { Link } from '@/i18n/navigation';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { isUuid } from '@/lib/clubs/input';
 import { invoiceById, invoicesOwingCredit } from '@/lib/clubs/invoices';
@@ -40,7 +40,7 @@ export default async function InvoicePage({
 }) {
   const { locale, slug, invoiceId } = await params;
   setRequestLocale(locale);
-  const { actor } = await requireClubStaff(slug, 'invoices.issue');
+  const { actor } = await requireClubPage(slug, 'invoices.issue');
   if (!isUuid(invoiceId)) notFound();
   const invoice = await invoiceById(actor, invoiceId);
   if (!invoice) notFound();

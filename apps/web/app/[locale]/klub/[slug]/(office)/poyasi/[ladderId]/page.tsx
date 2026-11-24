@@ -22,7 +22,7 @@ import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Link } from '@/i18n/navigation';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { formErrorText } from '@/lib/clubs/form-error';
 import { isUuid } from '@/lib/clubs/input';
@@ -82,7 +82,7 @@ export default async function ClubLadderPage({
   const { locale, slug, ladderId } = await params;
   setRequestLocale(locale);
   if (!isUuid(ladderId)) notFound();
-  const { actor } = await requireClubStaff(slug, 'ranks.view');
+  const { actor } = await requireClubPage(slug, 'ranks.view');
   const [t, messages, ladder, students, candidates, sportLabel, sports] = await Promise.all([
     getTranslations('ClubRanks'),
     clubFormMessages(),

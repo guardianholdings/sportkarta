@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Link } from '@/i18n/navigation';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { documentForStaff } from '@/lib/clubs/documents';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { isUuid } from '@/lib/clubs/input';
@@ -43,7 +43,7 @@ export default async function ClubDocumentPage({
   const { locale, slug, documentId } = await params;
   setRequestLocale(locale);
   if (!isUuid(documentId)) notFound();
-  const { actor } = await requireClubStaff(slug, 'members.view');
+  const { actor } = await requireClubPage(slug, 'members.view');
   const [t, messages, doc] = await Promise.all([
     getTranslations('ClubDocuments'),
     clubFormMessages(),

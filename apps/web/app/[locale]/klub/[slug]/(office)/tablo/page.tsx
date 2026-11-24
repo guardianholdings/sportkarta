@@ -5,7 +5,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Stat } from '@/components/ui/stat';
 import { Link } from '@/i18n/navigation';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { dashboardData } from '@/lib/clubs/dashboard';
 import { inboxUnreadCount } from '@/lib/clubs/inbox';
 import { leadsSummary } from '@/lib/clubs/leads';
@@ -36,7 +36,7 @@ export default async function ClubDashboardPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor, club } = await requireClubStaff(slug, 'office.view');
+  const { actor, club } = await requireClubPage(slug, 'office.view');
   const today = sofiaToday();
   const canPay = actorCan(actor, 'payments.view');
   const canMembers = actorCan(actor, 'members.manage');

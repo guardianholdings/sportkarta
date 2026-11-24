@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Link } from '@/i18n/navigation';
 import { checkinSecret } from '@/lib/checkin-config';
 import { todaysCheckins } from '@/lib/clubs/checkin';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import { memberSummary } from '@/lib/clubs/members';
 import { formatDate } from '@/lib/format';
 
@@ -43,7 +43,7 @@ function decoded(token: string): string {
 export default async function ClubScanPage({ params }: { params: PageParams }) {
   const { locale, slug, token: raw } = await params;
   setRequestLocale(locale);
-  const { actor } = await requireClubStaff(slug, 'attendance.record');
+  const { actor } = await requireClubPage(slug, 'attendance.record');
   const t = await getTranslations('ClubCheckin');
   const tClub = await getTranslations('Club');
   const token = decoded(raw);

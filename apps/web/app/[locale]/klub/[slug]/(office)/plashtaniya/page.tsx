@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Link } from '@/i18n/navigation';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { deskPaymentMethods } from '@/lib/clubs/features';
 import { isOutcomeCode } from '@/lib/clubs/form-error';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
@@ -50,7 +50,7 @@ export default async function ClubPaymentsPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor, club } = await requireClubStaff(slug, 'payments.view');
+  const { actor, club } = await requireClubPage(slug, 'payments.view');
   const query = await searchParams;
   const today = sofiaToday();
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(query.mesec ?? '')

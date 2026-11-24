@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import { PrintButton } from '@/components/clubs/print-button';
 import { ConfirmButton } from '@/components/ui/confirm-button';
 import { Link } from '@/i18n/navigation';
-import { actorCan, clubName, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, clubName, requireClubPage } from '@/lib/clubs/club-session';
 import { featureOn } from '@/lib/clubs/features';
 import { isOutcomeCode } from '@/lib/clubs/form-error';
 import { isUuid } from '@/lib/clubs/input';
@@ -29,7 +29,7 @@ export default async function ClubSalePage({
 }) {
   const { locale, slug, saleId } = await params;
   setRequestLocale(locale);
-  const { actor, club } = await requireClubStaff(slug, 'shop.sell');
+  const { actor, club } = await requireClubPage(slug, 'shop.sell');
   const invoicesOn = featureOn(club, 'invoices') && actorCan(actor, 'invoices.issue');
   if (!isUuid(saleId)) notFound();
   const sale = await saleById(actor, saleId);

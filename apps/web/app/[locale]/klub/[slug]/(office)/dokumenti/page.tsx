@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Link } from '@/i18n/navigation';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { listDocuments } from '@/lib/clubs/documents';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { formErrorText } from '@/lib/clubs/form-error';
@@ -35,7 +35,7 @@ export default async function ClubDocumentsPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor } = await requireClubStaff(slug, 'members.view');
+  const { actor } = await requireClubPage(slug, 'members.view');
   const { rezultat } = await searchParams;
   const [t, messages, documents] = await Promise.all([
     getTranslations('ClubDocuments'),

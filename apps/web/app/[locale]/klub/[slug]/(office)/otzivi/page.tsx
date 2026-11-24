@@ -9,7 +9,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link } from '@/i18n/navigation';
-import { actorCan, requireClubStaff } from '@/lib/clubs/club-session';
+import { actorCan, requireClubPage } from '@/lib/clubs/club-session';
 import { feedbackOverview } from '@/lib/clubs/feedback';
 import { clubFormMessages } from '@/lib/clubs/form-labels';
 import { formatDate } from '@/lib/format';
@@ -34,7 +34,7 @@ export default async function ClubFeedbackPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  const { actor, club } = await requireClubStaff(slug, 'feedback.view');
+  const { actor, club } = await requireClubPage(slug, 'feedback.view');
   const [t, tClub, messages] = await Promise.all([
     getTranslations('ClubFeedback'),
     getTranslations('Club'),

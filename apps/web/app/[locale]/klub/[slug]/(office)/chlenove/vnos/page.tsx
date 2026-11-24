@@ -2,7 +2,7 @@ import { CLUB_IMPORT_FIELDS } from '@sportkarta/lib/clubs';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
 import { Link } from '@/i18n/navigation';
-import { requireClubStaff } from '@/lib/clubs/club-session';
+import { requireClubPage } from '@/lib/clubs/club-session';
 import columns from '@/lib/csv-columns.json';
 
 import { ClubImportWizard } from './import-wizard';
@@ -79,7 +79,7 @@ export default async function ClubImportPage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
-  await requireClubStaff(slug, 'data.import');
+  await requireClubPage(slug, 'data.import');
   const [t, tCard] = await Promise.all([
     getTranslations('ClubMembers.import'),
     getTranslations('ClubMembers.card'),
